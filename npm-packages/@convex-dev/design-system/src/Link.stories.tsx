@@ -3,11 +3,6 @@ import { Link } from "@ui/Link";
 
 const meta = {
   component: Link,
-  parameters: {
-    a11y: {
-      test: "todo",
-    },
-  },
 } satisfies Meta<typeof Link>;
 
 export default meta;
@@ -25,6 +20,13 @@ export const NoUnderline: Story = {
     href: "https://convex.dev",
     children: "Click me",
     noUnderline: true,
+  },
+  parameters: {
+    a11y: {
+      config: {
+        rules: [{ id: "link-in-text-block", enabled: false }],
+      },
+    },
   },
 };
 
