@@ -3393,8 +3393,8 @@ importers:
         specifier: ^5.0.2
         version: 5.3.8(@popperjs/core@2.11.8)
       chromadb:
-        specifier: '=1.9.4'
-        version: 1.9.4(openai@4.104.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76))
+        specifier: '=1.10.5'
+        version: 1.10.5(openai@4.104.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76))
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -16613,19 +16613,25 @@ packages:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
     engines: {node: '>=18'}
 
-  chromadb@1.9.4:
-    resolution: {integrity: sha512-KtBy3uvZWV5+B6tlSYxwi8YW+Dv+qBs2spffSaamLeAHLn+N4ss6xoscLWDp5J1ImfscT8NFW1lGZlTZbs8Huw==}
+  chromadb@1.10.5:
+    resolution: {integrity: sha512-+IeTjjf44pKUY3vp1BacwO2tFAPcWCd64zxPZZm98dVj/kbSBeaHKB2D6eX7iRLHS1PTVASuqoR6mAJ+nrsTBg==}
     engines: {node: '>=14.17.0'}
     peerDependencies:
       '@google/generative-ai': ^0.1.1
       cohere-ai: ^5.0.0 || ^6.0.0 || ^7.0.0
+      ollama: ^0.5.0
       openai: ^3.0.0 || ^4.0.0
+      voyageai: ^0.0.3-1
     peerDependenciesMeta:
       '@google/generative-ai':
         optional: true
       cohere-ai:
         optional: true
+      ollama:
+        optional: true
       openai:
+        optional: true
+      voyageai:
         optional: true
 
   chrome-launcher@0.15.2:
@@ -43634,7 +43640,7 @@ snapshots:
 
   chownr@3.0.0: {}
 
-  chromadb@1.9.4(openai@4.104.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76)):
+  chromadb@1.10.5(openai@4.104.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76)):
     dependencies:
       cliui: 8.0.1
       isomorphic-fetch: 3.0.0
