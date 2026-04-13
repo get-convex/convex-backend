@@ -946,8 +946,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1
       react-day-picker:
-        specifier: ~9.13.0
-        version: 9.13.2(react@18.3.1)
+        specifier: ~9.14.0
+        version: 9.14.0(react@18.3.1)
       react-dom:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
@@ -1238,8 +1238,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1
       react-day-picker:
-        specifier: ~9.13.0
-        version: 9.13.2(react@18.3.1)
+        specifier: ~9.14.0
+        version: 9.14.0(react@18.3.1)
       react-dnd:
         specifier: ~16.0.1
         version: 16.0.1(@types/hoist-non-react-statics@3.3.7(@types/react@18.3.26))(@types/node@18.19.130)(@types/react@18.3.26)(react@18.3.1)
@@ -13709,6 +13709,10 @@ packages:
     resolution: {integrity: sha512-+PmQX0PiAYPMeVYe237LJAYvOMYW1j2rH5YROyS3b4CTVJum34HfRvKvAzozHAQG0TnHNdUfY9nCeUyRAs//cw==}
     engines: {node: '>=14.16'}
 
+  '@tabby_ai/hijri-converter@1.0.5':
+    resolution: {integrity: sha512-r5bClKrcIusDoo049dSL8CawnHR6mRdDwhlQuIgZRNty68q0x8k3Lf1BtPAMxRf/GgnHBnIO4ujd3+GQdLWzxQ==}
+    engines: {node: '>=16.0.0'}
+
   '@tailwindcss/cli@4.1.18':
     resolution: {integrity: sha512-sMZ+lZbDyxwjD2E0L7oRUjJ01Ffjtme5OtjvvnC+cV4CEDcbqzbp25TCpxHj6kWLU9+DlqJOiNgSOgctC2aZmg==}
     hasBin: true
@@ -24307,8 +24311,8 @@ packages:
     peerDependencies:
       react: '>= 16.3.0'
 
-  react-day-picker@9.13.2:
-    resolution: {integrity: sha512-IMPiXfXVIAuR5Yk58DDPBC8QKClrhdXV+Tr/alBrwrHUw0qDDYB1m5zPNuTnnPIr/gmJ4ChMxmtqPdxm8+R4Eg==}
+  react-day-picker@9.14.0:
+    resolution: {integrity: sha512-tBaoDWjPwe0M5pGrum4H0SR6Lyk+BO9oHnp9JbKpGKW2mlraNPgP9BMfsg5pWpwrssARmeqk7YBl2oXutZTaHA==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=16.8.0'
@@ -39204,6 +39208,8 @@ snapshots:
   '@szmarczak/http-timer@5.0.1':
     dependencies:
       defer-to-connect: 2.0.1
+
+  '@tabby_ai/hijri-converter@1.0.5': {}
 
   '@tailwindcss/cli@4.1.18':
     dependencies:
@@ -54522,9 +54528,10 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  react-day-picker@9.13.2(react@18.3.1):
+  react-day-picker@9.14.0(react@18.3.1):
     dependencies:
       '@date-fns/tz': 1.4.1
+      '@tabby_ai/hijri-converter': 1.0.5
       date-fns: 4.1.0
       date-fns-jalali: 4.1.0-0
       react: 18.3.1
