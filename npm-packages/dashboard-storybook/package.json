@@ -34,7 +34,7 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitest/browser-playwright": "4.0.18",
-    "@workos-inc/authkit-nextjs": "~2.13.0",
+    "@workos-inc/authkit-nextjs": "~2.17.0",
     "@workos-inc/node": "~7.69.0",
     "chalk": "5",
     "eslint-plugin-better-tailwindcss": "^3.8.0",
