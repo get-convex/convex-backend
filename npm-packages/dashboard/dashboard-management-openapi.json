@@ -5269,7 +5269,8 @@
           "plan",
           "billingContact",
           "status",
-          "nextBillingPeriodStart"
+          "nextBillingPeriodStart",
+          "hasNewBilling"
         ],
         "properties": {
           "billingAddress": {
@@ -5291,6 +5292,17 @@
               "null"
             ],
             "format": "int64"
+          },
+          "hasNewBilling": {
+            "type": "boolean",
+            "description": "Whether this subscription includes new billing metrics (e.g. Database\nI/O)."
+          },
+          "newBillingStartDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first renewal date on or after the new billing cutover (May 6,\n2026). Only set when `has_new_billing` is false."
           },
           "nextBillingPeriodStart": {
             "type": "string"
@@ -6225,7 +6237,8 @@
           "maxDeployments",
           "managementApiEnabled",
           "previewDeploymentRetentionDays",
-          "deploymentClassSelectionEnabled"
+          "deploymentClassSelectionEnabled",
+          "teamMaxSearchQueries"
         ],
         "properties": {
           "auditLogRetentionDays": {
@@ -6308,6 +6321,11 @@
             "minimum": 0
           },
           "teamMaxFunctionCalls": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxSearchQueries": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

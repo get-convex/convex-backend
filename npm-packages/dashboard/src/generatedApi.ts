@@ -2323,6 +2323,12 @@ export interface components {
             billingContact: components["schemas"]["BillingContactResponse"];
             /** Format: int64 */
             endDate?: number | null;
+            /** @description Whether this subscription includes new billing metrics (e.g. Database
+             *     I/O). */
+            hasNewBilling: boolean;
+            /** @description The first renewal date on or after the new billing cutover (May 6,
+             *     2026). Only set when `has_new_billing` is false. */
+            newBillingStartDate?: string | null;
             nextBillingPeriodStart: string;
             paymentMethod?: null | components["schemas"]["PaymentMethodResponse"];
             plan: components["schemas"]["PlanResponse"];
@@ -2647,6 +2653,8 @@ export interface components {
             teamMaxFileStorage: number;
             /** Format: int64 */
             teamMaxFunctionCalls: number;
+            /** Format: int64 */
+            teamMaxSearchQueries: number;
             /** Format: int64 */
             teamMaxVectorBandwidth: number;
             /** Format: int64 */

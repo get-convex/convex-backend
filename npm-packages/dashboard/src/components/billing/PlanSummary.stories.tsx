@@ -45,6 +45,7 @@ export const Primary: Story = {
       teamMaxFileStorage: 1024 * 1024 * 1024,
       teamMaxFunctionCalls: 1000000,
       teamMaxActionCompute: 20,
+      teamMaxSearchQueries: 50000,
       teamMaxVectorBandwidth: 512 * 1024 * 1024,
       teamMaxVectorStorage: 256 * 1024 * 1024,
       maxTeamMembers: 50000,
