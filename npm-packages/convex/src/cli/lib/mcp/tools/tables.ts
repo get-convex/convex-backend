@@ -29,6 +29,7 @@ export const TablesTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
     "List all tables in a particular Convex deployment and their inferred and declared schema.",
   inputSchema,
   outputSchema,
+  annotations: { readOnlyHint: true },
   handler: async (ctx, args) => {
     const { projectDir, deployment } = ctx.decodeDeploymentSelectorUnchecked(
       args.deploymentSelector,

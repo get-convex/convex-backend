@@ -60,6 +60,7 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   description,
   inputSchema,
   outputSchema,
+  annotations: { readOnlyHint: true },
   handler: async (ctx: RequestContext, input) => {
     const projectDir = input.projectDir ?? ctx.options.projectDir;
     if (projectDir === undefined) {

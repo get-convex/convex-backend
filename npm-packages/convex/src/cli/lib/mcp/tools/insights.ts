@@ -124,6 +124,7 @@ export const InsightsTool: ConvexTool<typeof inputSchema, typeof outputSchema> =
     description,
     inputSchema,
     outputSchema,
+    annotations: { readOnlyHint: true },
     handler: async (ctx, args) => {
       const { projectDir, deployment } = ctx.decodeDeploymentSelectorUnchecked(
         args.deploymentSelector,
