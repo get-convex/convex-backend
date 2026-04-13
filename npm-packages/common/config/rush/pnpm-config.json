@@ -19,6 +19,15 @@
    */
   "useWorkspaces": true,
 
+  // Prevents by default all dependency versions more recent than 7 days
+  // from being installed.
+  "minimumReleaseAge": 10080, // 7 days
+  "minimumReleaseAgeExclude": [
+    // If necessary (e.g. to install a urgent security fix),
+    // you can add package names to this array to exclude
+    // them from minimumReleaseAge and install the latest version instead.
+  ],
+
   /**
    * If true, then Rush will add the `--strict-peer-dependencies` command-line parameter when
    * invoking PNPM.  This causes `rush update` to fail if there are unsatisfied peer dependencies,
