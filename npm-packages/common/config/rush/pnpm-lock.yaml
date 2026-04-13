@@ -459,8 +459,8 @@ importers:
   ../../@convex-dev/workos:
     dependencies:
       '@workos-inc/authkit-react':
-        specifier: ^0.11.0
-        version: 0.11.0(react@18.3.1)
+        specifier: ^0.16.0
+        version: 0.16.1(react@18.3.1)
       react:
         specifier: ^18.0.0 || ^19.0.0-0 || ^19.0.0
         version: 18.3.1
@@ -15454,8 +15454,8 @@ packages:
       webpack-dev-server:
         optional: true
 
-  '@workos-inc/authkit-js@0.13.0':
-    resolution: {integrity: sha512-iA0Dt7D1BmY2/1s4oeA36W/aRt8/b5iyH6rP4AlgnjrcH2lUGkBgDXL76NXc0M7repkDQTMcJJ2NhCSo2rcWmg==}
+  '@workos-inc/authkit-js@0.20.0':
+    resolution: {integrity: sha512-8+sw8eH1+XCt3NDoIB2bKKbHvq1N7CVFJeyq1uVrUWG83GCIbNNrFwWrocVNfeQJyhKsVVuDpRcp03iSVsK5Gg==}
 
   '@workos-inc/authkit-nextjs@2.13.0':
     resolution: {integrity: sha512-ppxzhfakPumHPPggYSROaAlgxfS7viFMPmWPG76Tp6Rh9G7YqkBSp7xtvMtM6gXOFFMvvEJRcKEta6YHeercTQ==}
@@ -15464,8 +15464,8 @@ packages:
       react: ^18.0 || ^19.0.0
       react-dom: ^18.0 || ^19.0.0
 
-  '@workos-inc/authkit-react@0.11.0':
-    resolution: {integrity: sha512-67HFSxP4wXC8ECGyvc1yGMwuD5NGkwT2OPt8DavHoKAlO+hRaAlu9wwzqUx1EJrHht0Dcx+l20Byq8Ab0bEhlg==}
+  '@workos-inc/authkit-react@0.16.1':
+    resolution: {integrity: sha512-u8IJsAAyZFFM02+3JhvvNTopSNQoJk/hjOoBlmOkh6j+AnVYrR8hjzJn8j3m9Vi5tRE0il7mpsEDT9fI2xRNjg==}
     peerDependencies:
       react: '>=17'
 
@@ -42089,7 +42089,7 @@ snapshots:
     dependencies:
       webpack-cli: 4.10.0(webpack@5.105.4)
 
-  '@workos-inc/authkit-js@0.13.0': {}
+  '@workos-inc/authkit-js@0.20.0': {}
 
   '@workos-inc/authkit-nextjs@2.13.0(express@5.2.1)(next@15.5.14(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -42117,9 +42117,9 @@ snapshots:
       - express
       - koa
 
-  '@workos-inc/authkit-react@0.11.0(react@18.3.1)':
+  '@workos-inc/authkit-react@0.16.1(react@18.3.1)':
     dependencies:
-      '@workos-inc/authkit-js': 0.13.0
+      '@workos-inc/authkit-js': 0.20.0
       react: 18.3.1
 
   '@workos-inc/node@7.69.2(express@5.2.1)(next@15.5.14(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))':
