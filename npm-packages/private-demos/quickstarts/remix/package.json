@@ -36,7 +36,7 @@
     "eslint-plugin-jsx-a11y": "^6.6.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "globals": "~17.0.0",
+    "globals": "~17.4.0",
     "typescript": "^5.9.2",
     "vite": "^6.4.1",
     "vite-tsconfig-paths": "^5.1.3"
