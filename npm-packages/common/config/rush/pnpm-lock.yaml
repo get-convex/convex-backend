@@ -4912,8 +4912,8 @@ importers:
         specifier: ^6.0.0
         version: 6.0.5(vite@7.2.2(@types/node@20.19.25)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.32(typescript@5.9.3))
       '@vue/tsconfig':
-        specifier: ^0.8.0
-        version: 0.8.1(typescript@5.9.3)(vue@3.5.32(typescript@5.9.3))
+        specifier: ^0.9.0
+        version: 0.9.1(typescript@5.9.3)(vue@3.5.32(typescript@5.9.3))
       npm-run-all2:
         specifier: ^8.0.0
         version: 8.0.4
@@ -15375,10 +15375,10 @@ packages:
   '@vue/shared@3.5.32':
     resolution: {integrity: sha512-ksNyrmRQzWJJ8n3cRDuSF7zNNontuJg1YHnmWRJd2AMu8Ij2bqwiiri2lH5rHtYPZjj4STkNcgcmiQqlOjiYGg==}
 
-  '@vue/tsconfig@0.8.1':
-    resolution: {integrity: sha512-aK7feIWPXFSUhsCP9PFqPyFOcz4ENkb8hZ2pneL6m2UjCkccvaOhC/5KCKluuBufvp2KzkbdA2W2pk20vLzu3g==}
+  '@vue/tsconfig@0.9.1':
+    resolution: {integrity: sha512-buvjm+9NzLCJL29KY1j1991YYJ5e6275OiK+G4jtmfIb+z4POywbdm0wXusT9adVWqe0xqg70TbI7+mRx4uU9w==}
     peerDependencies:
-      typescript: 5.x
+      typescript: '>= 5.8'
       vue: ^3.4.0
     peerDependenciesMeta:
       typescript:
@@ -41997,7 +41997,7 @@ snapshots:
 
   '@vue/shared@3.5.32': {}
 
-  '@vue/tsconfig@0.8.1(typescript@5.9.3)(vue@3.5.32(typescript@5.9.3))':
+  '@vue/tsconfig@0.9.1(typescript@5.9.3)(vue@3.5.32(typescript@5.9.3))':
     optionalDependencies:
       typescript: 5.9.3
       vue: 3.5.32(typescript@5.9.3)
