@@ -328,7 +328,7 @@
     "open": "^8.3.0",
     "openapi-fetch": "~0.15.0",
     "openapi-typescript": "~7.8.0",
-    "openapi-typescript-helpers": "~0.0.15",
+    "openapi-typescript-helpers": "~0.1.0",
     "openid-client": "^5.3.1",
     "ora": "^9.0.0",
     "prettier": "3.8.1",

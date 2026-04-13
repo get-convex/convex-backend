@@ -31,7 +31,7 @@
     "@types/node": "^18.17.0",
     "typescript": "^5.9.2",
     "openapi-typescript": "~7.8.0",
-    "openapi-typescript-helpers": "~0.0.15",
+    "openapi-typescript-helpers": "~0.1.0",
     "tsx": "^4.19.4",
     "zshy": "0.7.0"
   },
