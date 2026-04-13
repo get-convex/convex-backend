@@ -5598,8 +5598,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-ents:
-        specifier: ^0.16.0
-        version: 0.16.0(convex@..+convex)
+        specifier: ^0.20.0
+        version: 0.20.0(convex@..+convex)
       convex-helpers:
         specifier: ^0.1.105
         version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12)
@@ -17003,10 +17003,10 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  convex-ents@0.16.0:
-    resolution: {integrity: sha512-+dKVIcuGgocdxl+fQAbE4DZo6bUt+8ec/PI+G8wIIpMGL91hoK33ww04xgiggDZizuwHiryJTA4XtaJBTJcU9w==}
+  convex-ents@0.20.0:
+    resolution: {integrity: sha512-o647Au9PzEoH9TiKmc1dDevjxYQcNXjet5TNCzS49lo1FiLj2iN4ztWvqwYV6xAwzyCBxit/nyjmCicEAZCjKw==}
     peerDependencies:
-      convex: ^1.27.0
+      convex: ^1.31.3
 
   convex-helpers@0.1.105:
     resolution: {integrity: sha512-B6EUQsBpLFcXpa1g/9Zsc7EaFHdaeMlPLCa/snSD+4hRBFMWKJjT589dZ/0Z40taBOQWC2tb81ciTNr4ctJb2w==}
@@ -44004,7 +44004,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-ents@0.16.0(convex@..+convex):
+  convex-ents@0.20.0(convex@..+convex):
     dependencies:
       convex: link:../../convex
 

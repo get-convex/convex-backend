@@ -11,7 +11,7 @@
   "dependencies": {
     "bootstrap": "^5.0.2",
     "convex": "workspace:*",
-    "convex-ents": "^0.16.0",
+    "convex-ents": "^0.20.0",
     "convex-helpers": "^0.1.105",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
