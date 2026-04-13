@@ -16,7 +16,7 @@
     "@popperjs/core": "~2.11.6",
     "langchain": "^0.3.37",
     "chromadb": "=1.10.5",
-    "prettier": "^3.8.0",
+    "prettier": "3.8.1",
     "@langchain/openai": "^0.6.0",
     "@langchain/core": "^0.3.80"
   },

@@ -42,7 +42,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "dotenv": "^16.4.7",
     "eslint": "^9.37.0",
-    "prettier": "^3.8.0",
+    "prettier": "3.8.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",
     "vite-tsconfig-paths": "^5.1.3",

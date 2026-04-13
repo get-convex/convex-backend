@@ -23,7 +23,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "dotenv": "^16.4.7",
     "globals": "~17.4.0",
-    "prettier": "^3.8.0",
+    "prettier": "3.8.1",
     "typescript": "^5.9.2",
     "vite": "^7.1.11"
   }

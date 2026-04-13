@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "prettier": "^3.8.0"
+    "prettier": "3.8.1"
   },
   "devDependencies": {
     "@types/node": "^18.17.0",
