@@ -1079,8 +1079,8 @@ importers:
         specifier: ^3.8.0
         version: 3.8.0(eslint@9.39.1(jiti@2.6.1))(tailwindcss@4.1.17)
       eslint-plugin-boundaries:
-        specifier: ~5.3.0
-        version: 5.3.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~5.4.0
+        version: 5.4.0(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.32.0(eslint@9.39.1(jiti@2.6.1))
@@ -7618,8 +7618,8 @@ packages:
       commander:
         optional: true
 
-  '@boundaries/elements@1.1.2':
-    resolution: {integrity: sha512-DnGHL+v36YVMoWhWZqyJYVZ9dapNm7h4N3/P0lDPirJj0CHVPkjChMCCotj74cg6LW7iPJZFGrdEfh0X0g2bmQ==}
+  '@boundaries/elements@1.2.0':
+    resolution: {integrity: sha512-W65Gum02liMd3hmNrLmDBX1u5BmRMcunouFjLXyhxHnNY4YlK1kTxsgfflZ5XBGSnPnO0MkiUzAcoGzYrlx0RQ==}
     engines: {node: '>=18.18'}
 
   '@bytecodealliance/preview2-shim@0.17.6':
@@ -18380,8 +18380,8 @@ packages:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
       tailwindcss: ^3.3.0 || ^4.1.6
 
-  eslint-plugin-boundaries@5.3.1:
-    resolution: {integrity: sha512-91StsOYtDyrna1fyRJ+1Ps5CnrfyFLbdCouPZ3E/o2cllLxJke3OoScdqjpBSl7pNEYbojhpNlurQAr30sf9Bg==}
+  eslint-plugin-boundaries@5.4.0:
+    resolution: {integrity: sha512-6SQmEhXCqGrrxm9YiM24SC95CqrVi2MUOm5SDrfquceh/os8MIAvZYsDU69zvtCSb1S6UbNEmdioi1gCDc8+VQ==}
     engines: {node: '>=18.18'}
     peerDependencies:
       eslint: '>=6.0.0'
@@ -31712,7 +31712,7 @@ snapshots:
       cac: 6.7.14
       citty: 0.2.2
 
-  '@boundaries/elements@1.1.2(eslint@9.39.1(jiti@2.6.1))':
+  '@boundaries/elements@1.2.0(eslint@9.39.1(jiti@2.6.1))':
     dependencies:
       eslint-import-resolver-node: 0.3.9
       eslint-module-utils: 2.12.1(eslint@9.39.1(jiti@2.6.1))
@@ -45907,9 +45907,9 @@ snapshots:
       tailwindcss: 4.1.17
       tsconfig-paths-webpack-plugin: 4.2.0
 
-  eslint-plugin-boundaries@5.3.1(eslint@9.39.1(jiti@2.6.1)):
+  eslint-plugin-boundaries@5.4.0(eslint@9.39.1(jiti@2.6.1)):
     dependencies:
-      '@boundaries/elements': 1.1.2(eslint@9.39.1(jiti@2.6.1))
+      '@boundaries/elements': 1.2.0(eslint@9.39.1(jiti@2.6.1))
       chalk: 4.1.2
       eslint: 9.39.1(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
