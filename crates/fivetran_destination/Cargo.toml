@@ -23,12 +23,7 @@ name = "fivetran_destination"
 path = "src/lib.rs"
 
 [features]
-testing = [
-    "common/testing",
-    "fivetran_common/testing",
-    "proptest",
-    "proptest-derive",
-]
+testing = ["common/testing", "fivetran_common/testing", "proptest", "proptest-derive"]
 
 [dependencies]
 aes = { workspace = true }
