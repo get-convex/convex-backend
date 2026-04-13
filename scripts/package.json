@@ -2,7 +2,7 @@
   "name": "convex",
   "private": true,
   "devDependencies": {
-    "@microsoft/rush": "5.172.1",
+    "@microsoft/rush": "5.173.0",
     "dprint": "0.51.1",
     "pnpm": "10.33.0"
   },
@@ -11,6 +11,6 @@
     "minimatch@10.2.1": "^10.2.3",
     "path-to-regexp@^0.1.10": "0.1.12",
     "qs@<6.14.2": "6.14.2",
-    "tar@<7.5.10": "7.5.10"
+    "tar@<7.5.10": "^7.5.11"
   }
 }
