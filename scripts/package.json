@@ -3,7 +3,7 @@
   "private": true,
   "devDependencies": {
     "@microsoft/rush": "5.173.0",
-    "dprint": "0.51.1",
+    "dprint": "0.52.0",
     "pnpm": "10.33.0"
   },
   "overrides": {
