@@ -3991,8 +3991,8 @@ importers:
         specifier: ^7.0.0
         version: 7.0.11(next@15.5.14(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@next/eslint-plugin-next':
-        specifier: ~15.1.0
-        version: 15.1.8
+        specifier: ~15.5.0
+        version: 15.5.6
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -10379,9 +10379,6 @@ packages:
 
   '@next/env@16.2.2':
     resolution: {integrity: sha512-LqSGz5+xGk9EL/iBDr2yo/CgNQV6cFsNhRR2xhSXYh7B/hb4nePCxlmDvGEKG30NMHDFf0raqSyOZiQrO7BkHQ==}
-
-  '@next/eslint-plugin-next@15.1.8':
-    resolution: {integrity: sha512-1VC0ctUmwQjI9gZJRQgw2c8GKkr4+DTXVu2yLje3PpFfnxnuuZ8Mrv1Whn9tF+CYkMHiEgCaqyGvT44qYNLVcw==}
 
   '@next/eslint-plugin-next@15.5.6':
     resolution: {integrity: sha512-YxDvsT2fwy1j5gMqk3ppXlsgDopHnkM4BoxSVASbvvgh5zgsK8lvWerDzPip8k3WVzsTZ1O7A7si1KNfN4OZfQ==}
@@ -35458,10 +35455,6 @@ snapshots:
   '@next/env@16.0.0': {}
 
   '@next/env@16.2.2': {}
-
-  '@next/eslint-plugin-next@15.1.8':
-    dependencies:
-      fast-glob: 3.3.1
 
   '@next/eslint-plugin-next@15.5.6':
     dependencies:
