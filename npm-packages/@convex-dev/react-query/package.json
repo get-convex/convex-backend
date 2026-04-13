@@ -40,7 +40,7 @@
     "convex": "^1.35.0"
   },
   "devDependencies": {
-    "@convex-dev/auth": "^0.0.90",
+    "@convex-dev/auth": "^0.0.91",
     "@convex-dev/eslint-plugin": "workspace:*",
     "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "^3",

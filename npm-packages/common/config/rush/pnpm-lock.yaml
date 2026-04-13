@@ -387,8 +387,8 @@ importers:
   ../../@convex-dev/react-query:
     devDependencies:
       '@convex-dev/auth':
-        specifier: ^0.0.90
-        version: 0.0.90(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)
+        specifier: ^0.0.91
+        version: 0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)
       '@convex-dev/eslint-plugin':
         specifier: workspace:*
         version: link:../eslint-plugin
@@ -5384,8 +5384,8 @@ importers:
   ../../private-demos/test-project:
     dependencies:
       '@convex-dev/auth':
-        specifier: ^0.0.90
-        version: 0.0.90(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)
+        specifier: ^0.0.91
+        version: 0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)
       '@convex-dev/workflow':
         specifier: ^0.3.3
         version: 0.3.3(@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex))(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)
@@ -7738,8 +7738,8 @@ packages:
     peerDependencies:
       commander: ~14.0.0
 
-  '@convex-dev/auth@0.0.90':
-    resolution: {integrity: sha512-aqw88EB042HvnaF4wcf/f/wTocmT2Bus2VDQRuV79cM0+8kORM0ICK/ByZ6XsHgQ9qr6TmidNbXm6QAgndrdpQ==}
+  '@convex-dev/auth@0.0.91':
+    resolution: {integrity: sha512-wLD4hszo3IhhMkwPs6ozWf0cUauwmhOvjUVn0g//kC338n/jApOjeDYWKCrn/qYUkveyDsbag5zrY8mVzA09Qg==}
     hasBin: true
     peerDependencies:
       '@auth/core': ^0.37.0
@@ -31900,7 +31900,7 @@ snapshots:
     dependencies:
       commander: 14.0.3
 
-  '@convex-dev/auth@0.0.90(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)':
+  '@convex-dev/auth@0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)':
     dependencies:
       '@auth/core': 0.37.4
       '@oslojs/crypto': 1.0.1
@@ -31911,13 +31911,13 @@ snapshots:
       jose: 5.10.0
       jwt-decode: 4.0.0
       lucia: 3.2.2
-      oauth4webapi: 3.8.2
+      oauth4webapi: 3.8.4
       path-to-regexp: 6.3.0
       server-only: 0.0.1
     optionalDependencies:
       react: 18.3.1
 
-  '@convex-dev/auth@0.0.90(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)':
+  '@convex-dev/auth@0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)':
     dependencies:
       '@auth/core': 0.37.4
       '@oslojs/crypto': 1.0.1
@@ -31928,7 +31928,7 @@ snapshots:
       jose: 5.10.0
       jwt-decode: 4.0.0
       lucia: 3.2.2
-      oauth4webapi: 3.8.2
+      oauth4webapi: 3.8.4
       path-to-regexp: 6.3.0
       server-only: 0.0.1
     optionalDependencies:
