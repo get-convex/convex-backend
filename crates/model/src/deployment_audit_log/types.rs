@@ -18,6 +18,7 @@ use common::{
         GenericIndexName,
         IndexDiff,
         IndexName,
+        SystemStopState,
     },
 };
 use errors::ErrorMetadata;
@@ -139,9 +140,16 @@ pub enum DeploymentAuditLogEvent {
         added_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
         removed_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
     },
+    // Deprecated: replaced by ChangeUserStopState / ChangeSystemStopState
     ChangeDeploymentState {
         old_state: OldBackendState,
         new_state: OldBackendState,
+    },
+    PauseDeployment,
+    UnpauseDeployment,
+    ChangeSystemStopState {
+        old_state: SystemStopState,
+        new_state: SystemStopState,
     },
     // TODO: consider adding table names once this is logged for more places
     // and we have a story about limiting size.
@@ -209,6 +217,9 @@ impl DeploymentAuditLogEvent {
             },
             DeploymentAuditLogEvent::BuildIndexes { .. } => "build_indexes",
             DeploymentAuditLogEvent::ChangeDeploymentState { .. } => "change_deployment_state",
+            DeploymentAuditLogEvent::PauseDeployment => "pause_deployment",
+            DeploymentAuditLogEvent::UnpauseDeployment => "unpause_deployment",
+            DeploymentAuditLogEvent::ChangeSystemStopState { .. } => "change_system_stop_state",
             DeploymentAuditLogEvent::SnapshotImport { .. } => "snapshot_import",
             DeploymentAuditLogEvent::ClearTables => "clear_tables",
             DeploymentAuditLogEvent::DeleteScheduledJobsTable { .. } => {
@@ -285,6 +296,14 @@ impl DeploymentAuditLogEvent {
                 )
             },
             DeploymentAuditLogEvent::ChangeDeploymentState {
+                old_state,
+                new_state,
+            } => {
+                obj!("old_state" => old_state.to_string(), "new_state" => new_state.to_string())
+            },
+            DeploymentAuditLogEvent::PauseDeployment => obj!(),
+            DeploymentAuditLogEvent::UnpauseDeployment => obj!(),
+            DeploymentAuditLogEvent::ChangeSystemStopState {
                 old_state,
                 new_state,
             } => {
@@ -438,6 +457,12 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                 }
             },
             "change_deployment_state" => DeploymentAuditLogEvent::ChangeDeploymentState {
+                old_state: remove_string(&mut fields, "old_state")?.parse()?,
+                new_state: remove_string(&mut fields, "new_state")?.parse()?,
+            },
+            "pause_deployment" => DeploymentAuditLogEvent::PauseDeployment,
+            "unpause_deployment" => DeploymentAuditLogEvent::UnpauseDeployment,
+            "change_system_stop_state" => DeploymentAuditLogEvent::ChangeSystemStopState {
                 old_state: remove_string(&mut fields, "old_state")?.parse()?,
                 new_state: remove_string(&mut fields, "new_state")?.parse()?,
             },

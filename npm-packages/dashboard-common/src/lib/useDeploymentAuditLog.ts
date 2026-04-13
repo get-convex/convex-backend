@@ -46,6 +46,9 @@ function processDeploymentAuditLogEvent(
     case "push_config":
     case "push_config_with_components":
     case "change_deployment_state":
+    case "pause_deployment":
+    case "unpause_deployment":
+    case "change_system_stop_state":
     case "build_indexes":
     case "clear_tables":
     case "snapshot_import":

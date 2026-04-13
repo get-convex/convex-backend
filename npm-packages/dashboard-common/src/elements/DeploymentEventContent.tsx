@@ -92,6 +92,9 @@ export function DeploymentEventContent({
     case "update_canonical_url":
     case "delete_canonical_url":
     case "change_deployment_state":
+    case "pause_deployment":
+    case "unpause_deployment":
+    case "change_system_stop_state":
     case "clear_tables":
     default:
       body = null;
@@ -198,6 +201,27 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           return <span>resumed the deployment</span>;
         case "disabled":
           return <span>disabled the deployment</span>;
+        default:
+          event.metadata.new_state satisfies never;
+          return null;
+      }
+
+    case "pause_deployment":
+      return <span>paused the deployment</span>;
+
+    case "unpause_deployment":
+      return <span>unpaused the deployment</span>;
+
+    case "change_system_stop_state":
+      switch (event.metadata.new_state) {
+        case "suspended":
+          return <span>suspended the deployment</span>;
+        case "disabled":
+          return <span>disabled the deployment</span>;
+        case "resumable":
+          return <span>allowed the deployment to be unpaused</span>;
+        case "none":
+          return <span>unblocked the deployment</span>;
         default:
           event.metadata.new_state satisfies never;
           return null;

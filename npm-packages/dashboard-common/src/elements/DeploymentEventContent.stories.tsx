@@ -121,7 +121,7 @@ export const UpdateIndexes: Story = {
   },
 };
 
-export const PausingDeployment: Story = {
+export const PausingDeploymentDeprecated: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -137,7 +137,7 @@ export const PausingDeployment: Story = {
   },
 };
 
-export const ResumingDeployment: Story = {
+export const ResumingDeploymentDeprecated: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -149,6 +149,79 @@ export const ResumingDeployment: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+    },
+  },
+};
+
+export const UserUnpausedDeployment: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "unpause_deployment",
+      metadata: {},
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+export const UserPausedDeployment: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "pause_deployment",
+      metadata: {},
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const SystemUnblockedDeployment: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "change_system_stop_state",
+      metadata: {
+        old_state: "disabled",
+        new_state: "none",
+      },
+      memberName: "System",
+      member_id: null,
+    },
+  },
+};
+
+export const SystemDisabledDeployment: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "change_system_stop_state",
+      metadata: {
+        old_state: "none",
+        new_state: "disabled",
+      },
+      memberName: "System",
+      member_id: null,
+    },
+  },
+};
+
+export const SystemSuspendedDeployment: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "change_system_stop_state",
+      metadata: {
+        old_state: "none",
+        new_state: "suspended",
+      },
+      memberName: "System",
+      member_id: null,
     },
   },
 };

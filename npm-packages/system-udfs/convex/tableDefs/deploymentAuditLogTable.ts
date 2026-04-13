@@ -187,6 +187,34 @@ export const changeDeploymentState = v.object({
   }),
 });
 
+export const pauseDeployment = v.object({
+  action: v.literal("pause_deployment"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({}),
+});
+
+export const unpauseDeployment = v.object({
+  action: v.literal("unpause_deployment"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({}),
+});
+
+export const systemStopState = v.union(
+  v.literal("none"),
+  v.literal("disabled"),
+  v.literal("resumable"),
+  v.literal("suspended"),
+);
+
+export const changeSystemStopState = v.object({
+  action: v.literal("change_system_stop_state"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    old_state: systemStopState,
+    new_state: systemStopState,
+  }),
+});
+
 export const clearTables = v.object({
   action: v.literal("clear_tables"),
   member_id: v.union(v.int64(), v.null()),
@@ -229,6 +257,9 @@ const deploymentAuditLogTable = defineTable(
     pushConfig,
     pushConfigWithComponents,
     changeDeploymentState,
+    pauseDeployment,
+    unpauseDeployment,
+    changeSystemStopState,
     clearTables,
     snapshotImport,
   ),
