@@ -640,6 +640,17 @@ impl TransactionIndex {
         &mut self.database_index_snapshot
     }
 
+    pub fn clone_for_snapshot_query(&self) -> Self {
+        Self {
+            index_registry: self.index_registry.clone(),
+            index_registry_updated: false,
+            database_index_snapshot: self.database_index_snapshot.clone(),
+            database_index_updates: OrdMap::new(),
+            text_index_snapshot: self.text_index_snapshot.clone(),
+            text_index_updates: OrdMap::new(),
+        }
+    }
+
     pub fn into_cache(self) -> DatabaseIndexSnapshotCache {
         self.database_index_snapshot.into_cache()
     }

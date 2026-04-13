@@ -1136,6 +1136,42 @@ impl<RT: Runtime> Transaction<RT> {
     pub fn finalize(self) -> anyhow::Result<FinalTransaction> {
         FinalTransaction::new(self)
     }
+
+    /// Clone the transaction to use for a snapshot query.
+    pub fn clone_for_snapshot_query(&self) -> anyhow::Result<Transaction<RT>> {
+        Ok(Transaction {
+            identity: self.identity.clone(),
+            id_generator: self.id_generator.clone_for_snapshot_query(),
+            next_creation_time: self.next_creation_time,
+            scheduled_size: self.scheduled_size.clone(),
+            // Don't clone the read set because it is expensive and doesn't matter in a snapshot
+            // query
+            reads: TransactionReadSet::new(),
+            // Reset the write set because the query should observe a snapshot of the database from
+            // the start of the transaction
+            writes: NestedWrites::new(Writes::new()),
+            // Reset pending writes
+            index: NestedWrites::new(self.index.clone_for_snapshot_query()),
+            // TODO(ENG-10621): to be absolutely safe, we should reset changes to metadata,
+            // schema_registry, and component_registry. Metadata may contain newly
+            // created tables, but the tables will appear empty to snapshot query. It is
+            // only correct to clone schema_registry and component_registry if
+            // there were no writes to those tables
+            metadata: self.metadata.clone(),
+            schema_registry: self.schema_registry.clone(),
+            component_registry: self.component_registry.clone(),
+            count_snapshot: self.count_snapshot.clone(),
+            // Also reset table_count_deltas
+            table_count_deltas: BTreeMap::new(),
+            stats: self.stats.clone(),
+            retention_validator: self.retention_validator.clone(),
+            runtime: self.runtime.clone(),
+            usage_tracker: self.usage_tracker.clone(),
+            virtual_system_mapping: self.virtual_system_mapping.clone(),
+
+        })
+    }
+
 }
 
 #[derive(Debug)]

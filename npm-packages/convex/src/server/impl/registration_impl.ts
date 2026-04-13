@@ -61,6 +61,8 @@ async function invokeMutation<
     meta: setupMutationMeta(visibility),
 
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
+    runSnapshotQuery: (reference: any, args?: any) =>
+      runUdf("snapshotQuery", reference, args),
     runMutation: (reference: any, args?: any) =>
       runUdf("mutation", reference, args),
   };
@@ -743,7 +745,7 @@ export const httpActionGeneric = (
 };
 
 async function runUdf(
-  udfType: "query" | "mutation",
+  udfType: "query" | "mutation" | "snapshotQuery",
   f: any,
   args?: Record<string, Value>,
 ): Promise<any> {

@@ -133,6 +133,21 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
   ) => Promise<FunctionReturnType<Query>>;
 
   /**
+   * Experimental: call a query function in the same transaction that runs on a
+   * snapshot of the database without taking a read dependency.
+   *
+   * This is an unstable feature and its behavior may change in the future.
+   *
+   * @internal
+   */
+  runSnapshotQuery: <
+    Query extends FunctionReference<"query", "public" | "internal">,
+  >(
+    query: Query,
+    ...args: OptionalRestArgs<Query>
+  ) => Promise<FunctionReturnType<Query>>;
+
+  /**
    * Call a mutation function within the same transaction.
    *
    * The mutation runs in a sub-transaction, so if it throws an error, all of

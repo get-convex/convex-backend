@@ -68,4 +68,13 @@ impl TransactionIdGenerator {
             DeveloperDocumentId::new(tablet_id_and_number.table_number, self.generate_internal()),
         )
     }
+
+    /// Clone the TransactionIdGenerator to pass into the transaction for a
+    /// snapshot query. The resulting generator should not be used.
+    pub(crate) fn clone_for_snapshot_query(&self) -> Self {
+        TransactionIdGenerator {
+            rng: self.rng.clone(),
+            day_bytes: self.day_bytes,
+        }
+    }
 }

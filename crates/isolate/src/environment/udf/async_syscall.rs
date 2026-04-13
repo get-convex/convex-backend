@@ -1,7 +1,9 @@
 #![allow(non_snake_case)]
 use std::{
     collections::BTreeMap,
+    fmt,
     marker::PhantomData,
+    str::FromStr,
     time::Duration,
 };
 
@@ -135,6 +137,54 @@ use crate::{
         log_run_udf,
     },
 };
+
+/// A type for UDFs that can be run as subtransactions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NestedUdfType {
+    Query,
+    Mutation,
+    SnapshotQuery,
+}
+
+impl NestedUdfType {
+    /// Returns the underlying UdfType used for execution.
+    pub fn execution_type(&self) -> UdfType {
+        match self {
+            Self::Query | Self::SnapshotQuery => UdfType::Query,
+            Self::Mutation => UdfType::Mutation,
+        }
+    }
+}
+
+impl fmt::Display for NestedUdfType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Query => write!(f, "Query"),
+            Self::Mutation => write!(f, "Mutation"),
+            Self::SnapshotQuery => write!(f, "SnapshotQuery"),
+        }
+    }
+}
+
+impl FromStr for NestedUdfType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "snapshotQuery" => Ok(Self::SnapshotQuery),
+            _ => {
+                let udf_type: UdfType = s.parse()?;
+                match udf_type {
+                    UdfType::Query => Ok(Self::Query),
+                    UdfType::Mutation => Ok(Self::Mutation),
+                    _ => anyhow::bail!(
+                        "Only queries and mutations can be called as nested UDFs, got {udf_type}"
+                    ),
+                }
+            },
+        }
+    }
+}
 
 pub struct PendingSyscall {
     pub name: String,
@@ -336,7 +386,7 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
 
     async fn run_udf(
         &mut self,
-        udf_type: UdfType,
+        udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
         udf_callback: impl UdfCallback<RT>,
@@ -503,22 +553,25 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     #[fastrace::trace]
     async fn run_udf(
         &mut self,
-        udf_type: UdfType,
+        nested_udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
         udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue> {
-        match (self.udf_type, udf_type) {
-            // Queries can call other queries.
-            (UdfType::Query, UdfType::Query) => (),
-            // Mutations can call queries or mutations,
-            (UdfType::Mutation, UdfType::Query | UdfType::Mutation) => (),
+        match (self.udf_type, nested_udf_type) {
+            // Queries can call other queries, but not snapshot queries.
+            (UdfType::Query, NestedUdfType::Query) => (),
+            // Mutations can call queries (including snapshot queries) or mutations.
+            (
+                UdfType::Mutation,
+                NestedUdfType::Query | NestedUdfType::SnapshotQuery | NestedUdfType::Mutation,
+            ) => (),
             _ => {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "InvalidFunctionCall",
                     format!(
                         "Cannot call a {} function from a {} function",
-                        udf_type, self.udf_type
+                        nested_udf_type, self.udf_type
                     )
                 ));
             },
@@ -526,12 +579,13 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let tx = self.phase.tx()?;
         let called_component_id = path.component;
 
+        let execution_type = nested_udf_type.execution_type();
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
             PublicFunctionPath::ResolvedComponent(path.clone()),
             SerializedArgs::from_args(vec![args.into()])?,
-            udf_type,
+            execution_type,
         )
         .await?;
         let (path_and_args, returns_validator) = match path_and_args_result {
@@ -544,34 +598,37 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
         // NB: Since this is a user error, we need to do this check before we take the
         // transaction below.
-        let new_reactor_depth = if matches!(udf_type, UdfType::Query | UdfType::Mutation) {
-            if self.reactor_depth >= *MAX_REACTOR_CALL_DEPTH {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "MaximumCallDepthExceeded",
-                    "Cross component call depth limit exceeded. Do you have an infinite loop in \
-                     your app?"
-                ));
-            }
-            self.reactor_depth + 1
-        } else {
-            0
+        if self.reactor_depth >= *MAX_REACTOR_CALL_DEPTH {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "MaximumCallDepthExceeded",
+                "Cross component call depth limit exceeded. Do you have an infinite loop in your \
+                 app?"
+            ));
+        }
+        let new_reactor_depth = self.reactor_depth + 1;
+
+        let (initial_tx, rng_seed, unix_timestamp) = self.phase.start_nested_udf()?;
+        let (mut nested_tx, saved_tx) = match nested_udf_type {
+            NestedUdfType::SnapshotQuery => {
+                (initial_tx.clone_for_snapshot_query()?, Some(initial_tx))
+            },
+            _ => (initial_tx, None),
         };
 
-        let (mut tx, rng_seed, unix_timestamp) = self.phase.start_nested_udf()?;
-        let tokens = tx.begin_subtransaction();
+        let tokens = nested_tx.begin_subtransaction();
 
-        let query_journal = if self.is_system() && udf_type == UdfType::Query {
+        let query_journal = if self.is_system() && nested_udf_type == NestedUdfType::Query {
             self.prev_journal.clone()
         } else {
             QueryJournal::new()
         };
-        let (mut tx, outcome) = udf_callback
+        let (mut result_tx, outcome) = udf_callback
             .execute_nested_udf(
                 self.client_id.clone(),
                 UdfRequest {
-                    udf_type,
+                    udf_type: execution_type,
                     path_and_args,
-                    transaction: tx,
+                    transaction: nested_tx,
                     unix_timestamp,
                     journal: query_journal,
                     context: self.context.clone(),
@@ -587,11 +644,17 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             )
             .await
             .map_err(remove_rejected_before_execution)?;
-        match udf_type {
-            UdfType::Mutation if outcome.result.is_err() => tx.rollback_subtransaction(tokens)?,
-            _ => tx.commit_subtransaction(tokens)?,
+        match nested_udf_type {
+            NestedUdfType::Mutation if outcome.result.is_err() => {
+                result_tx.rollback_subtransaction(tokens)?
+            },
+            _ => result_tx.commit_subtransaction(tokens)?,
         }
-        self.phase.put_tx(tx)?;
+        if let Some(tx) = saved_tx {
+            self.phase.put_tx(tx)?;
+        } else {
+            self.phase.put_tx(result_tx)?;
+        }
 
         let NestedUdfOutcome {
             result,
@@ -605,7 +668,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
         log_run_udf(
             self.udf_type,
-            udf_type,
+            execution_type,
             self.phase.observed_identity(),
             observed_identity,
         );
@@ -624,7 +687,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
         self.syscall_trace.merge(&syscall_trace);
 
-        if self.is_system() && udf_type == UdfType::Query && result.is_ok() {
+        if self.is_system() && nested_udf_type == NestedUdfType::Query && result.is_ok() {
             self.next_journal = journal;
         }
 
@@ -1371,7 +1434,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             args,
         } = with_argument_error("runUdf", || Ok(serde_json::from_value(args)?))?;
         let (udf_type, args) = with_argument_error("runUdf", || {
-            let udf_type: UdfType = udf_type.parse().context(ArgName("udfType"))?;
+            let udf_type: NestedUdfType = udf_type.parse().context(ArgName("udfType"))?;
             let args: ConvexObject = ConvexValue::try_from(args)
                 .context(ArgName("args"))?
                 .try_into()
