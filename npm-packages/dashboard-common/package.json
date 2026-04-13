@@ -53,7 +53,7 @@
     "react-popper": "^2.3.0",
     "react-resizable-panels": "~2.1.1",
     "react-table": "7.8.0",
-    "react-virtualized-auto-sizer": "1.0.8",
+    "react-virtualized-auto-sizer": "1.0.26",
     "react-window": "1.8.11",
     "react-window-infinite-loader": "^1.0.8",
     "recharts": "3.7.0",
