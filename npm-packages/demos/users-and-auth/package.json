@@ -6,7 +6,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
-    "@auth0/auth0-react": "2.11.0",
+    "@auth0/auth0-react": "2.15.1",
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",

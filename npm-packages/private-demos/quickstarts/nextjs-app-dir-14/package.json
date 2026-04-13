@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@auth0/auth0-react": "2.11.0",
+    "@auth0/auth0-react": "2.15.1",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^20",
     "@eslint/eslintrc": "^3",
