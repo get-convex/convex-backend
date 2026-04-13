@@ -685,15 +685,14 @@ impl AdminIdentity {
         };
         let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
         let is_read_only: bool = msg.is_read_only;
-        let allowed_ops = msg
+        let allowed_ops: Vec<DeploymentOp> = msg
             .allowed_operations
             .into_iter()
-            .map(|i| {
-                let proto = ProtoDeploymentOperation::try_from(i)
-                    .map_err(|_| anyhow::anyhow!("Unrecognized DeploymentOperation value: {i}"))?;
-                DeploymentOp::try_from(proto)
+            .map(|i| match ProtoDeploymentOperation::try_from(i) {
+                Ok(proto) => DeploymentOp::from(proto),
+                Err(_) => DeploymentOp::Unknown,
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect();
         Ok(Self {
             instance_name,
             principal,

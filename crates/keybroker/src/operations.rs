@@ -73,40 +73,32 @@ impl From<DeploymentOp> for ProtoDeploymentOperation {
     }
 }
 
-impl TryFrom<ProtoDeploymentOperation> for DeploymentOp {
-    type Error = anyhow::Error;
-
-    fn try_from(proto_op: ProtoDeploymentOperation) -> anyhow::Result<Self> {
+impl From<ProtoDeploymentOperation> for DeploymentOp {
+    fn from(proto_op: ProtoDeploymentOperation) -> Self {
         match proto_op {
-            ProtoDeploymentOperation::Unspecified => {
-                Err(anyhow::anyhow!("unspecified deployment operation"))
-            },
-            ProtoDeploymentOperation::Deploy => Ok(Self::Deploy),
-            ProtoDeploymentOperation::ViewEnvironmentVariables => {
-                Ok(Self::ViewEnvironmentVariables)
-            },
-            ProtoDeploymentOperation::WriteEnvironmentVariables => {
-                Ok(Self::WriteEnvironmentVariables)
-            },
-            ProtoDeploymentOperation::PauseDeployment => Ok(Self::PauseDeployment),
-            ProtoDeploymentOperation::UnpauseDeployment => Ok(Self::UnpauseDeployment),
-            ProtoDeploymentOperation::ViewLogs => Ok(Self::ViewLogs),
-            ProtoDeploymentOperation::ViewMetrics => Ok(Self::ViewMetrics),
-            ProtoDeploymentOperation::ViewIntegrations => Ok(Self::ViewIntegrations),
-            ProtoDeploymentOperation::WriteIntegrations => Ok(Self::WriteIntegrations),
-            ProtoDeploymentOperation::ViewData => Ok(Self::ViewData),
-            ProtoDeploymentOperation::WriteData => Ok(Self::WriteData),
-            ProtoDeploymentOperation::ViewBackups => Ok(Self::ViewBackups),
-            ProtoDeploymentOperation::CreateBackups => Ok(Self::CreateBackups),
-            ProtoDeploymentOperation::DownloadBackups => Ok(Self::DownloadBackups),
-            ProtoDeploymentOperation::DeleteBackups => Ok(Self::DeleteBackups),
-            ProtoDeploymentOperation::ImportBackups => Ok(Self::ImportBackups),
-            ProtoDeploymentOperation::ActAsUser => Ok(Self::ActAsUser),
-            ProtoDeploymentOperation::RunInternalQueries => Ok(Self::RunInternalQueries),
-            ProtoDeploymentOperation::RunInternalMutations => Ok(Self::RunInternalMutations),
-            ProtoDeploymentOperation::RunInternalActions => Ok(Self::RunInternalActions),
-            ProtoDeploymentOperation::RunTestQuery => Ok(Self::RunTestQuery),
-            ProtoDeploymentOperation::ViewAuditLog => Ok(Self::ViewAuditLog),
+            ProtoDeploymentOperation::Unspecified => Self::Unknown,
+            ProtoDeploymentOperation::Deploy => Self::Deploy,
+            ProtoDeploymentOperation::ViewEnvironmentVariables => Self::ViewEnvironmentVariables,
+            ProtoDeploymentOperation::WriteEnvironmentVariables => Self::WriteEnvironmentVariables,
+            ProtoDeploymentOperation::PauseDeployment => Self::PauseDeployment,
+            ProtoDeploymentOperation::UnpauseDeployment => Self::UnpauseDeployment,
+            ProtoDeploymentOperation::ViewLogs => Self::ViewLogs,
+            ProtoDeploymentOperation::ViewMetrics => Self::ViewMetrics,
+            ProtoDeploymentOperation::ViewIntegrations => Self::ViewIntegrations,
+            ProtoDeploymentOperation::WriteIntegrations => Self::WriteIntegrations,
+            ProtoDeploymentOperation::ViewData => Self::ViewData,
+            ProtoDeploymentOperation::WriteData => Self::WriteData,
+            ProtoDeploymentOperation::ViewBackups => Self::ViewBackups,
+            ProtoDeploymentOperation::CreateBackups => Self::CreateBackups,
+            ProtoDeploymentOperation::DownloadBackups => Self::DownloadBackups,
+            ProtoDeploymentOperation::DeleteBackups => Self::DeleteBackups,
+            ProtoDeploymentOperation::ImportBackups => Self::ImportBackups,
+            ProtoDeploymentOperation::ActAsUser => Self::ActAsUser,
+            ProtoDeploymentOperation::RunInternalQueries => Self::RunInternalQueries,
+            ProtoDeploymentOperation::RunInternalMutations => Self::RunInternalMutations,
+            ProtoDeploymentOperation::RunInternalActions => Self::RunInternalActions,
+            ProtoDeploymentOperation::RunTestQuery => Self::RunTestQuery,
+            ProtoDeploymentOperation::ViewAuditLog => Self::ViewAuditLog,
         }
     }
 }
