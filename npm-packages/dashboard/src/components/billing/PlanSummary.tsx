@@ -240,34 +240,36 @@ export function BusinessPlanSummary({
   const router = useRouter();
   const activeSections = isBusinessPlan ? businessSections : selfServeSections;
 
-  // Aggregate across deployment classes and regions
-  const aggregated = summaryV2
-    ? summaryV2.reduce(
-        (acc, row) => {
-          for (const section of activeSections) {
-            if (
-              section.metric === "deploymentCount" ||
-              section.metric === "chefTokens"
-            )
-              continue;
-            let value: number;
-            if (section.metric === "compute") {
-              value =
-                row.queryMutationCompute +
-                row.actionComputeUser +
-                row.actionComputeNode;
-            } else if (section.metric === "actionCompute") {
-              value = row.actionComputeConvex + row.actionComputeNode;
-            } else {
-              value = row[section.metric];
-            }
-            acc[section.metric] = (acc[section.metric] || 0) + value;
+  // Aggregate usage rows by summing each metric in activeSections.
+  const aggregateRows = (rows: UsageSummaryRowV2[]) =>
+    rows.reduce(
+      (acc, row) => {
+        for (const section of activeSections) {
+          if (
+            section.metric === "deploymentCount" ||
+            section.metric === "chefTokens"
+          )
+            continue;
+          let value: number;
+          if (section.metric === "compute") {
+            value =
+              row.queryMutationCompute +
+              row.actionComputeUser +
+              row.actionComputeNode;
+          } else if (section.metric === "actionCompute") {
+            value = row.actionComputeConvex + row.actionComputeNode;
+          } else {
+            value = row[section.metric];
           }
-          return acc;
-        },
-        {} as Record<string, number>,
-      )
-    : undefined;
+          acc[section.metric] = (acc[section.metric] || 0) + value;
+        }
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+  // Aggregate across deployment classes and regions
+  const aggregated = summaryV2 ? aggregateRows(summaryV2) : undefined;
 
   // Add deployment count from separate data source
   if (aggregated && deploymentCount !== undefined) {
@@ -278,6 +280,13 @@ export function BusinessPlanSummary({
   if (aggregated && chefTokenUsage) {
     aggregated.chefTokens = chefTokenUsage.centitokensUsed / 100;
   }
+
+  // For self-serve plans, aggregate only primary region (aws-us-east-1)
+  // so that included limits only apply to US-hosted deployments.
+  const primaryRegionAggregated =
+    !isBusinessPlan && summaryV2
+      ? aggregateRows(summaryV2.filter((row) => row.region === "aws-us-east-1"))
+      : undefined;
 
   const sectionToRoute = isBusinessPlan
     ? BUSINESS_METRIC_TO_SECTION
@@ -384,10 +393,14 @@ export function BusinessPlanSummary({
                     ] as number | undefined)
                   : undefined;
 
-              // Calculate included/on-demand for self-serve plans
+              // For self-serve plans, only primary region (US) usage counts
+              // toward included limits, matching the V1 behavior.
+              const primaryRegionMetric = primaryRegionAggregated
+                ? (primaryRegionAggregated[section.metric] ?? 0)
+                : metric;
               const includedAmount =
-                metric !== undefined && entitlement !== undefined
-                  ? Math.min(metric, entitlement)
+                primaryRegionMetric !== undefined && entitlement !== undefined
+                  ? Math.min(primaryRegionMetric, entitlement)
                   : undefined;
               const onDemandAmount =
                 metric !== undefined && includedAmount !== undefined
@@ -406,12 +419,24 @@ export function BusinessPlanSummary({
                     )}
                   >
                     <div className="flex items-center gap-2">
+                      {showEntitlements && entitlement !== undefined && (
+                        <Tooltip
+                          side="bottom"
+                          tip={`Your team has used ${Math.floor(100 * (metric / entitlement))}% of the included amount of ${section.title}.`}
+                          className="flex animate-fadeInFromLoading items-center"
+                        >
+                          <Donut current={metric} max={entitlement} />
+                        </Tooltip>
+                      )}
                       <SectionLabel detail={section.detail}>
                         {section.title}
                       </SectionLabel>
                     </div>
                     <div className="animate-fadeInFromLoading">
                       <span>{section.format(metric)}</span>
+                      {showEntitlements && entitlement !== undefined && (
+                        <span> / {section.format(entitlement)}</span>
+                      )}
                     </div>
                     {hasSubscription && <div />}
                     <span className="invisible flex items-center gap-1 text-xs">
@@ -439,17 +464,18 @@ export function BusinessPlanSummary({
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    {showEntitlements &&
-                      entitlement !== undefined &&
-                      !section.noOnDemand && (
-                        <Tooltip
-                          side="bottom"
-                          tip={`Your team has used ${Math.floor(100 * (metric / entitlement))}% of the included amount of ${section.title}.`}
-                          className="flex animate-fadeInFromLoading items-center"
-                        >
-                          <Donut current={metric} max={entitlement} />
-                        </Tooltip>
-                      )}
+                    {showEntitlements && entitlement !== undefined && (
+                      <Tooltip
+                        side="bottom"
+                        tip={`Your team has used ${Math.floor(100 * (primaryRegionMetric / entitlement))}% of the included amount of ${section.title}.`}
+                        className="flex animate-fadeInFromLoading items-center"
+                      >
+                        <Donut
+                          current={primaryRegionMetric}
+                          max={entitlement}
+                        />
+                      </Tooltip>
+                    )}
                     <SectionLabel detail={section.detail}>
                       {section.title}
                     </SectionLabel>
