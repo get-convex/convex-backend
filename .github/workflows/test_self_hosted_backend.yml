@@ -67,17 +67,15 @@ jobs:
       - name: Build NPM Packages
         run: |
           just rush install
-          just rush build -t .
-        working-directory: npm-packages/tests/js-integration-tests
+          just rush build -t test-project
 
-      - name: Run integration tests
-        working-directory: npm-packages/tests/js-integration-tests
-        env:
-          SKIP_INSTANCE_SECRET_TESTS: 1
-          DEPLOYMENT_URL: http://127.0.0.1:3210
-          SITE_URL: http://127.0.0.1:3211
+      - name: Try pushing to the deployment
+        working-directory: npm-packages/private-demos/test-project
         run: |
           ADMIN_KEY=$(docker exec ${{ job.services.backend.id }} ./generate_admin_key.sh)
           echo "Pushing functions... "
           npx convex deploy --url http://127.0.0.1:3210 --admin-key $ADMIN_KEY
-          ADMIN_KEY=$ADMIN_KEY npm run test-integration
+
+      - name: Verify that the deployment has been pushed to
+        working-directory: npm-packages/private-demos/test-project
+        run: test "$(curl -fsS http://127.0.0.1:3211)" = "Hello world!"
