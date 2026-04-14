@@ -1082,6 +1082,34 @@
         }
       }
     },
+    "/deployments/{deployment_id}/list_cloud_backups": {
+      "get": {
+        "operationId": "list_cloud_backups_by_deployment",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudBackupResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/cloud_backups/{cloud_backup_id}/delete": {
       "post": {
         "operationId": "delete_cloud_backup",

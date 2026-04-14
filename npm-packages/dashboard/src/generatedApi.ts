@@ -612,6 +612,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_id}/list_cloud_backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_cloud_backups_by_deployment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cloud_backups/{cloud_backup_id}/delete": {
         parameters: {
             query?: never;
@@ -3833,6 +3849,27 @@ export interface operations {
             header?: never;
             path: {
                 team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloudBackupResponse"][];
+                };
+            };
+        };
+    };
+    list_cloud_backups_by_deployment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deployment_id: string;
             };
             cookie?: never;
         };
