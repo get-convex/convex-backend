@@ -36,7 +36,7 @@
     "zshy": "0.7.0"
   },
   "dependencies": {
-    "openapi-fetch": "~0.15.0"
+    "openapi-fetch": "~0.17.0"
   },
   "zshy": {
     "exports": {

@@ -362,8 +362,8 @@ importers:
   ../../@convex-dev/platform:
     dependencies:
       openapi-fetch:
-        specifier: ~0.15.0
-        version: 0.15.0
+        specifier: ~0.17.0
+        version: 0.17.0
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -697,8 +697,8 @@ importers:
         specifier: ^8.3.0
         version: 8.4.2
       openapi-fetch:
-        specifier: ~0.15.0
-        version: 0.15.0
+        specifier: ~0.17.0
+        version: 0.17.0
       openapi-typescript:
         specifier: ~7.8.0
         version: 7.8.0(typescript@5.0.4)
@@ -937,8 +937,8 @@ importers:
         specifier: ~0.2.0
         version: 0.2.0
       openapi-fetch:
-        specifier: ~0.15.0
-        version: 0.15.0
+        specifier: ~0.17.0
+        version: 0.17.0
       posthog-js:
         specifier: ~1.359.0
         version: 1.359.1
@@ -980,7 +980,7 @@ importers:
         version: 2.3.6(react@18.3.1)
       swr-openapi:
         specifier: ~5.3.0
-        version: 5.3.1(openapi-fetch@0.15.0)(openapi-typescript@7.8.0(typescript@5.9.3))(react@18.3.1)(swr@2.3.6(react@18.3.1))(typescript@5.9.3)
+        version: 5.3.1(openapi-fetch@0.17.0)(openapi-typescript@7.8.0(typescript@5.9.3))(react@18.3.1)(swr@2.3.6(react@18.3.1))(typescript@5.9.3)
       system-udfs:
         specifier: workspace:*
         version: link:../system-udfs
@@ -22791,6 +22791,9 @@ packages:
 
   openapi-fetch@0.15.0:
     resolution: {integrity: sha512-OjQUdi61WO4HYhr9+byCPMj0+bgste/LtSBEcV6FzDdONTs7x0fWn8/ndoYwzqCsKWIxEZwo4FN/TG1c1rI8IQ==}
+
+  openapi-fetch@0.17.0:
+    resolution: {integrity: sha512-PsbZR1wAPcG91eEthKhN+Zn92FMHxv+/faECIwjXdxfTODGSGegYv0sc1Olz+HYPvKOuoXfp+0pA2XVt2cI0Ig==}
 
   openapi-to-postmanv2@6.0.0:
     resolution: {integrity: sha512-PU676AZh/7A1CFi7MOsIRTnasEauK1EQL1c4ktAOZIknoPh7OZ3yC1NoRHfogoTfS/9WFXV+uOP1mg+402fuoQ==}
@@ -52753,6 +52756,10 @@ snapshots:
     dependencies:
       openapi-typescript-helpers: 0.0.15
 
+  openapi-fetch@0.17.0:
+    dependencies:
+      openapi-typescript-helpers: 0.1.0
+
   openapi-to-postmanv2@6.0.0:
     dependencies:
       ajv: 8.18.0
@@ -56926,9 +56933,9 @@ snapshots:
       '@swc/counter': 0.1.3
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))
 
-  swr-openapi@5.3.1(openapi-fetch@0.15.0)(openapi-typescript@7.8.0(typescript@5.9.3))(react@18.3.1)(swr@2.3.6(react@18.3.1))(typescript@5.9.3):
+  swr-openapi@5.3.1(openapi-fetch@0.17.0)(openapi-typescript@7.8.0(typescript@5.9.3))(react@18.3.1)(swr@2.3.6(react@18.3.1))(typescript@5.9.3):
     dependencies:
-      openapi-fetch: 0.15.0
+      openapi-fetch: 0.17.0
       openapi-typescript-helpers: 0.0.15
       react: 18.3.1
       swr: 2.3.6(react@18.3.1)
