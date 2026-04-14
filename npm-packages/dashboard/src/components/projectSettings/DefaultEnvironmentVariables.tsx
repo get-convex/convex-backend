@@ -8,10 +8,8 @@ import {
 } from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
 import { useHasProjectAdminPermissions } from "api/roles";
-import {
-  DeploymentType as DeploymentTypeType,
-  UpdateEnvironmentVariables,
-} from "generatedApi";
+import { DeploymentType as DeploymentTypeType } from "generatedApi";
+import { UpdateDefaultEnvironmentVariablesArgs } from "@convex-dev/platform/managementApi";
 import { Link } from "@ui/Link";
 import { EnvironmentVariables } from "@common/features/settings/components/EnvironmentVariables";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
@@ -52,7 +50,7 @@ export function DefaultEnvironmentVariablesInner({
   hasAdminPermissions,
 }: {
   environmentVariables: ProjectEnvVarConfig[] | undefined;
-  onUpdate: (value: UpdateEnvironmentVariables) => Promise<void>;
+  onUpdate: (value: UpdateDefaultEnvironmentVariablesArgs) => Promise<void>;
   hasAdminPermissions: boolean;
 }) {
   const [initialValues, setInitialValues] = useState<
@@ -88,30 +86,72 @@ export function DefaultEnvironmentVariablesInner({
           modifications,
           deletions,
         ) => {
-          await onUpdate({
-            changes: [
-              ...creations.map((newEnvVar) => ({
-                oldVariable: null,
-                newConfig: {
-                  name: newEnvVar.name,
-                  value: newEnvVar.value,
-                  deploymentTypes: [...newEnvVar.deploymentTypes],
-                },
-              })),
-              ...modifications.map(({ oldEnvVar, newEnvVar }) => ({
-                oldVariable: oldEnvVar,
-                newConfig: {
-                  name: newEnvVar.name,
-                  value: newEnvVar.value,
-                  deploymentTypes: [...newEnvVar.deploymentTypes],
-                },
-              })),
-              ...deletions.map((oldVariable) => ({
-                oldVariable,
-                newConfig: null,
-              })),
-            ],
-          });
+          const forEachDtype = (
+            name: string,
+            deploymentTypes: readonly DeploymentTypeType[],
+            value: string | null,
+          ) =>
+            deploymentTypes.map((deploymentType) => ({
+              name,
+              deploymentType,
+              value,
+            }));
+
+          const changes: UpdateDefaultEnvironmentVariablesArgs["changes"] = [];
+
+          for (const newEnvVar of creations) {
+            changes.push(
+              ...forEachDtype(
+                newEnvVar.name,
+                newEnvVar.deploymentTypes,
+                newEnvVar.value,
+              ),
+            );
+          }
+
+          for (const { oldEnvVar, newEnvVar } of modifications) {
+            if (oldEnvVar.name !== newEnvVar.name) {
+              // Name changed: delete old, create new
+              changes.push(
+                ...forEachDtype(
+                  oldEnvVar.name,
+                  oldEnvVar.deploymentTypes,
+                  null,
+                ),
+                ...forEachDtype(
+                  newEnvVar.name,
+                  newEnvVar.deploymentTypes,
+                  newEnvVar.value,
+                ),
+              );
+            } else {
+              // Upsert current deployment types
+              changes.push(
+                ...forEachDtype(
+                  newEnvVar.name,
+                  newEnvVar.deploymentTypes,
+                  newEnvVar.value,
+                ),
+              );
+              // Delete removed deployment types
+              const removed = oldEnvVar.deploymentTypes.filter(
+                (dt) => !newEnvVar.deploymentTypes.includes(dt),
+              );
+              changes.push(...forEachDtype(oldEnvVar.name, removed, null));
+            }
+          }
+
+          for (const oldVariable of deletions) {
+            changes.push(
+              ...forEachDtype(
+                oldVariable.name,
+                oldVariable.deploymentTypes,
+                null,
+              ),
+            );
+          }
+
+          await onUpdate({ changes });
           setInitialValues(undefined);
         }}
         initialFormValues={initialValues}
