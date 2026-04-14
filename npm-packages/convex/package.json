@@ -282,7 +282,7 @@
     "@eslint/eslintrc": "^3",
     "@eslint/js": "~9.39.0",
     "@modelcontextprotocol/sdk": "^1.25.2",
-    "@octokit/openapi-types": "~25.0.0",
+    "@octokit/openapi-types": "~25.1.0",
     "@sentry/node": "^7.23.0",
     "@sentry/tracing": "^7.23.0",
     "@swc/core": "1.15.8",

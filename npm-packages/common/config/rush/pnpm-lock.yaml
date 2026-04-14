@@ -583,8 +583,8 @@ importers:
         specifier: ^1.25.2
         version: 1.26.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@octokit/openapi-types':
-        specifier: ~25.0.0
-        version: 25.0.0
+        specifier: ~25.1.0
+        version: 25.1.0
       '@sentry/node':
         specifier: ^7.23.0
         version: 7.120.4
@@ -10655,8 +10655,8 @@ packages:
       rollup-plugin-visualizer:
         optional: true
 
-  '@octokit/openapi-types@25.0.0':
-    resolution: {integrity: sha512-FZvktFu7HfOIJf2BScLKIEYjDsw6RKc7rBJCdvCTfKsVnx2GEB/Nbzjr29DUdb7vQhlzS/j8qDzdditP0OC6aw==}
+  '@octokit/openapi-types@25.1.0':
+    resolution: {integrity: sha512-idsIggNXUKkk0+BExUn1dQ92sfysJrje03Q0bv0e+KPLrvyqZF8MnBpFz8UNfYDwB3Ie7Z0TByjWfzxt7vseaA==}
 
   '@oozcitak/dom@2.0.2':
     resolution: {integrity: sha512-GjpKhkSYC3Mj4+lfwEyI1dqnsKTgwGy48ytZEhm4A/xnH/8z9M3ZVXKr/YGQi3uCLs1AEBS+x5T2JPiueEDW8w==}
@@ -35880,7 +35880,7 @@ snapshots:
       - vue-tsc
       - yaml
 
-  '@octokit/openapi-types@25.0.0': {}
+  '@octokit/openapi-types@25.1.0': {}
 
   '@oozcitak/dom@2.0.2':
     dependencies:
