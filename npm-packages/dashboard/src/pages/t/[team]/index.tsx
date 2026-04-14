@@ -223,14 +223,13 @@ function DeploymentsView({
 function ProjectActions({ team }: { team: TeamResponse }) {
   const [createProjectModal, showCreateProjectModal] = useCreateProjectModal();
   return (
-    <>
+    <div className="ml-auto flex items-center gap-2">
       {!team.managedBy && (
         <Button
           onClick={() => showCreateProjectModal()}
           variant="neutral"
           size="sm"
           icon={<PlusIcon />}
-          className="ml-auto"
         >
           Create Project
         </Button>
@@ -245,7 +244,7 @@ function ProjectActions({ team }: { team: TeamResponse }) {
         Start Tutorial
       </Button>
       {createProjectModal}
-    </>
+    </div>
   );
 }
 
