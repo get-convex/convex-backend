@@ -22,7 +22,7 @@ import {
 import { useCurrentDeployment, useDeploymentRegions } from "api/deployments";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
-import { useListCloudBackups } from "api/backups";
+import { useListCloudBackupsIfAvailable } from "api/backups";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import {
@@ -76,22 +76,20 @@ export function HealthWithInsights() {
   const deployment = useCurrentDeployment();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const backups = useListCloudBackups(
-    deployment?.kind === "cloud" ? deployment.id : 0,
-  );
+  const backups = useListCloudBackupsIfAvailable(deployment);
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
 
   // Get the most recent backup for this deployment
+  // backups is null when not available (d1024, non-cloud), undefined when loading
   const lastBackupTime = useMemo(() => {
-    if (!backups || !deployment || deployment.kind !== "cloud") {
-      return undefined;
-    }
+    if (backups === null) return null;
+    if (backups === undefined) return undefined;
     const deploymentsBackups = backups.filter((b) => b.state === "complete");
     return deploymentsBackups.length > 0
       ? deploymentsBackups[0].requestedTime
       : null;
-  }, [backups, deployment]);
+  }, [backups]);
 
   const selectedInsight = insights?.find(
     (insight) => getInsightPageIdentifier(insight) === page,

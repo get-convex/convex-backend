@@ -203,7 +203,7 @@ export function AutomaticBackupSelector({
   deployment: PlatformDeploymentResponse;
   canPerformActions: boolean;
 }) {
-  const deploymentId = deployment.kind === "cloud" ? deployment.id : 0;
+  const deploymentId = deployment.kind === "cloud" ? deployment.id : undefined;
   const periodicBackup = useGetPeriodicBackupConfig(deploymentId);
   const configurePeriodicBackup = useConfigurePeriodicBackup(deploymentId);
   const disablePeriodicBackup = useDisablePeriodicBackup(deploymentId);
@@ -295,7 +295,7 @@ export function BackupIncludeStorageSelector({
   disabled: boolean;
 }) {
   const configurePeriodicBackup = useConfigurePeriodicBackup(
-    deployment.kind === "cloud" ? deployment.id : 0,
+    deployment.kind === "cloud" ? deployment.id : undefined,
   );
 
   const includeStorageCheckboxId = useId();
@@ -442,7 +442,7 @@ export function BackupScheduleSelectorInner({
   deployment: PlatformDeploymentResponse;
 }) {
   const configurePeriodicBackup = useConfigurePeriodicBackup(
-    deployment.kind === "cloud" ? deployment.id : 0,
+    deployment.kind === "cloud" ? deployment.id : undefined,
   );
 
   const initialValue = `${defaultValue.getHours().toString().padStart(2, "0")}:${defaultValue.getMinutes().toString().padStart(2, "0")}`;

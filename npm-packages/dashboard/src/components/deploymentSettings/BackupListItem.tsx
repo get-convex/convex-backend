@@ -36,7 +36,7 @@ import {
   useRestoreFromCloudBackup,
   useDeleteCloudBackup,
   BackupResponse,
-  useListCloudBackups,
+  useListCloudBackupsIfAvailable,
   useCancelCloudBackup,
 } from "api/backups";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
@@ -694,8 +694,7 @@ export function BackupNowButton({
   canPerformActions: boolean;
   onBackupRequested?: () => void;
 }) {
-  const deploymentId = deployment.kind === "cloud" ? deployment.id : 0;
-  const backups = useListCloudBackups(deploymentId);
+  const backups = useListCloudBackupsIfAvailable(deployment);
   const nonFailedBackupsForDeployment = backups?.filter(
     (backup) =>
       backup.state === "requested" ||
@@ -703,6 +702,7 @@ export function BackupNowButton({
       backup.state === "complete",
   );
 
+  const deploymentId = deployment.kind === "cloud" ? deployment.id : undefined;
   const requestBackup = useRequestCloudBackup(deploymentId);
   const [isOngoing, setIsOngoing] = useState(false);
   const [showModal, setShowModal] = useState(false);

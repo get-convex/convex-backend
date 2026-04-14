@@ -15,7 +15,7 @@ import { usePostHog } from "hooks/usePostHog";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
-import { useListCloudBackups } from "api/backups";
+import { useListCloudBackupsIfAvailable } from "api/backups";
 import { useMemo, useRef } from "react";
 
 export { getServerSideProps } from "lib/ssr";
@@ -53,21 +53,19 @@ function DeploymentURLAndDeployKey() {
 
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const backups = useListCloudBackups(
-    deployment?.kind === "cloud" ? deployment.id : 0,
-  );
+  const backups = useListCloudBackupsIfAvailable(deployment);
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
 
+  // backups is null when not available (d1024, non-cloud), undefined when loading
   const lastBackupTime = useMemo(() => {
-    if (!backups || !deployment || deployment.kind !== "cloud") {
-      return undefined;
-    }
+    if (backups === null) return null;
+    if (backups === undefined) return undefined;
     const deploymentsBackups = backups.filter((b) => b.state === "complete");
     return deploymentsBackups.length > 0
       ? deploymentsBackups[0].requestedTime
       : null;
-  }, [backups, deployment]);
+  }, [backups]);
 
   return (
     <div className="flex flex-col gap-4">

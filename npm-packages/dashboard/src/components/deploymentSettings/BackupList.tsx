@@ -3,12 +3,13 @@ import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { ArchiveIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 import { useGetZipExport } from "hooks/deploymentApi";
-import { BackupResponse, useListCloudBackups } from "api/backups";
+import { BackupResponse, useListCloudBackupsIfAvailable } from "api/backups";
 import { Loading } from "@ui/Loading";
 import { EmptySection } from "@common/elements/EmptySection";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { BackupListItem, progressMessageForBackup } from "./BackupListItem";
+import { Callout } from "@ui/Callout";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 import { useLatestRestore } from "./BackupRestoreStatus";
 
@@ -26,9 +27,7 @@ export function BackupList({
   const [selectedDeployment, setSelectedDeployment] =
     useState(targetDeployment);
 
-  const backups = useListCloudBackups(
-    selectedDeployment.kind === "cloud" ? selectedDeployment.id : 0,
-  ); // order: latest to oldest
+  const backups = useListCloudBackupsIfAvailable(selectedDeployment); // order: latest to oldest
 
   const latestRestore = useLatestRestore();
   const requestor = latestRestore?.requestor;
@@ -54,19 +53,28 @@ export function BackupList({
           targetDeployment={targetDeployment}
         />
       </div>
-      <div className="scrollbar grow overflow-auto">
-        {backups === undefined ? (
-          <Loading />
-        ) : (
-          <BackupListForDeployment
-            backups={backups}
-            targetDeployment={targetDeployment}
-            restoringBackupId={restoringBackupId}
-            canPerformActions={canPerformActions}
-            maxCloudBackups={maxCloudBackups}
-          />
-        )}
-      </div>
+      {selectedDeployment.kind === "cloud" &&
+      selectedDeployment.class.startsWith("d") ? (
+        <Callout className="m-4 max-w-prose">
+          Backups for {selectedDeployment.class.toUpperCase()} deployments are
+          produced every 12 hours. Contact the Convex team to restore from a
+          backup.
+        </Callout>
+      ) : (
+        <div className="scrollbar grow overflow-auto">
+          {!backups ? (
+            <Loading />
+          ) : (
+            <BackupListForDeployment
+              backups={backups}
+              targetDeployment={targetDeployment}
+              restoringBackupId={restoringBackupId}
+              canPerformActions={canPerformActions}
+              maxCloudBackups={maxCloudBackups}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -89,9 +97,7 @@ function BackupListForDeployment({
   // Backups are already scoped to the selected deployment by the server.
   // For target deployment stats, use a separate query (SWR deduplicates when
   // selectedDeployment === targetDeployment, the common case).
-  const targetBackups = useListCloudBackups(
-    targetDeployment.kind === "cloud" ? targetDeployment.id : 0,
-  );
+  const targetBackups = useListCloudBackupsIfAvailable(targetDeployment);
 
   const latestBackupInTargetDeployment =
     (targetDeployment.kind === "cloud" && targetBackups?.[0]) || null;

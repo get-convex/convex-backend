@@ -1,4 +1,5 @@
 import { components, CloudBackupResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { useBBQuery, useBBMutation } from "./api";
 
@@ -21,15 +22,31 @@ export type PeriodicBackupConfig = {
   nextRun: number;
 };
 
-export function useListCloudBackups(deploymentId: number) {
+export function useListCloudBackups(
+  deploymentId: number | undefined | null,
+): BackupResponse[] | undefined | null {
   const { data } = useBBQuery({
     path: `/deployments/{deployment_id}/list_cloud_backups`,
     pathParams: {
-      deployment_id: deploymentId.toString(),
+      deployment_id: (deploymentId ?? undefined)?.toString() || "",
     },
     swrOptions: { refreshInterval: 5000 },
   });
+  if (deploymentId === null) return null;
   return data as BackupResponse[] | undefined;
+}
+
+// Returns null if backups are unavailable (non-cloud or dedicated deployments),
+// undefined while loading, or the backup list when loaded.
+export function useListCloudBackupsIfAvailable(
+  deployment: PlatformDeploymentResponse | undefined,
+): BackupResponse[] | null | undefined {
+  const deploymentId = !deployment
+    ? undefined
+    : deployment.kind === "cloud" && !deployment.class.startsWith("d")
+      ? deployment.id
+      : null;
+  return useListCloudBackups(deploymentId);
 }
 
 export function useGetCloudBackup(cloudBackupId?: number) {
@@ -122,11 +139,11 @@ export function useDisablePeriodicBackup(deploymentId?: number) {
   });
 }
 
-export function useGetPeriodicBackupConfig(deploymentId: number) {
+export function useGetPeriodicBackupConfig(deploymentId?: number) {
   const { data } = useBBQuery({
     path: `/deployments/{deployment_id}/get_periodic_backup_config`,
     pathParams: {
-      deployment_id: deploymentId.toString(),
+      deployment_id: deploymentId?.toString() || "",
     },
     swrOptions: { refreshInterval: 5000 },
   });
