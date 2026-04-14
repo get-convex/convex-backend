@@ -8,20 +8,17 @@ import { useConfirmImport } from "hooks/deploymentApi";
 import { useEffect, useState } from "react";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { TeamResponse } from "generatedApi";
 import udfs from "@common/udfs";
 import { CheckCircledIcon, CrossCircledIcon } from "@radix-ui/react-icons";
 import { ProgressBar } from "@ui/ProgressBar";
-import { useListCloudBackups, BackupResponse } from "api/backups";
+import { useGetCloudBackup, BackupResponse } from "api/backups";
 import { TransferSummary } from "./BackupListItem";
 import { ImportSummary } from "./SnapshotImport";
 
 export function BackupRestoreStatus({
   deployment,
-  team,
 }: {
   deployment: PlatformDeploymentResponse;
-  team: TeamResponse;
 }) {
   const currentRestore = useLatestRestore();
   const requestor = currentRestore?.requestor;
@@ -30,10 +27,9 @@ export function BackupRestoreStatus({
   }
   const sourceCloudBackupId = requestor?.sourceCloudBackupId;
 
-  const backups = useListCloudBackups(team.id);
-  const backup =
-    currentRestore &&
-    (backups?.find((b) => BigInt(b.id) === sourceCloudBackupId) ?? null);
+  const backup = useGetCloudBackup(
+    sourceCloudBackupId !== undefined ? Number(sourceCloudBackupId) : undefined,
+  );
 
   // Automatically call confirmImport when the current backup is waiting for confirmation.
   // This is necessary because the snapshot import flow has a confirmation step, but for backups

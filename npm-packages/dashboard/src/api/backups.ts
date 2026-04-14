@@ -21,11 +21,11 @@ export type PeriodicBackupConfig = {
   nextRun: number;
 };
 
-export function useListCloudBackups(teamId: number) {
+export function useListCloudBackups(deploymentId: number) {
   const { data } = useBBQuery({
-    path: `/teams/{team_id}/list_cloud_backups`,
+    path: `/deployments/{deployment_id}/list_cloud_backups`,
     pathParams: {
-      team_id: teamId.toString(),
+      deployment_id: deploymentId.toString(),
     },
     swrOptions: { refreshInterval: 5000 },
   });
@@ -47,44 +47,49 @@ export function useGetCloudBackup(cloudBackupId?: number) {
 
 export function useRequestCloudBackup(
   deploymentId?: components["schemas"]["DeploymentId"],
-  teamId?: number,
 ) {
   return useBBMutation({
     path: `/deployments/{deployment_id}/request_cloud_backup`,
     pathParams: {
       deployment_id: deploymentId?.toString() || "",
     },
-    mutateKey: `/teams/{team_id}/list_cloud_backups`,
+    mutateKey: `/deployments/{deployment_id}/list_cloud_backups`,
     mutatePathParams: {
-      team_id: teamId?.toString() || "",
+      deployment_id: deploymentId?.toString() || "",
     },
     successToast: "Started a new backup.",
   });
 }
 
-export function useDeleteCloudBackup(teamId: number, cloudBackupId?: number) {
+export function useDeleteCloudBackup(
+  deploymentId: number,
+  cloudBackupId?: number,
+) {
   return useBBMutation({
     path: `/cloud_backups/{cloud_backup_id}/delete`,
     pathParams: {
       cloud_backup_id: cloudBackupId?.toString() || "",
     },
-    mutateKey: `/teams/{team_id}/list_cloud_backups`,
+    mutateKey: `/deployments/{deployment_id}/list_cloud_backups`,
     mutatePathParams: {
-      team_id: teamId.toString(),
+      deployment_id: deploymentId.toString(),
     },
     successToast: "Backup deleted.",
   });
 }
 
-export function useCancelCloudBackup(teamId: number, cloudBackupId?: number) {
+export function useCancelCloudBackup(
+  deploymentId: number,
+  cloudBackupId?: number,
+) {
   return useBBMutation({
     path: `/cloud_backups/{cloud_backup_id}/cancel`,
     pathParams: {
       cloud_backup_id: cloudBackupId?.toString() || "",
     },
-    mutateKey: `/teams/{team_id}/list_cloud_backups`,
+    mutateKey: `/deployments/{deployment_id}/list_cloud_backups`,
     mutatePathParams: {
-      team_id: teamId.toString(),
+      deployment_id: deploymentId.toString(),
     },
     successToast: "Backup canceled.",
   });

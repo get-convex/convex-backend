@@ -76,7 +76,9 @@ export function HealthWithInsights() {
   const deployment = useCurrentDeployment();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const backups = useListCloudBackups(team?.id || 0);
+  const backups = useListCloudBackups(
+    deployment?.kind === "cloud" ? deployment.id : 0,
+  );
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
 
@@ -85,9 +87,7 @@ export function HealthWithInsights() {
     if (!backups || !deployment || deployment.kind !== "cloud") {
       return undefined;
     }
-    const deploymentsBackups = backups.filter(
-      (b) => b.sourceDeploymentId === deployment.id && b.state === "complete",
-    );
+    const deploymentsBackups = backups.filter((b) => b.state === "complete");
     return deploymentsBackups.length > 0
       ? deploymentsBackups[0].requestedTime
       : null;

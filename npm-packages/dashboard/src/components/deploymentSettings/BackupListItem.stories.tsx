@@ -1,5 +1,4 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { TeamResponse } from "generatedApi";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { Sheet } from "@ui/Sheet";
 import { useAccessToken } from "hooks/useServerSideData";
@@ -42,16 +41,6 @@ const targetDeployment: PlatformDeploymentResponse = {
   reference: "production",
 };
 
-const team: TeamResponse = {
-  id: 1,
-  creator: 1,
-  slug: "team",
-  name: "Team",
-  suspended: false,
-  referralCode: "TEAM123",
-  referredBy: null,
-};
-
 const meta = {
   component: BackupListItem,
   args: {
@@ -64,7 +53,6 @@ const meta = {
       requestedTime: +oneWeekAgo,
     },
     targetDeployment,
-    team,
     canPerformActions: true,
     getZipExportUrl: () => "",
     maxCloudBackups: 2,

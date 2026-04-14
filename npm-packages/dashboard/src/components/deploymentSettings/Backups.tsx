@@ -114,7 +114,6 @@ export function Backups({
           <hr className="w-full" />
           <BackupNowButton
             deployment={deployment}
-            team={team}
             maxCloudBackups={maxCloudBackups}
             canPerformActions={canPerformActions}
           />
@@ -152,7 +151,7 @@ export function Backups({
                 </div>
               </Callout>
             )}
-          <BackupRestoreStatus deployment={deployment} team={team} />
+          <BackupRestoreStatus deployment={deployment} />
 
           <Sheet padding={false} className="min-h-72">
             <BackupList

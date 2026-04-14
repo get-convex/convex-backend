@@ -21,7 +21,7 @@ import { Checkbox } from "@ui/Checkbox";
 import { Menu, MenuItem } from "@ui/Menu";
 import { useEffect, useId, useRef, useState } from "react";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
+import { DeploymentResponse, ProjectDetails } from "generatedApi";
 import { useDeploymentByName } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
@@ -52,7 +52,6 @@ export function BackupListItem({
   someRestoreInProgress,
   latestBackupInTargetDeployment,
   targetDeployment,
-  team,
   canPerformActions,
   getZipExportUrl,
   maxCloudBackups,
@@ -64,7 +63,6 @@ export function BackupListItem({
   someRestoreInProgress: boolean;
   latestBackupInTargetDeployment: BackupResponse | null;
   targetDeployment: PlatformDeploymentResponse;
-  team: TeamResponse;
   canPerformActions: boolean;
   getZipExportUrl: (snapshotId: Id<"_exports">) => string;
   maxCloudBackups: number;
@@ -292,7 +290,6 @@ export function BackupListItem({
         >
           {modal === "suggestBackup" ? (
             <SuggestBackup
-              team={team}
               targetDeployment={targetDeployment}
               onClose={() => setModal(null)}
               onContinue={() => setModal("restoreConfirmation")}
@@ -315,7 +312,6 @@ export function BackupListItem({
         <DeleteOrCancelBackupModal
           action={modal}
           backup={backup}
-          team={team}
           onClose={() => setModal(null)}
         />
       )}
@@ -324,7 +320,6 @@ export function BackupListItem({
 }
 
 function SuggestBackup({
-  team,
   targetDeployment,
   onClose,
   onContinue,
@@ -332,7 +327,6 @@ function SuggestBackup({
   maxCloudBackups,
   canPerformActions,
 }: {
-  team: TeamResponse;
   targetDeployment: PlatformDeploymentResponse;
   onClose: () => void;
   onContinue: () => void;
@@ -354,7 +348,6 @@ function SuggestBackup({
       <div className="flex justify-end gap-2">
         <BackupNowButton
           deployment={targetDeployment}
-          team={team}
           maxCloudBackups={maxCloudBackups}
           canPerformActions={canPerformActions}
           onBackupRequested={onClose}
@@ -451,16 +444,14 @@ function RestoreConfirmation({
 function DeleteOrCancelBackupModal({
   action,
   backup,
-  team,
   onClose,
 }: {
   action: "delete" | "cancel";
   backup: BackupResponse;
-  team: TeamResponse;
   onClose: () => void;
 }) {
-  const doDelete = useDeleteCloudBackup(team.id, backup.id);
-  const doCancel = useCancelCloudBackup(team.id, backup.id);
+  const doDelete = useDeleteCloudBackup(backup.sourceDeploymentId, backup.id);
+  const doCancel = useCancelCloudBackup(backup.sourceDeploymentId, backup.id);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -694,30 +685,25 @@ function isInLastFiveMinutes(backup: BackupResponse): boolean {
 
 export function BackupNowButton({
   deployment,
-  team,
   maxCloudBackups,
   canPerformActions,
   onBackupRequested,
 }: {
   deployment: PlatformDeploymentResponse;
-  team: TeamResponse;
   maxCloudBackups: number;
   canPerformActions: boolean;
   onBackupRequested?: () => void;
 }) {
-  const backups = useListCloudBackups(team?.id);
+  const deploymentId = deployment.kind === "cloud" ? deployment.id : 0;
+  const backups = useListCloudBackups(deploymentId);
   const nonFailedBackupsForDeployment = backups?.filter(
     (backup) =>
-      backup.sourceDeploymentName === deployment.name &&
-      (backup.state === "requested" ||
-        backup.state === "inProgress" ||
-        backup.state === "complete"),
+      backup.state === "requested" ||
+      backup.state === "inProgress" ||
+      backup.state === "complete",
   );
 
-  const requestBackup = useRequestCloudBackup(
-    deployment.kind === "cloud" ? deployment.id : 0,
-    team.id,
-  );
+  const requestBackup = useRequestCloudBackup(deploymentId);
   const [isOngoing, setIsOngoing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [includeStorage, setIncludeStorage] = useState(false);

@@ -23,10 +23,12 @@ export function BackupList({
   canPerformActions: boolean;
   maxCloudBackups: number;
 }) {
-  const backups = useListCloudBackups(team?.id); // order: latest to oldest
-
   const [selectedDeployment, setSelectedDeployment] =
     useState(targetDeployment);
+
+  const backups = useListCloudBackups(
+    selectedDeployment.kind === "cloud" ? selectedDeployment.id : 0,
+  ); // order: latest to oldest
 
   const latestRestore = useLatestRestore();
   const requestor = latestRestore?.requestor;
@@ -58,10 +60,8 @@ export function BackupList({
         ) : (
           <BackupListForDeployment
             backups={backups}
-            selectedDeployment={selectedDeployment}
             targetDeployment={targetDeployment}
             restoringBackupId={restoringBackupId}
-            team={team}
             canPerformActions={canPerformActions}
             maxCloudBackups={maxCloudBackups}
           />
@@ -73,49 +73,41 @@ export function BackupList({
 
 function BackupListForDeployment({
   backups,
-  selectedDeployment,
   targetDeployment,
   restoringBackupId,
-  team,
   canPerformActions,
   maxCloudBackups,
 }: {
   backups: BackupResponse[];
-  selectedDeployment: PlatformDeploymentResponse;
   targetDeployment: PlatformDeploymentResponse;
   restoringBackupId: bigint | null;
-  team: TeamResponse;
   canPerformActions: boolean;
   maxCloudBackups: number;
 }) {
   const existingCloudBackup = useQuery(udfs.latestExport.latestCloudExport);
 
-  const selectedDeploymentBackups = backups.filter(
-    (b) =>
-      selectedDeployment.kind === "cloud" &&
-      b.sourceDeploymentId === selectedDeployment.id,
+  // Backups are already scoped to the selected deployment by the server.
+  // For target deployment stats, use a separate query (SWR deduplicates when
+  // selectedDeployment === targetDeployment, the common case).
+  const targetBackups = useListCloudBackups(
+    targetDeployment.kind === "cloud" ? targetDeployment.id : 0,
   );
 
   const latestBackupInTargetDeployment =
-    backups?.find(
-      (s) =>
-        targetDeployment.kind === "cloud" &&
-        s.sourceDeploymentId === targetDeployment.id,
-    ) ?? null;
+    (targetDeployment.kind === "cloud" && targetBackups?.[0]) || null;
 
-  const someBackupInProgress = backups.some(
-    (backup) =>
-      targetDeployment.kind === "cloud" &&
-      backup.sourceDeploymentId === targetDeployment.id &&
-      (backup.state === "requested" || backup.state === "inProgress"),
-  );
+  const someBackupInProgress =
+    targetDeployment.kind === "cloud" &&
+    (targetBackups ?? []).some(
+      (backup) => backup.state === "requested" || backup.state === "inProgress",
+    );
 
   const getZipExportUrl = useGetZipExport({
     format: "zip",
     include_storage: true,
   });
 
-  return selectedDeploymentBackups.length === 0 ? (
+  return backups.length === 0 ? (
     <EmptySection
       Icon={ArchiveIcon}
       header="No backups in this deployment."
@@ -128,7 +120,7 @@ function BackupListForDeployment({
     />
   ) : (
     <div className="flex flex-col divide-y px-4 py-2">
-      {selectedDeploymentBackups.map((backup) => (
+      {backups.map((backup) => (
         <BackupListItem
           key={backup.id}
           backup={backup}
@@ -137,7 +129,6 @@ function BackupListForDeployment({
           someRestoreInProgress={restoringBackupId !== null}
           latestBackupInTargetDeployment={latestBackupInTargetDeployment}
           targetDeployment={targetDeployment}
-          team={team}
           getZipExportUrl={getZipExportUrl}
           canPerformActions={canPerformActions}
           maxCloudBackups={maxCloudBackups}
