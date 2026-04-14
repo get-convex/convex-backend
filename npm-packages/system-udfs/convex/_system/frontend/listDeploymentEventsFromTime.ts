@@ -1,5 +1,5 @@
 import { Doc } from "../../_generated/dataModel";
-import { queryPrivateSystem } from "../secretSystemTables";
+import { queryPrivateSystem, requireOperation } from "../secretSystemTables";
 import { v } from "convex/values";
 import { clampForAuditLogRetention } from "./paginatedDeploymentEvents";
 
@@ -13,8 +13,7 @@ export default queryPrivateSystem({
     { db },
     { fromTimestamp },
   ): Promise<Doc<"_deployment_audit_log">[]> {
-    // TODO(scoped-deploy-keys): Re-enable
-    // requireOperation("ViewAuditLog");
+    requireOperation("ViewAuditLog");
     fromTimestamp = await clampForAuditLogRetention(db, fromTimestamp);
     return await db
       .query("_deployment_audit_log")
