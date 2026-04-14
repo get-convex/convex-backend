@@ -20,10 +20,7 @@ use ::metrics::{
 use async_trait::async_trait;
 use common::{
     auth::AuthConfig,
-    bootstrap_model::components::{
-        definition::ComponentDefinitionMetadata,
-        handles::FunctionHandle,
-    },
+    bootstrap_model::components::definition::ComponentDefinitionMetadata,
     codel_queue::{
         new_codel_queue_async,
         CoDelQueueReceiver,
@@ -31,11 +28,8 @@ use common::{
         ExpiredInQueue,
     },
     components::{
-        CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
-        ComponentId,
         ComponentName,
-        ComponentPath,
         Resource,
     },
     errors::{
@@ -113,10 +107,6 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    file_storage::{
-        types::FileStorageEntry,
-        FileStorageId,
-    },
     modules::module_versions::{
         AnalyzedModule,
         ModuleSource,
@@ -126,11 +116,7 @@ use model::{
 };
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
-use serde_json::Value as JsonValue;
-use sync_types::{
-    types::SerializedArgs,
-    CanonicalizedModulePath,
-};
+use sync_types::CanonicalizedModulePath;
 use tokio::sync::{
     mpsc,
     oneshot,
@@ -141,20 +127,15 @@ use udf::{
         ValidatedHttpPath,
         ValidatedPathAndArgs,
     },
+    ActionCallbacks,
     ActionOutcome,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
-    FunctionResult,
     HttpActionOutcome,
     HttpActionResponseStreamer,
     NestedUdfOutcome,
 };
-use usage_tracking::FunctionUsageStats;
-use value::{
-    id_v6::DeveloperDocumentId,
-    identifier::Identifier,
-};
-use vector::PublicVectorSearchQueryResult;
+use value::identifier::Identifier;
 
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
@@ -204,101 +185,6 @@ impl IsolateConfig {
         }
     }
 
-}
-
-#[async_trait]
-pub trait ActionCallbacks: Send + Sync {
-    // Executing UDFs
-    async fn execute_query(
-        &self,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: SerializedArgs,
-        context: ExecutionContext,
-    ) -> anyhow::Result<FunctionResult>;
-
-    async fn execute_mutation(
-        &self,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: SerializedArgs,
-        context: ExecutionContext,
-    ) -> anyhow::Result<FunctionResult>;
-
-    async fn execute_action(
-        &self,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: SerializedArgs,
-        context: ExecutionContext,
-    ) -> anyhow::Result<FunctionResult>;
-
-    // Storage
-    async fn storage_get_url(
-        &self,
-        identity: Identity,
-        component: ComponentId,
-        storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<String>>;
-
-    async fn storage_delete(
-        &self,
-        identity: Identity,
-        component: ComponentId,
-        storage_id: FileStorageId,
-    ) -> anyhow::Result<()>;
-
-    // Used to get a file content from an action running in v8.
-    async fn storage_get_file_entry(
-        &self,
-        identity: Identity,
-        component: ComponentId,
-        storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<(ComponentPath, FileStorageEntry)>>;
-
-    // Used to store an already uploaded file from an action running in v8.
-    async fn storage_store_file_entry(
-        &self,
-        identity: Identity,
-        component: ComponentId,
-        entry: FileStorageEntry,
-    ) -> anyhow::Result<(ComponentPath, DeveloperDocumentId)>;
-
-    // Scheduler
-    async fn schedule_job(
-        &self,
-        identity: Identity,
-        scheduling_component: ComponentId,
-        scheduled_path: CanonicalizedComponentFunctionPath,
-        udf_args: SerializedArgs,
-        scheduled_ts: UnixTimestamp,
-        context: ExecutionContext,
-    ) -> anyhow::Result<DeveloperDocumentId>;
-
-    async fn cancel_job(
-        &self,
-        identity: Identity,
-        virtual_id: DeveloperDocumentId,
-    ) -> anyhow::Result<()>;
-
-    // Vector Search
-    async fn vector_search(
-        &self,
-        identity: Identity,
-        query: JsonValue,
-    ) -> anyhow::Result<(Vec<PublicVectorSearchQueryResult>, FunctionUsageStats)>;
-
-    // Components
-    async fn lookup_function_handle(
-        &self,
-        identity: Identity,
-        handle: FunctionHandle,
-    ) -> anyhow::Result<CanonicalizedComponentFunctionPath>;
-    async fn create_function_handle(
-        &self,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-    ) -> anyhow::Result<FunctionHandle>;
 }
 
 pub struct UdfRequest<RT: Runtime> {

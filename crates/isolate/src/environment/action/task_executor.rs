@@ -40,7 +40,10 @@ use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
 use tokio::sync::mpsc;
-use udf::SyscallTrace;
+use udf::{
+    ActionCallbacks,
+    SyscallTrace,
+};
 use usage_tracking::FunctionUsageTracker;
 
 use crate::{
@@ -59,7 +62,6 @@ use crate::{
     },
     metrics::log_http_action_with_unknown_identity,
     module_cache::ModuleCache,
-    ActionCallbacks,
 };
 
 /// TaskExecutor is able to execute async syscalls and ops for actions.

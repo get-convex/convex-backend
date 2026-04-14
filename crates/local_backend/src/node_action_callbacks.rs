@@ -43,10 +43,7 @@ use common::{
 use errors::ErrorMetadata;
 use fastrace::future::FutureExt;
 use http::HeaderMap;
-use isolate::{
-    ActionCallbacks,
-    UdfArgsJson,
-};
+use isolate::UdfArgsJson;
 use keybroker::Identity;
 use serde::{
     Deserialize,
@@ -60,6 +57,7 @@ use sync_types::{
     AuthenticationToken,
     CanonicalizedUdfPath,
 };
+use udf::ActionCallbacks;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     export::ValueFormat,

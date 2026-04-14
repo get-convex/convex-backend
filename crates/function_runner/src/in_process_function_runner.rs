@@ -48,7 +48,6 @@ use futures::{
     FutureExt,
     StreamExt,
 };
-use isolate::ActionCallbacks;
 use keybroker::{
     FunctionRunnerKeyBroker,
     Identity,
@@ -74,6 +73,7 @@ use sync_types::{
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use udf::{
+    ActionCallbacks,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
     HttpActionResponseStreamer,

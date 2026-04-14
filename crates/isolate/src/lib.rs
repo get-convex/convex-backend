@@ -37,7 +37,6 @@ mod udf_runtime;
 
 pub use self::{
     client::{
-        ActionCallbacks,
         ActionRequest,
         ActionRequestParams,
         IsolateClient,

@@ -98,7 +98,6 @@ use futures::{
     future,
     FutureExt,
 };
-use isolate::ActionCallbacks;
 use keybroker::{
     Identity,
     KeyBroker,
@@ -173,6 +172,7 @@ use udf::{
         ValidatedUdfOutcome,
     },
     warnings::scheduled_arg_size_warning,
+    ActionCallbacks,
     ActionOutcome,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,

@@ -29,8 +29,6 @@ testing = [
     "model/testing",
     "must-let",
     "proptest",
-    "proptest-derive",
-    "proptest-http",
     "reqwest",
     "runtime/testing",
     "search/testing",
@@ -85,8 +83,6 @@ phf = { workspace = true }
 pkcs8 = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
-proptest-derive = { workspace = true, optional = true }
-proptest-http = { workspace = true, optional = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 regex = { workspace = true }
@@ -143,8 +139,6 @@ model = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
-proptest-derive = { workspace = true }
-proptest-http = { workspace = true }
 reqwest = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }

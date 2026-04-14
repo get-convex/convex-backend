@@ -1,6 +1,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(iterator_try_collect)]
 
+mod action_callbacks;
 mod action_outcome;
 mod client;
 pub mod environment;
@@ -15,6 +16,7 @@ pub mod validation;
 pub mod warnings;
 
 pub use crate::{
+    action_callbacks::ActionCallbacks,
     action_outcome::{
         ActionOutcome,
         HttpActionOutcome,

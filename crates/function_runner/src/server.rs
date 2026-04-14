@@ -55,7 +55,6 @@ use futures::FutureExt;
 use indexing::backend_in_memory_indexes::IndexReader;
 use isolate::{
     client::EnvironmentData,
-    ActionCallbacks,
     IsolateClient,
 };
 use keybroker::{
@@ -94,6 +93,7 @@ use udf::{
         ValidatedHttpPath,
         ValidatedPathAndArgs,
     },
+    ActionCallbacks,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
     HttpActionRequest as HttpActionRequestInner,

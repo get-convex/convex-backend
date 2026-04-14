@@ -39,7 +39,6 @@ use database::{
     TransactionReadSet,
     TransactionReadSize,
 };
-use isolate::ActionCallbacks;
 use keybroker::Identity;
 pub use metrics::record_module_sizes;
 use model::{
@@ -65,6 +64,7 @@ use sync_types::{
 };
 use tokio::sync::mpsc;
 use udf::{
+    ActionCallbacks,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
 };
