@@ -19,6 +19,7 @@
 #![feature(duration_constructors)]
 
 pub mod async_compat;
+pub mod audit_log_lines;
 pub mod auth;
 pub mod backoff;
 pub mod bootstrap_model;

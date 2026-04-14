@@ -662,6 +662,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             observed_rng,
             observed_time,
             syscall_trace,
+            audit_log_lines,
             log_lines,
             journal,
         } = outcome;
@@ -694,6 +695,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         // TODO(ENG-7663): restrict log lines within subfunctions instead of
         // limiting them only when they are returned to the parent.
         self.emit_sub_function_log_lines(path.for_logging(), log_lines);
+
+        for audit_log_line in audit_log_lines {
+            self.emit_audit_log_line(audit_log_line);
+        }
 
         // TODO: How do we want to propagate stack traces between component calls?
         let result = result?;

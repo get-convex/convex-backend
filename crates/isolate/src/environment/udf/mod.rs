@@ -1,5 +1,9 @@
 use astral_future::AstralBody;
 use common::{
+    audit_log_lines::{
+        AuditLogLine,
+        AuditLogLines,
+    },
     components::{
         CanonicalizedComponentFunctionPath,
         ResolvedComponentFunctionPath,
@@ -211,6 +215,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     persistence_version: PersistenceVersion,
     key_broker: FunctionRunnerKeyBroker,
     log_lines: LogLines,
+    audit_log_lines: AuditLogLines,
 
     /// Journal from a previous computation of this UDF used as an input to this
     /// UDF. If this is the first run, the journal will be blank.
@@ -405,6 +410,7 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
             observed_identity: nested_provider.phase.observed_identity(),
             observed_rng: nested_provider.phase.observed_rng(),
             observed_time: nested_provider.phase.observed_time(),
+            audit_log_lines: nested_provider.audit_log_lines,
             log_lines: nested_provider.log_lines,
             journal: nested_provider.next_journal,
             result: result?,
@@ -460,6 +466,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             persistence_version,
             key_broker,
             log_lines: vec![].into(),
+            audit_log_lines: vec![].into(),
             prev_journal: journal,
             next_journal: QueryJournal::new(),
 
@@ -560,6 +567,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             unix_timestamp,
             observed_time: this.phase.observed_time(),
             log_lines,
+            audit_log_lines: this.audit_log_lines,
             journal: this.next_journal,
             result: match result {
                 Ok(v) => Ok(JsonPackedValue::pack(v)),
@@ -945,6 +953,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         };
 
         Ok(result)
+    }
+
+    pub fn emit_audit_log_line(&mut self, audit_log_line: AuditLogLine) {
+        // TODO(ENG-10618): enforce size limits on audit logs
+        self.audit_log_lines.push(audit_log_line);
     }
 
     pub fn emit_log_line(&mut self, log_line: LogLine) {

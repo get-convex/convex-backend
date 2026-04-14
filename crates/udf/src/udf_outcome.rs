@@ -2,6 +2,10 @@ use std::time::Duration;
 
 use anyhow::Context;
 use common::{
+    audit_log_lines::{
+        AuditLogLine,
+        AuditLogLines,
+    },
     components::CanonicalizedComponentFunctionPath,
     errors::JsError,
     identity::InertIdentity,
@@ -50,6 +54,7 @@ pub struct UdfOutcome {
 
     pub log_lines: LogLines,
     pub journal: QueryJournal,
+    pub audit_log_lines: AuditLogLines,
 
     // QueryUdfOutcomes are stored in the Udf level cache, which is why we would like
     // them to have more compact representation.
@@ -81,6 +86,7 @@ pub struct NestedUdfOutcome {
     pub observed_rng: bool,
     pub observed_time: bool,
     pub log_lines: LogLines,
+    pub audit_log_lines: AuditLogLines,
     pub journal: QueryJournal,
     pub result: Result<ConvexValue, JsError>,
     pub syscall_trace: SyscallTrace,
@@ -100,6 +106,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             unix_timestamp,
             observed_time,
             log_lines,
+            audit_log_lines,
             journal,
             result,
             syscall_trace,
@@ -118,6 +125,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             unix_timestamp: Some(unix_timestamp.into()),
             observed_time: Some(observed_time),
             log_lines: log_lines.into_iter().map(|l| l.into()).collect(),
+            audit_log_lines: audit_log_lines.into_iter().map(|l| l.into()).collect(),
             journal: Some(journal.into()),
             result: Some(FunctionResultProto {
                 result: Some(result),
@@ -150,6 +158,7 @@ impl UdfOutcome {
             unix_timestamp: rt.unix_timestamp(),
             observed_time: false,
             log_lines: vec![].into(),
+            audit_log_lines: vec![].into(),
             journal: QueryJournal::new(),
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
@@ -167,6 +176,7 @@ impl UdfOutcome {
             unix_timestamp,
             observed_time,
             log_lines,
+            audit_log_lines,
             journal,
             result,
             syscall_trace,
@@ -192,6 +202,10 @@ impl UdfOutcome {
         };
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let log_lines = log_lines.into_iter().map(LogLine::try_from).try_collect()?;
+        let audit_log_lines = audit_log_lines
+            .into_iter()
+            .map(AuditLogLine::try_from)
+            .try_collect()?;
         Ok(Self {
             path: path.for_logging(),
             arguments,
@@ -203,6 +217,7 @@ impl UdfOutcome {
                 .try_into()?,
             observed_time: observed_time.unwrap_or_default(),
             log_lines,
+            audit_log_lines,
             journal: journal.context("Missing journal")?.try_into()?,
             result,
             syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,

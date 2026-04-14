@@ -977,6 +977,7 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
                     observed_rng: outcome.observed_rng,
                     observed_time: outcome.observed_time,
                     log_lines: outcome.log_lines,
+                    audit_log_lines: outcome.audit_log_lines,
                     journal: outcome.journal,
                     result: match outcome.result {
                         Ok(t) => Ok(t.unpack()?),
