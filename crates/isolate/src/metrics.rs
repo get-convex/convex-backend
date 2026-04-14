@@ -37,12 +37,6 @@ use prometheus::{
     VMHistogram,
     VMHistogramVec,
 };
-use udf::{
-    ActionOutcome,
-    FunctionOutcome,
-    HttpActionOutcome,
-    UdfOutcome,
-};
 
 use crate::IsolateHeapStats;
 
@@ -101,28 +95,6 @@ pub fn log_pool_allocated_count(name: &'static str, count: usize) {
         count as f64,
         vec![StaticMetricLabel::new("pool_name", name)],
     );
-}
-
-pub fn is_developer_ok(outcome: &FunctionOutcome) -> bool {
-    match &outcome {
-        FunctionOutcome::Query(UdfOutcome { result, .. }) => result.is_ok(),
-        FunctionOutcome::Mutation(UdfOutcome { result, .. }) => result.is_ok(),
-        FunctionOutcome::Action(ActionOutcome { result, .. }) => result.is_ok(),
-        FunctionOutcome::HttpAction(HttpActionOutcome { result, .. }) => match result {
-            // The developer might hit errors after beginning to stream the response that wouldn't
-            // be captured here
-            udf::HttpActionResult::Streamed => true,
-            udf::HttpActionResult::Error(_) => false,
-        },
-    }
-}
-
-pub fn finish_execute_timer(timer: StatusTimer, outcome: &FunctionOutcome) {
-    if is_developer_ok(outcome) {
-        timer.finish();
-    } else {
-        timer.finish_developer_error();
-    }
 }
 
 register_convex_counter!(UDF_EXECUTE_FULL_TOTAL, "UDF execution queue full count");

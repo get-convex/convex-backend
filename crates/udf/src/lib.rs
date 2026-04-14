@@ -7,7 +7,7 @@ pub mod environment;
 mod function_outcome;
 pub mod helpers;
 mod http_action;
-mod metrics;
+pub mod metrics;
 mod syscall_stats;
 mod syscall_trace;
 mod udf_outcome;

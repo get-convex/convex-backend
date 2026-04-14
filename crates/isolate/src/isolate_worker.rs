@@ -7,7 +7,10 @@ use deno_core::v8;
 use futures::FutureExt;
 use sync_types::CanonicalizedUdfPath;
 use tracing::Instrument;
-use udf::HttpActionResult;
+use udf::{
+    metrics::is_developer_ok,
+    HttpActionResult,
+};
 
 use crate::{
     client::{
@@ -31,7 +34,6 @@ use crate::{
     isolate::Isolate,
     metrics::{
         finish_service_request_timer,
-        is_developer_ok,
         record_component_function_path,
         service_request_timer,
         RequestStatus,
