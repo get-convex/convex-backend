@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
-import {
-  envSetInDeployment,
-  envRemoveInDeployment,
-  EnvVar,
-} from "../../env.js";
+import { deploymentEnvBackend, envSet, envRemove, EnvVar } from "../../env.js";
 import { runSystemQuery } from "../../run.js";
 import { getMcpDeploymentSelection } from "../requestContext.js";
 
@@ -149,7 +145,8 @@ export const EnvSetTool: ConvexTool<
       adminKey: credentials.adminKey,
       deploymentNotice: "",
     };
-    await envSetInDeployment(ctx, deploymentInfo, args.name, args.value);
+    const backend = deploymentEnvBackend(ctx, deploymentInfo);
+    await envSet(ctx, backend, args.name, args.value);
     return { success: true };
   },
 };
@@ -194,7 +191,8 @@ export const EnvRemoveTool: ConvexTool<
       adminKey: credentials.adminKey,
       deploymentNotice: "",
     };
-    await envRemoveInDeployment(ctx, deploymentInfo, args.name);
+    const backend = deploymentEnvBackend(ctx, deploymentInfo);
+    await envRemove(ctx, backend, args.name);
     return { success: true };
   },
 };

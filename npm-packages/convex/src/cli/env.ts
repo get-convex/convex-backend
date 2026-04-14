@@ -9,15 +9,16 @@ import {
 import { actionDescription } from "./lib/command.js";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import {
-  envGetInDeploymentAction,
-  envListInDeployment,
-  envRemoveInDeployment,
-  envSetInDeployment,
+  deploymentEnvBackend,
+  envGet,
+  envList,
+  envRemove,
+  envSet,
 } from "./lib/env.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { withRunningBackend } from "./lib/localDeployment/run.js";
 
-const envSet = new Command("set")
+const envSetCmd = new Command("set")
   // Pretend value is required
   .usage("[options] <name> <value>")
   .arguments("[name] [value]")
@@ -52,13 +53,8 @@ const envSet = new Command("set")
       ctx,
       deployment,
       action: async () => {
-        const didAnything = await envSetInDeployment(
-          ctx,
-          deployment,
-          name,
-          value,
-          cmdOptions,
-        );
+        const backend = deploymentEnvBackend(ctx, deployment);
+        const didAnything = await envSet(ctx, backend, name, value, cmdOptions);
         if (didAnything === false) {
           cmd.outputHelp({ error: true });
           return await ctx.crash({
@@ -109,7 +105,7 @@ async function selectEnvDeployment(
   return result;
 }
 
-const envGet = new Command("get")
+const envGetCmd = new Command("get")
   .arguments("<name>")
   .summary("Print a variable's value")
   .description("Print a variable's value: `npx convex env get NAME`")
@@ -123,12 +119,13 @@ const envGet = new Command("get")
       ctx,
       deployment,
       action: async () => {
-        await envGetInDeploymentAction(ctx, deployment, envVarName);
+        const backend = deploymentEnvBackend(ctx, deployment);
+        await envGet(ctx, backend, envVarName);
       },
     });
   });
 
-const envRemove = new Command("remove")
+const envRemoveCmd = new Command("remove")
   .alias("rm")
   .alias("unset")
   .arguments("<name>")
@@ -147,12 +144,13 @@ const envRemove = new Command("remove")
       ctx,
       deployment,
       action: async () => {
-        await envRemoveInDeployment(ctx, deployment, name);
+        const backend = deploymentEnvBackend(ctx, deployment);
+        await envRemove(ctx, backend, name);
       },
     });
   });
 
-const envList = new Command("list")
+const envListCmd = new Command("list")
   .summary("List all variables")
   .description("List all variables: `npx convex env list`")
   .configureHelp({ showGlobalOptions: true })
@@ -165,7 +163,8 @@ const envList = new Command("list")
       ctx,
       deployment,
       action: async () => {
-        await envListInDeployment(ctx, deployment);
+        const backend = deploymentEnvBackend(ctx, deployment);
+        await envList(ctx, backend);
       },
     });
   });
@@ -182,10 +181,10 @@ export const env = new Command("env")
       "  Print a variable's value: `npx convex env get NAME`\n\n" +
       "By default, this sets and views variables on your dev deployment.",
   )
-  .addCommand(envSet)
-  .addCommand(envGet)
-  .addCommand(envRemove)
-  .addCommand(envList)
+  .addCommand(envSetCmd)
+  .addCommand(envGetCmd)
+  .addCommand(envRemoveCmd)
+  .addCommand(envListCmd)
   .helpCommand(false)
   .addDeploymentSelectionOptions(
     actionDescription("Set and view environment variables on"),

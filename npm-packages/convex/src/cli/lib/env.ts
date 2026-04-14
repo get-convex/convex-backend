@@ -30,13 +30,67 @@ function formatList(items: string[]): string {
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
-export async function envSetInDeployment(
+export type EnvVarChange = {
+  name: string;
+  value: string | null; // null = delete
+};
+
+export type EnvVar = {
+  name: string;
+  value: string;
+};
+
+export interface EnvVarBackend {
+  get(name: string): Promise<EnvVar | null>;
+  list(): Promise<EnvVar[]>;
+  update(changes: EnvVarChange[]): Promise<void>;
+  notice: string;
+}
+
+export function deploymentEnvBackend(
   ctx: Context,
   deployment: {
     deploymentUrl: string;
     adminKey: string;
-    deploymentNotice: string;
+    deploymentNotice?: string;
   },
+): EnvVarBackend {
+  return {
+    async get(name) {
+      const envVar = (await runSystemQuery(ctx, {
+        ...deployment,
+        functionName: "_system/cli/queryEnvironmentVariables:get",
+        componentPath: undefined,
+        args: { name },
+      })) as EnvVar | null;
+      return envVar;
+    },
+    async list() {
+      return (await runSystemQuery(ctx, {
+        ...deployment,
+        functionName: "_system/cli/queryEnvironmentVariables",
+        componentPath: undefined,
+        args: {},
+      })) as EnvVar[];
+    },
+    async update(changes) {
+      const fetch = deploymentFetch(ctx, deployment);
+      try {
+        await fetch("/api/update_environment_variables", {
+          body: JSON.stringify({ changes }),
+          method: "POST",
+        });
+      } catch (e) {
+        return await logAndHandleFetchError(ctx, e);
+      }
+    },
+    notice: deployment.deploymentNotice ?? "",
+  };
+}
+
+export async function envSet(
+  ctx: Context,
+  backend: EnvVarBackend,
   originalName: string | undefined,
   originalValue: string | undefined,
   options?: {
@@ -61,11 +115,11 @@ export async function envSetInDeployment(
         message: `Enter value for ${name}:`,
       });
     }
-    await callUpdateEnvironmentVariables(ctx, deployment, [{ name, value }]);
+    await backend.update([{ name, value }]);
     if (options?.secret) {
       const formatted = /\s/.test(value) ? `"${value}"` : value;
       logFinishedStep(
-        `Successfully set ${chalkStderr.bold(name)} to ${chalkStderr.bold(formatted)}${deployment.deploymentNotice}`,
+        `Successfully set ${chalkStderr.bold(name)} to ${chalkStderr.bold(formatted)}${backend.notice}`,
       );
     } else {
       logFinishedStep(`Successfully set ${chalkStderr.bold(name)}`);
@@ -82,12 +136,51 @@ export async function envSetInDeployment(
   } else {
     return false;
   }
-  await envSetFromContentInDeployment(ctx, deployment, {
+  await envSetFromContent(ctx, backend, {
     content,
     source,
     force,
   });
   return true;
+}
+
+export async function envGet(
+  ctx: Context,
+  backend: EnvVarBackend,
+  name: string,
+) {
+  const envVar = await backend.get(name);
+  if (envVar === null) {
+    logFailure(`Environment variable "${name}" not found.`);
+    return;
+  }
+  logOutput(`${envVar.value}`);
+}
+
+export async function envRemove(
+  ctx: Context,
+  backend: EnvVarBackend,
+  name: string,
+) {
+  await backend.update([{ name, value: null }]);
+  logFinishedStep(
+    `Successfully unset ${chalkStderr.bold(name)}${backend.notice}`,
+  );
+}
+
+export async function envList(ctx: Context, backend: EnvVarBackend) {
+  const envs = await backend.list();
+  if (envs.length === 0) {
+    logMessage("No environment variables set.");
+    return;
+  }
+  for (const { name, value } of envs) {
+    const { formatted, warning } = formatEnvValueForDotfile(value);
+    if (warning) {
+      logMessage(`Warning (${name}): ${warning}`);
+    }
+    logOutput(`${name}=${formatted}`);
+  }
 }
 
 async function getFileContents(
@@ -116,13 +209,9 @@ async function getStdIn(ctx: Context): Promise<string> {
   }
 }
 
-async function envSetFromContentInDeployment(
+async function envSetFromContent(
   ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-    deploymentNotice: string;
-  },
+  backend: EnvVarBackend,
   options: {
     content: string;
     source: string;
@@ -169,7 +258,7 @@ async function envSetFromContentInDeployment(
   }
 
   // Fetch existing environment variables
-  const existingEnvVars = await getEnvVars(ctx, deployment);
+  const existingEnvVars = await backend.list();
 
   const existingEnvMap = new Map(
     existingEnvVars.map((env) => [env.name, env.value]),
@@ -215,7 +304,7 @@ async function envSetFromContentInDeployment(
   }));
 
   if (changes.length > 0) {
-    await callUpdateEnvironmentVariables(ctx, deployment, changes);
+    await backend.update(changes);
   }
 
   const newCount = newVars.length;
@@ -230,11 +319,11 @@ async function envSetFromContentInDeployment(
   const totalProcessed = newCount + updatedCount + unchangedCount;
   if (changes.length === 0) {
     logMessage(
-      `All ${totalProcessed} environment variable${totalProcessed === 1 ? "" : "s"} from ${chalkStderr.bold(source)} already set${deployment.deploymentNotice}`,
+      `All ${totalProcessed} environment variable${totalProcessed === 1 ? "" : "s"} from ${chalkStderr.bold(source)} already set${backend.notice}`,
     );
   } else {
     logFinishedStep(
-      `Successfully set ${changes.length} environment variable${changes.length === 1 ? "" : "s"} from ${chalkStderr.bold(source)} (${parts.join(", ")})${deployment.deploymentNotice}`,
+      `Successfully set ${changes.length} environment variable${changes.length === 1 ? "" : "s"} from ${chalkStderr.bold(source)} (${parts.join(", ")})${backend.notice}`,
     );
   }
 }
@@ -258,118 +347,4 @@ async function allowEqualsSyntax(
   }
   if (value === undefined) return null;
   return [name, value];
-}
-
-export async function envGetInDeploymentAction(
-  ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-  },
-  name: string,
-) {
-  const envVar = await envGetInDeployment(ctx, deployment, name);
-  if (envVar === null) {
-    logFailure(`Environment variable "${name}" not found.`);
-    return;
-  }
-  logOutput(`${envVar}`);
-}
-
-export async function envGetInDeployment(
-  ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-  },
-  name: string,
-): Promise<string | null> {
-  const envVar = (await runSystemQuery(ctx, {
-    ...deployment,
-    functionName: "_system/cli/queryEnvironmentVariables:get",
-    componentPath: undefined,
-    args: { name },
-  })) as EnvVar | null;
-  return envVar === null ? null : envVar.value;
-}
-
-export async function envRemoveInDeployment(
-  ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-    deploymentNotice: string;
-  },
-  name: string,
-) {
-  await callUpdateEnvironmentVariables(ctx, deployment, [{ name }]);
-  logFinishedStep(
-    `Successfully unset ${chalkStderr.bold(name)}${deployment.deploymentNotice}`,
-  );
-}
-
-async function getEnvVars(
-  ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-  },
-): Promise<EnvVar[]> {
-  return (await runSystemQuery(ctx, {
-    ...deployment,
-    functionName: "_system/cli/queryEnvironmentVariables",
-    componentPath: undefined,
-    args: {},
-  })) as EnvVar[];
-}
-
-export async function envListInDeployment(
-  ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-  },
-) {
-  const envs = await getEnvVars(ctx, deployment);
-  if (envs.length === 0) {
-    logMessage("No environment variables set.");
-    return;
-  }
-  for (const { name, value } of envs) {
-    const { formatted, warning } = formatEnvValueForDotfile(value);
-    if (warning) {
-      logMessage(`Warning (${name}): ${warning}`);
-    }
-    logOutput(`${name}=${formatted}`);
-  }
-}
-
-export type EnvVarChange = {
-  name: string;
-  value?: string;
-};
-
-export type EnvVar = {
-  name: string;
-  value: string;
-};
-
-export async function callUpdateEnvironmentVariables(
-  ctx: Context,
-  deployment: {
-    deploymentUrl: string;
-    adminKey: string;
-    deploymentNotice: string;
-  },
-  changes: EnvVarChange[],
-) {
-  const fetch = deploymentFetch(ctx, deployment);
-  try {
-    await fetch("/api/update_environment_variables", {
-      body: JSON.stringify({ changes }),
-      method: "POST",
-    });
-  } catch (e) {
-    return await logAndHandleFetchError(ctx, e);
-  }
 }
