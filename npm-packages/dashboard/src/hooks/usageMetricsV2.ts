@@ -18,9 +18,11 @@ const BY_PROJECT_QUERY_IDS_V2: {
   functionCallsByProjectAndClass: DatabricksQueryId;
   storageCallsByProjectAndClass: DatabricksQueryId;
   computeByProject: DatabricksQueryId;
+  computeByProjectSelfServe: DatabricksQueryId;
   fileStorageByProject: DatabricksQueryId;
   searchStorageByProject: DatabricksQueryId;
   dataEgressByProject: DatabricksQueryId;
+  dataEgressByProjectSelfServe: DatabricksQueryId;
   searchQueriesByProject: DatabricksQueryId;
 } = {
   databaseStorageByProjectAndClass: "489b0f87-6b3a-4dfe-a327-f2965b5c2977",
@@ -30,9 +32,11 @@ const BY_PROJECT_QUERY_IDS_V2: {
   functionCallsByProjectAndClass: "77a4e5bd-aa82-43e7-85a4-89897cecaa05",
   storageCallsByProjectAndClass: "90c9d3b3-d93e-4583-a054-dbb2f9dad5a3",
   computeByProject: "45921934-b4a2-4c91-9ba2-8987fba6e8e3",
+  computeByProjectSelfServe: "038e5492-6de5-4ddb-86b4-761e19b4d2ab",
   fileStorageByProject: "72add9df-4ef2-47fe-9942-194dfbb72088",
   searchStorageByProject: "87f2b0b2-024c-4c2a-bf81-8a3c0cab1b82",
   dataEgressByProject: "67ce838f-b2d0-4cda-9a2e-580c6d134466",
+  dataEgressByProjectSelfServe: "a7c39250-5ef0-41cc-bf12-64562f241379",
   searchQueriesByProject: "48ae8bb1-ec17-41db-9e35-7c774296c5ac",
 };
 
@@ -51,6 +55,7 @@ export type UsageSummaryRowV2 = {
   searchStorage: number;
   dataEgress: number;
   searchQueries: number;
+  actionComputeUser: number; // GB-hours — corrected non-node compute for business plans
 };
 
 export interface AggregatedFunctionMetricsV2 {
@@ -151,6 +156,7 @@ export function useUsageTeamSummaryV2(
         searchStorage,
         dataEgress,
         searchQueries,
+        actionComputeUser,
       ]) =>
         ({
           deploymentClass,
@@ -165,6 +171,7 @@ export function useUsageTeamSummaryV2(
           searchStorage: Number(searchStorage),
           dataEgress: Number(dataEgress),
           searchQueries: Number(searchQueries),
+          actionComputeUser: Number(actionComputeUser) / 60 / 60,
         }) satisfies UsageSummaryRowV2,
     ),
     error: undefined,
@@ -419,6 +426,42 @@ export function useComputePerDayByProjectV2(
   };
 }
 
+export function useComputePerDayByProjectSelfServeV2(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_V2.computeByProjectSelfServe,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([_teamId, projectId, ds, actionConvexGbS, actionNodeGbS]) => ({
+        ds,
+        projectId: parseProjectId(projectId),
+        metrics: [
+          {
+            tag: "actionConvex",
+            value: Number(actionConvexGbS) / 60 / 60,
+          },
+          { tag: "actionNode", value: Number(actionNodeGbS) / 60 / 60 },
+        ],
+      }),
+    ),
+    error: undefined,
+  };
+}
+
 export function useFunctionCallsPerDayByProjectAndClassV2(
   teamId: number,
   period: DateRange | null,
@@ -592,6 +635,57 @@ export function useDataEgressPerDayByProjectV2(
         metrics: [
           { tag: "fetchEgress", value: Number(fetchEgress) },
           { tag: "logStream", value: Number(logStreamEgress) },
+          { tag: "servingEgress", value: Number(servingEgress) },
+          { tag: "userFunctionEgress", value: Number(userFunctionEgress) },
+          {
+            tag: "backup",
+            value: Number(cloudBackup) + Number(snapshotExport),
+          },
+          {
+            tag: "restore",
+            value: Number(cloudRestore) + Number(snapshotImport),
+          },
+        ],
+      }),
+    ),
+    error: undefined,
+  };
+}
+
+export function useDataEgressPerDayByProjectSelfServeV2(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_V2.dataEgressByProjectSelfServe,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([
+        _teamId,
+        projectId,
+        ds,
+        servingEgress,
+        userFunctionEgress,
+        cloudRestore,
+        cloudBackup,
+        snapshotExport,
+        snapshotImport,
+      ]) => ({
+        ds,
+        projectId: parseProjectId(projectId),
+        metrics: [
           { tag: "servingEgress", value: Number(servingEgress) },
           { tag: "userFunctionEgress", value: Number(userFunctionEgress) },
           {

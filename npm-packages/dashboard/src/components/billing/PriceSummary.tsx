@@ -87,7 +87,7 @@ export function PriceSummary({
           .
         </p>
       )}
-      <Callout variant="instructions" className="mt-2 text-xs">
+      <Callout variant="instructions" className="mt-2 max-w-prose text-xs">
         <p>
           <span className="font-semibold">
             Included limits apply to US region only.
