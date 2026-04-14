@@ -1,10 +1,7 @@
-use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-        HashSet,
-    },
-    ops::Deref,
+use std::collections::{
+    BTreeMap,
+    BTreeSet,
+    HashSet,
 };
 
 use anyhow::Context;
@@ -174,11 +171,7 @@ impl TryFrom<QueryTerm> for TextQueryTerm {
             .context("Term was not a string")?
             .to_string();
         let text_query_term = if value.prefix {
-            TextQueryTerm::Fuzzy {
-                token: term,
-                max_distance: 0.try_into()?,
-                prefix: value.prefix,
-            }
+            TextQueryTerm::Prefix(term)
         } else {
             TextQueryTerm::Exact(term)
         };
@@ -614,78 +607,27 @@ pub enum TextQueryTerm {
     Exact(
         String,
     ),
-    Fuzzy {
-        token: String,
-        max_distance: FuzzyDistance,
-        prefix: bool,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FuzzyDistance {
-    Zero,
-    One,
-    Two,
-}
-
-impl TryFrom<u8> for FuzzyDistance {
-    type Error = anyhow::Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::Zero),
-            1 => Ok(Self::One),
-            2 => Ok(Self::Two),
-            _ => Err(anyhow::anyhow!("Invalid distance: {value}")),
-        }
-    }
-}
-
-impl From<FuzzyDistance> for u8 {
-    fn from(value: FuzzyDistance) -> Self {
-        *value
-    }
-}
-
-impl Deref for FuzzyDistance {
-    type Target = u8;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            FuzzyDistance::Zero => &0u8,
-            FuzzyDistance::One => &1u8,
-            FuzzyDistance::Two => &2u8,
-        }
-    }
+    Prefix(
+        String,
+    ),
 }
 
 impl TextQueryTerm {
-    /// Convert a term into the parameters necessary to perform a "fuzzy"
-    /// search.
-    ///
-    /// Since exact text search is equivalent to a non-prefixed fuzzy search
-    /// with a distance 0, we can hard code those values.
-    fn fuzzy_params(&self) -> (&String, u8, bool) {
+    fn token(&self) -> &str {
         match self {
-            Self::Fuzzy {
-                token,
-                max_distance,
-                prefix,
-            } => (token, **max_distance, *prefix),
-            Self::Exact(token) => (token, 0u8, false),
+            Self::Exact(token) | Self::Prefix(token) => token,
         }
+    }
+
+    fn is_prefix(&self) -> bool {
+        matches!(self, Self::Prefix(_))
     }
 }
 
 impl HeapSize for TextQueryTerm {
     fn heap_size(&self) -> usize {
         match self {
-            TextQueryTerm::Exact(token) => token.heap_size(),
-            TextQueryTerm::Fuzzy {
-                token,
-                max_distance,
-                prefix,
-            } => token.heap_size() + max_distance.heap_size() + prefix.heap_size(),
+            TextQueryTerm::Exact(token) | TextQueryTerm::Prefix(token) => token.heap_size(),
         }
     }
 }
@@ -796,19 +738,20 @@ impl<T: Clone + Ord> SearchTermTries<T> {
     fn extend(&mut self, value: T, queries: &WithHeapSize<Vec<TextQueryTermRead>>) {
         for text_query in queries {
             let path = &text_query.field_path;
-            let (token, max_distance, prefix) = text_query.term.fuzzy_params();
+            let token = text_query.term.token();
+            let prefix = text_query.term.is_prefix();
             let art = self
                 .terms
                 .entry(path.clone())
                 .or_insert_with(Tries::new)
                 .tries
-                .entry((prefix, max_distance))
+                .entry(prefix)
                 .or_insert_with(ART::new);
 
             if let Some(value_to_count) = art.get_mut(token) {
                 *value_to_count.entry(value.clone()).or_default() += 1
             } else {
-                art.insert(token.clone(), btreemap! { value.clone() => 1});
+                art.insert(token.to_string(), btreemap! { value.clone() => 1});
             }
         }
     }
@@ -816,7 +759,8 @@ impl<T: Clone + Ord> SearchTermTries<T> {
     fn remove(&mut self, value: T, queries: &WithHeapSize<Vec<TextQueryTermRead>>) {
         for text_query in queries {
             let path = &text_query.field_path;
-            let (token, max_distance, prefix) = text_query.term.fuzzy_params();
+            let token = text_query.term.token();
+            let prefix = text_query.term.is_prefix();
             let value = value.clone();
             let tries = self
                 .terms
@@ -824,11 +768,11 @@ impl<T: Clone + Ord> SearchTermTries<T> {
                 .unwrap_or_else(|| panic!("Missing tries for {path}"));
             let trie = tries
                 .tries
-                .get_mut(&(prefix, max_distance))
-                .unwrap_or_else(|| panic!("Missing trie for ({prefix}, {max_distance})"));
+                .get_mut(&prefix)
+                .unwrap_or_else(|| panic!("Missing trie for prefix={prefix}"));
             let value_to_count = trie
                 .get_mut(token)
-                .unwrap_or_else(|| panic!("Missing values for a token of length {}", token.len()));
+                .unwrap_or_else(|| panic!("Missing values for token of length {}", token.len()));
             let count = value_to_count
                 .entry(value.clone())
                 .and_modify(|count| {
@@ -852,7 +796,7 @@ impl<T: Clone + Ord> SearchTermTries<T> {
 struct Tries<T: Clone> {
     // TODO: Allow ART to store N values:
     // https://github.com/get-convex/convex/pull/20030/files#r1427222221
-    tries: BTreeMap<(bool, u8), ART<String, BTreeMap<T, usize>>>,
+    tries: BTreeMap<bool, ART<String, BTreeMap<T, usize>>>,
 }
 
 impl<T: Clone> Tries<T> {
@@ -865,7 +809,7 @@ impl<T: Clone> Tries<T> {
 
 impl<T: Clone + Ord> Tries<T> {
     fn matching_values(&self, tokens: &SearchValueTokens, result: &mut impl FnMut(T)) {
-        for ((prefix, _max_distance), trie) in self.tries.iter() {
+        for (prefix, trie) in self.tries.iter() {
             // Prefixing is handled by constructing prefix tokens in ValueTokens (see the
             // notes there), so we can get away with a symmetric search where the dfa's
             // prefix is always set to false.

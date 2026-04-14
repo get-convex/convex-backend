@@ -46,7 +46,6 @@ use search::{
     convex_en,
     query::{
         tokenize,
-        FuzzyDistance,
         TextQueryTerm,
     },
 };
@@ -76,14 +75,8 @@ fn path() -> String {
     )
 }
 
-fn prefix_and_max_distances() -> Vec<(bool, FuzzyDistance)> {
-    let mut result = vec![];
-    for prefix in vec![true, false] {
-        for distance in vec![FuzzyDistance::Zero, FuzzyDistance::One, FuzzyDistance::Two] {
-            result.push((prefix, distance));
-        }
-    }
-    result
+fn prefixes() -> Vec<bool> {
+    vec![true, false]
 }
 
 fn load_datasets(
@@ -172,20 +165,16 @@ fn index_name(tablet_id: TabletId) -> TabletIndexName {
     GenericIndexName::new(tablet_id, IndexDescriptor::new("index").unwrap()).unwrap()
 }
 
-fn create_subscription_token(
-    tablet_id: TabletId,
-    prefix: bool,
-    max_distance: FuzzyDistance,
-    token: String,
-) -> Token {
+fn create_subscription_token(tablet_id: TabletId, prefix: bool, token: String) -> Token {
+    let term = if prefix {
+        TextQueryTerm::Prefix(token)
+    } else {
+        TextQueryTerm::Exact(token)
+    };
     Token::text_search_token(
         index_name(tablet_id),
         FieldPath::from_str("body").unwrap(),
-        vec![TextQueryTerm::Fuzzy {
-            token,
-            prefix,
-            max_distance,
-        }],
+        vec![term],
     )
 }
 
@@ -193,7 +182,6 @@ fn create_tokens(
     tablet_id: TabletId,
     terms_by_frequency: &Vec<String>,
     prefix: bool,
-    max_distance: FuzzyDistance,
     count: usize,
 ) -> Vec<Token> {
     let total_unique_terms = terms_by_frequency.len();
@@ -206,7 +194,7 @@ fn create_tokens(
         .take(count)
         .map(|chunk| {
             let token = chunk.into_iter().next().unwrap();
-            create_subscription_token(tablet_id, prefix, max_distance, token.clone())
+            create_subscription_token(tablet_id, prefix, token.clone())
         })
         .collect::<Vec<_>>()
 }
@@ -215,11 +203,10 @@ fn create_subscriptions(
     tablet_id: TabletId,
     terms_by_frequency: &Vec<String>,
     prefix: bool,
-    max_distance: FuzzyDistance,
     count: usize,
 ) -> SubscriptionManager {
     let mut subscription_manager = SubscriptionManager::new_for_testing();
-    let tokens = create_tokens(tablet_id, terms_by_frequency, prefix, max_distance, count);
+    let tokens = create_tokens(tablet_id, terms_by_frequency, prefix, count);
     for token in tokens {
         // this drops the Subscription but in these tests we don't run the
         // worker that removes dropped subscriptions
@@ -237,14 +224,13 @@ fn bench_query(c: &mut Criterion) {
 
     let datasets = load_datasets(table_id, MAX_LOAD_SIZE).unwrap();
 
-    for (prefix, max_distance) in prefix_and_max_distances() {
+    for prefix in prefixes() {
         for (dataset, (data, terms_by_frequency)) in &datasets {
             let subscription_manager = rt.block_on(async {
                 create_subscriptions(
                     table_id.tablet_id,
                     terms_by_frequency,
                     prefix,
-                    max_distance,
                     TOTAL_SUBSCRIPTIONS,
                 )
             });
@@ -252,16 +238,9 @@ fn bench_query(c: &mut Criterion) {
             let mut group = c.benchmark_group("subscriptions");
 
             group.throughput(criterion::Throughput::Elements(data.len() as u64));
-            // Set the sample size higher when the cost isn't prohibitive.
-            group.sample_size(if !prefix && max_distance != FuzzyDistance::Two {
-                100
-            } else {
-                10
-            });
+            group.sample_size(if prefix { 10 } else { 100 });
             group.bench_with_input(
-                BenchmarkId::from_parameter(format!(
-                    "{TOTAL_SUBSCRIPTIONS}/{dataset}/{prefix}_{max_distance:?}"
-                )),
+                BenchmarkId::from_parameter(format!("{TOTAL_SUBSCRIPTIONS}/{dataset}/{prefix}")),
                 data,
                 |b, documents| {
                     b.to_async(&rt).iter(|| async {
