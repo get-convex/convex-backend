@@ -384,17 +384,16 @@ export function DeploymentSummary({
                 </Tooltip>
                 <div className="flex items-center gap-1">
                   {lastBackupTime === null ? (
-                    <>
+                    deployment.kind === "cloud" &&
+                    deployment.class.startsWith("d") ? (
+                      <span className="text-sm text-content-primary">
+                        Backup every 12 hours
+                      </span>
+                    ) : (
                       <span className="text-sm text-content-secondary">
                         No backup yet
                       </span>
-                      <Link
-                        href={backupSettingsUrl}
-                        aria-label="View backup settings"
-                      >
-                        <ExternalLinkIcon className="size-3.5" />
-                      </Link>
-                    </>
+                    )
                   ) : (
                     <>
                       <span className="text-sm text-content-primary">
@@ -404,14 +403,14 @@ export function DeploymentSummary({
                         date={new Date(lastBackupTime!)}
                         className="text-sm text-content-primary"
                       />
-                      <Link
-                        href={backupSettingsUrl}
-                        aria-label="View backup settings"
-                      >
-                        <ExternalLinkIcon className="size-3.5" />
-                      </Link>
                     </>
                   )}
+                  <Link
+                    href={backupSettingsUrl}
+                    aria-label="View backup settings"
+                  >
+                    <ExternalLinkIcon className="size-3.5" />
+                  </Link>
                 </div>
               </div>
             )}

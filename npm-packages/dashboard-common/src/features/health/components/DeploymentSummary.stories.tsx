@@ -111,6 +111,22 @@ const previewDeploymentWithExpiry: PlatformDeploymentResponse = {
   expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 3, // 3 days from now
 };
 
+const d1024Deployment: PlatformDeploymentResponse = {
+  id: 7,
+  name: "speedy-falcon-789",
+  deploymentType: "prod",
+  projectId: 1,
+  kind: "cloud",
+  class: "d1024",
+  region: "aws-us-east-1",
+  createTime: Date.now() - 1000 * 60 * 60 * 24 * 7, // 1 week ago
+  isDefault: true,
+  creator: null,
+  previewIdentifier: null,
+  reference: "production",
+  deploymentUrl: "https://speedy-falcon-789.convex.cloud",
+};
+
 const customDeployment: PlatformDeploymentResponse = {
   id: 5,
   name: "wandering-fish-513",
@@ -213,6 +229,13 @@ export const Preview: Story = {
 export const Custom: Story = {
   args: {
     deployment: customDeployment,
+  },
+};
+
+export const D1024Production: Story = {
+  args: {
+    deployment: d1024Deployment,
+    lastBackupTime: null,
   },
 };
 
