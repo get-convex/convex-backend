@@ -4,7 +4,6 @@
 use std::{
     collections::{
         BTreeMap,
-        BTreeSet,
         HashMap,
     },
     future::Future,
@@ -25,8 +24,8 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     document_index_keys::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
+        DatabaseIndexWrite,
+        TextIndexWrite,
     },
     errors::report_error,
     knobs::{
@@ -56,10 +55,14 @@ use futures::{
     FutureExt as _,
     StreamExt as _,
 };
+use imbl::Vector;
 use interval_map::IntervalMap;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
-use search::query::TextSearchSubscriptions;
+use search::query::{
+    TextSearchSubscription,
+    TextSearchSubscriptions,
+};
 use slab::Slab;
 use tokio::sync::{
     mpsc::{
@@ -69,7 +72,7 @@ use tokio::sync::{
     watch,
 };
 use value::{
-    ResolvedDocumentId,
+    heap_size::WithHeapSize,
     TabletId,
 };
 
@@ -464,6 +467,20 @@ impl SubscriptionManager {
         Ok(subscriber_id)
     }
 
+    pub fn interval_map(&self, index_name: &TabletIndexName) -> Option<&IntervalMap> {
+        self.subscriptions
+            .indexed
+            .get(index_name)
+            .map(|(_, interval_map)| interval_map)
+    }
+
+    pub fn text_subscription_for_index(
+        &self,
+        index_name: &TabletIndexName,
+    ) -> Option<&TextSearchSubscription> {
+        self.subscriptions.search.get(index_name)
+    }
+
     pub fn advance_log(&mut self, next_ts: Timestamp) -> anyhow::Result<()> {
         let _timer = metrics::subscriptions_update_timer();
         block_in_place(|| {
@@ -475,50 +492,52 @@ impl SubscriptionManager {
                 BTreeMap::new();
             {
                 let _timer = metrics::subscriptions_log_iterate_timer();
-                let mut log_len = 0;
-                let mut num_writes = 0;
-                self.log
-                    .for_each(from_ts, next_ts, |write_ts, writes, write_source| {
-                        let process_log_timer =
-                            metrics::subscription_process_write_log_entry_timer();
-                        log_len += 1;
-                        num_writes += writes.len();
-                        let mut tablet_ids = BTreeSet::new();
-                        let write_source_clone =
-                            write_source.is_udf().then(|| write_source.clone());
-                        for (resolved_id, document_change, _) in writes {
-                            let tablet_id = resolved_id.tablet_id;
-                            tablet_ids.insert(tablet_id);
-                            let mut notify = |subscriber_id| {
-                                // Always take the earliest matching write_ts
-                                to_notify.entry(subscriber_id).or_insert_with(|| {
-                                    (write_ts, write_source_clone.clone(), tablet_id)
-                                });
-                            };
-                            // We're applying a mutation to the document so if it already exists
-                            // we need to remove it before writing the new version.
-                            if let Some(ref old_document_keys) = document_change.old_document_keys {
-                                self.overlapping(resolved_id, old_document_keys, &mut notify);
-                            }
-                            // If we're doing anything other than deleting the document then
-                            // we'll also need to insert a new value.
-                            if let Some(ref new_document_keys) = document_change.new_document_keys {
-                                self.overlapping(resolved_id, new_document_keys, &mut notify);
-                            }
-                        }
-
-                        if process_log_timer.elapsed()
-                            > Duration::from_secs(*SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD)
-                        {
-                            tracing::info!(
-                                "[{next_ts}: advance_log] simple commit took {:?}, affected \
-                                 tables: {tablet_ids:?}",
-                                process_log_timer.elapsed()
+                let mut num_index_updates = 0;
+                self.log.for_each_index(
+                    from_ts,
+                    next_ts,
+                    &mut to_notify,
+                    &mut num_index_updates,
+                    |index_name, updates, to_notify, num_index_updates| {
+                        if let Some(interval_map) = self.interval_map(index_name) {
+                            Self::process_log_entry(
+                                to_notify,
+                                num_index_updates,
+                                index_name,
+                                next_ts,
+                                |notify, num_index_updates| {
+                                    Self::overlapping_database(
+                                        interval_map,
+                                        updates,
+                                        notify,
+                                        num_index_updates,
+                                    )
+                                },
                             );
                         }
-                    })?;
-                metrics::log_subscriptions_log_processed_commits(log_len);
-                metrics::log_subscriptions_log_processed_writes(num_writes);
+                    },
+                    |index_name, updates, to_notify, num_index_updates| {
+                        if let Some(text_subscription) =
+                            self.text_subscription_for_index(index_name)
+                        {
+                            Self::process_log_entry(
+                                to_notify,
+                                num_index_updates,
+                                index_name,
+                                next_ts,
+                                |notify, num_index_updates| {
+                                    self.overlapping_text(
+                                        text_subscription,
+                                        updates,
+                                        notify,
+                                        num_index_updates,
+                                    )
+                                },
+                            );
+                        }
+                    },
+                )?;
+                metrics::log_subscriptions_processed_index_updates(num_index_updates);
                 if _timer.elapsed()
                     > Duration::from_secs(*SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD)
                 {
@@ -530,14 +549,11 @@ impl SubscriptionManager {
                         .collect();
                     let total_subscribers: usize = subscribers_by_index.values().sum();
                     let search_len = self.subscriptions.search.filter_len();
-                    let fuzzy_len = self.subscriptions.search.fuzzy_len();
                     tracing::info!(
-                        "[{next_ts} advance_log] Duration {}ms, indexes: {}, search filters: {}, \
-                         fuzzy search: {}",
+                        "[{next_ts} advance_log] Duration {}ms, indexes: {}, search filters: {}",
                         _timer.elapsed().as_millis(),
                         self.subscriptions.indexed.len(),
                         search_len,
-                        fuzzy_len
                     );
                     tracing::info!(
                         "`[{next_ts} advance_log] Subscription map size: {total_subscribers}"
@@ -640,27 +656,102 @@ impl SubscriptionManager {
         })
     }
 
-    pub fn overlapping(
-        &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
-        notify: &mut impl FnMut(SubscriberId),
-    ) {
-        for (index, (_, range_map)) in &self.subscriptions.indexed {
-            if *index.table() == document_id.tablet_id {
-                let Some(DocumentIndexKeyValue::Standard(index_key)) =
-                    document_index_keys.get(index)
-                else {
-                    metrics::log_missing_index_key_subscriptions();
-                    continue;
-                };
-                range_map.query(index_key, &mut *notify);
+    pub fn overlapping_database<'a, I>(
+        interval_map: &IntervalMap,
+        ordered_index_updates: I,
+        notify: &mut (impl FnMut(SubscriberId, Timestamp, Option<WriteSource>) + ?Sized),
+        num_index_updates: &mut usize,
+    ) where
+        I: Iterator<
+            Item = (
+                &'a Timestamp,
+                &'a (WithHeapSize<Vector<DatabaseIndexWrite>>, WriteSource),
+            ),
+        >,
+    {
+        for (write_ts, (doc_updates, write_source)) in ordered_index_updates {
+            let mut notify_with_ts_and_write_source = |subscriber_id| {
+                let write_source_clone = write_source.is_udf().then(|| write_source.clone());
+                notify(subscriber_id, *write_ts, write_source_clone)
+            };
+            for index_update in doc_updates.iter() {
+                *num_index_updates += 1;
+                for index_key in index_update.update.iter() {
+                    interval_map.query(&index_key.0, &mut notify_with_ts_and_write_source);
+                }
             }
         }
+    }
 
-        self.subscriptions
-            .search
-            .add_matches(document_id, document_index_keys, notify);
+    pub fn overlapping_text<'a, I>(
+        &self,
+        subscription: &TextSearchSubscription,
+        ordered_index_updates: I,
+        notify: &mut (impl FnMut(SubscriberId, Timestamp, Option<WriteSource>) + ?Sized),
+        num_index_updates: &mut usize,
+    ) where
+        I: Iterator<
+            Item = (
+                &'a Timestamp,
+                &'a (WithHeapSize<Vector<TextIndexWrite>>, WriteSource),
+            ),
+        >,
+    {
+        for (write_ts, (doc_updates, write_source)) in ordered_index_updates {
+            let mut notify_with_ts_and_write_source = |subscriber_id| {
+                let write_source_clone = write_source.is_udf().then(|| write_source.clone());
+                notify(subscriber_id, *write_ts, write_source_clone)
+            };
+            for index_update in doc_updates.iter() {
+                *num_index_updates += 1;
+                for index_key in index_update.update.iter() {
+                    self.subscriptions.search.add_matches(
+                        subscription,
+                        index_key,
+                        &mut notify_with_ts_and_write_source,
+                    );
+                }
+            }
+        }
+    }
+
+    /// Shared logic for processing a single write log entry during
+    /// `advance_log`. Builds the notify closure, calls `overlap_fn` to find
+    /// overlapping subscriptions, and emits tracing if the entry was slow.
+    fn process_log_entry(
+        to_notify: &mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
+        num_index_updates: &mut usize,
+        index_name: &TabletIndexName,
+        next_ts: Timestamp,
+        overlap_fn: impl FnOnce(
+            &mut dyn FnMut(SubscriberId, Timestamp, Option<WriteSource>),
+            &mut usize,
+        ),
+    ) {
+        let process_log_timer = metrics::subscription_process_write_log_entry_timer();
+        let tablet_id = *index_name.table();
+        let mut notify = |subscriber_id, write_ts, write_source: Option<WriteSource>| {
+            // Always take the earliest matching write_ts.
+            // Since for_each iterates per-index (not per-ts),
+            // we cannot rely on insertion order.
+            to_notify
+                .entry(subscriber_id)
+                .and_modify(|e| {
+                    if write_ts < e.0 {
+                        *e = (write_ts, write_source.clone(), tablet_id);
+                    }
+                })
+                .or_insert_with(|| (write_ts, write_source.clone(), tablet_id));
+        };
+        overlap_fn(&mut notify, num_index_updates);
+        if process_log_timer.elapsed()
+            > Duration::from_secs(*SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD)
+        {
+            tracing::info!(
+                "[{next_ts}: advance_log] simple commit took {:?}, affected tablet: {tablet_id:?}",
+                process_log_timer.elapsed()
+            );
+        }
     }
 
     fn get_subscriber(&self, key: SubscriptionKey) -> Option<&Subscriber> {

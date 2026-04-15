@@ -810,9 +810,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let write_source = {
             let component_path = path.clone().debug_into_component_path();
             if path.is_system() {
-                WriteSource::SystemUdf(UdfIdentifier::Function(component_path))
+                WriteSource::SystemUdf(Arc::new(UdfIdentifier::Function(component_path)))
             } else {
-                WriteSource::Udf(UdfIdentifier::Function(component_path))
+                WriteSource::Udf(Arc::new(UdfIdentifier::Function(component_path)))
             }
         };
 

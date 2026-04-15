@@ -19,7 +19,12 @@ use std::{
 };
 
 use common::{
-    document_index_keys::DocumentIndexKeys,
+    document_index_keys::{
+        DatabaseIndexWrite,
+        DocumentIndexKeys,
+        IndexKeyUpdate,
+        TextIndexWrite,
+    },
     testing::TestIdGenerator,
     types::{
         GenericIndexName,
@@ -36,6 +41,7 @@ use criterion::{
 use database::{
     subscription::SubscriptionManager,
     Token,
+    WriteSource,
 };
 use humansize::{
     FormatSize,
@@ -50,8 +56,10 @@ use search::{
     },
 };
 use serde::Deserialize;
+use sync_types::Timestamp;
 use tokio::runtime::Runtime;
 use value::{
+    heap_size::WithHeapSize,
     ConvexString,
     DeveloperDocumentId,
     FieldPath,
@@ -131,10 +139,12 @@ fn load_datasets(
             let field_path = FieldPath::from_str("body")?;
             documents.push((
                 id,
-                DocumentIndexKeys::with_search_index_for_test(
+                DocumentIndexKeys::with_search_index_for_test_with_filters(
+                    id,
                     index_name(table_id.tablet_id),
                     field_path,
                     tokenize(ConvexString::try_from(d.text).unwrap()),
+                    BTreeMap::new(),
                 ),
             ));
         }
@@ -244,11 +254,55 @@ fn bench_query(c: &mut Criterion) {
                 data,
                 |b, documents| {
                     b.to_async(&rt).iter(|| async {
-                        for (doc_id, doc_index_keys) in documents {
+                        let dummy_ts = Timestamp::MIN;
+                        for (_doc_id, doc_index_keys) in documents {
                             let mut to_notify = BTreeSet::new();
-                            subscription_manager.overlapping(doc_id, doc_index_keys, &mut |id| {
-                                to_notify.insert(id);
-                            });
+                            for (idx_name, idx_key_update) in &doc_index_keys.0 {
+                                match &idx_key_update.update {
+                                    IndexKeyUpdate::Database(u) => {
+                                        let update = DatabaseIndexWrite {
+                                            document_id: idx_key_update.document_id,
+                                            update: u.clone(),
+                                            new_document: idx_key_update.new_document.clone(),
+                                        };
+                                        let write = (
+                                            WithHeapSize::from(imbl::vector![update]),
+                                            WriteSource::system("bench"),
+                                        );
+                                        let interval_map =
+                                            subscription_manager.interval_map(idx_name).unwrap();
+                                        SubscriptionManager::overlapping_database(
+                                            interval_map,
+                                            std::iter::once((&dummy_ts, &write)),
+                                            &mut |id, _ts, _ws| {
+                                                to_notify.insert(id);
+                                            },
+                                            &mut 0,
+                                        );
+                                    },
+                                    IndexKeyUpdate::Text(u) => {
+                                        let update = TextIndexWrite {
+                                            document_id: idx_key_update.document_id,
+                                            update: u.clone(),
+                                        };
+                                        let write = (
+                                            WithHeapSize::from(imbl::vector![update]),
+                                            WriteSource::system("bench"),
+                                        );
+                                        let text_subscription = subscription_manager
+                                            .text_subscription_for_index(idx_name)
+                                            .unwrap();
+                                        subscription_manager.overlapping_text(
+                                            text_subscription,
+                                            std::iter::once((&dummy_ts, &write)),
+                                            &mut |id, _ts, _ws| {
+                                                to_notify.insert(id);
+                                            },
+                                            &mut 0,
+                                        );
+                                    },
+                                }
+                            }
                         }
                     })
                 },

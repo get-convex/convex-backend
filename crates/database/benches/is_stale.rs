@@ -42,7 +42,6 @@ use criterion::{
 use database::{
     write_log::{
         new_write_log,
-        DocumentIndexKeysUpdate,
         LogWriter,
         WriteSource,
     },
@@ -97,23 +96,13 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
             26 + ((i * 7) % 75)
         };
 
-        let index_key = IndexKey::new(vec![val!(value as i64)], id.into());
+        let index_key = IndexKey::new(vec![val!(value as i64)], id.developer_id);
         let document_keys =
-            DocumentIndexKeys::with_standard_index_for_test(index_name.clone(), index_key);
-
-        let writes = vec![(
-            id,
-            DocumentIndexKeysUpdate {
-                id,
-                old_document_keys: None,
-                new_document_keys: Some(document_keys),
-            },
-            None,
-        )];
+            DocumentIndexKeys::with_standard_index_for_test(id, index_name.clone(), index_key);
 
         log_writer.append(
             Timestamp::must((1001 + i) as i32),
-            writes.into(),
+            document_keys.into(),
             WriteSource::system("bench"),
         );
     }
@@ -233,25 +222,16 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
         let text_words_unique: HashSet<CompactString> =
             text_words.into_iter().map(|a| a.into()).collect();
         let document_keys = DocumentIndexKeys::with_search_index_for_test_with_filters(
+            id,
             index_name.clone(),
             search_field,
             SearchValueTokens::from(text_words_unique),
             filter_values,
         );
 
-        let writes = vec![(
-            id,
-            DocumentIndexKeysUpdate {
-                id,
-                old_document_keys: None,
-                new_document_keys: Some(document_keys),
-            },
-            None,
-        )];
-
         log_writer.append(
             Timestamp::must((1001 + i) as i32),
-            writes.into(),
+            document_keys.into(),
             WriteSource::system("bench"),
         );
     }

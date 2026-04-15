@@ -12,8 +12,6 @@ use common::{
         PackedDocument,
     },
     document_index_keys::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
         SearchIndexKeyValue,
         SearchValueTokens,
     },
@@ -45,7 +43,6 @@ use value::{
     ConvexValue,
     FieldPath,
     InternalId,
-    ResolvedDocumentId,
 };
 
 use crate::{
@@ -692,7 +689,7 @@ impl HeapSize for QueryReads {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct SearchTermTries<T: Clone + Ord> {
     terms: BTreeMap<FieldPath, Tries<T>>,
 }
@@ -702,6 +699,10 @@ impl<T: Clone + Ord> SearchTermTries<T> {
         Self {
             terms: BTreeMap::new(),
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.terms.is_empty()
     }
 
     #[fastrace::trace]
@@ -906,96 +907,89 @@ impl QueryReads {
 }
 
 pub struct TextSearchSubscriptions {
-    fuzzy_searches: BTreeMap<TabletIndexName, SearchTermTries<SubscriberId>>,
+    subscriptions: BTreeMap<TabletIndexName, TextSearchSubscription>,
+}
+
+#[derive(Default)]
+pub struct TextSearchSubscription {
+    tries: SearchTermTries<SubscriberId>,
     // TODO: Filter conditions are inefficiently searched, especially in conjunction with text
     // searches. We should eventually optimize this simpler implementation as well.
-    filter_conditions: BTreeMap<TabletIndexName, BTreeMap<SubscriberId, Vec<FilterConditionRead>>>,
+    filter_conditions: BTreeMap<SubscriberId, Vec<FilterConditionRead>>,
+}
+
+impl TextSearchSubscription {
+    fn is_empty(&self) -> bool {
+        self.tries.is_empty() && self.filter_conditions.is_empty()
+    }
 }
 
 impl TextSearchSubscriptions {
     pub fn new() -> Self {
         Self {
-            fuzzy_searches: BTreeMap::new(),
-            filter_conditions: BTreeMap::new(),
+            subscriptions: BTreeMap::new(),
         }
+    }
+
+    pub fn get(&self, index_name: &TabletIndexName) -> Option<&TextSearchSubscription> {
+        self.subscriptions.get(index_name)
     }
 
     pub fn filter_len(&self) -> usize {
-        self.filter_conditions.values().map(|m| m.len()).sum()
-    }
-
-    pub fn fuzzy_len(&self) -> usize {
-        self.fuzzy_searches.len()
+        self.subscriptions
+            .values()
+            .map(|s| s.filter_conditions.len())
+            .sum()
     }
 
     pub fn insert(&mut self, id: SubscriberId, index: &TabletIndexName, reads: &QueryReads) {
-        self.filter_conditions
-            .entry(index.clone())
-            .or_default()
+        let subscription = self.subscriptions.entry(index.clone()).or_default();
+        subscription
+            .filter_conditions
             .entry(id)
             .or_default()
             .extend(reads.filter_conditions.to_vec());
-        self.fuzzy_searches
-            .entry(index.clone())
-            .or_insert_with(SearchTermTries::new)
-            .extend(id, &reads.text_queries)
+        subscription.tries.extend(id, &reads.text_queries);
     }
 
     pub fn remove(&mut self, id: SubscriberId, index: &TabletIndexName, reads: &QueryReads) {
-        let conditions = self
-            .filter_conditions
+        let subscription = self
+            .subscriptions
             .get_mut(index)
-            .unwrap_or_else(|| panic!("Missing condition index entry for {index}"));
-        assert!(conditions.remove(&id).is_some());
-        if conditions.is_empty() {
-            self.filter_conditions.remove(index);
+            .unwrap_or_else(|| panic!("Missing subscription for {index}"));
+        assert!(subscription.filter_conditions.remove(&id).is_some());
+        subscription.tries.remove(id, &reads.text_queries);
+        if subscription.is_empty() {
+            self.subscriptions.remove(index);
         }
-        let terms = self
-            .fuzzy_searches
-            .get_mut(index)
-            .unwrap_or_else(|| panic!("Missing fuzzy search index entry for {index}"));
-        terms.remove(id, &reads.text_queries);
     }
 
     pub fn add_matches(
         &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
+        subscription: &TextSearchSubscription,
+        index_key: &SearchIndexKeyValue,
         notify: &mut impl FnMut(SubscriberId),
     ) {
-        self.add_filter_conditions_matches(document_id, document_index_keys, notify);
-        self.add_fuzzy_matches(document_id, document_index_keys, notify);
+        self.add_filter_conditions_matches(&subscription.filter_conditions, index_key, notify);
+        self.add_fuzzy_matches(&subscription.tries, index_key, notify);
     }
 
     fn add_filter_conditions_matches(
         &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
+        filter_conditions_map: &BTreeMap<SubscriberId, Vec<FilterConditionRead>>,
+        index_key: &SearchIndexKeyValue,
         notify: &mut impl FnMut(SubscriberId),
     ) {
-        for (index, filter_conditions_map) in &self.filter_conditions {
-            if *index.table() != document_id.tablet_id {
-                continue;
-            }
+        for (subscriber_id, filter_conditions) in filter_conditions_map {
+            for FilterConditionRead::Must(field_path, filter_value) in filter_conditions {
+                let Some(document_value) = index_key.filter_values.get(field_path) else {
+                    metrics::log_missing_filter_value();
+                    continue;
+                };
 
-            let Some(DocumentIndexKeyValue::Search(SearchIndexKeyValue { filter_values, .. })) =
-                document_index_keys.get(index)
-            else {
-                metrics::log_missing_index_key();
-                continue;
-            };
-
-            for (subscriber_id, filter_conditions) in filter_conditions_map {
-                for FilterConditionRead::Must(field_path, filter_value) in filter_conditions {
-                    let Some(document_value) = filter_values.get(field_path) else {
-                        metrics::log_missing_filter_value();
-                        continue;
-                    };
-
-                    if document_value == filter_value {
-                        metrics::log_query_reads_outcome(true);
-                        notify(*subscriber_id);
-                    }
+                if document_value == filter_value {
+                    metrics::log_query_reads_outcome(true);
+                    notify(*subscriber_id);
                 }
             }
         }
@@ -1010,31 +1004,15 @@ impl TextSearchSubscriptions {
     /// tokens in the document.
     fn add_fuzzy_matches(
         &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
+        tries: &SearchTermTries<SubscriberId>,
+        index_key: &SearchIndexKeyValue,
         matches: &mut impl FnMut(SubscriberId),
     ) {
-        for (index, fuzzy_terms) in self
-            .fuzzy_searches
-            .iter()
-            .filter(|(index, _)| *index.table() == document_id.tablet_id)
+        if let Some(tokens) = &index_key.search_field_value
+            && let Some(tries) = tries.terms.get(&index_key.search_field)
         {
-            let Some(DocumentIndexKeyValue::Search(index_key_value)) =
-                document_index_keys.get(index)
-            else {
-                continue;
-            };
-
-            let Some(tokens) = &index_key_value.search_field_value else {
-                continue;
-            };
-
-            let Some(tries) = fuzzy_terms.terms.get(&index_key_value.search_field) else {
-                continue;
-            };
-
             tries.matching_values(tokens, matches);
-        }
+        };
     }
 }
 

@@ -13,10 +13,10 @@ use common::{
         PackedDocument,
     },
     document_index_keys::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
+        DatabaseIndexWrite,
+        IndexKeyUpdate,
+        TextIndexWrite,
     },
-    index::IndexKeyBytes,
     knobs::{
         WRITE_LOG_MAX_RETENTION_SECS,
         WRITE_LOG_MIN_RETENTION_SECS,
@@ -24,8 +24,9 @@ use common::{
     },
     runtime::block_in_place,
     types::{
-        IndexId,
         RepeatableTimestamp,
+        SubscriberId,
+        TabletIndexName,
         Timestamp,
         UdfIdentifier,
     },
@@ -36,21 +37,24 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::Future;
-use imbl::Vector;
+use imbl::{
+    ordmap::Entry,
+    OrdMap,
+    Vector,
+};
 use indexing::{
-    backend_in_memory_indexes::{
-        DatabaseIndexSnapshotCache,
-        TimestampedIndexCache,
-    },
+    backend_in_memory_indexes::TimestampedIndexCache,
     index_registry::IndexRegistry,
 };
-use itertools::Itertools;
 use parking_lot::Mutex;
 use search::query::tokenize;
 use tokio::sync::oneshot;
-use value::heap_size::{
-    HeapSize,
-    WithHeapSize,
+use value::{
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
+    TabletId,
 };
 
 use crate::{
@@ -60,6 +64,8 @@ use crate::{
     Snapshot,
     Token,
 };
+
+type OrderedDocumentWrites = Vec<(ResolvedDocumentId, PackedDocumentUpdate)>;
 
 #[derive(Clone)]
 pub struct PackedDocumentUpdate {
@@ -73,8 +79,6 @@ impl HeapSize for PackedDocumentUpdate {
         self.old_document.heap_size() + self.new_document.heap_size()
     }
 }
-
-type OrderedDocumentWrites = WithHeapSize<Vec<(ResolvedDocumentId, PackedDocumentUpdate)>>;
 
 impl PackedDocumentUpdate {
     pub fn pack(update: &impl DocumentUpdateRef) -> Self {
@@ -93,86 +97,83 @@ impl PackedDocumentUpdate {
         }
     }
 }
-
-pub type IterWrites<'a> = std::slice::Iter<
-    'a,
-    (
-        ResolvedDocumentId,
-        DocumentIndexKeysUpdate,
-        Option<PackedDocument>,
-    ),
->;
-
-#[derive(Clone)]
-pub struct DocumentIndexKeysUpdate {
-    pub id: ResolvedDocumentId,
-    pub old_document_keys: Option<DocumentIndexKeys>,
-    pub new_document_keys: Option<DocumentIndexKeys>,
+/// Indicates whether an index entry in the write log belongs to the
+/// `by_database_index` or `by_text_index` map.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IndexKind {
+    Database,
+    Text,
 }
 
-impl DocumentIndexKeysUpdate {
-    pub fn from_document_update(
-        full: &PackedDocumentUpdate,
-        index_registry: &IndexRegistry,
-    ) -> Self {
+/// The per-commit index-key writes, split by index kind so each map holds a
+/// homogeneous update type.
+pub struct OrderedIndexKeyWrites {
+    pub database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>>,
+    pub text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>>,
+}
+
+impl OrderedIndexKeyWrites {
+    pub fn empty() -> Self {
         Self {
-            id: full.id,
-            old_document_keys: full
-                .old_document
-                .as_ref()
-                .map(|old_doc| index_registry.document_index_keys(old_doc, tokenize)),
-            new_document_keys: full
-                .new_document
-                .as_ref()
-                .map(|new_doc| index_registry.document_index_keys(new_doc, tokenize)),
+            database: BTreeMap::new(),
+            text: BTreeMap::new(),
         }
     }
 }
 
-impl HeapSize for DocumentIndexKeysUpdate {
-    fn heap_size(&self) -> usize {
-        self.old_document_keys.heap_size() + self.new_document_keys.heap_size()
-    }
-}
-
-/// Optionally contains [`RefreshableTabletUpdate`] if the document is in system
-/// table whose query caches should be refreshable.
-type OrderedIndexKeyWrites = WithHeapSize<
-    Vec<(
-        ResolvedDocumentId,
-        DocumentIndexKeysUpdate,
-        Option<PackedDocument>,
-    )>,
->;
-
 /// Converts [OrderedDocumentWrites] (the log used in `PendingWrites` that
 /// contains full documents) to [OrderedIndexKeyWrites] (the log used
-/// in `WriteLog` that contains only index keys).
+/// in `WriteLog` that contains index keys too).
 pub fn index_keys_from_full_documents(
     ordered_writes: OrderedDocumentWrites,
     index_registry: &IndexRegistry,
 ) -> OrderedIndexKeyWrites {
-    WithHeapSize::from(
-        ordered_writes
+    let mut database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>> =
+        BTreeMap::new();
+    let mut text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>> = BTreeMap::new();
+    for (_id, update) in ordered_writes.into_iter() {
+        for (index_name, index_update) in index_registry
+            .document_index_keys(
+                update.id,
+                update.old_document,
+                update.new_document,
+                tokenize,
+            )
+            .0
             .into_iter()
-            .map(|(id, update)| {
-                (
-                    id,
-                    DocumentIndexKeysUpdate::from_document_update(&update, index_registry),
-                    update.new_document,
-                )
-            })
-            .collect_vec(),
-    )
+        {
+            match index_update.update {
+                IndexKeyUpdate::Database(u) => {
+                    database
+                        .entry(index_name)
+                        .or_default()
+                        .push_back(DatabaseIndexWrite {
+                            document_id: index_update.document_id,
+                            update: u,
+                            new_document: index_update.new_document,
+                        });
+                },
+                IndexKeyUpdate::Text(u) => {
+                    text.entry(index_name)
+                        .or_default()
+                        .push_back(TextIndexWrite {
+                            document_id: index_update.document_id,
+                            update: u,
+                        });
+                },
+            }
+        }
+    }
+    OrderedIndexKeyWrites { database, text }
 }
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum WriteSource {
     /// A user-defined function (mutation) that performed the write.
-    Udf(UdfIdentifier),
+    Udf(Arc<UdfIdentifier>),
     /// A system UDF (e.g. _system/ mutations) that performed the write.
     /// Separated from `Udf` so callers can choose whether to expose it.
-    SystemUdf(UdfIdentifier),
+    SystemUdf(Arc<UdfIdentifier>),
     /// An internal system operation (e.g. "system_table_cleanup").
     System(&'static str),
 }
@@ -198,7 +199,7 @@ impl WriteSource {
     pub fn display_name(&self) -> Option<String> {
         match self {
             Self::Udf(identifier) | Self::SystemUdf(identifier) => {
-                let (component, id) = identifier.clone().into_component_and_udf_path();
+                let (component, id) = (**identifier).clone().into_component_and_udf_path();
                 Some(match component {
                     Some(component) => format!("{component}/{id}"),
                     None => id,
@@ -232,7 +233,7 @@ impl From<&'static str> for WriteSource {
 impl HeapSize for WriteSource {
     fn heap_size(&self) -> usize {
         match self {
-            Self::Udf(_) | Self::SystemUdf(_) => std::mem::size_of::<UdfIdentifier>(),
+            Self::Udf(_) | Self::SystemUdf(_) => std::mem::size_of::<Arc<UdfIdentifier>>(),
             Self::System(_) => 0,
         }
     }
@@ -271,9 +272,29 @@ impl WriteLogManager {
     fn append(&mut self, ts: Timestamp, writes: OrderedIndexKeyWrites, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
-        self.log
-            .by_ts
-            .push_back(Arc::new((ts, writes, write_source)));
+        for (index, updates) in writes.database {
+            self.log.by_database_index.append(
+                index,
+                ts,
+                updates,
+                write_source.clone(),
+                IndexKind::Database,
+                &mut self.log.size,
+                &mut self.log.min_ts_to_index,
+            );
+        }
+        for (index, updates) in writes.text {
+            self.log.by_text_index.append(
+                index,
+                ts,
+                updates,
+                write_source.clone(),
+                IndexKind::Text,
+                &mut self.log.size,
+                &mut self.log.min_ts_to_index,
+            );
+        }
+        self.log.max_ts = ts;
 
         self.notify_waiters();
     }
@@ -300,29 +321,134 @@ impl WriteLogManager {
     }
 
     fn enforce_retention_policy(&mut self, current_ts: Timestamp) {
-        let max_ts = current_ts
+        let hard_limit_ts = current_ts
             .sub(*WRITE_LOG_MIN_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
-        let target_ts = current_ts
+        let soft_limit_ts = current_ts
             .sub(*WRITE_LOG_MAX_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
-        while let Some((ts, ..)) = self.log.by_ts.front().map(|entry| &**entry) {
-            let ts = *ts;
+        loop {
+            let Some((ts, indexes)) = self
+                .log
+                .min_ts_to_index
+                .get_min()
+                .map(|(ts, indexes)| (*ts, indexes.clone()))
+            else {
+                break;
+            };
 
-            // We never trim past max_ts, even if the size of the write log
-            // is larger.
-            if ts >= max_ts {
+            if ts >= hard_limit_ts {
                 break;
             }
 
-            // Trim the log based on both target_ts and size.
-            if ts >= target_ts && self.log.by_ts.heap_size() < *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
+            if ts >= soft_limit_ts && self.log.size < *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
                 break;
             }
 
             self.log.purged_ts = ts;
-            self.log.by_ts.pop_front();
+            self.log.min_ts_to_index.remove(&ts);
+
+            for (index, kind) in indexes {
+                match kind {
+                    IndexKind::Database => {
+                        self.log.by_database_index.remove_at_ts(
+                            &index,
+                            ts,
+                            IndexKind::Database,
+                            &mut self.log.size,
+                            &mut self.log.min_ts_to_index,
+                        );
+                    },
+                    IndexKind::Text => {
+                        self.log.by_text_index.remove_at_ts(
+                            &index,
+                            ts,
+                            IndexKind::Text,
+                            &mut self.log.size,
+                            &mut self.log.min_ts_to_index,
+                        );
+                    },
+                }
+            }
         }
+    }
+}
+
+/// A typed map from index name to timestamped update vectors.
+/// Shared structure for both database and search index maps in the write log.
+#[derive(Clone)]
+struct WritesByIndex<T: Clone>(
+    OrdMap<TabletIndexName, OrdMap<Timestamp, (WithHeapSize<Vector<T>>, WriteSource)>>,
+);
+
+impl<T: Clone + HeapSize> WritesByIndex<T> {
+    fn new() -> Self {
+        Self(OrdMap::new())
+    }
+
+    fn append(
+        &mut self,
+        index: TabletIndexName,
+        ts: Timestamp,
+        updates: WithHeapSize<Vector<T>>,
+        write_source: WriteSource,
+        kind: IndexKind,
+        by_index_size: &mut usize,
+        min_ts_to_index: &mut OrdMap<Timestamp, Vector<(TabletIndexName, IndexKind)>>,
+    ) {
+        *by_index_size += updates.heap_size();
+        match self.0.entry(index.clone()) {
+            Entry::Occupied(mut e) => {
+                e.get_mut().insert(ts, (updates, write_source));
+            },
+            Entry::Vacant(e) => {
+                let mut inner = OrdMap::new();
+                inner.insert(ts, (updates, write_source));
+                e.insert(inner);
+                min_ts_to_index
+                    .entry(ts)
+                    .or_default()
+                    .push_back((index, kind));
+            },
+        };
+    }
+
+    /// Remove the entry at `ts` for `index`. If the index has remaining
+    /// entries, re-register its new minimum timestamp.
+    fn remove_at_ts(
+        &mut self,
+        index: &TabletIndexName,
+        ts: Timestamp,
+        kind: IndexKind,
+        by_index_size: &mut usize,
+        min_ts_to_index: &mut OrdMap<Timestamp, Vector<(TabletIndexName, IndexKind)>>,
+    ) {
+        let Some(inner) = self.0.get_mut(index) else {
+            return;
+        };
+        if let Some((updates, _)) = inner.remove(&ts) {
+            *by_index_size = by_index_size.saturating_sub(updates.heap_size());
+        }
+        if let Some((new_min_ts, _)) = inner.get_min() {
+            let new_min_ts = *new_min_ts;
+            min_ts_to_index
+                .entry(new_min_ts)
+                .or_default()
+                .push_back((index.clone(), kind));
+        } else {
+            self.0.remove(index);
+        }
+    }
+
+    fn iter(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &TabletIndexName,
+            &OrdMap<Timestamp, (WithHeapSize<Vector<T>>, WriteSource)>,
+        ),
+    > {
+        self.0.iter()
     }
 }
 
@@ -331,49 +457,32 @@ impl WriteLogManager {
 /// they may trigger subscriptions.
 #[derive(Clone)]
 struct WriteLog {
-    by_ts: WithHeapSize<Vector<Arc<(Timestamp, OrderedIndexKeyWrites, WriteSource)>>>,
+    by_database_index: WritesByIndex<DatabaseIndexWrite>,
+    by_text_index: WritesByIndex<TextIndexWrite>,
+    size: usize,
+    /// Keeps track of the minimum timestamps and what indexes have entries in
+    /// the maps at those timestamps, used for fast purging. Each entry records
+    /// which map (`IndexKind`) the index belongs to so we can remove from the
+    /// right map.
+    min_ts_to_index: OrdMap<Timestamp, Vector<(TabletIndexName, IndexKind)>>,
+    max_ts: Timestamp,
     purged_ts: Timestamp,
 }
 
 impl WriteLog {
     fn new(initial_timestamp: Timestamp) -> Self {
         Self {
-            by_ts: WithHeapSize::default(),
+            by_database_index: WritesByIndex::new(),
+            by_text_index: WritesByIndex::new(),
+            size: 0,
+            min_ts_to_index: OrdMap::new(),
+            max_ts: initial_timestamp,
             purged_ts: initial_timestamp,
         }
     }
 
     fn max_ts(&self) -> Timestamp {
-        match self.by_ts.back() {
-            Some(entry) => entry.0,
-            None => self.purged_ts,
-        }
-    }
-
-    // Runtime: O((log n) + k) where n is total length of the write log and k is
-    // the number of elements in the returned iterator.
-    fn iter(
-        &self,
-        from: Timestamp,
-        to: Timestamp,
-    ) -> anyhow::Result<impl Iterator<Item = (&Timestamp, IterWrites<'_>, &WriteSource)> + '_> {
-        anyhow::ensure!(
-            from > self.purged_ts,
-            anyhow::anyhow!(
-                "Timestamp {from} is outside of write log retention window (minimum timestamp {})",
-                self.purged_ts
-            )
-            .context(ErrorMetadata::out_of_retention())
-        );
-        let start = match self.by_ts.binary_search_by_key(&from, |entry| entry.0) {
-            Ok(i) => i,
-            Err(i) => i,
-        };
-        let iter = self.by_ts.focus().narrow(start..).into_iter();
-        Ok(iter
-            .map(|entry| &**entry)
-            .take_while(move |(t, ..)| *t <= to)
-            .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source)))
+        self.max_ts
     }
 
     #[fastrace::trace]
@@ -384,8 +493,22 @@ impl WriteLog {
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
         block_in_place(|| {
-            let log_range = self.iter(reads_ts.succ()?, ts)?;
-            Ok(reads.writes_overlap_index_keys(log_range))
+            let from = reads_ts.succ()?;
+            anyhow::ensure!(
+                from > self.purged_ts,
+                anyhow::anyhow!(
+                    "Timestamp {reads_ts} is outside of write log retention window (minimum \
+                     timestamp {})",
+                    self.purged_ts
+                )
+                .context(ErrorMetadata::out_of_retention())
+            );
+            Ok(reads.writes_overlap_by_index(
+                &self.by_database_index.0,
+                &self.by_text_index.0,
+                from,
+                ts,
+            ))
         })
     }
 
@@ -498,14 +621,75 @@ impl LogReader {
         result
     }
 
-    pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
+    /// Iterates over all index write log entries in the range [from, to]
+    /// (inclusive), calling `f` for each database (index_name, updates) pair
+    /// and `g` for each text index (index_name, updates) pair.
+    ///
+    /// Entries are yielded per-index (not per-document or per-commit). The same
+    /// commit may produce entries across multiple index vectors.
+    pub fn for_each_index<F, G>(
+        &self,
+        from: Timestamp,
+        to: Timestamp,
+        to_notify: &mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
+        num_index_updates: &mut usize,
+        mut f: F,
+        mut g: G,
+    ) -> anyhow::Result<()>
     where
-        for<'a> F: FnMut(Timestamp, IterWrites<'a>, &WriteSource),
+        F: for<'a> FnMut(
+            &'a TabletIndexName,
+            Box<
+                dyn Iterator<
+                        Item = (
+                            &'a Timestamp,
+                            &'a (WithHeapSize<Vector<DatabaseIndexWrite>>, WriteSource),
+                        ),
+                    > + 'a,
+            >,
+            &'a mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
+            &'a mut usize,
+        ),
+        G: for<'a> FnMut(
+            &'a TabletIndexName,
+            Box<
+                dyn Iterator<
+                        Item = (
+                            &'a Timestamp,
+                            &'a (WithHeapSize<Vector<TextIndexWrite>>, WriteSource),
+                        ),
+                    > + 'a,
+            >,
+            &'a mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
+            &'a mut usize,
+        ),
     {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
-            for (ts, writes, write_source) in snapshot.iter(from, to)? {
-                f(*ts, writes, write_source);
+            anyhow::ensure!(
+                from > snapshot.purged_ts,
+                anyhow::anyhow!(
+                    "Timestamp {from} is outside of write log retention window (minimum timestamp \
+                     {})",
+                    snapshot.purged_ts
+                )
+                .context(ErrorMetadata::out_of_retention())
+            );
+            for (index_name, updates) in snapshot.by_database_index.iter() {
+                f(
+                    index_name,
+                    Box::new(updates.range(from..=to)),
+                    to_notify,
+                    num_index_updates,
+                );
+            }
+            for (index_name, updates) in snapshot.by_text_index.iter() {
+                g(
+                    index_name,
+                    Box::new(updates.range(from..=to)),
+                    to_notify,
+                    num_index_updates,
+                );
             }
             Ok(())
         })
@@ -537,66 +721,36 @@ impl LogReader {
         }
         if *begin_ts != *end_ts {
             let from = (*begin_ts).succ()?;
-            let result = self.for_each(from, *end_ts, |ts, writes, _write_source| {
-                for (_doc_id, index_keys_update, maybe_document) in writes {
-                    let old_keys = resolve_db_index_keys(
-                        index_registry,
-                        index_keys_update.old_document_keys.as_ref(),
-                        &cache,
-                    );
-                    let new_keys = resolve_db_index_keys(
-                        index_registry,
-                        index_keys_update.new_document_keys.as_ref(),
-                        &cache,
-                    );
-                    if !cache.apply_write(
-                        ts,
-                        old_keys.unwrap_or_default(),
-                        new_keys.unwrap_or_default(),
-                        maybe_document.clone(),
-                    ) {
-                        return;
+            let snapshot = { self.inner.lock().log.clone() };
+
+            if from <= snapshot.purged_ts {
+                return Ok(None);
+            }
+
+            block_in_place(|| {
+                'outer: for (index_name, writes) in snapshot.by_database_index.iter() {
+                    let Some(index) = index_registry.get_enabled(index_name) else {
+                        continue;
+                    };
+                    if !cache.is_index_tracked(&index.id()) {
+                        continue;
+                    }
+                    let is_by_id = index.metadata.name.is_by_id();
+                    let index_id = index.id();
+
+                    for (ts, (ts_writes, _)) in writes.range(from..=*end_ts) {
+                        for write in ts_writes.iter() {
+                            if !cache.apply_write(*ts, index_id, is_by_id, write) {
+                                break 'outer;
+                            }
+                        }
                     }
                 }
             });
-            match result {
-                Ok(()) => {},
-                Err(e) if e.is_out_of_retention() => return Ok(None),
-                Err(e) => return Err(e),
-            }
         }
 
         Ok(Some(TimestampedIndexCache { cache, ts: end_ts }))
     }
-}
-
-/// Only resolve keys for db indexes already tracked in the cache and in enabled
-/// indexes
-fn resolve_db_index_keys(
-    index_registry: &IndexRegistry,
-    doc_keys: Option<&DocumentIndexKeys>,
-    index_cache: &DatabaseIndexSnapshotCache,
-) -> Option<Vec<(IndexId, bool, IndexKeyBytes)>> {
-    doc_keys.map(|keys| {
-        keys.iter()
-            .filter_map(|(index_name, key_value)| {
-                if let DocumentIndexKeyValue::Standard(index_key) = key_value {
-                    index_registry
-                        .get_enabled(index_name)
-                        .filter(|index| index_cache.is_index_tracked(&index.id()))
-                        .map(|index| {
-                            (
-                                index.id(),
-                                index.metadata.name.is_by_id(),
-                                index_key.clone(),
-                            )
-                        })
-                } else {
-                    None
-                }
-            })
-            .collect()
-    })
 }
 
 /// LogWriter can append to the log.

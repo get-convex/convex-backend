@@ -5,6 +5,7 @@ use std::{
 
 use derive_more::Deref;
 use value::{
+    heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     ConvexValue,
     InternalId,
@@ -63,6 +64,12 @@ pub struct IndexKeyBytes(pub Vec<u8>);
 impl Borrow<[u8]> for IndexKeyBytes {
     fn borrow(&self) -> &[u8] {
         self
+    }
+}
+
+impl HeapSize for IndexKeyBytes {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
     }
 }
 

@@ -13,8 +13,8 @@ use common::{
         PackedDocument,
     },
     document_index_keys::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
+        DatabaseIndexWrite,
+        TextIndexWrite,
     },
     interval::{
         Interval,
@@ -34,6 +34,10 @@ use common::{
     virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
+use imbl::{
+    OrdMap,
+    Vector,
+};
 use search::QueryReads as SearchQueryReads;
 use usage_tracking::FunctionUsageTracker;
 use value::{
@@ -52,10 +56,8 @@ use crate::{
         ConflictingRead,
         ConflictingReadWithWriteSource,
     },
-    metrics,
     stack_traces::StackTrace,
     write_log::{
-        DocumentIndexKeysUpdate,
         PackedDocumentUpdate,
         WriteSource,
     },
@@ -183,68 +185,6 @@ impl ReadSet {
         None
     }
 
-    /// Determine whether a mutation to a document overlaps with the read set.
-    /// Similar to `overlaps_document` but takes the index keys instead of the
-    /// full document.
-    pub fn overlaps_index_keys(
-        &self,
-        id: ResolvedDocumentId,
-        index_keys: &DocumentIndexKeys,
-    ) -> Option<ConflictingRead> {
-        // Standard indexes
-        for (
-            index,
-            IndexReads {
-                intervals,
-                stack_traces,
-                ..
-            },
-        ) in iter_indexes_for_table(&self.indexed, id.tablet_id)
-        {
-            let Some(DocumentIndexKeyValue::Standard(index_key)) = index_keys.get(index) else {
-                metrics::log_missing_index_key_staleness();
-                continue;
-            };
-
-            if intervals.contains(index_key) {
-                let stack_traces = stack_traces.as_ref().map(|st| {
-                    st.iter()
-                        .filter_map(|(interval, trace)| {
-                            if interval.contains(index_key) {
-                                Some(trace.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect()
-                });
-                return Some(ConflictingRead {
-                    index: index.clone(),
-                    id,
-                    stack_traces,
-                });
-            }
-        }
-
-        // Search indexes
-        for (index, search_reads) in iter_indexes_for_table(&self.search, id.tablet_id) {
-            let Some(DocumentIndexKeyValue::Search(value)) = index_keys.get(index) else {
-                metrics::log_missing_search_index_key_staleness();
-                continue;
-            };
-
-            if search_reads.overlaps_search_index_key_value(value) {
-                return Some(ConflictingRead {
-                    index: index.clone(),
-                    id,
-                    stack_traces: None,
-                });
-            }
-        }
-
-        None
-    }
-
     /// writes_overlap_docs is the core logic for
     /// detecting whether a transaction or subscription intersects a commit.
     /// If a write transaction intersects, it will be retried to maintain
@@ -287,44 +227,85 @@ impl ReadSet {
         None
     }
 
-    /// Equivalent to `writes_overlap_docs` but does not need to read the full
-    /// docs
+    /// Check whether any writes in the given index maps in the timestamp
+    /// range `[from, to]` conflict with this read set. More efficient than
+    /// `writes_overlap_docs` because it looks up only indexes that were read.
     #[fastrace::trace]
-    pub fn writes_overlap_index_keys<'a>(
+    pub fn writes_overlap_by_index(
         &self,
-        updates: impl Iterator<
-            Item = (
-                &'a Timestamp,
-                impl Iterator<
-                    Item = &'a (
-                        ResolvedDocumentId,
-                        DocumentIndexKeysUpdate,
-                        Option<PackedDocument>,
-                    ),
-                >,
-                &'a WriteSource,
-            ),
+        by_database_index: &OrdMap<
+            TabletIndexName,
+            OrdMap<Timestamp, (WithHeapSize<Vector<DatabaseIndexWrite>>, WriteSource)>,
         >,
+        by_search_index: &OrdMap<
+            TabletIndexName,
+            OrdMap<Timestamp, (WithHeapSize<Vector<TextIndexWrite>>, WriteSource)>,
+        >,
+        from: Timestamp,
+        to: Timestamp,
     ) -> Option<ConflictingReadWithWriteSource> {
-        for (update_ts, updates, write_source) in updates {
-            for (id, update, _doc) in updates {
-                if let Some(ref document) = update.new_document_keys
-                    && let Some(conflicting_read) = self.overlaps_index_keys(*id, document)
-                {
-                    return Some(ConflictingReadWithWriteSource {
-                        read: conflicting_read,
-                        write_source: write_source.clone(),
-                        write_ts: *update_ts,
-                    });
+        // Check database index reads
+        for (
+            index,
+            IndexReads {
+                intervals,
+                stack_traces,
+                ..
+            },
+        ) in self.indexed.iter()
+        {
+            let Some(updates) = by_database_index.get(index) else {
+                continue;
+            };
+            for (ts, (doc_updates, write_source)) in updates.range(from..=to) {
+                for update in doc_updates.iter() {
+                    for index_key in update.update.iter() {
+                        if intervals.contains(index_key) {
+                            let stack_traces = stack_traces.as_ref().map(|st| {
+                                st.iter()
+                                    .filter_map(|(interval, trace)| {
+                                        if interval.contains(index_key) {
+                                            Some(trace.clone())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect()
+                            });
+                            return Some(ConflictingReadWithWriteSource {
+                                read: ConflictingRead {
+                                    index: index.clone(),
+                                    id: update.document_id,
+                                    stack_traces,
+                                },
+                                write_source: write_source.clone(),
+                                write_ts: *ts,
+                            });
+                        }
+                    }
                 }
-                if let Some(ref document) = update.old_document_keys
-                    && let Some(conflicting_read) = self.overlaps_index_keys(*id, document)
-                {
-                    return Some(ConflictingReadWithWriteSource {
-                        read: conflicting_read,
-                        write_source: write_source.clone(),
-                        write_ts: *update_ts,
-                    });
+            }
+        }
+        // Check search index reads
+        for (index, search_reads) in self.search.iter() {
+            let Some(updates) = by_search_index.get(index) else {
+                continue;
+            };
+            for (ts, (doc_updates, write_source)) in updates.range(from..=to) {
+                for update in doc_updates.iter() {
+                    for value in update.update.iter() {
+                        if search_reads.overlaps_search_index_key_value(value) {
+                            return Some(ConflictingReadWithWriteSource {
+                                read: ConflictingRead {
+                                    index: index.clone(),
+                                    id: update.document_id,
+                                    stack_traces: None,
+                                },
+                                write_source: write_source.clone(),
+                                write_ts: *ts,
+                            });
+                        }
+                    }
                 }
             }
         }

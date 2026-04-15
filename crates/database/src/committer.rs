@@ -106,7 +106,6 @@ use tokio::sync::{
 use tokio_util::task::AbortOnDropHandle;
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    heap_size::WithHeapSize,
     id_v6::DeveloperDocumentId,
     InternalDocumentId,
     TableMapping,
@@ -138,6 +137,7 @@ use crate::{
     write_log::{
         index_keys_from_full_documents,
         LogWriter,
+        OrderedIndexKeyWrites,
         PackedDocumentUpdate,
         PendingWriteHandle,
         PendingWrites,
@@ -667,7 +667,7 @@ impl<RT: Runtime> Committer<RT> {
         if snapshot_manager.bump_persisted_max_repeatable_ts(new_max_repeatable)? {
             self.log.append(
                 new_max_repeatable,
-                WithHeapSize::default(),
+                OrderedIndexKeyWrites::empty(),
                 "publish_max_repeatable_ts".into(),
             );
         }
@@ -847,7 +847,7 @@ impl<RT: Runtime> Committer<RT> {
         metrics::commit_rows(ordered_updates.len() as u64);
 
         let timer = metrics::pending_writes_to_write_log_timer();
-        // See the comment in `overlaps_index_keys` for why it’s safe
+        // See the comment in `writes_overlap_by_index` for why it’s safe
         // to use indexes from the current snapshot.
         let writes = index_keys_from_full_documents(ordered_updates, &new_snapshot.index_registry);
         drop(timer);

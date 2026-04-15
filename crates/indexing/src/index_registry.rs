@@ -28,10 +28,12 @@ use common::{
         ResolvedDocument,
     },
     document_index_keys::{
-        DocumentIndexKeyValue,
         DocumentIndexKeys,
+        IndexKeyUpdate,
+        IndexUpdate,
         SearchIndexKeyValue,
         SearchValueTokens,
+        Update,
     },
     index::{
         IndexKey,
@@ -232,78 +234,129 @@ impl IndexRegistry {
         updates.into_values().collect()
     }
 
+    fn index_keys_for_index<F>(
+        index: &Index,
+        old_doc: Option<&PackedDocument>,
+        new_doc: Option<&PackedDocument>,
+        search_tokenizer: &F,
+    ) -> Option<IndexKeyUpdate>
+    where
+        F: Fn(ConvexString) -> SearchValueTokens,
+    {
+        match &index.metadata.config {
+            IndexConfig::Database {
+                spec: DatabaseIndexSpec { fields },
+                ..
+            } => {
+                let old_key = old_doc.map(|doc| doc.index_key_bytes(&fields[..]));
+                let new_key = new_doc.map(|doc| doc.index_key_bytes(&fields[..]));
+                if old_key.is_some() || new_key.is_some() {
+                    Some(IndexKeyUpdate::Database(Update {
+                        old: old_key,
+                        new: new_key,
+                    }))
+                } else {
+                    None
+                }
+            },
+            IndexConfig::Text {
+                spec:
+                    TextIndexSpec {
+                        search_field,
+                        filter_fields,
+                    },
+                ..
+            } => {
+                let compute_search_key = |doc: &PackedDocument| {
+                    let filter_values = filter_fields
+                        .iter()
+                        .map(|field| {
+                            let value = doc.value().get_path(field);
+                            let bytes = SearchFilterValue::from_search_value(value.as_ref());
+                            (field.clone(), bytes)
+                        })
+                        .collect();
+                    let search_field_value = match doc.value().get_path(search_field) {
+                        Some(ConvexValue::String(string)) => Some(search_tokenizer(string)),
+                        _ => None,
+                    };
+                    SearchIndexKeyValue {
+                        filter_values,
+                        search_field: search_field.clone(),
+                        search_field_value,
+                    }
+                };
+                let old_key = old_doc.map(compute_search_key);
+                let new_key = new_doc.map(compute_search_key);
+                if old_key.is_some() || new_key.is_some() {
+                    Some(IndexKeyUpdate::Text(Update {
+                        old: old_key,
+                        new: new_key,
+                    }))
+                } else {
+                    None
+                }
+            },
+            IndexConfig::Vector { .. } => None,
+        }
+    }
+
     pub fn document_index_keys<F>(
         &self,
-        document: &PackedDocument,
+        id: ResolvedDocumentId,
+        old_document: Option<PackedDocument>,
+        new_document: Option<PackedDocument>,
         search_tokenizer: F,
     ) -> DocumentIndexKeys
     where
         F: Fn(ConvexString) -> SearchValueTokens,
     {
         let mut map: BTreeMap<_, _> = self
-            .indexes_by_table(document.id().tablet_id)
-            .flat_map(|index| {
-                let key = match &index.metadata.config {
-                    IndexConfig::Database {
-                        spec: DatabaseIndexSpec { fields },
-                        ..
-                    } => Some(DocumentIndexKeyValue::Standard(
-                        document.index_key_bytes(&fields[..]),
-                    )),
-                    IndexConfig::Text {
-                        spec:
-                            TextIndexSpec {
-                                search_field,
-                                filter_fields,
-                            },
-                        ..
-                    } => {
-                        let filter_values = filter_fields
-                            .iter()
-                            .map(|field| {
-                                let value = document.value().get_path(field);
-                                let bytes = SearchFilterValue::from_search_value(value.as_ref());
-                                (field.clone(), bytes)
-                            })
-                            .collect();
-
-                        let search_field_value = match document.value().get_path(search_field) {
-                            Some(ConvexValue::String(string)) => Some(search_tokenizer(string)),
-                            _ => None,
-                        };
-
-                        Some(DocumentIndexKeyValue::Search(SearchIndexKeyValue {
-                            filter_values,
-                            search_field: search_field.clone(),
-                            search_field_value,
-                        }))
+            .indexes_by_table(id.tablet_id)
+            .filter_map(|index| {
+                let update = Self::index_keys_for_index(
+                    index,
+                    old_document.as_ref(),
+                    new_document.as_ref(),
+                    &search_tokenizer,
+                )?;
+                Some((
+                    index.name(),
+                    IndexUpdate {
+                        document_id: id,
+                        update,
+                        new_document: new_document.clone(),
                     },
-                    IndexConfig::Vector { .. } => None,
-                };
-
-                key.map(|key| {
-                    let name = index.metadata().name.clone();
-                    (name, key)
-                })
+                ))
             })
             .collect();
-
-        // Add the _index.by_table_id pseudoindex.
-        if document.id().tablet_id == self.index_table {
+        if id.tablet_id == self.index_table {
             let index_name = GenericIndexName::new(
-                document.id().tablet_id,
+                id.tablet_id,
                 INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR.clone(),
             )
             .expect("invalid built-in index name");
 
-            let index_key_value = DocumentIndexKeyValue::Standard(
-                document.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)),
+            let old_key = old_document
+                .as_ref()
+                .map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
+            let new_key = new_document
+                .as_ref()
+                .map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
+
+            map.insert(
+                index_name,
+                IndexUpdate {
+                    document_id: id,
+                    update: IndexKeyUpdate::Database(Update {
+                        old: old_key,
+                        new: new_key,
+                    }),
+                    new_document,
+                },
             );
-
-            map.insert(index_name, index_key_value);
         }
-
-        DocumentIndexKeys::from(map)
+        DocumentIndexKeys(map)
     }
 
     // Verifies if an update is valid.

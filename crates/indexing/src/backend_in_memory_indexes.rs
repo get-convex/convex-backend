@@ -36,6 +36,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    document_index_keys::DatabaseIndexWrite,
     index::{
         IndexKey,
         IndexKeyBytes,
@@ -86,7 +87,6 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
-    InternalId,
     ResolvedDocumentId,
     TableMapping,
     TableName,
@@ -95,10 +95,7 @@ use value::{
 
 use crate::{
     index_cache::SharedIndexCache,
-    index_registry::{
-        IndexRegistry,
-        IndexedDocument,
-    },
+    index_registry::IndexRegistry,
     metrics::{
         index_page_timer,
         log_index_cache_cleared,
@@ -879,7 +876,10 @@ impl DatabaseIndexSnapshot {
                     .map(|(index, index_key)| {
                         (index.id(), index.metadata.name.is_by_id(), index_key)
                     });
-                self.cache.populate(index_keys, ts, doc.clone());
+                for (index_id, is_by_id, index_key) in index_keys {
+                    self.cache
+                        .populate(index_id, is_by_id, index_key, ts, doc.clone());
+                }
             }
             let (interval_read, _) = range_request
                 .interval
@@ -1103,35 +1103,31 @@ impl DatabaseIndexSnapshotCache {
     /// populate.
     fn populate(
         &mut self,
-        index_keys: impl IntoIterator<
-            Item = (
-                InternalId,
-                bool,
-                <PackedDocument as IndexedDocument>::IndexKey,
-            ),
-        >,
+        index_id: IndexId,
+        is_by_id: bool,
+        index_key_bytes: IndexKeyBytes,
         ts: Timestamp,
         doc: PackedDocument,
     ) -> bool {
         if self.cache_size > *MAX_TRANSACTION_CACHE_SIZE {
             return false;
         }
-        self.cache_size += doc.value().size();
-        for (index_id, is_by_id, index_key_bytes) in index_keys {
-            let _s = static_span!();
-            // Allow cache to exceed max size by one document, so we can detect that
-            // the cache has maxed out.
-            let interval = Interval::prefix(index_key_bytes.clone().into());
-            let index_docs = self
-                .documents
-                .entry(index_id)
-                .or_insert_with(|| IndexDocuments {
-                    total_size: if is_by_id { Some(0) } else { None },
-                    ..Default::default()
-                });
-            index_docs.insert(index_key_bytes, ts, doc.clone());
-            index_docs.interval_set.add(interval);
+        if is_by_id {
+            self.cache_size += doc.value().size();
         }
+        let _s = static_span!();
+        // Allow cache to exceed max size by one document, so we can detect that
+        // the cache has maxed out.
+        let interval = Interval::prefix(index_key_bytes.clone().into());
+        let index_docs = self
+            .documents
+            .entry(index_id)
+            .or_insert_with(|| IndexDocuments {
+                total_size: if is_by_id { Some(0) } else { None },
+                ..Default::default()
+            });
+        index_docs.insert(index_key_bytes, ts, doc.clone());
+        index_docs.interval_set.add(interval);
         true
     }
 
@@ -1214,32 +1210,29 @@ impl DatabaseIndexSnapshotCache {
     pub fn apply_write(
         &mut self,
         ts: Timestamp,
-        old_index_keys: Vec<(IndexId, bool, IndexKeyBytes)>,
-        new_index_keys: Vec<(IndexId, bool, IndexKeyBytes)>,
-        new_document: Option<PackedDocument>,
+        index_id: IndexId,
+        is_by_id: bool,
+        write: &DatabaseIndexWrite,
     ) -> bool {
-        // Remove old entries from cache.
-        for (index_id, is_by_id, index_key) in old_index_keys {
-            if let Some(index_docs) = self.documents.get_mut(&index_id)
-                && let Some((_, old_doc)) = index_docs.remove(&index_key)
-                && is_by_id
-            {
-                self.cache_size = self.cache_size.saturating_sub(old_doc.value().size());
-            }
+        // Remove old entry from cache.
+        if let Some(old_key) = write.update.old.as_ref()
+            && let Some(index_docs) = self.documents.get_mut(&index_id)
+            && let Some((_, old_doc)) = index_docs.remove(old_key)
+            && is_by_id
+        {
+            self.cache_size = self.cache_size.saturating_sub(old_doc.value().size());
         }
-        // Insert new entries if not a delete, but only for indexes where the
+        // Insert new entry if not a delete, but only for indexes where the
         // key falls within the range the cache is already tracking.
-        if let Some(doc) = new_document {
-            let tracked_keys: Vec<_> = new_index_keys
-                .into_iter()
-                .filter(|(index_id, _, key)| {
-                    self.documents
-                        .get(index_id)
-                        .is_some_and(|index_docs| index_docs.interval_set.contains(key))
-                })
-                .collect();
+        if let Some(doc) = write.new_document.clone()
+            && let Some(new_key) = write.update.new.clone()
+            && self
+                .documents
+                .get(&index_id)
+                .is_some_and(|index_docs| index_docs.interval_set.contains(&new_key))
+        {
             // If the cache is too big, empty the cache
-            if !tracked_keys.is_empty() && !self.populate(tracked_keys, ts, doc) {
+            if !self.populate(index_id, is_by_id, new_key, ts, doc) {
                 log_index_cache_cleared();
                 *self = Self::new();
                 return false;
