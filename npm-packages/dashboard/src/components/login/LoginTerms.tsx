@@ -12,9 +12,9 @@ const OPT_IN_MESSAGES: Record<
   { text: string; linkText: string; linkUrl: string }
 > = {
   tos: {
-    text: "I’ve read and accept the terms and conditions of the",
-    linkText: "Master Subscription Agreement",
-    linkUrl: "https://www.convex.dev/legal/msa",
+    text: "I’ve read and accept the",
+    linkText: "Terms of Service",
+    linkUrl: "https://www.convex.dev/legal/tos",
   },
 };
 type OptInName = keyof typeof OPT_IN_MESSAGES;
