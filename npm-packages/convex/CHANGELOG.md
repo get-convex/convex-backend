@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Added `ctx.meta` to access extra metadata at runtime:
+  - `ctx.meta.getFunctionMetadata()`: the current function's name, component,
+    visibility and whether it's a query, mutation, or action.
+  - `ctx.meta.getTransactionMetrics()`: how much capacity remains in the current
+    transaction. Only available in queries and mutations.
+
 ## 1.35.1
 
 - Adds support for automatic preview deployments on Cloudflare Pages
@@ -13,38 +21,35 @@
   - `npx convex deployment select dev`: switch to your cloud dev deployment.
   - `npx convex deployment select local`: switch back to your local deployment.
   - To run a single command on your local deployment, use `--deployment local`.
-- `npx convex deployment create` now has a `--expiration` flag allowing you
-  to create temporary dpeloyments.
-- Components can now define HTTP routes in their own `http.ts` file.
-  The routes exposed by a component are accessible through a URL prefix
-  that isolates them from the other HTTP routes
-  (e.g. `app.use(component, { httpPrefix: "/foo" })`).
-- `npx convex dev` now supports a new `--start` flag that runs a command
-  in parallel with the Convex dev server (e.g. `npx convex dev --start 'vite'`).
+- `npx convex deployment create` now has a `--expiration` flag allowing you to
+  create temporary dpeloyments.
+- Components can now define HTTP routes in their own `http.ts` file. The routes
+  exposed by a component are accessible through a URL prefix that isolates them
+  from the other HTTP routes (e.g.
+  `app.use(component, { httpPrefix: "/foo" })`).
+- `npx convex dev` now supports a new `--start` flag that runs a command in
+  parallel with the Convex dev server (e.g. `npx convex dev --start 'vite'`).
   This new option can be used to simplify the `dev` command of most projects.
-  This flag was previously called `--run-sh`, and used to not allow
-  long-running commands; now, `--run-sh` is an alias of `--start`.
+  This flag was previously called `--run-sh`, and used to not allow long-running
+  commands; now, `--run-sh` is an alias of `--start`.
 - Defaults non-interactive commands to target an anonymous deployment if one is
   not configured or specified by the deploy key. This enables coding agents to
-  more easily develop without needing the CONVEX_AGENT_MODE env variable.
-  By default, the CLI will avoid prompting in non-interactive terminals when
+  more easily develop without needing the CONVEX_AGENT_MODE env variable. By
+  default, the CLI will avoid prompting in non-interactive terminals when
   possible.
 - You can now develop against your anonymous local deployments even when logged
   in. You will be prompted to link the deployment to a project if the terminal
   is interactive.
 - Enables `npx convex deployment create` when you don't yet have a project.
-- You can now customize the list of AI agents `npx convex ai-files` installs
-  skills for in the `aiFiles.skills.agents` field of `convex.json`
-  (defaults to ["claude-code", "codex"]).
 - Improved formatting of sizes in error messages.
 - Changes the default codegen to use the component's `ComponentApi` type instead
-  of static code generation for components in `_generated/api.d.ts`.
-  To get the old behavior, set `{ "codegen": { "legacyComponentApi": true } }`
-  in `convex.json`.
-- Fixed a bug where `npx convex dev` would not use the correct deployment
-  after running `npx convex deployment select`.
-- Improved the definition of the `AnyDataModel` type to support using
-  default indexes (`by_id`, `by_creation_time`) in a typesafe way.
+  of static code generation for components in `_generated/api.d.ts`. To get the
+  old behavior, set `{ "codegen": { "legacyComponentApi": true } }` in
+  `convex.json`.
+- Fixed a bug where `npx convex dev` would not use the correct deployment after
+  running `npx convex deployment select`.
+- Improved the definition of the `AnyDataModel` type to support using default
+  indexes (`by_id`, `by_creation_time`) in a typesafe way.
 
 ## 1.34.1
 
