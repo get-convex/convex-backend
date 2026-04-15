@@ -25,6 +25,7 @@ derive_more = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
+futures-async-stream = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
 metrics = { workspace = true }

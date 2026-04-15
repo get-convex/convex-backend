@@ -79,6 +79,7 @@ use futures::{
     StreamExt as _,
     TryStreamExt,
 };
+use futures_async_stream::try_stream;
 use imbl::{
     OrdMap,
     OrdSet,
@@ -195,6 +196,30 @@ impl IndexReader for PersistenceSnapshot {
 
     fn timestamp(&self) -> RepeatableTimestamp {
         PersistenceSnapshot::timestamp(self)
+    }
+}
+
+impl dyn IndexReader {
+    /// Convenience wrapper around calling `index_page` repeatedly to scan an
+    /// entire interval.
+    #[try_stream(ok = IndexEntry, error = anyhow::Error)]
+    pub async fn index_scan<'a>(
+        &'a self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        mut interval: Interval,
+        order: Order,
+        page_size: usize,
+    ) {
+        while !interval.is_empty() {
+            let page = self
+                .index_page(index_id, tablet_id, &interval, order, page_size)
+                .await?;
+            for entry in page.entries {
+                yield entry;
+            }
+            (_, interval) = interval.split(page.cursor, order);
+        }
     }
 }
 

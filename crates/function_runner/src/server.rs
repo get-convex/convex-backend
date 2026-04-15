@@ -27,6 +27,7 @@ use common::{
     persistence::{
         NoopRetentionValidator,
         PersistenceReader,
+        RepeatablePersistence,
         RetentionValidator,
     },
     query_journal::QueryJournal,
@@ -323,19 +324,28 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         FunctionUsageStats,
     )> {
         let usage_tracker = FunctionUsageTracker::new();
-        let retention_validator: Arc<dyn RetentionValidator> = match udf_type {
-            // Since queries and mutations are ready only, we can check the retention
-            // in at end in `validate_function_runner_result`.
-            UdfType::Query | UdfType::Mutation => Arc::new(NoopRetentionValidator {}),
-            // For actions, we have to do it inline since they have side effects.
-            UdfType::Action | UdfType::HttpAction => Arc::new(
-                FollowerRetentionManager::new_with_repeatable_ts(
-                    self.rt.clone(),
-                    reader.clone(),
-                    ts,
-                )
-                .await?,
-            ),
+        let persistence_version = reader.version();
+        let index_reader = if let Some(index_reader) = index_reader_override {
+            index_reader
+        } else {
+            let retention_validator: Arc<dyn RetentionValidator> = match udf_type {
+                // Since queries and mutations are ready only, we can check the retention
+                // in at end in `validate_function_runner_result`.
+                UdfType::Query | UdfType::Mutation => Arc::new(NoopRetentionValidator {}),
+                // For actions, we have to do it inline since they have side effects.
+                UdfType::Action | UdfType::HttpAction => Arc::new(
+                    FollowerRetentionManager::new_with_repeatable_ts(
+                        self.rt.clone(),
+                        reader.clone(),
+                        ts,
+                    )
+                    .await?,
+                ),
+            };
+            let repeatable_persistence =
+                RepeatablePersistence::new(reader, ts, retention_validator);
+            Arc::new(repeatable_persistence.read_snapshot(repeatable_persistence.upper_bound())?)
+                as Arc<_>
         };
         let mut transaction = self
             .index_cache
@@ -343,15 +353,14 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 identity.clone(),
                 ts,
                 existing_writes,
-                reader,
+                index_reader,
                 instance_name.clone(),
                 in_memory_index_last_modified,
                 bootstrap_metadata,
                 table_count_snapshot,
                 text_index_snapshot,
                 usage_tracker.clone(),
-                retention_validator,
-                index_reader_override,
+                persistence_version,
             )
             .await?;
         let storage = self

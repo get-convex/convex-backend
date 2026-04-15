@@ -4963,6 +4963,7 @@ dependencies = [
  "errors",
  "fastrace",
  "futures",
+ "futures-async-stream",
  "imbl",
  "itertools 0.14.0",
  "maplit",
