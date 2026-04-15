@@ -1107,6 +1107,7 @@ export interface components {
              *     false for dev and preview deployments). If set to `true` or `false`, the
              *     setting is explicitly overridden. */
             dashboardEditConfirmation?: boolean | null;
+            deploymentType?: null | components["schemas"]["DeploymentType"];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deployment will be deleted.

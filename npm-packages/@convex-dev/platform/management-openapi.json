@@ -2912,6 +2912,17 @@
             ],
             "description": "Controls whether the dashboard requires a confirmation before allowing\nedits during a browser session for this deployment. If set to `null`,\nthe setting is reset to the default behavior (true for prod deployments,\nfalse for dev and preview deployments). If set to `true` or `false`, the\nsetting is explicitly overridden."
           },
+          "deploymentType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "Set this field to change the deployment type of this deployment.\nIf the deployment is a default deployment, you will need to set\n`isDefault` explicitly."
+              }
+            ]
+          },
           "expiresAt": {
             "type": [
               "integer",
