@@ -382,6 +382,7 @@
           "textIndexWriteQueryBytes",
           "vectorIndexReadQueryBytes",
           "vectorIndexWriteQueryBytes",
+          "networkEgressBytes",
           "memoryUsedMb"
         ],
         "properties": {
@@ -411,6 +412,11 @@
             "minimum": 0
           },
           "memoryUsedMb": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "networkEgressBytes": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

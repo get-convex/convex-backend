@@ -119,6 +119,7 @@ pub struct UsageStatsJson {
     pub text_index_write_query_bytes: u64,
     pub vector_index_read_query_bytes: u64,
     pub vector_index_write_query_bytes: u64,
+    pub network_egress_bytes: u64,
     pub memory_used_mb: u64,
 }
 

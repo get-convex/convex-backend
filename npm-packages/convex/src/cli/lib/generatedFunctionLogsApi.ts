@@ -102,6 +102,8 @@ export interface components {
             /** Format: int64 */
             memoryUsedMb: number;
             /** Format: int64 */
+            networkEgressBytes: number;
+            /** Format: int64 */
             storageReadBytes: number;
             /** Format: int64 */
             storageWriteBytes: number;

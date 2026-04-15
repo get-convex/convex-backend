@@ -138,6 +138,7 @@ export function LogMetadata({
       textIndexWriteQueryBytes: 0,
       vectorIndexReadQueryBytes: 0,
       vectorIndexWriteQueryBytes: 0,
+      networkEgressBytes: 0,
       runtimeMs: 0,
       computeMbMs: 0,
     };
@@ -232,13 +233,7 @@ function ResourcesUsed({
               ) : (
                 <ul className="divide-y text-xs">
                   <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                    <span className="flex items-center gap-1 text-content-secondary">
-                      Compute
-                      <HelpTooltip>
-                        Only compute from Actions incur additional cost.
-                        Query/Mutation compute are included.
-                      </HelpTooltip>
-                    </span>
+                    <span className="text-content-secondary">Compute</span>
                     <span className="min-w-0 text-content-primary">
                       <strong>
                         {Number(
@@ -251,22 +246,16 @@ function ResourcesUsed({
                     </span>
                   </li>
                   <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                    <span className="text-content-secondary">DB Bandwidth</span>
+                    <span className="text-content-secondary">
+                      DB I/O Bandwidth
+                    </span>
                     <span className="min-w-0 text-content-primary">
-                      Accessed{" "}
                       <strong>
-                        {usageStats.databaseReadDocuments.toLocaleString()}{" "}
-                        {usageStats.databaseReadDocuments === 1
-                          ? "document"
-                          : "documents"}
-                      </strong>
-                      ,{" "}
-                      <strong>
-                        {formatBytes(usageStats.databaseReadBytes)}
+                        {formatBytes(usageStats.databaseIoReadBytes)}
                       </strong>{" "}
                       read,{" "}
                       <strong>
-                        {formatBytes(usageStats.databaseWriteBytes)}
+                        {formatBytes(usageStats.databaseIoWriteBytes)}
                       </strong>{" "}
                       written
                     </span>
@@ -287,20 +276,46 @@ function ResourcesUsed({
                     </span>
                   </li>
                   <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                    <span className="text-content-secondary">
-                      Vector Bandwidth
-                    </span>
+                    <span className="text-content-secondary">Text Search</span>
                     <span className="min-w-0 text-content-primary">
                       <strong>
-                        {formatBytes(usageStats.vectorIndexReadBytes)}
+                        {formatBytes(usageStats.textIndexQueryBytes)}
                       </strong>{" "}
-                      read,{" "}
+                      queried,{" "}
                       <strong>
-                        {formatBytes(usageStats.vectorIndexWriteBytes)}
+                        {formatBytes(usageStats.textIndexWriteQueryBytes)}
                       </strong>{" "}
                       written
                     </span>
                   </li>
+                  <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+                    <span className="text-content-secondary">
+                      Vector Search
+                    </span>
+                    <span className="min-w-0 text-content-primary">
+                      <strong>
+                        {formatBytes(usageStats.vectorIndexReadQueryBytes)}
+                      </strong>{" "}
+                      queried,{" "}
+                      <strong>
+                        {formatBytes(usageStats.vectorIndexWriteQueryBytes)}
+                      </strong>{" "}
+                      written
+                    </span>
+                  </li>
+                  {!!usageStats.networkEgressBytes && (
+                    <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+                      <span className="text-content-secondary">
+                        Network Egress
+                      </span>
+                      <span className="min-w-0 text-content-primary">
+                        <strong>
+                          {formatBytes(usageStats.networkEgressBytes)}
+                        </strong>{" "}
+                        sent
+                      </span>
+                    </li>
+                  )}
                   {usageStats.returnBytes && (
                     <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
                       <span className="flex items-center gap-1 text-content-secondary">

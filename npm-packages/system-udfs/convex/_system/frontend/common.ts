@@ -45,6 +45,7 @@ export type UsageStats = {
   textIndexWriteQueryBytes: number;
   vectorIndexReadQueryBytes: number;
   vectorIndexWriteQueryBytes: number;
+  networkEgressBytes: number;
 };
 
 export type FunctionExecutionCompletion = {

@@ -192,6 +192,7 @@ fn usage_stats_to_json(
         text_index_write_query_bytes: stats.text_index_write_query_bytes,
         vector_index_read_query_bytes: stats.vector_index_read_query_bytes,
         vector_index_write_query_bytes: stats.vector_index_write_query_bytes,
+        network_egress_bytes: stats.network_egress_bytes,
         memory_used_mb,
     }
 }
