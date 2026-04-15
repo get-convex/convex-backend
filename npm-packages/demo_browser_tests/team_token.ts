@@ -1,5 +1,5 @@
-import puppeteer from "puppeteer";
 import { argv } from "node:process";
+import { withBrowser } from "./common.js";
 import { loginToDashboard, DASHBOARD_URL } from "./dashboardHelpers.js";
 
 const TEAM_NAME = "engineering-smoketests";
@@ -13,10 +13,7 @@ const main = async () => {
 
   console.log(`Getting team token for team: ${TEAM_NAME}`);
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-
-  try {
+  await withBrowser(async (page) => {
     // We end up building large sections of code here, so increase the default
     // timeouts to reduce flakes on CI.
     page.setDefaultTimeout(60000);
@@ -77,13 +74,7 @@ const main = async () => {
 
     console.log(`Successfully extracted team token: ${token}`);
     console.log(token); // Output the token for the calling script to capture
-  } catch (error) {
-    console.error("Team token extraction failed:", error);
-    throw error;
-  } finally {
-    await page.close();
-    await browser.close();
-  }
+  });
 };
 
 main().catch((error) => {

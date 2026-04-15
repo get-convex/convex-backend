@@ -1,10 +1,7 @@
-import puppeteer from "puppeteer";
-import { assertDivWithContent } from "./common.js";
+import { assertDivWithContent, withBrowser } from "./common.js";
 import { argv } from "node:process";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+withBrowser(async (page) => {
   // Puppeteer's default navigation timeout is 30s, which can be too short on CI.
   page.setDefaultTimeout(120_000);
   page.setDefaultNavigationTimeout(120_000);
@@ -29,8 +26,7 @@ const main = async () => {
   await page.click("form input[type='submit']");
   await assertDivWithContent(page, "span", `al pastor rocks`);
   console.log("Chat message was reflected in the message list, from us");
-
-  await page.close();
-  await browser.close();
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

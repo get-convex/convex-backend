@@ -1,10 +1,7 @@
-import puppeteer from "puppeteer";
-import { assertDivWithContent } from "./common.js";
+import { assertDivWithContent, withBrowser } from "./common.js";
 import { argv } from "node:process";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+withBrowser(async (page) => {
   await page.goto(`http://127.0.0.1:${argv[2]}`);
   console.log("navigated to page");
   await page.waitForSelector(".badge > span > input");
@@ -14,8 +11,7 @@ const main = async () => {
   await page.click("input[type='submit']");
   await assertDivWithContent(page, "span", `al pastor rocks`);
   console.log("Chat message was reflected in the message list, from us");
-
-  await page.close();
-  await browser.close();
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

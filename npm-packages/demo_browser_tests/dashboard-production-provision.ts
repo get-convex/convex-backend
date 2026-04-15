@@ -1,9 +1,7 @@
-import puppeteer from "puppeteer";
+import { withBrowser } from "./common.js";
 import { loginToDashboard } from "./dashboardHelpers.js";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+withBrowser(async (page) => {
   await loginToDashboard(page);
 
   // Open the dev deployment page (it's nice to test the dev
@@ -21,8 +19,7 @@ const main = async () => {
 
   // See the Health page
   await page.waitForSelector("::-p-text(Health)");
-
-  await page.close();
-  await browser.close();
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

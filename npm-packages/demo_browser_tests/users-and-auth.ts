@@ -1,9 +1,7 @@
-import puppeteer from "puppeteer";
 import { argv } from "node:process";
+import { withBrowser } from "./common.js";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+withBrowser(async (page) => {
   await page.goto(`http://localhost:${argv[2]}`);
   console.log("opened demo app");
 
@@ -28,10 +26,7 @@ const main = async () => {
 
   await page.waitForSelector("::-p-text(Logged in as jamie@convex.dev)");
   console.log("correct user is logged in!");
-
-  await page.close();
-  await browser.close();
-
-  return;
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

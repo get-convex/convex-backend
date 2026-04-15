@@ -1,6 +1,5 @@
-import puppeteer from "puppeteer";
 import { argv } from "node:process";
-import { sleep } from "./common.js";
+import { sleep, withBrowser } from "./common.js";
 import { loginToDashboard } from "./dashboardHelpers.js";
 
 const main = async () => {
@@ -21,10 +20,7 @@ const main = async () => {
 
   console.log(`Starting OAuth flow with URL: ${authUrl}`);
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-
-  try {
+  await withBrowser(async (page) => {
     // We end up building large sections of code here, so increase the default
     // timeouts to reduce flakes on CI.
     page.setDefaultTimeout(60000);
@@ -68,13 +64,7 @@ const main = async () => {
       window.location.href.includes("localhost:8080/callback"),
     );
     console.log(`OAuth flow completed! Redirected to: ${page.url()}`);
-  } catch (error) {
-    console.error("OAuth flow failed:", error);
-    throw error;
-  } finally {
-    await page.close();
-    await browser.close();
-  }
+  });
 };
 
 main().catch((error) => {

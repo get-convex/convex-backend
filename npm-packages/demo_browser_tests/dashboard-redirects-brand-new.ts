@@ -1,10 +1,7 @@
-import puppeteer from "puppeteer";
+import { withBrowser } from "./common.js";
 import { DASHBOARD_URL, loginToDashboard } from "./dashboardHelpers.js";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-
+withBrowser(async (page) => {
   /// Test the redirects, even before we ever visit
   // a team, project or deployment page
 
@@ -20,8 +17,7 @@ const main = async () => {
   // Example deployment page redirect
   await page.goto(`${DASHBOARD_URL}/deployment/settings/pause-deployment`);
   await page.waitForSelector("::-p-text(This deployment is currently)");
-
-  await page.close();
-  await browser.close();
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

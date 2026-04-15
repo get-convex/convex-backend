@@ -1,10 +1,7 @@
-import puppeteer from "puppeteer";
-import { assertDivWithContent } from "./common.js";
+import { assertDivWithContent, withBrowser } from "./common.js";
 import { argv } from "node:process";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+withBrowser(async (page) => {
   await page.goto(`http://127.0.0.1:${argv[2]}`);
   console.log("navigated to page");
   await page.waitForSelector(".badge");
@@ -53,8 +50,7 @@ const main = async () => {
   // No messages
   await assertDivWithContent(page, ".chat-box ul", "");
   console.log("Second channel, still empty. yay!");
-
-  await page.close();
-  await browser.close();
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

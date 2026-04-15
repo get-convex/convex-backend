@@ -1,12 +1,8 @@
-import puppeteer from "puppeteer";
 import { DASHBOARD_URL, loginToDashboard } from "./dashboardHelpers.js";
-import { sleep } from "./common.js";
+import { sleep, withBrowser } from "./common.js";
 import assert from "node:assert/strict";
 
-const main = async () => {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-
+withBrowser(async (page) => {
   await loginToDashboard(page);
 
   // Check that we have two projects
@@ -45,8 +41,7 @@ const main = async () => {
   // check via URL that we're at the first created project,
   // which is the one we viewed. Its name comes from `test_dashboard.py`.
   assert.match(page.url(), /\/created-first\//);
-
-  await page.close();
-  await browser.close();
-};
-main();
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
