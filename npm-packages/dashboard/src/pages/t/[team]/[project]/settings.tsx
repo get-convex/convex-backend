@@ -576,6 +576,7 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
             buttonProps={{
               deploymentType: "preview",
               disabledReason: null,
+              showCustomPermissions: false,
               getAdminKey: async (name: string) => {
                 try {
                   const result = await createPreviewDeployKey({ name });

@@ -212,12 +212,14 @@ export type GenerateDeployKeyWithNameButtonProps = {
     allowedOperations: string[] | undefined,
   ) => Promise<{ ok: true; adminKey: string } | { ok: false }>;
   deploymentType: DeploymentTypeType;
+  showCustomPermissions?: boolean;
 };
 
 export function GenerateDeployKeyWithNameButton({
   disabledReason,
   getAdminKey,
   deploymentType,
+  showCustomPermissions = true,
 }: GenerateDeployKeyWithNameButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -262,7 +264,7 @@ export function GenerateDeployKeyWithNameButton({
           <Modal
             title="Create Deploy Key"
             onClose={handleClose}
-            size={scopedDeployKeys ? "md" : "sm"}
+            size={scopedDeployKeys && showCustomPermissions ? "md" : "sm"}
           >
             <form
               className="flex flex-col gap-3"
@@ -270,11 +272,12 @@ export function GenerateDeployKeyWithNameButton({
                 e.preventDefault();
                 setIsLoading(true);
                 try {
-                  const allowedOperations = scopedDeployKeys
-                    ? permissionMode === "deploy"
-                      ? ["Deploy"]
-                      : Array.from(selectedOps)
-                    : undefined;
+                  const allowedOperations =
+                    scopedDeployKeys && showCustomPermissions
+                      ? permissionMode === "deploy"
+                        ? ["Deploy"]
+                        : Array.from(selectedOps)
+                      : undefined;
                   const result = await getAdminKey(name, allowedOperations);
                   if (!result.ok) {
                     toast("error", "Error generating deploy key");
@@ -299,7 +302,7 @@ export function GenerateDeployKeyWithNameButton({
                   setName(event.target.value);
                 }}
               />
-              {scopedDeployKeys && (
+              {scopedDeployKeys && showCustomPermissions && (
                 <div className="flex flex-col gap-3">
                   <SegmentedControl
                     className="w-fit"
@@ -389,6 +392,7 @@ export function GenerateDeployKeyWithNameButton({
               )}
               <div className="flex items-center justify-end gap-2">
                 {scopedDeployKeys &&
+                  showCustomPermissions &&
                   permissionMode === "custom" &&
                   selectedOps.size === 0 && (
                     <span className="text-xs text-content-errorSecondary">
@@ -402,6 +406,7 @@ export function GenerateDeployKeyWithNameButton({
                     disabledReason !== null ||
                     name.trim() === "" ||
                     (scopedDeployKeys &&
+                      showCustomPermissions &&
                       permissionMode === "custom" &&
                       selectedOps.size === 0)
                   }
