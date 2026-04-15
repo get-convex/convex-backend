@@ -102,7 +102,6 @@ fn make_transaction<RT: Runtime>(
     table_count_snapshot: Arc<dyn TableCountSnapshot>,
     database_index_snapshot: DatabaseIndexSnapshot,
     text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
-    retention_validator: Arc<dyn RetentionValidator>,
     virtual_system_mapping: VirtualSystemMapping,
     usage_tracker: FunctionUsageTracker,
 ) -> anyhow::Result<Transaction<RT>> {
@@ -123,7 +122,6 @@ fn make_transaction<RT: Runtime>(
         table_count_snapshot,
         rt,
         usage_tracker,
-        retention_validator,
         virtual_system_mapping,
     ))
 }
@@ -647,7 +645,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             table_count_snapshot,
             database_index_snapshot,
             text_index_snapshot,
-            retention_validator,
             virtual_system_mapping().clone(),
             usage_tracker,
         )?;

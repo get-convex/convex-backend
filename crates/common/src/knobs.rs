@@ -481,20 +481,6 @@ pub static RETENTION_DELETES_ENABLED: LazyLock<bool> =
 pub static RETENTION_DOCUMENT_DELETES_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("RETENTION_DOCUMENT_DELETES_ENABLED", true));
 
-/// Enable or disable failing insert/update/deletes when retention is behind.
-pub static RETENTION_FAIL_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("RETENTION_FAIL_ENABLED", false));
-
-/// Insert/update/delete will start to fail if retention is retention window *
-/// this value behind (e.g. 4 * 20 = 1 hour 20 minutes)
-pub static RETENTION_FAIL_START_MULTIPLIER: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_FAIL_START_MULTIPLIER", 20));
-
-/// All insert/update/deletes will if retention is retention window * this value
-/// behind (e.g. 4 * 40 = 2 hours and 4 minutes).
-pub static RETENTION_FAIL_ALL_MULTIPLIER: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_FAIL_ALL_MULTIPLIER", 40));
-
 /// Time in between batches of deletes for document retention. This value is
 /// also used to jitter document retention on startup to avoid a thundering
 /// herd.

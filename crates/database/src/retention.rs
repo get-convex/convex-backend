@@ -68,9 +68,6 @@ use common::{
         RETENTION_DELETES_ENABLED,
         RETENTION_DELETE_BATCH,
         RETENTION_DOCUMENT_DELETES_ENABLED,
-        RETENTION_FAIL_ALL_MULTIPLIER,
-        RETENTION_FAIL_ENABLED,
-        RETENTION_FAIL_START_MULTIPLIER,
     },
     persistence::{
         new_static_repeatable_recent,
@@ -130,7 +127,6 @@ use governor::{
     Quota,
 };
 use parking_lot::Mutex;
-use rand::Rng;
 use tokio::{
     sync::{
         mpsc,
@@ -1714,50 +1710,6 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
     async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
         Ok(self.bounds_reader.lock().min_document_snapshot_ts)
     }
-
-    fn fail_if_falling_behind(&self) -> anyhow::Result<()> {
-        if !*RETENTION_FAIL_ENABLED {
-            return Ok(());
-        }
-
-        let checkpoint = self.checkpoint_reader.lock().checkpoint;
-        if let Some(checkpoint) = checkpoint {
-            let age = Timestamp::try_from(self.rt.system_time())?.secs_since_f64(*checkpoint);
-            let retention_delay_seconds = (*INDEX_RETENTION_DELAY).as_secs();
-
-            let min_failure_duration = Duration::from_secs(
-                retention_delay_seconds * *RETENTION_FAIL_START_MULTIPLIER as u64,
-            )
-            .as_secs_f64();
-            let max_failure_duration = Duration::from_secs(
-                retention_delay_seconds * *RETENTION_FAIL_ALL_MULTIPLIER as u64,
-            )
-            .as_secs_f64();
-            if age < min_failure_duration {
-                return Ok(());
-            }
-            let failure_percentage = age / max_failure_duration;
-            let is_failure = if age < min_failure_duration {
-                false
-            } else {
-                let failure_die: f64 = self.rt.rng().random();
-                // failure_percentage might be >= 1.0, which will always cause failures because
-                // rng.random() is between 0 and 1.0. That's totally fine, at some point it's ok
-                // for all writes to fail.
-                failure_die < failure_percentage
-            };
-
-            anyhow::ensure!(
-                !is_failure,
-                ErrorMetadata::overloaded(
-                    "TooManyWritesInTimePeriod",
-                    "Too many insert / update / delete operations in a short period of time. \
-                     Spread your writes out over time or throttle them to avoid errors."
-                )
-            );
-        }
-        Ok(())
-    }
 }
 
 #[derive(Clone)]
@@ -1879,10 +1831,6 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
         let mut snapshot_bounds = self.snapshot_bounds.lock();
         snapshot_bounds.advance_min_document_snapshot_ts(latest);
         Ok(latest)
-    }
-
-    fn fail_if_falling_behind(&self) -> anyhow::Result<()> {
-        Ok(())
     }
 }
 

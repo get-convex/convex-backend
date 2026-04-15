@@ -42,7 +42,6 @@ use common::{
         TEXT_INDEX_SIZE_HARD_LIMIT,
         VECTOR_INDEX_SIZE_HARD_LIMIT,
     },
-    persistence::RetentionValidator,
     query::{
         CursorPosition,
         Order,
@@ -173,8 +172,6 @@ pub struct Transaction<RT: Runtime> {
 
     pub(crate) stats: BTreeMap<TabletId, TableStats>,
 
-    pub(crate) retention_validator: Arc<dyn RetentionValidator>,
-
     pub(crate) runtime: RT,
 
     pub usage_tracker: FunctionUsageTracker,
@@ -209,7 +206,6 @@ impl<RT: Runtime> Transaction<RT> {
         count: Arc<dyn TableCountSnapshot>,
         runtime: RT,
         usage_tracker: FunctionUsageTracker,
-        retention_validator: Arc<dyn RetentionValidator>,
         virtual_system_mapping: VirtualSystemMapping,
     ) -> Self {
         Self {
@@ -227,7 +223,6 @@ impl<RT: Runtime> Transaction<RT> {
             table_count_deltas: BTreeMap::new(),
             stats: BTreeMap::new(),
             runtime,
-            retention_validator,
             usage_tracker,
             virtual_system_mapping,
         }
@@ -1164,7 +1159,6 @@ impl<RT: Runtime> Transaction<RT> {
             // Also reset table_count_deltas
             table_count_deltas: BTreeMap::new(),
             stats: self.stats.clone(),
-            retention_validator: self.retention_validator.clone(),
             runtime: self.runtime.clone(),
             usage_tracker: self.usage_tracker.clone(),
             virtual_system_mapping: self.virtual_system_mapping.clone(),

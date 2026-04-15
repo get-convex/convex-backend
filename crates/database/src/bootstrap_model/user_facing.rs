@@ -153,7 +153,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             ));
         }
 
-        self.tx.retention_validator.fail_if_falling_behind()?;
         let internal_id = self.tx.id_generator.generate_internal();
 
         let creation_time = self.tx.next_creation_time.increment()?;
@@ -214,7 +213,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             anyhow::bail!(unauthorized_error("patch"))
         }
         self.require_active_component().await?;
-        self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
@@ -243,7 +241,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             anyhow::bail!(unauthorized_error("replace"))
         }
         self.require_active_component().await?;
-        self.tx.retention_validator.fail_if_falling_behind()?;
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
@@ -265,7 +262,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             anyhow::bail!(unauthorized_error("delete"))
         }
         self.require_active_component().await?;
-        self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
         let document = self.tx.delete_inner(id_).await?;

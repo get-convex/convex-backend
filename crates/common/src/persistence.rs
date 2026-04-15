@@ -398,8 +398,6 @@ pub trait RetentionValidator: Sync + Send {
     async fn validate_document_snapshot(&self, ts: Timestamp) -> anyhow::Result<()>;
     async fn min_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp>;
     async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp>;
-
-    fn fail_if_falling_behind(&self) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -824,10 +822,6 @@ impl RetentionValidator for NoopRetentionValidator {
 
     async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
         Ok(RepeatableTimestamp::MIN)
-    }
-
-    fn fail_if_falling_behind(&self) -> anyhow::Result<()> {
-        Ok(())
     }
 }
 

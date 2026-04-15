@@ -72,7 +72,6 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             .identity
             .require_operation(DeploymentOp::ImportBackups)?;
 
-        self.tx.retention_validator.fail_if_falling_behind()?;
         let id_field = FieldName::from(ID_FIELD.clone());
         let internal_id = if let Some(ConvexValue::String(s)) = value.get(&id_field) {
             let id_v6 = DeveloperDocumentId::decode(s).context(ErrorMetadata::bad_request(

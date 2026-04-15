@@ -937,7 +937,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             Arc::new(self.snapshot.table_summaries.clone()),
             self.runtime.clone(),
             usage_tracker,
-            self.retention_validator.clone(),
             virtual_system_mapping,
         ))
     }
@@ -1841,7 +1840,6 @@ impl<RT: Runtime> Database<RT> {
             count_snapshot,
             self.runtime.clone(),
             usage_tracker,
-            self.retention_manager.clone(),
             self.virtual_system_mapping.clone(),
         );
         Ok(tx)
