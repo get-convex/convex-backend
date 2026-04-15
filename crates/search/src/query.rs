@@ -149,9 +149,9 @@ impl QueryTerm {
                 term: Term::from_field_text(search_field, &exact.token),
                 prefix: false,
             },
-            Some(pb::searchlight::text_query_term::TermType::Fuzzy(fuzzy)) => QueryTerm {
-                term: Term::from_field_text(search_field, &fuzzy.token),
-                prefix: fuzzy.prefix,
+            Some(pb::searchlight::text_query_term::TermType::Prefix(term)) => QueryTerm {
+                term: Term::from_field_text(search_field, &term.token),
+                prefix: true,
             },
         };
         Ok(qterm)
@@ -182,9 +182,8 @@ impl From<QueryTerm> for pb::searchlight::TextQueryTerm {
         let term_str = term.as_str().expect("QueryTerm not a string").to_string();
 
         let term_type = if value.prefix {
-            pb::searchlight::text_query_term::TermType::Fuzzy(pb::searchlight::FuzzyTextTerm {
+            pb::searchlight::text_query_term::TermType::Prefix(pb::searchlight::PrefixTextTerm {
                 token: term_str,
-                max_distance: 0,
                 prefix: value.prefix,
             })
         } else {

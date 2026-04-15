@@ -50,7 +50,7 @@ message TextQuery {
 message TextQueryTerm {
   oneof term_type {
     ExactTextTerm exact = 1;
-    FuzzyTextTerm fuzzy = 2;
+    PrefixTextTerm prefix = 2;
   }
 }
 
@@ -58,9 +58,9 @@ message ExactTextTerm {
   string token = 1;
 }
 
-message FuzzyTextTerm {
+message PrefixTextTerm {
   string token = 1;
-  uint32 max_distance = 2;
+  reserved 2;
   bool prefix = 3;
 }
 
