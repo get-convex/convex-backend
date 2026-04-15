@@ -43,7 +43,6 @@ type VersionResponse = {
   cursorRulesHash: string | null;
   guidelinesHash: string | null;
   agentSkillsSha: string | null;
-  disableSkillsCli: boolean;
 };
 
 http.route({
@@ -72,7 +71,6 @@ http.route({
         cursorRulesHash: cursorRulesData?.hash ?? null,
         guidelinesHash: guidelinesData?.hash ?? null,
         agentSkillsSha: agentSkillsData?.sha ?? null,
-        disableSkillsCli: true,
       } satisfies VersionResponse),
       {
         status: 200,
