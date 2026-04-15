@@ -140,6 +140,7 @@ export async function watchAndPush(
   let shellChild: ChildProcess | undefined;
   let shellExited: Promise<void> | undefined;
   let shellCleanupHandle: string | undefined;
+  let shellSigintListener: (() => void) | undefined;
   let tableNameTriggeringRetry;
   let shouldRetryOnDeploymentEnvVarChange;
   let isFirstPush = true; // Track if this is the first push in the session
@@ -210,27 +211,63 @@ export async function watchAndPush(
               // piping stdin/stdout/stderr. It runs alongside dev and is
               // waited on during clean exit or killed on signal exit.
               const shellCommand = cmdOptions.run.command;
+              const signalShellChild = (signal: NodeJS.Signals) => {
+                if (!shellChild) {
+                  return;
+                }
+                const child = shellChild;
+                // Kill the entire process group so children of the shell
+                // are also killed.
+                try {
+                  if (child.pid !== undefined) {
+                    // Kill the negative PID to signal the entire process
+                    // group. Falls back to the child directly if the
+                    // group is already gone.
+                    try {
+                      process.kill(-child.pid, signal);
+                    } catch {
+                      child.kill(signal);
+                    }
+                  } else {
+                    child.kill(signal);
+                  }
+                } catch {
+                  // Child may already be dead.
+                }
+              };
+              const clearShellSigintListener = () => {
+                if (shellSigintListener) {
+                  process.off("SIGINT", shellSigintListener);
+                  shellSigintListener = undefined;
+                }
+              };
               shellChild = spawn(shellCommand, [], {
                 shell: true,
                 stdio: "inherit",
                 detached: true,
               });
+              shellSigintListener = () => {
+                clearShellSigintListener();
+                signalShellChild("SIGINT");
+              };
+              process.prependListener("SIGINT", shellSigintListener);
               shellCleanupHandle = outerCtx.registerCleanup(async () => {
+                if (shellSigintListener) {
+                  clearShellSigintListener();
+                } else {
+                  // If the listener already fired (and cleared itself),
+                  // the child got SIGINT — give it a moment to exit on
+                  // its own before escalating to SIGTERM.
+                  const SIGTERM_ESCALATION_MS = 1000;
+                  await Promise.race([
+                    shellExited,
+                    new Promise((resolve) =>
+                      setTimeout(resolve, SIGTERM_ESCALATION_MS),
+                    ),
+                  ]);
+                }
                 if (shellChild) {
-                  const child = shellChild;
-                  shellChild = undefined;
-                  // Kill the entire process group so children of the shell
-                  // are also killed.
-                  if (child.pid !== undefined) {
-                    try {
-                      process.kill(-child.pid, "SIGTERM");
-                    } catch {
-                      // Process group may already be dead.
-                      child.kill();
-                    }
-                  } else {
-                    child.kill();
-                  }
+                  signalShellChild("SIGTERM");
                 }
                 await shellExited;
               });
@@ -358,10 +395,16 @@ export async function watchAndPush(
     }
   } finally {
     // On clean exit (e.g. --once, --until-success), wait for the shell
-    // command to finish naturally. On signal exit (e.g. Ctrl+C), the
-    // registered cleanup handler will have already killed it.
+    // command to finish naturally. Keep the SIGINT listener active so
+    // Ctrl+C during the wait still forwards to the child. On signal
+    // exit (e.g. Ctrl+C), the registered cleanup handler will have
+    // already killed it.
     if (shellExited) {
       await shellExited;
+    }
+    if (shellSigintListener) {
+      process.off("SIGINT", shellSigintListener);
+      shellSigintListener = undefined;
     }
     if (shellCleanupHandle) {
       outerCtx.removeCleanup(shellCleanupHandle);

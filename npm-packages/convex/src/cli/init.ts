@@ -1,6 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import { oneoffContext } from "../bundler/context.js";
-import { logVerbose } from "../bundler/log.js";
+import { installSigintHandler, oneoffContext } from "../bundler/context.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { checkVersionAndAiFilesStaleness } from "./lib/updates.js";
@@ -21,10 +20,7 @@ export const init = new Command("init")
       adminKey: undefined,
       envFile: undefined,
     });
-    process.on("SIGINT", async () => {
-      logVerbose("Received SIGINT, cleaning up...");
-      await ctx.flushAndExit(-2);
-    });
+    installSigintHandler(ctx);
 
     const deploymentSelection = await getDeploymentSelection(ctx, {});
     const credentials = await deploymentCredentialsOrConfigure(

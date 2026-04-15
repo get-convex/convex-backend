@@ -1,7 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { chalkStderr } from "chalk";
-import { oneoffContext } from "../bundler/context.js";
-import { logVerbose } from "../bundler/log.js";
+import { installSigintHandler, oneoffContext } from "../bundler/context.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { normalizeDevOptions } from "./lib/command.js";
@@ -179,10 +178,7 @@ Same format as .env.local or .env files, and overrides them.`,
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
-    process.on("SIGINT", async () => {
-      logVerbose("Received SIGINT, cleaning up...");
-      await ctx.flushAndExit(-2);
-    });
+    installSigintHandler(ctx);
 
     if (cmdOptions.deployment !== undefined) {
       return await ctx.crash({
