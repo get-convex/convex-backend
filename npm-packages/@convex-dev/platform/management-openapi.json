@@ -2920,6 +2920,13 @@
             "format": "int64",
             "description": "Timestamp in milliseconds when this deployment will be deleted.\nPreview deployments have this set by default unless overridden.\nMust be at least 30 minutes in the future and cannot exceed the\nteam's preview deployment retention days entitlement from now.\nSet to `null` to clear the expiration."
           },
+          "isDefault": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "For a prod deployment, whether the deployment is the default\nproduction deployment for the project (i.e. the one used by default\nwhen running `npx convex deploy`).\nFor a dev deployment, whether the deployment is the default\ndevelopment deployment for the member that created it (i.e. the one\nused by default when running `npx convex dev`).\nSetting this to `true` will fail on preview or custom deployments,\nor if there is already a matching default deployment in the project."
+          },
           "reference": {
             "type": [
               "string",

@@ -1116,6 +1116,15 @@ export interface components {
              *     Set to `null` to clear the expiration.
              */
             expiresAt?: number | null;
+            /** @description For a prod deployment, whether the deployment is the default
+             *     production deployment for the project (i.e. the one used by default
+             *     when running `npx convex deploy`).
+             *     For a dev deployment, whether the deployment is the default
+             *     development deployment for the member that created it (i.e. the one
+             *     used by default when running `npx convex dev`).
+             *     Setting this to `true` will fail on preview or custom deployments,
+             *     or if there is already a matching default deployment in the project. */
+            isDefault?: boolean | null;
             /** @description The reference of the deployment. When provided, must match the following
              *     rules:
              *       - be unique across deployment references in the project
