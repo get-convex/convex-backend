@@ -689,7 +689,7 @@ fn udf_analyze<RT: Runtime>(
         // Get the appropriate source map to look in
         let (fn_source_map, fn_canon_path) = {
             let resource_name_val = handler
-                .get_script_origin()
+                .get_script_origin(scope)
                 .resource_name()
                 .context("resource_name was None")?;
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
@@ -937,7 +937,7 @@ fn http_analyze<RT: Runtime>(
         // Get the appropriate source map to look in
         let (fn_source_map, fn_canon_path) = {
             let resource_name_val = handler
-                .get_script_origin()
+                .get_script_origin(scope)
                 .resource_name()
                 .context("resource_name was None")?;
             let resource_name = resource_name_val.to_rust_string_lossy(scope);

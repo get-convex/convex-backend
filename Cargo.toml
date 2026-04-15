@@ -64,8 +64,8 @@ ctrlc = "3.4"
 data-url = "0.3.1"
 database = { path = "crates/database" }
 db_connection = { path = "crates/db_connection" }
-deno_core = "0.366.0"
-deno_core_icudata = "0.74.0"
+deno_core = "0.398.0"
+deno_core_icudata = "0.77.0"
 derive_more = { version = "2", features = [ "full" ] }
 divan = "0.1.14"
 dotenvy = "0.15.7"
