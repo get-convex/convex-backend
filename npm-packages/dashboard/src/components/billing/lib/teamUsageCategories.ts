@@ -93,26 +93,6 @@ export const TAG_CATEGORIES = {
   },
 };
 
-export const DATA_EGRESS_CATEGORIES_SELF_SERVE = {
-  servingEgress: {
-    name: "Serving Reads",
-    color: "fill-chart-line-1",
-  },
-  userFunctionEgress: {
-    name: "User Function Reads",
-    color: "fill-chart-line-2",
-  },
-  backupRestore: {
-    name: "Backup / Restore",
-    color: "fill-chart-line-3",
-  },
-};
-
-export const DATA_EGRESS_CATEGORY_RENAMES_SELF_SERVE: Record<string, string> = {
-  backup: "backupRestore",
-  restore: "backupRestore",
-};
-
 export const DATA_EGRESS_CATEGORIES = {
   fetchEgress: {
     name: "Fetch Egress",
