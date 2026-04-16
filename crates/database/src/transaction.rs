@@ -54,7 +54,6 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
-        PersistenceVersion,
         RepeatableTimestamp,
         StableIndexName,
         TableName,
@@ -226,10 +225,6 @@ impl<RT: Runtime> Transaction<RT> {
             usage_tracker,
             virtual_system_mapping,
         }
-    }
-
-    pub fn persistence_version(&self) -> PersistenceVersion {
-        self.index.index_registry().persistence_version()
     }
 
     pub fn table_mapping(&mut self) -> &TableMapping {

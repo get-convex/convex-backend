@@ -324,7 +324,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         FunctionUsageStats,
     )> {
         let usage_tracker = FunctionUsageTracker::new();
-        let persistence_version = reader.version();
+
         let index_reader = if let Some(index_reader) = index_reader_override {
             index_reader
         } else {
@@ -360,7 +360,6 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 table_count_snapshot,
                 text_index_snapshot,
                 usage_tracker.clone(),
-                persistence_version,
             )
             .await?;
         let storage = self

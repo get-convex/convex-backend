@@ -97,10 +97,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
-    types::{
-        PersistenceVersion,
-        UdfType,
-    },
+    types::UdfType,
     value::{
         ConvexArray,
         ConvexValue,
@@ -212,7 +209,6 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
     query_manager: QueryManager<RT>,
 
-    persistence_version: PersistenceVersion,
     key_broker: FunctionRunnerKeyBroker,
     log_lines: LogLines,
     audit_log_lines: AuditLogLines,
@@ -441,7 +437,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         reactor_depth: usize,
         client_id: String,
     ) -> Self {
-        let persistence_version = transaction.persistence_version();
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let component = path.component;
         Self {
@@ -463,7 +458,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
             query_manager: QueryManager::new(),
 
-            persistence_version,
             key_broker,
             log_lines: vec![].into(),
             audit_log_lines: vec![].into(),

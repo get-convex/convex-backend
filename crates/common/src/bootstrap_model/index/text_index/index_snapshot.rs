@@ -10,7 +10,6 @@ use value::{
 
 use crate::types::{
     ObjectKey,
-    PersistenceVersion,
     Timestamp,
 };
 
@@ -221,12 +220,8 @@ pub enum TextSnapshotVersion {
 }
 
 impl TextSnapshotVersion {
-    pub fn new(persistence_version: PersistenceVersion) -> Self {
-        // Add a new TextSnapshotVersion if the index key format changes between
-        // different persistence versions.
-        match persistence_version {
-            PersistenceVersion::V5 => Self::V2UseStringIds,
-        }
+    pub fn current() -> Self {
+        Self::V2UseStringIds
     }
 
     pub fn to_code(&self) -> i64 {

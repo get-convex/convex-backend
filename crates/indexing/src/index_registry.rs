@@ -46,7 +46,6 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
-        PersistenceVersion,
         TabletIndexName,
     },
 };
@@ -89,19 +88,9 @@ pub struct IndexRegistry {
     // Indexes that are not yet enabled for queries, typically backfilling or waiting to be
     // committed.
     pending_indexes: OrdMap<TabletIndexName, Index>,
-
-    persistence_version: PersistenceVersion,
 }
 
 impl IndexRegistry {
-    pub fn persistence_version(&self) -> PersistenceVersion {
-        self.persistence_version
-    }
-
-    pub fn set_persistence_version(&mut self, persistence_version: PersistenceVersion) {
-        self.persistence_version = persistence_version
-    }
-
     pub fn index_table(&self) -> TabletId {
         self.index_table
     }
@@ -118,7 +107,6 @@ impl IndexRegistry {
     pub fn bootstrap<'a, Doc: ParseDocument<TabletIndexMetadata>>(
         table_mapping: &TableMapping,
         index_documents: impl Iterator<Item = Doc>,
-        persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Self> {
         let index_table = table_mapping
             .namespace(TableNamespace::Global)
@@ -129,7 +117,6 @@ impl IndexRegistry {
             index_table_number,
             enabled_indexes: OrdMap::new(),
             pending_indexes: OrdMap::new(),
-            persistence_version,
         };
 
         let meta_index_name = GenericIndexName::by_id(index_table);

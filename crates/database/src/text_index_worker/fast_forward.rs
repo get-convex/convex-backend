@@ -28,8 +28,8 @@ pub struct TextFastForward;
 
 #[async_trait]
 impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward {
-    fn current_version(tx: &mut Transaction<RT>) -> TextSnapshotVersion {
-        TextSnapshotVersion::new(tx.persistence_version())
+    fn current_version(_tx: &mut Transaction<RT>) -> TextSnapshotVersion {
+        TextSnapshotVersion::current()
     }
 
     fn snapshot_info(config: &IndexConfig) -> Option<(Timestamp, TextSnapshotVersion)> {

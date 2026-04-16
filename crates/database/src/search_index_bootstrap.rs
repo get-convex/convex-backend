@@ -36,7 +36,6 @@ use common::{
     },
     types::{
         IndexId,
-        PersistenceVersion,
         RepeatableTimestamp,
         WriteTimestamp,
     },
@@ -302,31 +301,28 @@ impl IndexesToBootstrap {
         );
         crate::metrics::finish_bootstrap(num_revisions, total_size, timer);
 
-        Ok(self.finish(persistence.version()))
+        Ok(self.finish())
     }
 
-    fn finish(self, persistence_version: PersistenceVersion) -> BootstrappedSearchIndexes {
+    fn finish(self) -> BootstrappedSearchIndexes {
         let tables_with_indexes = self.tables_with_indexes();
-        let text_index_manager = TextIndexManager::new(
-            TextIndexManagerState::Ready(
-                self.table_to_text_indexes
-                    .into_iter()
-                    .flat_map(|(_id, text_indexes)| {
-                        text_indexes
-                            .into_iter()
-                            .map(
-                                |TextIndexBootstrapData {
-                                     index_id,
-                                     text_index: search_index,
-                                     tantivy_schema: _,
-                                 }| (index_id, search_index),
-                            )
-                            .collect::<Vec<_>>()
-                    })
-                    .collect(),
-            ),
-            persistence_version,
-        );
+        let text_index_manager = TextIndexManager::new(TextIndexManagerState::Ready(
+            self.table_to_text_indexes
+                .into_iter()
+                .flat_map(|(_id, text_indexes)| {
+                    text_indexes
+                        .into_iter()
+                        .map(
+                            |TextIndexBootstrapData {
+                                 index_id,
+                                 text_index: search_index,
+                                 tantivy_schema: _,
+                             }| (index_id, search_index),
+                        )
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
+        ));
         let indexes = IndexState::Ready(
             self.table_to_vector_indexes
                 .into_iter()

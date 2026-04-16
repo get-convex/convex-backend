@@ -25,7 +25,6 @@ use common::{
     types::{
         IndexId,
         IndexName,
-        PersistenceVersion,
         SearchIndexMetricLabels,
         Timestamp,
         WriteTimestamp,
@@ -107,7 +106,6 @@ impl TextIndex {
 #[derive(Clone)]
 pub struct TextIndexManager {
     indexes: TextIndexManagerState,
-    persistence_version: PersistenceVersion,
 }
 
 #[derive(Clone)]
@@ -121,11 +119,8 @@ impl TextIndexManager {
         matches!(self.indexes, TextIndexManagerState::Bootstrapping)
     }
 
-    pub fn new(indexes: TextIndexManagerState, persistence_version: PersistenceVersion) -> Self {
-        Self {
-            indexes,
-            persistence_version,
-        }
+    pub fn new(indexes: TextIndexManagerState) -> Self {
+        Self { indexes }
     }
 
     fn require_ready_indexes(&self) -> anyhow::Result<&OrdMap<IndexId, TextIndex>> {
@@ -161,8 +156,7 @@ impl TextIndexManager {
                     // If the search index was written to disk with a different format from
                     // how the current backend constructs search queries, assume the new
                     // search index is backfilling.
-                    snapshot_info.disk_index_version
-                        == TextSnapshotVersion::new(self.persistence_version),
+                    snapshot_info.disk_index_version == TextSnapshotVersion::current(),
                     index_backfilling_error(printable_index_name)
                 );
                 Ok(snapshot_info)

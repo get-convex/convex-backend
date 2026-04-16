@@ -490,13 +490,8 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         .await?;
 
         let (table_mapping, table_states) = Self::table_mapping_and_states(parsed_table_documents);
-
-        let persistence_version = persistence_snapshot.persistence().version();
-        let index_registry = IndexRegistry::bootstrap(
-            &table_mapping,
-            parsed_index_documents.into_iter(),
-            persistence_version,
-        )?;
+        let index_registry =
+            IndexRegistry::bootstrap(&table_mapping, parsed_index_documents.into_iter())?;
         Ok((
             table_mapping,
             table_states,
@@ -509,16 +504,11 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
     #[fastrace::trace]
     pub fn load_table_registry(
-        persistence_snapshot: &PersistenceSnapshot,
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,
         index_registry: &IndexRegistry,
     ) -> anyhow::Result<TableRegistry> {
-        let table_registry = TableRegistry::bootstrap(
-            table_mapping,
-            table_states,
-            persistence_snapshot.persistence().version(),
-        )?;
+        let table_registry = TableRegistry::bootstrap(table_mapping, table_states)?;
         Self::verify_invariants(&table_registry, index_registry)?;
         Ok(table_registry)
     }
@@ -764,18 +754,13 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         };
         drop(load_indexes_into_memory_timer);
 
-        let search =
-            TextIndexManager::new(TextIndexManagerState::Bootstrapping, persistence.version());
+        let search = TextIndexManager::new(TextIndexManagerState::Bootstrapping);
         let vector = VectorIndexManager::bootstrap_index_metadata(&index_registry)?;
 
         // Step 3: Bootstrap our database metadata from the `_tables` documents
         tracing::info!("Bootstrapping table metadata...");
-        let table_registry = Self::load_table_registry(
-            &persistence_snapshot,
-            table_mapping.clone(),
-            table_states,
-            &index_registry,
-        )?;
+        let table_registry =
+            Self::load_table_registry(table_mapping.clone(), table_states, &index_registry)?;
 
         let mut schema_docs = BTreeMap::new();
         for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
@@ -1468,7 +1453,6 @@ impl<RT: Runtime> Database<RT> {
         let mut index_registry = IndexRegistry::bootstrap(
             &table_mapping,
             index_documents.iter().map(|(_, d)| d.clone()),
-            persistence.reader().version(),
         )?;
         let mut in_memory_indexes =
             BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, ts)?;

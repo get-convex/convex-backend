@@ -29,7 +29,6 @@ use common::{
     runtime::Runtime,
     types::{
         IndexId,
-        PersistenceVersion,
         RepeatableTimestamp,
     },
     virtual_system_mapping::VirtualSystemMapping,
@@ -295,7 +294,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
         const NAME: &str = "_table_registry";
         log_funrun_index_cache_get(NAME);
         let index_reader = self.index_reader.clone();
-        let persistence_version = self.persistence_version;
         let table_registry = self
             .cache
             .get(
@@ -311,8 +309,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                         DatabaseSnapshot::<RT>::table_mapping_and_states(
                             documents.into_iter().map(|doc| doc.parse()).try_collect()?,
                         );
-                    let registry =
-                        TableRegistry::bootstrap(table_mapping, table_states, persistence_version)?;
+                    let registry = TableRegistry::bootstrap(table_mapping, table_states)?;
                     // We don't have `HeapSize` implemented for `TableRegistry`
                     // so just approximate its size using the size of the
                     // documents it was made from.
@@ -349,7 +346,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
         const NAME: &str = "_index_registry";
         log_funrun_index_cache_get(NAME);
         let index_reader = self.index_reader.clone();
-        let persistence_version = self.persistence_version;
+
         let index_registry = self
             .cache
             .get(
@@ -367,7 +364,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                     let index_registry = IndexRegistry::bootstrap(
                         table_registry.1.table_mapping(),
                         documents.into_iter(),
-                        persistence_version,
                     )?;
                     DatabaseSnapshot::<RT>::verify_invariants(&table_registry.1, &index_registry)?;
                     Ok(WithSize(index_registry, size))
@@ -565,7 +561,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
         text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
         usage_tracker: FunctionUsageTracker,
-        persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Transaction<RT>> {
         let _timer = begin_tx_timer();
         for (index_id, last_modified) in &in_memory_index_last_modified {
@@ -582,7 +577,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             instance_name,
             backend_last_modified: in_memory_index_last_modified,
             index_reader: index_reader.clone(),
-            persistence_version,
         };
         let (table_registry, schema_registry, component_registry, index_registry) =
             in_memory_indexes
@@ -626,8 +620,6 @@ pub(crate) struct FunctionRunnerInMemoryIndexes<RT: Runtime> {
     /// Transaction (i.e. as of `index_reader.timestamp()`).
     pub(crate) backend_last_modified: BTreeMap<IndexId, Timestamp>,
     pub(crate) index_reader: Arc<dyn IndexReader>,
-    // TODO: get rid of this.
-    pub(crate) persistence_version: PersistenceVersion,
 }
 
 #[async_trait]

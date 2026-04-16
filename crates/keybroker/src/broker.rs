@@ -957,22 +957,12 @@ impl KeyBroker {
     }
 
     /// Serializes and encrypts the provided Cursor for sending to clients.
-    pub fn encrypt_cursor(
-        &self,
-        cursor: &Cursor,
-        persistence_version: PersistenceVersion,
-    ) -> SerializedCursor {
-        self.function_runner_keybroker()
-            .encrypt_cursor(cursor, persistence_version)
+    pub fn encrypt_cursor(&self, cursor: &Cursor) -> SerializedCursor {
+        self.function_runner_keybroker().encrypt_cursor(cursor)
     }
 
-    pub fn decrypt_cursor(
-        &self,
-        cursor: SerializedCursor,
-        persistence_version: PersistenceVersion,
-    ) -> anyhow::Result<Cursor> {
-        self.function_runner_keybroker()
-            .decrypt_cursor(cursor, persistence_version)
+    pub fn decrypt_cursor(&self, cursor: SerializedCursor) -> anyhow::Result<Cursor> {
+        self.function_runner_keybroker().decrypt_cursor(cursor)
     }
 
     pub fn encrypt_query_journal(
@@ -1135,27 +1125,17 @@ impl FunctionRunnerKeyBroker {
     }
 
     /// Serializes and encrypts the provided Cursor for sending to clients.
-    pub fn encrypt_cursor(
-        &self,
-        cursor: &Cursor,
-        persistence_version: PersistenceVersion,
-    ) -> SerializedCursor {
+    pub fn encrypt_cursor(&self, cursor: &Cursor) -> SerializedCursor {
         let proto = cursor_to_proto(&self.instance_name, cursor);
-        let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
-        self.cursor_encryptor.encrypt_proto(cursor_version, &proto)
+        self.cursor_encryptor.encrypt_proto(CURSOR_VERSION, &proto)
     }
 
     /// Attempts to decrypt and deserialize the EncryptedCursor. May fail if the
     /// client is sending up an old version.
-    pub fn decrypt_cursor(
-        &self,
-        cursor: SerializedCursor,
-        persistence_version: PersistenceVersion,
-    ) -> anyhow::Result<Cursor> {
-        let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
+    pub fn decrypt_cursor(&self, cursor: SerializedCursor) -> anyhow::Result<Cursor> {
         let proto: InstanceCursorProto = self
             .cursor_encryptor
-            .decrypt_proto(cursor_version, &cursor)
+            .decrypt_proto(CURSOR_VERSION, &cursor)
             .with_context(cursor_parse_error)?;
         proto_to_cursor(&self.instance_name, proto)
     }

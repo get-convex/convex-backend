@@ -45,7 +45,6 @@ use common::{
     try_anyhow,
     types::{
         AllowedVisibility,
-        PersistenceVersion,
         UdfType,
     },
     value::ConvexValue,
@@ -349,7 +348,6 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
 
     fn observe_identity(&mut self) -> anyhow::Result<()>;
 
-    fn persistence_version(&self) -> PersistenceVersion;
     fn is_system(&self) -> bool;
     fn table_filter(&self) -> TableFilter;
     fn component(&self) -> anyhow::Result<ComponentId>;
@@ -427,10 +425,6 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn observe_identity(&mut self) -> anyhow::Result<()> {
         self.phase.observe_identity()
-    }
-
-    fn persistence_version(&self) -> PersistenceVersion {
-        self.persistence_version
     }
 
     fn is_system(&self) -> bool {
@@ -1666,19 +1660,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
 
         let start_cursor = args
             .cursor
-            .map(|c| {
-                provider
-                    .key_broker()
-                    .decrypt_cursor(c, provider.persistence_version())
-            })
+            .map(|c| provider.key_broker().decrypt_cursor(c))
             .transpose()?;
 
         let end_cursor = match args.end_cursor {
-            Some(end_cursor) => Some(
-                provider
-                    .key_broker()
-                    .decrypt_cursor(end_cursor, provider.persistence_version())?,
-            ),
+            Some(end_cursor) => Some(provider.key_broker().decrypt_cursor(end_cursor)?),
             None => provider.prev_journal().end_cursor.clone(),
         };
 
@@ -1721,15 +1707,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         let page_status = page_status.map(|s| s.as_str());
 
         // Place split_cursor in the middle.
-        let split_cursor = split_cursor.map(|split| {
-            provider
-                .key_broker()
-                .encrypt_cursor(&split, provider.persistence_version())
-        });
+        let split_cursor = split_cursor.map(|split| provider.key_broker().encrypt_cursor(&split));
 
-        let continue_cursor = provider
-            .key_broker()
-            .encrypt_cursor(&cursor, provider.persistence_version());
+        let continue_cursor = provider.key_broker().encrypt_cursor(&cursor);
 
         let is_done = matches!(
             cursor,
