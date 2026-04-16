@@ -11,7 +11,7 @@ import { DEFAULT_ARGS_VALIDATOR } from "../cli/modules";
 import { currentSystemUdfInComponent } from "convex/server";
 import { DatabaseReader } from "../../_generated/server";
 
-export const listForAllComponents = queryPrivateSystem({
+export const listForAllComponents = queryPrivateSystem("ViewData")({
   args: {},
   handler: async (ctx): Promise<[string | null, [string, Module][]][]> => {
     // NOTE this UDF calls itself recursively in each component with
@@ -45,7 +45,7 @@ export const listForAllComponents = queryPrivateSystem({
  * Note that this does not include system modules because they are not stored
  * in the `_modules` table.
  */
-export const list = queryPrivateSystem({
+export const list = queryPrivateSystem("ViewData")({
   args: {
     componentId: v.optional(v.union(v.string(), v.null())),
   },

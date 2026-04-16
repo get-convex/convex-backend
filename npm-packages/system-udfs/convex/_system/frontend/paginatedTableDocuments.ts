@@ -37,7 +37,7 @@ import { Value } from "convex/values";
 import { UNDEFINED_PLACEHOLDER } from "./lib/values";
 import { SearchIndex } from "../../../../convex/dist/internal-cjs-types/server";
 
-export default queryGeneric({
+export default queryGeneric("ViewData")({
   args: {
     paginationOpts: paginationOptsValidator,
     table: v.string(),

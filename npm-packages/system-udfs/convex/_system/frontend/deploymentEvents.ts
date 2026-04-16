@@ -6,7 +6,7 @@ type PushConfigEvent = Doc<"_deployment_audit_log"> & {
   action: "push_config" | "push_config_with_components";
 };
 
-export const lastPushEvent = queryPrivateSystem({
+export const lastPushEvent = queryPrivateSystem("ViewData")({
   args: {
     componentId: v.optional(v.union(v.string(), v.null())),
   },

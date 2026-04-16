@@ -5,7 +5,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { queryGeneric } from "../secretSystemTables";
 
-export const numFiles = queryGeneric({
+export const numFiles = queryGeneric("ViewData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async ({ db }): Promise<number> => {
     return await db.system.query("_storage").count();
@@ -16,7 +16,7 @@ export type FileMetadata = SystemDataModel["_storage"]["document"] & {
   url: string;
 };
 
-export const fileMetadata = queryGeneric({
+export const fileMetadata = queryGeneric("ViewData")({
   args: {
     paginationOpts: paginationOptsValidator,
     filters: v.optional(
@@ -70,7 +70,7 @@ export const fileMetadata = queryGeneric({
   },
 });
 
-export const getFile = queryGeneric({
+export const getFile = queryGeneric("ViewData")({
   args: {
     storageId: v.string(),
   },
@@ -90,7 +90,7 @@ export const getFile = queryGeneric({
   },
 });
 
-export const deleteFile = mutationGeneric({
+export const deleteFile = mutationGeneric("WriteData")({
   args: {
     storageId: v.id("_storage"),
     componentId: v.optional(v.union(v.string(), v.null())),
@@ -103,7 +103,7 @@ export const deleteFile = mutationGeneric({
   },
 });
 
-export const deleteFiles = mutationGeneric({
+export const deleteFiles = mutationGeneric("WriteData")({
   args: {
     storageIds: v.array(v.id("_storage")),
     componentId: v.optional(v.union(v.string(), v.null())),
@@ -115,7 +115,7 @@ export const deleteFiles = mutationGeneric({
   },
 });
 
-export const generateUploadUrl = mutationGeneric({
+export const generateUploadUrl = mutationGeneric("WriteData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async ({ storage }): Promise<string> => {
     return await storage.generateUploadUrl();

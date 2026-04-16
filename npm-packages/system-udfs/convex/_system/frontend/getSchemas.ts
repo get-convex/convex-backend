@@ -14,7 +14,7 @@ export const getSchemaByState = async (
     .withIndex("by_state", (q) => q.eq("state", { state }))
     .unique();
 
-export default queryPrivateSystem({
+export default queryPrivateSystem("ViewData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async function ({ db }): Promise<{
     active?: string;
@@ -35,7 +35,7 @@ export default queryPrivateSystem({
   },
 });
 
-export const schemaValidationProgress = queryPrivateSystem({
+export const schemaValidationProgress = queryPrivateSystem("ViewData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async function ({
     db,

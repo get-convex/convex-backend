@@ -5,7 +5,7 @@ import { ConvexError, v } from "convex/values";
 
 const MAX_IMPORT_COUNT = 4096; // TRANSACTION_MAX_NUM_USER_WRITES / 2
 
-export default mutationGeneric({
+export default mutationGeneric("WriteData")({
   args: {
     componentId: v.optional(v.union(v.string(), v.null())),
     table: v.string(),

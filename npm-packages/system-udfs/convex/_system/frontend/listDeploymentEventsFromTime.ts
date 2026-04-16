@@ -1,5 +1,5 @@
 import { Doc } from "../../_generated/dataModel";
-import { queryPrivateSystem, requireOperation } from "../secretSystemTables";
+import { queryPrivateSystem } from "../secretSystemTables";
 import { v } from "convex/values";
 import { clampForAuditLogRetention } from "./paginatedDeploymentEvents";
 
@@ -7,13 +7,12 @@ import { clampForAuditLogRetention } from "./paginatedDeploymentEvents";
  * Get the deployment events on or after the provided timestamp from least recent
  * to most recent
  */
-export default queryPrivateSystem({
+export default queryPrivateSystem("ViewAuditLog")({
   args: { fromTimestamp: v.number() },
   handler: async function (
     { db },
     { fromTimestamp },
   ): Promise<Doc<"_deployment_audit_log">[]> {
-    requireOperation("ViewAuditLog");
     fromTimestamp = await clampForAuditLogRetention(db, fromTimestamp);
     return await db
       .query("_deployment_audit_log")

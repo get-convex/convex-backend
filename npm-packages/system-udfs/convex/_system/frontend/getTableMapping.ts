@@ -6,7 +6,7 @@ import { queryPrivateSystem } from "../secretSystemTables";
  * Returns an object mapping the table numbers to table names
  * (e.g. {"1": "users"})
  */
-export default queryPrivateSystem({
+export default queryPrivateSystem("ViewData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async () => {
     const tableMapping: Record<number, string> =

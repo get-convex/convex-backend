@@ -1,10 +1,9 @@
 import { Export } from "../frontend/common";
-import { queryPrivateSystem, requireOperation } from "../secretSystemTables";
+import { queryPrivateSystem } from "../secretSystemTables";
 
-export const getLatest = queryPrivateSystem({
+export const getLatest = queryPrivateSystem("ViewBackups")({
   args: {},
   handler: async ({ db }): Promise<Export | null> => {
-    requireOperation("ViewBackups");
     return await db
       .query("_exports")
       .withIndex("by_requestor", (q) => q.eq("requestor", "snapshotExport"))

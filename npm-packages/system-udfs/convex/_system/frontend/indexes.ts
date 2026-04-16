@@ -41,7 +41,7 @@ async function getTableId(
   return urlSafeInternalId;
 }
 
-export default queryPrivateSystem({
+export default queryPrivateSystem("ViewData")({
   args: {
     tableName: v.optional(v.union(v.string(), v.null())),
     // Pass the `componentId` for this arg.

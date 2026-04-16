@@ -1,6 +1,6 @@
 import { queryPrivateSystem } from "../secretSystemTables";
 
-export const version = queryPrivateSystem({
+export const version = queryPrivateSystem("ViewData")({
   args: {},
   handler: async function ({ db }) {
     const modules = await db.query("_modules").take(1000);

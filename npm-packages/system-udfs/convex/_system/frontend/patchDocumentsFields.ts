@@ -2,7 +2,7 @@ import { Value, v, GenericId, ConvexError } from "convex/values";
 import { mutationGeneric } from "../server";
 import { UNDEFINED_PLACEHOLDER } from "./lib/values";
 
-export default mutationGeneric({
+export default mutationGeneric("WriteData")({
   args: {
     table: v.string(),
     fields: v.any(),

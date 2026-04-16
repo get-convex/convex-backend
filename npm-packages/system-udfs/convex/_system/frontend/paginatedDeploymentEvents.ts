@@ -1,5 +1,5 @@
 import { paginationOptsValidator } from "convex/server";
-import { queryPrivateSystem, requireOperation } from "../secretSystemTables";
+import { queryPrivateSystem } from "../secretSystemTables";
 import { v } from "convex/values";
 import { maximumBytesRead, maximumRowsRead } from "../paginationLimits";
 import { DatabaseReader } from "../../_generated/server";
@@ -7,7 +7,7 @@ import { DatabaseReader } from "../../_generated/server";
 /**
  * Paginated query for the deployment events from most recent to least recent
  */
-export default queryPrivateSystem({
+export default queryPrivateSystem("ViewAuditLog")({
   args: {
     paginationOpts: paginationOptsValidator,
     filters: v.object({
@@ -18,7 +18,6 @@ export default queryPrivateSystem({
     }),
   },
   handler: async function ({ db }, { paginationOpts, filters }) {
-    requireOperation("ViewAuditLog");
     filters.minDate = await clampForAuditLogRetention(db, filters.minDate);
 
     const paginatedResults = await db

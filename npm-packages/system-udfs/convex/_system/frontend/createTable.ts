@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutationGeneric } from "../server";
 
-export default mutationGeneric({
+export default mutationGeneric("WriteData")({
   args: {
     table: v.string(),
     componentId: v.optional(v.union(v.string(), v.null())),

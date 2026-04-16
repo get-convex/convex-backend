@@ -21,7 +21,7 @@ type FunctionSpecs = (FunctionSpec | HttpFunctionSpec)[];
 export const DEFAULT_ARGS_VALIDATOR = '{ "type": "any" }';
 export const DEFAULT_RETURN_VALIDATOR = '{ "type": "any" }';
 
-export const apiSpec = queryPrivateSystem({
+export const apiSpec = queryPrivateSystem("ViewData")({
   args: {
     componentId: v.optional(v.union(v.string(), v.null())),
   },

@@ -2,7 +2,7 @@ import { ConvexError, GenericId } from "convex/values";
 import { v } from "convex/values";
 import { mutationGeneric } from "../server";
 
-export default mutationGeneric({
+export default mutationGeneric("WriteData")({
   args: {
     id: v.string(),
     document: v.any(),

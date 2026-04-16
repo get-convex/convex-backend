@@ -4,7 +4,7 @@ import { v } from "convex/values";
 
 export const MAX_CLEAR_ROWS = 4000;
 
-export default mutationGeneric({
+export default mutationGeneric("WriteData")({
   args: {
     componentId: v.optional(v.union(v.string(), v.null())),
     tableName: v.string(),
