@@ -17,6 +17,7 @@ import {
 } from "./lib/env.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { withRunningBackend } from "./lib/localDeployment/run.js";
+import { envDefault } from "./envDefault.js";
 
 const envSetCmd = new Command("set")
   // Pretend value is required
@@ -68,7 +69,7 @@ const envSetCmd = new Command("set")
     });
   });
 
-async function selectEnvDeployment(
+export async function selectEnvDeployment(
   options: DeploymentSelectionOptions,
 ): Promise<{
   ctx: Context;
@@ -185,6 +186,7 @@ export const env = new Command("env")
   .addCommand(envGetCmd)
   .addCommand(envRemoveCmd)
   .addCommand(envListCmd)
+  .addCommand(envDefault)
   .helpCommand(false)
   .addDeploymentSelectionOptions(
     actionDescription("Set and view environment variables on"),

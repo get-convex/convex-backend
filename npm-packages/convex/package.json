@@ -277,7 +277,7 @@
     "@babel/types": "^7.27.1",
     "@clerk/react": "^6.0.0",
     "@commander-js/extra-typings": "^14.0.0",
-    "@convex-dev/platform": "0.1.6",
+    "@convex-dev/platform": "0.1.8",
     "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "~9.39.0",

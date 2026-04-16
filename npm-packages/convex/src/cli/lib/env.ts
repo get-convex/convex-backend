@@ -122,7 +122,9 @@ export async function envSet(
         `Successfully set ${chalkStderr.bold(name)} to ${chalkStderr.bold(formatted)}${backend.notice}`,
       );
     } else {
-      logFinishedStep(`Successfully set ${chalkStderr.bold(name)}`);
+      logFinishedStep(
+        `Successfully set ${chalkStderr.bold(name)}${backend.notice}`,
+      );
     }
     return true;
   }
@@ -151,7 +153,7 @@ export async function envGet(
 ) {
   const envVar = await backend.get(name);
   if (envVar === null) {
-    logFailure(`Environment variable "${name}" not found.`);
+    logFailure(`Environment variable "${name}" not found${backend.notice}`);
     return;
   }
   logOutput(`${envVar.value}`);
@@ -171,7 +173,7 @@ export async function envRemove(
 export async function envList(ctx: Context, backend: EnvVarBackend) {
   const envs = await backend.list();
   if (envs.length === 0) {
-    logMessage("No environment variables set.");
+    logMessage(`No environment variables set${backend.notice}`);
     return;
   }
   for (const { name, value } of envs) {
