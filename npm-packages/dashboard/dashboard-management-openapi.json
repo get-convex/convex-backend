@@ -6220,7 +6220,6 @@
         "type": "object",
         "required": [
           "maxTeamMembers",
-          "maxProjects",
           "teamMaxFunctionCalls",
           "teamMaxActionCompute",
           "teamMaxDatabaseStorage",
@@ -6273,11 +6272,6 @@
           "maxDeployments": {
             "type": "integer",
             "format": "int64"
-          },
-          "maxProjects": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
           },
           "maxTeamMembers": {
             "type": "integer",

@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
-import { logFailure, logFinishedStep, logMessage } from "../bundler/log.js";
+import { logFinishedStep, logMessage } from "../bundler/log.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
 import {
   loadProjectLocalConfig,
@@ -16,7 +16,7 @@ import {
   teamDashboardUrl,
 } from "./lib/dashboard.js";
 import { promptSearch, promptYesNo } from "./lib/utils/prompts.js";
-import { bigBrainAPI, validateOrSelectTeam } from "./lib/utils/utils.js";
+import { validateOrSelectTeam } from "./lib/utils/utils.js";
 import {
   selectProject,
   updateEnvAndConfigForDeploymentSelection,
@@ -254,14 +254,6 @@ async function handleLinkingDeployments(
       undefined,
       "Choose a team for your deployments:",
     );
-    const projectsRemaining = await getProjectsRemaining(ctx, teamSlug);
-    if (legacyDeployments.length > projectsRemaining) {
-      logFailure(
-        `You have ${legacyDeployments.length} deployments to link, but only have ${projectsRemaining} projects remaining. If you'd like to choose which ones to link, run this command with the --link-deployments flag.`,
-      );
-      return;
-    }
-
     let dashboardUrl = teamDashboardUrl(teamSlug);
     for (const deployment of legacyDeployments) {
       const result = await linkSingleDeployment(
@@ -371,16 +363,6 @@ async function linkSingleDeployment(
       "",
     ),
   };
-}
-
-async function getProjectsRemaining(ctx: Context, teamSlug: string) {
-  const response = await bigBrainAPI<{ projectsRemaining: number }>({
-    ctx,
-    method: "GET",
-    path: `teams/${teamSlug}/projects_remaining`,
-  });
-
-  return response.projectsRemaining;
 }
 
 function getDeploymentListMessage(anonymousDeploymentNames: string[]) {

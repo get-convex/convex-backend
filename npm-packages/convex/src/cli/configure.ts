@@ -587,9 +587,9 @@ async function selectNewProject(
         }
       : null;
 
-  let projectSlug, teamSlug, projectsRemaining;
+  let projectSlug, teamSlug;
   try {
-    ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
+    ({ projectSlug, teamSlug } = await createProject(ctx, {
       teamSlug: selectedTeam.slug,
       projectName,
       deploymentToProvision,
@@ -608,16 +608,6 @@ async function selectNewProject(
       projectDashboardUrl(teamSlug, projectSlug),
     )}`,
   );
-
-  if (projectsRemaining <= 2) {
-    logWarning(
-      chalkStderr.yellow.bold(
-        `Your account now has ${projectsRemaining} project${
-          projectsRemaining === 1 ? "" : "s"
-        } remaining.`,
-      ),
-    );
-  }
 
   await doInitConvexFolder(ctx);
   const { configPath, projectConfig } = await readProjectConfig(ctx);

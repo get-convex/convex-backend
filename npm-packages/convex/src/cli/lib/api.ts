@@ -59,7 +59,6 @@ export async function createProject(
 ): Promise<{
   projectSlug: string;
   teamSlug: string;
-  projectsRemaining: number;
 }> {
   const provisioningArgs = {
     team: selectedTeamSlug,
@@ -72,12 +71,8 @@ export async function createProject(
     path: "create_project",
     data: provisioningArgs,
   });
-  const { projectSlug, teamSlug, projectsRemaining } = data;
-  if (
-    projectSlug === undefined ||
-    teamSlug === undefined ||
-    projectsRemaining === undefined
-  ) {
+  const { projectSlug, teamSlug } = data;
+  if (projectSlug === undefined || teamSlug === undefined) {
     const error =
       "Unexpected response during provisioning: " + JSON.stringify(data);
     return await ctx.crash({
@@ -90,7 +85,6 @@ export async function createProject(
   return {
     projectSlug,
     teamSlug,
-    projectsRemaining,
   };
 }
 

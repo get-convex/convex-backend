@@ -2633,8 +2633,6 @@ export interface components {
             /** Format: int64 */
             maxDeployments: number;
             /** Format: int64 */
-            maxProjects: number;
-            /** Format: int64 */
             maxTeamMembers: number;
             periodicBackupsEnabled: boolean;
             /** Format: int64 */

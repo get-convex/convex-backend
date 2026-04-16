@@ -157,7 +157,6 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     maxChefTokens: 50_000_000,
     maxCloudBackups: 50,
     maxDeployments: 120,
-    maxProjects: 50_000,
     maxTeamMembers: 20,
     periodicBackupsEnabled: true,
     previewDeploymentRetentionDays: 14,
