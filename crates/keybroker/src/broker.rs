@@ -39,7 +39,6 @@ use common::{
         MemberId,
         PersistenceVersion,
         TeamId,
-        UdfType,
     },
 };
 use errors::ErrorMetadata;
@@ -218,25 +217,6 @@ impl Identity {
                 Identity::Unknown(error_message.map(|e| e.try_into()).transpose()?),
             ),
         }
-    }
-
-    pub fn ensure_can_run_function(&self, udf_type: UdfType) -> anyhow::Result<()> {
-        // Everyone can run queries.
-        if udf_type == UdfType::Query {
-            return Ok(());
-        }
-        match self {
-            Identity::InstanceAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
-                if admin_identity.is_read_only() {
-                    anyhow::bail!(ErrorMetadata::forbidden(
-                        "Unauthorized",
-                        format!("You do not have permission to run {udf_type} functions.")
-                    ));
-                }
-            },
-            _ => {},
-        }
-        Ok(())
     }
 
     pub fn tag(&self) -> StaticMetricLabel {
