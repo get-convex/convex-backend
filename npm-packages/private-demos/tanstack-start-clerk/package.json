@@ -37,7 +37,7 @@
     "tailwindcss": "^4.1.11",
     "prettier": "3.8.1",
     "typescript": "^5.7.2",
-    "vite": "^7.1.11",
+    "vite": "^7.3.2",
     "vite-tsconfig-paths": "^6.0.0"
   }
 }

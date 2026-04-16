@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "next": "^15.5.14",
+    "next": "^15.5.15",
     "convex": "workspace:*",
     "prettier": "3.8.1"
   },

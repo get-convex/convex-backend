@@ -48,7 +48,7 @@
     "convex-test": "^0.0.41",
     "prettier": "3.8.1",
     "typescript": "~5.0.3",
-    "vite": "^6.4.1"
+    "vite": "^6.4.2"
   },
   "types": "./dist/client/index.d.ts",
   "module": "./dist/client/index.js"
