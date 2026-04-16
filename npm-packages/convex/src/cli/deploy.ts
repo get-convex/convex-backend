@@ -4,6 +4,7 @@ import { Context, oneoffContext } from "../bundler/context.js";
 import { logFinishedStep, logMessage, showSpinner } from "../bundler/log.js";
 import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import {
+  getDefaultDeployMessage,
   gitBranchFromEnvironment,
   isNonProdBuildEnvironment,
   suggestedEnvVarNames,
@@ -164,7 +165,7 @@ Same format as .env.local or .env files, and overrides them.`,
         },
         {
           ...cmdOptions,
-          message: cmdOptions.message ?? null,
+          message: cmdOptions.message ?? getDefaultDeployMessage(),
         },
       );
     } else {
@@ -189,7 +190,7 @@ Same format as .env.local or .env files, and overrides them.`,
         skipWorkosCheck: cmdOptions.skipWorkosCheck ?? false,
         allowDeletingLargeIndexes:
           cmdOptions.allowDeletingLargeIndexes ?? false,
-        message: cmdOptions.message ?? null,
+        message: cmdOptions.message ?? getDefaultDeployMessage(),
       });
     }
   });

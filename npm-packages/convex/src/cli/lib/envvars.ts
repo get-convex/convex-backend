@@ -438,6 +438,87 @@ export function getBuildEnvironment(): string | false {
         : false;
 }
 
+export function getDefaultDeployMessage(): string | null {
+  const platforms: Array<{
+    name: string;
+    detect: () => boolean;
+    commitShaVar: string;
+  }> = [
+    {
+      name: "GitHub Actions",
+      detect: () => !!process.env.GITHUB_ACTIONS,
+      commitShaVar: "GITHUB_SHA",
+    },
+    {
+      name: "Vercel",
+      detect: () => !!process.env.VERCEL,
+      commitShaVar: "VERCEL_GIT_COMMIT_SHA",
+    },
+    {
+      name: "Netlify",
+      detect: () => !!process.env.NETLIFY,
+      commitShaVar: "COMMIT_REF",
+    },
+    {
+      name: "Cloudflare Pages",
+      detect: () => !!process.env.CF_PAGES,
+      commitShaVar: "CF_PAGES_COMMIT_SHA",
+    },
+    {
+      name: "Cloudflare Workers",
+      detect: () => !!process.env.WORKERS_CI,
+      commitShaVar: "WORKERS_CI_COMMIT_SHA",
+    },
+    {
+      name: "Render",
+      detect: () => !!process.env.RENDER,
+      commitShaVar: "RENDER_GIT_COMMIT",
+    },
+    {
+      name: "Railway",
+      detect: () => !!process.env.RAILWAY_ENVIRONMENT,
+      commitShaVar: "RAILWAY_GIT_COMMIT_SHA",
+    },
+    {
+      name: "GitLab CI",
+      detect: () => !!process.env.GITLAB_CI,
+      commitShaVar: "CI_COMMIT_SHA",
+    },
+    {
+      name: "CircleCI",
+      detect: () => !!process.env.CIRCLECI,
+      commitShaVar: "CIRCLE_SHA1",
+    },
+    {
+      name: "Google Cloud Build",
+      detect: () =>
+        !!process.env.BUILD_ID &&
+        !!process.env.PROJECT_ID &&
+        !!process.env.PROJECT_NUMBER &&
+        !!process.env.LOCATION,
+      commitShaVar: "SHORT_SHA",
+    },
+    {
+      name: "Heroku",
+      detect: () => !!process.env.HEROKU_APP_NAME || !!process.env.DYNO,
+      commitShaVar: "HEROKU_BUILD_COMMIT",
+    },
+  ];
+
+  const platform = platforms.find((p) => p.detect());
+  if (!platform) {
+    return null;
+  }
+
+  const commitSha = process.env[platform.commitShaVar];
+  if (!commitSha) {
+    return `Deployed from ${platform.name}`;
+  }
+
+  const shortSha = commitSha.slice(0, 7);
+  return `Deployed from ${platform.name} • ${shortSha}`;
+}
+
 export function gitBranchFromEnvironment(): string | null {
   if (process.env.VERCEL) {
     // https://vercel.com/docs/projects/environment-variables/system-environment-variables
