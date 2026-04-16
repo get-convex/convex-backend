@@ -135,7 +135,7 @@ pub async fn _document_deltas(
         deltas,
         cursor: new_cursor,
         has_more,
-        usage,
+        mut usage,
     } = st
         .application
         .document_deltas(identity, cursor, selection)
@@ -173,7 +173,12 @@ pub async fn _document_deltas(
         cursor: new_cursor.into(),
         has_more,
     };
+    let response_bytes = serde_json::to_vec(&response).context("Failed to serialize response")?;
 
+    *usage
+        .fetch_egress
+        .entry("/api/document_deltas".to_string())
+        .or_default() += response_bytes.len() as u64;
     st.application
         .usage_counter()
         .track_call(
@@ -186,7 +191,13 @@ pub async fn _document_deltas(
         )
         .await;
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((
+        StatusCode::OK,
+        (
+            [(http::header::CONTENT_TYPE, "application/json")],
+            response_bytes,
+        ),
+    ))
 }
 
 #[fastrace::trace]
@@ -246,7 +257,7 @@ async fn _list_snapshot(
         snapshot,
         cursor: new_cursor,
         has_more,
-        usage,
+        mut usage,
     } = st
         .application
         .list_snapshot(identity.clone(), snapshot, cursor, selection)
@@ -288,7 +299,12 @@ async fn _list_snapshot(
             .transpose()?,
         has_more,
     };
+    let response_bytes = serde_json::to_vec(&response).context("Failed to serialize response")?;
 
+    *usage
+        .fetch_egress
+        .entry("/api/list_snapshot".to_string())
+        .or_default() += response_bytes.len() as u64;
     st.application
         .usage_counter()
         .track_call(
@@ -301,7 +317,13 @@ async fn _list_snapshot(
         )
         .await;
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((
+        StatusCode::OK,
+        (
+            [(http::header::CONTENT_TYPE, "application/json")],
+            response_bytes,
+        ),
+    ))
 }
 
 /// Confirms that streaming export is enabled
