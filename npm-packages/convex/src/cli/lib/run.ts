@@ -482,6 +482,7 @@ export async function runInDeployment(
         liveComponentSources: args.liveComponentSources,
         pushAllModules: false,
         largeIndexDeletionCheck: "no verification", // `convex run` can’t push to prod
+        message: null,
       },
       {
         once: true,

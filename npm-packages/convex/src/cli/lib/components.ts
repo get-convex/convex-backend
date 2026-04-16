@@ -76,6 +76,7 @@ export type PushOptions = {
   pushAllModules: boolean;
   logManager?: LogManager | undefined;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
+  message: string | null;
 };
 
 export async function runCodegen(

@@ -109,6 +109,7 @@ export async function devAgainstDeployment(
         pushAllModules: devOptions.pushAllModules,
         logManager, // Pass logManager to control logs during deploy
         largeIndexDeletionCheck: "no verification", // `convex dev` can’t push to prod
+        message: null,
       },
       devOptions,
     ),

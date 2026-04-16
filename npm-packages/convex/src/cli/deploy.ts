@@ -82,6 +82,12 @@ Same format as .env.local or .env files, and overrides them.`,
   )
   .addOption(
     new Option(
+      "--message <message>",
+      "Optional message to attach to this deployment in the audit log.",
+    ),
+  )
+  .addOption(
+    new Option(
       "--skip-workos-check",
       "Skip WorkOS AuthKit provisioning and credential checks during deploy.",
     ).hideHelp(),
@@ -158,6 +164,7 @@ Same format as .env.local or .env files, and overrides them.`,
         },
         {
           ...cmdOptions,
+          message: cmdOptions.message ?? null,
         },
       );
     } else {
@@ -182,6 +189,7 @@ Same format as .env.local or .env files, and overrides them.`,
         skipWorkosCheck: cmdOptions.skipWorkosCheck ?? false,
         allowDeletingLargeIndexes:
           cmdOptions.allowDeletingLargeIndexes ?? false,
+        message: cmdOptions.message ?? null,
       });
     }
   });
@@ -211,6 +219,7 @@ async function deployToNewPreviewDeployment(
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
     skipWorkosCheck?: boolean | undefined;
+    message: string | null;
   },
 ) {
   const previewName = options.previewCreate ?? gitBranchFromEnvironment();
@@ -292,6 +301,7 @@ async function deployToNewPreviewDeployment(
     liveComponentSources: false,
     pushAllModules: !!options.pushAllModules,
     largeIndexDeletionCheck: "no verification", // fine for preview deployments
+    message: options.message,
   };
   showSpinner(`Deploying to ${previewUrl}...`);
   await runPush(ctx, pushOptions);
@@ -336,6 +346,7 @@ async function deployToExistingDeployment(
     envFile?: string | undefined;
     skipWorkosCheck?: boolean | undefined;
     allowDeletingLargeIndexes: boolean;
+    message: string | null;
   },
 ) {
   const deploymentToActOn = await loadSelectedDeploymentCredentials(

@@ -303,6 +303,7 @@ export async function finishPush(
     verbose?: boolean;
     deploymentName: string | null;
     deploymentType?: DeploymentType;
+    message: string | null;
   },
 ): Promise<FinishPushDiff> {
   changeSpinner("Finalizing push...");
@@ -314,6 +315,7 @@ export async function finishPush(
     adminKey: options.adminKey,
     startPush,
     dryRun: options.dryRun,
+    message: options.message,
   };
   try {
     const response = await fetch("/api/deploy2/finish_push", {
@@ -402,6 +404,7 @@ export async function deployToDeployment(
     liveComponentSources?: boolean | undefined;
     skipWorkosCheck?: boolean | undefined;
     allowDeletingLargeIndexes: boolean;
+    message: string | null;
   },
 ) {
   const { url, adminKey } = credentials;
@@ -450,6 +453,7 @@ export async function deployToDeployment(
     largeIndexDeletionCheck: options.allowDeletingLargeIndexes
       ? "has confirmation"
       : "ask for confirmation",
+    message: options.message,
   };
   showSpinner(`Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`);
   await runPush(ctx, pushOptions);
