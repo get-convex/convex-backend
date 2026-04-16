@@ -20,10 +20,7 @@ Sentry.init({
     new Sentry.BrowserTracing({
       tracingOrigins: ["localhost", /^\//, /.*\.convex.cloud/],
     }),
-    new Sentry.Replay({ useCompression: false }),
   ],
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1.0,
   release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
   ignoreErrors: [
     "ResizeObserver loop completed with undelivered notifications.",
