@@ -1,8 +1,9 @@
 import { useQuery } from "convex/react";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import udfs from "@common/udfs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
 import { ComponentId, useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useListModules(): Map<string, Module> | undefined {
   const { selectedNent } = useNents();
@@ -17,7 +18,12 @@ export function useListModules(): Map<string, Module> | undefined {
 export function useListModulesAllNents():
   | Map<ComponentId | null, Map<string, Module>>
   | undefined {
-  const rawModules = useQuery(udfs.modules.listForAllComponents);
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewData = useIsOperationAllowed("ViewData");
+  const rawModules = useQuery(
+    udfs.modules.listForAllComponents,
+    canViewData ? {} : "skip",
+  );
 
   const allModules: Map<ComponentId | null, Map<string, Module>> | undefined =
     useMemo(() => {

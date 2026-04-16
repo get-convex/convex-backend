@@ -177,6 +177,7 @@ export function DeploymentInfoProvider({
         useTeamMembers,
         useTeamEntitlements,
         useHasProjectAdminPermissions,
+        useIsOperationAllowed: () => true,
         useProjectEnvironmentVariables,
         useIsDeploymentPaused,
         useLogDeploymentEvent,

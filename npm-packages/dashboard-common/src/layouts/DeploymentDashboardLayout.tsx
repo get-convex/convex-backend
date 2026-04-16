@@ -50,7 +50,10 @@ export function DeploymentDashboardLayout({
     useGlobalLocalStorage("functionRunnerOrientation", false);
   const [isRunnerExpanded, setIsRunnerExpanded] = useState(false);
   const isGlobalRunnerShown = useIsGlobalRunnerShown();
-  const { deploymentsURI: uriPrefix } = useContext(DeploymentInfoContext);
+  const { deploymentsURI: uriPrefix, useIsOperationAllowed } = useContext(
+    DeploymentInfoContext,
+  );
+  const canViewData = useIsOperationAllowed("ViewData");
   const { isCloudDeploymentInSelfHostedDashboard, deploymentName } =
     useIsCloudDeploymentInSelfHostedDashboard();
 
@@ -179,14 +182,16 @@ export function DeploymentDashboardLayout({
             >
               {children}
             </div>
-            <FunctionRunnerWrapper
-              setIsVertical={setIsGlobalRunnerVertical}
-              isVertical={!!isGlobalRunnerVertical}
-              isExpanded={isRunnerExpanded}
-              setIsExpanded={setIsRunnerExpanded}
-              onRanCustomQuery={onRanCustomQuery}
-              onCopiedQueryResult={onCopiedQueryResult}
-            />
+            {canViewData && (
+              <FunctionRunnerWrapper
+                setIsVertical={setIsGlobalRunnerVertical}
+                isVertical={!!isGlobalRunnerVertical}
+                isExpanded={isRunnerExpanded}
+                setIsExpanded={setIsRunnerExpanded}
+                onRanCustomQuery={onRanCustomQuery}
+                onCopiedQueryResult={onCopiedQueryResult}
+              />
+            )}
           </div>
         </div>
       </div>

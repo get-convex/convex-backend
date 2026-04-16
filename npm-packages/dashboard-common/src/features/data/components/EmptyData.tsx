@@ -41,6 +41,7 @@ export function EmptyDataContent({
   const {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
+    useIsOperationAllowed,
     useLogDeploymentEvent,
   } = useContext(DeploymentInfoContext);
 
@@ -48,8 +49,10 @@ export function EmptyDataContent({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canAddDocuments =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
   const tableMetadata = useTableMetadata();
   const log = useLogDeploymentEvent();
 
@@ -236,7 +239,7 @@ export function EmptyDataContent({
                         selectedNent && selectedNent.state !== "active"
                           ? "Cannot add documents in an unmounted component."
                           : !canAddDocuments &&
-                            "You do not have permission to add documents in production."
+                            "You do not have permission to add documents in this deployment."
                       }
                       icon={<PlusIcon aria-hidden="true" />}
                     >

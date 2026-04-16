@@ -69,6 +69,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   }),
   useIsProtectedDeployment: () => false,
   useHasProjectAdminPermissions: () => true,
+  useIsOperationAllowed: () => true,
   useIsDeploymentPaused: () => false,
   useProjectEnvironmentVariables: () => ({ configs: [] }),
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (

@@ -28,6 +28,7 @@ export function FunctionSummary({
   const {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
+    useIsOperationAllowed,
     useIsDeploymentPaused,
   } = useContext(DeploymentInfoContext);
 
@@ -36,9 +37,32 @@ export function FunctionSummary({
     deployment?.projectId,
   );
   const isProd = deployment?.deploymentType === "prod";
+  const udfType = currentOpenFunction.udfType;
+  const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
+  const canRunInternalMutations = useIsOperationAllowed("RunInternalMutations");
+  const canRunInternalActions = useIsOperationAllowed("RunInternalActions");
+  const canViewData = useIsOperationAllowed("ViewData");
+  const canWriteData = useIsOperationAllowed("WriteData");
+
+  const isInternal = currentOpenFunction.visibility?.kind === "internal";
+  const isInComponent = !!currentOpenFunction.componentPath;
+
+  const canRunOp = (() => {
+    if (isInternal) {
+      return udfType === "Query"
+        ? canRunInternalQueries
+        : udfType === "Mutation"
+          ? canRunInternalMutations
+          : canRunInternalActions;
+    }
+    if (isInComponent) {
+      return udfType === "Query" ? canViewData : canWriteData;
+    }
+    return true;
+  })();
+
   const canRunFunction =
-    // TODO(ENG-10284) Make this depend on permissions, not deployment type
-    currentOpenFunction.udfType === "Query" || !isProd || hasAdminPermissions;
+    (udfType === "Query" || !isProd || hasAdminPermissions) && canRunOp;
 
   const showGlobalRunner = useShowGlobalRunner();
   const showFunctionRunner = () => {
@@ -90,7 +114,7 @@ export function FunctionSummary({
             <Button
               tip={
                 !canRunFunction ? (
-                  "You do not have permission to run this function in production."
+                  "You do not have permission to run this function in this deployment."
                 ) : isPaused ? (
                   <FunctionRunnerDisabledWhilePaused />
                 ) : (

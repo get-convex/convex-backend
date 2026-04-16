@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import { cn } from "@ui/cn";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";
@@ -14,6 +14,8 @@ import { ChartForFunctionRate } from "@common/features/health/components/ChartFo
 import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
 import { SubscriptionInvalidations } from "@common/features/health/components/SubscriptionInvalidations";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 
 export function HealthView({
   header,
@@ -38,12 +40,27 @@ export function HealthView({
   regions?: Array<{ name: string; displayName: string }>;
   showSubscriptionInvalidations?: boolean;
 }) {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewMetrics = useIsOperationAllowed("ViewMetrics");
+
   const {
     closedDescription: concurrencyClosedDescription,
     lag,
     running,
     queued,
-  } = useConcurrencyStatus(true, showSubscriptionInvalidations ? 4 : 3);
+  } = useConcurrencyStatus(
+    canViewMetrics,
+    showSubscriptionInvalidations ? 4 : 3,
+  );
+
+  if (!canViewMetrics) {
+    return (
+      <>
+        <DeploymentPageTitle title="Health" />
+        <NoPermissionMessage message="You do not have permission to view metrics in this deployment." />
+      </>
+    );
+  }
 
   return (
     <PageContent>

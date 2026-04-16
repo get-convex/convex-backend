@@ -170,7 +170,7 @@ export function ViewDocument({
                         isInUnmountedComponent
                           ? "Cannot edit documents in an unmounted component."
                           : !canManageTable
-                            ? "You do not have permission to edit data in production."
+                            ? "You do not have permission to edit data in this deployment."
                             : undefined
                       }
                       disabled={

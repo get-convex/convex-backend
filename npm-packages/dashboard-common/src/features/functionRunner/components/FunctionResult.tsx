@@ -8,6 +8,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { toast } from "@common/lib/utils";
 import { RequestFilter } from "@common/lib/appMetrics";
 import { ComponentId } from "@common/lib/useNents";
+import { Visibility } from "system-udfs/convex/_system/frontend/common";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {
   useRunHistory,
@@ -21,6 +22,8 @@ import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthori
 // vertically or horizontally.
 export function useFunctionResult({
   udfType,
+  visibility,
+  isInComponent,
   onSubmit,
   disabled,
   functionIdentifier,
@@ -30,6 +33,8 @@ export function useFunctionResult({
   onCopiedQueryResult,
 }: {
   udfType?: "Mutation" | "Action" | "Query" | "HttpAction";
+  visibility?: Visibility | null;
+  isInComponent?: boolean;
   onSubmit(): {
     requestFilter: RequestFilter | null;
     runFunctionPromise: Promise<FunctionResultType> | null;
@@ -93,6 +98,7 @@ export function useFunctionResult({
   const {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
+    useIsOperationAllowed,
     useLogDeploymentEvent,
   } = useContext(DeploymentInfoContext);
 
@@ -105,10 +111,36 @@ export function useFunctionResult({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
+  const canRunInternalMutations = useIsOperationAllowed("RunInternalMutations");
+  const canRunInternalActions = useIsOperationAllowed("RunInternalActions");
+  const canViewData = useIsOperationAllowed("ViewData");
+  const canWriteData = useIsOperationAllowed("WriteData");
+
+  const isInternal = visibility?.kind === "internal";
+
+  const canRunOp = (() => {
+    if (isInternal) {
+      // Internal functions require explicit RunInternal* permissions
+      return udfType === "Query"
+        ? canRunInternalQueries
+        : udfType === "Mutation"
+          ? canRunInternalMutations
+          : canRunInternalActions;
+    }
+    if (isInComponent) {
+      // Public functions in a component require ViewData (queries) or WriteData (mutations/actions)
+      return udfType === "Query" ? canViewData : canWriteData;
+    }
+    // Public functions at the top level are always allowed
+    return true;
+  })();
+
   const canRunFunction =
-    udfType === "Query" ||
-    deployment?.deploymentType !== "prod" ||
-    hasAdminPermissions;
+    (udfType === "Query" ||
+      deployment?.deploymentType !== "prod" ||
+      hasAdminPermissions) &&
+    canRunOp;
 
   if (isInvalidUdfType) {
     return { button: null, result: null };
@@ -167,7 +199,7 @@ export function useFunctionResult({
             disabled
               ? "Fix the errors above to continue."
               : !canRunFunction
-                ? "You do not have permission to run this function in production."
+                ? "You do not have permission to run this function in this deployment."
                 : !areEditsAuthorized
                   ? // TODO(ENG-10340) Edit this message to use the deployment ref
                     `You are about to run a ${udfType.toLowerCase()} in a ${`${dtype ?? ""} deployment`.trim()}. Unlock edits to continue.`

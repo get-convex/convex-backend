@@ -5,8 +5,7 @@ import udfs from "@common/udfs";
 import { toast } from "@common/lib/utils";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { buttonClasses } from "@ui/Button";
-import { Tooltip } from "@ui/Tooltip";
+import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 
 const isHtmlContent = (file: File): boolean =>
@@ -43,15 +42,18 @@ export function useUploadFiles(options?: {
   const {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
+    useIsOperationAllowed,
     captureException,
   } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
 
   const canUploadFiles =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
   const generateUploadUrl = useMutation(udfs.fileStorageV2.generateUploadUrl);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -145,7 +147,7 @@ export function useUploadFiles(options?: {
     cantUploadFilesReason: isInUnmountedComponent
       ? "Cannot upload files in an unmounted component."
       : !canUploadFiles
-        ? "You do not have permission to upload files in production."
+        ? "You do not have permission to upload files in this deployment."
         : null,
   };
 }
@@ -160,48 +162,41 @@ export function Uploader({
 
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const isDisabled = isUploading || cantUploadFilesReason !== null;
+
   return (
     <div className="flex items-center justify-center gap-2">
-      <Tooltip asChild tip={cantUploadFilesReason} side="left">
-        <label
-          htmlFor="uploader"
-          aria-disabled={isUploading || cantUploadFilesReason !== null}
-          className={buttonClasses({
-            className: "ml-auto",
-            size: "sm",
-            variant: "primary",
-            disabled: isUploading || cantUploadFilesReason !== null,
-          })}
-        >
-          {/* This needs to be wrapped in a dom element to 
-            fix an issue with the google translate extension
-            throwing errors when the icon switches between the loading and upload icon
-            https://github.com/facebook/react/issues/11538#issuecomment-390386520
-         */}
-          <div>{isUploading ? <Spinner /> : <UploadIcon />}</div>
-          Upload Files
-          <input
-            disabled={isUploading || cantUploadFilesReason !== null}
-            id="uploader"
-            data-testid="uploader"
-            type="file"
-            onChange={async (event) => {
-              const { files } = event.target;
+      <Button
+        className="ml-auto"
+        size="sm"
+        variant="primary"
+        disabled={isDisabled}
+        tip={cantUploadFilesReason}
+        tipSide="left"
+        icon={<div>{isUploading ? <Spinner /> : <UploadIcon />}</div>}
+        onClick={() => fileInput.current?.click()}
+      >
+        Upload Files
+      </Button>
+      <input
+        disabled={isDisabled}
+        data-testid="uploader"
+        type="file"
+        onChange={async (event) => {
+          const { files } = event.target;
 
-              if (files !== null) {
-                await handleUpload(files);
-              }
+          if (files !== null) {
+            await handleUpload(files);
+          }
 
-              if (fileInput.current) {
-                fileInput.current.value = "";
-              }
-            }}
-            ref={fileInput}
-            className="hidden"
-            multiple
-          />
-        </label>
-      </Tooltip>
+          if (fileInput.current) {
+            fileInput.current.value = "";
+          }
+        }}
+        ref={fileInput}
+        className="hidden"
+        multiple
+      />
       <p className="text-xs text-content-tertiary">or drag files here</p>
     </div>
   );

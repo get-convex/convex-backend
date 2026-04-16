@@ -9,15 +9,19 @@ import { DeleteFileModal } from "./DeleteFileModal";
 import { PreviewImage } from "./PreviewImage";
 
 export function FileActions({ file }: { file: FileMetadata }) {
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canDeleteFiles =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
     selectedNent && selectedNent.state !== "active"
@@ -55,7 +59,7 @@ export function FileActions({ file }: { file: FileMetadata }) {
           isInUnmountedComponent
             ? "Cannot delete files in an unmounted component."
             : !canDeleteFiles &&
-              "You do not have permission to delete files in production."
+              "You do not have permission to delete files in this deployment."
         }
         onClick={() => setShowDeleteModal(true)}
         icon={<TrashIcon />}

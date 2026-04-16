@@ -71,15 +71,19 @@ function JobItemImpl({
   const [showArgs, setShowArgs] = useState(false);
   const { selectedNent } = useNents();
   const cancelJob = useCancelJob();
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canCancelJobs =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
   const { showScheduledJobArgsInComponents } = useContext(
     DeploymentInfoContext,
   );
@@ -160,7 +164,7 @@ function JobItemImpl({
               disabled={currentlyRunning || !canCancelJobs}
               tip={
                 !canCancelJobs &&
-                "You do not have permission to cancel scheduled runs in production."
+                "You do not have permission to cancel scheduled runs in this deployment."
               }
               variant="danger"
             >

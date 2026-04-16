@@ -16,6 +16,26 @@
     }
   ],
   "paths": {
+    "/check_admin_key": {
+      "get": {
+        "tags": [
+          "public_api"
+        ],
+        "summary": "Check admin key validity",
+        "description": "This endpoint checks if the admin key included in the header is valid for\nthis instance. Returns the allowed operations and read-only status for the\nkey so the dashboard can show appropriate disabled states.",
+        "operationId": "check_admin_key",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/shapes2": {
       "get": {
         "summary": "Get table shapes",
@@ -134,26 +154,6 @@
         "responses": {
           "200": {
             "description": ""
-          }
-        }
-      }
-    },
-    "/check_admin_key": {
-      "get": {
-        "tags": [
-          "public_api"
-        ],
-        "summary": "Check admin key validity",
-        "description": "This endpoint checks if the admin key included in the header is valid for\nthis instance.",
-        "operationId": "check_admin_key",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
           }
         }
       }

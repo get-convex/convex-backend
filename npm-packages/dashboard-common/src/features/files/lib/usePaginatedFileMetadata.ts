@@ -10,8 +10,11 @@ import { FileFilters } from "../components/FileStorageHeader";
 export const FILE_METADATA_PAGE_SIZE = 20;
 
 export function usePaginatedFileMetadata() {
-  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const { useCurrentDeployment, useIsOperationAllowed } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
+  const canViewData = useIsOperationAllowed("ViewData");
   const [filters, setFilters] = useState<FileFilters>({
     order: "desc",
   });
@@ -32,8 +35,8 @@ export function usePaginatedFileMetadata() {
 
   const { results, loadMore, status } = usePaginatedQuery(
     udfs.fileStorageV2.fileMetadata,
-    // If we're paused, don't show the live query.
-    isPaused ? "skip" : args,
+    // If we're paused or don't have ViewData permission, don't show the live query.
+    isPaused || !canViewData ? "skip" : args,
     {
       initialNumItems: FILE_METADATA_PAGE_SIZE,
     },

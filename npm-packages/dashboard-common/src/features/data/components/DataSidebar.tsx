@@ -123,16 +123,20 @@ export function CreateNewTable({
   );
   const { selectedNent } = useNents();
 
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canCreateTable =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
 
   return newTableName !== undefined ? (
     <form
@@ -217,7 +221,7 @@ export function CreateNewTable({
         selectedNent && selectedNent.state !== "active"
           ? "Cannot create tables in an unmounted component."
           : !canCreateTable &&
-            "You do not have permission to create tables in production."
+            "You do not have permission to create tables in this deployment."
       }
     >
       <span className="truncate">Create Table</span>

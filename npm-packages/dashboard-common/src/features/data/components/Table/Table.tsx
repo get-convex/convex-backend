@@ -112,13 +112,16 @@ export function Table({
   onColumnOrderChange?: (newOrder: string[]) => void;
 }) {
   const [pageSize] = useDataPageSize(componentId, tableName);
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
 
   const { selectedNent } = useNents();
 
@@ -126,7 +129,8 @@ export function Table({
     selectedNent && selectedNent.state !== "active"
   );
   const canManageTable =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
 
   const [storedColumnOrder, setStoredColumnOrder] =
     useStoredColumnOrder(localStorageKey);

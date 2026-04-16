@@ -20,6 +20,7 @@ import { useTableShapes } from "@common/lib/deploymentApi";
 import { Modal } from "@ui/Modal";
 import { LoadingTransition } from "@ui/Loading";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { useRouter } from "next/router";
 import omit from "lodash/omit";
 import { useDataPageSize } from "./Table/utils/useQueryFilteredTable";
@@ -31,9 +32,8 @@ export function DataView({
   onTableCreated?: () => void;
   onDocumentsAdded?: (count: number) => void;
 }) {
-  const { useCurrentDeployment, ErrorBoundary } = useContext(
-    DeploymentInfoContext,
-  );
+  const { useCurrentDeployment, useIsOperationAllowed, ErrorBoundary } =
+    useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment() ?? {
     id: undefined,
     kind: undefined,
@@ -44,10 +44,13 @@ export function DataView({
   const router = useRouter();
   const tableMetadata = useTableMetadataAndUpdateURL();
 
+  const canViewData = useIsOperationAllowed("ViewData");
+
   const componentId = useNents().selectedNent?.id;
-  const schemas = useQuery(udfs.getSchemas.default, {
-    componentId: componentId ?? null,
-  });
+  const schemas = useQuery(
+    udfs.getSchemas.default,
+    canViewData ? { componentId: componentId ?? null } : "skip",
+  );
 
   const [currentPageSize, setPageSize] = useDataPageSize(
     componentId ?? null,
@@ -56,9 +59,7 @@ export function DataView({
 
   const schemaValidationProgress = useQuery(
     udfs.getSchemas.schemaValidationProgress,
-    {
-      componentId: useNents().selectedNent?.id ?? null,
-    },
+    canViewData ? { componentId: componentId ?? null } : "skip",
   );
 
   const { activeSchema, inProgressSchema } = useMemo(() => {
@@ -101,6 +102,15 @@ export function DataView({
       );
     }
   }, [router.query.showSchema, router]);
+
+  if (!canViewData) {
+    return (
+      <>
+        <DeploymentPageTitle title="Data" />
+        <NoPermissionMessage message="You do not have permission to view data in this deployment." />
+      </>
+    );
+  }
 
   return (
     <>

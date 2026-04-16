@@ -17,6 +17,7 @@ import { Loading } from "@ui/Loading";
 import { Sheet } from "@ui/Sheet";
 import { PageContent } from "@common/elements/PageContent";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
 import { LocalDevCallout } from "@common/elements/LocalDevCallout";
@@ -26,6 +27,18 @@ const PAGE_SIZE = 10;
 const DISTANCE_FROM_BOTTOM_THRESHOLD_PX = 300;
 
 export function HistoryView() {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewAuditLog = useIsOperationAllowed("ViewAuditLog");
+
+  if (!canViewAuditLog) {
+    return (
+      <>
+        <DeploymentPageTitle title="History" />
+        <NoPermissionMessage message="You do not have permission to view deployment history in this deployment." />
+      </>
+    );
+  }
+
   return (
     <PageContent>
       <DeploymentPageTitle title="History" />

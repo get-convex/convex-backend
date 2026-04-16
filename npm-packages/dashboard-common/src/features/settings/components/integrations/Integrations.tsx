@@ -38,14 +38,17 @@ export function Integrations({
   const {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
+    useIsOperationAllowed,
     workosIntegrationEnabled,
   } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteIntegrations = useIsOperationAllowed("WriteIntegrations");
   const cannotManageBecauseProd =
-    deployment?.deploymentType === "prod" && !hasAdminPermissions;
+    (deployment?.deploymentType === "prod" && !hasAdminPermissions) ||
+    !canWriteIntegrations;
 
   const logStreamingEntitlementGranted = entitlements?.logStreamingEnabled;
   const streamingExportEntitlementGranted =

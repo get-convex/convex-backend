@@ -373,7 +373,7 @@ function CellActions({
             tip: isInUnmountedComponent
               ? "Cannot edit documents in an unmounted component."
               : !canManageTable
-                ? "You do not have permission to edit data in production."
+                ? "You do not have permission to edit data in this deployment."
                 : null,
           },
         ]
@@ -538,7 +538,7 @@ function DocumentActions({
       tip: isInUnmountedComponent
         ? "Cannot edit documents in an unmounted component."
         : !canManageTable &&
-          "You do not have permission to edit data in production.",
+          "You do not have permission to edit data in this deployment.",
       tipSide: "right",
       action: editDocCb,
     },
@@ -549,7 +549,7 @@ function DocumentActions({
       tip: isInUnmountedComponent
         ? "Cannot delete documents in an unmounted component."
         : !canManageTable &&
-          "You do not have permission to edit data in production.",
+          "You do not have permission to edit data in this deployment.",
       tipSide: "right",
       danger: true,
       action: () => {

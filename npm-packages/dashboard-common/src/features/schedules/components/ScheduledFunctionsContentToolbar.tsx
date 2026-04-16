@@ -50,15 +50,19 @@ export function ScheduledFunctionsContentToolbar({
   const cancelJobs = useCancelAllJobs();
   const deleteScheduledJobsTable = useDeleteScheduledJobsTable();
 
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canCancelJobs =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
 
   return (
     <div className="flex w-full flex-wrap items-center gap-4">
@@ -116,7 +120,7 @@ export function ScheduledFunctionsContentToolbar({
           disabled={!canCancelJobs}
           tip={
             !canCancelJobs &&
-            "You do not have permission to cancel scheduled runs in production."
+            "You do not have permission to cancel scheduled runs in this deployment."
           }
         >
           Cancel All {currentOpenFunction && "(for the selected function)"}

@@ -1,12 +1,14 @@
 import { UploadIcon } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useContext, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { toast } from "@common/lib/utils";
 import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { PageContent } from "@common/elements/PageContent";
 import { isId } from "id-encoding";
 import { useUploadFiles } from "./Uploader";
@@ -19,6 +21,9 @@ export function FileStorageView({
 }: {
   onFilesUploaded?: (count: number) => void;
 }) {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewData = useIsOperationAllowed("ViewData");
+
   const [selectedFiles, setSelectedFiles] = useState<
     Record<Id<"_storage">, boolean>
   >({});
@@ -67,18 +72,29 @@ export function FileStorageView({
     [router],
   );
 
-  const totalNumFiles = useQuery(udfs.fileStorageV2.numFiles, {
-    componentId: useNents().selectedNent?.id ?? null,
-  });
+  const componentId = useNents().selectedNent?.id ?? null;
+  const totalNumFiles = useQuery(
+    udfs.fileStorageV2.numFiles,
+    canViewData ? { componentId } : "skip",
+  );
 
   const file = useQuery(
     udfs.fileStorageV2.getFile,
-    fileId && isId(fileId)
+    canViewData && fileId && isId(fileId)
       ? {
           storageId: fileId,
         }
       : "skip",
   );
+
+  if (!canViewData) {
+    return (
+      <>
+        <DeploymentPageTitle title="Files" />
+        <NoPermissionMessage message="You do not have permission to view files in this deployment." />
+      </>
+    );
+  }
 
   return (
     <PageContent>

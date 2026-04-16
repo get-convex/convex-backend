@@ -94,6 +94,14 @@ export type DeploymentInfo = (
     refreshInterval?: number,
   ): { configs: ProjectEnvVarConfig[] } | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
+  /**
+   * Check whether the current admin key is allowed to perform a specific
+   * deployment operation (e.g. "ViewData", "WriteData").
+   *
+   * Returns `true` when all operations are allowed (full admin key) or when
+   * the operation is in the key's allowed list.
+   */
+  useIsOperationAllowed(operation: string): boolean;
   useIsDeploymentPaused(): boolean | undefined;
   useLogDeploymentEvent(): (msg: string, props?: object | null) => void;
   workOSOperations: {

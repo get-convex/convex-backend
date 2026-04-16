@@ -14,6 +14,7 @@ import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { MultiSelectValue } from "@ui/MultiSelectCombobox";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 
 type LogLevel = "success" | "failure" | "DEBUG" | "INFO" | "WARN" | "ERROR";
 
@@ -139,7 +140,16 @@ export function FunctionLogs({
   );
 
   const router = useRouter();
-  const { deploymentsURI } = useContext(DeploymentInfoContext);
+  const { deploymentsURI, useIsOperationAllowed } = useContext(
+    DeploymentInfoContext,
+  );
+  const canViewLogs = useIsOperationAllowed("ViewLogs");
+
+  if (!canViewLogs) {
+    return (
+      <NoPermissionMessage message="You do not have permission to view logs in this deployment." />
+    );
+  }
 
   return (
     <div className="flex h-full w-full max-w-full min-w-0 grow flex-col gap-2 overflow-hidden">

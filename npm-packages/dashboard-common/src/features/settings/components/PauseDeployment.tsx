@@ -28,9 +28,11 @@ export function PauseDeployment({
   onPausedDeployment?: () => void;
 }) {
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const deploymentType = deployment?.deploymentType ?? "prod";
   const [paused, setPaused] = useState(false);
@@ -39,8 +41,11 @@ export function PauseDeployment({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canPauseOp = useIsOperationAllowed("PauseDeployment");
+  const canUnpauseOp = useIsOperationAllowed("UnpauseDeployment");
   const canPauseOrResume =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    (paused ? canUnpauseOp : canPauseOp);
 
   const changeDeploymentState = useChangeDeploymentState();
   useEffect(() => {
@@ -118,7 +123,7 @@ export function PauseDeployment({
               disabled={!canPauseOrResume}
               tip={
                 !canPauseOrResume
-                  ? "You do not have permission to pause or resume production."
+                  ? "You do not have permission to pause or resume this deployment."
                   : ""
               }
             >

@@ -12,6 +12,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
 import { EmptySection } from "@common/elements/EmptySection";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { Tab } from "@ui/Tab";
 import {
   TabGroup as HeadlessTabGroup,
@@ -27,6 +28,18 @@ export function FunctionsView({
 }: {
   showSubscriptionInvalidations?: boolean;
 } = {}) {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewData = useIsOperationAllowed("ViewData");
+
+  if (!canViewData) {
+    return (
+      <>
+        <DeploymentPageTitle title="Functions" />
+        <NoPermissionMessage message="You do not have permission to view functions in this deployment." />
+      </>
+    );
+  }
+
   return (
     <>
       <DeploymentPageTitle title="Functions" />
@@ -85,7 +98,7 @@ function Functions({
             </div>
           </div>
 
-          <HeadlessTabPanels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow overflow-x-auto p-6">
+          <HeadlessTabPanels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow flex-col overflow-x-auto p-6">
             <HeadlessTabPanel className="grow">
               <PerformanceGraphs
                 showSubscriptionInvalidations={showSubscriptionInvalidations}

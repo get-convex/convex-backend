@@ -1,4 +1,5 @@
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { Integrations } from "@common/features/settings/components/integrations/Integrations";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
@@ -17,30 +18,39 @@ export function IntegrationsView({
     useCurrentTeam,
     useTeamEntitlements,
     useCurrentDeployment,
+    useIsOperationAllowed,
     workOSOperations,
   } = useContext(DeploymentInfoContext);
   const team = useCurrentTeam();
   const deployment = useCurrentDeployment();
   const entitlements = useTeamEntitlements(team?.id);
-  const integrations = useQuery(udfs.listConfiguredSinks.default);
+  const canViewIntegrations = useIsOperationAllowed("ViewIntegrations");
+  const integrations = useQuery(
+    udfs.listConfiguredSinks.default,
+    canViewIntegrations ? undefined : "skip",
+  );
   const workosData = workOSOperations.useDeploymentWorkOSEnvironment(
     deployment?.name,
   );
 
   return (
     <DeploymentSettingsLayout page="integrations">
-      <LoadingTransition>
-        {team && entitlements && integrations !== undefined && (
-          <Integrations
-            team={team}
-            entitlements={entitlements}
-            integrations={integrations}
-            workosData={workosData}
-            onAddedIntegration={onAddedIntegration}
-            showPostHogIntegrations={showPostHogIntegrations}
-          />
-        )}
-      </LoadingTransition>
+      {!canViewIntegrations ? (
+        <NoPermissionMessage message="You do not have permission to view integrations in this deployment." />
+      ) : (
+        <LoadingTransition>
+          {team && entitlements && integrations !== undefined && (
+            <Integrations
+              team={team}
+              entitlements={entitlements}
+              integrations={integrations}
+              workosData={workosData}
+              onAddedIntegration={onAddedIntegration}
+              showPostHogIntegrations={showPostHogIntegrations}
+            />
+          )}
+        </LoadingTransition>
+      )}
     </DeploymentSettingsLayout>
   );
 }

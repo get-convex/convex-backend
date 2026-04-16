@@ -44,16 +44,20 @@ export function DataOverflowMenu({
     tableSchemaStatus?.isValidationRunning &&
     tableSchemaStatus?.isDefinedInInProgressSchema;
 
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canManageTable =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
   return (
     <Menu
       placement="bottom-start"
@@ -87,7 +91,7 @@ export function DataOverflowMenu({
             : numRows === 0
               ? "There are no documents to delete."
               : !canManageTable
-                ? "You do not have permission to clear tables in production."
+                ? "You do not have permission to clear tables in this deployment."
                 : undefined
         }
         tipSide="left"
@@ -107,7 +111,7 @@ export function DataOverflowMenu({
           ) : isInInProgressSchema ? (
             "Cannot delete table while schema validation is in progress."
           ) : !canManageTable ? (
-            "You do not have permission to delete tables in production."
+            "You do not have permission to delete tables in this deployment."
           ) : undefined
         }
         tipSide="left"

@@ -66,6 +66,7 @@ export function DataToolbar({
     useCurrentDeployment,
     useHasProjectAdminPermissions,
     useIsProtectedDeployment,
+    useIsOperationAllowed,
   } = useContext(DeploymentInfoContext);
   const isProtectedDeployment = useIsProtectedDeployment();
   const log = useLogDeploymentEvent();
@@ -74,8 +75,10 @@ export function DataToolbar({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
   const canManageTable =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
 
   return (
     <div className="flex flex-col">
@@ -270,7 +273,7 @@ function AddDocumentButton({
         isInUnmountedComponent
           ? "Cannot add documents in an unmounted component."
           : !canManageTable &&
-            "You do not have permission to add documents in production."
+            "You do not have permission to add documents in this deployment."
       }
     >
       Add
@@ -339,7 +342,7 @@ function EditDocumentButton({
         isInUnmountedComponent
           ? "Cannot edit documents in an unmounted component."
           : !canManageTable &&
-            "You do not have permission to edit documents in production."
+            "You do not have permission to edit documents in this deployment."
       }
       size="sm"
       variant="neutral"
@@ -411,7 +414,7 @@ function DeleteDocumentButton({
         isInUnmountedComponent
           ? "Cannot delete documents in an unmounted component."
           : !canManageTable &&
-            "You do not have permission to delete documents in production."
+            "You do not have permission to delete documents in this deployment."
       }
       onClick={async () => {
         log("open delete document panel", {

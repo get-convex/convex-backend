@@ -1,9 +1,10 @@
 import { useQuery } from "convex/react";
 import { Value } from "convex/values";
 import { useRouter } from "next/router";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { api } from "system-udfs/convex/_generated/api";
 import { Id } from "system-udfs/convex/_generated/dataModel";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export const NENT_APP_PLACEHOLDER = "_App";
 
@@ -22,7 +23,12 @@ export function useNents(): {
   setSelectedNent: (nent?: string) => Promise<void>;
 } {
   const { query, push } = useRouter();
-  const allComponents = useQuery(api._system.frontend.components.list, {});
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewData = useIsOperationAllowed("ViewData");
+  const allComponents = useQuery(
+    api._system.frontend.components.list,
+    canViewData ? {} : "skip",
+  );
 
   // Ensure the selected component is in the list of all components
   if (allComponents !== undefined && typeof query.component === "string") {

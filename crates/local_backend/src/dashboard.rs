@@ -221,20 +221,39 @@ pub async fn get_indexes(
 /// Check admin key validity
 ///
 /// This endpoint checks if the admin key included in the header is valid for
-/// this instance.
+/// this instance. Returns the allowed operations and read-only status for the
+/// key so the dashboard can show appropriate disabled states.
 #[utoipa::path(
     get,
     path = "/check_admin_key",
     responses((status = 200, body = serde_json::Value)),
     tag = "public_api"
 )]
-#[debug_handler]
 pub async fn check_admin_key(
-    State(_st): State<LocalAppState>,
+    MtState(_st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
-    Ok(Json(json!({ "success": true })))
+    let admin = match &identity {
+        keybroker::Identity::InstanceAdmin(admin) | keybroker::Identity::ActingUser(admin, _) => {
+            admin
+        },
+        _ => {
+            return Err(
+                anyhow::anyhow!(keybroker::bad_admin_key_error(identity.instance_name())).into(),
+            );
+        },
+    };
+    let allowed_ops = admin.allowed_ops().to_vec();
+    let is_read_only = admin.is_read_only();
+    let serialized_ops: Vec<serde_json::Value> = allowed_ops
+        .iter()
+        .map(|op| serde_json::to_value(op).unwrap())
+        .collect();
+    Ok(Json(json!({
+        "success": true,
+        "allowedOps": serialized_ops,
+        "isReadOnly": is_read_only,
+    })))
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -300,7 +319,7 @@ pub async fn run_test_function(
 }
 
 pub fn local_only_dashboard_router() -> OpenApiRouter<crate::LocalAppState> {
-    OpenApiRouter::new().routes(utoipa_axum::routes!(check_admin_key))
+    OpenApiRouter::new()
 }
 
 // Routes with the same handlers for the local backend + closed source backend
@@ -310,6 +329,7 @@ where
     S: Clone + Send + Sync + 'static,
 {
     OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(check_admin_key))
         .routes(utoipa_axum::routes!(shapes2))
         .routes(utoipa_axum::routes!(get_indexes))
         .routes(utoipa_axum::routes!(delete_tables))

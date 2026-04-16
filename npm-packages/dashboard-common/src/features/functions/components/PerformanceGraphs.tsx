@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { useContext } from "react";
 import {
   useDeploymentAuthHeader,
   useDeploymentUrl,
@@ -15,15 +16,25 @@ import {
 import { HealthCard } from "@common/elements/HealthCard";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 import { calcBuckets } from "@common/lib/charts/buckets";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 
 export function PerformanceGraphs({
   showSubscriptionInvalidations = false,
 }: {
   showSubscriptionInvalidations?: boolean;
 } = {}) {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewMetrics = useIsOperationAllowed("ViewMetrics");
   const currentOpenFunction = useCurrentOpenFunction();
   const deploymentUrl = useDeploymentUrl();
   const authHeader = useDeploymentAuthHeader();
+
+  if (!canViewMetrics) {
+    return (
+      <NoPermissionMessage message="You do not have permission to view metrics in this deployment." />
+    );
+  }
 
   if (!currentOpenFunction) {
     return null;

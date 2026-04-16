@@ -12,20 +12,24 @@ export function DeleteFilesButton({
   selectedFiles: Id<"_storage">[];
 }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const canWriteData = useIsOperationAllowed("WriteData");
 
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
     selectedNent && selectedNent.state !== "active"
   );
   const canDeleteFiles =
-    deployment?.deploymentType !== "prod" || hasAdminPermissions;
+    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
+    canWriteData;
 
   const { length } = selectedFiles;
   if (length === 0) return null;
@@ -41,7 +45,7 @@ export function DeleteFilesButton({
           isInUnmountedComponent
             ? "Cannot delete files in an unmounted component."
             : !canDeleteFiles &&
-              "You do not have permission to delete files in production"
+              "You do not have permission to delete files in this deployment."
         }
       >
         Delete {`${length} file${length > 1 ? "s" : ""}`}

@@ -4,7 +4,14 @@ import classNames from "classnames";
 import { FunctionResult } from "convex/browser";
 import { useQuery } from "convex/react";
 // special case: too annoying to move convexServerTypes to a separate file right now
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import udfs from "@common/udfs";
 import { Uri } from "monaco-editor/esm/vs/editor/editor.api";
 import { Button } from "@ui/Button";
@@ -14,6 +21,7 @@ import { SchemaJson, displaySchema } from "@common/lib/format";
 import { useRunTestFunction } from "@common/features/functionRunner/lib/client";
 import { ComponentId } from "@common/lib/useNents";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {
   RunHistory,
@@ -178,6 +186,8 @@ export function useFunctionEditor(
   setRunHistoryItem: (item: RunHistoryItem) => void,
   onRanCustomQuery?: () => void,
 ) {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canRunTestQuery = useIsOperationAllowed("RunTestQuery");
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
@@ -430,6 +440,12 @@ export function useFunctionEditor(
         }}
         size="sm"
         className={classNames("items-center justify-center", "w-full")}
+        disabled={!canRunTestQuery}
+        tip={
+          !canRunTestQuery
+            ? "You do not have permission to run custom queries in this deployment."
+            : undefined
+        }
         loading={isInFlight}
         icon={<PlayIcon />}
       >
