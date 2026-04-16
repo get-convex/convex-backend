@@ -1,5 +1,5 @@
-use keybroker::InstanceSecret;
+use keybroker::DeploymentSecret;
 
 fn main() {
-    println!("{}", InstanceSecret::random());
+    println!("{}", DeploymentSecret::random());
 }

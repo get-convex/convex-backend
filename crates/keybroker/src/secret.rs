@@ -70,4 +70,4 @@ impl FromStr for Secret {
     }
 }
 
-pub type InstanceSecret = Secret;
+pub type DeploymentSecret = Secret;

@@ -105,7 +105,7 @@ use crate::{
         bad_admin_key_error,
         DeploymentOp,
     },
-    secret::InstanceSecret,
+    secret::DeploymentSecret,
 };
 
 const ACTION_KEY_VERSION: u8 = 2;
@@ -751,28 +751,28 @@ pub fn cursor_parse_error() -> ErrorMetadata {
 }
 
 impl KeyBroker {
-    pub fn new(instance_name: &str, instance_secret: InstanceSecret) -> anyhow::Result<Self> {
+    pub fn new(instance_name: &str, deployment_secret: DeploymentSecret) -> anyhow::Result<Self> {
         Ok(Self {
             instance_name: instance_name.to_owned(),
-            encryptor: LegacyEncryptor::new(instance_secret)?,
+            encryptor: LegacyEncryptor::new(deployment_secret)?,
             admin_key_encryptor: RandomEncryptor::derive_from_secret(
-                &instance_secret,
+                &deployment_secret,
                 Purpose::ADMIN_KEY,
             )?,
             action_callback_encryptor: RandomEncryptor::derive_from_secret(
-                &instance_secret,
+                &deployment_secret,
                 Purpose::ACTION_CALLBACK_TOKEN,
             )?,
             cursor_encryptor: DeterministicEncryptor::derive_from_secret(
-                &instance_secret,
+                &deployment_secret,
                 Purpose::CURSOR,
             )?,
             journal_encryptor: RandomEncryptor::derive_from_secret(
-                &instance_secret,
+                &deployment_secret,
                 Purpose::QUERY_JOURNAL,
             )?,
             store_file_encryptor: RandomEncryptor::derive_from_secret(
-                &instance_secret,
+                &deployment_secret,
                 Purpose::STORE_FILE_AUTHORIZATION,
             )?,
         })
@@ -781,7 +781,7 @@ impl KeyBroker {
     pub fn dev() -> Self {
         Self::new(
             crate::DEV_INSTANCE_NAME,
-            InstanceSecret::try_from(crate::DEV_SECRET).unwrap(),
+            DeploymentSecret::try_from(crate::DEV_SECRET).unwrap(),
         )
         .unwrap()
     }
@@ -789,7 +789,7 @@ impl KeyBroker {
     pub fn local_dev(instance_name: &str) -> Self {
         Self::new(
             instance_name,
-            InstanceSecret::try_from(crate::DEV_SECRET).unwrap(),
+            DeploymentSecret::try_from(crate::DEV_SECRET).unwrap(),
         )
         .unwrap()
     }

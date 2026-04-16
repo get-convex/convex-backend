@@ -10,7 +10,7 @@ use common::types::{
     ConvexSite,
 };
 use keybroker::{
-    InstanceSecret,
+    DeploymentSecret,
     KeyBroker,
     DEV_INSTANCE_NAME,
     DEV_SECRET,
@@ -198,8 +198,8 @@ impl LocalConfig {
         KeyBroker::new(&name, self.secret()?)
     }
 
-    pub fn secret(&self) -> anyhow::Result<InstanceSecret> {
-        InstanceSecret::try_from(
+    pub fn secret(&self) -> anyhow::Result<DeploymentSecret> {
+        DeploymentSecret::try_from(
             self.instance_secret
                 .clone()
                 .unwrap_or(DEV_SECRET.to_owned())

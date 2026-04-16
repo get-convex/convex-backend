@@ -34,7 +34,7 @@ pub use self::{
         DeploymentOp,
     },
     secret::{
-        InstanceSecret,
+        DeploymentSecret,
         Secret,
     },
 };

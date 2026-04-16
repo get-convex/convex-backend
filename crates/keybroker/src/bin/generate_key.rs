@@ -1,7 +1,7 @@
 use clap::Parser;
 use common::types::MemberId;
 use keybroker::{
-    InstanceSecret,
+    DeploymentSecret,
     KeyBroker,
 };
 
@@ -40,8 +40,8 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let instance_secret = InstanceSecret::try_from(&args.instance_secret[..])?;
-    let broker = KeyBroker::new(&args.instance_name, instance_secret)?;
+    let deployment_secret = DeploymentSecret::try_from(&args.instance_secret[..])?;
+    let broker = KeyBroker::new(&args.instance_name, deployment_secret)?;
 
     if args.system_key {
         eprintln!("System key:");
