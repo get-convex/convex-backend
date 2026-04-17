@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import {
@@ -417,13 +418,15 @@ async function resolveOptionsInteractively(
     }
   }
   while (ref === undefined) {
+    const gitDefault = defaultRef(localGitBranch(), deploymentType);
     const input = await promptString(ctx, {
       message:
-        "How to name this deployment?\n" +
+        "What do you want to call this deployment?\n" +
         chalkStderr.reset.dim(
-          "The deployment reference will be used to identify your deployment on the dashboard and in CLI commands.\nExamples: staging, dev/james/feature-payment-integration",
+          "The deployment reference will be used to identify your deployment on the dashboard and in CLI commands.\nExamples: staging, dev/james/feature",
         ) +
         "\n>",
+      ...(gitDefault !== undefined ? { default: gitDefault } : {}),
       validate: validateTentativeReference,
     });
     const result = parseSelectorForNewDeployment(input);
@@ -519,25 +522,25 @@ function parseSelectorForNewDeployment(
     case "local":
       return {
         kind: "invalid",
-        message: `"local" is not a valid deployment reference. To create a local deployment, run ${chalkStderr.bold("npx convex deployment create local")}`,
+        message: `"local" is reserved as an alias for your local deployment. To create one, run ${chalkStderr.bold("npx convex deployment create local")}`,
       };
     case "deploymentName":
       return {
         kind: "invalid",
-        message: `"${selector.deploymentName}" is not a valid deployment reference. References cannot be in the format abc-xyz-123, as it is reserved for deployment names.`,
+        message: `"${selector.deploymentName}" is not a valid deployment reference. References can't look like "word-word-123" — that format is reserved for automatically-generated deployment names.`,
       };
     case "inCurrentProject": {
       const inner = selector.selector;
       if (inner.kind === "dev") {
         return {
           kind: "invalid",
-          message: `"dev" is not a valid deployment reference.`,
+          message: `"dev" is reserved as an alias for your default dev deployment.`,
         };
       }
       if (inner.kind === "prod") {
         return {
           kind: "invalid",
-          message: `"prod" is not a valid deployment reference.`,
+          message: `"prod" is reserved as an alias for your default production deployment.`,
         };
       }
       return { kind: "valid", ref: inner.reference };
@@ -553,13 +556,13 @@ function parseSelectorForNewDeployment(
       if (inner.kind === "dev") {
         return {
           kind: "invalid",
-          message: `"dev" is not a valid deployment reference.`,
+          message: `"dev" is reserved as an alias for your default dev deployment.`,
         };
       }
       if (inner.kind === "prod") {
         return {
           kind: "invalid",
-          message: `"prod" is not a valid deployment reference.`,
+          message: `"prod" is reserved as an alias for your default production deployment.`,
         };
       }
       return {
@@ -817,20 +820,72 @@ function validateTentativeReference(tentativeReference: string): true | string {
     return "References must be at most 100 characters";
   }
   if (!/^[a-z0-9/-]+$/.test(tentativeReference)) {
-    return "References can only contain lowercase letters, numbers, hyphens, and slashes";
+    return "References can only contain lowercase letters, numbers, `-`, and `/`";
   }
   if (tentativeReference === "dev") {
-    return '"dev" is not a valid deployment reference.';
+    return '"dev" is reserved as an alias for your default dev deployment.';
   }
   if (tentativeReference === "prod") {
-    return '"prod" is not a valid deployment reference.';
+    return '"prod" is reserved as an alias for your default production deployment.';
   }
   if (tentativeReference === "local") {
-    return `"local" is not a valid deployment reference. To create a local deployment, run ${chalkStderr.bold("npx convex deployment create local")}`;
+    return `"local" is reserved as an alias for your local deployment. To create one, run ${chalkStderr.bold("npx convex deployment create local")}`;
   }
   if (/^[a-z]+-[a-z]+-\d+$/.test(tentativeReference)) {
-    return "References cannot be in the format abc-xyz-123, as it is reserved for deployment names";
+    return 'References can\'t look like "word-word-123" — that format is reserved for automatically-generated deployment names. Try something like dev/my-feature or staging instead.';
   }
 
   return true;
+}
+
+/**
+ * Get the current local git branch name by shelling out to git.
+ * Returns null if git is unavailable, the repo is in detached HEAD state,
+ * or the branch is main/master.
+ */
+function localGitBranch(): string | null {
+  try {
+    const branch = (
+      execSync("git rev-parse --abbrev-ref HEAD", {
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 5000,
+      }) as Buffer
+    )
+      .toString()
+      .trim();
+    if (
+      !branch ||
+      branch === "HEAD" ||
+      branch === "main" ||
+      branch === "master"
+    ) {
+      return null;
+    }
+    return branch;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Slugify a git branch name into a valid deployment reference.
+ * Returns undefined if the result would fail validation.
+ */
+function defaultRef(
+  branch: string | null,
+  deploymentType: "dev" | "prod" | "preview",
+): string | undefined {
+  if (deploymentType !== "dev" && deploymentType !== "preview") {
+    return undefined;
+  }
+  if (!branch) return undefined;
+  const slug = branch
+    .replace(/[^a-z0-9/-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!slug) return undefined;
+  const ref = `${deploymentType}/${slug}`;
+  const valid = validateTentativeReference(ref);
+  if (valid !== true) return undefined;
+  return ref;
 }

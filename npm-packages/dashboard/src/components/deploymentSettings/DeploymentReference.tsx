@@ -11,15 +11,15 @@ import { CopyButton } from "@common/elements/CopyButton";
 const referenceValidationSchema = Yup.object().shape({
   reference: Yup.string()
     .required("Reference is required")
-    .min(3, "Reference must be at least 3 characters")
-    .max(100, "Reference must be at most 100 characters")
+    .min(3, "References must be at least 3 characters")
+    .max(100, "References must be at most 100 characters")
     .matches(
       /^[a-z0-9/-]+$/,
-      "Reference can only contain lowercase letters, numbers, hyphens, and slashes",
+      "References can only contain lowercase letters, numbers, hyphens, and slashes",
     )
     .test(
       "not-deployment-name-format",
-      "Reference cannot be in the format abc-xyz-123, as it is reserved for deployment names",
+      'References can\'t look like "word-word-123" — that format is reserved for automatically-generated deployment names. Try something like dev/my-feature or staging instead.',
       (value) => {
         if (!value) return true;
         // Check if it matches the deployment name pattern: word-word-number
@@ -28,7 +28,7 @@ const referenceValidationSchema = Yup.object().shape({
     )
     .test(
       "not-local-prefix",
-      "Reference cannot start with 'local-' or 'local/'",
+      "References cannot start with 'local-' or 'local/'",
       (value) => {
         if (!value) return true;
         const valueLower = value.toLowerCase();
@@ -40,7 +40,7 @@ const referenceValidationSchema = Yup.object().shape({
     .test(
       "not-reserved",
       // eslint-disable-next-line no-template-curly-in-string -- Yup error template
-      '"${value}" is a reserved name and cannot be used as a reference.',
+      '"${value}" is reserved as a deployment alias and can\'t be used as a reference.',
       (value) => {
         if (!value) return true;
         const valueLower = value.toLowerCase();
