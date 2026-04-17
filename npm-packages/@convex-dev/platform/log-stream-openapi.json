@@ -605,6 +605,7 @@
           "total_document_size_bytes",
           "total_index_size_bytes",
           "total_vector_storage_bytes",
+          "total_text_storage_bytes",
           "total_file_storage_bytes",
           "total_backup_storage_bytes",
           "total_system_table_document_size_bytes"
@@ -645,6 +646,11 @@
             "propertyNames": {
               "type": "string"
             }
+          },
+          "total_text_storage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "total_vector_storage_bytes": {
             "type": "integer",

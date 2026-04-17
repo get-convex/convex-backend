@@ -180,6 +180,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
                 total_document_size_bytes: totals.total_document_size,
                 total_index_size_bytes: totals.total_index_size,
                 total_vector_storage_bytes: totals.total_vector_storage,
+                total_text_storage_bytes: totals.total_text_storage,
                 total_file_storage_bytes: totals.total_file_storage,
                 total_backup_storage_bytes: totals.total_backup_storage,
                 total_system_table_document_size_bytes: totals.system_table_document_sizes,
@@ -283,6 +284,9 @@ impl GaugeMetrics {
         // Aggregate all vector storage (no vector data in system tables)
         let total_vector_storage = self.vector_index_storage.values().sum();
 
+        // Aggregate all text index storage
+        let total_text_storage = self.text_index_storage.values().sum();
+
         // Only count user table documents
         let total_document_count = self
             .document_counts
@@ -315,6 +319,7 @@ impl GaugeMetrics {
             total_document_size,
             total_index_size,
             total_vector_storage,
+            total_text_storage,
             total_file_storage: self.storage_total_size,
             total_backup_storage: self.cloud_snapshot_total_size,
             total_document_count,
@@ -328,6 +333,7 @@ pub struct AggregatedStorageUsage {
     pub total_document_size: u64,
     pub total_index_size: u64,
     pub total_vector_storage: u64,
+    pub total_text_storage: u64,
     pub total_file_storage: u64,
     pub total_backup_storage: u64,
     pub total_document_count: u64,

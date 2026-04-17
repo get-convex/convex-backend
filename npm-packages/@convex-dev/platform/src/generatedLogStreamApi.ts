@@ -153,6 +153,8 @@ export interface components {
                 [key: string]: number;
             };
             /** Format: int64 */
+            total_text_storage_bytes: number;
+            /** Format: int64 */
             total_vector_storage_bytes: number;
         };
         VerificationEvent: {

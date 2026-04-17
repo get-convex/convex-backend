@@ -270,24 +270,29 @@ Schema:
     [`_scheduled_functions`](/scheduling/scheduled-functions#retrieving-scheduled-function-status)
     table
 - `usage`:
-  - `database_read_bytes`: number
-  - `database_write_bytes`: number, this and `database_read_bytes` make up the
-    database bandwidth used by the function
+  - `database_io_read_bytes`: number
+  - `database_io_write_bytes`: number, this and `database_io_read_bytes` make up
+    the Database I/O used by the function
   - `database_read_documents`: number, the number of documents read by the
     function
-  - `file_storage_read_bytes`: number
-  - `file_storage_write_bytes`: number, this and `file_storage_read_bytes` make
-    up the file bandwidth used by the function when reading or writing files
-    using the
-    [storage API within Convex functions](/file-storage/store-files.mdx) (e.g.
-    `ctx.storage.store()`, `ctx.storage.get()`). This does not include bandwidth
-    from clients downloading files directly from the storage HTTP API; see
+  - `text_search_query_bytes`: number
+  - `text_search_write_query_bytes`: number, these two fields together track
+    text search query usage
+  - `vector_search_query_bytes`: number
+  - `vector_search_write_query_bytes`: number, these two fields together track
+    vector search query usage. Combined with the `text_search_*` fields, they
+    make up the Search queries pricing metric.
+  - `file_storage_read_bytes`: number, the bytes read from file storage using
+    the [storage API within Convex functions](/file-storage/store-files.mdx)
+    (e.g. `ctx.storage.get()`). This does not include bandwidth from clients
+    downloading files directly from the storage HTTP API; see
     [`storage_api_bandwidth`](#storage_api_bandwidth-events).
-  - `vector_storage_read_bytes`: number
-  - `vector_storage_write_bytes`: number, this and `vector_storage_read_bytes`
-    make up the vector bandwidth used by the function
-  - `memory_used_mb`: number, for queries, mutations, and actions, the memory
-    used in MiB. This combined with `execution_time_ms` makes up the compute.
+  - `network_egress_bytes`: number, the bytes sent to clients or external
+    services. This contributes to Data egress alongside
+    [`storage_api_bandwidth`](#storage_api_bandwidth-events) events.
+  - `action_memory_used_mb`: optional number (actions and HTTP actions only),
+    the memory used in MiB. This combined with `execution_time_ms` makes up
+    Action compute.
 
 Example event for a query:
 
@@ -305,13 +310,15 @@ Example event for a query:
     "timestamp": 1715973841548,
     "topic": "function_execution",
     "usage": {
-      "database_read_bytes": 1077,
-      "database_write_bytes": 0,
+      "database_io_read_bytes": 1077,
+      "database_io_write_bytes": 0,
       "database_read_documents": 3,
       "file_storage_read_bytes": 0,
-      "file_storage_write_bytes": 0,
-      "vector_storage_read_bytes": 0,
-      "vector_storage_write_bytes": 0
+      "text_search_query_bytes": 0,
+      "text_search_write_query_bytes": 0,
+      "vector_search_query_bytes": 0,
+      "vector_search_write_query_bytes": 0,
+      "network_egress_bytes": 0
     }
   }
 }
@@ -379,7 +386,7 @@ For calculating billing costs:
 
 - Database Storage Bytes: `total_document_size_bytes + total_index_size_bytes`
 - File Storage: `total_file_storage_bytes + total_backup_storage_bytes`
-- Vector Storage: `total_vector_storage_bytes`
+- Search Storage: `total_vector_storage_bytes + total_text_storage_bytes`
 
 Schema:
 
@@ -390,6 +397,7 @@ Schema:
 - `total_index_size_bytes`: number, total size in bytes of all database indexes
 - `total_vector_storage_bytes`: number, total size in bytes of vector index
   storage
+- `total_text_storage_bytes`: number, total size in bytes of text index storage
 - `total_file_storage_bytes`: number, total size in bytes of file storage
 - `total_backup_storage_bytes`: number, total size in bytes of snapshot/backup
   storage
@@ -405,6 +413,7 @@ Example event:
   "total_document_size_bytes": 104857600,
   "total_index_size_bytes": 10485760,
   "total_vector_storage_bytes": 5242880,
+  "total_text_storage_bytes": 1048576,
   "total_file_storage_bytes": 52428800,
   "total_backup_storage_bytes": 209715200,
   "total_system_table_document_size_bytes": {
