@@ -387,6 +387,7 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
         udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
+        invocation_metadata: Option<ConvexObject>,
         udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue>;
 
@@ -550,6 +551,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         nested_udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
+        invocation_metadata: Option<ConvexObject>,
         udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue> {
         match (self.udf_type, nested_udf_type) {
@@ -625,7 +627,13 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                     transaction: nested_tx,
                     unix_timestamp,
                     journal: query_journal,
-                    context: self.context.clone(),
+                    context: ExecutionContext::new_from_parts(
+                        self.context.request_id.clone(),
+                        self.context.execution_id,
+                        self.context.parent_scheduled_job.clone(),
+                        self.context.is_root(),
+                        self.context.merged_invocation_metadata(invocation_metadata),
+                    ),
                 },
                 EnvironmentData {
                     key_broker: self.key_broker.clone(),
@@ -777,6 +785,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/queryPage" => Box::pin(Self::query_page(provider, args)).await,
                     "1.0/getTransactionMetrics" => Self::tx_metrics(provider),
                     "1.0/getFunctionMetadata" => Self::function_metadata(provider),
+                    "1.0/getInvocationContext" => Self::invocation_context(provider),
                     // Auth
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
@@ -850,6 +859,18 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(json!({
             "name": udf_path.clone().strip().to_string(),
             "componentPath": component_path.to_string(),
+        }))
+    }
+
+    fn invocation_context(provider: &mut P) -> anyhow::Result<JsonValue> {
+        let context = provider.context();
+        Ok(json!({
+            "requestId": context.request_id.to_string(),
+            "executionId": context.execution_id.to_string(),
+            "isRoot": context.is_root(),
+            "parentScheduledJob": context.parent_scheduled_job.as_ref().map(|(_, job_id)| job_id.to_string()),
+            "parentScheduledJobComponentId": context.parent_scheduled_job.as_ref().and_then(|(component_id, _)| component_id.serialize_to_string()),
+            "metadata": context.invocation_metadata.clone().map(JsonValue::from),
         }))
     }
 
@@ -1424,6 +1445,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             reference: Option<String>,
             function_handle: Option<String>,
             args: JsonValue,
+            metadata: Option<JsonValue>,
         }
         let RunUdfArgs {
             udf_type,
@@ -1431,14 +1453,24 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             reference,
             function_handle,
             args,
+            metadata,
         } = with_argument_error("runUdf", || Ok(serde_json::from_value(args)?))?;
-        let (udf_type, args) = with_argument_error("runUdf", || {
+        let (udf_type, args, metadata) = with_argument_error("runUdf", || {
             let udf_type: NestedUdfType = udf_type.parse().context(ArgName("udfType"))?;
             let args: ConvexObject = ConvexValue::try_from(args)
                 .context(ArgName("args"))?
                 .try_into()
                 .context(ArgName("args"))?;
-            Ok((udf_type, args))
+            let metadata = match metadata {
+                Some(metadata) => Some(
+                    ConvexValue::try_from(metadata)
+                        .context(ArgName("metadata"))?
+                        .try_into()
+                        .context(ArgName("metadata"))?,
+                ),
+                None => None,
+            };
+            Ok((udf_type, args, metadata))
         })?;
         let path = match function_handle {
             Some(function_handle) => {
@@ -1478,7 +1510,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 }
             },
         };
-        let value = provider.run_udf(udf_type, path, args, udf_callback).await?;
+        let value = provider
+            .run_udf(udf_type, path, args, metadata, udf_callback)
+            .await?;
         Ok(value.into())
     }
 

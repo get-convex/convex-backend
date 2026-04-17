@@ -188,6 +188,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     identifier::Identifier,
     serialized_args_ext::SerializedArgsExt,
+    ConvexObject,
     JsonPackedValue,
     Size as _,
     TableNamespace,
@@ -698,6 +699,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         path: CanonicalizedComponentFunctionPath,
         arguments: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<(Result<JsonPackedValue, JsError>, LogLines)> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("query_without_caching"));
@@ -713,7 +715,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Query,
         )
         .await?;
-        let context = ExecutionContext::new(request_id, &caller);
+        let context = ExecutionContext::new_with_metadata(request_id, &caller, invocation_metadata);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
@@ -772,6 +774,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         mutation_queue_length: Option<usize>,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let timer = mutation_timer();
         let result = self
@@ -783,6 +786,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 mutation_identifier,
                 caller,
                 mutation_queue_length,
+                invocation_metadata,
             )
             .await;
         match &result {
@@ -803,6 +807,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         mutation_queue_length: Option<usize>,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -827,7 +832,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
             // Note that we use different context for every mutation attempt.
             // This so every JS function run gets a different executionId.
-            let context = ExecutionContext::new(request_id.clone(), &caller);
+            let context = ExecutionContext::new_with_metadata(
+                request_id.clone(),
+                &caller,
+                invocation_metadata.clone(),
+            );
 
             let start = self.runtime.monotonic_now();
             let mut tx = self
@@ -1145,11 +1154,16 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
-        let context = ExecutionContext::new(request_id.clone(), &caller);
+        let context = ExecutionContext::new_with_metadata(
+            request_id.clone(),
+            &caller,
+            invocation_metadata,
+        );
         let usage_tracking = FunctionUsageTracker::new();
         let start = self.runtime.monotonic_now();
         let completion_result = self
@@ -1811,9 +1825,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<QueryReturn> {
         let result = self
-            .run_query_at_ts_inner(request_id, path, args, identity, ts, journal, caller)
+            .run_query_at_ts_inner(
+                request_id,
+                path,
+                args,
+                identity,
+                ts,
+                journal,
+                caller,
+                invocation_metadata,
+            )
             .await;
         match result.as_ref() {
             Ok(udf_outcome) => {
@@ -1844,12 +1868,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<QueryReturn> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
         }
         let start = self.runtime.monotonic_now();
-        let context = ExecutionContext::new(request_id.clone(), &caller);
+        let context = ExecutionContext::new_with_metadata(
+            request_id.clone(),
+            &caller,
+            invocation_metadata,
+        );
         let usage_tracker = FunctionUsageTracker::new();
         let result = self
             .cache_manager
@@ -1980,6 +2009,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     parent_scheduled_job: context.parent_scheduled_job,
                     parent_execution_id: Some(context.execution_id),
                 },
+                context.invocation_metadata.clone(),
             )
             .await?
             .result;
@@ -2006,6 +2036,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     parent_execution_id: Some(context.execution_id),
                 },
                 None,
+                context.invocation_metadata.clone(),
             )
             .await
             .map(|r| match r {
@@ -2034,6 +2065,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     parent_scheduled_job: context.parent_scheduled_job,
                     parent_execution_id: Some(context.execution_id),
                 },
+                context.invocation_metadata.clone(),
             )
             .await
             .map(|r| match r {

@@ -46,6 +46,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use value::{
     export::ValueFormat,
+    ConvexObject,
     ConvexValue,
 };
 
@@ -65,6 +66,8 @@ pub struct UdfPostRequest {
     pub path: String,
     #[schema(value_type = Object)]
     pub args: UdfArgsJson,
+    #[schema(value_type = Option<Object>)]
+    pub metadata: Option<JsonValue>,
 
     pub format: Option<String>,
 }
@@ -82,6 +85,8 @@ pub struct UdfPostWithTsRequest {
     #[schema(value_type = Object)]
     pub args: UdfArgsJson,
     pub ts: SerializedTs,
+    #[schema(value_type = Option<Object>)]
+    pub metadata: Option<JsonValue>,
 
     pub format: Option<String>,
 }
@@ -234,6 +239,7 @@ pub async fn public_function_post(
             component_function_path,
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            parse_invocation_metadata(req.metadata)?,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -256,7 +262,20 @@ pub async fn public_function_post(
 pub struct UdfPostRequestArgsOnly {
     #[schema(value_type = Object)]
     pub args: UdfArgsJson,
+    #[schema(value_type = Option<Object>)]
+    pub metadata: Option<JsonValue>,
     pub format: Option<String>,
+}
+
+pub(crate) fn parse_invocation_metadata(
+    metadata: Option<JsonValue>,
+) -> anyhow::Result<Option<ConvexObject>> {
+    metadata
+        .map(|metadata| {
+            let metadata: ConvexValue = metadata.try_into()?;
+            ConvexObject::try_from(metadata)
+        })
+        .transpose()
 }
 
 /// Execute function by URL path
@@ -324,6 +343,7 @@ pub async fn public_function_post_with_path(
             },
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            parse_invocation_metadata(req.metadata)?,
         )
         .await?;
     // Default to ConvexCleanJSON if no format is provided.
@@ -401,6 +421,7 @@ pub async fn public_query_get(
             export_path,
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            None,
             ExecuteQueryTimestamp::Latest,
             journal,
         )
@@ -455,6 +476,7 @@ pub async fn public_query_post(
             udf_path,
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            parse_invocation_metadata(req.metadata)?,
             ExecuteQueryTimestamp::Latest,
             journal,
         )
@@ -529,6 +551,7 @@ pub async fn public_query_at_ts_post(
             export_path,
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            parse_invocation_metadata(req.metadata)?,
             ExecuteQueryTimestamp::At(ts),
             journal,
         )
@@ -593,6 +616,7 @@ pub async fn public_query_batch_post(
                 export_path,
                 req.args.into_serialized_args()?,
                 FunctionCaller::HttpApi(client_version.clone()),
+                parse_invocation_metadata(req.metadata)?,
                 ExecuteQueryTimestamp::At(*ts),
                 None,
             )
@@ -651,6 +675,7 @@ pub async fn public_mutation_post(
             export_path,
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            parse_invocation_metadata(req.metadata)?,
             None,
             None,
         )
@@ -709,6 +734,7 @@ pub async fn public_action_post(
             export_path,
             req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
+            parse_invocation_metadata(req.metadata)?,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -744,4 +770,39 @@ where
         .routes(utoipa_axum::routes!(public_function_post))
         .routes(utoipa_axum::routes!(public_function_post_with_path))
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::parse_invocation_metadata;
+    use value::{
+        ConvexValue,
+    };
+
+    #[test]
+    fn parse_invocation_metadata_accepts_objects() {
+        let metadata = parse_invocation_metadata(Some(json!({
+            "correlationId": "corr_123",
+            "origin": "nuxt",
+        })))
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(
+            serde_json::Value::from(ConvexValue::Object(metadata)),
+            json!({
+                "correlationId": "corr_123",
+                "origin": "nuxt",
+            }),
+        );
+    }
+
+    #[test]
+    fn parse_invocation_metadata_rejects_non_objects() {
+        let error = parse_invocation_metadata(Some(json!("not-an-object"))).unwrap_err();
+
+        assert!(error.to_string().contains("metadata"));
+    }
 }

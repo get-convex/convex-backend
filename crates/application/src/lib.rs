@@ -358,6 +358,7 @@ use usage_tracking::{
     UsageCounter,
 };
 use value::{
+    ConvexObject,
     id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
     JsonPackedValue,
@@ -1026,10 +1027,20 @@ impl<RT: Runtime> Application<RT> {
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let ts = *self.now_ts_for_reads();
-        self.read_only_udf_at_ts(request_id, path, args, identity, ts, None, caller)
-            .await
+        self.read_only_udf_at_ts(
+            request_id,
+            path,
+            args,
+            identity,
+            ts,
+            None,
+            caller,
+            invocation_metadata,
+        )
+        .await
     }
 
     #[fastrace::trace]
@@ -1042,6 +1053,7 @@ impl<RT: Runtime> Application<RT> {
         ts: Timestamp,
         journal: Option<Option<String>>,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let persistence_version = self.database.persistence_version();
         let block_logging = self
@@ -1065,12 +1077,13 @@ impl<RT: Runtime> Application<RT> {
                     request_id.clone(),
                     path,
                     args,
-                    identity,
-                    ts,
-                    journal,
-                    caller,
-                )
-                .await?
+                identity,
+                ts,
+                journal,
+                caller,
+                invocation_metadata,
+            )
+            .await?
         });
 
         let redacted_query_return = match query_return {
@@ -1115,6 +1128,7 @@ impl<RT: Runtime> Application<RT> {
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         mutation_queue_length: Option<usize>,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         let block_logging = self
             .log_visibility
@@ -1134,6 +1148,7 @@ impl<RT: Runtime> Application<RT> {
                 mutation_identifier,
                 caller,
                 mutation_queue_length,
+                invocation_metadata,
             )
             .await
         {
@@ -1177,6 +1192,7 @@ impl<RT: Runtime> Application<RT> {
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         let block_logging = self
             .log_visibility
@@ -1195,7 +1211,14 @@ impl<RT: Runtime> Application<RT> {
             .unwrap_or(Span::noop());
         let run_action = async move {
             runner
-                .run_action(request_id_, name, args, identity, caller)
+                .run_action(
+                    request_id_,
+                    name,
+                    args,
+                    identity,
+                    caller,
+                    invocation_metadata,
+                )
                 .in_span(span)
                 .await
         };
@@ -1307,6 +1330,7 @@ impl<RT: Runtime> Application<RT> {
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
         let block_logging = self
             .log_visibility
@@ -1357,6 +1381,7 @@ impl<RT: Runtime> Application<RT> {
                     args,
                     identity,
                     caller,
+                    invocation_metadata,
                 )
                 .await
                 .map(
@@ -1378,6 +1403,7 @@ impl<RT: Runtime> Application<RT> {
                     None,
                     caller,
                     None,
+                    invocation_metadata,
                 )
                 .await
                 .map(|res| {
@@ -1399,6 +1425,7 @@ impl<RT: Runtime> Application<RT> {
                     args,
                     identity,
                     caller,
+                    invocation_metadata,
                 )
                 .await
                 .map(|res| {
@@ -2500,7 +2527,7 @@ impl<RT: Runtime> Application<RT> {
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => {
                 self.runner
-                    .run_query_without_caching(request_id.clone(), tx, path, args, caller)
+                    .run_query_without_caching(request_id.clone(), tx, path, args, caller, None)
                     .await
             },
             UdfType::Mutation => {

@@ -1,0 +1,68 @@
+---
+title: Invocation metadata
+sidebar_position: 40
+description: "Propagate request-scoped metadata across Convex function calls"
+---
+
+import ClientExample from "!!raw-loader!@site/../private-demos/snippets/nodeInvocationMetadata.ts";
+import ServerExample from "!!raw-loader!@site/../private-demos/snippets/convex/invocationMetadata.ts";
+
+Invocation metadata is optional request-scoped data passed alongside a Convex
+function call. It can be useful for correlation IDs, tracing context, or other
+metadata your app or framework wants to propagate.
+
+Unlike function arguments, invocation metadata is not part of your function's
+`args` object. Read it from `ctx.meta.getInvocationContext()`.
+
+## Passing invocation metadata from clients
+
+The JavaScript [HTTP client](/api/classes/browser.ConvexHttpClient) accepts an
+optional `metadata` field when calling point-in-time queries, mutations, and
+actions:
+
+<Snippet title="script.ts" source={ClientExample} />
+
+Invocation metadata values follow the same serialization rules as function
+arguments and return values.
+
+## Reading invocation metadata in functions
+
+Use `ctx.meta.getInvocationContext()` inside a query, mutation, or action to
+read the current invocation metadata:
+
+<Snippet title="convex/invocationMetadata.ts" source={ServerExample} />
+
+The invocation context includes:
+
+- `requestId`, the request that started the current function
+- `executionId`, the current execution within that request
+- `isRoot`, whether this function is the root of the invocation tree
+- `parentScheduledJob` and `parentScheduledJobComponentId` when running from a
+  scheduled function
+- `metadata`, the metadata object passed to the function or inherited from its
+  caller
+
+## Nested calls inherit invocation metadata
+
+Nested calls made with `ctx.runQuery`, `ctx.runMutation`, and `ctx.runAction`
+inherit the parent invocation metadata by default.
+
+To override metadata for a nested call, pass a `metadata` object as the third
+argument. Overrides are shallow: top-level keys from the nested call replace the
+same keys from the parent invocation.
+
+## What invocation metadata is for
+
+Invocation metadata is useful for request-scoped information such as:
+
+- correlation IDs
+- trace context
+- workflow or phase labels
+- framework-specific request metadata
+
+Invocation metadata is not a substitute for authentication or authorization. Use
+[Authentication](/auth.mdx) and the `ctx.auth` field for identity and access
+control.
+
+Invocation metadata is available for one-shot function calls and nested function
+calls. Reactive query subscriptions do not attach invocation metadata.

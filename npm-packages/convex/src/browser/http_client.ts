@@ -23,6 +23,7 @@ import {
   FunctionArgs,
   UserIdentityAttributes,
 } from "../server/index.js";
+import { InvocationOptions } from "../server/meta.js";
 
 export const STATUS_CODE_OK = 200;
 export const STATUS_CODE_BAD_REQUEST = 400;
@@ -37,7 +38,9 @@ export function setFetch(f: typeof globalThis.fetch) {
   specifiedFetch = f;
 }
 
-export type HttpMutationOptions = {
+export type HttpFunctionOptions = InvocationOptions;
+
+export type HttpMutationOptions = InvocationOptions & {
   /**
    * Skip the default queue of mutations and run this immediately.
    *
@@ -70,6 +73,7 @@ export class ConvexHttpClient {
   private mutationQueue: Array<{
     mutation: FunctionReference<"mutation">;
     args: FunctionArgs<any>;
+    options?: HttpMutationOptions;
     resolve: (value: any) => void;
     reject: (error: any) => void;
   }> = [];
@@ -225,12 +229,16 @@ export class ConvexHttpClient {
    */
   async consistentQuery<Query extends FunctionReference<"query">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, HttpFunctionOptions>
   ): Promise<FunctionReturnType<Query>> {
-    const queryArgs = parseArgs(args[0]);
+    const [queryArgsRaw, options] = args;
+    const queryArgs = parseArgs(queryArgsRaw);
 
     const timestampPromise = this.getTimestamp();
-    return await this.queryInner(query, queryArgs, { timestampPromise });
+    return await this.queryInner(query, queryArgs, {
+      timestampPromise,
+      metadata: options?.metadata,
+    });
   }
 
   private async getTimestamp() {
@@ -269,16 +277,22 @@ export class ConvexHttpClient {
    */
   async query<Query extends FunctionReference<"query">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, HttpFunctionOptions>
   ): Promise<FunctionReturnType<Query>> {
-    const queryArgs = parseArgs(args[0]);
-    return await this.queryInner(query, queryArgs, {});
+    const [queryArgsRaw, options] = args;
+    const queryArgs = parseArgs(queryArgsRaw);
+    return await this.queryInner(query, queryArgs, {
+      metadata: options?.metadata,
+    });
   }
 
   private async queryInner<Query extends FunctionReference<"query">>(
     query: Query,
     queryArgs: FunctionArgs<Query>,
-    options: { timestampPromise?: Promise<string> },
+    options: {
+      metadata?: InvocationOptions["metadata"];
+      timestampPromise?: Promise<string>;
+    },
   ): Promise<FunctionReturnType<Query>> {
     const name = getFunctionName(query);
     const args = [convexToJson(queryArgs)];
@@ -301,6 +315,9 @@ export class ConvexHttpClient {
       path: name,
       format: "convex_encoded_json",
       args,
+      ...(options.metadata
+        ? { metadata: convexToJson(parseArgs(options.metadata)) }
+        : {}),
       ...(timestamp ? { ts: timestamp } : {}),
     });
     const endpoint = timestamp
@@ -342,12 +359,16 @@ export class ConvexHttpClient {
   private async mutationInner<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     mutationArgs: FunctionArgs<Mutation>,
+    options?: HttpMutationOptions,
   ): Promise<FunctionReturnType<Mutation>> {
     const name = getFunctionName(mutation);
     const body = JSON.stringify({
       path: name,
       format: "convex_encoded_json",
       args: [convexToJson(mutationArgs)],
+      ...(options?.metadata
+        ? { metadata: convexToJson(parseArgs(options.metadata)) }
+        : {}),
     });
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -397,9 +418,10 @@ export class ConvexHttpClient {
 
     this.isProcessingQueue = true;
     while (this.mutationQueue.length > 0) {
-      const { mutation, args, resolve, reject } = this.mutationQueue.shift()!;
+      const { mutation, args, options, resolve, reject } =
+        this.mutationQueue.shift()!;
       try {
-        const result = await this.mutationInner(mutation, args);
+        const result = await this.mutationInner(mutation, args, options);
         resolve(result);
       } catch (error) {
         reject(error);
@@ -411,9 +433,16 @@ export class ConvexHttpClient {
   private enqueueMutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     args: FunctionArgs<Mutation>,
+    options?: HttpMutationOptions,
   ): Promise<FunctionReturnType<Mutation>> {
     return new Promise((resolve, reject) => {
-      this.mutationQueue.push({ mutation, args, resolve, reject });
+      this.mutationQueue.push({
+        mutation,
+        args,
+        ...(options ? { options } : {}),
+        resolve,
+        reject,
+      });
       void this.processMutationQueue();
     });
   }
@@ -436,9 +465,9 @@ export class ConvexHttpClient {
     const queued = !options?.skipQueue;
 
     if (queued) {
-      return await this.enqueueMutation(mutation, mutationArgs);
+      return await this.enqueueMutation(mutation, mutationArgs, options);
     } else {
-      return await this.mutationInner(mutation, mutationArgs);
+      return await this.mutationInner(mutation, mutationArgs, options);
     }
   }
 
@@ -452,14 +481,18 @@ export class ConvexHttpClient {
    */
   async action<Action extends FunctionReference<"action">>(
     action: Action,
-    ...args: OptionalRestArgs<Action>
+    ...args: ArgsAndOptions<Action, HttpFunctionOptions>
   ): Promise<FunctionReturnType<Action>> {
-    const actionArgs = parseArgs(args[0]);
+    const [actionArgsRaw, options] = args;
+    const actionArgs = parseArgs(actionArgsRaw);
     const name = getFunctionName(action);
     const body = JSON.stringify({
       path: name,
       format: "convex_encoded_json",
       args: [convexToJson(actionArgs)],
+      ...(options?.metadata
+        ? { metadata: convexToJson(parseArgs(options.metadata)) }
+        : {}),
     });
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

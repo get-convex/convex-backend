@@ -57,6 +57,7 @@ use udf::{
 };
 use value::{
     sha256::Sha256Digest,
+    ConvexObject,
     DeveloperDocumentId,
 };
 
@@ -102,6 +103,7 @@ pub trait ApplicationApi: Send + Sync {
         path: ExportPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
     ) -> anyhow::Result<RedactedQueryReturn>;
@@ -117,6 +119,7 @@ pub trait ApplicationApi: Send + Sync {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
     ) -> anyhow::Result<RedactedQueryReturn>;
@@ -130,6 +133,7 @@ pub trait ApplicationApi: Send + Sync {
         path: ExportPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
         // The length of the mutation queue at the time the mutation was executed.
@@ -145,6 +149,7 @@ pub trait ApplicationApi: Send + Sync {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         mutation_identifier: Option<SessionRequestIdentifier>,
         // The length of the mutation queue at the time the mutation was executed.
         mutation_queue_length: Option<usize>,
@@ -159,6 +164,7 @@ pub trait ApplicationApi: Send + Sync {
         path: ExportPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
 
     /// Execute an admin action for a particular component for the dashboard.
@@ -170,6 +176,7 @@ pub trait ApplicationApi: Send + Sync {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
 
     /// Execute an HTTP action on the root app.
@@ -194,6 +201,7 @@ pub trait ApplicationApi: Send + Sync {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>>;
 
     async fn latest_timestamp(
@@ -278,6 +286,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: ExportPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
     ) -> anyhow::Result<RedactedQueryReturn> {
@@ -297,6 +306,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ts,
             journal,
             caller,
+            invocation_metadata,
         )
         .await
     }
@@ -309,6 +319,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
     ) -> anyhow::Result<RedactedQueryReturn> {
@@ -328,6 +339,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ts,
             journal,
             caller,
+            invocation_metadata,
         )
         .await
     }
@@ -340,6 +352,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: ExportPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
         mutation_queue_length: Option<usize>,
@@ -356,6 +369,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             mutation_identifier,
             caller,
             mutation_queue_length,
+            invocation_metadata,
         )
         .await
     }
@@ -368,6 +382,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
         mutation_identifier: Option<SessionRequestIdentifier>,
         mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
@@ -383,6 +398,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             mutation_identifier,
             caller,
             mutation_queue_length,
+            invocation_metadata,
         )
         .await
     }
@@ -395,6 +411,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: ExportPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         anyhow::ensure!(
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
@@ -406,6 +423,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             args,
             identity,
             caller,
+            invocation_metadata,
         )
         .await
     }
@@ -418,6 +436,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         anyhow::ensure!(
             path.component.is_root() || identity.is_admin() || identity.is_system(),
@@ -429,6 +448,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             args,
             identity,
             caller,
+            invocation_metadata,
         )
         .await
     }
@@ -441,12 +461,14 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         caller: FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
         anyhow::ensure!(
             path.component.is_root() || identity.is_admin() || identity.is_system(),
             "Only admin or system users can call functions on non-root components directly"
         );
-        self.any_udf(request_id, path, args, identity, caller).await
+        self.any_udf(request_id, path, args, identity, caller, invocation_metadata)
+            .await
     }
 
     async fn latest_timestamp(

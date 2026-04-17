@@ -1,6 +1,7 @@
 import { jsonToConvex } from "../../values/index.js";
 import {
   ActionMeta,
+  InvocationContext,
   MutationMeta,
   QueryMeta,
   FunctionMetadata,
@@ -35,6 +36,10 @@ async function getFunctionMetadata(): Promise<{
   return { name, componentPath };
 }
 
+async function getInvocationContext(): Promise<InvocationContext> {
+  return await performAsyncSyscall("1.0/getInvocationContext", {});
+}
+
 export function setupQueryMeta(
   visibility: FunctionMetadata["visibility"],
 ): QueryMeta {
@@ -45,6 +50,7 @@ export function setupQueryMeta(
       visibility,
     }),
     getTransactionMetrics,
+    getInvocationContext,
   };
 }
 
@@ -58,6 +64,7 @@ export function setupMutationMeta(
       visibility,
     }),
     getTransactionMetrics,
+    getInvocationContext,
   };
 }
 
@@ -70,5 +77,6 @@ export function setupActionMeta(
       type: "action",
       visibility,
     }),
+    getInvocationContext,
   };
 }

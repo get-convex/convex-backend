@@ -569,6 +569,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                     ExportPath::from(udf_path.canonicalize()),
                                     args,
                                     caller,
+                                    None,
                                     mutation_identifier,
                                     Some(mutation_queue_size),
                                 )
@@ -585,6 +586,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                     path,
                                     args,
                                     caller,
+                                    None,
                                     mutation_identifier,
                                     Some(mutation_queue_size),
                                 )
@@ -662,6 +664,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 ExportPath::from(udf_path.canonicalize()),
                                 args,
                                 caller,
+                                None,
                             )
                             .in_span(root)
                             .await?
@@ -675,6 +678,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 path,
                                 args,
                                 caller,
+                                None,
                             )
                             .in_span(root)
                             .await?
@@ -960,6 +964,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                             ExportPath::from(query.udf_path.clone().canonicalize()),
                                             query.args.clone(),
                                             caller.clone(),
+                                            None,
                                             ExecuteQueryTimestamp::At(new_ts),
                                             query.journal.clone(),
                                         )
@@ -978,6 +983,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                             path,
                                             query.args.clone(),
                                             caller.clone(),
+                                            None,
                                             ExecuteQueryTimestamp::At(new_ts),
                                             query.journal.clone(),
                                         )

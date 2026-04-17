@@ -666,6 +666,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                     execution_id.unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
+                    None,
                 );
                 sentry::configure_scope(|scope| context.add_sentry_tags(scope));
                 let mut model = CronModel::new(&mut tx, component);

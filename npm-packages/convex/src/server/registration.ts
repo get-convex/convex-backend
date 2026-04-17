@@ -8,8 +8,9 @@ import {
   StorageReader,
   StorageWriter,
 } from "./index.js";
-import { ActionMeta, MutationMeta, QueryMeta } from "./meta.js";
+import { ActionMeta, InvocationOptions, MutationMeta, QueryMeta } from "./meta.js";
 import {
+  ArgsAndOptions,
   FunctionReference,
   FunctionReturnType,
   OptionalRestArgs,
@@ -129,7 +130,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, InvocationOptions>
   ) => Promise<FunctionReturnType<Query>>;
 
   /**
@@ -144,7 +145,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
     Query extends FunctionReference<"query", "public" | "internal">,
   >(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, InvocationOptions>
   ) => Promise<FunctionReturnType<Query>>;
 
   /**
@@ -161,7 +162,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
     Mutation extends FunctionReference<"mutation", "public" | "internal">,
   >(
     mutation: Mutation,
-    ...args: OptionalRestArgs<Mutation>
+    ...args: ArgsAndOptions<Mutation, InvocationOptions>
   ) => Promise<FunctionReturnType<Mutation>>;
 
   meta: MutationMeta;
@@ -254,7 +255,7 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, InvocationOptions>
   ) => Promise<FunctionReturnType<Query>>;
 
   meta: QueryMeta;
@@ -337,7 +338,7 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
    */
   runQuery<Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, InvocationOptions>
   ): Promise<FunctionReturnType<Query>>;
 
   /**
@@ -359,7 +360,7 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
     Mutation extends FunctionReference<"mutation", "public" | "internal">,
   >(
     mutation: Mutation,
-    ...args: OptionalRestArgs<Mutation>
+    ...args: ArgsAndOptions<Mutation, InvocationOptions>
   ): Promise<FunctionReturnType<Mutation>>;
 
   /**
@@ -380,7 +381,7 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
    */
   runAction<Action extends FunctionReference<"action", "public" | "internal">>(
     action: Action,
-    ...args: OptionalRestArgs<Action>
+    ...args: ArgsAndOptions<Action, InvocationOptions>
   ): Promise<FunctionReturnType<Action>>;
 
   /**

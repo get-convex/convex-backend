@@ -18,6 +18,7 @@ const runFunctionArgs = z.object({
   reference: z.optional(z.string()),
   functionHandle: z.optional(z.string()),
   args: z.any(),
+  metadata: z.optional(z.any()),
   version: z.string(),
 });
 
@@ -166,6 +167,11 @@ export class SyscallsImpl {
     }
     if (this.executionContext.isRoot !== undefined) {
       headers["Convex-Root-Request"] = this.executionContext.isRoot.toString();
+    }
+    if (this.executionContext.invocationMetadata != null) {
+      headers["Convex-Invocation-Metadata"] = Buffer.from(
+        JSON.stringify(this.executionContext.invocationMetadata),
+      ).toString("base64url");
     }
     if (this.authHeader !== null) {
       headers["Authorization"] = this.authHeader;
@@ -328,6 +334,16 @@ export class SyscallsImpl {
             // support node actions for components.
             componentPath: "",
           });
+        case "1.0/getInvocationContext":
+          return JSON.stringify({
+            requestId: this.executionContext.requestId,
+            executionId: this.executionContext.executionId ?? null,
+            isRoot: this.executionContext.isRoot,
+            parentScheduledJob: this.executionContext.parentScheduledJob,
+            parentScheduledJobComponentId:
+              this.executionContext.parentScheduledJobComponentId,
+            metadata: this.executionContext.invocationMetadata ?? null,
+          });
         default:
           throw new Error(`Unknown operation ${op}`);
       }
@@ -383,6 +399,7 @@ export class SyscallsImpl {
         reference: queryArgs.reference,
         functionHandle: queryArgs.functionHandle,
         args: queryArgs.args,
+        metadata: queryArgs.metadata,
       },
       path: "/api/actions/query",
       operationName,
@@ -425,6 +442,7 @@ export class SyscallsImpl {
         reference: mutationArgs.reference,
         functionHandle: mutationArgs.functionHandle,
         args: mutationArgs.args,
+        metadata: mutationArgs.metadata,
       },
       path: "/api/actions/mutation",
       operationName,
@@ -467,6 +485,7 @@ export class SyscallsImpl {
         reference: actionArgs.reference,
         functionHandle: actionArgs.functionHandle,
         args: actionArgs.args,
+        metadata: actionArgs.metadata,
       },
       path: "/api/actions/action",
       operationName,

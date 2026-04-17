@@ -2,6 +2,7 @@ use common::components::ComponentPath;
 use isolate::UdfArgsJson;
 use keybroker::Identity;
 use serde::Deserialize;
+use serde_json::Value as JsonValue;
 use utoipa::ToSchema;
 
 use crate::admin::must_be_admin;
@@ -15,6 +16,8 @@ pub struct UdfPostRequestWithComponent {
     pub path: String,
     #[schema(value_type = Object)]
     pub args: UdfArgsJson,
+    #[schema(value_type = Option<Object>)]
+    pub metadata: Option<JsonValue>,
 
     pub format: Option<String>,
 }

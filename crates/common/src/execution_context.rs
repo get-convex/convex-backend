@@ -17,6 +17,10 @@ use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     sha256,
+    ConvexObject,
+    ConvexValue,
+    JsonPackedValue,
+    Size,
 };
 
 use crate::{
@@ -38,15 +42,25 @@ pub struct ExecutionContext {
     /// version of this would be something like parent_execution_id:
     /// Option<ExecutionId>
     is_root: bool,
+    pub invocation_metadata: Option<ConvexObject>,
 }
 
 impl ExecutionContext {
     pub fn new(request_id: RequestId, caller: &FunctionCaller) -> Self {
+        Self::new_with_metadata(request_id, caller, None)
+    }
+
+    pub fn new_with_metadata(
+        request_id: RequestId,
+        caller: &FunctionCaller,
+        invocation_metadata: Option<ConvexObject>,
+    ) -> Self {
         Self {
             request_id,
             execution_id: ExecutionId::new(),
             parent_scheduled_job: caller.parent_scheduled_job(),
             is_root: caller.is_root(),
+            invocation_metadata,
         }
     }
 
@@ -55,17 +69,26 @@ impl ExecutionContext {
         execution_id: ExecutionId,
         parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
         is_root: bool,
+        invocation_metadata: Option<ConvexObject>,
     ) -> Self {
         Self {
             request_id,
             execution_id,
             parent_scheduled_job,
             is_root,
+            invocation_metadata,
         }
     }
 
     pub fn is_root(&self) -> bool {
         self.is_root
+    }
+
+    pub fn merged_invocation_metadata(
+        &self,
+        invocation_metadata: Option<ConvexObject>,
+    ) -> Option<ConvexObject> {
+        merge_invocation_metadata(self.invocation_metadata.clone(), invocation_metadata)
     }
 
     pub fn add_sentry_tags(&self, scope: &mut sentry::Scope) {
@@ -82,6 +105,28 @@ impl HeapSize for ExecutionContext {
                 .parent_scheduled_job
                 .map_or(0, |(_, document_id)| document_id.heap_size())
             + self.is_root.heap_size()
+            + self.invocation_metadata.as_ref().map_or(0, |metadata| {
+                metadata
+                    .iter()
+                    .map(|(field_name, value)| field_name.heap_size() + value.size())
+                    .sum::<usize>()
+            })
+    }
+}
+
+fn merge_invocation_metadata(
+    parent: Option<ConvexObject>,
+    override_metadata: Option<ConvexObject>,
+) -> Option<ConvexObject> {
+    match (parent, override_metadata) {
+        (None, None) => None,
+        (Some(parent), None) => Some(parent),
+        (None, Some(override_metadata)) => Some(override_metadata),
+        (Some(parent), Some(override_metadata)) => Some(
+            parent
+                .shallow_merge(override_metadata)
+                .expect("Invocation metadata should always shallow-merge"),
+        ),
     }
 }
 
@@ -188,6 +233,13 @@ impl From<ExecutionContext> for pb::common::ExecutionContext {
                 .and_then(|id| id.serialize_to_string()),
             parent_scheduled_job: parent_document_id.map(Into::into),
             is_root: Some(value.is_root),
+            invocation_metadata_json_packed_value: value
+                .invocation_metadata
+                .map(|metadata| {
+                    JsonPackedValue::pack(ConvexValue::Object(metadata))
+                        .as_str()
+                        .to_owned()
+                }),
         }
     }
 }
@@ -208,6 +260,14 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
             },
             parent_scheduled_job: parent_document_id.map(|id| (parent_component_id, id)),
             is_root: value.is_root.unwrap_or_default(),
+            invocation_metadata: value
+                .invocation_metadata_json_packed_value
+                .map(JsonPackedValue::from_network)
+                .transpose()?
+                .map(|metadata| metadata.unpack())
+                .transpose()?
+                .map(ConvexObject::try_from)
+                .transpose()?,
         })
     }
 }
@@ -221,6 +281,80 @@ impl From<ExecutionContext> for JsonValue {
             "isRoot": value.is_root,
             "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
             "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
+            "invocationMetadata": value.invocation_metadata.map(JsonValue::from),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use serde_json::json;
+    use value::{
+        ConvexObject,
+        ConvexValue,
+    };
+
+    use super::{
+        ExecutionContext,
+        ExecutionId,
+        JsonValue,
+        RequestId,
+    };
+
+    fn convex_object(value: JsonValue) -> ConvexObject {
+        ConvexObject::try_from(ConvexValue::try_from(value).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn merged_invocation_metadata_shallow_overrides_top_level_keys() {
+        let context = ExecutionContext::new_from_parts(
+            RequestId::from_str("request-123").unwrap(),
+            ExecutionId::from_str("f4e8dbe9-071f-430f-8e76-2fda4b529d15").unwrap(),
+            None,
+            true,
+            Some(convex_object(json!({
+                "correlationId": "corr_123",
+                "origin": "nuxt",
+            }))),
+        );
+
+        let merged = context
+            .merged_invocation_metadata(Some(convex_object(json!({
+                "origin": "mcp",
+                "phase": "draft",
+            }))))
+            .unwrap();
+
+        assert_eq!(
+            JsonValue::from(ConvexValue::Object(merged)),
+            json!({
+                "correlationId": "corr_123",
+                "origin": "mcp",
+                "phase": "draft",
+            }),
+        );
+    }
+
+    #[test]
+    fn execution_context_proto_round_trips_invocation_metadata() {
+        let context = ExecutionContext::new_from_parts(
+            RequestId::from_str("request-456").unwrap(),
+            ExecutionId::from_str("56ef8d74-2681-46a4-8b11-a86fcdbdb51e").unwrap(),
+            None,
+            false,
+            Some(convex_object(json!({
+                "correlationId": "corr_456",
+                "origin": "browser",
+                "tenantHint": "acme",
+            }))),
+        );
+
+        let round_tripped =
+            ExecutionContext::try_from(pb::common::ExecutionContext::from(context.clone()))
+                .unwrap();
+
+        assert_eq!(round_tripped, context);
     }
 }

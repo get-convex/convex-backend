@@ -60,8 +60,11 @@ use sync_types::{
 use udf::ActionCallbacks;
 use usage_tracking::FunctionUsageTracker;
 use value::{
+    base64,
     export::ValueFormat,
     id_v6::DeveloperDocumentId,
+    ConvexObject,
+    ConvexValue,
 };
 use vector::{
     VectorSearch,
@@ -72,6 +75,7 @@ use crate::{
     authentication::ExtractAuthenticationToken,
     public_api::{
         export_value,
+        parse_invocation_metadata,
         UdfResponse,
     },
     LocalAppState,
@@ -84,6 +88,7 @@ pub struct NodeCallbackUdfPostRequest {
     pub reference: Option<String>,
     pub function_handle: Option<String>,
     pub args: UdfArgsJson,
+    pub metadata: Option<JsonValue>,
 
     pub format: Option<String>,
 }
@@ -113,6 +118,8 @@ pub async fn internal_query_post(
             req.function_handle,
         )
         .await?;
+    let invocation_metadata =
+        context.merged_invocation_metadata(parse_invocation_metadata(req.metadata)?);
     let udf_return = st
         .application
         .read_only_udf(
@@ -124,6 +131,7 @@ pub async fn internal_query_post(
                 parent_scheduled_job: context.parent_scheduled_job,
                 parent_execution_id: Some(context.execution_id),
             },
+            invocation_metadata,
         )
         .await?;
     if req.format.is_some() {
@@ -167,6 +175,8 @@ pub async fn internal_mutation_post(
             req.function_handle,
         )
         .await?;
+    let invocation_metadata =
+        context.merged_invocation_metadata(parse_invocation_metadata(req.metadata)?);
     let udf_result = st
         .application
         .mutation_udf(
@@ -180,6 +190,7 @@ pub async fn internal_mutation_post(
                 parent_execution_id: Some(context.execution_id),
             },
             None,
+            invocation_metadata,
         )
         .await?;
     if req.format.is_some() {
@@ -226,6 +237,8 @@ pub async fn internal_action_post(
             req.function_handle,
         )
         .await?;
+    let invocation_metadata =
+        context.merged_invocation_metadata(parse_invocation_metadata(req.metadata)?);
     let udf_result = st
         .application
         .action_udf(
@@ -237,6 +250,7 @@ pub async fn internal_action_post(
                 parent_scheduled_job: context.parent_scheduled_job,
                 parent_execution_id: Some(context.execution_id),
             },
+            invocation_metadata,
         )
         .await?;
     if req.format.is_some() {
@@ -677,6 +691,21 @@ impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
             Some(v) => v.to_str().context("Convex-Root-Request must be a string")? == "true",
             None => false,
         };
+        let invocation_metadata = parts
+            .headers
+            .get("Convex-Invocation-Metadata")
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Convex-Invocation-Metadata must be a string")?
+            .map(|metadata| {
+                let decoded = base64::decode_urlsafe(metadata)?;
+                let decoded = String::from_utf8(decoded)?;
+                let metadata: JsonValue = serde_json::from_str(&decoded)?;
+                let metadata = ConvexValue::try_from(metadata)?;
+                ConvexObject::try_from(metadata)
+            })
+            .transpose()
+            .context("Invalid Convex-Invocation-Metadata")?;
         let parent_job_id = parts
             .headers
             .get("Convex-Parent-Scheduled-Job")
@@ -701,6 +730,93 @@ impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
             execution_id,
             parent_job_id.map(|id| (parent_component_id, id)),
             is_root,
+            invocation_metadata,
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::{
+        extract::FromRequestParts,
+        http::Request,
+    };
+    use common::{
+        execution_context::{
+            ExecutionContext,
+            ExecutionId,
+        },
+        RequestId,
+    };
+    use serde_json::json;
+    use value::{
+        base64,
+        ConvexObject,
+        ConvexValue,
+    };
+
+    use super::ExtractExecutionContext;
+
+    #[tokio::test]
+    async fn extract_execution_context_decodes_invocation_metadata_header() {
+        let request_id = RequestId::new();
+        let execution_id = ExecutionId::new();
+        let expected_metadata = json!({
+            "correlationId": "corr_123",
+            "origin": "nuxt",
+        });
+
+        let request = Request::builder()
+            .header("Convex-Request-Id", request_id.to_string())
+            .header("Convex-Execution-Id", execution_id.to_string())
+            .header("Convex-Root-Request", "true")
+            .header(
+                "Convex-Invocation-Metadata",
+                base64::encode_urlsafe(expected_metadata.to_string().as_bytes()),
+            )
+            .body(())
+            .unwrap();
+        let (mut parts, _) = request.into_parts();
+
+        let ExtractExecutionContext(context) =
+            ExtractExecutionContext::from_request_parts(&mut parts, &())
+                .await
+                .unwrap();
+
+        assert_eq!(
+            context,
+            ExecutionContext::new_from_parts(
+                request_id,
+                execution_id,
+                None,
+                true,
+                Some(
+                    ConvexObject::try_from(ConvexValue::try_from(expected_metadata).unwrap())
+                        .unwrap()
+                ),
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn extract_execution_context_rejects_invalid_invocation_metadata_header() {
+        let request = Request::builder()
+            .header(
+                "Convex-Invocation-Metadata",
+                base64::encode_urlsafe(json!("not-an-object").to_string().as_bytes()),
+            )
+            .body(())
+            .unwrap();
+        let (mut parts, _) = request.into_parts();
+
+        let result = ExtractExecutionContext::from_request_parts(&mut parts, &()).await;
+        let error = match result {
+            Ok(_) => panic!("expected invalid invocation metadata header to fail"),
+            Err(error) => anyhow::Error::from(error),
+        };
+
+        assert!(error
+            .to_string()
+            .contains("Invalid Convex-Invocation-Metadata"));
     }
 }

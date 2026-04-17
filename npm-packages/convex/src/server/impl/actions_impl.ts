@@ -4,16 +4,21 @@ import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
 import { FunctionReference } from "../../server/api.js";
 import { getFunctionAddress } from "../components/paths.js";
+import { InvocationOptions } from "../meta.js";
 
 function syscallArgs(
   requestId: string,
   functionReference: any,
   args?: Record<string, Value>,
+  options?: InvocationOptions,
 ) {
   const address = getFunctionAddress(functionReference);
   return {
     ...address,
     args: convexToJson(parseArgs(args)),
+    metadata: options?.metadata
+      ? convexToJson(parseArgs(options.metadata))
+      : undefined,
     version,
     requestId,
   };
@@ -24,30 +29,33 @@ export function setupActionCalls(requestId: string) {
     runQuery: async (
       query: FunctionReference<"query", "public" | "internal">,
       args?: Record<string, Value>,
+      options?: InvocationOptions,
     ): Promise<any> => {
       const result = await performAsyncSyscall(
         "1.0/actions/query",
-        syscallArgs(requestId, query, args),
+        syscallArgs(requestId, query, args, options),
       );
       return jsonToConvex(result);
     },
     runMutation: async (
       mutation: FunctionReference<"mutation", "public" | "internal">,
       args?: Record<string, Value>,
+      options?: InvocationOptions,
     ): Promise<any> => {
       const result = await performAsyncSyscall(
         "1.0/actions/mutation",
-        syscallArgs(requestId, mutation, args),
+        syscallArgs(requestId, mutation, args, options),
       );
       return jsonToConvex(result);
     },
     runAction: async (
       action: FunctionReference<"action", "public" | "internal">,
       args?: Record<string, Value>,
+      options?: InvocationOptions,
     ): Promise<any> => {
       const result = await performAsyncSyscall(
         "1.0/actions/action",
-        syscallArgs(requestId, action, args),
+        syscallArgs(requestId, action, args, options),
       );
       return jsonToConvex(result);
     },

@@ -1,5 +1,6 @@
 import { FunctionType } from "./api.js";
 import { FunctionVisibility } from "./registration.js";
+import { Value } from "../values/value.js";
 
 /**
  * Used and remaining amounts for a single transaction limit.
@@ -50,6 +51,42 @@ export type FunctionMetadata = {
 };
 
 /**
+ * Invocation metadata propagated alongside a Convex function invocation.
+ *
+ * Values follow the same serialization rules as function arguments and return
+ * values.
+ *
+ * @public
+ */
+export type InvocationMetadata = Record<string, Value>;
+
+/**
+ * Runtime invocation context for the currently executing function.
+ *
+ * @public
+ */
+export type InvocationContext = {
+  requestId: string;
+  executionId: string;
+  isRoot: boolean;
+  parentScheduledJob?: string | null;
+  parentScheduledJobComponentId?: string | null;
+  metadata: InvocationMetadata | null;
+};
+
+/**
+ * Optional call-site metadata for nested or one-shot function calls.
+ *
+ * Nested calls inherit parent invocation metadata by default. Passing
+ * `metadata` overrides top-level keys for that call.
+ *
+ * @public
+ */
+export type InvocationOptions = {
+  metadata?: InvocationMetadata;
+};
+
+/**
  * Extra context available in Convex query functions.
  *
  * @public
@@ -57,6 +94,8 @@ export type FunctionMetadata = {
 export interface QueryMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
   getTransactionMetrics(): Promise<TransactionMetrics>;
+  /** Read the invocation context for the current function call. */
+  getInvocationContext(): Promise<InvocationContext>;
 }
 
 /**
@@ -73,4 +112,6 @@ export interface MutationMeta extends QueryMeta {}
  */
 export interface ActionMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
+  /** Read the invocation context for the current function call. */
+  getInvocationContext(): Promise<InvocationContext>;
 }

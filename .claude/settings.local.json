@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(pr-review-toolkit:review-pr)",
+      "Skill(pr-review-toolkit:review-pr:*)"
+    ]
+  }
+}

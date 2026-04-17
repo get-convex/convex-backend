@@ -45,6 +45,7 @@ import {
   setupMutationMeta,
   setupActionMeta,
 } from "./meta_impl.js";
+import { InvocationOptions } from "../meta.js";
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
@@ -60,11 +61,15 @@ async function invokeMutation<
     scheduler: setupMutationScheduler(),
     meta: setupMutationMeta(visibility),
 
-    runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
-    runSnapshotQuery: (reference: any, args?: any) =>
-      runUdf("snapshotQuery", reference, args),
-    runMutation: (reference: any, args?: any) =>
-      runUdf("mutation", reference, args),
+    runQuery: (reference: any, args?: any, options?: InvocationOptions) =>
+      runUdf("query", reference, args, options),
+    runSnapshotQuery: (
+      reference: any,
+      args?: any,
+      options?: InvocationOptions,
+    ) => runUdf("snapshotQuery", reference, args, options),
+    runMutation: (reference: any, args?: any, options?: InvocationOptions) =>
+      runUdf("mutation", reference, args, options),
   };
   const result = await invokeFunction(func, mutationCtx, args as any);
   validateReturnValue(result);
@@ -337,7 +342,8 @@ async function invokeQuery<
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
     meta: setupQueryMeta(visibility),
-    runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
+    runQuery: (reference: any, args?: any, options?: InvocationOptions) =>
+      runUdf("query", reference, args, options),
   };
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);
@@ -748,11 +754,15 @@ async function runUdf(
   udfType: "query" | "mutation" | "snapshotQuery",
   f: any,
   args?: Record<string, Value>,
+  options?: InvocationOptions,
 ): Promise<any> {
   const queryArgs = parseArgs(args);
   const syscallArgs = {
     udfType,
     args: convexToJson(queryArgs),
+    metadata: options?.metadata
+      ? convexToJson(parseArgs(options.metadata))
+      : undefined,
     ...getFunctionAddress(f),
   };
   const result = await performAsyncSyscall("1.0/runUdf", syscallArgs);

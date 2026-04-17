@@ -74,6 +74,9 @@ do:
   because we don't want to expose it to the client directly. Actions, mutations
   and queries can be defined in the same file.
 
+  `runQuery` accepts an optional third argument for
+  [invocation metadata](/functions/invocation-metadata.mdx).
+
 - To write data to the database use the `runMutation` field, and call a mutation
   that performs the write:
 
@@ -85,11 +88,16 @@ do:
   As with queries, it's often convenient to define actions and mutations in the
   same file.
 
+  `runMutation` and `runAction` also accept an optional third argument for
+  [invocation metadata](/functions/invocation-metadata.mdx).
+
 - To generate upload URLs for storing files use the `storage` field. Read on
   about [File Storage](/file-storage.mdx).
 - To check user authentication use the `auth` field. Auth is propagated
   automatically when calling queries and mutations from the action. Read on
   about [Authentication](/auth.mdx).
+- To inspect invocation metadata use the `meta` field. Read on about
+  [Invocation metadata](/functions/invocation-metadata.mdx).
 - To schedule functions to run in the future, use the `scheduler` field. Read on
   about [Scheduled Functions](/scheduling/scheduled-functions.mdx).
 - To search a vector index, use the `vectorSearch` field. Read on about

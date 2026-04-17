@@ -230,6 +230,7 @@ export type ExecutionContext = {
   isRoot: boolean | undefined;
   parentScheduledJob: string | null;
   parentScheduledJobComponentId: string | null;
+  invocationMetadata?: JSONValue | null;
 };
 
 export type ExecuteResponseInner =
