@@ -32,6 +32,7 @@ use database::{
     BootstrapComponentsModel,
     ResolvedQuery,
     SystemMetadataModel,
+    TableModel,
     Transaction,
 };
 use errors::ErrorMetadata;
@@ -192,6 +193,23 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
                 .is_none());
         }
 
+        let mut modified_handles = 0;
+        let mut maybe_consolidate_dependency = |tx: &mut Transaction<RT>| {
+            modified_handles += 1;
+            if modified_handles == 32 {
+                // HACK: avoid TooManyReads error by
+                // consolidating the read dependency on
+                // `_function_handles.by_id`.
+                let tablet = tx
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .name_to_tablet()(FUNCTION_HANDLES_TABLE.clone())?;
+                TableModel::new(tx).add_dependency_on_tablet(tablet)
+            } else {
+                Ok(())
+            }
+        };
+
         if let Some(new_analyze_results) = new_analyze_results {
             for (module_path, analyzed_module) in new_analyze_results {
                 for function in &analyzed_module.functions {
@@ -200,6 +218,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
                     match existing_handles.remove(&udf_path) {
                         Some(existing_handle) => {
                             if existing_handle.deleted_ts.is_some() {
+                                maybe_consolidate_dependency(self.tx)?;
                                 let (id, mut metadata) = existing_handle.into_id_and_value();
                                 metadata.deleted_ts = None;
                                 SystemMetadataModel::new_global(self.tx)
@@ -225,6 +244,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         for (_, remaining_handle) in existing_handles {
             let (id, mut metadata) = remaining_handle.into_id_and_value();
             if metadata.deleted_ts.is_none() {
+                maybe_consolidate_dependency(self.tx)?;
                 metadata.deleted_ts = Some(*self.tx.begin_timestamp());
                 SystemMetadataModel::new_global(self.tx)
                     .replace(id, metadata.try_into()?)

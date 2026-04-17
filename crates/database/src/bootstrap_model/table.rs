@@ -131,15 +131,20 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         })
     }
 
-    pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<Option<u64>> {
-        // Add read dependency on the entire table.
-        // But we haven't explicitly read the documents, so don't record_read_documents.
+    /// Records a read on the entire by_id index of `tablet_id`.
+    pub fn add_dependency_on_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
         self.tx.reads.record_indexed_directly(
             TabletIndexName::by_id(tablet_id),
             IndexedFields::by_id(),
             Interval::all(),
         )?;
+        Ok(())
+    }
 
+    pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<Option<u64>> {
+        // Add read dependency on the entire table.
+        // But we haven't explicitly read the documents, so don't record_read_documents.
+        self.add_dependency_on_tablet(tablet_id)?;
         // Get table count at the beginning of the transaction, then add the delta from
         // the transaction so far.
         let snapshot_count = self.tx.count_snapshot.count(tablet_id).await?;
