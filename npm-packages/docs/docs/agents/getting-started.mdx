@@ -40,7 +40,7 @@ successfully run once before you start defining Agents.
 
 ```ts
 import { components } from "./_generated/api";
-import { Agent } from "@convex-dev/agent";
+import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 
 const agent = new Agent(components.agent, {
@@ -48,7 +48,7 @@ const agent = new Agent(components.agent, {
   languageModel: openai.chat("gpt-4o-mini"),
   instructions: "You are a weather forecaster.",
   tools: { getWeather, getGeocoding },
-  maxSteps: 3,
+  stopWhen: stepCountIs(3),
 });
 ```
 

@@ -66,7 +66,7 @@ export const ideaSearch = createTool({
 async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
   const myTool = tool({
     description: "My tool",
-    parameters: z.object({...}).describe("The arguments for the tool"),
+    inputSchema: z.object({...}).describe("The arguments for the tool"),
     execute: async (args, options): Promise<BarReturnType> => {
       return await ctx.runQuery(internal.foo.bar, args);
     },
