@@ -1,5 +1,5 @@
 import { Value, v, GenericId, ConvexError } from "convex/values";
-import { mutationGeneric } from "../server";
+import { mutationGeneric, writeAuditLog } from "../server";
 import { UNDEFINED_PLACEHOLDER } from "./lib/values";
 
 export default mutationGeneric("WriteData")({
@@ -36,6 +36,10 @@ export default mutationGeneric("WriteData")({
       // Rewrapping this error because it could be a schema validation error.
       throw new ConvexError(e.message);
     }
+    await writeAuditLog("update_documents", {
+      table: args.table,
+      document_ids: documents.map((doc) => doc._id),
+    });
     return { success: true };
   },
 });

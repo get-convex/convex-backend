@@ -1,5 +1,5 @@
 import { GenericDocument } from "convex/server";
-import { mutationGeneric } from "../server";
+import { mutationGeneric, writeAuditLog } from "../server";
 
 import { ConvexError, v } from "convex/values";
 
@@ -41,6 +41,10 @@ export default mutationGeneric("WriteData")({
       // Rewrapping this error because it could be a schema validation error.
       throw new ConvexError(e.message);
     }
+    await writeAuditLog("add_documents", {
+      table,
+      document_ids: insertedIds,
+    });
     return { success: true };
   },
 });

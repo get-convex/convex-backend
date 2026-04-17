@@ -1,5 +1,5 @@
 import { PaginationResult, SystemDataModel } from "convex/server";
-import { mutationGeneric } from "../server";
+import { mutationGeneric, writeAuditLog } from "../server";
 import { Id } from "../../_generated/dataModel";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
@@ -99,7 +99,10 @@ export const deleteFile = mutationGeneric("WriteData")({
     { storage },
     { storageId }: { storageId: Id<"_storage"> },
   ): Promise<void> => {
-    return await storage.delete(storageId);
+    await storage.delete(storageId);
+    await writeAuditLog("delete_files", {
+      storage_ids: [storageId],
+    });
   },
 });
 
@@ -112,12 +115,17 @@ export const deleteFiles = mutationGeneric("WriteData")({
     for (const storageId of storageIds) {
       await storage.delete(storageId);
     }
+    await writeAuditLog("delete_files", {
+      storage_ids: storageIds,
+    });
   },
 });
 
 export const generateUploadUrl = mutationGeneric("WriteData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async ({ storage }): Promise<string> => {
-    return await storage.generateUploadUrl();
+    const url = await storage.generateUploadUrl();
+    await writeAuditLog("generate_upload_url", {});
+    return url;
   },
 });

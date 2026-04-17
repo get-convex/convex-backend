@@ -164,6 +164,85 @@ pub enum DeploymentAuditLogEvent {
         table_count_deleted: u64,
     },
     DeleteScheduledJobsTable {
+        component_id: Option<String>,
+        component: ComponentPath,
+    },
+    DeleteTables {
+        component_id: Option<String>,
+        component: ComponentPath,
+        table_names: Vec<TableName>,
+    },
+    DeleteComponent {
+        component_id: Option<String>,
+        component: ComponentPath,
+    },
+    CancelAllScheduledFunctions {
+        component_id: Option<String>,
+        component: ComponentPath,
+    },
+    CancelScheduledFunction {
+        component_id: Option<String>,
+        component: ComponentPath,
+        scheduled_function_id: String,
+        function_path: Option<String>,
+    },
+    RequestExport {
+        id: String,
+        component_id: Option<String>,
+        component: ComponentPath,
+        format: String,
+        requestor: String,
+    },
+    CancelExport {
+        id: String,
+    },
+    SetExportExpiration {
+        id: String,
+        expiration_ts_ms: i64,
+    },
+    CreateIntegration {
+        id: String,
+        r#type: String,
+    },
+    UpdateIntegration {
+        id: String,
+        r#type: String,
+    },
+    DeleteIntegration {
+        id: String,
+        r#type: String,
+    },
+    // System UDF audit events (from dashboard mutations)
+    AddDocuments {
+        component_id: Option<String>,
+        component: ComponentPath,
+        table: String,
+        document_ids: Vec<String>,
+    },
+    DeleteDocuments {
+        component_id: Option<String>,
+        component: ComponentPath,
+        table: String,
+        document_ids: Vec<String>,
+    },
+    UpdateDocuments {
+        component_id: Option<String>,
+        component: ComponentPath,
+        table: String,
+        document_ids: Vec<String>,
+    },
+    CreateTable {
+        component_id: Option<String>,
+        component: ComponentPath,
+        table: String,
+    },
+    DeleteFiles {
+        component_id: Option<String>,
+        component: ComponentPath,
+        storage_ids: Vec<String>,
+    },
+    GenerateUploadUrl {
+        component_id: Option<String>,
         component: ComponentPath,
     },
 }
@@ -225,6 +304,24 @@ impl DeploymentAuditLogEvent {
             DeploymentAuditLogEvent::DeleteScheduledJobsTable { .. } => {
                 "delete_scheduled_jobs_table"
             },
+            DeploymentAuditLogEvent::DeleteTables { .. } => "delete_tables",
+            DeploymentAuditLogEvent::DeleteComponent { .. } => "delete_component",
+            DeploymentAuditLogEvent::CancelAllScheduledFunctions { .. } => {
+                "cancel_all_scheduled_functions"
+            },
+            DeploymentAuditLogEvent::CancelScheduledFunction { .. } => "cancel_scheduled_function",
+            DeploymentAuditLogEvent::RequestExport { .. } => "request_export",
+            DeploymentAuditLogEvent::CancelExport { .. } => "cancel_export",
+            DeploymentAuditLogEvent::SetExportExpiration { .. } => "set_export_expiration",
+            DeploymentAuditLogEvent::CreateIntegration { .. } => "create_integration",
+            DeploymentAuditLogEvent::UpdateIntegration { .. } => "update_integration",
+            DeploymentAuditLogEvent::DeleteIntegration { .. } => "delete_integration",
+            DeploymentAuditLogEvent::AddDocuments { .. } => "add_documents",
+            DeploymentAuditLogEvent::DeleteDocuments { .. } => "delete_documents",
+            DeploymentAuditLogEvent::UpdateDocuments { .. } => "update_documents",
+            DeploymentAuditLogEvent::CreateTable { .. } => "create_table",
+            DeploymentAuditLogEvent::DeleteFiles { .. } => "delete_files",
+            DeploymentAuditLogEvent::GenerateUploadUrl { .. } => "generate_upload_url",
         }
     }
 
@@ -361,10 +458,178 @@ impl DeploymentAuditLogEvent {
                 )
             },
             DeploymentAuditLogEvent::ClearTables => obj!(),
-            DeploymentAuditLogEvent::DeleteScheduledJobsTable { component } => {
-                let component = component.serialize();
+            DeploymentAuditLogEvent::DeleteScheduledJobsTable {
+                component_id,
+                component,
+            } => {
                 obj!(
-                    "component" => component
+                    "component_id" => component_id,
+                    "component" => component.serialize()
+                )
+            },
+            DeploymentAuditLogEvent::DeleteTables {
+                component_id,
+                component,
+                table_names,
+            } => {
+                let table_names: Vec<ConvexValue> = table_names
+                    .into_iter()
+                    .map(|name| anyhow::Ok(ConvexValue::String(name.to_string().try_into()?)))
+                    .try_collect()?;
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "table_names" => table_names
+                )
+            },
+            DeploymentAuditLogEvent::DeleteComponent {
+                component_id,
+                component,
+            } => {
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize()
+                )
+            },
+            DeploymentAuditLogEvent::CancelAllScheduledFunctions {
+                component_id,
+                component,
+            } => {
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize()
+                )
+            },
+            DeploymentAuditLogEvent::CancelScheduledFunction {
+                component_id,
+                component,
+                scheduled_function_id,
+                function_path,
+            } => {
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "scheduled_function_id" => scheduled_function_id,
+                    "function_path" => function_path
+                )
+            },
+            DeploymentAuditLogEvent::RequestExport {
+                id,
+                component_id,
+                component,
+                format,
+                requestor,
+            } => {
+                obj!(
+                    "id" => id,
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "format" => format,
+                    "requestor" => requestor
+                )
+            },
+            DeploymentAuditLogEvent::CancelExport { id } => {
+                obj!("id" => id)
+            },
+            DeploymentAuditLogEvent::SetExportExpiration {
+                id,
+                expiration_ts_ms,
+            } => {
+                obj!("id" => id, "expiration_ts_ms" => expiration_ts_ms)
+            },
+            DeploymentAuditLogEvent::CreateIntegration { id, r#type } => {
+                obj!("id" => id, "type" => r#type)
+            },
+            DeploymentAuditLogEvent::UpdateIntegration { id, r#type } => {
+                obj!("id" => id, "type" => r#type)
+            },
+            DeploymentAuditLogEvent::DeleteIntegration { id, r#type } => {
+                obj!("id" => id, "type" => r#type)
+            },
+            DeploymentAuditLogEvent::AddDocuments {
+                component_id,
+                component,
+                table,
+                document_ids,
+            } => {
+                let ids: Vec<ConvexValue> = document_ids
+                    .into_iter()
+                    .map(|id| anyhow::Ok(ConvexValue::String(id.try_into()?)))
+                    .try_collect()?;
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "table" => table,
+                    "document_ids" => ids
+                )
+            },
+            DeploymentAuditLogEvent::DeleteDocuments {
+                component_id,
+                component,
+                table,
+                document_ids,
+            } => {
+                let ids: Vec<ConvexValue> = document_ids
+                    .into_iter()
+                    .map(|id| anyhow::Ok(ConvexValue::String(id.try_into()?)))
+                    .try_collect()?;
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "table" => table,
+                    "document_ids" => ids
+                )
+            },
+            DeploymentAuditLogEvent::UpdateDocuments {
+                component_id,
+                component,
+                table,
+                document_ids,
+            } => {
+                let ids: Vec<ConvexValue> = document_ids
+                    .into_iter()
+                    .map(|id| anyhow::Ok(ConvexValue::String(id.try_into()?)))
+                    .try_collect()?;
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "table" => table,
+                    "document_ids" => ids,
+                )
+            },
+            DeploymentAuditLogEvent::CreateTable {
+                component_id,
+                component,
+                table,
+            } => {
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "table" => table
+                )
+            },
+            DeploymentAuditLogEvent::DeleteFiles {
+                component_id,
+                component,
+                storage_ids,
+            } => {
+                let ids: Vec<ConvexValue> = storage_ids
+                    .into_iter()
+                    .map(|id| anyhow::Ok(ConvexValue::String(id.try_into()?)))
+                    .try_collect()?;
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize(),
+                    "storage_ids" => ids
+                )
+            },
+            DeploymentAuditLogEvent::GenerateUploadUrl {
+                component_id,
+                component,
+            } => {
+                obj!(
+                    "component_id" => component_id,
+                    "component" => component.serialize()
                 )
             },
         }
@@ -512,10 +777,183 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                 }
             },
             "delete_scheduled_jobs_table" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
                 let component = ComponentPath::deserialize(
                     remove_nullable_string(&mut fields, "component")?.as_deref(),
                 )?;
-                DeploymentAuditLogEvent::DeleteScheduledJobsTable { component }
+                DeploymentAuditLogEvent::DeleteScheduledJobsTable {
+                    component_id,
+                    component,
+                }
+            },
+            "delete_tables" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let table_names: Vec<TableName> =
+                    remove_vec_of_strings(&mut fields, "table_names")?
+                        .iter()
+                        .map(|s| TableName::from_str(s))
+                        .try_collect()?;
+                DeploymentAuditLogEvent::DeleteTables {
+                    component_id,
+                    component,
+                    table_names,
+                }
+            },
+            "delete_component" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                DeploymentAuditLogEvent::DeleteComponent {
+                    component_id,
+                    component,
+                }
+            },
+            "cancel_all_scheduled_functions" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                DeploymentAuditLogEvent::CancelAllScheduledFunctions {
+                    component_id,
+                    component,
+                }
+            },
+            "cancel_scheduled_function" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let scheduled_function_id = remove_string(&mut fields, "scheduled_function_id")?;
+                let function_path = remove_nullable_string(&mut fields, "function_path")?;
+                DeploymentAuditLogEvent::CancelScheduledFunction {
+                    component_id,
+                    component,
+                    scheduled_function_id,
+                    function_path,
+                }
+            },
+            "request_export" => {
+                let id = remove_string(&mut fields, "id")?;
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let format = remove_string(&mut fields, "format")?;
+                let requestor = remove_string(&mut fields, "requestor")?;
+                DeploymentAuditLogEvent::RequestExport {
+                    id,
+                    component_id,
+                    component,
+                    format,
+                    requestor,
+                }
+            },
+            "cancel_export" => {
+                let id = remove_string(&mut fields, "id")?;
+                DeploymentAuditLogEvent::CancelExport { id }
+            },
+            "set_export_expiration" => {
+                let id = remove_string(&mut fields, "id")?;
+                let expiration_ts_ms = remove_int64(&mut fields, "expiration_ts_ms")?;
+                DeploymentAuditLogEvent::SetExportExpiration {
+                    id,
+                    expiration_ts_ms,
+                }
+            },
+            "create_integration" => {
+                let id = remove_string(&mut fields, "id")?;
+                let r#type = remove_string(&mut fields, "type")?;
+                DeploymentAuditLogEvent::CreateIntegration { id, r#type }
+            },
+            "update_integration" => {
+                let id = remove_string(&mut fields, "id")?;
+                let r#type = remove_string(&mut fields, "type")?;
+                DeploymentAuditLogEvent::UpdateIntegration { id, r#type }
+            },
+            "delete_integration" => {
+                let id = remove_string(&mut fields, "id")?;
+                let r#type = remove_string(&mut fields, "type")?;
+                DeploymentAuditLogEvent::DeleteIntegration { id, r#type }
+            },
+            "add_documents" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let table = remove_string(&mut fields, "table")?;
+                let document_ids = remove_vec_of_strings(&mut fields, "document_ids")?;
+                DeploymentAuditLogEvent::AddDocuments {
+                    component_id,
+                    component,
+                    table,
+                    document_ids,
+                }
+            },
+            "delete_documents" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let table = remove_string(&mut fields, "table")?;
+                let document_ids = remove_vec_of_strings(&mut fields, "document_ids")?;
+                DeploymentAuditLogEvent::DeleteDocuments {
+                    component_id,
+                    component,
+                    table,
+                    document_ids,
+                }
+            },
+            "update_documents" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let table = remove_string(&mut fields, "table")?;
+                let document_ids = remove_vec_of_strings(&mut fields, "document_ids")?;
+                DeploymentAuditLogEvent::UpdateDocuments {
+                    component_id,
+                    component,
+                    table,
+                    document_ids,
+                }
+            },
+            "create_table" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let table = remove_string(&mut fields, "table")?;
+                DeploymentAuditLogEvent::CreateTable {
+                    component_id,
+                    component,
+                    table,
+                }
+            },
+            "delete_files" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let storage_ids = remove_vec_of_strings(&mut fields, "storage_ids")?;
+                DeploymentAuditLogEvent::DeleteFiles {
+                    component_id,
+                    component,
+                    storage_ids,
+                }
+            },
+            "generate_upload_url" => {
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                DeploymentAuditLogEvent::GenerateUploadUrl {
+                    component_id,
+                    component,
+                }
             },
             _ => anyhow::bail!("action {action} unrecognized"),
         };

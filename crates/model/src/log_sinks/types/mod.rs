@@ -149,6 +149,22 @@ pub enum SinkType {
     PostHogErrorTracking,
 }
 
+impl SinkType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SinkType::Local => "local",
+            SinkType::Datadog => "datadog",
+            SinkType::DatadogV2 => "datadog",
+            SinkType::Webhook => "webhook",
+            SinkType::Axiom => "axiom",
+            SinkType::AxiomV2 => "axiom",
+            SinkType::Sentry => "sentry",
+            SinkType::PostHogLogs => "postHogLogs",
+            SinkType::PostHogErrorTracking => "postHogErrorTracking",
+        }
+    }
+}
+
 /// The configurations associated with each LogSinkType above.
 /// Meant to be used for the subscription API.
 #[derive(Debug, Clone, PartialEq)]

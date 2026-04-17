@@ -76,6 +76,10 @@ use model::{
         handles::FunctionHandlesModel,
         ComponentsModel,
     },
+    deployment_audit_log::{
+        types::DeploymentAuditLogEvent,
+        DeploymentAuditLogModel,
+    },
     file_storage::{
         types::FileStorageEntry,
         BatchKey,
@@ -106,6 +110,7 @@ use udf::{
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    obj,
     serialized_args_ext::SerializedArgsExt,
     ConvexArray,
     ConvexObject,
@@ -793,6 +798,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/schedule" => Box::pin(Self::schedule(provider, args)).await,
                     "1.0/cancel_job" => Box::pin(Self::cancel_job(provider, args)).await,
 
+                    // Audit logging (system UDFs only)
+                    "1.0/writeDeploymentAuditLog" => {
+                        Box::pin(Self::write_deployment_audit_log(provider, args)).await
+                    },
+
                     // Components
                     "1.0/runUdf" => Box::pin(Self::run_udf(provider, args, udf_callback)).await,
                     "1.0/createFunctionHandle" => {
@@ -1083,6 +1093,54 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         VirtualSchedulerModel::new(tx, component.into())
             .cancel(virtual_id_v6)
+            .await?;
+
+        Ok(JsonValue::Null)
+    }
+
+    async fn write_deployment_audit_log(
+        provider: &mut P,
+        args: JsonValue,
+    ) -> anyhow::Result<JsonValue> {
+        if !provider.is_system() {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "Unauthorized",
+                "writeDeploymentAuditLog is only available in system UDFs"
+            ));
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct AuditLogArgs {
+            action: String,
+            metadata: serde_json::Map<String, JsonValue>,
+        }
+        let args: AuditLogArgs = serde_json::from_value(args)?;
+
+        let component_id = provider.component()?;
+        let tx = provider.tx()?;
+        let component_path = tx.must_component_path(component_id)?;
+
+        // Inject component_id and component into metadata
+        let mut metadata = args.metadata;
+        metadata.insert(
+            "component_id".to_string(),
+            component_id
+                .serialize_to_string()
+                .map_or(JsonValue::Null, JsonValue::String),
+        );
+        metadata.insert(
+            "component".to_string(),
+            component_path
+                .serialize()
+                .map_or(JsonValue::Null, JsonValue::String),
+        );
+
+        let metadata_value: JsonValue = JsonValue::Object(metadata);
+        let metadata: ConvexObject = metadata_value.try_into()?;
+
+        let event_obj = obj!("action" => args.action, "metadata" => metadata)?;
+        DeploymentAuditLogModel::new(tx)
+            .insert(vec![DeploymentAuditLogEvent::try_from(event_obj)?])
             .await?;
 
         Ok(JsonValue::Null)

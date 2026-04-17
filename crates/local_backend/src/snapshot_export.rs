@@ -28,12 +28,15 @@ use common::{
 use either::Either;
 use errors::ErrorMetadata;
 use http::StatusCode;
-use model::exports::{
-    types::{
-        ExportFormat,
-        ExportRequestor,
+use model::{
+    deployment_audit_log::types::DeploymentAuditLogEvent,
+    exports::{
+        types::{
+            ExportFormat,
+            ExportRequestor,
+        },
+        ExportsModel,
     },
-    ExportsModel,
 };
 use serde::Deserialize;
 use storage::StorageGetStream;
@@ -140,7 +143,16 @@ pub async fn set_export_expiration(
     ExportsModel::new(&mut tx)
         .set_expiration(snapshot_id, expiration_ts_ns)
         .await?;
-    st.application.commit(tx, "set_export_expiration").await?;
+    st.application
+        .commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::SetExportExpiration {
+                id: snapshot_id.encode(),
+                expiration_ts_ms: (expiration_ts_ns / 1_000_000) as i64,
+            }],
+            "set_export_expiration",
+        )
+        .await?;
     Ok(StatusCode::OK)
 }
 
@@ -156,6 +168,14 @@ pub async fn cancel_export(
         .map_err(|e| anyhow::anyhow!(e))?;
     let mut tx = st.application.begin(identity).await?;
     ExportsModel::new(&mut tx).cancel(snapshot_id).await?;
-    st.application.commit(tx, "cancel_export").await?;
+    st.application
+        .commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::CancelExport {
+                id: snapshot_id.encode(),
+            }],
+            "cancel_export",
+        )
+        .await?;
     Ok(StatusCode::OK)
 }

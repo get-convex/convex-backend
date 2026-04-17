@@ -52,6 +52,23 @@ function processDeploymentAuditLogEvent(
     case "build_indexes":
     case "clear_tables":
     case "snapshot_import":
+    case "delete_scheduled_jobs_table":
+    case "delete_tables":
+    case "delete_component":
+    case "cancel_all_scheduled_functions":
+    case "cancel_scheduled_function":
+    case "request_export":
+    case "cancel_export":
+    case "set_export_expiration":
+    case "create_integration":
+    case "update_integration":
+    case "delete_integration":
+    case "add_documents":
+    case "delete_documents":
+    case "update_documents":
+    case "create_table":
+    case "delete_files":
+    case "generate_upload_url":
       break;
     default:
       return null;

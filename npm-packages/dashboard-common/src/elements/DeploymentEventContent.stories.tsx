@@ -1367,6 +1367,400 @@ export const SnapshotImportCsv: Story = {
   },
 };
 
+export const DeleteScheduledJobsTable: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_scheduled_jobs_table",
+      metadata: {
+        component_id: null,
+        component: null,
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteTables: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_tables",
+      metadata: {
+        component_id: null,
+        component: null,
+        table_names: ["users", "messages"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteSingleTable: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_tables",
+      metadata: {
+        component_id: null,
+        component: null,
+        table_names: ["users"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteTablesInComponent: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_tables",
+      metadata: {
+        component_id: "abc123",
+        component: "chat",
+        table_names: ["messages"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteComponent: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_component",
+      metadata: {
+        component_id: "abc123",
+        component: "ratelimit",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const CancelAllScheduledFunctions: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "cancel_all_scheduled_functions",
+      metadata: {
+        component_id: null,
+        component: null,
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const CancelScheduledFunction: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "cancel_scheduled_function",
+      metadata: {
+        component_id: null,
+        component: null,
+        scheduled_function_id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        function_path: "messages:sendDelayed",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const RequestExport: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "request_export",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        component_id: null,
+        component: null,
+        format: "zip",
+        requestor: "dashboard",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const CancelExport: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "cancel_export",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const SetExportExpiration: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "set_export_expiration",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        expiration_ts_ms: BigInt(1703030400000),
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const CreateIntegration: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "create_integration",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        type: "datadog",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const UpdateIntegration: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "update_integration",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        type: "axiom",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteIntegration: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_integration",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        type: "webhook",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const AddDocuments: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "add_documents",
+      metadata: {
+        component_id: null,
+        component: null,
+        table: "users",
+        document_ids: ["doc1", "doc2", "doc3"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const AddDocumentsInComponent: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "add_documents",
+      metadata: {
+        component_id: "abc123",
+        component: "chat/messages",
+        table: "messages",
+        document_ids: ["doc1"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteDocuments: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_documents",
+      metadata: {
+        component_id: null,
+        component: null,
+        table: "users",
+        document_ids: ["doc1", "doc2"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const UpdateSingleDocument: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "update_documents",
+      metadata: {
+        component_id: null,
+        component: null,
+        table: "users",
+        document_ids: ["doc1"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const UpdateDocumentsWithTable: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "update_documents",
+      metadata: {
+        component_id: null,
+        component: null,
+        table: "messages",
+        document_ids: ["doc1", "doc2", "doc3", "doc4"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const CreateTable: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "create_table",
+      metadata: {
+        component_id: null,
+        component: null,
+        table: "new_table",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteFiles: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_files",
+      metadata: {
+        component_id: null,
+        component: null,
+        storage_ids: ["stor1", "stor2", "stor3"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteSingleFile: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_files",
+      metadata: {
+        component_id: null,
+        component: null,
+        storage_ids: ["stor1"],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const DeleteManyDocuments: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_documents",
+      metadata: {
+        component_id: null,
+        component: null,
+        table: "users",
+        document_ids: Array.from(
+          { length: 50 },
+          (_, i) =>
+            `jd72k9x8nmgz5h3qawc4btep0n6y${i.toString().padStart(4, "0")}`,
+        ),
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const GenerateUploadUrl: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "generate_upload_url",
+      metadata: {
+        component_id: null,
+        component: null,
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
 export const PushConfigWithComponents: Story = {
   args: {
     event: {

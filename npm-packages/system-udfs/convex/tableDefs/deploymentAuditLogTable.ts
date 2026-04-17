@@ -245,6 +245,168 @@ export const snapshotImport = v.object({
   }),
 });
 
+const componentMetadata = v.object({
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+});
+
+const deleteScheduledJobsTable = v.object({
+  action: v.literal("delete_scheduled_jobs_table"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: componentMetadata,
+});
+
+const deleteTables = v.object({
+  action: v.literal("delete_tables"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    table_names: v.array(v.string()),
+  }),
+});
+
+const deleteComponent = v.object({
+  action: v.literal("delete_component"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: componentMetadata,
+});
+
+const cancelAllScheduledFunctions = v.object({
+  action: v.literal("cancel_all_scheduled_functions"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: componentMetadata,
+});
+
+const cancelScheduledFunction = v.object({
+  action: v.literal("cancel_scheduled_function"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    scheduled_function_id: v.string(),
+    function_path: v.union(v.null(), v.string()),
+  }),
+});
+
+const requestExport = v.object({
+  action: v.literal("request_export"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    format: v.string(),
+    requestor: v.string(),
+  }),
+});
+
+const cancelExport = v.object({
+  action: v.literal("cancel_export"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+  }),
+});
+
+const setExportExpiration = v.object({
+  action: v.literal("set_export_expiration"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    expiration_ts_ms: v.int64(),
+  }),
+});
+
+const createIntegration = v.object({
+  action: v.literal("create_integration"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    type: v.string(),
+  }),
+});
+
+const updateIntegration = v.object({
+  action: v.literal("update_integration"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    type: v.string(),
+  }),
+});
+
+const deleteIntegration = v.object({
+  action: v.literal("delete_integration"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    type: v.string(),
+  }),
+});
+
+const addDocuments = v.object({
+  action: v.literal("add_documents"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    table: v.string(),
+    document_ids: v.array(v.string()),
+  }),
+});
+
+const deleteDocuments = v.object({
+  action: v.literal("delete_documents"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    table: v.string(),
+    document_ids: v.array(v.string()),
+  }),
+});
+
+const updateDocuments = v.object({
+  action: v.literal("update_documents"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    table: v.string(),
+    document_ids: v.array(v.string()),
+  }),
+});
+
+const createTable = v.object({
+  action: v.literal("create_table"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    table: v.string(),
+  }),
+});
+
+const deleteFiles = v.object({
+  action: v.literal("delete_files"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+    storage_ids: v.array(v.string()),
+  }),
+});
+
+const generateUploadUrl = v.object({
+  action: v.literal("generate_upload_url"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    component_id: v.union(v.null(), v.string()),
+    component: v.union(v.null(), v.string()),
+  }),
+});
+
 const deploymentAuditLogTable = defineTable(
   v.union(
     createEnvironmentVariable,
@@ -262,6 +424,23 @@ const deploymentAuditLogTable = defineTable(
     changeSystemStopState,
     clearTables,
     snapshotImport,
+    deleteScheduledJobsTable,
+    deleteTables,
+    deleteComponent,
+    cancelAllScheduledFunctions,
+    cancelScheduledFunction,
+    requestExport,
+    cancelExport,
+    setExportExpiration,
+    createIntegration,
+    updateIntegration,
+    deleteIntegration,
+    addDocuments,
+    deleteDocuments,
+    updateDocuments,
+    createTable,
+    deleteFiles,
+    generateUploadUrl,
   ),
 );
 

@@ -10,6 +10,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    document::ParseDocument,
     http::{
         extract::{
             Json,
@@ -20,9 +21,13 @@ use common::{
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
-use model::scheduled_jobs::{
-    SchedulerModel,
-    SCHEDULED_JOBS_TABLE,
+use model::{
+    deployment_audit_log::types::DeploymentAuditLogEvent,
+    scheduled_jobs::{
+        types::ScheduledJobMetadata,
+        SchedulerModel,
+        SCHEDULED_JOBS_TABLE,
+    },
 };
 use serde::{
     Deserialize,
@@ -133,9 +138,23 @@ pub async fn cancel_job(
                     &SCHEDULED_JOBS_TABLE,
                 )?;
 
+                let function_path = tx.get(id).await?.and_then(|doc| {
+                    let job: common::document::ParsedDocument<ScheduledJobMetadata> =
+                        doc.parse().ok()?;
+                    Some(job.path.udf_path.to_string())
+                });
                 let mut model = SchedulerModel::new(tx, namespace);
                 model.cancel(id).await?;
-                Ok(((), vec![]))
+                let component = tx.must_component_path(component_id)?;
+                Ok((
+                    (),
+                    vec![DeploymentAuditLogEvent::CancelScheduledFunction {
+                        component_id: component_id.serialize_to_string(),
+                        component,
+                        scheduled_function_id: cancel_job_request.id.clone(),
+                        function_path,
+                    }],
+                ))
             }
             .into()
         })

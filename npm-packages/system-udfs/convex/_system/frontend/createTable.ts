@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutationGeneric } from "../server";
+import { mutationGeneric, writeAuditLog } from "../server";
 
 export default mutationGeneric("WriteData")({
   args: {
@@ -11,5 +11,8 @@ export default mutationGeneric("WriteData")({
     // but inserting a document and deleting it in the same transaction is one way to do this.
     const id = await db.insert(table, {});
     await db.delete(id);
+    await writeAuditLog("create_table", {
+      table,
+    });
   },
 });

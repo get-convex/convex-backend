@@ -11,6 +11,10 @@ use futures::FutureExt;
 use keybroker::Identity;
 use model::{
     backend_info::BackendInfoModel,
+    deployment_audit_log::{
+        types::DeploymentAuditLogEvent,
+        DeploymentAuditLogModel,
+    },
     log_sinks::{
         types::{
             LogSinksRow,
@@ -53,6 +57,7 @@ pub async fn add_local_log_sink_on_startup<RT: Runtime>(
 
 impl<RT: Runtime> Application<RT> {
     pub async fn add_log_sink(&self, config: SinkConfig) -> anyhow::Result<ResolvedDocumentId> {
+        let sink_type = config.sink_type().as_str().to_string();
         let (_ts, id) = self
             .execute_with_occ_retries(
                 Identity::system(),
@@ -60,9 +65,20 @@ impl<RT: Runtime> Application<RT> {
                 "add_log_sink",
                 |tx| {
                     let config = config.clone();
-                    async move { LogSinksModel::new(tx).add_or_update(config).await }
-                        .boxed()
-                        .into()
+                    let sink_type = sink_type.clone();
+                    async move {
+                        let id = LogSinksModel::new(tx).add_or_update(config).await?;
+                        let id_str = DeveloperDocumentId::from(id).encode();
+                        DeploymentAuditLogModel::new(tx)
+                            .insert(vec![DeploymentAuditLogEvent::CreateIntegration {
+                                id: id_str,
+                                r#type: sink_type,
+                            }])
+                            .await?;
+                        Ok(id)
+                    }
+                    .boxed()
+                    .into()
                 },
             )
             .await?;
@@ -74,6 +90,7 @@ impl<RT: Runtime> Application<RT> {
         id: &String,
         config: SinkConfig,
     ) -> anyhow::Result<()> {
+        let sink_type = config.sink_type().as_str().to_string();
         let developer_id = DeveloperDocumentId::decode(id).map_err(|_| {
             anyhow::anyhow!(ErrorMetadata::bad_request(
                 "InvalidLogStreamId",
@@ -86,9 +103,18 @@ impl<RT: Runtime> Application<RT> {
             "patch_log_sink_config",
             |tx| {
                 let config = config.clone();
+                let sink_type = sink_type.clone();
+                let id_str = id.clone();
                 async move {
                     let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
-                    LogSinksModel::new(tx).patch_config(id, config).await
+                    LogSinksModel::new(tx).patch_config(id, config).await?;
+                    DeploymentAuditLogModel::new(tx)
+                        .insert(vec![DeploymentAuditLogEvent::UpdateIntegration {
+                            id: id_str,
+                            r#type: sink_type,
+                        }])
+                        .await?;
+                    Ok(())
                 }
                 .boxed()
                 .into()
@@ -167,9 +193,8 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn list_log_sinks(&self) -> anyhow::Result<Vec<LogSinkWithId>> {
         let mut tx = self.begin(Identity::system()).await?;
-        let mut model = LogSinksModel::new(&mut tx);
-        let sinks = model
-            .get_all_non_tombstoned()
+        let sinks = LogSinksModel::new(&mut tx)
+            .get_all()
             .await?
             .into_iter()
             .map(|sink| {
@@ -197,10 +222,12 @@ impl<RT: Runtime> Application<RT> {
             FunctionUsageTracker::new(),
             "remove_log_sink",
             |tx| {
+                let id = id.clone();
                 async move {
-                    let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
+                    let resolved_id =
+                        tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
                     let row: ParsedDocument<LogSinksRow> = tx
-                        .get(id)
+                        .get(resolved_id)
                         .await?
                         .ok_or_else(|| {
                             ErrorMetadata::bad_request(
@@ -216,7 +243,15 @@ impl<RT: Runtime> Application<RT> {
                         )
                         .into());
                     }
-                    LogSinksModel::new(tx).mark_for_removal(id).await
+                    let sink_type = row.into_value().config.sink_type().as_str().to_string();
+                    LogSinksModel::new(tx).mark_for_removal(resolved_id).await?;
+                    DeploymentAuditLogModel::new(tx)
+                        .insert(vec![DeploymentAuditLogEvent::DeleteIntegration {
+                            id,
+                            r#type: sink_type,
+                        }])
+                        .await?;
+                    Ok(())
                 }
                 .boxed()
                 .into()

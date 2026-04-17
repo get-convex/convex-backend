@@ -1,6 +1,8 @@
 import { ConvexError, GenericId } from "convex/values";
 import { v } from "convex/values";
-import { mutationGeneric } from "../server";
+import { decodeId } from "id-encoding";
+import { performOp } from "udf-syscall-ffi";
+import { mutationGeneric, writeAuditLog } from "../server";
 
 export default mutationGeneric("WriteData")({
   args: {
@@ -28,6 +30,12 @@ export default mutationGeneric("WriteData")({
       // Rewrapping this error because it could be a schema validation error.
       throw new ConvexError(e.message);
     }
+    const tableMapping: Record<number, string> = performOp("getTableMapping");
+    const table = tableMapping[decodeId(args.id).tableNumber];
+    await writeAuditLog("update_documents", {
+      table,
+      document_ids: [args.id],
+    });
     return { success: true };
   },
 });

@@ -144,11 +144,9 @@ pub async fn delete_tables(
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))
         .collect::<anyhow::Result<_>>()?;
-    let table_namespace = TableNamespace::from(ComponentId::deserialize_from_string(
-        component_id.as_deref(),
-    )?);
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     st.application
-        .delete_tables(&identity, table_names, table_namespace)
+        .delete_tables(&identity, table_names, component_id)
         .await?;
     Ok(StatusCode::OK)
 }

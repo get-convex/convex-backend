@@ -1474,7 +1474,26 @@ impl<RT: Runtime> Application<RT> {
                     )),
             ),
         }?;
-        self.commit(tx, "request_export").await?;
+        let component_id = component.serialize_to_string();
+        let component_path = tx.must_component_path(component)?;
+        let format_str = match &format {
+            ExportFormat::Zip { include_storage } if *include_storage => {
+                "zip_with_storage".to_string()
+            },
+            ExportFormat::Zip { .. } => "zip".to_string(),
+        };
+        self.commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::RequestExport {
+                id: DeveloperDocumentId::from(snapshot_id).encode(),
+                component_id,
+                component: component_path,
+                format: format_str,
+                requestor: requestor.usage_tag().to_string(),
+            }],
+            "request_export",
+        )
+        .await?;
         Ok(snapshot_id.into())
     }
 
@@ -2587,22 +2606,33 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: &Identity,
         table_names: Vec<TableName>,
-        table_namespace: TableNamespace,
+        component_id: ComponentId,
     ) -> anyhow::Result<u64> {
+        let table_namespace = TableNamespace::from(component_id);
         let mut tx = self.begin(identity.clone()).await?;
         let mut count = 0;
-        for table_name in table_names {
+        for table_name in &table_names {
             anyhow::ensure!(
                 !table_name.is_system(),
                 "cannot delete system table {table_name}"
             );
             let mut table_model = TableModel::new(&mut tx);
-            count += table_model.must_count(table_namespace, &table_name).await?;
+            count += table_model.must_count(table_namespace, table_name).await?;
             table_model
-                .delete_active_table(table_namespace, table_name)
+                .delete_active_table(table_namespace, table_name.clone())
                 .await?;
         }
-        self.commit(tx, "delete_tables").await?;
+        let component = tx.must_component_path(component_id)?;
+        self.commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::DeleteTables {
+                component_id: component_id.serialize_to_string(),
+                component,
+                table_names,
+            }],
+            "delete_tables",
+        )
+        .await?;
         Ok(count)
     }
 
@@ -2612,10 +2642,20 @@ impl<RT: Runtime> Application<RT> {
         component_id: ComponentId,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity.clone()).await?;
+        let cid = component_id.serialize_to_string();
+        let component = tx.must_component_path(component_id)?;
         ComponentConfigModel::new(&mut tx)
             .delete_component(component_id)
             .await?;
-        self.commit(tx, "delete_component").await?;
+        self.commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::DeleteComponent {
+                component_id: cid,
+                component,
+            }],
+            "delete_component",
+        )
+        .await?;
         Ok(())
     }
 
@@ -2924,7 +2964,10 @@ impl<RT: Runtime> Application<RT> {
         let component = tx.must_component_path(component_id)?;
         self.commit_with_audit_log_events(
             tx,
-            vec![DeploymentAuditLogEvent::DeleteScheduledJobsTable { component }],
+            vec![DeploymentAuditLogEvent::DeleteScheduledJobsTable {
+                component_id: component_id.serialize_to_string(),
+                component,
+            }],
             "delete_scheduled_jobs_table",
         )
         .await?;
@@ -2975,7 +3018,16 @@ impl<RT: Runtime> Application<RT> {
         let count = SchedulerModel::new(tx, component_id.into())
             .cancel_all(path, max_jobs, start_next_ts, end_next_ts)
             .await?;
-        Ok((count, vec![]))
+        let component = tx.must_component_path(component_id)?;
+        let events = if count > 0 {
+            vec![DeploymentAuditLogEvent::CancelAllScheduledFunctions {
+                component_id: component_id.serialize_to_string(),
+                component,
+            }]
+        } else {
+            vec![]
+        };
+        Ok((count, events))
     }
 
     /// Commit a transaction and send audit log events to the log manager if the

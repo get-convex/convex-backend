@@ -34,7 +34,7 @@ import {
 } from "convex/server";
 
 import { DefaultFunctionArgs } from "convex/server";
-import { performOp } from "udf-syscall-ffi";
+import { performOp, performAsyncSyscall } from "udf-syscall-ffi";
 
 declare const Convex: {
   syscall: (op: string, jsonArgs: string) => string;
@@ -169,6 +169,16 @@ export const mutationGeneric = (
     });
   }) as typeof baseMutationGeneric;
 };
+
+export async function writeAuditLog(
+  action: string,
+  metadata: Record<string, unknown>,
+) {
+  await performAsyncSyscall("1.0/writeDeploymentAuditLog", {
+    action,
+    metadata,
+  });
+}
 
 // Specific to this schema.
 export const query = withArgsValidated(baseQuery);
