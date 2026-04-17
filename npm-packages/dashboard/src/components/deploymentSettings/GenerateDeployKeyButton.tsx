@@ -336,7 +336,7 @@ export function GenerateDeployKeyWithNameButton({
                             setSelectedOps(all);
                           }}
                         >
-                          All operations
+                          Select all
                         </Button>
                         <Button
                           variant="neutral"
@@ -345,7 +345,7 @@ export function GenerateDeployKeyWithNameButton({
                             setSelectedOps(new Set());
                           }}
                         >
-                          No operations
+                          Select none
                         </Button>
                       </div>
                       <div className="scrollbar max-h-[60dvh] overflow-y-auto">
