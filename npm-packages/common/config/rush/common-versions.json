@@ -106,7 +106,7 @@
     "@types/react-dom": ["^18", "^18.2.21", "^18.3.1", "^19.2.3"],
     "typescript-eslint": ["^8.45.0"],
 
-    "zod": ["^3.25.0"],
+    "zod": ["^3.25.0", "^4.3.6"],
 
     /**
      * Vitest 4 is needed for @storybook/addon-vitest's @vitest/browser-playwright peer dep.

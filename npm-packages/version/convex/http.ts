@@ -12,6 +12,12 @@ import {
   shouldUseOldCursorRules,
 } from "./util/oldCursorRules";
 import { hashSha256 } from "./util/hash";
+import {
+  AgentSkillManifestRequest,
+  agentSkillManifestRequestSchema,
+  findDuplicateSkillName,
+  formatDuplicateSkillNameError,
+} from "../agentSkillManifestShared";
 
 const http = httpRouter();
 
@@ -44,6 +50,56 @@ type VersionResponse = {
   guidelinesHash: string | null;
   agentSkillsSha: string | null;
 };
+
+type AgentSkillCatalogResponse = {
+  skills: Array<{
+    skillName: string;
+    directoryName: string;
+    currentHash: string;
+    lastSeenRepoSha: string;
+    lastSeenAt: number;
+  }>;
+};
+
+const validatedAgentSkillManifestRequestSchema =
+  agentSkillManifestRequestSchema.superRefine(({ skills }, ctx) => {
+    const duplicateSkillName = findDuplicateSkillName({ skills });
+    if (!duplicateSkillName) return;
+
+    ctx.addIssue({
+      code: "custom",
+      path: ["skills"],
+      message: formatDuplicateSkillNameError({ skillName: duplicateSkillName }),
+    });
+  });
+
+function formatAgentSkillManifestPayloadError({
+  error,
+}: {
+  error: { issues: Array<{ message: string }> };
+}) {
+  const issueMessages = error.issues.map((issue) => issue.message);
+  if (issueMessages.length === 0) return "Invalid agent skill manifest payload";
+
+  return `Invalid agent skill manifest payload: ${issueMessages.join("; ")}`;
+}
+
+function validateAgentSkillSyncAuth(req: Request) {
+  const expectedToken = process.env.AGENT_SKILLS_SYNC_TOKEN;
+  if (!expectedToken) {
+    console.error("AGENT_SKILLS_SYNC_TOKEN is not configured");
+    return new Response("Server is not configured for agent skill sync", {
+      status: 500,
+    });
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader !== `Bearer ${expectedToken}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return null;
+}
 
 http.route({
   path: "/v1/version",
@@ -80,6 +136,107 @@ http.route({
         },
       },
     );
+  }),
+});
+
+http.route({
+  path: "/v1/agent_skills",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const skills = await ctx.runQuery(
+      internal.agentSkillManifest.listCurrent,
+      {},
+    );
+    return new Response(
+      JSON.stringify({
+        skills: skills.map(
+          ({
+            skillName,
+            directoryName,
+            currentHash,
+            lastSeenRepoSha,
+            lastSeenAt,
+          }) => ({
+            skillName,
+            directoryName,
+            currentHash,
+            lastSeenRepoSha,
+            lastSeenAt,
+          }),
+        ),
+      } satisfies AgentSkillCatalogResponse),
+      {
+        status: 200,
+        headers: {
+          ...COMMON_HEADERS,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  }),
+});
+
+/**
+ * This gets called by the get-convex/agent-skills CI pipeline to sync the agent skill catalog
+ * with the latest skills from the get-convex/agent-skills repo.
+ */
+http.route({
+  path: "/v1/agent_skills/publish",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    // Make sure the public can't call this
+    const authError = validateAgentSkillSyncAuth(req);
+    if (authError) return authError;
+
+    let json: unknown;
+    try {
+      json = await req.json();
+    } catch {
+      return new Response("Invalid JSON body", { status: 400 });
+    }
+
+    // Make sure the incoming payload is fine
+    const payloadResult =
+      validatedAgentSkillManifestRequestSchema.safeParse(json);
+    if (!payloadResult.success) {
+      return new Response(
+        formatAgentSkillManifestPayloadError({ error: payloadResult.error }),
+        {
+          status: 400,
+        },
+      );
+    }
+    const payload: AgentSkillManifestRequest = payloadResult.data;
+
+    // Ingest and return
+    try {
+      const snapshot = await ctx.runMutation(
+        internal.agentSkillManifest.ingest,
+        {
+          repoSha: payload.repoSha,
+          skills: payload.skills,
+        },
+      );
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          repoSha: snapshot.repoSha,
+          manifestHash: snapshot.manifestHash,
+          skillCount: snapshot.skills.length,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Failed to ingest agent skill manifest:", error);
+      return new Response("Failed to ingest agent skill manifest", {
+        status: 500,
+      });
+    }
   }),
 });
 
@@ -147,6 +304,17 @@ http.route({
 
 http.route({
   path: "/v1/version",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 200,
+      headers: COMMON_HEADERS,
+    });
+  }),
+});
+
+http.route({
+  path: "/v1/agent_skills",
   method: "OPTIONS",
   handler: httpAction(async () => {
     return new Response(null, {

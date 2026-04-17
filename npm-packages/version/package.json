@@ -12,7 +12,8 @@
     "arktype": "^2.1.20",
     "chalk": "5",
     "convex": "workspace:*",
-    "semver": "^7.6.0"
+    "semver": "^7.6.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^18.17.0",

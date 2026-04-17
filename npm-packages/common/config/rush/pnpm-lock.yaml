@@ -428,7 +428,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.3.6)
       eslint:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.6.1)
@@ -1870,7 +1870,7 @@ importers:
         version: link:../../convex
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.1.12)
+        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.3.6)
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -2505,7 +2505,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.3.6)
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -3564,7 +3564,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3589,7 +3589,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3614,7 +3614,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3639,7 +3639,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3655,7 +3655,7 @@ importers:
     dependencies:
       '@convex-dev/resend':
         specifier: ^0.2.0
-        version: 0.2.3(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)(react@19.2.4)
+        version: 0.2.3(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)(react@19.2.4)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -3680,7 +3680,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3705,7 +3705,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -4993,7 +4993,7 @@ importers:
         version: 17.4.0
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.1.12)
+        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.3.6)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5066,7 +5066,7 @@ importers:
         version: 17.4.0
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.1.12)
+        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.3.6)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5142,7 +5142,7 @@ importers:
         version: 17.4.0
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.1.12)
+        version: 6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.3.6)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5386,7 +5386,7 @@ importers:
         version: 0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)
       '@convex-dev/workflow':
         specifier: ^0.3.3
-        version: 0.3.3(@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex))(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)
+        version: 0.3.3(@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex))(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -5600,7 +5600,7 @@ importers:
         version: 0.20.0(convex@..+convex)
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.3.6)
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -5733,7 +5733,7 @@ importers:
     dependencies:
       '@langchain/core':
         specifier: ^0.3.80
-        version: 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))
+        version: 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))
       '@sentry/node':
         specifier: ^7.23.0
         version: 7.120.4
@@ -5742,7 +5742,7 @@ importers:
         version: 7.120.4
       langchain:
         specifier: ^0.3.37
-        version: 0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.15.0)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))(ws@8.18.0(bufferutil@4.0.9))
+        version: 0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.15.0)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))(ws@8.18.0(bufferutil@4.0.9))
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -6336,6 +6336,9 @@ importers:
       semver:
         specifier: ^7.6.0
         version: 7.7.3
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -28087,6 +28090,9 @@ packages:
   zod@4.1.12:
     resolution: {integrity: sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==}
 
+  zod@4.3.6:
+    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+
   zshy@0.7.0:
     resolution: {integrity: sha512-nBQv7JaVC+lUMK9+uD9LgXNHPsz3uo5gdk33ojCndY8hT4EkrGovwjacPsvB7BlTuV++i9bPQFFzWYrQyTH3DA==}
     hasBin: true
@@ -28106,33 +28112,33 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/gateway@2.0.9(zod@4.1.12)':
+  '@ai-sdk/gateway@2.0.9(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.12)
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.3.6)
       '@vercel/oidc': 3.0.3
-      zod: 4.1.12
+      zod: 4.3.6
 
-  '@ai-sdk/provider-utils@3.0.17(zod@4.1.12)':
+  '@ai-sdk/provider-utils@3.0.17(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@standard-schema/spec': 1.0.0
       eventsource-parser: 3.0.6
-      zod: 4.1.12
+      zod: 4.3.6
 
   '@ai-sdk/provider@2.0.0':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@2.0.93(react@18.3.1)(zod@4.1.12)':
+  '@ai-sdk/react@2.0.93(react@18.3.1)(zod@4.3.6)':
     dependencies:
-      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.12)
-      ai: 5.0.93(zod@4.1.12)
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.3.6)
+      ai: 5.0.93(zod@4.3.6)
       react: 18.3.1
       swr: 2.3.6(react@18.3.1)
       throttleit: 2.1.0
     optionalDependencies:
-      zod: 4.1.12
+      zod: 4.3.6
 
   '@algolia/abtesting@1.9.0':
     dependencies:
@@ -31822,12 +31828,12 @@ snapshots:
     optionalDependencies:
       react: 19.2.4
 
-  '@convex-dev/resend@0.2.3(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)(react@19.2.4)':
+  '@convex-dev/resend@0.2.3(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)(react@19.2.4)':
     dependencies:
       '@convex-dev/rate-limiter': 0.3.2(convex@..+convex)(react@19.2.4)
-      '@convex-dev/workpool': 0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)
+      '@convex-dev/workpool': 0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)
       convex: link:../../convex
-      convex-helpers: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12)
+      convex-helpers: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6)
       remeda: 2.32.0
       resend: 6.6.0
       svix: 1.81.0
@@ -31840,17 +31846,17 @@ snapshots:
       handlebars: 4.7.9
       typedoc: 0.24.8(typescript@5.0.4)
 
-  '@convex-dev/workflow@0.3.3(@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex))(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)':
+  '@convex-dev/workflow@0.3.3(@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex))(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)':
     dependencies:
-      '@convex-dev/workpool': 0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)
+      '@convex-dev/workpool': 0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)
       async-channel: 0.2.0
       convex: link:../../convex
-      convex-helpers: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12)
+      convex-helpers: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6)
 
-  '@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12))(convex@..+convex)':
+  '@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)':
     dependencies:
       convex: link:../../convex
-      convex-helpers: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12)
+      convex-helpers: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6)
 
   '@cspell/cspell-bundled-dicts@6.31.3':
     dependencies:
@@ -32403,14 +32409,14 @@ snapshots:
 
   '@docsearch/react@4.3.2(@algolia/client-search@5.43.0)(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)':
     dependencies:
-      '@ai-sdk/react': 2.0.93(react@18.3.1)(zod@4.1.12)
+      '@ai-sdk/react': 2.0.93(react@18.3.1)(zod@4.3.6)
       '@algolia/autocomplete-core': 1.19.2(@algolia/client-search@5.43.0)(algoliasearch@5.43.0)(search-insights@2.17.3)
       '@docsearch/core': 4.3.1(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@docsearch/css': 4.3.2
-      ai: 5.0.93(zod@4.1.12)
+      ai: 5.0.93(zod@4.3.6)
       algoliasearch: 5.43.0
       marked: 16.4.2
-      zod: 4.1.12
+      zod: 4.3.6
     optionalDependencies:
       '@types/react': 18.3.26
       react: 18.3.1
@@ -35103,14 +35109,14 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))':
+  '@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))
+      langsmith: 0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -35152,9 +35158,9 @@ snapshots:
     transitivePeerDependencies:
       - ws
 
-  '@langchain/openai@0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)))(ws@8.18.0(bufferutil@4.0.9))':
+  '@langchain/openai@0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)))(ws@8.18.0(bufferutil@4.0.9))':
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))
       js-tiktoken: 1.0.21
       openai: 5.12.2(ws@8.18.0(bufferutil@4.0.9))(zod@3.25.76)
       zod: 3.25.76
@@ -35175,9 +35181,9 @@ snapshots:
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76))
       js-tiktoken: 1.0.21
 
-  '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)))':
+  '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)))':
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))
       js-tiktoken: 1.0.21
 
   '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76)))':
@@ -42152,13 +42158,13 @@ snapshots:
       clean-stack: 2.2.0
       indent-string: 4.0.0
 
-  ai@5.0.93(zod@4.1.12):
+  ai@5.0.93(zod@4.3.6):
     dependencies:
-      '@ai-sdk/gateway': 2.0.9(zod@4.1.12)
+      '@ai-sdk/gateway': 2.0.9(zod@4.3.6)
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.12)
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.3.6)
       '@opentelemetry/api': 1.9.0
-      zod: 4.1.12
+      zod: 4.3.6
 
   ajv-draft-04@1.0.0(ajv@8.18.0):
     optionalDependencies:
@@ -43872,7 +43878,7 @@ snapshots:
     dependencies:
       convex: link:../../convex
 
-  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12):
+  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.0.4)(zod@4.3.6):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
@@ -43880,7 +43886,7 @@ snapshots:
       hono: 4.12.9
       react: 18.3.1
       typescript: 5.0.4
-      zod: 4.1.12
+      zod: 4.3.6
 
   convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@18.3.1)(typescript@5.9.3)(zod@3.25.76):
     dependencies:
@@ -43892,7 +43898,7 @@ snapshots:
       typescript: 5.9.3
       zod: 3.25.76
 
-  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12):
+  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.0.4)(zod@4.3.6):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
@@ -43900,9 +43906,9 @@ snapshots:
       hono: 4.12.9
       react: 19.2.4
       typescript: 5.0.4
-      zod: 4.1.12
+      zod: 4.3.6
 
-  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.1.12):
+  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.9)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
@@ -43910,7 +43916,7 @@ snapshots:
       hono: 4.12.9
       react: 19.2.4
       typescript: 5.9.3
-      zod: 4.1.12
+      zod: 4.3.6
 
   convex-nuxt@0.1.5(convex-vue@0.1.5(convex@..+convex)(vue@3.5.32(typescript@5.9.3)))(magicast@0.5.2):
     dependencies:
@@ -49981,15 +49987,15 @@ snapshots:
       - openai
       - ws
 
-  langchain@0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.15.0)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))(ws@8.18.0(bufferutil@4.0.9)):
+  langchain@0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.15.0)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))(ws@8.18.0(bufferutil@4.0.9)):
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))
-      '@langchain/openai': 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)))(ws@8.18.0(bufferutil@4.0.9))
-      '@langchain/textsplitters': 0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))
+      '@langchain/openai': 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)))(ws@8.18.0(bufferutil@4.0.9))
+      '@langchain/textsplitters': 0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)))
       js-tiktoken: 1.0.21
       js-yaml: 4.1.1
       jsonpointer: 5.0.1
-      langsmith: 0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12))
+      langsmith: 0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6))
       openapi-types: 12.1.3
       p-retry: 4.6.2
       uuid: 10.0.0
@@ -50044,7 +50050,7 @@ snapshots:
       '@opentelemetry/sdk-trace-base': 2.2.0(@opentelemetry/api@1.9.0)
       openai: 4.104.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76)
 
-  langsmith@0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)):
+  langsmith@0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
@@ -50055,7 +50061,7 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/sdk-trace-base': 2.2.0(@opentelemetry/api@1.9.0)
-      openai: 6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12)
+      openai: 6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6)
 
   langsmith@0.4.12(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76)):
     dependencies:
@@ -52615,10 +52621,10 @@ snapshots:
       ws: 8.20.0(bufferutil@4.0.9)
       zod: 3.25.76
 
-  openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.1.12):
+  openai@6.10.0(ws@8.18.0(bufferutil@4.0.9))(zod@4.3.6):
     optionalDependencies:
       ws: 8.18.0(bufferutil@4.0.9)
-      zod: 4.1.12
+      zod: 4.3.6
     optional: true
 
   openai@6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@3.25.76):
@@ -52626,10 +52632,10 @@ snapshots:
       ws: 8.20.0(bufferutil@4.0.9)
       zod: 3.25.76
 
-  openai@6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.1.12):
+  openai@6.10.0(ws@8.20.0(bufferutil@4.0.9))(zod@4.3.6):
     optionalDependencies:
       ws: 8.20.0(bufferutil@4.0.9)
-      zod: 4.1.12
+      zod: 4.3.6
 
   openapi-fetch@0.15.0:
     dependencies:
@@ -55572,7 +55578,7 @@ snapshots:
     dependencies:
       '@vercel/sandbox': 1.9.0
       debug: 4.4.3(supports-color@10.2.2)
-      zod: 4.1.12
+      zod: 4.3.6
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
@@ -59829,6 +59835,8 @@ snapshots:
   zod@3.25.76: {}
 
   zod@4.1.12: {}
+
+  zod@4.3.6: {}
 
   zshy@0.7.0(typescript@5.9.3):
     dependencies:

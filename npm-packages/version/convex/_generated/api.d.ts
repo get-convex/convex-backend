@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentSkillManifest from "../agentSkillManifest.js";
 import type * as agentSkills from "../agentSkills.js";
 import type * as crons from "../crons.js";
 import type * as cursorRules from "../cursorRules.js";
@@ -34,6 +35,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentSkillManifest: typeof agentSkillManifest;
   agentSkills: typeof agentSkills;
   crons: typeof crons;
   cursorRules: typeof cursorRules;
