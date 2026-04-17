@@ -275,10 +275,16 @@ async function createLocalDeployment(
     );
   }
 
-  const devCommand = select
-    ? "npx convex dev"
-    : "npx convex dev --deployment local";
-  logMessage(`\nRun ${chalkStderr.bold(devCommand)} to start it.`);
+  const devCommand = "npx convex dev";
+  if (select) {
+    logMessage(`\nRun ${chalkStderr.bold(devCommand)} to start it.`);
+  } else {
+    logMessage(
+      `\nTo use this deployment, run:\n` +
+        chalkStderr.bold(`      npx convex deployment select local\n`) +
+        `  Then, run ${chalkStderr.bold(devCommand)} to start it.`,
+    );
+  }
 }
 
 type RefParam = Parameters<Parameters<typeof deploymentCreate.action>[0]>[0];
