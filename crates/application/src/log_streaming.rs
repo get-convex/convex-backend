@@ -7,6 +7,7 @@ use common::{
 };
 use database::Database;
 use errors::ErrorMetadata;
+use futures::FutureExt;
 use keybroker::Identity;
 use model::{
     backend_info::BackendInfoModel,
@@ -20,6 +21,7 @@ use model::{
         LogSinksModel,
     },
 };
+use usage_tracking::FunctionUsageTracker;
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
@@ -51,10 +53,19 @@ pub async fn add_local_log_sink_on_startup<RT: Runtime>(
 
 impl<RT: Runtime> Application<RT> {
     pub async fn add_log_sink(&self, config: SinkConfig) -> anyhow::Result<ResolvedDocumentId> {
-        let mut tx = self.begin(Identity::system()).await?;
-        let mut model = LogSinksModel::new(&mut tx);
-        let id = model.add_or_update(config).await?;
-        self.commit(tx, "add_log_sink").await?;
+        let (_ts, id) = self
+            .execute_with_occ_retries(
+                Identity::system(),
+                FunctionUsageTracker::new(),
+                "add_log_sink",
+                |tx| {
+                    let config = config.clone();
+                    async move { LogSinksModel::new(tx).add_or_update(config).await }
+                        .boxed()
+                        .into()
+                },
+            )
+            .await?;
         Ok(id)
     }
 
@@ -63,42 +74,53 @@ impl<RT: Runtime> Application<RT> {
         id: &String,
         config: SinkConfig,
     ) -> anyhow::Result<()> {
-        let mut tx = self.begin(Identity::system()).await?;
-
-        let id = tx.resolve_developer_id(
-            &DeveloperDocumentId::decode(id).map_err(|_| {
-                anyhow::anyhow!(ErrorMetadata::bad_request(
-                    "InvalidLogStreamId",
-                    "The log stream id is invalid"
-                ))
-            })?,
-            TableNamespace::Global,
-        )?;
-
-        let mut model = LogSinksModel::new(&mut tx);
-        model.patch_config(id, config).await?;
-        self.commit(tx, "patch_log_sink_config").await?;
+        let developer_id = DeveloperDocumentId::decode(id).map_err(|_| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidLogStreamId",
+                "The log stream id is invalid"
+            ))
+        })?;
+        self.execute_with_occ_retries(
+            Identity::system(),
+            FunctionUsageTracker::new(),
+            "patch_log_sink_config",
+            |tx| {
+                let config = config.clone();
+                async move {
+                    let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
+                    LogSinksModel::new(tx).patch_config(id, config).await
+                }
+                .boxed()
+                .into()
+            },
+        )
+        .await?;
         Ok(())
     }
 
     pub async fn reset_log_sink_to_pending(&self, id: &String) -> anyhow::Result<()> {
-        let mut tx = self.begin(Identity::system()).await?;
-
-        let id = tx.resolve_developer_id(
-            &DeveloperDocumentId::decode(id).map_err(|_| {
-                anyhow::anyhow!(ErrorMetadata::bad_request(
-                    "InvalidLogStreamId",
-                    "The log stream id is invalid"
-                ))
-            })?,
-            TableNamespace::Global,
-        )?;
-
-        let mut model = LogSinksModel::new(&mut tx);
-        model
-            .patch_status(id, model::log_sinks::types::SinkState::Pending)
-            .await?;
-        self.commit(tx, "reset_log_sink_to_pending").await?;
+        let developer_id = DeveloperDocumentId::decode(id).map_err(|_| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidLogStreamId",
+                "The log stream id is invalid"
+            ))
+        })?;
+        self.execute_with_occ_retries(
+            Identity::system(),
+            FunctionUsageTracker::new(),
+            "reset_log_sink_to_pending",
+            |tx| {
+                async move {
+                    let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
+                    LogSinksModel::new(tx)
+                        .patch_status(id, SinkState::Pending)
+                        .await
+                }
+                .boxed()
+                .into()
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -164,20 +186,43 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub async fn remove_log_sink_by_id(&self, id: String) -> anyhow::Result<()> {
-        let mut tx = self.begin(Identity::system()).await?;
-        let mut model = LogSinksModel::new(&mut tx);
-
-        let Some(LogSinkWithId { id, .. }) = self.get_log_sink_by_id(&id).await? else {
-            return Err(ErrorMetadata::bad_request(
-                "LogStreamDoesntExist",
-                "No log stream with the given id exists for this deployment.",
-            )
-            .into());
-        };
-
-        model.mark_for_removal(id).await?;
-        self.commit(tx, "remove_log_sink").await?;
-
+        let developer_id = DeveloperDocumentId::decode(&id).map_err(|_| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidLogStreamId",
+                "The log stream id is invalid"
+            ))
+        })?;
+        self.execute_with_occ_retries(
+            Identity::system(),
+            FunctionUsageTracker::new(),
+            "remove_log_sink",
+            |tx| {
+                async move {
+                    let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
+                    let row: ParsedDocument<LogSinksRow> = tx
+                        .get(id)
+                        .await?
+                        .ok_or_else(|| {
+                            ErrorMetadata::bad_request(
+                                "LogStreamDoesntExist",
+                                "No log stream with the given id exists for this deployment.",
+                            )
+                        })?
+                        .parse()?;
+                    if row.status == SinkState::Tombstoned {
+                        return Err(ErrorMetadata::bad_request(
+                            "LogStreamDoesntExist",
+                            "No log stream with the given id exists for this deployment.",
+                        )
+                        .into());
+                    }
+                    LogSinksModel::new(tx).mark_for_removal(id).await
+                }
+                .boxed()
+                .into()
+            },
+        )
+        .await?;
         Ok(())
     }
 
