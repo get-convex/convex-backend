@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@tanstack/eslint-config": "^0.3.0",
+    "@tanstack/eslint-config": "^0.4.0",
     "@types/react": "^18.2.65",
     "@types/react-dom": "^18.2.21",
     "@typescript-eslint/parser": "^8.0.0",

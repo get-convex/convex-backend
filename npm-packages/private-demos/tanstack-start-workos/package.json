@@ -34,7 +34,7 @@
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
     "@tailwindcss/postcss": "^4.1.11",
-    "@tanstack/eslint-config": "^0.3.0",
+    "@tanstack/eslint-config": "^0.4.0",
     "@types/node": "^20",
     "@types/react": "^18.2.65",
     "@types/react-dom": "^18.2.21",
