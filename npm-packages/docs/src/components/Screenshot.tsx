@@ -15,6 +15,7 @@ export function Screenshot({ story, alt }: { story: StoryTitle; alt: string }) {
 
   return (
     <img
+      className="img-screenshot"
       src={`/screenshots/storybook/${img.filename}`}
       alt={alt}
       width={img.width / 2}
