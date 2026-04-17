@@ -12,7 +12,6 @@ doctest = false
 [features]
 testing = [
     "errors/testing",
-    "metrics/testing",
     "proptest",
     "proptest-derive",
     "sync_types/testing",
@@ -30,7 +29,6 @@ hex = { workspace = true }
 humansize = { workspace = true }
 imbl = { workspace = true }
 memchr = { workspace = true }
-metrics = { workspace = true }
 paste = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
@@ -53,7 +51,6 @@ cmd_util = { workspace = true }
 convex = { workspace = true, features = ["testing"] }
 criterion = { workspace = true }
 errors = { workspace = true, features = ["testing"] }
-metrics = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 sync_types = { workspace = true, features = [

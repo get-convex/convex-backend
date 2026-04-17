@@ -11,7 +11,6 @@ ignored = [
     "proptest_derive",
     # Used in macros
     "derive_more",
-    "serde_json",
 ]
 
 [lib]
@@ -24,7 +23,6 @@ testing = ["common/testing", "keybroker/testing", "proptest", "proptest-derive"]
 anyhow = { workspace = true }
 common = { workspace = true }
 derive_more = { workspace = true }
-enum-iterator = { workspace = true }
 keybroker = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }

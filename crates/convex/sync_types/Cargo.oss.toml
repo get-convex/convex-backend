@@ -16,7 +16,6 @@ testing = [ "proptest", "proptest-derive", "pretty_assertions" ]
 [dependencies]
 anyhow = { version = "1" }
 base64 = { version = "0.13" }
-bytes = { version = "1.6.0" }
 derive_more = { version = "2", features = [ "full" ] }
 headers = { version = "0.4" }
 pretty_assertions = { optional = true, version = "1" }

@@ -176,7 +176,6 @@ version = "0.10.4"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
- "bytes",
  "derive_more",
  "headers",
  "pretty_assertions",

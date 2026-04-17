@@ -36,7 +36,6 @@ sync_types = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tuple_struct = { workspace = true }
-url = { workspace = true }
 utoipa = { workspace = true }
 
 [dev-dependencies]

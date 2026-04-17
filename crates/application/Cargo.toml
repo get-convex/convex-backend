@@ -75,10 +75,8 @@ log_streaming = { workspace = true }
 lru = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
-mime2ext = { workspace = true }
 model = { workspace = true }
 node_executor = { workspace = true }
-num_cpus = { workspace = true }
 parking_lot = { workspace = true }
 pb = { workspace = true }
 proptest = { workspace = true, optional = true }
@@ -94,7 +92,6 @@ shape_inference = { workspace = true }
 short_future = { workspace = true }
 slugify = { workspace = true }
 smallvec = { workspace = true }
-sourcemap = { workspace = true }
 storage = { workspace = true }
 storage_zip_reader = { workspace = true }
 strum = { workspace = true }

@@ -11,7 +11,6 @@ doctest = false
 testing = [
     "common/testing",
     "database/testing",
-    "errors/testing",
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
@@ -28,12 +27,10 @@ async_zip = { workspace = true }
 bytes = { workspace = true }
 common = { workspace = true }
 database = { workspace = true }
-errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 keybroker = { workspace = true }
-maplit = { workspace = true }
 metrics = { workspace = true }
 mime2ext = { workspace = true }
 model = { workspace = true }
@@ -52,7 +49,6 @@ value = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
-errors = { workspace = true, features = ["testing"] }
 file_storage = { workspace = true }
 headers = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }

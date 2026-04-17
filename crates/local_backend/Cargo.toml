@@ -21,8 +21,6 @@ testing = [
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
-    "mysql/testing",
-    "postgres/testing",
     "runtime/testing",
     "search/testing",
     "storage/testing",
@@ -43,7 +41,6 @@ testing = [
 anyhow = { workspace = true }
 application = { workspace = true }
 async-broadcast = { workspace = true }
-async-trait = { workspace = true }
 authentication = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
@@ -76,20 +73,15 @@ keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
-mysql = { workspace = true }
 node_executor = { workspace = true }
 parking_lot = { workspace = true }
-postgres = { workspace = true }
-rand = { workspace = true }
 reqwest = { workspace = true }
 runtime = { workspace = true }
 search = { workspace = true }
 sentry = { workspace = true }
-sentry-tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-sqlite = { workspace = true }
 storage = { workspace = true }
 sync = { workspace = true }
 sync_types = { workspace = true }
@@ -133,9 +125,7 @@ jsonschema = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 model = { workspace = true, features = ["testing"] }
-mysql = { workspace = true, features = ["testing"] }
 node_executor = { workspace = true, features = ["testing"] }
-postgres = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }

@@ -16,7 +16,6 @@ testing = ["proptest", "proptest-derive", "pretty_assertions"]
 [dependencies]
 anyhow = { workspace = true }
 base64 = { workspace = true }
-bytes = { workspace = true }
 derive_more = { workspace = true }
 headers = { workspace = true }
 pretty_assertions = { workspace = true, optional = true }

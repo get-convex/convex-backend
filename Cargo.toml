@@ -139,7 +139,6 @@ mysql = { path = "crates/mysql" }
 mysql_async = { git = "https://github.com/get-convex/mysql_async", rev = "deac775566d62246248a48fd3df58d6b5c03b729", default-features = false, features = [ "default-rustls" ] }
 native-tls = { version = "0.2", features = [ "alpn", "vendored" ] }
 node_executor = { path = "crates/node_executor" }
-num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 once_cell = "1.19"
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
@@ -157,7 +156,6 @@ pkcs8 = "0.10.2"
 postgres = { path = "crates/postgres" }
 postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
-proc-macro2 = { version = "1.0" }
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
 proptest = "1"
 proptest-derive = "0.5.0"

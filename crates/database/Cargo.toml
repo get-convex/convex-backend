@@ -35,7 +35,6 @@ testing = [
 [dependencies]
 ahash = { workspace = true }
 anyhow = { workspace = true }
-async-broadcast = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
