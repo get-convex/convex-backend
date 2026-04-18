@@ -9,7 +9,8 @@ import {
 } from "./GenerateDeployKeyButton";
 
 export function DeploymentAccessTokenList({
-  deploymentName,
+  deploymentType,
+  onDelete,
   deployKeys,
   disabledReason,
   buttonProps,
@@ -17,7 +18,8 @@ export function DeploymentAccessTokenList({
   description,
   headingLevel = "h4",
 }: {
-  deploymentName: string;
+  deploymentType: string;
+  onDelete: (args: { id: string }) => Promise<unknown>;
   deployKeys: PlatformDeployKeyResponse[] | undefined;
   disabledReason: DeployKeyGenerationDisabledReason | null;
   buttonProps: GenerateDeployKeyWithNameButtonProps;
@@ -45,7 +47,8 @@ export function DeploymentAccessTokenList({
                   .map((deployKey) => (
                     <DeployKeyListItem
                       deployKey={deployKey}
-                      deploymentName={deploymentName}
+                      deploymentType={deploymentType}
+                      onDelete={onDelete}
                       key={deployKey.name}
                     />
                   ))

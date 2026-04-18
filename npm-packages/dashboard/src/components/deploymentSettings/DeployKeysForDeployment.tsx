@@ -1,7 +1,11 @@
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
-import { useCreateDeployKey, useDeployKeys } from "api/accessTokens";
+import {
+  useCreateDeployKey,
+  useDeleteDeployKey,
+  useDeployKeys,
+} from "api/accessTokens";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { Link } from "@ui/Link";
 
@@ -23,6 +27,7 @@ export function DeployKeysForDeployment() {
         : null;
 
   const createDeployKey = useCreateDeployKey(deployment?.name || "");
+  const deleteDeployKey = useDeleteDeployKey(deployment?.name || "");
 
   const deployKeys = useDeployKeys(
     disabledReason === null ? deployment?.name : undefined,
@@ -75,7 +80,8 @@ export function DeployKeysForDeployment() {
             disabledReason,
           }}
           description={deployKeyDescription}
-          deploymentName={deployment.name}
+          deploymentType={deploymentType}
+          onDelete={deleteDeployKey}
           deployKeys={deployKeys}
           disabledReason={disabledReason}
         />

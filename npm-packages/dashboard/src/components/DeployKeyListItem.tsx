@@ -1,5 +1,4 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
-import { useDeleteDeployKey } from "api/accessTokens";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Checkbox } from "@ui/Checkbox";
@@ -18,14 +17,15 @@ import {
 
 export function DeployKeyListItem({
   deployKey,
-  deploymentName,
+  deploymentType,
+  onDelete,
 }: {
   deployKey: PlatformDeployKeyResponse;
-  deploymentName: string;
+  deploymentType: string;
+  onDelete: (args: { id: string }) => Promise<unknown>;
 }) {
   const team = useCurrentTeam();
   const members = useTeamMembers(team?.id);
-  const deleteDeployKey = useDeleteDeployKey(deploymentName);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showOperations, setShowOperations] = useState(false);
   const { capture } = usePostHog();
@@ -108,9 +108,9 @@ export function DeployKeyListItem({
             setShowDeleteConfirmation(false);
           }}
           onConfirm={async () => {
-            await deleteDeployKey({ id: deployKey.name });
+            await onDelete({ id: deployKey.name });
             capture("deleted_deploy_key", {
-              type: deploymentName.split(":")[0] ?? deploymentName,
+              type: deploymentType,
             });
           }}
           confirmText="Delete"

@@ -8,6 +8,7 @@ import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import {
   useCreatePreviewDeployKey,
+  useDeletePreviewDeployKey,
   usePreviewDeployKeys,
   useProjectAppAccessTokens,
   useDeleteAppAccessTokenByName,
@@ -538,6 +539,7 @@ function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
 
 function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   const createPreviewDeployKey = useCreatePreviewDeployKey(project.id);
+  const deletePreviewDeployKey = useDeletePreviewDeployKey(project.id);
   const team = useCurrentTeam();
 
   const previewDeployKeys = usePreviewDeployKeys(project.id);
@@ -570,7 +572,8 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
       <div className="flex flex-col gap-2">
         {team && (
           <DeploymentAccessTokenList
-            deploymentName={`preview:${team.slug}:${project.slug}`}
+            deploymentType="preview"
+            onDelete={deletePreviewDeployKey}
             deployKeys={previewDeployKeys}
             disabledReason={null}
             buttonProps={{

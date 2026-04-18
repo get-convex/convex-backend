@@ -402,6 +402,8 @@ function EntryAction({
         </span>
       );
     case "createTeamAccessToken":
+    case "createProjectAccessToken":
+    case "createDeploymentAccessToken":
       return (
         <span>
           {metadata.current && (
@@ -414,8 +416,10 @@ function EntryAction({
         </span>
       );
     case "viewTeamAccessToken":
+    case "viewProjectAccessToken":
+    case "viewDeploymentAccessToken":
       // we expect these to never be logged
-      captureMessage("Found viewTeamAccessToken audit log", "error");
+      captureMessage("Found viewAccessToken audit log", "error");
       return (
         <span>
           {metadata.current && (
@@ -428,6 +432,8 @@ function EntryAction({
         </span>
       );
     case "updateTeamAccessToken":
+    case "updateProjectAccessToken":
+    case "updateDeploymentAccessToken":
       return (
         <span>
           {metadata.current && (
@@ -440,6 +446,8 @@ function EntryAction({
         </span>
       );
     case "deleteTeamAccessToken":
+    case "deleteProjectAccessToken":
+    case "deleteDeploymentAccessToken":
       return (
         <span>
           {metadata.previous && (
@@ -945,27 +953,16 @@ function AccessTokenSettingsLink({
   metadataEntity: Record<string, any>;
   verb: string;
 }) {
-  const keyType =
-    metadataEntity.projectId && !metadataEntity.deploymentName
+  const keyType = metadataEntity.deploymentId
+    ? "deploy key"
+    : metadataEntity.projectId
       ? "preview deploy key"
-      : metadataEntity.deploymentName
-        ? "deploy key"
-        : "access token";
+      : "access token";
 
   return (
     <>
       {verb} the {keyType}{" "}
       <span className="font-semibold">{metadataEntity.name}</span>
-      {metadataEntity.deploymentName && (
-        <>
-          {" "}
-          in{" "}
-          <DeploymentSettingsLink
-            team={team}
-            deploymentName={metadataEntity?.deploymentName}
-          />
-        </>
-      )}
       {metadataEntity.projectId && (
         <>
           {" "}
