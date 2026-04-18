@@ -7,12 +7,12 @@ export const screenshots = [
     "light": {
       "filename": "components_health_failure_rate_light.webp",
       "width": 832,
-      "height": 566
+      "height": 556
     },
     "dark": {
       "filename": "components_health_failure_rate_dark.webp",
       "width": 832,
-      "height": 566
+      "height": 556
     }
   },
   {

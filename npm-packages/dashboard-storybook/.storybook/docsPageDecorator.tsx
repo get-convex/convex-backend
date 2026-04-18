@@ -45,7 +45,10 @@ import { deploymentAuth } from "../../dashboard/src/lib/deploymentAuth";
 import { useTeamUsageState } from "../../dashboard/src/api/usage";
 import { useReferralState } from "../../dashboard/src/api/referrals";
 import { usePostHog } from "../../dashboard/src/hooks/usePostHog";
-import { useListCloudBackups } from "../../dashboard/src/api/backups";
+import {
+  useListCloudBackups,
+  useListCloudBackupsIfAvailable,
+} from "../../dashboard/src/api/backups";
 import {
   useCreateTeamAccessToken,
   useDeployKeys,
@@ -339,6 +342,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     posthog: undefined,
   });
   mocked(useListCloudBackups).mockReturnValue([]);
+  mocked(useListCloudBackupsIfAvailable).mockReturnValue([]);
   mocked(useListVanityDomains).mockReturnValue([]);
   mocked(useCreateVanityDomain).mockReturnValue(fn());
   mocked(useDeleteVanityDomain).mockReturnValue(fn());
