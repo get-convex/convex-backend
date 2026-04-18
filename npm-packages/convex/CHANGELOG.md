@@ -4,9 +4,24 @@
 
 - Added `ctx.meta` to access extra metadata at runtime:
   - `ctx.meta.getFunctionMetadata()`: the current function's name, component,
-    visibility and whether it's a query, mutation, or action.
+    visibility, and whether it's a query, mutation, or action.
   - `ctx.meta.getTransactionMetrics()`: how much capacity remains in the current
     transaction. Only available in queries and mutations.
+- Added a `npx convex env default` command for getting and setting default
+  environment variables for a project.
+- `npx convex deploy` now supports a `--message` option that allows you to
+  write details in the deployment’s audit log. When running
+  `npx convex deploy` on CI runners on popular platforms (including GitHub Actions,
+  Vercel, and Netlify), a default message will be provided if you don’t provide one
+  (e.g. “Deployed from GitHub Actions • e83c516”).
+- Fixed a bug where the automatically-generated files would sometimes sort imports
+  in inconsistent order across platforms.
+- Fixed a bug in `npx convex dev --start` where, in some cases, the `--start` command
+  would continue to run after closing the Convex dev server with <kbd>Ctrl+C</kbd>.
+- Fixed a bug where `connectionState.hasEverConnected` would remain false
+  when using the `expectAuth` option.
+- Generating APIs via function-spec now supports validators with int64 literals.  
+
 
 ## 1.35.1
 
