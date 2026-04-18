@@ -665,6 +665,7 @@ function EventReadAmount({
                   variant="neutral"
                   size="xs"
                   className="-my-1"
+                  aria-label={open ? "Hide breakdown" : "Show breakdown"}
                 >
                   {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </DisclosureButton>

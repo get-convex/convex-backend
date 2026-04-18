@@ -696,7 +696,12 @@ function CronElement({ cronDiff }: { cronDiff: Infer<typeof cronDiffType> }) {
         <>
           <div className="flex items-center gap-1.5">
             <span>Updated cron jobs</span>
-            <DisclosureButton as={Button} inline variant="neutral">
+            <DisclosureButton
+              as={Button}
+              inline
+              variant="neutral"
+              aria-label={open ? "Hide details" : "Show details"}
+            >
               {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </DisclosureButton>
           </div>
@@ -734,7 +739,12 @@ function SchemaElement(diff: Infer<typeof schemaDiffType>) {
         <>
           <div className="flex items-center gap-1.5">
             <span>Updated the schema</span>
-            <DisclosureButton as={Button} inline variant="neutral">
+            <DisclosureButton
+              as={Button}
+              inline
+              variant="neutral"
+              aria-label={open ? "Hide details" : "Show details"}
+            >
               {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </DisclosureButton>
           </div>
@@ -781,7 +791,12 @@ function AuthElement({ diff }: { diff: Infer<typeof authDiff> }) {
         <>
           <div className="flex items-center gap-1.5">
             <span>Updated auth providers</span>
-            <DisclosureButton as={Button} inline variant="neutral">
+            <DisclosureButton
+              as={Button}
+              inline
+              variant="neutral"
+              aria-label={open ? "Hide details" : "Show details"}
+            >
               {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </DisclosureButton>
           </div>

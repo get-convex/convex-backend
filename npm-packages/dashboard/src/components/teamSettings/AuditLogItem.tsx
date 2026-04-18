@@ -79,6 +79,7 @@ export function AuditLogItem({
                   inline
                   variant="neutral"
                   size="xs"
+                  aria-label={open ? "Hide details" : "Show details"}
                 >
                   {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
                 </DisclosureButton>
