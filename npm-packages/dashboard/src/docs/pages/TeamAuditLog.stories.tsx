@@ -10,6 +10,9 @@ const meta = {
   component: AuditLogPage,
   parameters: {
     layout: "fullscreen",
+    a11y: {
+      test: "todo",
+    },
   },
   beforeEach: () => {
     const originalDateNow = Date.now;

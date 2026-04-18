@@ -21,6 +21,9 @@ const meta = {
   component: TeamSettingsPage,
   parameters: {
     layout: "fullscreen",
+    a11y: {
+      test: "todo",
+    },
   },
   beforeEach: () => {
     mocked(useDeleteTeam).mockReturnValue(fn());

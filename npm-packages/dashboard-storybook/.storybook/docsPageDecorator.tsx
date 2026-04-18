@@ -96,11 +96,9 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   storyFn,
   context,
 ) => {
-  const fileName = context.parameters?.fileName;
-  const isDocsPageStory =
-    typeof fileName === "string" &&
-    fileName.includes("/dashboard/src/docs/pages");
-  if (typeof fileName !== "string" || !isDocsPageStory) {
+  const { title } = context;
+  const isDocsPageStory = title.startsWith("docs/pages/");
+  if (!isDocsPageStory) {
     return storyFn();
   }
 
@@ -142,11 +140,9 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     prodDeploymentName: "musical-otter-456",
     devDeploymentName: "happy-capybara-123",
   } as NonNullable<ReturnType<typeof useProjectBySlug>>;
-  const shouldMockCurrentProject = fileName.includes(
-    "/dashboard/src/docs/pages/project/",
-  );
-  const shouldMockCurrentDeployment = fileName.includes(
-    "/dashboard/src/docs/pages/project/deployment/",
+  const shouldMockCurrentProject = title.startsWith("docs/pages/project/");
+  const shouldMockCurrentDeployment = title.startsWith(
+    "docs/pages/project/deployment/",
   );
   const mockTeamEntitlements = {
     auditLogRetentionDays: 90,

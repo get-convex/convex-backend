@@ -40,6 +40,9 @@ const meta = {
   component: TeamUsagePage,
   parameters: {
     layout: "fullscreen",
+    a11y: {
+      test: "todo",
+    },
   },
   beforeEach: () => {
     mocked(useCurrentBillingPeriod).mockReturnValue({

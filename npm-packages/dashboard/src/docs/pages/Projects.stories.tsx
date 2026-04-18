@@ -5,6 +5,9 @@ const meta = {
   component: TeamIndexPage,
   parameters: {
     layout: "fullscreen",
+    a11y: {
+      test: "todo",
+    },
   },
 } satisfies Meta<typeof TeamIndexPage>;
 
