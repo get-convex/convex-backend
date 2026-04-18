@@ -71,6 +71,7 @@ const preview: Preview = {
   },
 
   decorators: [
+    docsPageDecorator,
     themeDecorator({
       themes: {
         light: "light",
@@ -78,7 +79,6 @@ const preview: Preview = {
       },
       defaultTheme: "light",
     }),
-    docsPageDecorator,
   ],
 };
 

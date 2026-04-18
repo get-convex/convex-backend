@@ -20,6 +20,7 @@ const MANIFEST_PATH = path.resolve(
 );
 
 const CROP_PADDING = 32; // in (real) pixels
+const CROP_PADDING_PAGE = 64; // in (real) pixels, for element crops in page stories
 const DEVICE_SCALE_FACTOR = 2;
 
 /** Convert PascalCase to snake_case */
@@ -197,8 +198,17 @@ async function captureScreenshot(
       deviceScaleFactor: DEVICE_SCALE_FACTOR,
     });
     const page = await context.newPage();
+    // Disable CSS animations and cursor blinking to ensure stable screenshots
+    // of components like Monaco editor that otherwise have non-deterministic renders.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
     await page.evaluate(() => document.fonts.ready);
+
+    // Hide Monaco editor cursors to ensure stable screenshots
+    await page.addStyleTag({
+      content:
+        ".monaco-editor .cursors-layer > .cursor { display: none !important; }",
+    });
 
     // Check for element-level crop selector from story parameters.
     // In Storybook 10, the store API is storyStoreValue.loadStory().
@@ -228,9 +238,17 @@ async function captureScreenshot(
       bgColor = await page.evaluate(
         () => getComputedStyle(document.body).backgroundColor,
       );
-      png = await root.screenshot({ omitBackground: true });
+      png = await root.screenshot({
+        omitBackground: true,
+        caret: "hide",
+        animations: "disabled",
+      });
     } else {
-      png = await page.screenshot({ fullPage: false });
+      png = await page.screenshot({
+        fullPage: false,
+        caret: "hide",
+        animations: "disabled",
+      });
     }
 
     // If a screenshotSelector is specified, crop to the union bounding box
@@ -257,21 +275,22 @@ async function captureScreenshot(
         const imgH = meta.height!;
 
         // Convert to pixel coordinates and add padding, clamped to image bounds
+        const padding = isComponentStory ? CROP_PADDING : CROP_PADDING_PAGE;
         const left = Math.max(
           0,
-          Math.round(minX * DEVICE_SCALE_FACTOR) - CROP_PADDING,
+          Math.round(minX * DEVICE_SCALE_FACTOR) - padding,
         );
         const top = Math.max(
           0,
-          Math.round(minY * DEVICE_SCALE_FACTOR) - CROP_PADDING,
+          Math.round(minY * DEVICE_SCALE_FACTOR) - padding,
         );
         const right = Math.min(
           imgW,
-          Math.round(maxX * DEVICE_SCALE_FACTOR) + CROP_PADDING,
+          Math.round(maxX * DEVICE_SCALE_FACTOR) + padding,
         );
         const bottom = Math.min(
           imgH,
-          Math.round(maxY * DEVICE_SCALE_FACTOR) + CROP_PADDING,
+          Math.round(maxY * DEVICE_SCALE_FACTOR) + padding,
         );
 
         png = await sharp(png)

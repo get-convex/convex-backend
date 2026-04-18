@@ -34,7 +34,10 @@ npx convex data [table]
 You may filters documents on the data page by clicking the "Filter" button on
 the top of the page.
 
-![Data filters](/screenshots/data_filters.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Filters"
+  alt="Data filters"
+/>
 
 All fields in a document are filterable by the operations supported in Convex
 query syntax. [Equality](/database/reading-data/filters.mdx#equality-conditions)
@@ -66,22 +69,24 @@ You can write a [query](/database/reading-data/reading-data.mdx) directly in the
 dashboard. This allows you to perform arbitrary filtering and transformation of
 the data, including sorting, joins, grouping and aggregations.
 
-In the `⋮` overflow menu at the top of the data page click on the “Custom query”
+In the `⋮` overflow menu at the top of the data page click on the “Custom query"
 option.
 
-<img
-  src="/screenshots/data_custom_query.png"
+<Screenshot
+  story="docs/pages/project/deployment/Data#Custom Query"
   alt="Custom query button"
-  width={250}
 />
 
 This opens the same UI used for
 [running your deployed functions](/dashboard/deployments/functions.md#running-functions),
-but with the “Custom test query” option selected, which lets you edit the source
+but with the “Custom test query" option selected, which lets you edit the source
 code for the query. This source code will be sent to your deployment and
-executed when you click on the “Run Custom Query“ button.
+executed when you click on the “Run Custom Query" button.
 
-![Running a custom test query](/screenshots/data_custom_query_runner.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Custom Query Runner"
+  alt="Running a custom test query"
+/>
 
 If you're not on the data page, you can still open this UI via the persistent
 _fn_ button shown on the bottom right of all deployment pages. The keyboard
@@ -94,14 +99,17 @@ and entering a new name for the table.
 
 ## Creating documents
 
-You may add individual documents to the table using the “Add Documents” button
+You may add individual documents to the table using the “Add Documents" button
 located in the data table's toolbar.
 
-Once you click “Add Documents” a side panel will open, allowing you to add new
+Once you click “Add Documents" a side panel will open, allowing you to add new
 documents to your table using JavaScript syntax. To add more than one document
 add a time, add new objects to the array in the editor.
 
-![Add document](/screenshots/data_add_document.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Add Document"
+  alt="Add document"
+/>
 
 ## Quick actions (context menu)
 
@@ -109,7 +117,10 @@ You can right-click on a document or value to open a context menu with quick
 actions, like copying values, quickly filtering by the selected value, and
 deleting documents.
 
-![Quick actions context menu](/screenshots/data_context_menu.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Context Menu"
+  alt="Quick actions context menu"
+/>
 
 ## Editing a cell
 
@@ -126,7 +137,10 @@ You can even edit the type of your value here, as long as it satisfies your
 
 </Admonition>
 
-![Inline value editor](/screenshots/data_edit_inline.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Edit Inline"
+  alt="Inline value editor"
+/>
 
 ## Editing a document
 
@@ -134,7 +148,10 @@ To edit multiple fields in a document at the same time, hover over the document
 and right-click to open the context menu. From there you can click on "Edit
 Document".
 
-![Edit entire document](/screenshots/data_edit_document.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Edit Document"
+  alt="Edit entire document"
+/>
 
 ## Adding references to other documents
 
@@ -150,15 +167,18 @@ the checkbox in the table header row. To select individual documents hover over
 the left-most cell and click the checkbox that appears. To select multiple
 adjacent documents at once, press the Shift key when clicking on the checkbox.
 
-When at least one document is selected, the “(Bulk) Edit Document(s)” button
+When at least one document is selected, the “(Bulk) Edit Document(s)" button
 will be visible in the table toolbar. Click the button and an editor will appear
 on the right hand side.
 
-![Bulk edit documents](/screenshots/data_bulk_edit.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Bulk Edit"
+  alt="Bulk edit documents"
+/>
 
 ## Deleting documents
 
-When at least one document is selected (see above), the “Delete Document(s)”
+When at least one document is selected (see above), the “Delete Document(s)"
 button will be visible in the table toolbar. Click the button to delete
 documents. If you're editing data in a production deployment a confirmation
 dialog will appear before the documents are deleted.
@@ -194,7 +214,10 @@ At the bottom-left of the page is a "Generate Schema" button which you can click
 to have Convex generate a [schema](/database/schemas.mdx) of all your documents
 within this table.
 
-![Generate Schema button](/screenshots/data_generate_schema.png)
+<Screenshot
+  story="docs/pages/project/deployment/Data#Generate Schema"
+  alt="Generate Schema button"
+/>
 
 ## View the schema of a table
 

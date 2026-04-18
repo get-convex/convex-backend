@@ -159,6 +159,123 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/project/deployment/Data#Filters",
+    "light": {
+      "filename": "pages_project_deployment_data_filters_light.webp",
+      "width": 1434,
+      "height": 608
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_filters_dark.webp",
+      "width": 1434,
+      "height": 608
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Add Document",
+    "light": {
+      "filename": "pages_project_deployment_data_add_document_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_add_document_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Edit Inline",
+    "light": {
+      "filename": "pages_project_deployment_data_edit_inline_light.webp",
+      "width": 896,
+      "height": 268
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_edit_inline_dark.webp",
+      "width": 896,
+      "height": 268
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Edit Document",
+    "light": {
+      "filename": "pages_project_deployment_data_edit_document_light.webp",
+      "width": 583,
+      "height": 594
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_edit_document_dark.webp",
+      "width": 583,
+      "height": 594
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Context Menu",
+    "light": {
+      "filename": "pages_project_deployment_data_context_menu_light.webp",
+      "width": 1046,
+      "height": 798
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_context_menu_dark.webp",
+      "width": 1046,
+      "height": 798
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Bulk Edit",
+    "light": {
+      "filename": "pages_project_deployment_data_bulk_edit_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_bulk_edit_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Custom Query",
+    "light": {
+      "filename": "pages_project_deployment_data_custom_query_light.webp",
+      "width": 397,
+      "height": 636
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_custom_query_dark.webp",
+      "width": 397,
+      "height": 636
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Custom Query Runner",
+    "light": {
+      "filename": "pages_project_deployment_data_custom_query_runner_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_custom_query_runner_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Generate Schema",
+    "light": {
+      "filename": "pages_project_deployment_data_generate_schema_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_generate_schema_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/project/deployment/DeploymentSettings",
     "light": {
       "filename": "pages_project_deployment_deployment_settings_light.webp",

@@ -7,7 +7,7 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import udfs from "@common/udfs";
 import { ConvexProvider } from "convex/react";
-import { fn, mocked } from "storybook/test";
+import { fn, mocked, userEvent, within, waitFor, expect } from "storybook/test";
 import { useTableShapes } from "@common/lib/deploymentApi";
 import { Shape } from "shapes";
 import { DataView } from "@common/features/data/components/DataView";
@@ -199,7 +199,14 @@ const mockConvexClient = mockConvexReactClient()
       continueCursor: "",
     }),
   )
-  .registerQueryFake(api._system.frontend.indexes.default, () => [])
+  .registerQueryFake(api._system.frontend.indexes.default, () => [
+    {
+      name: "by_name",
+      fields: ["name", "_creation_time"],
+      staged: false,
+      backfill: { state: "done" as const },
+    },
+  ])
   .registerQueryFake(udfs.getTableMapping.default, () => ({
     1: "channels",
     2: "messages",
@@ -292,3 +299,322 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+/**
+ * Shows the Data page with filter panel open, sorting by the `by_name` index.
+ */
+export const Filters: Story = {
+  parameters: {
+    nextjs: {
+      router: {
+        pathname: "/t/[team]/[project]/[deploymentName]/data",
+        route: "/t/[team]/[project]/[deploymentName]/data",
+        asPath:
+          "/t/acme/my-amazing-app/happy-capybara-123/data?filters=eyJjbGF1c2VzIjpbXSwiaW5kZXgiOnsibmFtZSI6ImJ5X25hbWUiLCJjbGF1c2VzIjpbeyJ0eXBlIjoiaW5kZXhFcSIsImVuYWJsZWQiOnRydWUsInZhbHVlIjoiZ2VuZXJhbCJ9LHsidHlwZSI6ImluZGV4RXEiLCJlbmFibGVkIjpmYWxzZSwidmFsdWUiOjE3NzU1MTUxNjk5NDd9XX19",
+        query: {
+          team: "acme",
+          project: "my-amazing-app",
+          deploymentName: "happy-capybara-123",
+          filters:
+            "eyJjbGF1c2VzIjpbXSwiaW5kZXgiOnsibmFtZSI6ImJ5X25hbWUiLCJjbGF1c2VzIjpbeyJ0eXBlIjoiaW5kZXhFcSIsImVuYWJsZWQiOnRydWUsInZhbHVlIjoiZ2VuZXJhbCJ9LHsidHlwZSI6ImluZGV4RXEiLCJlbmFibGVkIjpmYWxzZSwidmFsdWUiOjE3NzU1MTUxNjk5NDd9XX19",
+        },
+      },
+    },
+    screenshotSelector: '[data-testid="filterMenu"]',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the Filter button to appear and click it to open the filter panel
+    await waitFor(
+      async () => {
+        await expect(canvas.queryByLabelText("Filter")).toBeTruthy();
+      },
+      { timeout: 5000 },
+    );
+    await userEvent.click(canvas.getByLabelText("Filter"));
+  },
+};
+
+/**
+ * Shows the Data page with "Add documents" panel open.
+ */
+export const AddDocument: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the toolbar to be visible
+    await waitFor(async () => {
+      await expect(
+        canvas.getByRole("button", { name: /add|import/i }),
+      ).toBeDefined();
+    });
+
+    // Click the "Add" button
+    const addButton = canvas.getByRole("button", { name: /add/i });
+    await userEvent.click(addButton);
+
+    // Wait for the add documents panel to appear
+    await waitFor(async () => {
+      const inputs = canvas.queryAllByRole("textbox");
+      await expect(inputs.length).toBeGreaterThan(0);
+    });
+  },
+};
+
+/**
+ * Shows inline cell editor when double-clicking a cell.
+ */
+export const EditInline: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the table to be visible with data cells
+    let cellButton: HTMLElement | null = null;
+    await waitFor(async () => {
+      const buttons = canvas.queryAllByTestId("cell-editor-button");
+      cellButton =
+        buttons.find((btn) =>
+          btn.textContent?.includes("General discussion"),
+        ) ?? null;
+      await expect(cellButton).toBeTruthy();
+    });
+
+    // Double-click the cell button to open the inline editor
+    if (cellButton) {
+      await userEvent.dblClick(cellButton);
+    }
+
+    // Cell editor popper renders in a portal at document.body
+    const body = within(document.body);
+    await waitFor(async () => {
+      await expect(body.queryByTestId("cell-editor-popper")).toBeTruthy();
+    });
+  },
+  parameters: {
+    screenshotSelector: '[data-testid="cell-editor-popper"]',
+  },
+};
+
+/**
+ * Shows context menu when right-clicking a table cell.
+ */
+export const EditDocument: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for cells to render
+    let cellButton: HTMLElement | null = null;
+    await waitFor(async () => {
+      const buttons = canvas.queryAllByTestId("cell-editor-button");
+      cellButton =
+        buttons.find((btn) =>
+          btn.textContent?.includes("General discussion"),
+        ) ?? null;
+      await expect(cellButton).toBeTruthy();
+    });
+
+    // Dispatch a native contextmenu event (the context menu listens via addEventListener)
+    if (cellButton) {
+      const rect = (cellButton as HTMLElement).getBoundingClientRect();
+      (cellButton as HTMLElement).dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height / 2,
+        }),
+      );
+    }
+
+    // Context menu renders in a FloatingPortal, query from document.body
+    const body = within(document.body);
+    await waitFor(async () => {
+      await expect(body.queryByTestId("table-context-menu")).toBeTruthy();
+    });
+
+    // Navigate to "Edit Document" using native KeyboardEvents on the menu.
+    // The ContextMenu uses Floating UI's useListNavigation which tracks
+    // activeIndex via keyboard events on the menu's role="menu" element.
+    // Menu items: View desc, Copy desc, Edit desc, Filter by desc,
+    //             View Doc, Copy Doc, Edit Doc, Delete Doc
+    // 7 ArrowDown presses from null activeIndex to reach "Edit Document".
+    const menuEl = body.getByRole("menu");
+    menuEl.focus();
+    for (let i = 0; i < 7; i++) {
+      menuEl.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+        }),
+      );
+      // Small delay to let React process each navigation step
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  },
+  parameters: {
+    screenshotSelector: '[data-testid="table-context-menu"]',
+  },
+};
+
+/**
+ * Shows context menu with expanded submenu.
+ */
+export const ContextMenu: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for cells to render
+    let cellButton: HTMLElement | null = null;
+    await waitFor(async () => {
+      const buttons = canvas.queryAllByTestId("cell-editor-button");
+      cellButton =
+        buttons.find((btn) =>
+          btn.textContent?.includes("General discussion"),
+        ) ?? null;
+      await expect(cellButton).toBeTruthy();
+    });
+
+    // Dispatch a native contextmenu event
+    if (cellButton) {
+      const rect = (cellButton as HTMLElement).getBoundingClientRect();
+      (cellButton as HTMLElement).dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height / 2,
+        }),
+      );
+    }
+
+    // Context menu renders in a FloatingPortal, query from document.body
+    const body = within(document.body);
+    await waitFor(async () => {
+      await expect(body.queryByTestId("table-context-menu")).toBeTruthy();
+    });
+
+    // Hover over "Filter by" submenu item to expand it
+    const contextMenu = body.getByTestId("table-context-menu");
+    const filterByItem = within(contextMenu).queryByRole("menuitem", {
+      name: /filter by/i,
+    });
+    if (filterByItem) {
+      await userEvent.hover(filterByItem);
+    }
+  },
+  parameters: {
+    screenshotSelector: '[role="menu"]',
+  },
+};
+
+/**
+ * Shows Data page with 2 rows selected via checkboxes.
+ */
+export const BulkEdit: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the table to be visible
+    await waitFor(async () => {
+      const checkboxes = canvas.queryAllByRole("checkbox");
+      await expect(checkboxes.length).toBeGreaterThan(0);
+    });
+
+    // Click the first row checkbox
+    const checkboxes = canvas.getAllByRole("checkbox");
+    if (checkboxes.length > 0) {
+      await userEvent.click(checkboxes[0]);
+    }
+
+    // Click the second row checkbox
+    if (checkboxes.length > 1) {
+      await userEvent.click(checkboxes[1]);
+    }
+
+    // Wait to ensure rows are selected
+    await waitFor(async () => {
+      const selectedCheckboxes = canvas.queryAllByRole("checkbox", {
+        checked: true,
+      });
+      await expect(selectedCheckboxes.length).toBeGreaterThanOrEqual(2);
+    });
+  },
+};
+
+/**
+ * Shows Data page with overflow menu (three-dot menu) open.
+ */
+export const CustomQuery: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the overflow menu button to be visible
+    await waitFor(async () => {
+      await expect(canvas.queryByLabelText("Open table settings")).toBeTruthy();
+    });
+
+    // Click the overflow menu button (aria-label="Open table settings")
+    const overflowButton = canvas.getByLabelText("Open table settings");
+    await userEvent.click(overflowButton);
+
+    // Menu items render in a Headless UI Portal, query from document.body
+    const body = within(document.body);
+    await waitFor(async () => {
+      await expect(body.queryAllByRole("menuitem").length).toBeGreaterThan(0);
+    });
+  },
+  parameters: {
+    screenshotSelector: '[role="menu"]',
+  },
+};
+
+/**
+ * Shows Data page with overflow menu open and "Custom query" item highlighted.
+ */
+export const CustomQueryRunner: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the overflow menu button to be visible
+    await waitFor(async () => {
+      await expect(canvas.queryByLabelText("Open table settings")).toBeTruthy();
+    });
+
+    // Click the overflow menu button
+    const overflowButton = canvas.getByLabelText("Open table settings");
+    await userEvent.click(overflowButton);
+
+    // Menu items render in a Headless UI Portal, query from document.body
+    const body = within(document.body);
+    await waitFor(async () => {
+      await expect(body.queryAllByRole("menuitem").length).toBeGreaterThan(0);
+    });
+
+    // Click on "Custom query" menu item
+    const customQueryItem = body.queryByRole("menuitem", {
+      name: /custom query/i,
+    });
+    if (customQueryItem) {
+      await userEvent.click(customQueryItem);
+    }
+  },
+};
+
+/**
+ * Shows Data page with the full schema view open.
+ */
+export const GenerateSchema: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Wait for the sidebar "Schema" button to be visible
+    await waitFor(async () => {
+      await expect(
+        canvas.queryByRole("button", { name: /^Schema$/ }),
+      ).toBeTruthy();
+    });
+
+    // Click the sidebar "Schema" button
+    const schemaButton = canvas.getByRole("button", { name: /^Schema$/ });
+    await userEvent.click(schemaButton);
+  },
+};
