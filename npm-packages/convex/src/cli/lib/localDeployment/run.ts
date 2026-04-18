@@ -132,7 +132,12 @@ export async function runLocalBackend(
   await ensureBackendRunning(ctx, {
     cloudPort: ports.cloud,
     deploymentName: args.deploymentName,
-    maxTimeSecs: 30,
+    maxTimeSecs: parseInt(
+      process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS ?? "30",
+      10,
+    ),
+    timeoutMessage:
+      "If your local database is large, increase the timeout by setting CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS (e.g. CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=120).",
   });
 
   return {
@@ -181,6 +186,7 @@ export async function ensureBackendRunning(
     cloudPort: number;
     deploymentName: string;
     maxTimeSecs: number;
+    timeoutMessage?: string;
   },
 ): Promise<void> {
   logVerbose(`Ensuring backend running on port ${args.cloudPort} is running`);
@@ -215,7 +221,10 @@ export async function ensureBackendRunning(
       timeElapsedSecs += 0.5;
     }
   }
-  const message = `Local backend did not start on port ${args.cloudPort} within ${args.maxTimeSecs} seconds.`;
+  const baseMessage = `Local backend did not start on port ${args.cloudPort} within ${args.maxTimeSecs} seconds.`;
+  const message = args.timeoutMessage
+    ? `${baseMessage} ${args.timeoutMessage}`
+    : baseMessage;
   return await ctx.crash({
     exitCode: 1,
     errorType: "fatal",
