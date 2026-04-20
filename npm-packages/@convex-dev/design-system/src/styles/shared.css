@@ -353,14 +353,15 @@
   --brand-purple: var(--purple-500);
   --brand-red: var(--red-500);
   --brand-yellow: var(--yellow-500);
-  --chart-line-1: rgb(31, 119, 180);
-  --chart-line-2: rgb(255, 127, 14);
-  --chart-line-3: rgb(44, 160, 44);
-  --chart-line-4: rgb(214, 39, 40);
-  --chart-line-5: rgb(148, 103, 189);
-  --chart-line-6: rgb(140, 86, 75);
-  --chart-line-7: rgb(227, 119, 194);
-  --chart-line-8: rgb(188, 189, 34);
+  /* Okabe-Ito colorblind-safe palette (canonical black replaced with grey). */
+  --chart-line-1: rgb(0, 114, 178); /* Blue           #0072B2 */
+  --chart-line-2: rgb(230, 159, 0); /* Orange         #E69F00 */
+  --chart-line-3: rgb(0, 158, 115); /* Bluish green   #009E73 */
+  --chart-line-4: rgb(213, 94, 0); /* Vermillion     #D55E00 */
+  --chart-line-5: rgb(86, 180, 233); /* Sky blue       #56B4E9 */
+  --chart-line-6: rgb(204, 121, 167); /* Reddish purple #CC79A7 */
+  --chart-line-7: rgb(240, 228, 66); /* Yellow         #F0E442 */
+  --chart-line-8: rgb(153, 153, 153); /* Neutral grey   #999999 */
 }
 
 html.light {
@@ -387,6 +388,11 @@ html.light {
   --macosScrollbar-thumb: rgb(193, 193, 193);
   --macosScrollbar-thumb-hover: rgb(125, 125, 125);
   --macosScrollbar-track: rgb(250, 250, 250);
+
+  /* Canonical Okabe-Ito was designed for light backgrounds and its slots
+     rely on luminance variation for distinguishability, so we keep them
+     as-is. The one exception is yellow, which is unreadable on cream. */
+  --chart-line-7: rgb(153, 136, 0); /* Mustard        #998800 */
 }
 
 html.dark {
