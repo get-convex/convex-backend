@@ -38,7 +38,7 @@ export type PaginatedQueryReference = FunctionReference<
 /**
  * Options for object-form {@link usePaginatedQuery}.
  *
- * @public
+ * @internal
  */
 export type UsePaginatedQueryOptions<Query extends PaginatedQueryReference> = {
   query: Query;
@@ -152,11 +152,11 @@ const completeSplitQuery =
  *
  * Example usage:
  * ```typescript
- * const { data, status, canLoadMore, loadMore } = usePaginatedQuery({
- *   query: api.messages.list,
- *   args: { channel: "#general" },
- *   initialNumItems: 5,
- * });
+ * const { results, status, isLoading, loadMore } = usePaginatedQuery(
+ *   api.messages.list,
+ *   { channel: "#general" },
+ *   { initialNumItems: 5 }
+ * );
  * ```
  *
  * If the query reference or arguments change, the pagination state will be reset
@@ -191,7 +191,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
  * `"success"` when data is available, or `"error"` if the query threw.
  * `canLoadMore` is `true` only when idle and more pages exist.
  *
- * @public
+ * @internal
  */
 export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   options: UsePaginatedQueryOptions<Query>,
@@ -584,7 +584,7 @@ export function resetPaginationId() {
 }
 
 /**
- * The legacy positional return value of {@link usePaginatedQuery}.
+ * The result of calling the {@link usePaginatedQuery} hook.
  *
  * This includes:
  * - `results` - An array of the currently loaded results.
@@ -597,9 +597,6 @@ export function resetPaginationId() {
  *   - "Exhausted": We've paginated to the end of the list.
  * - `loadMore(n)` A callback to fetch more results. This will only fetch more
  * results if the status is "CanLoadMore".
- *
- * The object-form overload returns {@link UsePaginatedQueryObjectResult} with
- * `data`, lowercase `status`, `canLoadMore`, `error`, and `loadMore`.
  *
  * @public
  */
@@ -679,7 +676,7 @@ export type UsePaginatedQueryReturnType<Query extends PaginatedQueryReference> =
  * `canLoadMore` boolean instead of the TitleCase pagination status strings
  * used by the positional form.
  *
- * @public
+ * @internal
  */
 export type UsePaginatedQueryObjectReturnType<
   Query extends PaginatedQueryReference,

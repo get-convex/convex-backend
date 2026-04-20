@@ -2,16 +2,8 @@ import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export default function Badge() {
-  const user = useQuery({
-    query: api.users.current,
-    args: {},
-    throwOnError: true,
-  }).data;
-  const sentCount = useQuery({
-    query: api.messages.sentCount,
-    args: {},
-    throwOnError: true,
-  }).data;
+  const user = useQuery(api.users.current);
+  const sentCount = useQuery(api.messages.sentCount);
 
   return (
     <p className="badge">

@@ -10,12 +10,7 @@ export default function ChatBox({
   channelId: Id<"channels">;
   name: string;
 }) {
-  const messages =
-    useQuery({
-      query: api.messages.list,
-      args: { channelId },
-      throwOnError: true,
-    }).data ?? [];
+  const messages = useQuery(api.messages.list, { channelId }) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

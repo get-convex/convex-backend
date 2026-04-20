@@ -3,9 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export default function App() {
-  const messages =
-    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
-    [];
+  const messages = useQuery(api.messages.list, {}) || [];
 
   console.log({ messages });
   const [newMessageText, setNewMessageText] = useState("");

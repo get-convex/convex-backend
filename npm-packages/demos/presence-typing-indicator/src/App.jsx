@@ -4,9 +4,7 @@ import { api } from "../convex/_generated/api";
 import usePresence, { isOnline } from "./hooks/usePresence";
 
 export default function App() {
-  const messages =
-    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
-    [];
+  const messages = useQuery(api.messages.list) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

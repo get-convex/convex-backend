@@ -10,11 +10,7 @@ const NAME = faker.person.firstName();
 
 export default function App() {
   // @snippet start useHooks
-  const messages = useQuery({
-    query: api.messages.list,
-    args: {},
-    throwOnError: true,
-  }).data;
+  const messages = useQuery(api.messages.list);
   const sendMessage = useMutation(api.messages.send);
   // @snippet end useHooks
 

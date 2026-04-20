@@ -139,11 +139,7 @@ function Populate() {
 }
 
 export default function Food() {
-  const entries = useQuery({
-    query: api.foods.list,
-    args: {},
-    throwOnError: true,
-  }).data;
+  const entries = useQuery(api.foods.list);
 
   return (
     <main>

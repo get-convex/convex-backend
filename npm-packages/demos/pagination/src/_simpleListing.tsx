@@ -6,15 +6,15 @@ import { usePaginatedQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export function App() {
-  const { data, canLoadMore, loadMore } = usePaginatedQuery({
-    query: api.messages.list,
-    args: {},
-    initialNumItems: 5,
-  });
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.messages.list,
+    {},
+    { initialNumItems: 5 },
+  );
   return (
     <div>
-      {data?.map(({ _id, body }) => <div key={_id}>{body}</div>)}
-      <button onClick={() => loadMore(5)} disabled={!canLoadMore}>
+      {results?.map(({ _id, body }) => <div key={_id}>{body}</div>)}
+      <button onClick={() => loadMore(5)} disabled={status !== "CanLoadMore"}>
         Load More
       </button>
     </div>

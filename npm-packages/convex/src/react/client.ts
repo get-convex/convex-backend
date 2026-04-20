@@ -802,7 +802,7 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
 /**
  * Result returned by object-form {@link useQuery}.
  *
- * @public
+ * @internal
  */
 export type UseQueryResult<QueryResult> =
   | {
@@ -900,7 +900,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
  * @returns the current query state as a {@link UseQueryResult} object.
  *
  * @see https://docs.convex.dev/client/react#fetching-data
- * @public
+ * @internal
  */
 export function useQuery<Query extends FunctionReference<"query">>(
   options: UseQueryOptions<Query>,

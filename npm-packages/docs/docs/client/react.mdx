@@ -78,35 +78,23 @@ import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export function App() {
-  const query = useQuery({ query: api.functions.myQuery, args: {} });
-  if (query.status === "pending") return "Loading...";
-  if (query.status === "error") return query.error.message;
-  return query.data;
+  const data = useQuery(api.functions.myQuery);
+  return data ?? "Loading...";
 }
 ```
 
-The object form of `useQuery` returns a state object with `data`, `status`, and
-`error`. While the query is first loading, `data` is `undefined` and `status` is
-`"pending"`.
-
-If you want the object form to keep throwing query errors like the positional
-form, pass `throwOnError: true`.
-
-The older positional form is still supported:
-
-```tsx title="src/App.tsx"
-const data = useQuery(api.functions.myQuery);
-```
+The `useQuery` hook returns `undefined` while the data is first loading and
+afterwards the return value of your query.
 
 ### Query arguments
 
-Pass query arguments with the `args` property:
+Arguments to your query follow the query name:
 
 ```tsx title="src/App.tsx"
 export function App() {
   const a = "Hello world";
   const b = 4;
-  const query = useQuery({ query: api.functions.myQuery, args: { a, b } });
+  const data = useQuery(api.functions.myQuery, { a, b });
   //...
 }
 ```
@@ -151,7 +139,7 @@ be placed inside conditionals or after early returns:
 />
 
 For this reason `useQuery` can be "disabled" by passing in `"skip"` instead of
-the query options:
+its arguments:
 
 <Snippet title="src/App.tsx" source={SkipGood} highlightPatterns={["skip"]} />
 

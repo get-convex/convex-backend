@@ -3,11 +3,7 @@ import { useQuery } from "convex/react";
 import { Text, View } from "react-native";
 
 export default function Index() {
-  const tasks = useQuery({
-    query: api.tasks.get,
-    args: {},
-    throwOnError: true,
-  }).data;
+  const tasks = useQuery(api.tasks.get);
   return (
     <View
       style={{

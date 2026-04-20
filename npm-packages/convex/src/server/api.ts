@@ -39,11 +39,7 @@ export type FunctionType = "query" | "mutation" | "action";
  * Function references can be used to invoke functions from the client. For
  * example, in React you can pass references to the {@link react.useQuery} hook:
  * ```js
- * const result = useQuery({
- *   query: api.myModule.myFunction,
- *   args: {},
- *   throwOnError: true,
- * }).data;
+ * const result = useQuery(api.myModule.myFunction);
  * ```
  *
  * @typeParam Type - The type of the function ("query", "mutation", or "action").

@@ -24,11 +24,7 @@ export default function App() {
 }
 
 function Content() {
-  const { data: messages = [] } = useQuery({
-    query: api.messages.list,
-    args: {},
-    throwOnError: true,
-  });
+  const messages = useQuery(api.messages.list) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

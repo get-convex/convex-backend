@@ -47,11 +47,11 @@ type UsePaginatedQueryState = {
  *
  * Example usage:
  * ```typescript
- * const { data, status, canLoadMore, loadMore } = usePaginatedQuery({
- *   query: api.messages.list,
- *   args: { channel: "#general" },
- *   initialNumItems: 5,
- * });
+ * const { results, status, isLoading, loadMore } = usePaginatedQuery(
+ *   api.messages.list,
+ *   { channel: "#general" },
+ *   { initialNumItems: 5 }
+ * );
  * ```
  *
  * If the query reference or arguments change, the pagination state will be reset
@@ -83,6 +83,7 @@ export function usePaginatedQuery_experimental<
   options: { initialNumItems: number },
 ): UsePaginatedQueryReturnType<Query>;
 
+/** @internal */
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
 >(

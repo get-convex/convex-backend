@@ -24,9 +24,7 @@ export default function App() {
 // @snippet end client-blocking
 
 function Content() {
-  const messages =
-    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
-    [];
+  const messages = useQuery(api.messages.list) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

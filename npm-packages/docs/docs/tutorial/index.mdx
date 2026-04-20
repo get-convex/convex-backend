@@ -297,11 +297,7 @@ export default function App() {
   // highlight-next-line
   // Replace the `const messages = ...` line with the following
   // highlight-next-line
-  const messages = useQuery({
-    query: api.chat.getMessages,
-    args: {},
-    throwOnError: true,
-  }).data;
+  const messages = useQuery(api.chat.getMessages);
 
   //...
 }

@@ -52,7 +52,7 @@ function About() {
 }
 
 function Chat() {
-  const messages = useQuery({ query, args: {}, throwOnError: true }).data ?? [];
+  const messages = useQuery(query) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

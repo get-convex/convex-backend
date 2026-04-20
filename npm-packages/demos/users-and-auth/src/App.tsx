@@ -8,9 +8,7 @@ import useStoreUserEffect from "./useStoreUserEffect";
 export default function App() {
   const userId = useStoreUserEffect();
 
-  const messages =
-    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
-    [];
+  const messages = useQuery(api.messages.list) || [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

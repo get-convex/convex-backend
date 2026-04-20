@@ -36,11 +36,10 @@ export const myQueryFunction = query({
 Using this query function in a React component looks like:
 
 ```ts
-const data = useQuery({
-  query: api.myFunctions.myQueryFunction,
-  args: { first: 10, second: "hello" },
-  throwOnError: true,
-}).data;
+const data = useQuery(api.myFunctions.myQueryFunction, {
+  first: 10,
+  second: "hello",
+});
 ```
 
 A mutation function looks like:

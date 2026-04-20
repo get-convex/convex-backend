@@ -124,11 +124,7 @@ import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export function TaskList() {
-  const data = useQuery({
-    query: api.tasks.getAllOpenTasks,
-    args: {},
-    throwOnError: true,
-  }).data;
+  const data = useQuery(api.tasks.getAllOpenTasks);
   return data ?? "Loading...";
 }
 ```

@@ -3,15 +3,8 @@ import { api } from "../convex/_generated/api";
 import { Id } from "../convex/_generated/dataModel";
 
 export default function Admin() {
-  const storedFiles =
-    useQuery({ query: api.admin.listFiles, args: {}, throwOnError: true })
-      .data ?? [];
-  const scheduledSends =
-    useQuery({
-      query: api.admin.listScheduledSends,
-      args: {},
-      throwOnError: true,
-    }).data ?? [];
+  const storedFiles = useQuery(api.admin.listFiles) || [];
+  const scheduledSends = useQuery(api.admin.listScheduledSends) || [];
   const cancelMessage = useMutation(api.admin.cancelMessage);
   console.log(storedFiles);
   return (
@@ -76,12 +69,7 @@ export default function Admin() {
 
 // @snippet start filePreviewComponent
 function FilePreview({ file }: { file: { _id: Id<"_storage"> } }) {
-  const fileUrl =
-    useQuery({
-      query: api.admin.getFileUrl,
-      args: { id: file._id },
-      throwOnError: true,
-    }).data ?? "";
+  const fileUrl = useQuery(api.admin.getFileUrl, { id: file._id }) || "";
   return (
     <div>
       <img src={fileUrl} height="300px" width="auto" />

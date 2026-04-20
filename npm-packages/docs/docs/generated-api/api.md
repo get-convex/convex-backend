@@ -34,11 +34,7 @@ or schedule other functions.
 import { api } from "../convex/_generated/api";
 import { useQuery } from "convex/react";
 
-const data = useQuery({
-  query: api.messages.list,
-  args: {},
-  throwOnError: true,
-}).data;
+const data = useQuery(api.messages.list);
 ```
 
 ### internal

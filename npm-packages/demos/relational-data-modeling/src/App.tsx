@@ -5,9 +5,7 @@ import ChatBox from "./ChatBox";
 import { Id } from "../convex/_generated/dataModel";
 
 export default function App() {
-  const channels =
-    useQuery({ query: api.channels.list, args: {}, throwOnError: true }).data ??
-    [];
+  const channels = useQuery(api.channels.list) || [];
   const [channelId, setChannelId] = useState<Id<"channels"> | null>(null);
   const [newChannelName, setNewChannelName] = useState("");
   const addChannel = useMutation(api.channels.add);

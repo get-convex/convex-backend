@@ -2,8 +2,8 @@ import { useRef } from "react";
 import {
   useQuery,
   usePaginatedQuery,
-  type PaginatedQueryReference,
   type PaginatedQueryArgs,
+  type PaginatedQueryReference,
   type UsePaginatedQueryReturnType,
 } from "convex/react";
 import { FunctionReference } from "convex/server";
@@ -50,8 +50,12 @@ export const useStableQuery = <Query extends FunctionReference<"query">>(
  * @param ...args - arguments to be passed to the query function
  * @returns UsePaginatedQueryResult
  */
-export const useStablePaginatedQuery = ((name, ...args) => {
-  const result = usePaginatedQuery(name, ...args);
+export const useStablePaginatedQuery = (<Query extends PaginatedQueryReference>(
+  query: Query,
+  args: PaginatedQueryArgs<Query> | "skip",
+  options: { initialNumItems: number },
+): UsePaginatedQueryReturnType<Query> => {
+  const result = usePaginatedQuery(query, args, options);
   const stored = useRef(result); // ref objects are stable between rerenders
 
   // If data is still loading, wait and do nothing
@@ -61,8 +65,4 @@ export const useStablePaginatedQuery = ((name, ...args) => {
   }
 
   return stored.current;
-}) as <Query extends PaginatedQueryReference>(
-  query: Query,
-  args: PaginatedQueryArgs<Query> | "skip",
-  options: { initialNumItems: number },
-) => UsePaginatedQueryReturnType<Query>;
+}) as typeof usePaginatedQuery;
