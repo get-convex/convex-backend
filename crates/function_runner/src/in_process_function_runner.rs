@@ -24,7 +24,10 @@ use common::{
     http::fetch::FetchClient,
     knobs::SUBFUNCTIONS_IN_SAME_ISOLATE,
     log_lines::LogLine,
-    persistence::PersistenceReader,
+    persistence::{
+        PersistenceReader,
+        RepeatablePersistence,
+    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -238,10 +241,16 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .upgrade()
             .context(shutdown_error())?;
 
+        let repeatable_persistence = RepeatablePersistence::new(
+            self.persistence_reader.clone(),
+            ts,
+            self.database.retention_validator(),
+        );
+        let index_reader = Arc::new(repeatable_persistence.read_snapshot(ts)?);
         let request_metadata = RunRequestArgs {
             instance_name: self.instance_name.clone(),
             key_broker: self.key_broker.clone(),
-            reader: self.persistence_reader.clone(),
+            index_reader,
             convex_origin: self.convex_origin.clone(),
             bootstrap_metadata: self.database.bootstrap_metadata.clone(),
             table_count_snapshot,
@@ -252,12 +261,10 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             function_started_sender: None,
             udf_type,
             identity,
-            ts,
             existing_writes,
             default_system_env_vars,
             in_memory_index_last_modified,
             context,
-            index_reader_override: None,
             subfunctions_in_same_isolate: *SUBFUNCTIONS_IN_SAME_ISOLATE,
         };
 

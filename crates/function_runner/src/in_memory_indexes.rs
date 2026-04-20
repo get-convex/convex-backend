@@ -552,7 +552,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     pub(crate) async fn begin_tx(
         &self,
         identity: Identity,
-        ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,
         index_reader: Arc<dyn IndexReader>,
         instance_name: String,
@@ -563,6 +562,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<Transaction<RT>> {
         let _timer = begin_tx_timer();
+        let ts = index_reader.timestamp();
         for (index_id, last_modified) in &in_memory_index_last_modified {
             anyhow::ensure!(
                 *last_modified <= *ts,

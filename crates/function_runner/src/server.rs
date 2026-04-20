@@ -24,12 +24,7 @@ use common::{
         RoutedHttpPath,
     },
     log_lines::LogLine,
-    persistence::{
-        NoopRetentionValidator,
-        PersistenceReader,
-        RepeatablePersistence,
-        RetentionValidator,
-    },
+    persistence::RetentionValidator,
     query_journal::QueryJournal,
     runtime::{
         Runtime,
@@ -40,13 +35,11 @@ use common::{
         ConvexOrigin,
         IndexId,
         ModuleEnvironment,
-        RepeatableTimestamp,
         UdfType,
     },
 };
 use database::{
     BootstrapMetadata,
-    FollowerRetentionManager,
     TableCountSnapshot,
     Transaction,
     TransactionTextSnapshot,
@@ -122,7 +115,7 @@ const MAX_ISOLATE_WORKERS: usize = 128;
 pub struct RunRequestArgs {
     pub instance_name: String,
     pub key_broker: FunctionRunnerKeyBroker,
-    pub reader: Arc<dyn PersistenceReader>,
+    pub index_reader: Arc<dyn IndexReader>,
     pub convex_origin: ConvexOrigin,
     pub bootstrap_metadata: BootstrapMetadata,
     pub table_count_snapshot: Arc<dyn TableCountSnapshot>,
@@ -133,14 +126,10 @@ pub struct RunRequestArgs {
     pub function_started_sender: Option<oneshot::Sender<()>>,
     pub udf_type: UdfType,
     pub identity: Identity,
-    pub ts: RepeatableTimestamp,
     pub existing_writes: FunctionWrites,
     pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
     pub context: ExecutionContext,
-    /// If set, use this IndexReader for index scans instead of reading from
-    /// persistence directly. Used to route index reads to conductor.
-    pub index_reader_override: Option<Arc<dyn IndexReader>>,
     pub subfunctions_in_same_isolate: bool,
 }
 
@@ -297,7 +286,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         RunRequestArgs {
             instance_name,
             key_broker,
-            reader,
+            index_reader,
             convex_origin,
             bootstrap_metadata,
             table_count_snapshot,
@@ -308,12 +297,10 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
             function_started_sender,
             udf_type,
             identity,
-            ts,
             existing_writes,
             default_system_env_vars,
             in_memory_index_last_modified,
             context,
-            index_reader_override,
             subfunctions_in_same_isolate,
         }: RunRequestArgs,
         function_metadata: Option<FunctionMetadata>,
@@ -324,34 +311,10 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         FunctionUsageStats,
     )> {
         let usage_tracker = FunctionUsageTracker::new();
-
-        let index_reader = if let Some(index_reader) = index_reader_override {
-            index_reader
-        } else {
-            let retention_validator: Arc<dyn RetentionValidator> = match udf_type {
-                // Since queries and mutations are ready only, we can check the retention
-                // in at end in `validate_function_runner_result`.
-                UdfType::Query | UdfType::Mutation => Arc::new(NoopRetentionValidator {}),
-                // For actions, we have to do it inline since they have side effects.
-                UdfType::Action | UdfType::HttpAction => Arc::new(
-                    FollowerRetentionManager::new_with_repeatable_ts(
-                        self.rt.clone(),
-                        reader.clone(),
-                        ts,
-                    )
-                    .await?,
-                ),
-            };
-            let repeatable_persistence =
-                RepeatablePersistence::new(reader, ts, retention_validator);
-            Arc::new(repeatable_persistence.read_snapshot(repeatable_persistence.upper_bound())?)
-                as Arc<_>
-        };
         let mut transaction = self
             .index_cache
             .begin_tx(
                 identity.clone(),
-                ts,
                 existing_writes,
                 index_reader,
                 instance_name.clone(),
