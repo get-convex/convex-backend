@@ -9,14 +9,12 @@
  */
 
 import type * as agentSkillManifest from "../agentSkillManifest.js";
-import type * as agentSkills from "../agentSkills.js";
 import type * as crons from "../crons.js";
 import type * as cursorRules from "../cursorRules.js";
 import type * as guidelines from "../guidelines.js";
 import type * as http from "../http.js";
 import type * as localBackend from "../localBackend.js";
 import type * as npm from "../npm.js";
-import type * as util_agentSkills from "../util/agentSkills.js";
 import type * as util_convexClientHeader from "../util/convexClientHeader.js";
 import type * as util_cursorRules from "../util/cursorRules.js";
 import type * as util_github from "../util/github.js";
@@ -36,14 +34,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agentSkillManifest: typeof agentSkillManifest;
-  agentSkills: typeof agentSkills;
   crons: typeof crons;
   cursorRules: typeof cursorRules;
   guidelines: typeof guidelines;
   http: typeof http;
   localBackend: typeof localBackend;
   npm: typeof npm;
-  "util/agentSkills": typeof util_agentSkills;
   "util/convexClientHeader": typeof util_convexClientHeader;
   "util/cursorRules": typeof util_cursorRules;
   "util/github": typeof util_github;

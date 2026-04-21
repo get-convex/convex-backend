@@ -1,6 +1,5 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { Doc } from "./_generated/dataModel";
 import { hashSha256 } from "./util/hash";
 import {
   agentSkillEntry,
@@ -13,10 +12,11 @@ import {
 
 function normalizeSkills({ skills }: { skills: AgentSkill[] }) {
   const duplicateSkillName = findDuplicateSkillName({ skills });
-  if (duplicateSkillName)
+  if (duplicateSkillName) {
     throw new Error(
       formatDuplicateSkillNameError({ skillName: duplicateSkillName }),
     );
+  }
 
   return [...skills].sort(compareSkills);
 }
@@ -30,14 +30,18 @@ export const ingest = internalMutation({
     repoSha: v.string(),
     skills: v.array(agentSkillEntry),
   },
-  handler: async (
-    ctx,
-    { repoSha, skills },
-  ): Promise<Doc<"agentSkillSnapshots">> => {
-    // Normalize the skills to ensure they are unique and sorted
-    // sort before hashing so equivalent manifests produce the same hash
+  handler: async (ctx, { repoSha, skills }) => {
     const normalizedSkills = normalizeSkills({ skills });
     const manifestHash = await createManifestHash({ skills: normalizedSkills });
+    const existingSnapshot = await ctx.db
+      .query("agentSkillSnapshots")
+      .withIndex("by_repo_sha", (q) => q.eq("repoSha", repoSha))
+      .first();
+    if (existingSnapshot) return existingSnapshot;
+
+    // Known edge: an older different repoSha can still be published after a newer
+    // one. We only make identical repoSha reruns idempotent here; fully ordering
+    // different commits would require ancestry or monotonic metadata from CI.
     const now = Date.now();
 
     // Record this snapshot to the audit trail for future reference
@@ -99,13 +103,17 @@ export const ingest = internalMutation({
   },
 });
 
-export const listCurrent = internalQuery({
+export const listAll = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const skills = await ctx.db
-      .query("agentSkillCatalog")
-      .withIndex("by_is_deleted", (q) => q.eq("isDeleted", false))
-      .collect();
+    const skills = await ctx.db.query("agentSkillCatalog").collect();
     return skills.sort((a, b) => a.skillName.localeCompare(b.skillName));
+  },
+});
+
+export const getLatestSnapshot = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("agentSkillSnapshots").order("desc").first();
   },
 });

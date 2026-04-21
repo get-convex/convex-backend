@@ -13,10 +13,9 @@ import {
 } from "./util/oldCursorRules";
 import { hashSha256 } from "./util/hash";
 import {
+  AgentSkillCatalogResponse,
   AgentSkillManifestRequest,
-  agentSkillManifestRequestSchema,
-  findDuplicateSkillName,
-  formatDuplicateSkillNameError,
+  validateAgentSkillManifestRequest,
 } from "../agentSkillManifestShared";
 
 const http = httpRouter();
@@ -51,37 +50,21 @@ type VersionResponse = {
   agentSkillsSha: string | null;
 };
 
-type AgentSkillCatalogResponse = {
-  skills: Array<{
-    skillName: string;
-    directoryName: string;
-    currentHash: string;
-    lastSeenRepoSha: string;
-    lastSeenAt: number;
-  }>;
-};
-
-const validatedAgentSkillManifestRequestSchema =
-  agentSkillManifestRequestSchema.superRefine(({ skills }, ctx) => {
-    const duplicateSkillName = findDuplicateSkillName({ skills });
-    if (!duplicateSkillName) return;
-
-    ctx.addIssue({
-      code: "custom",
-      path: ["skills"],
-      message: formatDuplicateSkillNameError({ skillName: duplicateSkillName }),
-    });
-  });
-
-function formatAgentSkillManifestPayloadError({
-  error,
+function getAgentSkillStatus({
+  isDeleted,
+  deletedAt,
 }: {
-  error: { issues: Array<{ message: string }> };
+  isDeleted: boolean;
+  deletedAt: number | undefined;
 }) {
-  const issueMessages = error.issues.map((issue) => issue.message);
-  if (issueMessages.length === 0) return "Invalid agent skill manifest payload";
-
-  return `Invalid agent skill manifest payload: ${issueMessages.join("; ")}`;
+  if (!isDeleted) return { kind: "active" } as const;
+  if (deletedAt === undefined) {
+    console.error(
+      "Deleted agent skill catalog entry is missing deletedAt; omitting it from /v1/agent_skills",
+    );
+    return null;
+  }
+  return { kind: "deleted", deletedAt } as const;
 }
 
 function validateAgentSkillSyncAuth(req: Request) {
@@ -109,12 +92,12 @@ http.route({
     const convexClientHeader = req.headers.get("Convex-Client");
     const clientVersion = extractVersionFromHeader(convexClientHeader);
 
-    const [npmVersionData, cursorRulesData, guidelinesData, agentSkillsData] =
+    const [npmVersionData, cursorRulesData, guidelinesData, latestSnapshot] =
       await Promise.all([
         getCachedOrRefresh(ctx, internal.npm),
         getCursorRulesForVersion(ctx, clientVersion),
         getCachedOrRefresh(ctx, internal.guidelines),
-        getCachedOrRefresh(ctx, internal.agentSkills),
+        ctx.runQuery(internal.agentSkillManifest.getLatestSnapshot, {}),
       ]);
 
     const message = npmVersionData
@@ -126,7 +109,7 @@ http.route({
         message,
         cursorRulesHash: cursorRulesData?.hash ?? null,
         guidelinesHash: guidelinesData?.hash ?? null,
-        agentSkillsSha: agentSkillsData?.sha ?? null,
+        agentSkillsSha: latestSnapshot?.repoSha ?? null,
       } satisfies VersionResponse),
       {
         status: 200,
@@ -143,27 +126,31 @@ http.route({
   path: "/v1/agent_skills",
   method: "GET",
   handler: httpAction(async (ctx) => {
-    const skills = await ctx.runQuery(
-      internal.agentSkillManifest.listCurrent,
-      {},
-    );
+    const [latestSnapshot, skills] = await Promise.all([
+      ctx.runQuery(internal.agentSkillManifest.getLatestSnapshot, {}),
+      ctx.runQuery(internal.agentSkillManifest.listAll, {}),
+    ]);
+
     return new Response(
       JSON.stringify({
-        skills: skills.map(
-          ({
-            skillName,
-            directoryName,
-            currentHash,
-            lastSeenRepoSha,
-            lastSeenAt,
-          }) => ({
-            skillName,
-            directoryName,
-            currentHash,
-            lastSeenRepoSha,
-            lastSeenAt,
-          }),
-        ),
+        latestRepoSha: latestSnapshot?.repoSha ?? null,
+        skills: skills.flatMap((skill) => {
+          const status = getAgentSkillStatus({
+            isDeleted: skill.isDeleted,
+            deletedAt: skill.deletedAt,
+          });
+          if (status === null) return [];
+
+          return [
+            {
+              skillName: skill.skillName,
+              status,
+              hash: skill.currentHash,
+              lastSeenRepoSha: skill.lastSeenRepoSha,
+              lastSeenAt: skill.lastSeenAt,
+            },
+          ];
+        }),
       } satisfies AgentSkillCatalogResponse),
       {
         status: 200,
@@ -184,7 +171,6 @@ http.route({
   path: "/v1/agent_skills/publish",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
-    // Make sure the public can't call this
     const authError = validateAgentSkillSyncAuth(req);
     if (authError) return authError;
 
@@ -195,20 +181,12 @@ http.route({
       return new Response("Invalid JSON body", { status: 400 });
     }
 
-    // Make sure the incoming payload is fine
-    const payloadResult =
-      validatedAgentSkillManifestRequestSchema.safeParse(json);
-    if (!payloadResult.success) {
-      return new Response(
-        formatAgentSkillManifestPayloadError({ error: payloadResult.error }),
-        {
-          status: 400,
-        },
-      );
+    const payloadResult = validateAgentSkillManifestRequest(json);
+    if (payloadResult.kind === "error") {
+      return new Response(payloadResult.message, { status: 400 });
     }
     const payload: AgentSkillManifestRequest = payloadResult.data;
 
-    // Ingest and return
     try {
       const snapshot = await ctx.runMutation(
         internal.agentSkillManifest.ingest,

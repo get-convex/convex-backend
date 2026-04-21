@@ -19,9 +19,6 @@ export default defineSchema({
   localBackendVersion: defineTable({
     version: v.string(),
   }),
-  agentSkills: defineTable({
-    sha: v.string(),
-  }),
 
   // Stores the audit trail of skill snapshots and is uploaded by the get-convex/agent-skills CI pipeline
   agentSkillSnapshots: defineTable({

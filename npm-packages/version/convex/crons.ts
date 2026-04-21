@@ -41,15 +41,4 @@ crons.interval(
   internal.localBackend.refresh,
 );
 
-// Convex-evals can iterate quickly which causes guidelines to become invalidated frequently
-// this would cause users to be informed about updates too freqently, so this is set to 12
-// for a happy medium
-crons.interval(
-  "update agent skills SHA",
-  {
-    hours: 12,
-  },
-  internal.agentSkills.refresh,
-);
-
 export default crons;
