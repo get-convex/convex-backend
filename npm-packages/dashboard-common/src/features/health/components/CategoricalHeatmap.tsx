@@ -344,12 +344,12 @@ function HeatmapGrid({
     >
       <div
         ref={scrollRef}
-        className="scrollbar flex max-h-36 flex-col overflow-y-auto pr-1 [scrollbar-gutter:stable]"
-        style={{ maskImage, WebkitMaskImage: maskImage }}
+        className="scrollbar flex flex-col overflow-y-auto pr-1 [scrollbar-gutter:stable]"
+        style={{ maskImage, WebkitMaskImage: maskImage, maxHeight: "9rem" }}
       >
         <div
-          className="grid items-end gap-x-2 gap-y-0.5"
-          style={{ gridTemplateColumns: gridColumns }}
+          className="grid items-end gap-x-2"
+          style={{ gridTemplateColumns: gridColumns, columnGap: "2px" }}
         >
           {sortedRows.map((row) => (
             <HeatmapRow
