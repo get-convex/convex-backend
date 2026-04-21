@@ -88,7 +88,7 @@ share solutions to common problems with the broader developer community via the
 Get started with a new project using the
 [component template](https://github.com/get-convex/templates/tree/main/template-component):
 
-```bash
+```sh
 npx create-convex@latest --component
 ```
 
@@ -632,19 +632,19 @@ commands with their own file watchers:
 
 1. **Component codegen**: Generate code for the component itself
 
-   ```bash
+   ```sh
    npx convex codegen --component-dir ./path/to/component
    ```
 
 2. **Build the package**: Build the NPM package
 
-   ```bash
+   ```sh
    npm run build # Your build command (e.g., tsc, esbuild, etc.)
    ```
 
 3. **Example app codegen & deploy**: Generate code for the example app and
    deploy it app
-   ```bash
+   ```sh
    npx convex dev --typecheck-components # optionally type-check the components
    ```
 

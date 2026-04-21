@@ -45,7 +45,7 @@ You can find your backend deployment URL on the dashboard
 <Tabs>
 <TabItem value="shell" label="Shell">
 
-```
+```sh
 curl https://acoustic-panther-728.convex.cloud/api/query \
    -d '{"path": "messages:list", "args": {}, "format": "json"}' \
    -H "Content-Type: application/json"
@@ -122,7 +122,7 @@ You can find your backend deployment URL on the dashboard
 <Tabs>
 <TabItem value="shell" label="Shell">
 
-```
+```sh
 curl https://acoustic-panther-728.convex.cloud/api/run/messages/list \
    -d '{"args": {}, "format": "json"}' \
    -H "Content-Type: application/json"

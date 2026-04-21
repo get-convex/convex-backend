@@ -285,7 +285,7 @@ this command will:
    name for Vercel, Netlify, GitHub, and GitLab environments, or the
    `--preview-create` option can be used to customize the name associated with
    the newly created deployment.
-   ```
+   ```sh
    npx convex deploy --preview-create my-branch-name
    ```
 1. Run a command if specified with `--cmd`. The command will have CONVEX_URL (or

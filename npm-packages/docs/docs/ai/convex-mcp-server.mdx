@@ -25,7 +25,7 @@ or see editor specific instructions:
 - [Windsurf](/ai/using-windsurf.mdx#setup-the-convex-mcp-server)
 - [VS Code](/ai/using-github-copilot.mdx#setup-the-convex-mcp-server)
 - Claude Code: add the MCP server and test with
-  ```bash
+  ```sh
   claude mcp add-json convex '{"type":"stdio","command":"npx","args":["convex","mcp","start"]}'
   claude mcp get convex
   ```
@@ -40,7 +40,7 @@ By default, the MCP server can run for multiple projects, and each tool call
 specifies its project directory. To run the server for a single project instead,
 use:
 
-```bash
+```sh
 npx -y convex@latest mcp start --project-dir /path/to/project
 ```
 
@@ -63,7 +63,7 @@ By default, the MCP server cannot access production deployments. This is a
 safety measure to prevent accidental modifications to production data. If you
 need to access production deployments, you must explicitly enable this:
 
-```bash
+```sh
 npx -y convex@latest mcp start --dangerously-enable-production-deployments
 ```
 
@@ -80,7 +80,7 @@ with production, and be careful with any operations that modify data.
 You can disable specific tools if you want to restrict what the MCP server can
 do:
 
-```bash
+```sh
 npx -y convex@latest mcp start --disable-tools data,run,envSet
 ```
 

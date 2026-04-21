@@ -14,7 +14,7 @@ you're using TypeScript.
 
 To generate the code, run:
 
-```
+```sh
 npx convex dev
 ```
 

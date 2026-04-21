@@ -48,7 +48,7 @@ This typically happens when the WorkOS workspace has had Convex removed.
 You can contact WorkOS support to ask to restore this permission, or unlink the
 current workspace and create a new one:
 
-```bash
+```sh
 npx convex integration workos disconnect-team
 npx convex integration workos provision-team
 ```

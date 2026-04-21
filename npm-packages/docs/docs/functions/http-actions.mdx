@@ -84,7 +84,7 @@ You can now call this action via HTTP and interact with data stored in the
 Convex Database. HTTP actions are exposed on
 `https://<your deployment name>.convex.site`.
 
-```bash
+```sh
 export DEPLOYMENT_NAME=... # example: "happy-animal-123"
 curl -d '{ "author": "User 123", "body": "Hello world" }' \
     -H 'content-type: application/json' "https://$DEPLOYMENT_NAME.convex.site/postMessage"
@@ -159,7 +159,7 @@ Make sure this is the URL that ends in **`.convex.site`**, and not
 Run a `curl` command to hit one of your defined endpoints, potentially defining
 a new endpoint specifically for testing
 
-```
+```sh
 curl -X GET https://<deployment name>.convex.site/myEndpoint
 ```
 
