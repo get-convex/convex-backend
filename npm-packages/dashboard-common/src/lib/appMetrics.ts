@@ -171,9 +171,11 @@ export function useTopKCacheKey(
 
 export function useTopKFunctionMetrics(
   kind: "cacheHitPercentage" | "failurePercentage",
+  k: number = 3,
+  numBuckets: number = 60,
 ) {
   const url = `/api/app_metrics/${kind === "cacheHitPercentage" ? "cache_hit_percentage_top_k" : "failure_percentage_top_k"}`;
-  const cacheKey = useTopKCacheKey(kind);
+  const cacheKey = `${useTopKCacheKey(kind)}?k=${k}&numBuckets=${numBuckets}`;
   const isDisconnected = useDeploymentIsDisconnected();
   const deploymentUrl = useDeploymentUrl();
   const authHeader = useDeploymentAuthHeader();
@@ -183,10 +185,10 @@ export function useTopKFunctionMetrics(
     const windowArgs = {
       start: serializeDate(start),
       end: serializeDate(end),
-      num_buckets: 60,
+      num_buckets: numBuckets,
     };
     const window = JSON.stringify(windowArgs);
-    const params = { window, k: (3).toString() };
+    const params = { window, k: k.toString() };
     const queryString = new URLSearchParams(params).toString();
     return deploymentFetch([
       deploymentUrl,
@@ -201,7 +203,7 @@ export function useTopKFunctionMetrics(
     isDisconnected ? null : cacheKey,
     fetcher,
     {
-      refreshInterval: 2.5 * 1000,
+      refreshInterval: 8 * 1000,
     },
   );
   if (!d) {
@@ -278,6 +280,117 @@ export function useTopKFunctionMetrics(
   };
 }
 
+export type FunctionRateHeatmapRow = {
+  /// Function identifier (or "_rest" for the catch-all aggregate row).
+  key: string;
+  cells: Array<{
+    time: Date;
+    value: number | null;
+  }>;
+};
+
+export type FunctionRateHeatmapData = {
+  rows: FunctionRateHeatmapRow[];
+  bucketStartTimes: Date[];
+};
+
+/**
+ * Fetches per-function rate (cache hit % or failure %) over the last hour for
+ * the heatmap. Returns raw per-bucket values (no fill hack — missing buckets
+ * stay null so the heatmap can render them as empty cells). `numBuckets`
+ * controls the resolution: with the fixed 60-minute window, 12 buckets →
+ * 5-minute cells, 30 → 2-minute, 60 → 1-minute (the backend cap).
+ */
+export function useTopKFunctionRateHeatmap(
+  kind: "cacheHitPercentage" | "failurePercentage",
+  k: number,
+  numBuckets: number = 12,
+): FunctionRateHeatmapData | null | undefined {
+  const route =
+    kind === "cacheHitPercentage"
+      ? "cache_hit_percentage_top_k"
+      : "failure_percentage_top_k";
+  const url = `/api/app_metrics/${route}`;
+  const isDisconnected = useDeploymentIsDisconnected();
+  const deploymentUrl = useDeploymentUrl();
+  const authHeader = useDeploymentAuthHeader();
+  const cacheKey = `${deploymentUrl}${url}?k=${k}&numBuckets=${numBuckets}`;
+
+  const fetcher = async () => {
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const end = new Date();
+    const windowArgs = {
+      start: serializeDate(start),
+      end: serializeDate(end),
+      num_buckets: numBuckets,
+    };
+    const params: Record<string, string> = {
+      window: JSON.stringify(windowArgs),
+      k: k.toString(),
+    };
+    const queryString = new URLSearchParams(params).toString();
+    return deploymentFetch([
+      deploymentUrl,
+      `${url}?${queryString}`,
+      authHeader,
+    ]);
+  };
+
+  // `keepPreviousData` means the hook returns the last successful response
+  // while a new fetch (triggered by a changed `k` or `numBuckets` — e.g.
+  // after a container resize) is in flight, so the heatmap keeps rendering
+  // instead of flashing a spinner.
+  const { data: d } = useSWR(isDisconnected ? null : cacheKey, fetcher, {
+    refreshInterval: 8 * 1000,
+    keepPreviousData: true,
+  });
+  if (!d) {
+    return undefined;
+  }
+  const mapFunctionToBuckets = multiResponseToTimeSeries(
+    d as TopKMetricsResponse,
+  );
+  const functions: string[] = [...mapFunctionToBuckets.keys()];
+  if (!functions.length) {
+    return null;
+  }
+
+  const bucketStartTimes: Date[] = mapFunctionToBuckets
+    .get(functions[0])!
+    .map((b: Bucket) => b.time);
+
+  // Forward-fill threshold is shared across functions: once *any* function
+  // has a data point at bucket i, all functions fill later null buckets
+  // (including the current one) with the "idle" value — 100 for cache hit,
+  // 0 for failure. This keeps rows aligned so a quiet function reads as
+  // "idle" rather than "no data" once the deployment is actively running.
+  // Buckets before the first data point from any function stay null.
+  const idleFill = kind === "cacheHitPercentage" ? 100 : 0;
+  const bucketCount = bucketStartTimes.length;
+  let firstDataBucketIdx = -1;
+  for (let i = 0; i < bucketCount; i++) {
+    const anyHasData = functions.some(
+      (f) => typeof mapFunctionToBuckets.get(f)![i].metric === "number",
+    );
+    if (anyHasData) {
+      firstDataBucketIdx = i;
+      break;
+    }
+  }
+  const rows: FunctionRateHeatmapRow[] = functions.map((f) => {
+    const buckets = mapFunctionToBuckets.get(f)!;
+    const cells = buckets.map(({ time, metric }: Bucket, i: number) => {
+      if (typeof metric === "number") return { time, value: metric };
+      const inFilledRegion =
+        firstDataBucketIdx !== -1 && i >= firstDataBucketIdx;
+      return { time, value: inFilledRegion ? idleFill : null };
+    });
+    return { key: identifierForMetricName(f), cells };
+  });
+
+  return { rows, bucketStartTimes };
+}
+
 export function useFunctionCallCountTopK(k: number = 5) {
   const url = "/api/app_metrics/function_call_count_top_k";
   const isDisconnected = useDeploymentIsDisconnected();
@@ -304,7 +417,7 @@ export function useFunctionCallCountTopK(k: number = 5) {
   };
 
   const { data: d } = useSWR(isDisconnected ? null : cacheKey, fetcher, {
-    refreshInterval: 2.5 * 1000,
+    refreshInterval: 8 * 1000,
   });
 
   if (!d) {
@@ -419,7 +532,7 @@ export function useSubscriptionInvalidationsTopK(
   };
 
   const { data: d } = useSWR(isDisconnected ? null : cacheKey, fetcher, {
-    refreshInterval: 2.5 * 1000,
+    refreshInterval: 8 * 1000,
   });
 
   return useTopKChartData(d as TopKMetricsResponse | undefined);
@@ -693,7 +806,7 @@ export function useFunctionConcurrency(): {
   };
 
   const { data: responseData } = useSWR(isDisconnected ? null : url, fetcher, {
-    refreshInterval: 2.5 * 1000,
+    refreshInterval: 8 * 1000,
   });
 
   if (!responseData) {

@@ -16,6 +16,7 @@ export const flagDefaults: {
   subscriptionInvalidationsChart: boolean;
   transferDeployment: boolean;
   scopedDeployKeys: boolean;
+  healthHeatmaps: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -31,6 +32,7 @@ export const flagDefaults: {
   subscriptionInvalidationsChart: false,
   transferDeployment: false,
   scopedDeployKeys: false,
+  healthHeatmaps: false,
 };
 
 // Flag defaults need to be in the default kebab-case format:

@@ -68,7 +68,7 @@ export function HealthWithInsights() {
   const [selectedFunctions, setSelectedFunctions] =
     useState<MultiSelectValue>("all");
 
-  const { subscriptionInvalidationsChart } = useLaunchDarkly();
+  const { subscriptionInvalidationsChart, healthHeatmaps } = useLaunchDarkly();
   const insights = useInsights();
   const { from } = useInsightsPeriod();
 
@@ -248,6 +248,7 @@ export function HealthWithInsights() {
         teamMembers={teamMembers}
         regions={regions}
         showSubscriptionInvalidations={subscriptionInvalidationsChart}
+        showHeatmaps={healthHeatmaps}
       />
     </InsightsContext.Provider>
   );

@@ -59,12 +59,12 @@ export function FunctionNameOption({
       secondary.length + primary.length > maxCharsShown);
 
   if (primary.length > maxCharsShown) {
-    primary = `...${primary.slice(primary.length - maxCharsShown + 3)}`;
+    primary = `…${primary.slice(primary.length - maxCharsShown + 1)}`;
 
     secondary = "";
   } else if (secondary.length + primary.length > maxCharsShown) {
-    secondary = `...${secondary.slice(
-      secondary.length - (maxCharsShown - primary.length) + 3,
+    secondary = `…${secondary.slice(
+      secondary.length - (maxCharsShown - primary.length) + 1,
     )}`;
   }
 
