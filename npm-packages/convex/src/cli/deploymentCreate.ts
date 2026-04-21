@@ -479,7 +479,7 @@ async function resolveOptionsInteractively(
         `Using team default region of ${regionDetails.displayName}`,
       );
     } else {
-      logNoDefaultRegionMessage(team.slug);
+      await logNoDefaultRegionMessage(team.slug);
     }
   }
 

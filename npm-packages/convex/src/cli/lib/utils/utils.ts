@@ -420,9 +420,10 @@ export async function selectDevDeploymentType(
   return { devDeployment };
 }
 
-export function logNoDefaultRegionMessage(teamSlug: string) {
+export async function logNoDefaultRegionMessage(teamSlug: string) {
+  const { teamDashboardUrl } = await import("../dashboard.js");
   const noDefaultRegionMessage = chalkStderr.gray(
-    `Tip: you can configure a default region for your team at ${chalkStderr.underline(`https://dashboard.convex.dev/t/${teamSlug}/settings`)}`,
+    `Tip: you can configure a default region for your team at ${chalkStderr.underline(`${teamDashboardUrl(teamSlug)}/settings`)}`,
   );
   logMessage(noDefaultRegionMessage);
 }
@@ -435,7 +436,7 @@ export async function selectRegionOrUseDefault(
   if (!process.stdin.isTTY) {
     // Use the team default in non-interactive terminals
     if (!selectedTeam.defaultRegion) {
-      logNoDefaultRegionMessage(selectedTeam.slug);
+      await logNoDefaultRegionMessage(selectedTeam.slug);
     }
     return selectedTeam.defaultRegion ?? null;
   }
@@ -444,7 +445,7 @@ export async function selectRegionOrUseDefault(
     (await selectRegion(ctx, selectedTeam.id, deploymentType));
   if (!selectedTeam.defaultRegion) {
     // Log after the user chooses a region
-    logNoDefaultRegionMessage(selectedTeam.slug);
+    await logNoDefaultRegionMessage(selectedTeam.slug);
   }
   return selectedRegionName;
 }
