@@ -70,7 +70,7 @@ If you want to automatically create sample data when a preview deployment is
 created, you can use `--preview-run`:
 
 ```bash
-npx convex deploy --preview-name="my-preview-deployment-name" --preview-run=<functionName>
+npx convex deploy --preview-create="my-preview-deployment-name" --preview-run=<functionName>
 ```
 
 Replace `<functionName>` by the name of a Convex function that will be ran if a
@@ -155,7 +155,7 @@ Add the following setup command to the `conductor.json` file of your project:
 }
 ```
 
-Replace `my-team` and `my-project` with the slugs of your team and project.
+Replace `my-team` and `my-project` with your team and project slugs.
 
 </Details>
 
@@ -173,7 +173,7 @@ project:
 }
 ```
 
-Replace `my-team` and `my-project` with the slugs of your team and project.
+Replace `my-team` and `my-project` with your team and project slugs.
 
 </Details>
 
@@ -186,7 +186,7 @@ creation_ and use the following command:
 npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-t3code/$(basename "$PWD" | sed 's/^t3code-//') --select
 ```
 
-Replace `my-team` and `my-project` with the slugs of your team and project.
+Replace `my-team` and `my-project` with your team and project slugs.
 
 </Details>
 
