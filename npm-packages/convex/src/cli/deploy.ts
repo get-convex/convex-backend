@@ -68,10 +68,8 @@ export const deploy = new Command("deploy")
   .addOption(
     new Option(
       "--preview-name <name>",
-      "[deprecated] Use `--preview-create` instead. The name to associate with this deployment if deploying to a preview deployment.",
-    )
-      .hideHelp()
-      .conflicts("preview-create"),
+      "The name of the preview deployment to deploy to. Reuses the existing deployment if one exists.",
+    ).conflicts("preview-create"),
   )
   .addOption(
     new Option(
@@ -140,14 +138,11 @@ Same format as .env.local or .env files, and overrides them.`,
     if (deploymentSelection.kind === "preview") {
       // TODO -- add usage state warnings here too once we can do it without a deployment name
       // await usageStateWarning(ctx);
-      if (cmdOptions.previewName !== undefined) {
-        await ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage:
-            "The `--preview-name` flag has been deprecated in favor of `--preview-create`. Please re-run the command using `--preview-create` instead.",
-        });
-      }
+      const previewName =
+        cmdOptions.previewCreate ??
+        cmdOptions.previewName ??
+        gitBranchFromEnvironment();
+      const reuse = cmdOptions.previewCreate === undefined;
 
       const teamAndProjectSlugs = await getTeamAndProjectFromPreviewAdminKey(
         ctx,
@@ -165,6 +160,8 @@ Same format as .env.local or .env files, and overrides them.`,
         },
         {
           ...cmdOptions,
+          previewName: previewName ?? undefined,
+          reuse,
           message: cmdOptions.message ?? getDefaultDeployMessage(),
         },
       );
@@ -207,7 +204,8 @@ async function deployToNewPreviewDeployment(
   },
   options: {
     dryRun?: boolean | undefined;
-    previewCreate?: string | undefined;
+    previewName?: string | undefined;
+    reuse: boolean;
     previewRun?: string | undefined;
     cmdUrlEnvVarName?: string | undefined;
     cmd?: string | undefined;
@@ -223,7 +221,7 @@ async function deployToNewPreviewDeployment(
     message: string | null;
   },
 ) {
-  const previewName = options.previewCreate ?? gitBranchFromEnvironment();
+  const previewName = options.previewName ?? null;
   if (previewName === null) {
     await ctx.crash({
       exitCode: 1,
@@ -259,6 +257,7 @@ async function deployToNewPreviewDeployment(
     data: {
       projectSelection: deploymentSelection.projectSelection,
       identifier: previewName,
+      reuse: options.reuse,
     },
   });
 
@@ -308,7 +307,7 @@ async function deployToNewPreviewDeployment(
   await runPush(ctx, pushOptions);
   logFinishedStep(`Deployed Convex functions to ${previewUrl}`);
 
-  if (options.previewRun !== undefined) {
+  if (options.previewRun !== undefined && data.isNewDeployment) {
     await runFunctionAndLog(ctx, {
       deploymentUrl: previewUrl,
       adminKey: previewAdminKey,

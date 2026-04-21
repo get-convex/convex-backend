@@ -17,13 +17,19 @@
   `npx convex deploy` on CI runners on popular platforms (including GitHub Actions,
   Vercel, and Netlify), a default message will be provided if you don’t provide one
   (e.g. “Deployed from GitHub Actions • e83c516”).
+- When deploying to a preview deployment, you can now reuse the existing deployment
+  instead of creating a new one by using `--preview-name` instead of `--preview-create`.
+  This behavior is also used when deploying to preview deployments from the CI
+  without specifying `--preview-create` explictly, but you can
+  specify `--preview-create` explicitly to restore the old behavior. When using the
+  `--preview-run` flag, the function only runs when a new deployment is created.
 - Fixed a bug where the automatically-generated files would sometimes sort imports
   in inconsistent order across platforms.
 - Fixed a bug in `npx convex dev --start` where, in some cases, the `--start` command
   would continue to run after closing the Convex dev server with <kbd>Ctrl+C</kbd>.
 - Fixed a bug where `connectionState.hasEverConnected` would remain false
   when using the `expectAuth` option.
-- Generating APIs via function-spec now supports validators with int64 literals.  
+- Generating APIs via function-spec now supports validators with int64 literals.
 
 
 ## 1.35.1
