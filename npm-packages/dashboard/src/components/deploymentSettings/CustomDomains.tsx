@@ -51,11 +51,41 @@ export function CustomDomains({
   entitlements: TeamEntitlementsResponse;
 }) {
   const hasEntitlement = entitlements.customDomainsEnabled ?? false;
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment.projectId,
-  );
+
   const vanityDomains = useListVanityDomains(
     hasEntitlement ? deployment.name : undefined,
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <CustomDomainsForm
+        team={team}
+        deployment={deployment}
+        vanityDomains={vanityDomains}
+        hasEntitlement={hasEntitlement}
+      />
+
+      <CanonicalDomainForm
+        deploymentName={deployment.name}
+        vanityDomains={vanityDomains}
+      />
+    </div>
+  );
+}
+
+function CustomDomainsForm({
+  team,
+  deployment,
+  vanityDomains,
+  hasEntitlement,
+}: {
+  team: TeamResponse;
+  deployment: PlatformDeploymentResponse;
+  vanityDomains: PlatformCustomDomainResponse[] | undefined;
+  hasEntitlement: boolean;
+}) {
+  const hasAdminPermissions = useHasProjectAdminPermissions(
+    deployment.projectId,
   );
 
   const canPerformActions =
@@ -71,106 +101,96 @@ export function CustomDomains({
   const isNonProd = deployment.deploymentType !== "prod";
 
   return (
-    <div className="flex flex-col gap-4">
-      <Sheet>
-        <div className="flex flex-col gap-4">
-          <div>
-            <h3 className="mb-2">Custom Domains</h3>
-            <p className="max-w-prose text-pretty">
-              Configure custom domains to this deployment. Domains for the
-              Convex API (your queries, mutations, and actions) and your HTTP
-              actions are configured separately.
-            </p>
-          </div>
+    <Sheet>
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="mb-2">Custom Domains</h3>
+          <p className="max-w-prose text-pretty">
+            Configure custom domains to this deployment. Domains for the Convex
+            API (your queries, mutations, and actions) and your HTTP actions are
+            configured separately.
+          </p>
+        </div>
 
-          {isNonProd && (
-            <Callout variant="hint">
-              <div>
-                You can add custom domains to this deployment, but you may be
-                looking to configure them on your production deployment instead.{" "}
-                {defaultProdDeployment && project ? (
-                  <Link
-                    href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings/custom-domains`}
-                  >
-                    Go to production custom domains.
+        {isNonProd && (
+          <Callout variant="hint">
+            <div>
+              You can add custom domains to this deployment, but you may be
+              looking to configure them on your production deployment instead.{" "}
+              {defaultProdDeployment && project ? (
+                <Link
+                  href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings/custom-domains`}
+                >
+                  Go to production custom domains.
+                </Link>
+              ) : null}
+            </div>
+          </Callout>
+        )}
+
+        <div>
+          {!hasEntitlement && (
+            <>
+              <Callout>
+                <div>
+                  Custom domains are{" "}
+                  <span className="font-semibold">
+                    only available on the Pro plan
+                  </span>
+                  .{" "}
+                  <Link href={`/t/${team.slug}/settings/billing`}>
+                    Upgrade to get access.
                   </Link>
-                ) : null}
-              </div>
-            </Callout>
+                </div>
+              </Callout>
+              <LocalDevCallout
+                className="flex-col"
+                tipText="Tip: Run this to enable custom domains locally:"
+                command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement custom_domains_enabled --team-id ${team.id} --reason "local" true --for-real`}
+              />
+            </>
           )}
 
-          <div>
-            {!hasEntitlement && (
-              <>
-                <Callout>
-                  <div>
-                    Custom domains are{" "}
-                    <span className="font-semibold">
-                      only available on the Pro plan
-                    </span>
-                    .{" "}
-                    <Link href={`/t/${team.slug}/settings/billing`}>
-                      Upgrade to get access.
-                    </Link>
-                  </div>
-                </Callout>
-                <LocalDevCallout
-                  className="flex-col"
-                  tipText="Tip: Run this to enable custom domains locally:"
-                  command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement custom_domains_enabled --team-id ${team.id} --reason "local" true --for-real`}
-                />
-              </>
-            )}
-
-            <VanityDomainForm
-              disabled={!hasEditAccess}
-              deploymentName={deployment.name}
-            />
-            {vanityDomains && vanityDomains.length > 0 && (
-              <>
+          <VanityDomainForm
+            disabled={!hasEditAccess}
+            deploymentName={deployment.name}
+          />
+          {vanityDomains && vanityDomains.length > 0 && (
+            <>
+              <div
+                className={classNames(
+                  "hidden md:grid",
+                  ENVIRONMENT_VARIABLES_ROW_CLASSES,
+                )}
+              >
                 <div
-                  className={classNames(
-                    "hidden md:grid",
-                    ENVIRONMENT_VARIABLES_ROW_CLASSES,
-                  )}
+                  className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
                 >
-                  <div
-                    className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
-                  >
-                    <span className="text-xs text-content-secondary">
-                      Domain
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-content-secondary">
-                      Request Destination{" "}
-                    </span>
-                  </div>
+                  <span className="text-xs text-content-secondary">Domain</span>
                 </div>
-                <div className="divide-y divide-border-transparent border-t">
-                  {vanityDomains
-                    .sort((a, b) => a.creationTime - b.creationTime)
-                    .reverse()
-                    .map((domain, index) => (
-                      <DisplayVanityDomain
-                        key={index}
-                        vanityDomain={domain}
-                        enabled={hasEditAccess}
-                      />
-                    ))}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-content-secondary">
+                    Request Destination{" "}
+                  </span>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+              <div className="divide-y divide-border-transparent border-t">
+                {vanityDomains
+                  .sort((a, b) => a.creationTime - b.creationTime)
+                  .reverse()
+                  .map((domain, index) => (
+                    <DisplayVanityDomain
+                      key={index}
+                      vanityDomain={domain}
+                      enabled={hasEditAccess}
+                    />
+                  ))}
+              </div>
+            </>
+          )}
         </div>
-      </Sheet>
-      <Sheet>
-        <CanonicalDomainForm
-          deploymentName={deployment.name}
-          vanityDomains={vanityDomains}
-        />
-      </Sheet>
-    </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -186,49 +206,54 @@ function CanonicalDomainForm({
   const canonicalSiteUrl = useQuery(udfs.convexSiteUrl.default);
 
   return (
-    <div className="flex flex-col gap-3">
-      <h3>Override Environment Variables</h3>
-      <p className="max-w-prose">
-        Replace your system environment variables everywhere in your app. All
-        internal references to your <code>CONVEX_SITE_URL</code> and{" "}
-        <code>CONVEX_CLOUD_URL</code> will change to the url you set. This can
-        affect WebSocket and HTTP clients, storage urls, and Convex Auth.
-      </p>
-      <CanonicalUrlCombobox
-        label={
-          <span className="flex items-center gap-2">
-            <code>process.env.CONVEX_CLOUD_URL</code>
-          </span>
-        }
-        defaultUrl={{ kind: "default", url: deploymentUrl }}
-        canonicalUrl={
-          canonicalCloudUrl === undefined
-            ? { kind: "loading" }
-            : { kind: "loaded", url: canonicalCloudUrl }
-        }
-        vanityDomains={vanityDomains}
-        requestDestination="convexCloud"
-      />
-      <CanonicalUrlCombobox
-        label={
-          <span className="flex flex-row items-center gap-1">
-            <code>process.env.CONVEX_SITE_URL</code>
-          </span>
-        }
-        defaultUrl={
-          deploymentUrl === `https://${deploymentName}.convex.cloud`
-            ? { kind: "default", url: `https://${deploymentName}.convex.site` }
-            : { kind: "unknownDefault" }
-        }
-        canonicalUrl={
-          canonicalSiteUrl === undefined
-            ? { kind: "loading" }
-            : { kind: "loaded", url: canonicalSiteUrl }
-        }
-        vanityDomains={vanityDomains}
-        requestDestination="convexSite"
-      />
-    </div>
+    <Sheet>
+      <div className="flex flex-col gap-3">
+        <h3>Override Environment Variables</h3>
+        <p className="max-w-prose">
+          Replace your system environment variables everywhere in your app. All
+          internal references to your <code>CONVEX_SITE_URL</code> and{" "}
+          <code>CONVEX_CLOUD_URL</code> will change to the url you set. This can
+          affect WebSocket and HTTP clients, storage urls, and Convex Auth.
+        </p>
+        <CanonicalUrlCombobox
+          label={
+            <span className="flex items-center gap-2">
+              <code>process.env.CONVEX_CLOUD_URL</code>
+            </span>
+          }
+          defaultUrl={{ kind: "default", url: deploymentUrl }}
+          canonicalUrl={
+            canonicalCloudUrl === undefined
+              ? { kind: "loading" }
+              : { kind: "loaded", url: canonicalCloudUrl }
+          }
+          vanityDomains={vanityDomains}
+          requestDestination="convexCloud"
+        />
+        <CanonicalUrlCombobox
+          label={
+            <span className="flex flex-row items-center gap-1">
+              <code>process.env.CONVEX_SITE_URL</code>
+            </span>
+          }
+          defaultUrl={
+            deploymentUrl === `https://${deploymentName}.convex.cloud`
+              ? {
+                  kind: "default",
+                  url: `https://${deploymentName}.convex.site`,
+                }
+              : { kind: "unknownDefault" }
+          }
+          canonicalUrl={
+            canonicalSiteUrl === undefined
+              ? { kind: "loading" }
+              : { kind: "loaded", url: canonicalSiteUrl }
+          }
+          vanityDomains={vanityDomains}
+          requestDestination="convexSite"
+        />
+      </div>
+    </Sheet>
   );
 }
 
