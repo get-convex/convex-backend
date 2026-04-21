@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `npx convex run` now supports `--inline-query` for evaluating readonly queries
+  without creating a named function first, for example:
+  `npx convex run --inline-query 'await ctx.db.query("messages").take(5)'`.
 - Added `ctx.meta` to access extra metadata at runtime:
   - `ctx.meta.getFunctionMetadata()`: the current function's name, component,
     visibility, and whether it's a query, mutation, or action.

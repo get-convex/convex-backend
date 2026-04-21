@@ -465,37 +465,50 @@ export async function runInDeployment(
     liveComponentSources: boolean;
   },
 ) {
-  if (args.push) {
-    await watchAndPush(
-      ctx,
-      {
-        url: args.deploymentUrl,
-        adminKey: args.adminKey,
-        deploymentName: args.deploymentName,
-        verbose: false,
-        dryRun: false,
-        typecheck: args.typecheck,
-        typecheckComponents: args.typecheckComponents,
-        debug: false,
-        debugNodeApis: false,
-        codegen: args.codegen,
-        liveComponentSources: args.liveComponentSources,
-        pushAllModules: false,
-        largeIndexDeletionCheck: "no verification", // `convex run` can’t push to prod
-        message: null,
-      },
-      {
-        once: true,
-        traceEvents: false,
-        untilSuccess: true,
-      },
-    );
-  }
+  if (args.push) await pushToDeployment(ctx, args);
 
   if (args.watch) {
     return await subscribeAndLog(ctx, args);
   }
   return await runFunctionAndLog(ctx, args);
+}
+
+export async function pushToDeployment(
+  ctx: OneoffCtx,
+  args: {
+    deploymentUrl: string;
+    adminKey: string;
+    deploymentName: string | null;
+    typecheck: "enable" | "try" | "disable";
+    typecheckComponents: boolean;
+    codegen: boolean;
+    liveComponentSources: boolean;
+  },
+) {
+  await watchAndPush(
+    ctx,
+    {
+      url: args.deploymentUrl,
+      adminKey: args.adminKey,
+      deploymentName: args.deploymentName,
+      verbose: false,
+      dryRun: false,
+      typecheck: args.typecheck,
+      typecheckComponents: args.typecheckComponents,
+      debug: false,
+      debugNodeApis: false,
+      codegen: args.codegen,
+      liveComponentSources: args.liveComponentSources,
+      pushAllModules: false,
+      largeIndexDeletionCheck: "no verification", // `convex run` can’t push to prod
+      message: null,
+    },
+    {
+      once: true,
+      traceEvents: false,
+      untilSuccess: true,
+    },
+  );
 }
 
 function instantiateStderrLogger(): Logger {

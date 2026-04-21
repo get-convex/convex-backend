@@ -113,6 +113,33 @@ code to the deployment before running the function.
 
 Use `--prod` to run functions in the production deployment for a project.
 
+#### Run an inline query
+
+You can also evaluate a readonly inline query on your deployment:
+
+```sh
+npx convex run --inline-query 'await ctx.db.query("messages").take(5)'
+```
+
+For multi-statement queries, use an explicit `return`:
+
+```sh
+npx convex run --inline-query 'const firstMessage = await ctx.db.query("messages").first(); console.log(firstMessage?._id); return firstMessage;'
+```
+
+If you need full control, you can pass a full module source that exports a
+default query:
+
+```sh
+npx convex run --inline-query 'export default query({ handler: async (ctx) => { console.log("Write and test your query function here!"); return await ctx.db.query("YOUR_TABLE_NAME").take(10); }, })'
+```
+
+The function call is also completely sandboxed, so it can only read data and
+cannot modify the database or access the network.
+
+Use `--component <path>` to run the inline query inside a mounted component. Use
+`--prod` to run the inline query on the production deployment for a project.
+
 ### Tail deployment logs
 
 You can choose how to pipe logs from your dev deployment to your console:

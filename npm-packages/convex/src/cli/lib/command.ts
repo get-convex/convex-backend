@@ -8,6 +8,7 @@ import {
   parseInteger,
   parsePositiveInteger,
 } from "./utils/utils.js";
+import { INLINE_QUERY_DESCRIPTION } from "./runTestFunction.js";
 
 declare module "@commander-js/extra-typings" {
   interface Command<Args extends any[] = [], Opts extends OptionValues = {}> {
@@ -83,11 +84,12 @@ declare module "@commander-js/extra-typings" {
      * Adds options and arguments for the `run` command.
      */
     addRunOptions(): Command<
-      [...Args, string, string | undefined],
+      [...Args, string | undefined, string | undefined],
       Opts & {
         watch?: boolean;
         push?: boolean;
         identity?: string;
+        inlineQuery?: string;
         typecheck: "enable" | "try" | "disable";
         typecheckComponents: boolean;
         codegen: "enable" | "disable";
@@ -409,7 +411,7 @@ Command.prototype.addSelfHostOptions = function () {
 Command.prototype.addRunOptions = function () {
   return (
     this.argument(
-      "functionName",
+      "[functionName]",
       "identifier of the function to run, like `listMessages` or `dir/file:myFunction`",
     )
       .argument(
@@ -419,6 +421,12 @@ Command.prototype.addRunOptions = function () {
       .option(
         "-w, --watch",
         "Watch a query, printing its result if the underlying data changes. Given function must be a query.",
+      )
+      .addOption(
+        new Option(
+          "--inline-query <query>",
+          INLINE_QUERY_DESCRIPTION,
+        ).conflicts("--watch"),
       )
       .option("--push", "Push code to deployment before running the function.")
       .addOption(
