@@ -372,7 +372,8 @@ function ChartRow({
             <div key={index}>
               <span
                 className={classNames(
-                  "rounded-full w-2 h-2 inline-block",
+                  "rounded-full size-2 inline-block",
+                  "border border-border-transparent dark:border-border-transparent",
                   categories![index].backgroundColor,
                 )}
               />{" "}
