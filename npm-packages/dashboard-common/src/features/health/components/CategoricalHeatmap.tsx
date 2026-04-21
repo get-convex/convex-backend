@@ -344,7 +344,7 @@ function HeatmapGrid({
     >
       <div
         ref={scrollRef}
-        className="scrollbar flex h-36 max-h-36 flex-col justify-end overflow-y-auto pr-1 [scrollbar-gutter:stable]"
+        className="scrollbar flex max-h-36 flex-col overflow-y-auto pr-1 [scrollbar-gutter:stable]"
         style={{ maskImage, WebkitMaskImage: maskImage }}
       >
         <div
@@ -491,8 +491,7 @@ function Cell({
     >
       <div
         role="img"
-        className="h-[22px] rounded-[1px]"
-        style={{ background }}
+        style={{ background, height: 22, borderRadius: 1 }}
         aria-label={ariaLabel}
       />
     </Tooltip>
