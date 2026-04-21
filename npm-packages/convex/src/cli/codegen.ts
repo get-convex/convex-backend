@@ -2,6 +2,11 @@ import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
 import { runCodegen } from "./lib/components.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import {
+  DetailedDeploymentCredentials,
+  loadSelectedDeploymentCredentials,
+} from "./lib/api.js";
+import { withRunningBackend } from "./lib/localDeployment/run.js";
 export const codegen = new Command("codegen")
   .summary("Generate backend type definitions")
   .description(
@@ -45,7 +50,7 @@ export const codegen = new Command("codegen")
     const ctx = await oneoffContext(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
 
-    await runCodegen(ctx, deploymentSelection, {
+    const codegenOptions = {
       dryRun: !!options.dryRun,
       debug: !!options.debug,
       typecheck: options.typecheck,
@@ -56,7 +61,37 @@ export const codegen = new Command("codegen")
       liveComponentSources: !!options.liveComponentSources,
       debugNodeApis: false,
       systemUdfs: !!options.systemUdfs,
-      largeIndexDeletionCheck: "no verification", // `codegen` is a read-only operation
+      largeIndexDeletionCheck: "no verification" as const, // `codegen` is a read-only operation
       codegenOnlyThisComponent: options.componentDir,
+    };
+
+    if (options.systemUdfs) {
+      await runCodegen(ctx, null, codegenOptions);
+      return;
+    }
+
+    // Early exit for a better error message trying to use a preview key.
+    if (deploymentSelection.kind === "preview") {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Codegen requires an existing deployment so doesn't support CONVEX_DEPLOY_KEY.\nGenerate code in dev and commit it to the repo instead.\nhttps://docs.convex.dev/understanding/best-practices/other-recommendations#check-generated-code-into-version-control`,
+      });
+    }
+
+    const credentials: DetailedDeploymentCredentials =
+      await loadSelectedDeploymentCredentials(ctx, deploymentSelection, {
+        ensureLocalRunning: false,
+      });
+
+    await withRunningBackend({
+      ctx,
+      deployment: {
+        deploymentUrl: credentials.url,
+        deploymentFields: credentials.deploymentFields,
+      },
+      action: async () => {
+        await runCodegen(ctx, credentials, codegenOptions);
+      },
     });
   });

@@ -44,11 +44,10 @@ import { withTmpDir } from "../../bundler/fs.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import { chalkStderr } from "chalk";
 import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
-import { loadSelectedDeploymentCredentials } from "./api.js";
+import { DetailedDeploymentCredentials } from "./api.js";
 import { FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { DEFINITION_FILENAME_TS } from "./components/constants.js";
-import { DeploymentSelection } from "./deploymentSelection.js";
 import { DeploymentType } from "./api.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
@@ -81,7 +80,7 @@ export type PushOptions = {
 
 export async function runCodegen(
   ctx: Context,
-  deploymentSelection: DeploymentSelection,
+  credentials: DetailedDeploymentCredentials | null,
   options: CodegenOptions,
 ) {
   // This also ensures the current directory is the project root.
@@ -98,19 +97,9 @@ export async function runCodegen(
   }
 
   if (!options.systemUdfs) {
-    // Early exit for a better error message trying to use a preview key.
-    if (deploymentSelection.kind === "preview") {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "invalid filesystem data",
-        printedMessage: `Codegen requires an existing deployment so doesn't support CONVEX_DEPLOY_KEY.\nGenerate code in dev and commit it to the repo instead.\nhttps://docs.convex.dev/understanding/best-practices/other-recommendations#check-generated-code-into-version-control`,
-      });
+    if (credentials === null) {
+      return;
     }
-
-    const credentials = await loadSelectedDeploymentCredentials(
-      ctx,
-      deploymentSelection,
-    );
 
     await startComponentsPushAndCodegen(
       ctx,
