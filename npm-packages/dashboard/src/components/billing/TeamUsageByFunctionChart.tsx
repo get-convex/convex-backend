@@ -120,9 +120,18 @@ export const FunctionBreakdownMetricComputeV2: FunctionBreakdownMetric = {
   ],
   quantityType: "actionCompute",
   categories: [
-    { name: "Query/Mutation", backgroundColor: "bg-background-success" },
-    { name: "Action (Convex)", backgroundColor: "bg-background-warning" },
-    { name: "Action (Node)", backgroundColor: "bg-background-error" },
+    {
+      name: "Query/Mutation",
+      backgroundColor: "bg-chart-line-1/30 dark:bg-chart-line-1",
+    },
+    {
+      name: "Action (Convex)",
+      backgroundColor: "bg-chart-line-2/30 dark:bg-chart-line-2",
+    },
+    {
+      name: "Action (Node)",
+      backgroundColor: "bg-chart-line-3/30 dark:bg-chart-line-3",
+    },
   ],
 };
 
@@ -137,8 +146,14 @@ export const FunctionBreakdownMetricSearchV2: FunctionBreakdownMetric = {
   ],
   quantityType: "textSearch",
   categories: [
-    { name: "Text Search", backgroundColor: "bg-background-success" },
-    { name: "Vector Search", backgroundColor: "bg-background-warning" },
+    {
+      name: "Text Search",
+      backgroundColor: "bg-chart-line-1/30 dark:bg-chart-line-1",
+    },
+    {
+      name: "Vector Search",
+      backgroundColor: "bg-chart-line-2/30 dark:bg-chart-line-2",
+    },
   ],
 };
 

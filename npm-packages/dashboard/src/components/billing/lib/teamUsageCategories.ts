@@ -24,14 +24,12 @@ export const BANDWIDTH_CATEGORIES = {
   egress: {
     name: "Reads",
     color: "fill-chart-line-1",
-    backgroundColor: "bg-background-success",
+    backgroundColor: "bg-chart-line-1/30 dark:bg-chart-line-1",
   },
   ingress: {
     name: "Writes",
-    // eslint-disable-next-line no-restricted-syntax
     color: "fill-chart-line-2",
-    // eslint-disable-next-line no-restricted-syntax
-    backgroundColor: "bg-background-error",
+    backgroundColor: "bg-chart-line-2/30 dark:bg-chart-line-2",
   },
 };
 
