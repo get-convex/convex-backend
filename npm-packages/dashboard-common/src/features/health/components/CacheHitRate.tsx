@@ -27,7 +27,7 @@ export function CacheHitRate({
   return (
     <HealthCard
       title="Cache Hit Rate"
-      tip={"The cache hit rate of query functions, bucketed by minute."}
+      tip="The cache hit rate of all query functions."
       action={
         showHeatmaps ? (
           <Menu

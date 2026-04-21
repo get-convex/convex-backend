@@ -43,11 +43,7 @@ export function FailureRate({
   return (
     <HealthCard
       title="Failure Rate"
-      tip={
-        view === "heatmap"
-          ? "Failure rate of the worst-performing functions over the last hour."
-          : "The failure rate of all your running functions, bucketed by minute."
-      }
+      tip="The failure rate of all running functions."
       action={
         showHeatmaps ? (
           <Menu
