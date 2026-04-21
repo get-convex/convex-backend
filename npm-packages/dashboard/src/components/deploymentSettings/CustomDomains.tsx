@@ -73,7 +73,7 @@ export function CustomDomains({
   );
 }
 
-function CustomDomainsForm({
+export function CustomDomainsForm({
   team,
   deployment,
   vanityDomains,
@@ -194,7 +194,7 @@ function CustomDomainsForm({
   );
 }
 
-function CanonicalDomainForm({
+export function CanonicalDomainForm({
   deploymentName,
   vanityDomains,
 }: {
@@ -526,7 +526,7 @@ function VanityDomainForm({
   );
 }
 
-function DisplayVanityDomain({
+export function DisplayVanityDomain({
   vanityDomain,
   enabled,
 }: {

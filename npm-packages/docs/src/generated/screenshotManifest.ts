@@ -3,6 +3,19 @@
 
 export const screenshots = [
   {
+    "storyTitle": "docs/components/CustomDomains",
+    "light": {
+      "filename": "components_custom_domains_light.webp",
+      "width": 1856,
+      "height": 670
+    },
+    "dark": {
+      "filename": "components_custom_domains_dark.webp",
+      "width": 1856,
+      "height": 670
+    }
+  },
+  {
     "storyTitle": "docs/components/HealthFailureRate",
     "light": {
       "filename": "components_health_failure_rate_light.webp",
@@ -13,6 +26,19 @@ export const screenshots = [
       "filename": "components_health_failure_rate_dark.webp",
       "width": 832,
       "height": 556
+    }
+  },
+  {
+    "storyTitle": "docs/components/OverrideEnvironmentVariables",
+    "light": {
+      "filename": "components_override_environment_variables_light.webp",
+      "width": 1856,
+      "height": 644
+    },
+    "dark": {
+      "filename": "components_override_environment_variables_dark.webp",
+      "width": 1856,
+      "height": 644
     }
   },
   {
