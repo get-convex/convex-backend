@@ -218,8 +218,9 @@ pub async fn validate_schedule_args<RT: Runtime>(
 /// When `is_system_module` is true the function lives in a system module
 /// (`_system/`).  System modules are not analyzed, so they have no
 /// declared visibility.  We treat them like privileged endpoints: only
-/// admin/system identities with the appropriate View/WriteData operation
-/// may call them, regardless of component.
+/// admin/system identities may call them, regardless of component.
+/// Fine-grained operation checks are enforced at the TypeScript layer
+/// via `requireOperation` in the system UDF wrappers.
 ///
 /// Returns:
 /// - `Ok(Ok(()))` if access is allowed
@@ -238,9 +239,11 @@ fn check_visibility_access(
     if identity.is_acting_as_user() {
         identity.require_operation(DeploymentOp::ActAsUser)?;
     }
-    // System modules always require admin/system with View/WriteData.
+    // System modules require admin/system identity. Fine-grained operation
+    // checks (e.g. ViewData, WriteData) are enforced at the TypeScript layer
+    // via `requireOperation` in the system UDF wrappers.
     if is_system_module {
-        return require_admin_data_op(identity, expected_udf_type, path);
+        return require_admin_identity(identity, path);
     }
     match allowed_visibility {
         AllowedVisibility::All => Ok(Ok(())),
@@ -289,6 +292,20 @@ fn require_admin_data_op(
             UdfType::Mutation | UdfType::Action | UdfType::HttpAction => DeploymentOp::WriteData,
         };
         identity.require_operation(op)?;
+        Ok(Ok(()))
+    } else {
+        Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
+    }
+}
+
+/// Require that the identity is admin/system, without checking a specific
+/// deployment operation. Returns `Ok(Err(JsError))` for User/Unknown
+/// identities so callers can produce a clean "not found" error response.
+fn require_admin_identity(
+    identity: &Identity,
+    path: PublicFunctionPath,
+) -> anyhow::Result<Result<(), JsError>> {
+    if identity.is_admin() || identity.is_system() || identity.is_acting_as_user() {
         Ok(Ok(()))
     } else {
         Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
