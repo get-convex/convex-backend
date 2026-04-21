@@ -218,6 +218,10 @@ pub enum StructuredLogEvent {
     LogStreamEgress {
         egress_bytes: u64,
     },
+    /// Topic for user-defined audit logs emitted via `audit.log` in UDFs.
+    CustomAudit {
+        body: JsonValue,
+    },
     // User-specified topics -- not yet implemented.
     // See here for more details: https://www.notion.so/Log-Streaming-in-Convex-19a1dfadd6924c33b29b2796b0f5b2e2
     // User {
@@ -438,6 +442,13 @@ impl LogEvent {
                     "_topic": "_log_stream_egress",
                     "egress_bytes": egress_bytes
                 }),
+                StructuredLogEvent::CustomAudit { body } => {
+                    serialize_map!({
+                        "_timestamp": ms,
+                        "_topic": "_custom_audit",
+                        "body": body
+                    })
+                },
             },
             LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
@@ -647,6 +658,13 @@ impl LogEvent {
                         "timestamp": ms,
                         "topic": "log_stream_egress",
                         "egress_bytes": egress_bytes
+                    })
+                },
+                StructuredLogEvent::CustomAudit { body } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "custom_audit",
+                        "body": body
                     })
                 },
             },

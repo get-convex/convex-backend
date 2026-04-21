@@ -238,6 +238,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
             StructuredLogEvent::Exception { .. } => "exception",
             StructuredLogEvent::StorageApiBandwidth { .. } => "storage_bandwidth",
             StructuredLogEvent::LogStreamEgress { .. } => "log_stream_egress",
+            StructuredLogEvent::CustomAudit { .. } => "custom_audit",
         };
         attributes.push(json!({"key": "convex.topic", "value": {"stringValue": topic}}));
 

@@ -40,7 +40,8 @@ pub fn default_log_filter(event: &LogEvent) -> bool {
         | StructuredLogEvent::CurrentStorageUsage { .. }
         | StructuredLogEvent::ConcurrencyStats { .. }
         | StructuredLogEvent::StorageApiBandwidth { .. }
-        | StructuredLogEvent::LogStreamEgress { .. } => true,
+        | StructuredLogEvent::LogStreamEgress { .. }
+        | StructuredLogEvent::CustomAudit { .. } => true,
         StructuredLogEvent::Exception { .. } => false,
     }
 }

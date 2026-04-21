@@ -93,6 +93,23 @@
           }
         }
       },
+      "CustomAuditEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Value"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "DeploymentAuditLogEvent": {
         "type": "object",
         "required": [
@@ -528,6 +545,27 @@
                 }
               }
             ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomAuditEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "custom_audit"
+                    ]
+                  }
+                }
+              }
+            ]
           }
         ]
       },
@@ -659,6 +697,7 @@
           }
         }
       },
+      "Value": {},
       "VerificationEvent": {
         "type": "object",
         "required": [
