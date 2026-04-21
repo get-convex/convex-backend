@@ -43,10 +43,9 @@ more.
 
 ## Staging environment
 
-With Convex
-[preview deployments](/production/hosting/multiple-deployments.mdx#preview) your
-team can test out changes before deploying them to production. If you need a
-more permanent staging environment, you can use a separate Convex project, and
+With Convex [preview deployments](/production/multiple-deployments.mdx#preview)
+your team can test out changes before deploying them to production. If you need
+a more permanent staging environment, you can use a separate Convex project, and
 deploy to it by setting the `CONVEX_DEPLOY_KEY` environment variable when
 running [`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
 
@@ -72,8 +71,8 @@ Teams developing on Convex usually follow this workflow:
      dev deployment with synthetic seed data.
    - Members of a team with the [Pro plan](https://www.convex.dev/pricing) can
      get separate
-     [preview deployments](/production/hosting/multiple-deployments.mdx#preview)
-     to test each other's pull-requests.
+     [preview deployments](/production/multiple-deployments.mdx#preview) to test
+     each other's pull-requests.
 6. Deployment to production can happen
    [automatically](/production/hosting/hosting.mdx) when changes get merged to
    the designated branch (say `main`).

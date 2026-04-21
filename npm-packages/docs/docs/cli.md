@@ -298,7 +298,7 @@ This command will:
 
 Once this command succeeds the new functions will be available immediately.
 
-### Deploy Convex functions to a [preview deployment](/production/hosting/multiple-deployments.mdx#preview)
+### Deploy Convex functions to a [preview deployment](/production/multiple-deployments.mdx#preview)
 
 ```sh
 npx convex deploy

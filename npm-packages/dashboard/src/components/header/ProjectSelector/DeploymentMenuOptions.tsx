@@ -185,7 +185,7 @@ export function DeploymentMenuOptions({
             </div>
           }
           blankTarget={false}
-          action="https://docs.convex.dev/production/hosting/multiple-deployments#preview"
+          action="https://docs.convex.dev/production/multiple-deployments#preview"
         />
       )}
       {previews.length > 0 && (
