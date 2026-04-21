@@ -25,7 +25,7 @@ export function useTableFields(
         );
         // If schema validation is enforced and fields are complete, use only these fields
         if (activeSchema.schemaValidation && result.areFieldsComplete) {
-          return sortColumns(result.fields);
+          return sortColumns(result.fields, { maintainOrder: true });
         }
         result.fields.forEach((f) => allFields.add(f));
       }

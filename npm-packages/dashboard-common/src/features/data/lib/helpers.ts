@@ -6,8 +6,12 @@ import udfs from "@common/udfs";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
 
-export function sortColumns(fieldNames: string[]): string[] {
+export function sortColumns(
+  fieldNames: string[],
+  { maintainOrder = false }: { maintainOrder?: boolean } = {},
+): string[] {
   // Always sort the "_id" field first and the "_creationTime" field last.
+  // When maintainOrder is true, preserve the original order for all other fields.
   return fieldNames.sort((a, b) => {
     if (a === b) {
       return 0;
@@ -17,6 +21,9 @@ export function sortColumns(fieldNames: string[]): string[] {
     }
     if (b === "_id" || a === "_creationTime") {
       return 1;
+    }
+    if (maintainOrder) {
+      return 0;
     }
     if (a < b) {
       return -1;
