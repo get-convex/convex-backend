@@ -25,7 +25,7 @@
      */
     // "some-library": "1.2.3",
     "axios": "^1.15.0",
-    "basic-ftp": "^5.2.0",
+    "basic-ftp": "^5.3.0",
     /**
      * At verison 4.22.0 domain-browser moved from MIT to "Artistic License"
      */
