@@ -349,7 +349,7 @@ function HeatmapGrid({
       >
         <div
           className="grid items-end gap-x-2"
-          style={{ gridTemplateColumns: gridColumns, columnGap: "2px" }}
+          style={{ gridTemplateColumns: gridColumns, rowGap: "2px" }}
         >
           {sortedRows.map((row) => (
             <HeatmapRow
