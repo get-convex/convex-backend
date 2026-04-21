@@ -122,7 +122,7 @@ You can specify which Node.js version is used by Node actions via the
 `node.nodeVersion` field. The currently supported values are `"20"` and `"22"`.
 [Read more](/functions/runtimes.mdx#nodejs-version-configuration).
 
-<Admonition type="info" title="Convex version required">
+<Admonition type="info" title="Convex version requirement">
 
 To change the Node.js version used by your project, you must use the `convex`
 NPM package version 1.27.0 or later.
@@ -188,7 +188,7 @@ typechecking. If you would like to use the TypeScript 7 native preview instead,
 you can set the `typescriptCompiler` option to `tsgo`. Note that
 `@typescript/native-preview` must be installed in your project to use `tsgo`.
 
-<Admonition type="info" title="Convex version required">
+<Admonition type="info" title="Convex version requirement">
 
 To use the TypeScript 7 native preview, you must use the `convex` NPM package
 version 1.31.1 or later.
@@ -211,7 +211,7 @@ content from the bundle. Set the `includeSourcesContent` property to `false` in
 the `bundler` options. Stack traces will continue to function as usual, but you
 will no longer be able to view your source code in the dashboard.
 
-<Admonition type="info" title="Convex version required">
+<Admonition type="info" title="Convex version requirement">
 
 This configuration option is only available in version 1.31.3 or later of the
 `convex` NPM package.
@@ -233,7 +233,7 @@ If you're using [WorkOS AuthKit](/auth/authkit/index.mdx) for authentication,
 you can configure automatic provisioning (development only) and configuration of
 WorkOS environments via the `authKit` field.
 
-<Admonition type="info" title="Convex version required">
+<Admonition type="info" title="Convex version requirement">
 
 This configuration option is only available in version 1.31.6 or later of the
 `convex` NPM package.

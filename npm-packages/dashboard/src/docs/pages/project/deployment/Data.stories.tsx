@@ -7,6 +7,10 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import udfs from "@common/udfs";
 import { ConvexProvider } from "convex/react";
+import { GenericId } from "convex/values";
+import { GenericDocument } from "convex/server";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { useDeployments } from "api/deployments";
 import { fn, mocked, userEvent, within, waitFor, expect } from "storybook/test";
 import { useTableShapes } from "@common/lib/deploymentApi";
 import { Shape } from "shapes";
@@ -112,43 +116,43 @@ const mockShapesData: Record<string, Shape> = {
 
 const now = Date.now();
 
-const mockDocuments: Record<string, any[]> = {
+const mockDocuments: Record<string, GenericDocument[]> = {
   channels: [
     {
-      _id: "k17cx2tgs5e3ah8b0gnkq9de2s6yxr3w" as any,
+      _id: "k17cx2tgs5e3ah8b0gnkq9de2s6yxr3w" as GenericId<string>,
       _creationTime: now - 100000,
       name: "general",
       description: "General discussion",
     },
     {
-      _id: "k17d83nrq4a7pm5g1fhev0jb9t6zxc2k" as any,
+      _id: "k17d83nrq4a7pm5g1fhev0jb9t6zxc2k" as GenericId<string>,
       _creationTime: now - 90000,
       name: "engineering",
       description: "Engineering team",
     },
     {
-      _id: "k17eqw4hy8b2vn6d3jrms0fa1t5gxp7z" as any,
+      _id: "k17eqw4hy8b2vn6d3jrms0fa1t5gxp7z" as GenericId<string>,
       _creationTime: now - 80000,
       name: "random",
     },
   ],
   messages: [
     {
-      _id: "k27fv9xgn3c4wk8e2dpht1ja6m5byr0q" as any,
+      _id: "k27fv9xgn3c4wk8e2dpht1ja6m5byr0q" as GenericId<string>,
       _creationTime: now - 50000,
       body: "Hello, world!",
       author: "k37ax5mrd2e8tn4f1ghqv0jb7w6ypc9k",
       channel: "k17cx2tgs5e3ah8b0gnkq9de2s6yxr3w",
     },
     {
-      _id: "k27gm6bpz1d9xr3h5eqwt4ka8n7fyc2j" as any,
+      _id: "k27gm6bpz1d9xr3h5eqwt4ka8n7fyc2j" as GenericId<string>,
       _creationTime: now - 40000,
       body: "Welcome to our app",
       author: "k37bh2nqe7f4yk9g3jtmv1da6w8xpc5r",
       channel: "k17cx2tgs5e3ah8b0gnkq9de2s6yxr3w",
     },
     {
-      _id: "k27hn3ctw8e5yp6j2frvx1kb4m9gqd7a" as any,
+      _id: "k27hn3ctw8e5yp6j2frvx1kb4m9gqd7a" as GenericId<string>,
       _creationTime: now - 30000,
       body: "Great work on the new feature!",
       author: "k37ax5mrd2e8tn4f1ghqv0jb7w6ypc9k",
@@ -157,14 +161,14 @@ const mockDocuments: Record<string, any[]> = {
   ],
   users: [
     {
-      _id: "k37ax5mrd2e8tn4f1ghqv0jb7w6ypc9k" as any,
+      _id: "k37ax5mrd2e8tn4f1ghqv0jb7w6ypc9k" as GenericId<string>,
       _creationTime: now - 200000,
       name: "Alice Johnson",
       email: "alice@example.com",
       isAdmin: true,
     },
     {
-      _id: "k37bh2nqe7f4yk9g3jtmv1da6w8xpc5r" as any,
+      _id: "k37bh2nqe7f4yk9g3jtmv1da6w8xpc5r" as GenericId<string>,
       _creationTime: now - 190000,
       name: "Bob Smith",
       email: "bob@example.com",
@@ -187,13 +191,7 @@ const mockConvexClient = mockConvexReactClient()
   )
   .registerQueryFake(
     udfs.paginatedTableDocuments.default,
-    ({
-      table,
-    }: {
-      table: string;
-      paginationOpts: any;
-      filters: string | null;
-    }) => ({
+    ({ table }: { table: string }) => ({
       page: mockDocuments[table] ?? [],
       isDone: true,
       continueCursor: "",
@@ -213,7 +211,7 @@ const mockConvexClient = mockConvexReactClient()
     3: "users",
   }))
   .registerQueryFake(udfs.deploymentState.deploymentState, () => ({
-    _id: "" as any,
+    _id: "" as GenericId<"_backend_state">,
     _creationTime: 0,
     state: "running" as const,
   }))
@@ -616,5 +614,112 @@ export const GenerateSchema: Story = {
     // Click the sidebar "Schema" button
     const schemaButton = canvas.getByRole("button", { name: /^Schema$/ });
     await userEvent.click(schemaButton);
+  },
+};
+
+export const MultipleDevDeploymentsSelector: Story = {
+  parameters: {
+    ...meta.parameters,
+    screenshotSelector: "#select-deployment, [role='menu']",
+  },
+  decorators: [
+    (storyFn) => {
+      mocked(useDeployments).mockReturnValue({
+        deployments: [
+          {
+            id: 11,
+            name: "happy-capybara-123",
+            deploymentType: "dev" as const,
+            kind: "cloud" as const,
+            isDefault: true,
+            projectId: mockProject.id,
+            creator: 1,
+            createTime: Date.now(),
+            class: "s256",
+            deploymentUrl: "https://happy-capybara-123.convex.cloud",
+            reference: "dev/nicolas",
+            region: "aws-us-east-1",
+          },
+          {
+            id: 12,
+            name: "musical-otter-456",
+            deploymentType: "prod" as const,
+            kind: "cloud" as const,
+            isDefault: true,
+            projectId: mockProject.id,
+            creator: 1,
+            createTime: Date.now(),
+            class: "s256",
+            deploymentUrl: "https://musical-otter-456.convex.cloud",
+            reference: "production",
+            region: "aws-us-east-1",
+          },
+          {
+            id: 13,
+            name: "steady-hawk-789",
+            deploymentType: "prod" as const,
+            kind: "cloud" as const,
+            isDefault: false,
+            projectId: mockProject.id,
+            creator: 1,
+            createTime: Date.now() - 100000000,
+            class: "s256",
+            deploymentUrl: "https://steady-hawk-789.convex.cloud",
+            reference: "prod/staging",
+            region: "aws-eu-west-1",
+          },
+          // Ari's feature branch deployments
+          {
+            id: 21,
+            name: "quick-panda-202",
+            deploymentType: "dev" as const,
+            kind: "cloud" as const,
+            isDefault: false,
+            projectId: mockProject.id,
+            creator: 2,
+            createTime: Date.now() - 72000000,
+            class: "s256",
+            deploymentUrl: "https://quick-panda-202.convex.cloud",
+            reference: "dev/ari/auth-flow",
+            region: "aws-us-east-1",
+          },
+          {
+            id: 22,
+            name: "calm-tiger-203",
+            deploymentType: "dev" as const,
+            kind: "cloud" as const,
+            isDefault: false,
+            projectId: mockProject.id,
+            creator: 2,
+            createTime: Date.now() - 60000000,
+            class: "s256",
+            deploymentUrl: "https://calm-tiger-203.convex.cloud",
+            reference: "dev/ari/payment-v2",
+            region: "aws-us-east-1",
+          },
+          {
+            id: 23,
+            name: "swift-eagle-204",
+            deploymentType: "dev" as const,
+            kind: "cloud" as const,
+            isDefault: false,
+            projectId: mockProject.id,
+            creator: 2,
+            createTime: Date.now() - 48000000,
+            class: "s256",
+            deploymentUrl: "https://swift-eagle-204.convex.cloud",
+            reference: "dev/ari/onboarding",
+            region: "aws-us-east-1",
+          },
+        ] satisfies PlatformDeploymentResponse[],
+        isLoading: false,
+      });
+      return storyFn();
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const selectDeployment =
+      await within(canvasElement).findByTestId("select-deployment");
+    await userEvent.click(selectDeployment);
   },
 };

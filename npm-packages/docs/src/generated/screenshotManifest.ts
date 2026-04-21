@@ -16,6 +16,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/DeploymentExpiry",
+    "light": {
+      "filename": "components_deployment_expiry_light.webp",
+      "width": 1408,
+      "height": 452
+    },
+    "dark": {
+      "filename": "components_deployment_expiry_dark.webp",
+      "width": 1408,
+      "height": 452
+    }
+  },
+  {
     "storyTitle": "docs/components/HealthFailureRate",
     "light": {
       "filename": "components_health_failure_rate_light.webp",
@@ -299,6 +312,19 @@ export const screenshots = [
       "filename": "pages_project_deployment_data_generate_schema_dark.webp",
       "width": 2048,
       "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Multiple Dev Deployments Selector",
+    "light": {
+      "filename": "pages_project_deployment_data_multiple_dev_deployments_selector_light.webp",
+      "width": 920,
+      "height": 922
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_multiple_dev_deployments_selector_dark.webp",
+      "width": 920,
+      "height": 922
     }
   },
   {

@@ -1,0 +1,259 @@
+---
+title: "Working with Multiple Deployments"
+sidebar_label: "Multiple Deployments"
+description: "Creating multiple deployments in a single project"
+sidebar_position: 300
+---
+
+import { Screenshot } from "@site/src/components/Screenshot";
+import { DeploymentTypesTable } from "@site/src/components/DeploymentTypesTable";
+
+By default, each project has a single shared **prod deployment** and each
+developer working on the project has their own **dev deployment**.
+
+For more advanced use cases, you may want to create more cloud deployments. For
+instance:
+
+- Create a preview deployment for every feature branch you push.
+- Give an isolated dev deployment to every coding agent.
+- Shard your production workload across multiple deployments.
+- Add a staging environment for your project.
+
+<Screenshot
+  story="docs/pages/project/deployment/Data#Multiple Dev Deployments Selector"
+  alt="A project with multiple deployments in the dashboard"
+/>
+
+## Creating more deployments
+
+### Using preview deployments \{#preview}
+
+**Preview deployments** are a simple way to automatically create a temporary
+deployment for each feature branch you create. These deployments are
+automatically cleaned up 5 days after they are created (14 days on the
+Professional, Business and Enterprise plans).
+
+<BetaAdmonition feature="Convex preview deployments" verb="are" />
+
+<Details summary="Setting up preview deployments">
+
+Preview deployments can be automatically created using the `npx convex deploy`
+command. You will need to set the `CONVEX_DEPLOY_KEY` environment variable to a
+preview deploy key. You can generate a preview deploy key in the dashboard from
+[the settings page of the project](https://dashboard.convex.dev/project/settings#preview-deploy-keys).
+
+To deploy code to a preview deployment, use:
+
+```bash
+npx convex deploy --preview-create="my-preview-deployment-name"
+```
+
+This command will create a preview deployment if needed. If a preview deployment
+with the same name already exists, the existing preview deployment and its data
+will be deleted, and a new one will be created.
+
+If you’re deploying your code from
+[Vercel](/production/hosting/vercel.mdx#preview-deployments),
+[Netlify](/production/hosting/netlify.mdx#deploy-previews), Cloudflare Pages, or
+GitHub Actions, you can simply use `npx convex deploy`. The preview name will
+automatically be determined. With that workflow, you can reuse the same deploy
+command for preview deployments and production deployments: for preview
+deployments, set the `CONVEX_DEPLOY_KEY` environment variable to a preview
+deploy key, and in production, set it to your production environment’s deploy
+key.
+
+</Details>
+
+<Details summary="Seeding initial data">
+
+If you want to automatically create sample data when a preview deployment is
+created, you can use `--preview-run`:
+
+```bash
+npx convex deploy --preview-name="my-preview-deployment-name" --preview-run=<functionName>
+```
+
+Replace `<functionName>` by the name of a Convex function that will be ran if a
+preview deployment is created. `--preview-run` is ignored `npx convex deploy`
+doesn’t create a preview deployment.
+
+Note that if the function call fails, the `deploy` command will fail, but the
+new preview deployment will have already been provisioned. Best course of action
+is to fix the issue in the function and redeploy.
+
+</Details>
+
+### From the command line
+
+#### Interactively
+
+To create a new deployment manually, run the following command in your project:
+
+```sh
+npx convex deployment create
+```
+
+This command will allow you to interactively choose the deployment type, region,
+and reference for the new deployment.
+
+![CLI Screenshot showing npx convex deployment create](/screenshots/deployment-create.png)
+
+<Admonition type="info" title="Convex version requirement">
+
+To use `npx convex deployment create`, you must use the `convex` NPM package
+version 1.34.0 or later.
+
+</Admonition>
+
+#### From a script (e.g. agent setup script)
+
+You can also use `npx convex deployment create` in scripts to automatically
+manage deployments:
+
+```bash
+npx convex deployment create <reference> --type=<type> [options] [--select]
+# For instance:
+# npx convex deployment create dev/james/feature-payment-integration --type=dev --region us --expiration "in 7 days" --select
+```
+
+When including **`--select`**, the deployment you created will be used by the
+`npx convex` commands you run after.
+
+The **reference** is a string that uniquely identifies the deployment within a
+project. It must be 3 to 100 characters and contain only alphanumeric
+characters, dashes, and slashes. The reference is used by the Convex dashboard
+and by `npx convex` to identify the deployment, so we recommend using
+descriptive names.
+
+Below are some examples of how to use `npx convex deployment create` with
+popular tools:
+
+<Details summary="Using the Codex app">
+
+Open the Codex app settings and go to _Environments_. Select the environment for
+your project or create one if needed. Use the following setup script:
+
+```bash
+npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-codex/$(basename \"$(dirname \"$CODEX_WORKTREE_PATH\")\") --select"
+```
+
+Replace `my-team` and `my-project` with your team and project slugs.
+
+When starting a new worktree, select the environment that you just created.
+
+</Details>
+
+<Details summary="Using Conductor">
+
+Add the following setup command to the `conductor.json` file of your project:
+
+```json
+{
+  "scripts": {
+    "setup": "npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-conductor/$CONDUCTOR_WORKSPACE_NAME --select"
+  }
+}
+```
+
+Replace `my-team` and `my-project` with the slugs of your team and project.
+
+</Details>
+
+<Details summary="Using Cursor local worktrees">
+
+Add the following setup command to the `.cursor/worktrees.json` file of your
+project:
+
+```json
+{
+  "setup-worktree": [
+    "npm ci",
+    "npx convex deployment create --type=dev my-team:my-project:dev/$USER-cursor/$(basename \"$PWD\") --select"
+  ]
+}
+```
+
+Replace `my-team` and `my-project` with the slugs of your team and project.
+
+</Details>
+
+<Details summary="Using T3 Code">
+
+Click on **Add action** in the top bar. Enable _Run automatically on worktree
+creation_ and use the following command:
+
+```bash
+npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-t3code/$(basename "$PWD" | sed 's/^t3code-//') --select
+```
+
+Replace `my-team` and `my-project` with the slugs of your team and project.
+
+</Details>
+
+### Through the API
+
+You can also create deployments
+[through the management API](/management-api/create-deployment).
+
+## Targeting different deployments \{#select}
+
+If you’re manually managing multiple dev deployments, you can use
+`npx convex deployment select` to change the deployment used by `npx convex dev`
+and other commands:
+
+```bash
+# To select a deployment in the same project:
+npx convex deployment select dev/james/feature-payment-integration
+
+# To select a deployment in another project:
+npx convex deployment select my-project:dev/james/feature-payment-integration
+
+# To select a deployment in another team:
+npx convex deployment select my-team:my-project:dev/james/feature-payment-integration
+```
+
+<a id="deployment-flag"></a>
+
+If you only need to run a single command on another deployment, you can use
+`--deployment`:
+
+```bash
+npx convex env list --deployment dev/james/feature-payment-integration
+```
+
+<Admonition type="info" title="Convex version requirement">
+
+To use `npx convex deployment select` and `--deployment`, you must use the
+`convex` NPM package version 1.34.0 or later.
+
+</Admonition>
+
+## Deployment types
+
+There are three types of cloud deployments in Convex:
+
+<DeploymentTypesTable />
+
+<Admonition type="info" title="Customize settings">
+
+The table above shows the <em>default</em> settings for deployments in a type.
+You can modify the settings of an individual deployment from the deployment’s
+settings page in the dashboard.
+
+</Admonition>
+
+## Limits
+
+Every deployment you create counts towards the
+[deployment limit](/production/state/limits.mdx) of your team.
+
+You can set an expiration date when creating a deployment with `--expiration`.
+Run `npx convex deployment create --help` to learn more.
+
+You can change the expiration time for an existing deployment in the dashboard
+deployment settings.
+
+<Screenshot
+  story="docs/components/DeploymentExpiry"
+  alt="Deployment expiry in the dashboard"
+/>

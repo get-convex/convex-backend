@@ -267,6 +267,7 @@ export function DeploymentLabel({
       <Button
         variant="unstyled"
         id="select-deployment"
+        data-testid="select-deployment"
         className={cn(
           "flex h-[2.3125rem] items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",

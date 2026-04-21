@@ -549,7 +549,7 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
       These keys are for creating{" "}
       <Link
         passHref
-        href="https://docs.convex.dev/production/hosting/preview-deployments"
+        href="https://docs.convex.dev/production/hosting/multiple-deployments#preview"
         target="_blank"
       >
         preview deployments

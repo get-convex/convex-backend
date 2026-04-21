@@ -1645,3 +1645,9 @@ a.video-card h2 {
     transform: translateY(0);
   }
 }
+
+table > caption {
+  font-weight: 500;
+  font-size: 105%;
+  margin-bottom: 0.5em;
+}
