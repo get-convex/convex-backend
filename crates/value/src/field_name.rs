@@ -8,6 +8,7 @@ use std::{
     str::FromStr,
 };
 
+use compact_str::CompactString;
 use sync_types::identifier::{
     check_valid_field_name,
     check_valid_identifier,
@@ -21,7 +22,7 @@ use crate::{
 
 /// Field names within an object type.
 #[derive(Hash, Eq, Ord, PartialEq, PartialOrd, Clone, derive_more::Display)]
-pub struct FieldName(String);
+pub struct FieldName(CompactString);
 
 impl Namespace for FieldName {
     fn is_system(&self) -> bool {
@@ -34,7 +35,7 @@ impl FromStr for FieldName {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         check_valid_field_name(s)?;
-        Ok(Self(s.to_owned()))
+        Ok(Self(s.into()))
     }
 }
 
@@ -43,13 +44,13 @@ impl TryFrom<String> for FieldName {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         check_valid_field_name(&s)?;
-        Ok(Self(s))
+        Ok(Self(s.into()))
     }
 }
 
 impl From<FieldName> for String {
     fn from(f: FieldName) -> Self {
-        f.0
+        f.0.into()
     }
 }
 
@@ -82,8 +83,7 @@ impl HeapSize for FieldName {
 impl From<FieldName> for ConvexValue {
     fn from(value: FieldName) -> Self {
         ConvexValue::String(
-            value
-                .0
+            String::from(value.0)
                 .try_into()
                 .expect("Field name was unexpectedly not a valid Convex string"),
         )
@@ -101,7 +101,7 @@ pub enum FieldType {
 
 /// Field names within an object that are also valid identifiers.
 #[derive(Hash, Eq, Ord, PartialEq, PartialOrd, Clone, Debug, derive_more::Display)]
-pub struct IdentifierFieldName(String);
+pub struct IdentifierFieldName(CompactString);
 
 impl HeapSize for IdentifierFieldName {
     fn heap_size(&self) -> usize {
@@ -121,13 +121,13 @@ impl FromStr for IdentifierFieldName {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         check_valid_field_name(s)?;
         check_valid_identifier(s)?;
-        Ok(Self(s.to_owned()))
+        Ok(Self(s.into()))
     }
 }
 
 impl From<IdentifierFieldName> for String {
     fn from(f: IdentifierFieldName) -> Self {
-        f.0
+        f.0.into()
     }
 }
 
