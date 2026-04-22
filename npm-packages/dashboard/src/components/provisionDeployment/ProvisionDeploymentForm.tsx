@@ -26,6 +26,7 @@ import { GlobeIcon } from "@radix-ui/react-icons";
 import { useIsomorphicLayoutEffect } from "react-use";
 import { Region, sortRegions } from "elements/Region";
 import { ProvisioningLoading } from "./ProvisioningLoading";
+import { EUPricingWarning } from "elements/EUPricingWarning";
 
 const REGION_COORDINATES: Record<RegionName, [number, number]> = {
   "aws-us-east-1": [38.9072, -77.0369], // Washington DC area (US East)
@@ -222,12 +223,7 @@ export function ProvisionDeploymentFormInner({
                       ))}
                 </div>
               </RadioGroup>
-              {selectedRegion && selectedRegion !== "aws-us-east-1" && (
-                <p className="mt-2 text-xs text-content-warning">
-                  No included limits — all usage billed on-demand + 30% regional
-                  surcharge
-                </p>
-              )}
+              <EUPricingWarning show={selectedRegion === "aws-eu-west-1"} />
             </Fieldset>
 
             <Tooltip
@@ -269,12 +265,6 @@ export function ProvisionDeploymentFormInner({
                 Create deployment
               </Button>
             </div>
-
-            <p className="text-xs text-content-secondary">
-              Usage on EU-hosted deployments is subject to a 30% pass-through
-              surcharge. On paid subscriptions, built-in resources are only
-              applicable to the US region.
-            </p>
           </form>
         </Sheet>
       </div>

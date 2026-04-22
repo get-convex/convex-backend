@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import { Fieldset, Legend, RadioGroup } from "@headlessui/react";
 import { Region, sortRegions } from "elements/Region";
-import { DeploymentRegionMetadata } from "@convex-dev/platform/managementApi";
+import {
+  DeploymentRegionMetadata,
+  RegionName,
+} from "@convex-dev/platform/managementApi";
+import { EUPricingWarning } from "elements/EUPricingWarning";
 
 export function DefaultRegionSelector({
   value,
@@ -10,8 +14,8 @@ export function DefaultRegionSelector({
   teamSlug,
   disabledDueToPermissions = false,
 }: {
-  value: string | null;
-  onChange: (region: string | null) => void;
+  value: RegionName | null;
+  onChange: (region: RegionName | null) => void;
   regions: DeploymentRegionMetadata[] | undefined;
   teamSlug: string | undefined;
   disabledDueToPermissions?: boolean;
@@ -56,11 +60,7 @@ export function DefaultRegionSelector({
           )}
         </div>
       </RadioGroup>
-      <p className="mt-2 max-w-prose text-xs text-content-secondary">
-        Usage on EU-hosted deployments is subject to a 30% pass-through
-        surcharge. On paid subscriptions, built-in resources are only applicable
-        to the US region.
-      </p>
+      <EUPricingWarning show={value === "aws-eu-west-1"} />
     </Fieldset>
   );
 }
