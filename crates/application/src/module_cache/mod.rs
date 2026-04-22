@@ -56,8 +56,8 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
     #[fastrace::trace]
     async fn get_module_with_metadata(
         &self,
-        module_metadata: ParsedDocument<ModuleMetadata>,
-        source_package: ParsedDocument<SourcePackage>,
+        module_metadata: &ParsedDocument<ModuleMetadata>,
+        source_package: &ParsedDocument<SourcePackage>,
     ) -> anyhow::Result<Arc<FullModuleSource>> {
         let timer = metrics::module_cache_get_module_timer();
 
@@ -66,11 +66,17 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
             module_metadata.source_package_id,
         );
         let modules_storage = self.modules_storage.clone();
+        let module_metadata = module_metadata.clone();
+        let source_package = source_package.clone();
         let result = self
             .cache
             .get_and_prepopulate(
                 key,
-                get_module_and_prefetch(modules_storage, module_metadata, source_package).boxed(),
+                async move {
+                    get_module_and_prefetch(modules_storage, &module_metadata, &source_package)
+                        .await
+                }
+                .boxed(),
             )
             .await?;
 

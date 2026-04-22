@@ -340,14 +340,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let (definition_id, current_id) =
                 model.must_component_path_to_ids(&current_component_path)?;
             let definition = model.load_definition_metadata(definition_id).await?;
-            let http_routes = ModuleModel::new(model.tx)
-                .get_http(current_id)
-                .await?
+            let module = ModuleModel::new(model.tx).get_http(current_id).await?;
+            let http_routes = module
+                .as_ref()
                 .map(|m| {
-                    m.into_value()
-                        .analyze_result
+                    m.analyze_result
+                        .as_ref()
                         .context("Missing analyze result for http module")?
                         .http_routes
+                        .as_ref()
                         .context("Missing http routes")
                 })
                 .transpose()?;
@@ -372,7 +373,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             // First, try matching an exact path from `http.js`, which will always
             // be the most specific match.
             if let Some(ref effective_path) = http_js_routed_path
-                && let Some(ref http_routes) = http_routes
+                && let Some(http_routes) = http_routes
                 && http_routes.route_exact(&effective_path[..], method)
             {
                 return Ok(Some((current_component_path, effective_path.clone())));
@@ -387,7 +388,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let mut longest_match = None;
 
             if let Some(ref effective_path) = http_js_routed_path
-                && let Some(ref http_routes) = http_routes
+                && let Some(http_routes) = http_routes
                 && let Some(match_suffix) = http_routes.route_prefix(effective_path, method)
             {
                 longest_match = Some((match_suffix, CurrentMatch::CurrentHttpJs));

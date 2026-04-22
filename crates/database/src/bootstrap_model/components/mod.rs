@@ -270,7 +270,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
     pub async fn load_definition(
         &mut self,
         id: ComponentDefinitionId,
-    ) -> anyhow::Result<Option<ParsedDocument<ComponentDefinitionMetadata>>> {
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<ComponentDefinitionMetadata>>>> {
         let internal_id = match id {
             ComponentDefinitionId::Root => match self.root_component()? {
                 Some(root_component) => root_component.definition_id,
@@ -278,17 +278,16 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             },
             ComponentDefinitionId::Child(id) => id,
         };
-        let Some(doc) = self
+        let Some(mut doc) = self
             .tx
             .get_system::<ComponentDefinitionsTable>(TableNamespace::Global, internal_id)
             .await?
         else {
             return Ok(None);
         };
-        let mut doc = Arc::unwrap_or_clone(doc);
         if !doc.exports.is_empty() {
             metrics::log_nonempty_component_exports();
-            doc.exports = BTreeMap::new();
+            Arc::make_mut(&mut doc).exports = BTreeMap::new();
         }
         Ok(Some(doc))
     }
@@ -298,7 +297,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         id: ComponentDefinitionId,
     ) -> anyhow::Result<ComponentDefinitionMetadata> {
         match self.load_definition(id).await? {
-            Some(doc) => Ok(doc.into_value()),
+            Some(doc) => Ok(Arc::unwrap_or_clone(doc).into_value()),
             None => {
                 if id.is_root() {
                     // The root component's metadata document may be missing if the app hasn't been

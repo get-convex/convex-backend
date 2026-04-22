@@ -1365,7 +1365,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 let source_maps_callback = async {
                     let module_version = self
                         .module_cache
-                        .get_module_with_metadata(module_metadata, source_package)
+                        .get_module_with_metadata(&module_metadata, &source_package)
                         .await?;
                     let mut source_maps = BTreeMap::new();
                     if let Some(source_map) = module_version.source_map.clone() {

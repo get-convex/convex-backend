@@ -24,8 +24,8 @@ use crate::{
 pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
     async fn get_module_with_metadata(
         &self,
-        module_metadata: ParsedDocument<ModuleMetadata>,
-        source_package: ParsedDocument<SourcePackage>,
+        module_metadata: &ParsedDocument<ModuleMetadata>,
+        source_package: &ParsedDocument<SourcePackage>,
     ) -> anyhow::Result<Arc<FullModuleSource>>;
 
     async fn get_module(
@@ -41,7 +41,7 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         let source_package = SourcePackageModel::new(tx, component.into())
             .get(module_metadata.source_package_id)
             .await?;
-        self.get_module_with_metadata(module_metadata, source_package)
+        self.get_module_with_metadata(&module_metadata, &source_package)
             .await
             .map(Some)
     }

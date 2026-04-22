@@ -304,10 +304,10 @@ impl<RT: Runtime> UdfPhase<RT> {
         let module_source = timeout
             .with_release_permit(
                 PauseReason::LoadModuleSource,
-                module_loader.get_module_with_metadata(module_metadata.clone(), source_package),
+                module_loader.get_module_with_metadata(&module_metadata, &source_package),
             )
             .await?;
-        let code_cache_result = module_loader.code_cache_result(module_metadata.into_value());
+        let code_cache_result = module_loader.code_cache_result(&module_metadata);
         Ok(Some((module_source, code_cache_result)))
     }
 

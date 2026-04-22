@@ -192,8 +192,10 @@ impl<RT: Runtime> ActionPhase<RT> {
                     let path = metadata.path.clone();
                     let module = module_loader
                         .get_module_with_metadata(
-                            metadata.clone(),
-                            source_package.clone().context("source package not found")?,
+                            &metadata,
+                            source_package
+                                .as_ref()
+                                .context("source package not found")?,
                         )
                         .await?;
                     modules.insert(path, (metadata.into_value(), module));
@@ -316,7 +318,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             module.environment
         );
 
-        let code_cache_result = module_loader.clone().code_cache_result(module.clone());
+        let code_cache_result = module_loader.clone().code_cache_result(module);
         Ok(Some((source.clone(), code_cache_result)))
     }
 

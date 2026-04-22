@@ -30,8 +30,8 @@ use crate::{
 #[fastrace::trace]
 pub async fn get_module_and_prefetch(
     modules_storage: Arc<dyn Storage>,
-    module_metadata: ParsedDocument<ModuleMetadata>,
-    source_package: ParsedDocument<SourcePackage>,
+    module_metadata: &ParsedDocument<ModuleMetadata>,
+    source_package: &ParsedDocument<SourcePackage>,
 ) -> HashMap<(CanonicalizedModulePath, SourcePackageId), anyhow::Result<Arc<FullModuleSource>>> {
     let _timer = module_load_timer("package");
     let all_source_result =
@@ -58,7 +58,7 @@ pub async fn get_module_and_prefetch(
 #[fastrace::trace]
 async fn download_module_source_from_package(
     modules_storage: Arc<dyn Storage>,
-    source_package: ParsedDocument<SourcePackage>,
+    source_package: &ParsedDocument<SourcePackage>,
 ) -> anyhow::Result<HashMap<(CanonicalizedModulePath, SourcePackageId), FullModuleSource>> {
     let mut result = HashMap::new();
     let package = download_package(
