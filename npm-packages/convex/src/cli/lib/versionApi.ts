@@ -37,6 +37,7 @@ const versionResultSchema = z.object({
   guidelinesHash: optionalStringToNullSchema,
   agentSkillsSha: optionalStringToNullSchema,
   disableSkillsCli: optionalTrueToBooleanSchema,
+  disableSkillsCliMessage: optionalStringToNullSchema,
 });
 
 const agentSkillStatusSchema = z.discriminatedUnion("kind", [

@@ -61,7 +61,10 @@ async function shouldRunSkillsCli(): Promise<boolean> {
 
   if (versionData.kind === "ok") {
     if (versionData.data.disableSkillsCli) {
-      logMessage(chalkStderr.yellow(`Agent skills are temporarily disabled.`));
+      const message =
+        versionData.data.disableSkillsCliMessage ??
+        "Agent skills are temporarily disabled.";
+      logMessage(chalkStderr.yellow(message));
       return false;
     }
     return true;
