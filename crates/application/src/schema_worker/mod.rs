@@ -28,6 +28,7 @@ use database::{
     SchemaModel,
     SchemaValidationProgressModel,
     Snapshot,
+    Token,
     Transaction,
     SCHEMAS_TABLE,
 };
@@ -85,7 +86,16 @@ impl<RT: Runtime> SchemaWorker<RT> {
             tracing::info!("Starting SchemaWorker");
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
             loop {
-                if let Err(e) = worker.run().await {
+                let result: anyhow::Result<()> = async {
+                    let token = Box::pin(worker.run()).await?;
+                    worker
+                        .database
+                        .subscribe_and_wait_for_invalidation(token)
+                        .await?;
+                    Ok(())
+                }
+                .await;
+                if let Err(e) = result {
                     let delay = backoff.fail(&mut worker.runtime.rng());
                     report_error(&mut e.context("SchemaWorker died")).await;
                     tracing::error!("Schema worker failed, sleeping {delay:?}");
@@ -134,7 +144,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         Ok(pending_schema_work)
     }
 
-    pub async fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<Token> {
         let status = log_worker_starting("SchemaWorker");
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let snapshot = self.database.snapshot(tx.begin_timestamp())?;
@@ -161,10 +171,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
 
         drop(status);
         tracing::debug!("SchemaWorker waiting...");
-        self.database
-            .subscribe_and_wait_for_invalidation(token)
-            .await?;
-        Ok(())
+        Ok(token)
     }
 
     async fn validate_tables(

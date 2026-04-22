@@ -21,6 +21,7 @@ use common::{
 use database::{
     Database,
     SystemMetadataModel,
+    Token,
 };
 use exports::{
     interface::ExportProvider,
@@ -93,7 +94,17 @@ impl<RT: Runtime> ExportWorker<RT> {
         };
         async move {
             loop {
-                if let Err(e) = worker.run().await {
+                let result: anyhow::Result<()> = async {
+                    if let Some(token) = Box::pin(worker.run()).await? {
+                        worker
+                            .database
+                            .subscribe_and_wait_for_invalidation(token)
+                            .await?;
+                    }
+                    Ok(())
+                }
+                .await;
+                if let Err(e) = result {
                     report_error(&mut e.context("ExportWorker died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     worker.runtime.wait(delay).await;
@@ -107,7 +118,7 @@ impl<RT: Runtime> ExportWorker<RT> {
     // Subscribe to the export table. If there is a requested export, start
     // an export and mark as in_progress. If there's an export job that didn't
     // finish (it's in_progress), restart that export.
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> anyhow::Result<Option<Token>> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let mut exports_model = ExportsModel::new(&mut tx);
         let export_requested = exports_model.latest_requested().await?;
@@ -132,23 +143,19 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .commit_with_write_source(tx, "export_worker_export_requested")
                     .await?;
                 self.export(in_progress_export_doc).await?;
-                return Ok(());
+                return Ok(None);
             },
             (None, Some(export)) => {
                 tracing::info!("In progress export restarting...");
                 let _status = log_worker_starting("ExportWorker");
                 self.export(export).await?;
-                return Ok(());
+                return Ok(None);
             },
             (None, None) => {
                 tracing::info!("No exports requested or in progress.");
             },
         }
-        let token = tx.into_token()?;
-        self.database
-            .subscribe_and_wait_for_invalidation(token)
-            .await?;
-        Ok(())
+        Ok(Some(tx.into_token()?))
     }
 
     async fn export(&mut self, export: ParsedDocument<Export>) -> anyhow::Result<()> {
