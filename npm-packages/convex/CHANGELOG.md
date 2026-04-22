@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.36.0
 
 - `npx convex run` now supports `--inline-query` for evaluating readonly queries
   without creating a named function first, for example:
@@ -17,12 +17,20 @@
   `npx convex deploy` on CI runners on popular platforms (including GitHub Actions,
   Vercel, and Netlify), a default message will be provided if you don’t provide one
   (e.g. “Deployed from GitHub Actions • e83c516”).
+- You can now run inline queries from the CLI:
+  `npx convex run --inline-query 'await ctx.db.query("messages").take(5)'`
 - When deploying to a preview deployment, you can now reuse the existing deployment
   instead of creating a new one by using `--preview-name` instead of `--preview-create`.
   This behavior is also used when deploying to preview deployments from the CI
   without specifying `--preview-create` explictly, but you can
   specify `--preview-create` explicitly to restore the old behavior. When using the
   `--preview-run` flag, the function only runs when a new deployment is created.
+- `npx convex codegen` can now automatically start a local backend when necessary.
+- You can now increase the timeout used by the CLI when starting a local backend
+  with `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS`; this can be useful when using
+  large local databases.
+- Fixed a bug where `npx convex ai-files remove` would also remove skill files that
+  were not installed by `npx convex ai-files`
 - Fixed a bug where the automatically-generated files would sometimes sort imports
   in inconsistent order across platforms.
 - Fixed a bug in `npx convex dev --start` where, in some cases, the `--start` command
