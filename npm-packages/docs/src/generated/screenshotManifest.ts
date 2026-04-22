@@ -42,6 +42,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/HealthSchedulerStatus",
+    "light": {
+      "filename": "components_health_scheduler_status_light.webp",
+      "width": 832,
+      "height": 556
+    },
+    "dark": {
+      "filename": "components_health_scheduler_status_dark.webp",
+      "width": 832,
+      "height": 556
+    }
+  },
+  {
     "storyTitle": "docs/components/OverrideEnvironmentVariables",
     "light": {
       "filename": "components_override_environment_variables_light.webp",
