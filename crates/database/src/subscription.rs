@@ -187,7 +187,7 @@ pub struct SubscriptionSender {
 
 impl Drop for SubscriptionSender {
     fn drop(&mut self) {
-        self.validity.valid_ts.store(-1, Ordering::SeqCst);
+        self.validity.valid_ts.store(-1, Ordering::Release);
         _ = self.valid_tx.send(SubscriptionState::Invalid);
     }
 }
@@ -197,7 +197,7 @@ impl SubscriptionSender {
         if let Some(invalid_ts) = invalid_ts {
             self.validity.set_invalid_ts(invalid_ts);
         }
-        self.validity.valid_ts.store(-1, Ordering::SeqCst);
+        self.validity.valid_ts.store(-1, Ordering::Release);
         if let Some(delay) = delay {
             // Wait to invalidate the subscription by moving it into a new task
             tokio::spawn(async move {
@@ -814,7 +814,10 @@ impl Validity {
     }
 
     fn valid_ts(&self) -> Option<Timestamp> {
-        match self.valid_ts.load(Ordering::SeqCst) {
+        // synchronizes with a Release store of -1 to valid_ts;
+        // guarantees that a subsequent load of `invalid_ts` will
+        // observe the correct value if written
+        match self.valid_ts.load(Ordering::Acquire) {
             -1 => None,
             ts => Some(
                 ts.try_into()
@@ -824,11 +827,11 @@ impl Validity {
     }
 
     fn set_valid_ts(&self, ts: Timestamp) {
-        self.valid_ts.store(ts.into(), Ordering::SeqCst);
+        self.valid_ts.store(ts.into(), Ordering::Relaxed);
     }
 
     fn invalid_ts(&self) -> Option<Timestamp> {
-        match self.invalid_ts.load(Ordering::SeqCst) {
+        match self.invalid_ts.load(Ordering::Relaxed) {
             -1 => None,
             ts => Some(
                 ts.try_into()
@@ -838,7 +841,7 @@ impl Validity {
     }
 
     fn set_invalid_ts(&self, ts: Timestamp) {
-        self.invalid_ts.store(ts.into(), Ordering::SeqCst);
+        self.invalid_ts.store(ts.into(), Ordering::Relaxed);
     }
 }
 
