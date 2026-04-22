@@ -20,7 +20,7 @@ async function resolveProjectPaths() {
   const convexDir = path.resolve(functionsDir(configPath, projectConfig));
   const projectDir = path.resolve(path.dirname(configPath));
   const aiFilesConfig = projectConfig.aiFiles;
-  return { projectDir, convexDir, aiFilesConfig, projectConfig };
+  return { ctx, projectDir, convexDir, aiFilesConfig, projectConfig };
 }
 
 const aiInstall = new Command("install")
@@ -139,8 +139,15 @@ const aiRemove = new Command("remove")
   )
   .allowExcessArguments(false)
   .action(async () => {
-    const { projectDir, convexDir } = await resolveProjectPaths();
-    await removeAiFiles({ projectDir, convexDir });
+    const { ctx, projectDir, convexDir } = await resolveProjectPaths();
+    const result = await removeAiFiles({ projectDir, convexDir });
+    if (result.kind === "error") {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: result.message,
+      });
+    }
   });
 
 export const aiFiles = new Command("ai-files")

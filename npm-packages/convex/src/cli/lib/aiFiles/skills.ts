@@ -6,39 +6,9 @@ import { chalkStderr } from "chalk";
 import { logMessage } from "../../../bundler/log.js";
 import { getVersion, fetchAgentSkillsSha } from "../versionApi.js";
 import { type AiFilesState } from "./state.js";
-import { exhaustiveCheck, iife, readFileOrNull } from "./utils.js";
+import { exhaustiveCheck } from "./utils.js";
 
 import { type AiFilesProjectConfig } from "../config.js";
-
-/**
- * Read the frontmatter `name:` values from skills installed by the skills CLI.
- */
-async function readInstalledSkillNames(projectDir: string): Promise<string[]> {
-  const skillsDir = path.join(projectDir, ".agents", "skills");
-  const entries = await iife(async () => {
-    try {
-      const dirents = await fs.readdir(skillsDir, { withFileTypes: true });
-      return dirents
-        .filter((d) => d.isDirectory() || d.isSymbolicLink())
-        .map((d) => d.name);
-    } catch {
-      return [] as string[];
-    }
-  });
-  if (entries.length === 0) return [];
-
-  const names: string[] = [];
-  for (const entry of entries) {
-    const skillMdPath = path.join(skillsDir, entry, "SKILL.md");
-    const content = await readFileOrNull(skillMdPath);
-    if (content === null) continue;
-    const match = content.match(/^---[\s\S]*?^name:\s*(.+?)\s*$/m);
-    if (match) {
-      names.push(match[1]);
-    }
-  }
-  return names;
-}
 
 /**
  * Resolve the configured agent list, falling back to defaults.
@@ -61,7 +31,7 @@ function runSkillsAdd(cwd: string, agents: string[]): Promise<boolean> {
   for (const agent of agents) {
     args.push("--agent", agent);
   }
-  return runSkillsCommand(cwd, args);
+  return runSkillsCommand(cwd, args).then(({ ok }) => ok);
 }
 
 /**
@@ -75,7 +45,9 @@ function runSkillsRemove({
   cwd: string;
   skillNames: string[];
 }): Promise<boolean> {
-  return runSkillsCommand(cwd, ["remove", ...skillNames, "--yes"]);
+  return runSkillsCommand(cwd, ["remove", ...skillNames, "--yes"]).then(
+    ({ ok }) => ok,
+  );
 }
 
 /**
@@ -139,7 +111,7 @@ async function removeSkillsLockIfEmpty({
 }
 
 /**
- * Install Convex agent skills and record the SHA and names into the state.
+ * Install Convex agent skills and record the SHA into the state.
  * Handles the kill-switch check and all logging internally.
  */
 export async function installSkills({
@@ -151,9 +123,9 @@ export async function installSkills({
   state: AiFilesState;
   aiFilesConfig?: AiFilesProjectConfig | undefined;
 }): Promise<void> {
-  if (!(await shouldRunSkillsCli())) return;
   const agents = configuredSkillAgents(aiFilesConfig);
   if (agents.length === 0) return;
+  if (!(await shouldRunSkillsCli())) return;
 
   logMessage("Installing Convex agent skills...");
   const skillsOk = await runSkillsAdd(projectDir, agents);
@@ -169,15 +141,14 @@ export async function installSkills({
   const sha = await fetchAgentSkillsSha();
   if (sha) state.agentSkillsSha = sha;
 
-  const names = await readInstalledSkillNames(projectDir);
-  if (names.length > 0) state.installedSkillNames = names;
-
   logMessage(`${chalkStderr.green("✔")} Skills installed`);
 }
 
+export type RemoveInstalledSkillsStatus = "unchanged" | "removed" | "failed";
+
 /**
  * Remove Convex-managed agent skills and clean up the lock file if empty.
- * Returns true if any removal occurred.
+ * Returns whether removal was skipped, succeeded, or failed.
  */
 export async function removeInstalledSkills({
   projectDir,
@@ -185,9 +156,9 @@ export async function removeInstalledSkills({
 }: {
   projectDir: string;
   skillNames: string[];
-}): Promise<boolean> {
-  if (skillNames.length === 0) return false;
-  if (!(await shouldRunSkillsCli())) return false;
+}): Promise<RemoveInstalledSkillsStatus> {
+  if (skillNames.length === 0) return "unchanged";
+  if (!(await shouldRunSkillsCli())) return "unchanged";
 
   logMessage(`Removing Convex agent skills: ${skillNames.join(", ")}`);
   const skillsOk = await runSkillsRemove({ cwd: projectDir, skillNames });
@@ -197,7 +168,7 @@ export async function removeInstalledSkills({
         "Could not remove agent skills automatically. Remove them manually with: npx skills remove",
       ),
     );
-    return false;
+    return "failed";
   }
 
   const lockRemoved = await removeSkillsLockIfEmpty({
@@ -208,10 +179,13 @@ export async function removeInstalledSkills({
   if (lockRemoved)
     logMessage(`${chalkStderr.green("✔")} Deleted skills-lock.json.`);
 
-  return true;
+  return "removed";
 }
 
-function runSkillsCommand(cwd: string, args: string[]): Promise<boolean> {
+function runSkillsCommand(
+  cwd: string,
+  args: string[],
+): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
     const proc = child_process.spawn(
       "npx",
@@ -236,8 +210,8 @@ function runSkillsCommand(cwd: string, args: string[]): Promise<boolean> {
         const tail = lines.slice(-10).join("\n");
         logMessage(chalkStderr.gray(`skills output (tail):\n${tail}`));
       }
-      resolve(code === 0);
+      resolve({ ok: code === 0, output: capturedOutput });
     });
-    proc.on("error", () => resolve(false));
+    proc.on("error", () => resolve({ ok: false, output: capturedOutput }));
   });
 }

@@ -14,9 +14,6 @@ export const aiFilesStateSchema = z.object({
   // Commit SHA from get-convex/agent-skills that was current when skills were
   // last installed. Used to detect when newer skills are available.
   agentSkillsSha: z.string().nullable(),
-  // Names of skills installed by `npx skills add`, used by `remove` to
-  // only remove Convex-managed skills.
-  installedSkillNames: z.array(z.string()).default([]),
 });
 
 export type AiFilesState = z.infer<typeof aiFilesStateSchema>;
@@ -26,7 +23,6 @@ const DEFAULT_AI_STATE: AiFilesState = {
   agentsMdSectionHash: null,
   claudeMdHash: null,
   agentSkillsSha: null,
-  installedSkillNames: [],
 };
 
 export type AttemptReadAiStateResult =

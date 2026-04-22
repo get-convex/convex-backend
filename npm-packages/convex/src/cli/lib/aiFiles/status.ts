@@ -157,14 +157,13 @@ function logSkillsStatus({
   canonicalAgentSkillsSha: string | null;
   networkAvailable: boolean;
 }): void {
-  if (state.installedSkillNames.length === 0) {
+  if (state.agentSkillsSha === null) {
     logMessage(
       `  ${chalkStderr.yellow("⚠")} Agent skills: not installed — run ${chalkStderr.bold("npx convex ai-files install")} to install`,
     );
     return;
   }
 
-  const skillsList = state.installedSkillNames.join(", ");
   const isStale =
     networkAvailable &&
     canonicalAgentSkillsSha !== null &&
@@ -173,11 +172,11 @@ function logSkillsStatus({
 
   if (isStale) {
     logMessage(
-      `  ${chalkStderr.yellow("⚠")} Agent skills: ${skillsList} — out of date, run ${chalkStderr.bold("npx convex ai-files update")}`,
+      `  ${chalkStderr.yellow("⚠")} Agent skills: installed, out of date — run ${chalkStderr.bold("npx convex ai-files update")}`,
     );
   } else {
     logMessage(
-      `  ${chalkStderr.green("✔")} Agent skills: ${skillsList}${networkAvailable ? " (up to date)" : ""}`,
+      `  ${chalkStderr.green("✔")} Agent skills: installed${networkAvailable ? ", up to date" : ""}`,
     );
   }
 }

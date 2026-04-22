@@ -6,6 +6,7 @@ import { promises as fs } from "fs";
 import { chalkStderr } from "chalk";
 import { logMessage } from "../../../bundler/log.js";
 import { promptYesNo } from "../utils/prompts.js";
+import { fetchAgentSkillsCatalog } from "../versionApi.js";
 import { type AiFilesPaths, aiDirForConvexDir } from "./paths.js";
 import {
   installGuidelinesFile,
@@ -195,6 +196,10 @@ export function disableAiFiles(
   return { ...rest, enabled: false };
 }
 
+export type RemoveAiFilesResult =
+  | { kind: "success" }
+  | { kind: "error"; message: string };
+
 /**
  * Remove all Convex AI files from the project.
  * Called by `npx convex ai-files remove`.
@@ -202,32 +207,32 @@ export function disableAiFiles(
 export async function removeAiFiles({
   projectDir,
   convexDir,
-}: AiFilesPaths): Promise<void> {
-  const result = await attemptReadAiState(convexDir);
-
-  // Skill names are only known when the state file exists and parses.
-  // All other artifacts (AGENTS.md, CLAUDE.md sections, ai dir) can exist
-  // independently, so we always attempt their removal.
-  const installedSkillNames =
-    result.kind === "ok"
-      ? result.state.installedSkillNames
-      : result.kind === "no-file" || result.kind === "parse-error"
-        ? []
-        : exhaustiveCheck(result);
+}: AiFilesPaths): Promise<RemoveAiFilesResult> {
+  const agentSkillsCatalog = await fetchAgentSkillsCatalog();
+  if (agentSkillsCatalog.kind === "error") {
+    return {
+      kind: "error",
+      message:
+        "Could not fetch canonical agent skills from version.convex.dev. Aborting `convex ai-files remove`.",
+    };
+  }
 
   const removals = [
     await attemptToRemoveAgentsMdSection(projectDir),
     await attemptToRemoveClaudeMdSection(projectDir),
-    await removeInstalledSkills({
+    (await removeInstalledSkills({
       projectDir,
-      skillNames: installedSkillNames,
-    }),
+      skillNames: agentSkillsCatalog.data.skills.map(
+        ({ skillName }) => skillName,
+      ),
+    })) === "removed",
     await removeLegacyCursorRules(projectDir),
     await attemptToDeleteAiDir({ projectDir, convexDir }),
   ];
 
   if (removals.some(Boolean)) logMessage("Convex AI files removed.");
   else logMessage("No Convex AI files found — nothing to remove.");
+  return { kind: "success" };
 }
 
 async function attemptToDeleteAiDir({
@@ -241,7 +246,7 @@ async function attemptToDeleteAiDir({
     logMessage(`${chalkStderr.green("✔")} Deleted ${relPath}/`);
     return true;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    if ((error as { code?: string }).code === "ENOENT") return false;
     Sentry.captureException(error);
     logMessage(
       chalkStderr.yellow(`Could not delete ${relPath}/. Remove it manually.`),
