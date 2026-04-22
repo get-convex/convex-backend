@@ -81,7 +81,11 @@ pub mod try_chunks;
 pub mod version;
 pub mod ws;
 
-pub use execution_context::RequestId;
+pub use execution_context::{
+    RequestContext,
+    RequestId,
+    RequestMetadata,
+};
 pub use tokio;
 pub use value::{
     obj,

@@ -108,6 +108,10 @@ use self::metrics::log_http_request;
 use crate::{
     dyn_event,
     errors::report_error_sync,
+    execution_context::{
+        ClientIp,
+        ClientUserAgent,
+    },
     knobs::{
         DISABLE_METRICS_ENDPOINT,
         HTTP_SERVER_TCP_BACKLOG,
@@ -123,6 +127,7 @@ use crate::{
         ClientVersionState,
     },
     RequestId,
+    RequestMetadata,
 };
 
 pub mod extract;
@@ -1044,6 +1049,41 @@ where
             ))
         })?;
         Ok(Self(request_id))
+    }
+}
+
+pub struct ExtractRequestMetadata(pub RequestMetadata);
+
+impl<S> FromRequestParts<S> for ExtractRequestMetadata
+where
+    S: Send + Sync,
+{
+    type Rejection = HttpResponseError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let ip = parts
+            .headers
+            .get("x-forwarded-for")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.split(',').next())
+            .map(|s| s.trim().to_owned())
+            .or_else(|| {
+                parts
+                    .extensions
+                    .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                    .map(|ci| ci.0.ip().to_string())
+            });
+        let ip = ip.and_then(|s| ClientIp::try_from(s).ok());
+        let user_agent = parts
+            .headers
+            .get(http::header::USER_AGENT)
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_owned());
+        let user_agent = user_agent.and_then(|s| ClientUserAgent::try_from(s).ok());
+        Ok(ExtractRequestMetadata(RequestMetadata { ip, user_agent }))
     }
 }
 
