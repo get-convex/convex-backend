@@ -216,7 +216,7 @@ Command.prototype.addDeploymentSelectionOptions = function (
         "--deployment <deployment>",
         action +
           " a specific deployment. Accepts:\n" +
-          "• a deployment name (e.g. joyful-capybara-123)" +
+          "• a deployment name (e.g. joyful-capybara-123)\n" +
           "• a deployment reference (e.g. dev/james, staging)\n" +
           "• `dev` (for your personal dev deployment)\n" +
           "• `prod` (for your project’s default production deployment)\n" +
