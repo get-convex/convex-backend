@@ -11,20 +11,17 @@ pub async fn must_be_admin_from_key(
     instance_name: String,
     admin_key: String,
 ) -> anyhow::Result<Identity> {
-    let identity = app_auth
-        .check_key(admin_key, instance_name.clone())
-        .await
-        .map_err(|e| {
-            if e.is_forbidden() {
-                // This attaches a second ErrorMetadata to the error, but this
-                // message is more helpful
-                e.context(bad_admin_key_error(Some(instance_name)))
-            } else {
-                // This is a server error of some kind, not an issue with the
-                // key itself
-                e
-            }
-        })?;
+    let identity = app_auth.check_key(admin_key).await.map_err(|e| {
+        if e.is_forbidden() {
+            // This attaches a second ErrorMetadata to the error, but this
+            // message is more helpful
+            e.context(bad_admin_key_error(Some(instance_name)))
+        } else {
+            // This is a server error of some kind, not an issue with the
+            // key itself
+            e
+        }
+    })?;
     Ok(identity)
 }
 

@@ -2879,10 +2879,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<Identity> {
         let identity = match token {
             AuthenticationToken::Admin(token, acting_as) => {
-                let admin_identity = self
-                    .app_auth()
-                    .check_key(token.to_string(), self.instance_name())
-                    .await?;
+                let admin_identity = self.app_auth().check_key(token.to_string()).await?;
 
                 match acting_as {
                     Some(acting_user) => {

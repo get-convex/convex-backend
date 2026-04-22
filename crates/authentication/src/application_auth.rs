@@ -30,11 +30,7 @@ impl ApplicationAuth {
         }
     }
 
-    pub async fn check_key(
-        &self,
-        admin_key_or_access_token: String,
-        instance_name: String,
-    ) -> anyhow::Result<Identity> {
+    pub async fn check_key(&self, admin_key_or_access_token: String) -> anyhow::Result<Identity> {
         if self
             .key_broker
             .is_encrypted_admin_key(&admin_key_or_access_token)
@@ -64,7 +60,7 @@ impl ApplicationAuth {
             // Access Tokens are base64 encoded strings
             log_deploy_key_use(DeployKeyType::AccessToken);
             self.access_token_auth
-                .is_authorized(&instance_name, &admin_key_or_access_token)
+                .is_authorized(&admin_key_or_access_token)
                 .await
         }
     }

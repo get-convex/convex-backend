@@ -273,7 +273,7 @@ pub async fn push_config_handler(
 ) -> anyhow::Result<(Identity, PushAnalytics, PushMetrics)> {
     let identity = application
         .app_auth()
-        .check_key(config.admin_key, application.instance_name())
+        .check_key(config.admin_key)
         .await
         .context("bad admin key error")?;
 
