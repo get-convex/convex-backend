@@ -141,15 +141,6 @@ impl RequestContext {
 
 }
 
-impl Default for RequestContext {
-    fn default() -> Self {
-        Self {
-            request_id: RequestId::new(),
-            request_metadata: RequestMetadata::system(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionContext {
     pub request_id: RequestId,
