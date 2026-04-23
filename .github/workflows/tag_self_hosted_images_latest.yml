@@ -11,9 +11,15 @@ on:
         required: true
 
 env:
-  IMAGE_NAMESPACE: ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE || github.repository_owner }}
-  BACKEND_IMAGE_NAME: ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME || 'convex-backend' }}
-  DASHBOARD_IMAGE_NAME: ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME || 'convex-dashboard' }}
+  IMAGE_NAMESPACE:
+    ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE ||
+    github.repository_owner }}
+  BACKEND_IMAGE_NAME:
+    ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME ||
+    'convex-backend' }}
+  DASHBOARD_IMAGE_NAME:
+    ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME ||
+    'convex-dashboard' }}
 
 jobs:
   tag_images_as_latest:

@@ -11,8 +11,12 @@ on:
         value: ${{ fromJson(jobs.read.outputs.result).digest.backend-arm64 }}
 
 env:
-  IMAGE_NAMESPACE: ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE || github.repository_owner }}
-  BACKEND_IMAGE_NAME: ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME || 'convex-backend' }}
+  IMAGE_NAMESPACE:
+    ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE ||
+    github.repository_owner }}
+  BACKEND_IMAGE_NAME:
+    ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME ||
+    'convex-backend' }}
 
 permissions:
   contents: read

@@ -11,8 +11,12 @@ on:
         value: ${{ fromJson(jobs.read.outputs.result).digest.dashboard-arm64 }}
 
 env:
-  IMAGE_NAMESPACE: ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE || github.repository_owner }}
-  DASHBOARD_IMAGE_NAME: ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME || 'convex-dashboard' }}
+  IMAGE_NAMESPACE:
+    ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE ||
+    github.repository_owner }}
+  DASHBOARD_IMAGE_NAME:
+    ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME ||
+    'convex-dashboard' }}
 
 permissions:
   contents: read

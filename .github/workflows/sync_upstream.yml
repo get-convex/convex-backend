@@ -15,7 +15,9 @@ on:
     - cron: "17 * * * *"
 
 env:
-  UPSTREAM_REPOSITORY: ${{ vars.UPSTREAM_REPOSITORY != '' && vars.UPSTREAM_REPOSITORY || 'get-convex/convex-backend' }}
+  UPSTREAM_REPOSITORY:
+    ${{ vars.UPSTREAM_REPOSITORY != '' && vars.UPSTREAM_REPOSITORY ||
+    'get-convex/convex-backend' }}
 
 permissions:
   contents: write
