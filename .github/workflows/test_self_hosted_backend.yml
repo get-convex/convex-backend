@@ -29,7 +29,9 @@ jobs:
     services:
       backend:
         image:
-          ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}@${{
+          ghcr.io/${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE ||
+          github.repository_owner }}/${{ vars.BACKEND_IMAGE_NAME != '' &&
+          vars.BACKEND_IMAGE_NAME || 'convex-backend' }}@${{
           inputs.image_digest_x64 }}
         env:
           ACTIONS_USER_TIMEOUT_SECS: "20"
