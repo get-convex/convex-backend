@@ -56,7 +56,9 @@ use common::{
     },
     value::JsonPackedValue,
     version::ClientVersion,
+    RequestContext,
     RequestId,
+    RequestMetadata,
 };
 use errors::{
     ErrorMetadata,
@@ -258,6 +260,7 @@ pub struct SyncWorker<RT: Runtime> {
 
     on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
     partition_id: u64,
+    request_metadata: RequestMetadata,
 
     /// The difference between the client's clock and the server's clock, in
     /// milliseconds. Includes latency between the client and server.
@@ -295,6 +298,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         tx: SingleFlightSender,
         on_connect: Box<dyn FnOnce(SessionId) + Send>,
         partition_id: u64,
+        request_metadata: RequestMetadata,
     ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = ReceiverStream::new(receiver).buffered(1); // Execute at most one operation at a time.
@@ -315,6 +319,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             modify_query_to_transition_timers: BTreeMap::new(),
             on_connect: Some((connect_timer(partition_id), on_connect)),
             partition_id,
+            request_metadata,
             client_clock_skew: None,
         }
     }
@@ -552,6 +557,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let api = self.api.clone();
                 let host = self.host.clone();
                 let caller = FunctionCaller::SyncWorker(client_version);
+                let request_metadata = self.request_metadata.clone();
 
                 let mutation_queue_size =
                     self.mutation_sender.max_capacity() - self.mutation_sender.capacity();
@@ -560,11 +566,13 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
                         timer.finish();
+                        let request_context =
+                            RequestContext::new(server_request_id, request_metadata);
                         let result = match component_path {
                             None => {
                                 api.execute_public_mutation(
                                     &host,
-                                    server_request_id,
+                                    request_context,
                                     identity,
                                     ExportPath::from(udf_path.canonicalize()),
                                     args,
@@ -580,7 +588,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                     Self::parse_admin_component_path(p, &udf_path, &identity)?;
                                 api.execute_admin_mutation(
                                     &host,
-                                    server_request_id,
+                                    request_context,
                                     identity,
                                     path,
                                     args,
@@ -640,6 +648,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let api = self.api.clone();
                 let host = self.host.clone();
                 let client_version = self.config.client_version.clone();
+                let request_metadata = self.request_metadata.clone();
                 let server_request_id = match self.state.session_id() {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
@@ -653,11 +662,12 @@ impl<RT: Runtime> SyncWorker<RT> {
                 .with_property(|| ("udf_path", udf_path.to_string()));
                 let future = async move {
                     let caller = FunctionCaller::SyncWorker(client_version);
+                    let request_context = RequestContext::new(server_request_id, request_metadata);
                     let result = match component_path {
                         None => {
                             api.execute_public_action(
                                 &host,
-                                server_request_id,
+                                request_context,
                                 identity,
                                 ExportPath::from(udf_path.canonicalize()),
                                 args,
@@ -670,7 +680,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             let path = Self::parse_admin_component_path(p, &udf_path, &identity)?;
                             api.execute_admin_action(
                                 &host,
-                                server_request_id,
+                                request_context,
                                 identity,
                                 path,
                                 args,
@@ -715,7 +725,11 @@ impl<RT: Runtime> SyncWorker<RT> {
             } => {
                 let identity_result = self
                     .api
-                    .authenticate(&self.host, RequestId::new(), auth_token)
+                    .authenticate(
+                        &self.host,
+                        RequestContext::new(RequestId::new(), self.request_metadata.clone()),
+                        auth_token,
+                    )
                     .await;
                 let identity = match identity_result {
                     Ok(identity) => identity,
@@ -829,6 +843,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         let host = self.host.clone();
         let client_version = self.config.client_version.clone();
         let partition_id = self.partition_id;
+        let request_metadata = self.request_metadata.clone();
         let mut backoff = Backoff::new(
             *SYNC_WORKER_UPDATE_QUERIES_RETRY_INITIAL_BACKOFF_MS,
             *SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS,
@@ -857,6 +872,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     api.clone(),
                     rt.clone(),
                     host.clone(),
+                    request_metadata.clone(),
                     need_fetch.clone(),
                     identity.clone(),
                     client_version.clone(),
@@ -901,6 +917,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         api: Arc<dyn ApplicationApi>,
         rt: RT,
         host: ResolvedHostname,
+        request_metadata: RequestMetadata,
         need_fetch: Vec<Query>,
         identity: Identity,
         client_version: ClientVersion,
@@ -918,6 +935,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let api = api.clone();
                 let rt = rt.clone();
                 let host = host.clone();
+                let request_metadata = request_metadata.clone();
                 let identity_ = identity.clone();
                 let client_version = client_version.clone();
                 let current_subscription = remaining_subscriptions.remove(&query.query_id);
@@ -950,12 +968,13 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 *SYNC_WORKER_QUERY_RETRY_MAX_BACKOFF_SECS,
                             );
                             let udf_return_result = loop {
-                                let request_id = RequestId::new();
+                                let request_context =
+                                    RequestContext::new(RequestId::new(), request_metadata.clone());
                                 let result = match query.component_path {
                                     None => {
                                         api.execute_public_query(
                                             &host,
-                                            request_id,
+                                            request_context,
                                             identity_.clone(),
                                             ExportPath::from(query.udf_path.clone().canonicalize()),
                                             query.args.clone(),
@@ -973,7 +992,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                         )?;
                                         api.execute_admin_query(
                                             &host,
-                                            request_id,
+                                            request_context,
                                             identity_.clone(),
                                             path,
                                             query.args.clone(),

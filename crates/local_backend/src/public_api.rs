@@ -27,12 +27,14 @@ use common::{
         },
         ExtractClientVersion,
         ExtractRequestId,
+        ExtractRequestMetadata,
         ExtractResolvedHostname,
         HttpResponseError,
     },
     knobs::MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
     types::FunctionCaller,
     version::ClientVersion,
+    RequestContext,
 };
 use errors::ErrorMetadata;
 use isolate::UdfArgsJson;
@@ -206,17 +208,19 @@ pub async fn public_function_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequestWithComponent>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let request_context = RequestContext::new(request_id, request_metadata);
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
 
     let component = req.component_path(&identity)?;
@@ -229,7 +233,7 @@ pub async fn public_function_post(
         .api
         .execute_any_function(
             &host,
-            request_id,
+            request_context,
             identity,
             component_function_path,
             req.args.into_serialized_args()?,
@@ -277,17 +281,19 @@ pub async fn public_function_post_with_path(
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     Path(path): Path<String>,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequestArgsOnly>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let request_context = RequestContext::new(request_id, request_metadata);
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
 
     let bad_request_error = || {
@@ -315,7 +321,7 @@ pub async fn public_function_post_with_path(
         .api
         .execute_any_function(
             &host,
-            request_id,
+            request_context,
             identity,
             CanonicalizedComponentFunctionPath {
                 // Only functions exported at the root can be called through this endpoint
@@ -379,24 +385,26 @@ pub async fn public_query_get(
     Query(req): Query<UdfArgsQuery>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let export_path = parse_export_path(&req.path)?;
     let journal = None;
+    let request_context = RequestContext::new(request_id, request_metadata);
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
     let query_result = st
         .api
         .execute_public_query(
             &host,
-            request_id,
+            request_context,
             identity,
             export_path,
             req.args.into_serialized_args()?,
@@ -432,25 +440,27 @@ pub async fn public_query_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_export_path(&req.path)?;
     let journal = None;
+    let request_context = RequestContext::new(request_id, request_metadata);
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
     let query_return = st
         .api
         .execute_public_query(
             &host,
-            request_id,
+            request_context,
             identity,
             udf_path,
             req.args.into_serialized_args()?,
@@ -505,26 +515,28 @@ pub async fn public_query_at_ts_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostWithTsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let export_path = parse_export_path(&req.path)?;
     let journal = None;
+    let request_context = RequestContext::new(request_id, request_metadata);
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
     let ts = Timestamp::try_from(req.ts)?;
     let query_return = st
         .api
         .execute_public_query(
             &host,
-            request_id,
+            request_context,
             identity,
             export_path,
             req.args.into_serialized_args()?,
@@ -570,16 +582,18 @@ pub async fn public_query_batch_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req_batch): Json<QueryBatchArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut results = vec![];
+    let request_context = RequestContext::new(request_id.clone(), request_metadata);
     // All queries execute at the same timestamp.
-    let ts = st.api.latest_timestamp(&host, request_id.clone()).await?;
+    let ts = st.api.latest_timestamp(&host, request_id).await?;
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -588,7 +602,7 @@ pub async fn public_query_batch_post(
             .api
             .execute_public_query(
                 &host,
-                request_id.clone(),
+                request_context.clone(),
                 identity.clone(),
                 export_path,
                 req.args.into_serialized_args()?,
@@ -629,24 +643,26 @@ pub async fn public_mutation_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let export_path = parse_export_path(&req.path)?;
+    let request_context = RequestContext::new(request_id, request_metadata);
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
     let udf_result = st
         .api
         .execute_public_mutation(
             &host,
-            request_id,
+            request_context,
             identity,
             export_path,
             req.args.into_serialized_args()?,
@@ -686,11 +702,13 @@ pub async fn public_action_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let export_path = parse_export_path(&req.path)?;
+    let request_context = RequestContext::new(request_id, request_metadata);
 
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
@@ -698,13 +716,13 @@ pub async fn public_action_post(
     // client and Usher.
     let identity = st
         .api
-        .authenticate(&host, request_id.clone(), auth_token)
+        .authenticate(&host, request_context.clone(), auth_token)
         .await?;
     let action_result = st
         .api
         .execute_public_action(
             &host,
-            request_id,
+            request_context,
             identity,
             export_path,
             req.args.into_serialized_args()?,

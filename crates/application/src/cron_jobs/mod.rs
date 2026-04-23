@@ -21,6 +21,8 @@ use common::{
     execution_context::{
         ExecutionContext,
         ExecutionId,
+        RequestContext,
+        RequestMetadata,
     },
     fastrace_helpers::get_sampled_span,
     identity::InertIdentity,
@@ -411,7 +413,8 @@ impl<RT: Runtime> CronJobContext<RT> {
         let caller = FunctionCaller::Cron;
         let (component, component_path) = self.get_job_component(&mut tx, job.id).await?;
         let request_id = RequestId::new();
-        let context = ExecutionContext::new(request_id, &caller);
+        let context =
+            ExecutionContext::new(RequestContext::new_for_system_request(request_id), &caller);
         sentry::configure_scope(|scope| context.add_sentry_tags(scope));
         let path = CanonicalizedComponentFunctionPath {
             component: component_path,
@@ -576,7 +579,10 @@ impl<RT: Runtime> CronJobContext<RT> {
             CronJobState::Pending => {
                 // Create a new request & execution ID
                 let request_id = RequestId::new();
-                let context = ExecutionContext::new(request_id, &caller);
+                let context = ExecutionContext::new(
+                    RequestContext::new_for_system_request(request_id),
+                    &caller,
+                );
                 sentry::configure_scope(|scope| context.add_sentry_tags(scope));
 
                 // Set state to in progress
@@ -666,6 +672,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                     execution_id.unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
+                    RequestMetadata::system(),
                 );
                 sentry::configure_scope(|scope| context.add_sentry_tags(scope));
                 let mut model = CronModel::new(&mut tx, component);

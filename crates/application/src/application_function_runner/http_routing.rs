@@ -8,7 +8,10 @@ use common::{
         Reference,
     },
     errors::JsError,
-    execution_context::ExecutionContext,
+    execution_context::{
+        ExecutionContext,
+        RequestContext,
+    },
     http::RoutedHttpPath,
     log_lines::{
         run_function_and_collect_log_lines,
@@ -25,7 +28,6 @@ use common::{
         ModuleEnvironment,
         RoutableMethod,
     },
-    RequestId,
 };
 use database::{
     BootstrapComponentsModel,
@@ -68,7 +70,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     pub async fn run_http_action(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         http_request: HttpActionRequest,
         mut response_streamer: HttpActionResponseStreamer,
         identity: Identity,
@@ -109,7 +111,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => return Ok(udf::HttpActionResult::Error(e)),
         };
         let unix_timestamp = self.runtime.unix_timestamp();
-        let context = ExecutionContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_context, &caller);
 
         let request_head = http_request.head.clone();
         let route = http_request.head.route_for_failure();
