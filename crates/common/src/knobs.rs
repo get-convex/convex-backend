@@ -153,7 +153,7 @@ pub static SCHEDULER_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
 
 /// Maximum backoff when the scheduler faces repeated OCC conflicts
 pub static SCHEDULER_OCC_MAX_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULER_OCC_MAX_BACKOFF_MS", 10 * 1000)));
+    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULER_OCC_MAX_BACKOFF_MS", 60 * 1000)));
 
 /// The time for which a backend will stay around, after getting preempted,
 /// answering health checks but not serving traffic.
