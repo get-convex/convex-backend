@@ -14,12 +14,19 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install libsodium and libssl
+    - name: Install system build deps
       shell: bash
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y pkg-config libsodium-dev libssl-dev
+        sudo apt-get install -y \
+          pkg-config \
+          libsodium-dev \
+          libssl-dev \
+          librocksdb-dev \
+          libsnappy-dev \
+          cmake \
+          libclang-dev
 
     - name: Install Just
       uses: extractions/setup-just@v3
