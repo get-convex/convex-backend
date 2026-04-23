@@ -598,6 +598,18 @@ function WorkOSTeamSection({
                   <CheckIcon className="h-4 w-4" /> Convex has access to this
                   WorkOS workspace{" "}
                 </span>
+              ) : teamHealthData.error?.code === "WorkOSTeamNotFound" ? (
+                <span className="inline-flex items-center gap-1 text-content-warning">
+                  <ExclamationTriangleIcon className="h-4 w-4" />
+                  This WorkOS team could not be found. Did you delete it? You
+                  may want to click on “Disconnect Workspace”.
+                </span>
+              ) : teamHealthData.error?.code === "WorkOSTeamDeleted" ? (
+                <span className="inline-flex items-center gap-1 text-content-warning">
+                  <ExclamationTriangleIcon className="h-4 w-4" />
+                  This WorkOS team has been deleted. If you want to use WorkOS,
+                  click on “Disconnect Workspace”.
+                </span>
               ) : teamHealthData.error?.code === "WorkOSAPIUnavailable" ? (
                 <span className="inline-flex items-center gap-1 text-content-warning">
                   <ExclamationTriangleIcon className="h-4 w-4" /> WorkOS API

@@ -160,7 +160,11 @@ export type DeploymentInfo = (
                   | {
                       id: string;
                       name: string;
-                      productionState: "active" | "inactive";
+                      productionState:
+                        | "active"
+                        | "inactive"
+                        | "suspended"
+                        | "deleting";
                     }
                   | null
                   | undefined;

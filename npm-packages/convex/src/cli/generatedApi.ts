@@ -486,7 +486,7 @@ export interface components {
             name: string;
         };
         /** @enum {string} */
-        WorkOSProductionState: "active" | "inactive";
+        WorkOSProductionState: "active" | "inactive" | "suspended" | "deleting";
         WorkOSTeamHealthResponse: {
             teamInfo?: null | components["schemas"]["WorkOSTeamInfo"];
             /** @description Whether a WorkOS team has been provisioned for this Convex team */

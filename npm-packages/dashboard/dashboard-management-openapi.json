@@ -6850,7 +6850,9 @@
         "type": "string",
         "enum": [
           "active",
-          "inactive"
+          "inactive",
+          "suspended",
+          "deleting"
         ]
       },
       "WorkOSTeamAssociation": {

@@ -2768,7 +2768,7 @@ export interface components {
             workosEnvironmentName: string;
         };
         /** @enum {string} */
-        WorkOSProductionState: "active" | "inactive";
+        WorkOSProductionState: "active" | "inactive" | "suspended" | "deleting";
         WorkOSTeamAssociation: {
             adminEmail: string;
             creatorEmail: string;
