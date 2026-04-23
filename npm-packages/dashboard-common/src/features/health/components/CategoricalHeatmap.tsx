@@ -16,20 +16,18 @@ import { Button } from "@ui/Button";
 
 export type CategoricalHeatmapKind = "cacheHitRate" | "failureRate";
 
-// 10-stop viridis ramp. Perceptually uniform and colorblind-safe. Same ramp
-// for both kinds; the value→index mapping is inverted for failure rate so
-// "bad" always reads as dark purple and "good" as yellow.
+// 10-stop viridis ramp. Perceptually uniform and colorblind-safe.
 const VIRIDIS_STOPS = [
   "#440154",
-  "#482878",
-  "#3E4989",
-  "#31688E",
-  "#26828E",
-  "#1F9E89",
-  "#35B779",
-  "#6DCD59",
+  "#481A6C",
+  "#472F7D",
+  "#404388",
+  "#38578C",
+  "#2E6B8E",
+  "#238E8D",
+  "#1E9E89",
+  "#4FB870",
   "#B4DE2C",
-  "#FDE725",
 ] as const;
 
 type KindConfig = {
