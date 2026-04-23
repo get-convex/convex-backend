@@ -29,7 +29,9 @@ jobs:
     strategy:
       matrix:
         arch: [x64, arm64]
-    runs-on: [self-hosted, aws, "${{ matrix.arch }}", xlarge]
+    runs-on:
+      "runs-on=${{ github.run_id }}-${{ matrix.arch }}/runner=xlarge-${{
+      matrix.arch }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -1,0 +1,15 @@
+runners:
+  xlarge-x64:
+    cpu: 4
+    ram: 16
+    family: ["m7a", "m7i"]
+    image: ubuntu24-full-x64
+    volume: 80gb:gp3
+    spot: true
+  xlarge-arm64:
+    cpu: 4
+    ram: 16
+    family: ["m7g"]
+    image: ubuntu24-full-arm64
+    volume: 80gb:gp3
+    spot: true
