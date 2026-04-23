@@ -100,6 +100,10 @@ export const DATA_EGRESS_CATEGORIES = {
     name: "Log Streams",
     color: "fill-chart-line-2",
   },
+  streamingExport: {
+    name: "Streaming Export",
+    color: "fill-chart-line-6",
+  },
   servingEgress: {
     name: "Serving Reads",
     color: "fill-chart-line-3",

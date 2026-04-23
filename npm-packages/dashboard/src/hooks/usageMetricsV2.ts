@@ -627,12 +627,14 @@ export function useDataEgressPerDayByProjectV2(
         snapshotImport,
         fetchEgress,
         logStreamEgress,
+        streamingExportEgress,
       ]) => ({
         ds,
         projectId: parseProjectId(projectId),
         metrics: [
           { tag: "fetchEgress", value: Number(fetchEgress) },
           { tag: "logStream", value: Number(logStreamEgress) },
+          { tag: "streamingExport", value: Number(streamingExportEgress) },
           { tag: "servingEgress", value: Number(servingEgress) },
           { tag: "userFunctionEgress", value: Number(userFunctionEgress) },
           {
