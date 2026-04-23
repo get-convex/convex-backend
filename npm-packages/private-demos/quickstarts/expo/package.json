@@ -43,7 +43,7 @@
     "@types/react": "^18",
     "@types/react-test-renderer": "^19.0.0",
     "jest": "^30.0.0",
-    "jest-expo": "~51.0.1",
+    "jest-expo": "~55.0.6",
     "react-test-renderer": "^18.3.1",
     "typescript": "^5.9.2"
   },
