@@ -119,6 +119,38 @@ Imagine a mutation changes some data in the database, and that 2 different
 inconsistent state where only one of the `useQuery` call sites reflects the new
 data.
 
+### Experimental: query result object
+
+If you want a richer result object to handle when querying, try
+`useQuery_experimental`. It always returns an object with a `status` field, and
+does not throw errors by default.
+
+The `status` of the result object will be one of
+`"pending" | "success" | "error"`. To help ensure correct handling of query
+results, the return type requires that you check the `status` before accessing
+other fields (`data` or `error`).
+
+```tsx title="src/App.tsx"
+import { useQuery_experimental as useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+function TaskList() {
+  const result = useQuery({
+    query: api.tasks.list,
+    args: { completed: false },
+  });
+
+  if (result.status === "pending") return <div>Loading...</div>;
+  if (result.status === "error")
+    return <div>Error: {result.error.message}</div>;
+  // `status` guaranteed to be `"success"` at this point; `data` available.
+  return result.data.map((task) => <div key={task._id}>{task.text}</div>);
+}
+```
+
+If you're migrating existing code that leverages error boundaries, you can use
+the `throwOnError: true` option to maintain that behavior.
+
 ### Paginating queries
 
 See
