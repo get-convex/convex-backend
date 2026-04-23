@@ -8,7 +8,7 @@
   "dependencies": {
     "classnames": "^2.3.2",
     "convex": "workspace:*",
-    "hono": "^4.12.7",
+    "hono": "^4.12.14",
     "prettier": "3.8.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",

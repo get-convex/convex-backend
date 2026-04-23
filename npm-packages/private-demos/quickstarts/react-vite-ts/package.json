@@ -2,7 +2,6 @@
   "name": "quickstart-react-vite-ts",
   "version": "0.0.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +11,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "2.15.1",
-    "@clerk/react": "^6.0.0",
+    "@clerk/react": "^6.4.3",
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
