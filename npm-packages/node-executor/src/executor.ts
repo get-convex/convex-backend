@@ -8,7 +8,7 @@ import { inspect } from "node:util";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
-import { UserIdentity } from "convex/server";
+import { DeploymentMetadata, UserIdentity } from "convex/server";
 
 import {
   CanonicalizedModulePath,
@@ -222,6 +222,7 @@ export type ExecuteRequest = {
   npmVersion: string | null;
   executionContext: ExecutionContext;
   encodedParentTrace: string | null;
+  deployment: DeploymentMetadata;
 };
 
 export type ExecutionContext = {
@@ -293,6 +294,7 @@ export async function execute(
     request.userIdentity,
     request.executionContext,
     request.encodedParentTrace,
+    request.deployment,
   );
 
   countEgressBytes(); // reset egressBytes counter

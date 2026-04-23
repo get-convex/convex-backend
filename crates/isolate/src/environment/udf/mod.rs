@@ -97,7 +97,10 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
-    types::UdfType,
+    types::{
+        DeploymentMetadata,
+        UdfType,
+    },
     value::{
         ConvexArray,
         ConvexValue,
@@ -202,6 +205,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     arguments: SerializedArgs,
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
+    deployment: DeploymentMetadata,
     client_id: String,
 
     phase: UdfPhase<RT>,
@@ -424,6 +428,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             default_system_env_vars,
             file_storage,
             module_loader,
+            deployment,
         }: EnvironmentData<RT>,
         heap_stats: SharedIsolateHeapStats,
         UdfRequest {
@@ -470,6 +475,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             context,
 
             reactor_depth,
+            deployment,
             client_id,
         }
     }

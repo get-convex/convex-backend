@@ -5,6 +5,7 @@ import {
   QueryMeta,
   FunctionMetadata,
   TransactionMetrics,
+  DeploymentMetadata,
 } from "../meta.js";
 import { performAsyncSyscall } from "./syscall.js";
 
@@ -35,6 +36,19 @@ async function getFunctionMetadata(): Promise<{
   return { name, componentPath };
 }
 
+async function getDeploymentMetadata(): Promise<DeploymentMetadata> {
+  const syscallJSON = await performAsyncSyscall(
+    "1.0/getDeploymentMetadata",
+    {},
+  );
+  const result = jsonToConvex(syscallJSON) as any;
+  return {
+    name: result.name,
+    region: result.region ?? null,
+    class: result.class,
+  };
+}
+
 export function setupQueryMeta(
   visibility: FunctionMetadata["visibility"],
 ): QueryMeta {
@@ -45,6 +59,7 @@ export function setupQueryMeta(
       visibility,
     }),
     getTransactionMetrics,
+    getDeploymentMetadata,
   };
 }
 
@@ -58,6 +73,7 @@ export function setupMutationMeta(
       visibility,
     }),
     getTransactionMetrics,
+    getDeploymentMetadata,
   };
 }
 
@@ -70,5 +86,6 @@ export function setupActionMeta(
       type: "action",
       visibility,
     }),
+    getDeploymentMetadata,
   };
 }

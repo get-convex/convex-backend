@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { UserIdentity } from "convex/server";
+import { DeploymentMetadata, UserIdentity } from "convex/server";
 import { ExecutionContext, SyscallStats } from "./executor";
 import { ConvexError, JSONValue } from "convex/values";
 import { UdfPath } from "./convex";
@@ -90,6 +90,8 @@ export class SyscallsImpl {
 
   encodedParentTrace: string | null;
 
+  deployment: DeploymentMetadata;
+
   constructor(
     udfPath: UdfPath,
     lambdaExecuteId: string,
@@ -99,6 +101,7 @@ export class SyscallsImpl {
     userIdentity: UserIdentity | null,
     executionContext: ExecutionContext,
     encodedParentTrace: string | null,
+    deployment: DeploymentMetadata,
   ) {
     this.udfPath = udfPath;
     this.lambdaExecuteId = lambdaExecuteId;
@@ -110,6 +113,7 @@ export class SyscallsImpl {
     this.pendingSyscallCount = {};
     this.executionContext = executionContext;
     this.encodedParentTrace = encodedParentTrace;
+    this.deployment = deployment;
   }
 
   async actionCallback<ResponseValidator extends z.ZodType>(args: {
@@ -328,6 +332,8 @@ export class SyscallsImpl {
             // support node actions for components.
             componentPath: "",
           });
+        case "1.0/getDeploymentMetadata":
+          return JSON.stringify(this.deployment);
         default:
           throw new Error(`Unknown operation ${op}`);
       }

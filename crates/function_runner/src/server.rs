@@ -33,6 +33,7 @@ use common::{
     schemas::DatabaseSchema,
     types::{
         ConvexOrigin,
+        DeploymentMetadata,
         IndexId,
         ModuleEnvironment,
         UdfType,
@@ -113,7 +114,6 @@ use crate::{
 const MAX_ISOLATE_WORKERS: usize = 128;
 
 pub struct RunRequestArgs {
-    pub instance_name: String,
     pub key_broker: FunctionRunnerKeyBroker,
     pub index_reader: Arc<dyn IndexReader>,
     pub convex_origin: ConvexOrigin,
@@ -131,6 +131,7 @@ pub struct RunRequestArgs {
     pub in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
     pub context: ExecutionContext,
     pub subfunctions_in_same_isolate: bool,
+    pub deployment: DeploymentMetadata,
 }
 
 #[derive(Clone)]
@@ -284,7 +285,6 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
     pub async fn run_function_no_retention_check_inner(
         &self,
         RunRequestArgs {
-            instance_name,
             key_broker,
             index_reader,
             convex_origin,
@@ -302,6 +302,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
             in_memory_index_last_modified,
             context,
             subfunctions_in_same_isolate,
+            deployment,
         }: RunRequestArgs,
         function_metadata: Option<FunctionMetadata>,
         http_action_metadata: Option<HttpActionMetadata>,
@@ -310,6 +311,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         FunctionOutcome,
         FunctionUsageStats,
     )> {
+        let instance_name = deployment.name.clone();
         let usage_tracker = FunctionUsageTracker::new();
         let mut transaction = self
             .index_cache
@@ -345,6 +347,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 code_cache: self.code_cache.clone(),
                 modules_storage,
             }),
+            deployment,
         };
 
         match udf_type {

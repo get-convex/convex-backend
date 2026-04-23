@@ -126,6 +126,7 @@ use common::{
         AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
+        DeploymentMetadata,
         EnvVarName,
         EnvVarValue,
         FullyQualifiedObjectKey,
@@ -135,7 +136,6 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
-        RegionName,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -561,7 +561,7 @@ pub struct Application<RT: Runtime> {
     usage_counter: UsageCounter,
     usage_event_logger: Arc<dyn UsageEventLogger>,
     key_broker: KeyBroker,
-    instance_name: String,
+    deployment: DeploymentMetadata,
     workers: WorkerHandles,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
@@ -647,8 +647,7 @@ impl<RT: Runtime> Application<RT> {
         application_storage: ApplicationStorage,
         usage_event_logger: Arc<dyn UsageEventLogger>,
         key_broker: KeyBroker,
-        instance_name: String,
-        deployment_region: Option<RegionName>,
+        deployment: DeploymentMetadata,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
@@ -666,6 +665,8 @@ impl<RT: Runtime> Application<RT> {
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
+        let instance_name = deployment.name.clone();
+        let deployment_region = deployment.region.clone();
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
@@ -866,7 +867,7 @@ impl<RT: Runtime> Application<RT> {
             usage_event_logger,
             usage_counter,
             key_broker,
-            instance_name,
+            deployment,
             workers,
             log_visibility,
             module_cache,
@@ -916,7 +917,11 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub fn instance_name(&self) -> String {
-        self.instance_name.clone()
+        self.deployment.name.clone()
+    }
+
+    pub fn deployment(&self) -> &DeploymentMetadata {
+        &self.deployment
     }
 
     #[fastrace::trace]
@@ -1550,7 +1555,7 @@ impl<RT: Runtime> Application<RT> {
         let filename = format!(
             // This should match the format in SnapshotExport.tsx.
             "snapshot_{}_{snapshot_ts}.zip",
-            self.instance_name
+            self.deployment.name
         );
         Ok((storage_get_stream, filename))
     }

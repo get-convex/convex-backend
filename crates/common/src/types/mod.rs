@@ -60,6 +60,7 @@ pub use backend_state::{
 };
 pub use deployments::{
     DeploymentClass,
+    DeploymentMetadata,
     DeploymentType,
 };
 pub use environment_variables::{
