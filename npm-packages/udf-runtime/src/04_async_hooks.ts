@@ -1,6 +1,5 @@
-// The async context is stored as an array: [ALS1, value1, ALS2, value2, ...]
-// We use undefined to represent an empty context
-type AsyncContextData = ReadonlyArray<unknown> | undefined;
+type AsyncContextKey = AsyncLocalStorage<unknown>;
+type AsyncContextData = ReadonlyMap<AsyncContextKey, unknown> | undefined;
 
 type ConvexAsyncContextBridge = {
   getContinuationPreservedEmbedderData?: () => unknown;
@@ -18,10 +17,16 @@ function normalizeAsyncContext(value: unknown): AsyncContextData {
   if (value === undefined) {
     return undefined;
   }
-  if (Array.isArray(value)) {
+  if (value instanceof Map) {
     return value;
   }
   return undefined;
+}
+
+function cloneAsyncContext(
+  context: AsyncContextData,
+): Map<AsyncContextKey, unknown> {
+  return context ? new Map(context) : new Map();
 }
 
 function getAsyncContext(): AsyncContextData {
@@ -169,21 +174,13 @@ export class AsyncLocalStorage<T = unknown> {
     this.#disabled = false;
 
     const context = getAsyncContext();
-    if (!context) {
-      setAsyncContext([this, store]);
+    if (context?.has(this) && Object.is(context.get(this), store)) {
       return;
     }
 
-    const { length } = context;
-    for (let i = 0; i < length; i += 2) {
-      if (context[i] === this) {
-        const clone = context.slice();
-        clone[i + 1] = store;
-        setAsyncContext(clone);
-        return;
-      }
-    }
-    setAsyncContext(context.concat(this, store));
+    const nextContext = cloneAsyncContext(context);
+    nextContext.set(this, store);
+    setAsyncContext(nextContext);
   }
 
   exit<R, TArgs extends unknown[]>(
@@ -201,50 +198,23 @@ export class AsyncLocalStorage<T = unknown> {
     const wasDisabled = this.#disabled;
     this.#disabled = false;
 
-    let context = getAsyncContext() as unknown[] | undefined;
-    let hasPrevious = false;
-    let previousValue: unknown;
-    let index = -1;
-    const contextWasEmpty = !context;
-
-    if (contextWasEmpty) {
-      setAsyncContext((context = [this, store]));
-      index = 0;
-    } else {
-      context = context!.slice();
-      index = context.indexOf(this);
-
-      if (index > -1) {
-        hasPrevious = true;
-        previousValue = context[index + 1];
-        context[index + 1] = store;
-      } else {
-        index = context.length;
-        context.push(this, store);
-      }
-      setAsyncContext(context);
+    const previousContext = getAsyncContext();
+    if (
+      !wasDisabled &&
+      previousContext?.has(this) &&
+      Object.is(previousContext.get(this), store)
+    ) {
+      return callback(...args);
     }
+
+    const nextContext = cloneAsyncContext(previousContext);
+    nextContext.set(this, store);
+    setAsyncContext(nextContext);
 
     try {
       return callback(...args);
     } finally {
-      if (!wasDisabled) {
-        let context2 = getAsyncContext() as unknown[] | undefined;
-
-        if (context2 === context && contextWasEmpty) {
-          setAsyncContext(undefined);
-        } else if (context2) {
-          context2 = context2.slice();
-
-          if (hasPrevious) {
-            context2[index + 1] = previousValue;
-            setAsyncContext(context2);
-          } else {
-            context2.splice(index, 2);
-            setAsyncContext(context2.length ? context2 : undefined);
-          }
-        }
-      }
+      setAsyncContext(previousContext);
     }
   }
 
@@ -252,17 +222,11 @@ export class AsyncLocalStorage<T = unknown> {
     if (this.#disabled) return;
     this.#disabled = true;
 
-    const context = getAsyncContext() as unknown[] | undefined;
-    if (context) {
-      const { length } = context;
-      for (let i = 0; i < length; i += 2) {
-        if (context[i] === this) {
-          const newContext = context.slice();
-          newContext.splice(i, 2);
-          setAsyncContext(newContext.length ? newContext : undefined);
-          break;
-        }
-      }
+    const context = getAsyncContext();
+    if (context?.has(this)) {
+      const nextContext = cloneAsyncContext(context);
+      nextContext.delete(this);
+      setAsyncContext(nextContext.size > 0 ? nextContext : undefined);
     }
   }
 
@@ -270,16 +234,7 @@ export class AsyncLocalStorage<T = unknown> {
     if (this.#disabled) return undefined;
 
     const context = getAsyncContext();
-    if (!context) return undefined;
-
-    const { length } = context;
-    for (let i = 0; i < length; i += 2) {
-      if (context[i] === this) {
-        return context[i + 1] as T;
-      }
-    }
-
-    return undefined;
+    return context?.get(this) as T | undefined;
   }
 }
 

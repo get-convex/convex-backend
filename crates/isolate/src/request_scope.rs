@@ -101,14 +101,6 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     // This is not wrapped in `WithHeapSize` so we can return `&mut TextDecoderStream`.
     // Additionally, `TextDecoderResource` should have a fairly small heap size.
     pub text_decoders: BTreeMap<uuid::Uuid, TextDecoderResource>,
-    pub continuation_preserved_embedder_data_cleanup_state: CpedCleanupState,
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum CpedCleanupState {
-    #[default]
-    NotNeeded,
-    Needed,
 }
 
 pub struct RequestStreamState {
@@ -167,14 +159,6 @@ impl HeapSize for StreamListener {
 }
 
 impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
-    pub fn mark_continuation_preserved_embedder_data_touched(&mut self) {
-        self.continuation_preserved_embedder_data_cleanup_state = CpedCleanupState::Needed;
-    }
-
-    pub fn continuation_preserved_embedder_data_cleanup_needed(&self) -> bool {
-        self.continuation_preserved_embedder_data_cleanup_state == CpedCleanupState::Needed
-    }
-
     pub fn create_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
         let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.streams.insert(uuid, Ok(ReadableStream::default()));
@@ -291,26 +275,31 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             .get_function(scope)
             .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
 
-        let get_continuation_preserved_embedder_data_template =
-            v8::FunctionTemplate::new(scope, Self::get_continuation_preserved_embedder_data);
-        let get_continuation_preserved_embedder_data_value =
-            get_continuation_preserved_embedder_data_template
-                .get_function(scope)
-                .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-
-        let set_continuation_preserved_embedder_data_template =
-            v8::FunctionTemplate::new(scope, Self::set_continuation_preserved_embedder_data);
-        let set_continuation_preserved_embedder_data_value =
-            set_continuation_preserved_embedder_data_template
-                .get_function(scope)
-                .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-
         let convex_key = strings::Convex.create(scope)?;
         let convex_value: v8::Local<v8::Object> = global
             .get(scope, convex_key.into())
             .context("Missing global.Convex")?
             .try_into()
             .context("Wrong type of global.Convex")?;
+
+        let extras_binding = context.get_extras_binding_object(scope);
+        let get_continuation_preserved_embedder_data_key =
+            strings::getContinuationPreservedEmbedderData.create(scope)?;
+        let get_continuation_preserved_embedder_data_value: v8::Local<v8::Function> =
+            extras_binding
+                .get(scope, get_continuation_preserved_embedder_data_key.into())
+                .context("Missing getContinuationPreservedEmbedderData extras binding")?
+                .try_into()
+                .context("Wrong type for getContinuationPreservedEmbedderData extras binding")?;
+
+        let set_continuation_preserved_embedder_data_key =
+            strings::setContinuationPreservedEmbedderData.create(scope)?;
+        let set_continuation_preserved_embedder_data_value: v8::Local<v8::Function> =
+            extras_binding
+                .get(scope, set_continuation_preserved_embedder_data_key.into())
+                .context("Missing setContinuationPreservedEmbedderData extras binding")?
+                .try_into()
+                .context("Wrong type for setContinuationPreservedEmbedderData extras binding")?;
 
         let syscall_key = strings::syscall.create(scope)?;
         convex_value.set(scope, syscall_key.into(), syscall_value.into());
@@ -324,16 +313,12 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         let async_op_key = strings::asyncOp.create(scope)?;
         convex_value.set(scope, async_op_key.into(), async_op_value.into());
 
-        let get_continuation_preserved_embedder_data_key =
-            strings::getContinuationPreservedEmbedderData.create(scope)?;
         convex_value.set(
             scope,
             get_continuation_preserved_embedder_data_key.into(),
             get_continuation_preserved_embedder_data_value.into(),
         );
 
-        let set_continuation_preserved_embedder_data_key =
-            strings::setContinuationPreservedEmbedderData.create(scope)?;
         convex_value.set(
             scope,
             set_continuation_preserved_embedder_data_key.into(),
@@ -367,37 +352,6 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         if let Err(e) = start_async_op(&mut scope, args, rv) {
             Self::handle_syscall_or_op_error(&mut scope, e)
         }
-    }
-
-    pub(crate) fn get_continuation_preserved_embedder_data(
-        scope: &mut v8::PinScope,
-        _args: v8::FunctionCallbackArguments,
-        mut rv: v8::ReturnValue,
-    ) {
-        let value = scope.get_continuation_preserved_embedder_data();
-        rv.set(value);
-    }
-
-    pub(crate) fn set_continuation_preserved_embedder_data(
-        scope: &mut v8::PinScope,
-        args: v8::FunctionCallbackArguments,
-        _rv: v8::ReturnValue,
-    ) {
-        let value = if args.length() > 0 {
-            args.get(0)
-        } else {
-            v8::undefined(scope).into()
-        };
-
-        let context = scope.get_current_context();
-        if let Some(state) = context.get_context_slot_mut::<RequestState<RT, E>>(scope) {
-            state.mark_continuation_preserved_embedder_data_touched();
-            scope.set_continuation_preserved_embedder_data(value);
-            return;
-        }
-
-        let undefined = v8::undefined(scope);
-        scope.set_continuation_preserved_embedder_data(undefined.into());
     }
 
     pub(crate) fn syscall(
@@ -507,13 +461,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             context.remove_context_slot(self.scope)
         };
 
-        let should_clear_continuation_preserved_embedder_data = match state.as_ref() {
-            Some(state) => state.continuation_preserved_embedder_data_cleanup_needed(),
-            None => false,
-        };
-        if should_clear_continuation_preserved_embedder_data {
-            self.clear_continuation_preserved_embedder_data();
-        }
+        self.clear_continuation_preserved_embedder_data();
 
         state
     }

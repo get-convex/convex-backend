@@ -43,10 +43,7 @@ use crate::{
         create_isolate_timer,
         log_heap_statistics,
     },
-    request_scope::{
-        CpedCleanupState,
-        RequestState,
-    },
+    request_scope::RequestState,
     strings,
     termination::{
         IsolateHandle,
@@ -334,7 +331,6 @@ impl<RT: Runtime> Isolate<RT> {
             request_stream_state: None,
             console_timers: WithHeapSize::default(),
             text_decoders: BTreeMap::new(),
-            continuation_preserved_embedder_data_cleanup_state: CpedCleanupState::NotNeeded,
         };
         Ok((self.handle.clone(), state, timeout))
     }

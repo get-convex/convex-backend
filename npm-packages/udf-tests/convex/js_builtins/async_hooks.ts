@@ -225,6 +225,23 @@ const disableMethod = async () => {
   });
 };
 
+const runAfterDisableRestoresPreviousContext = async () => {
+  const als = new AsyncLocalStorage<string>();
+
+  als.run("outer", () => {
+    als.disable();
+    assert.strictEqual(als.getStore(), undefined);
+
+    als.run("inner", () => {
+      assert.strictEqual(als.getStore(), "inner");
+    });
+
+    assert.strictEqual(als.getStore(), undefined);
+  });
+
+  assert.strictEqual(als.getStore(), undefined);
+};
+
 /**
  * Test static snapshot() method
  */
@@ -587,6 +604,7 @@ export default action(async () => {
     exitMethod,
     enterWithMethod,
     disableMethod,
+    runAfterDisableRestoresPreviousContext,
     snapshotMethod,
     bindMethod,
     runWithArguments,
