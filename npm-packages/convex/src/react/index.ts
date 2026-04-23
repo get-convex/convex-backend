@@ -82,6 +82,7 @@ export {
   useConvex,
   ConvexProvider,
   useQuery,
+  useQuery_experimental,
   useMutation,
   useAction,
   useConvexConnectionState,
