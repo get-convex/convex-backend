@@ -181,23 +181,24 @@ impl SubscriptionsClient {
 /// The other half of a `Subscription`, owned by the subscription worker.
 /// On drop, this will invalidate the subscription.
 pub struct SubscriptionSender {
-    validity: Arc<Validity>,
+    validity: Arc<Mutex<Validity>>,
     valid_tx: watch::Sender<SubscriptionState>,
 }
 
 impl Drop for SubscriptionSender {
     fn drop(&mut self) {
-        self.validity.valid_ts.store(-1, Ordering::Release);
+        // Make sure the subscription is marked invalid, but don't clobber any
+        // existing `invalid_ts` if known
+        if let ref mut validity @ Validity::Valid(_) = *self.validity.lock() {
+            *validity = Validity::Invalid(None)
+        }
         _ = self.valid_tx.send(SubscriptionState::Invalid);
     }
 }
 
 impl SubscriptionSender {
     fn drop_with_delay(self, delay: Option<Duration>, invalid_ts: Option<Timestamp>) {
-        if let Some(invalid_ts) = invalid_ts {
-            self.validity.set_invalid_ts(invalid_ts);
-        }
-        self.validity.valid_ts.store(-1, Ordering::Release);
+        *self.validity.lock() = Validity::Invalid(invalid_ts);
         if let Some(delay) = delay {
             // Wait to invalidate the subscription by moving it into a new task
             tokio::spawn(async move {
@@ -324,6 +325,7 @@ impl SubscriptionManager {
     async fn run_worker(&mut self, mut rx: CountingReceiver) {
         tracing::info!("Starting subscriptions worker");
         loop {
+            let processed_ts = self.processed_ts();
             futures::select_biased! {
                 // N.B.: `futures` select macro (not `tokio`) needed for `select_next_some`
                 key = self.closed_subscriptions.select_next_some() => {
@@ -331,7 +333,7 @@ impl SubscriptionManager {
                 },
                 request = rx.recv().fuse() => {
                     match request {
-                        Some(SubscriptionRequest { token, sender,  is_system,}) => {
+                        Some(SubscriptionRequest { token, sender, is_system }) => {
                             match self.subscribe(token, sender, is_system) {
                                 Ok(_) => (),
                                 Err(mut e) => {
@@ -345,7 +347,7 @@ impl SubscriptionManager {
                         },
                     }
                 },
-                next_ts = self.log.wait_for_higher_ts(self.processed_ts).fuse() => {
+                next_ts = self.log.wait_for_higher_ts(processed_ts).fuse() => {
                     if let Err(mut e) = self.advance_log(next_ts) {
                         report_error(&mut e).await;
                     }
@@ -376,7 +378,7 @@ pub struct SubscriptionManager {
     //
     // Invariant: All `ReadSet` in `subscribers` have a timestamp greater than or equal to
     // `processed_ts`.
-    processed_ts: Timestamp,
+    processed_ts: Arc<AtomicI64>,
 
     invalidation_callback: InvalidationMetricCallback,
 }
@@ -405,9 +407,14 @@ impl SubscriptionManager {
             closed_subscriptions: FuturesUnordered::new(),
             log,
             retention_coordinator,
-            processed_ts: initial_ts,
+            processed_ts: Arc::new(AtomicI64::new(initial_ts.into())),
             invalidation_callback,
         }
+    }
+
+    fn processed_ts(&self) -> Timestamp {
+        Timestamp::try_from(self.processed_ts.load(Ordering::Relaxed))
+            .expect("only valid Timestamp values are written to processed_ts")
     }
 
     pub fn subscribe(
@@ -424,20 +431,19 @@ impl SubscriptionManager {
         // subscription worker is lagging far behind the client's
         // `refresh_reads` call. This is okay since we'll only duplicate
         // processing some log entries from `(self.processed_ts, token.ts()]`.
-        if token.ts() < self.processed_ts {
-            token = match self.log.refresh_token(token, self.processed_ts)? {
+        let processed_ts = self.processed_ts();
+        if token.ts() < processed_ts {
+            token = match self.log.refresh_token(token, processed_ts)? {
                 Ok(t) => t,
                 Err(invalid_ts) => {
-                    if let Some(invalid_ts) = invalid_ts {
-                        sender.validity.set_invalid_ts(invalid_ts);
-                    }
+                    *sender.validity.lock() = Validity::Invalid(invalid_ts);
                     // N.B.: we only use the returned value for tests which
                     // don't encounter this case
                     return Ok(usize::MAX);
                 },
             };
         }
-        assert!(token.ts() >= self.processed_ts);
+        assert!(token.ts() >= processed_ts);
 
         let entry = self.subscribers.vacant_entry();
         let subscriber_id = entry.key();
@@ -450,6 +456,12 @@ impl SubscriptionManager {
             seq,
         };
         self.next_seq += 1;
+        // Connect the subscription to this manager's `processed_ts`, so that
+        // `subscription.current_ts()` automatically returns the latest
+        // timestamp unless the subscription is explicitly invalidated.
+        // Note that this can move the subscription's validity backward until
+        // the next `advance_log`.
+        sender.validity.lock().adopt(self.processed_ts.clone());
         let valid_tx = sender.valid_tx.clone();
         entry.insert(Subscriber {
             reads: token.reads_owned(),
@@ -484,7 +496,8 @@ impl SubscriptionManager {
     pub fn advance_log(&mut self, next_ts: Timestamp) -> anyhow::Result<()> {
         let _timer = metrics::subscriptions_update_timer();
         block_in_place(|| {
-            let from_ts = self.processed_ts.succ()?;
+            let processed_ts = self.processed_ts();
+            let from_ts = processed_ts.succ()?;
 
             // Maps subscriber_id -> (earliest invalidating write_ts, write_source,
             // tablet_id)
@@ -566,13 +579,7 @@ impl SubscriptionManager {
 
             {
                 let _timer = metrics::subscriptions_invalidate_timer();
-                // First, do a pass where we advance all of the valid subscriptions.
-                for (subscriber_id, subscriber) in &mut self.subscribers {
-                    if !to_notify.contains_key(&subscriber_id) {
-                        subscriber.sender.validity.set_valid_ts(next_ts)
-                    }
-                }
-                // Then, invalidate all the remaining subscriptions.
+                // Notify invalidated subscriptions.
                 let num_subscriptions_invalidated = to_notify.len();
                 let should_splay_invalidations =
                     num_subscriptions_invalidated > *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD;
@@ -639,8 +646,10 @@ impl SubscriptionManager {
                     self.invalidation_callback.invoke(events);
                 }
 
-                assert!(self.processed_ts <= next_ts);
-                self.processed_ts = next_ts;
+                assert!(processed_ts <= next_ts);
+                // Finally bump `processed_ts`. This automatically bumps the current_ts of all
+                // adopted subscriptions.
+                self.processed_ts.store(next_ts.into(), Ordering::Relaxed);
             }
 
             // Enforce retention after we have processed the subscriptions.
@@ -791,64 +800,51 @@ enum SubscriptionState {
     Invalid,
 }
 
-struct Validity {
-    /// -1 means invalid, in which case `invalid_ts` may be populated
-    valid_ts: AtomicI64,
-    /// -1 means unknown
-    invalid_ts: AtomicI64,
+enum Validity {
+    Valid(Arc<AtomicI64>),
+    Invalid(Option<Timestamp>),
 }
 
 impl Validity {
     fn valid(ts: Timestamp) -> Self {
-        Self {
-            valid_ts: AtomicI64::new(ts.into()),
-            invalid_ts: AtomicI64::new(-1),
-        }
+        Self::Valid(Arc::new(AtomicI64::new(ts.into())))
     }
 
     fn invalid(invalid_ts: Option<Timestamp>) -> Validity {
-        Self {
-            valid_ts: AtomicI64::new(-1),
-            invalid_ts: AtomicI64::new(invalid_ts.map_or(-1, i64::from)),
+        Self::Invalid(invalid_ts)
+    }
+
+    fn adopt(&mut self, validity_ts: Arc<AtomicI64>) {
+        match self {
+            Self::Valid(self_ts) => *self_ts = validity_ts,
+            Self::Invalid(_) => panic!("cannot adopt an invalid subscription!"),
         }
     }
 
     fn valid_ts(&self) -> Option<Timestamp> {
-        // synchronizes with a Release store of -1 to valid_ts;
-        // guarantees that a subsequent load of `invalid_ts` will
-        // observe the correct value if written
-        match self.valid_ts.load(Ordering::Acquire) {
-            -1 => None,
-            ts => Some(
-                ts.try_into()
+        match self {
+            Self::Valid(valid_ts) => Some(
+                valid_ts
+                    .load(Ordering::Relaxed)
+                    .try_into()
                     .expect("only legal timestamp values can be written to valid_ts"),
             ),
+            Self::Invalid(_) => None,
         }
-    }
-
-    fn set_valid_ts(&self, ts: Timestamp) {
-        self.valid_ts.store(ts.into(), Ordering::Relaxed);
     }
 
     fn invalid_ts(&self) -> Option<Timestamp> {
-        match self.invalid_ts.load(Ordering::Relaxed) {
-            -1 => None,
-            ts => Some(
-                ts.try_into()
-                    .expect("only legal timestamp values can be written to invalid_ts"),
-            ),
+        match self {
+            Self::Valid(_) => None,
+            Self::Invalid(invalid_ts) => *invalid_ts,
         }
-    }
-
-    fn set_invalid_ts(&self, ts: Timestamp) {
-        self.invalid_ts.store(ts.into(), Ordering::Relaxed);
     }
 }
 
 /// A subscription on a set of read keys from a prior read-only transaction.
 #[must_use]
 pub struct Subscription {
-    validity: Arc<Validity>,
+    validity: Arc<Mutex<Validity>>,
     // May lag behind `validity` in case of subscription splaying
     valid: watch::Receiver<SubscriptionState>,
     _timer: Timer<VMHistogram>,
@@ -856,7 +852,7 @@ pub struct Subscription {
 
 impl Subscription {
     fn new(token: &Token) -> (Self, SubscriptionSender) {
-        let validity = Arc::new(Validity::valid(token.ts()));
+        let validity = Arc::new(Mutex::new(Validity::valid(token.ts())));
         let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
         let subscription = Subscription {
             validity: validity.clone(),
@@ -869,18 +865,18 @@ impl Subscription {
     fn invalid(invalid_ts: Option<Timestamp>) -> Self {
         let (_, receiver) = watch::channel(SubscriptionState::Invalid);
         Subscription {
-            validity: Arc::new(Validity::invalid(invalid_ts)),
+            validity: Arc::new(Mutex::new(Validity::invalid(invalid_ts))),
             valid: receiver,
             _timer: metrics::subscription_timer(),
         }
     }
 
     pub fn current_ts(&self) -> Option<Timestamp> {
-        self.validity.valid_ts()
+        self.validity.lock().valid_ts()
     }
 
     pub fn invalid_ts(&self) -> Option<Timestamp> {
-        self.validity.invalid_ts()
+        self.validity.lock().invalid_ts()
     }
 
     /// Wait for subscription invalidation. In general, prefer
@@ -894,7 +890,7 @@ impl Subscription {
             let _: Result<_, _> = valid
                 .wait_for(|state| matches!(state, SubscriptionState::Invalid))
                 .await;
-            validity.invalid_ts()
+            validity.lock().invalid_ts()
         }
         .in_span(span)
     }
