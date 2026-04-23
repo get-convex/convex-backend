@@ -1,6 +1,7 @@
 import { errors, BaseClient, custom } from "openid-client";
 import {
   bigBrainAPI,
+  bigBrainFetch,
   logAndHandleFetchError,
   throwingFetch,
   isWebContainer,
@@ -426,6 +427,72 @@ export async function performLogin(
       errorType: "fatal",
       printedMessage: null,
     });
+  }
+
+  if (vercel) {
+    await promptJoinVercelTeams(ctx);
+  }
+}
+
+type PotentialVercelTeam = {
+  teamId: number;
+  teamName: string;
+  teamSlug: string;
+  planId: string;
+  planName: string;
+  pricingNotice: string | null;
+};
+
+// After `--vercel` login, surface any Vercel-marketplace teams the user has
+// access to but isn't yet a member of, and prompt to join each.
+async function promptJoinVercelTeams(ctx: Context): Promise<void> {
+  const fetch = bigBrainFetch(ctx);
+  let teams: PotentialVercelTeam[];
+  try {
+    const res = await fetch(
+      new URL("vercel/potential_teams", `${provisionHost}/`),
+    );
+    if (!res.ok) {
+      logVerbose(
+        `vercel/potential_teams returned ${res.status}; skipping team-join prompt`,
+      );
+      return;
+    }
+    teams = await res.json();
+  } catch (err) {
+    logVerbose(`Failed to fetch potential Vercel teams: ${String(err)}`);
+    return;
+  }
+  if (teams.length === 0) return;
+
+  for (const [index, team] of teams.entries()) {
+    const displayName = team.teamName.replace(/ \(Vercel\)$/, "");
+    const counter = teams.length > 1 ? `[${index + 1}/${teams.length}] ` : "";
+    const lines = [
+      chalkStderr.bold(`${counter}You've been invited to join ${displayName}`) +
+        ` (${team.planName}) through the Vercel marketplace.`,
+    ];
+    if (team.pricingNotice) {
+      lines.push(chalkStderr.yellow(team.pricingNotice));
+    }
+    lines.push(`Join "${displayName}"?`);
+    const join = await promptYesNo(ctx, {
+      message: `${lines.join("\n")}`,
+      default: true,
+    });
+    if (!join) continue;
+    try {
+      await fetch(
+        new URL(
+          `vercel/potential_teams/${team.teamId}/join`,
+          `${provisionHost}/`,
+        ),
+        { method: "POST" },
+      );
+      logFinishedStep(`Joined ${displayName}`);
+    } catch (err) {
+      logFailure(`Failed to join ${displayName}: ${String(err)}`);
+    }
   }
 }
 
