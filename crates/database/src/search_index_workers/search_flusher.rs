@@ -13,10 +13,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::index::{
-        search_index::SearchBackfillCursor,
-        IndexMetadata,
-    },
+    bootstrap_model::index::search_index::SearchBackfillCursor,
     index::{
         IndexKey,
         IndexKeyBytes,
@@ -83,7 +80,6 @@ use crate::{
     },
     search_index_workers::{
         index_meta::{
-            BackfillState,
             SearchIndex,
             SearchIndexConfig,
             SearchOnDiskState,
@@ -103,7 +99,6 @@ use crate::{
     table_iteration::TableScanCursor,
     Database,
     IndexModel,
-    SystemMetadataModel,
     Token,
 };
 
@@ -435,49 +430,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let new_ts = tx.begin_timestamp();
         let (previous_segments, build_type) = match job.index_config.on_disk_state {
             SearchOnDiskState::Backfilling(ref backfill_state) => {
-                // TODO(ENG-9707) Remove this code to ensure backwards compatibility once we've
-                // rolled out the new backfill algorithm.
-                //
-                // Restart backfill from
-                // the beginning if backfill_snapshot_ts is not None. This
-                // means a version of the search flusher has run that supports a different
-                // backfill algorithm, but this version does not support that algorithm so we
-                // need to restart the backfill.
                 match &backfill_state.cursor {
-                    Some(SearchBackfillCursor::AtSnapshot { .. }) => {
-                        let tablet = job.index_name.table();
-                        let table_name = tx.table_mapping().tablet_name(*tablet)?;
-                        let table_namespace = tx.table_mapping().tablet_namespace(*tablet)?;
-                        let total_docs = tx.count(table_namespace, &table_name).await?;
-                        let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
-                        index_backfill_model
-                            .initialize_search_index_backfill(job.index_id, total_docs)
-                            .await?;
-                        let no_segments = vec![];
-                        let new_metadata = IndexMetadata {
-                            name: job.index_name.clone(),
-                            config: T::new_index_config(
-                                job.index_config.spec.clone(),
-                                SearchOnDiskState::Backfilling(BackfillState {
-                                    segments: no_segments.clone(),
-                                    cursor: None,
-                                    staged: backfill_state.staged,
-                                }),
-                            ),
-                        };
-
-                        SystemMetadataModel::new_global(&mut tx)
-                            .replace(job.metadata_id, new_metadata.try_into()?)
-                            .await?;
-                        (
-                            no_segments,
-                            MultipartBuildType::IncrementalComplete {
-                                start_cursor: None,
-                                last_segment_ts: new_ts,
-                            },
-                        )
-                    },
-                    Some(SearchBackfillCursor::WalkingForwards {
+                    Some(SearchBackfillCursor {
                         last_segment_ts,
                         table_scan_cursor,
                     }) => (
