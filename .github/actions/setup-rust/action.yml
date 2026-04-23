@@ -52,8 +52,8 @@ runs:
     - name: Start sccache
       shell: bash
       env:
-        SCCACHE_ENDPOINT: https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com
-        SCCACHE_BUCKET: cvx-actions-cache
+        SCCACHE_ENDPOINT: https://ea26d42490b89665b79782576c63381c.r2.cloudflarestorage.com
+        SCCACHE_BUCKET: defy-convex-runner
         SCCACHE_REGION: auto
         AWS_ACCESS_KEY_ID: ${{ inputs.r2-access-key }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-key }}
