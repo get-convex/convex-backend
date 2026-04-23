@@ -6,6 +6,35 @@
 </picture>
 </p>
 
+[![Default branch: enhanced](https://img.shields.io/badge/default%20branch-enhanced-0f766e)](https://github.com/defy-works/convex-backend/tree/enhanced)
+[![Upstream base: get-convex/convex-backend](https://img.shields.io/badge/upstream-get--convex%2Fconvex--backend-111827)](https://github.com/get-convex/convex-backend)
+
+## Defy Enhanced Fork
+
+This repository is the Defy-maintained Convex fork. The default branch is
+`enhanced`, which tracks upstream Convex and carries fork-specific operational
+improvements for self-hosting.
+
+### Enhancements in this fork
+
+- Configurable isolate worker cap via `FUNRUN_MAX_ISOLATE_WORKERS` instead of a
+  hardcoded `128` worker limit.
+- Scheduled upstream sync automation so `enhanced` stays aligned with
+  `get-convex/convex-backend` and `release` stays aligned with upstream release
+  updates.
+- Fork-owned Docker publishing automation, with image names and GHCR namespace
+  configurable through GitHub Actions variables instead of publishing to
+  `ghcr.io/get-convex/...`.
+- Release verification updated to test the fork's published backend image rather
+  than upstream's container namespace.
+
+### Branches
+
+- `enhanced`: default branch for this fork, where Defy patches live on top of
+  upstream `main`.
+- `release`: release-tracking branch used to build and publish self-hosted
+  images when upstream release updates land.
+
 [Convex](https://convex.dev) is the open-source reactive database designed to
 make life easy for web app developers, whether human or LLM. Fetch data and
 perform business logic with strong consistency by writing pure TypeScript.

@@ -10,6 +10,10 @@ on:
         description: "arm64 image digest"
         value: ${{ fromJson(jobs.read.outputs.result).digest.backend-arm64 }}
 
+env:
+  IMAGE_NAMESPACE: ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE || github.repository_owner }}
+  BACKEND_IMAGE_NAME: ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME || 'convex-backend' }}
+
 permissions:
   contents: read
   packages: write
@@ -50,7 +54,7 @@ jobs:
           context: .
           file: self-hosted/docker-build/Dockerfile.backend
           tags: |
-            ghcr.io/get-convex/convex-backend
+            ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}
           cache-from: |
             type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.sha }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
             type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.ref_name }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}

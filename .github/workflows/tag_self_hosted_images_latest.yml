@@ -10,6 +10,11 @@ on:
         type: string
         required: true
 
+env:
+  IMAGE_NAMESPACE: ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE || github.repository_owner }}
+  BACKEND_IMAGE_NAME: ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME || 'convex-backend' }}
+  DASHBOARD_IMAGE_NAME: ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME || 'convex-dashboard' }}
+
 jobs:
   tag_images_as_latest:
     runs-on: ubuntu-latest
@@ -23,20 +28,20 @@ jobs:
 
       - name: Modify convex-backend manifest with latest tag
         run: |
-          digests=$(docker manifest inspect ghcr.io/get-convex/convex-backend:${{ inputs.github_sha }} | jq -r '.manifests[].digest')
+          digests=$(docker manifest inspect ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}:${{ inputs.github_sha }} | jq -r '.manifests[].digest')
           args=()
           for digest in $digests; do
-            args+=(--amend "ghcr.io/get-convex/convex-backend@$digest")
+            args+=(--amend "ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}@$digest")
           done
-          docker manifest create ghcr.io/get-convex/convex-backend:latest "${args[@]}"
-          docker manifest push ghcr.io/get-convex/convex-backend:latest
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}:latest "${args[@]}"
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}:latest
 
       - name: Modify dashboard manifest with latest tag
         run: |
-          digests=$(docker manifest inspect ghcr.io/get-convex/convex-dashboard:${{ inputs.github_sha }} | jq -r '.manifests[].digest')
+          digests=$(docker manifest inspect ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:${{ inputs.github_sha }} | jq -r '.manifests[].digest')
           args=()
           for digest in $digests; do
-            args+=(--amend "ghcr.io/get-convex/convex-dashboard@$digest")
+            args+=(--amend "ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}@$digest")
           done
-          docker manifest create ghcr.io/get-convex/convex-dashboard:latest "${args[@]}"
-          docker manifest push ghcr.io/get-convex/convex-dashboard:latest
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:latest "${args[@]}"
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:latest

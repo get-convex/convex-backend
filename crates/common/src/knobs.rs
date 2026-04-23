@@ -1051,6 +1051,10 @@ pub static FUNRUN_CLIENT_MAX_RETRIES: LazyLock<usize> =
 pub static FUNRUN_SCHEDULER_MAX_PERCENT_PER_CLIENT: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_SCHEDULER_MAX_PERCENT_PER_CLIENT", 50));
 
+/// Maximum number of isolate workers the in-process function runner may create.
+pub static FUNRUN_MAX_ISOLATE_WORKERS: LazyLock<usize> =
+    LazyLock::new(|| env_config("FUNRUN_MAX_ISOLATE_WORKERS", 128).max(1));
+
 /// Name of the service to discover for when connecting to Funrun (e.g.
 /// funrun-default, funrun-staging, etc.)
 pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =

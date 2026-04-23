@@ -1,0 +1,122 @@
+name: Sync Upstream Fork
+
+on:
+  workflow_dispatch:
+    inputs:
+      sync_enhanced:
+        description: "Sync enhanced from upstream/main"
+        type: boolean
+        default: true
+      sync_release:
+        description: "Sync release from upstream"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "17 * * * *"
+
+env:
+  UPSTREAM_REPOSITORY: ${{ vars.UPSTREAM_REPOSITORY != '' && vars.UPSTREAM_REPOSITORY || 'get-convex/convex-backend' }}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync_enhanced:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_enhanced }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require sync token
+        env:
+          UPSTREAM_SYNC_PAT: ${{ secrets.UPSTREAM_SYNC_PAT }}
+        run: |
+          if [ -z "$UPSTREAM_SYNC_PAT" ]; then
+            echo "Missing required secret: UPSTREAM_SYNC_PAT"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_PAT }}
+
+      - name: Configure git
+        run: |
+          git config user.name "convex-upstream-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync enhanced
+        run: |
+          set -euo pipefail
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch --no-tags origin enhanced || true
+          git fetch --no-tags upstream main
+
+          if git show-ref --verify --quiet refs/remotes/origin/enhanced; then
+            git checkout -B enhanced origin/enhanced
+          else
+            git checkout -B enhanced upstream/main
+          fi
+
+          before="$(git rev-parse HEAD)"
+          git merge --no-edit upstream/main
+          after="$(git rev-parse HEAD)"
+
+          if [ "$before" = "$after" ]; then
+            echo "enhanced is already up to date with upstream/main"
+            exit 0
+          fi
+
+          git push origin HEAD:enhanced
+
+  sync_release:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_release }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require sync token
+        env:
+          UPSTREAM_SYNC_PAT: ${{ secrets.UPSTREAM_SYNC_PAT }}
+        run: |
+          if [ -z "$UPSTREAM_SYNC_PAT" ]; then
+            echo "Missing required secret: UPSTREAM_SYNC_PAT"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_PAT }}
+
+      - name: Configure git
+        run: |
+          git config user.name "convex-upstream-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync release
+        run: |
+          set -euo pipefail
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch --no-tags origin release || true
+          git fetch --no-tags upstream release
+
+          if git show-ref --verify --quiet refs/remotes/origin/release; then
+            git checkout -B release origin/release
+          else
+            git checkout -B release upstream/release
+          fi
+
+          before="$(git rev-parse HEAD)"
+          git merge --no-edit upstream/release
+          after="$(git rev-parse HEAD)"
+
+          if [ "$before" = "$after" ]; then
+            echo "release is already up to date"
+            exit 0
+          fi
+
+          git push origin HEAD:release

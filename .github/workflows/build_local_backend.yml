@@ -2,7 +2,7 @@ name: Build Convex Backend
 
 on:
   push:
-    branches: [main]
+    branches: [enhanced]
   pull_request:
   workflow_dispatch:
 

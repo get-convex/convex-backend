@@ -12,6 +12,10 @@ on:
         type: string
         required: true
 
+env:
+  IMAGE_NAMESPACE: ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE || github.repository_owner }}
+  BACKEND_IMAGE_NAME: ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME || 'convex-backend' }}
+
 jobs:
   test_self_hosted_backend:
     name: Test self-hosted backend
@@ -20,7 +24,7 @@ jobs:
 
     services:
       backend:
-        image: ghcr.io/get-convex/convex-backend@${{ inputs.image_digest_x64 }}
+        image: ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}@${{ inputs.image_digest_x64 }}
         env:
           ACTIONS_USER_TIMEOUT_SECS: "20"
           CONVEX_CLOUD_ORIGIN: "http://127.0.0.1:3210"
