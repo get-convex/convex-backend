@@ -860,9 +860,9 @@ function FunctionUsageBreakdownByProject({
   projectTotal: number;
 }) {
   const { project, isLoading: isLoadingProject } = useProjectById(projectId);
-  const { deployments } = useDeployments(projectId);
+  const { deployments, isLoading: isLoadingDeployments } =
+    useDeployments(projectId);
   const member = useProfile();
-  const isLoadingDeployments = !deployments;
 
   return (
     <div className="mb-4">
