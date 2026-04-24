@@ -2,6 +2,8 @@ import {
   ChevronDownIcon,
   DesktopIcon,
   DownloadIcon,
+  PaperPlaneIcon,
+  UploadIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { Button } from "@ui/Button";
@@ -10,7 +12,7 @@ import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { AggregatedFunctionMetricsV2 } from "hooks/usageMetricsV2";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { DeploymentType, TeamResponse, ProjectDetails } from "generatedApi";
 import { PuzzlePieceIcon } from "@common/elements/icons";
@@ -26,6 +28,53 @@ import { cn } from "@ui/cn";
 const ITEMS_SHOWN_INITIALLY = 6;
 const ITEMS_SHOW_MORE_INCREMENT = 20;
 
+type SystemRowKind =
+  | "dashboard"
+  | "cloudBackup"
+  | "logStreaming"
+  | "streamingExport";
+
+function getSystemRowKind(fn: string): SystemRowKind | null {
+  if (fn.startsWith("_system/")) return "dashboard";
+  if (fn === "_system_job/cloud_backup") return "cloudBackup";
+  if (fn === "_system_job/log_stream_payload") return "logStreaming";
+  if (fn === "_system_job/streaming_export") return "streamingExport";
+  return null;
+}
+
+function renderSystemRowLabel(kind: SystemRowKind): ReactNode {
+  switch (kind) {
+    case "dashboard":
+      return (
+        <span className="flex items-center gap-1.5">
+          <DesktopIcon />
+          Dashboard
+        </span>
+      );
+    case "cloudBackup":
+      return (
+        <span className="flex items-center gap-1.5">
+          <DownloadIcon />
+          Cloud Backup Generation
+        </span>
+      );
+    case "logStreaming":
+      return (
+        <span className="flex items-center gap-1.5">
+          <PaperPlaneIcon />
+          Log Streaming
+        </span>
+      );
+    case "streamingExport":
+      return (
+        <span className="flex items-center gap-1.5">
+          <UploadIcon />
+          Streaming Export
+        </span>
+      );
+  }
+}
+
 type DeploymentTypeRow = {
   key: string;
   function: string;
@@ -33,8 +82,7 @@ type DeploymentTypeRow = {
   value: number;
   values: number[];
   deploymentType: DeploymentType | null;
-  isSystem: boolean;
-  isCloudBackups: boolean;
+  systemKind: SystemRowKind | null;
   href: string | null;
 };
 
@@ -253,19 +301,13 @@ function ChartRow({
     | undefined;
 }) {
   const path = row.function;
-  const { componentPath } = row;
-  const isSystemFunction = row.isSystem;
-  const { isCloudBackups } = row;
+  const { componentPath, systemKind } = row;
   const { module, functionName } = useMemo(() => {
     const separator = ".js:";
     const separatorPosition = path.indexOf(separator);
 
-    if (isCloudBackups) {
-      return { module: "Cloud Backup Generation", functionName: "default" };
-    }
-
-    if (isSystemFunction) {
-      return { module: "Convex Dashboard", functionName: "default" };
+    if (systemKind !== null) {
+      return { module: "", functionName: "default" };
     }
 
     if (separatorPosition === -1) {
@@ -277,7 +319,7 @@ function ChartRow({
       module: path.substring(0, separatorPosition),
       functionName: path.substring(separatorPosition + separator.length),
     };
-  }, [path, isSystemFunction, isCloudBackups]);
+  }, [path, systemKind]);
 
   const { values } = row;
   const nonZeroValues = values
@@ -305,16 +347,8 @@ function ChartRow({
 
         <div className="absolute top-0 left-0 flex h-full w-full items-center text-sm">
           <div className="truncate px-4">
-            {isCloudBackups ? (
-              <span className="flex items-center gap-1.5">
-                <DownloadIcon />
-                Cloud Backup Generation
-              </span>
-            ) : isSystemFunction ? (
-              <span className="flex items-center gap-1.5">
-                <DesktopIcon />
-                Dashboard
-              </span>
+            {systemKind !== null ? (
+              renderSystemRowLabel(systemKind)
             ) : (
               <div className="flex items-center gap-1.5">
                 {componentPath && componentPath !== rootComponentPath && (
@@ -391,12 +425,13 @@ function ChartRow({
       <div>This row aggregates all preview deployments of your team.</div>
     ) : null;
 
-  const systemFunctionTip = isSystemFunction ? (
-    <div>
-      Usage incurred by using the Convex dashboard, such as viewing the data or
-      logs page for your deployment.
-    </div>
-  ) : null;
+  const systemFunctionTip =
+    systemKind === "dashboard" ? (
+      <div>
+        Usage incurred by using the Convex dashboard, such as viewing the data
+        or logs page for your deployment.
+      </div>
+    ) : null;
   const tip =
     valueTip !== null ||
     deploymentTypeTip !== null ||
@@ -463,9 +498,8 @@ function useOrderedAndGroupedRows(
         const { componentPath } = row;
         let key;
         let deployment = null;
-        const isSystem = row.function.startsWith("_system/");
-        const isCloudBackups = row.function === "_system_job/cloud_backup";
-        const name = isSystem ? "" : row.function;
+        const systemKind = getSystemRowKind(row.function);
+        const name = systemKind === "dashboard" ? "" : row.function;
         if (project) {
           deployment = deployments.find(
             (d) =>
@@ -500,13 +534,12 @@ function useOrderedAndGroupedRows(
             value: total,
             values,
             deploymentType,
-            isSystem,
-            isCloudBackups,
+            systemKind,
 
             // We don’t link to development environments because they might belong to
             // someone else in the team. This might be improved later.
             href:
-              project && deploymentType === "prod" && !isSystem
+              project && deploymentType === "prod" && systemKind === null
                 ? `/t/${team.slug}/${project.slug}/${
                     deployment!.name
                   }/functions?function=${encodeURIComponent(

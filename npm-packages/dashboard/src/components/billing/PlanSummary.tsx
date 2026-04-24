@@ -182,7 +182,8 @@ const selfServeSections: V2Section[] = [
     metric: "dataEgress",
     entitlement: "teamMaxFileBandwidth",
     format: formatBytes,
-    detail: "The amount of data egressed via file serving",
+    detail:
+      "The amount of data egressed by file serving, fetch calls in actions, log streams, and streaming export.",
     title: "Data Egress",
   },
   {
