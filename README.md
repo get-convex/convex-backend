@@ -35,6 +35,10 @@ improvements for self-hosting.
 - `release`: release-tracking branch used to build and publish self-hosted
   images when upstream release updates land.
 
+---
+
+## About Convex
+
 [Convex](https://convex.dev) is the open-source reactive database designed to
 make life easy for web app developers, whether human or LLM. Fetch data and
 perform business logic with strong consistency by writing pure TypeScript.
