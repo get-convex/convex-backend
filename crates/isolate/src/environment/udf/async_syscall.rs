@@ -360,6 +360,7 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
 
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
+    fn udf_type(&self) -> UdfType;
     fn udf_path(&self) -> &CanonicalizedUdfPath;
     fn component_path(&self) -> &ComponentPath;
     fn deployment(&self) -> &DeploymentMetadata;
@@ -449,6 +450,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool) {
         self.syscall_trace
             .log_async_syscall(name, duration, is_success);
+    }
+
+    fn udf_type(&self) -> UdfType {
+        self.udf_type
     }
 
     fn udf_path(&self) -> &CanonicalizedUdfPath {
@@ -790,6 +795,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/getTransactionMetrics" => Self::tx_metrics(provider),
                     "1.0/getFunctionMetadata" => Self::function_metadata(provider),
                     "1.0/getDeploymentMetadata" => Self::deployment_metadata(provider),
+                    "1.0/getRequestMetadata" => Self::request_metadata(provider),
                     // Auth
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
@@ -878,6 +884,24 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             "name": deployment.name,
             "region": deployment.region,
             "class": deployment.class,
+        }))
+    }
+
+    /// Returns metadata about the originating HTTP request.
+    fn request_metadata(provider: &mut P) -> anyhow::Result<JsonValue> {
+        anyhow::ensure!(
+            provider.udf_type() == UdfType::Mutation,
+            ErrorMetadata::bad_request(
+                "RequestMetadataNotAllowed",
+                format!("Cannot get request metadata in a {}", provider.udf_type())
+            )
+        );
+        let context = provider.context();
+        let metadata = &context.request_metadata;
+        Ok(json!({
+            "ip": metadata.ip.as_ref().map(|ip| ip.as_str()),
+            "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
+            "requestId": context.request_id.as_str(),
         }))
     }
 

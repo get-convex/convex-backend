@@ -3,6 +3,7 @@ import {
   ActionMeta,
   MutationMeta,
   QueryMeta,
+  RequestMetadata,
   FunctionMetadata,
   TransactionMetrics,
   DeploymentMetadata,
@@ -49,6 +50,14 @@ async function getDeploymentMetadata(): Promise<DeploymentMetadata> {
   };
 }
 
+async function getRequestMetadata(): Promise<RequestMetadata> {
+  const { ip, userAgent, requestId } = await performAsyncSyscall(
+    "1.0/getRequestMetadata",
+    {},
+  );
+  return { ip, userAgent, requestId };
+}
+
 export function setupQueryMeta(
   visibility: FunctionMetadata["visibility"],
 ): QueryMeta {
@@ -74,6 +83,7 @@ export function setupMutationMeta(
     }),
     getTransactionMetrics,
     getDeploymentMetadata,
+    getRequestMetadata,
   };
 }
 
@@ -87,5 +97,6 @@ export function setupActionMeta(
       visibility,
     }),
     getDeploymentMetadata,
+    getRequestMetadata,
   };
 }

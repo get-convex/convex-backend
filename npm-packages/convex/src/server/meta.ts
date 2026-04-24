@@ -73,6 +73,23 @@ export type DeploymentMetadata = {
 };
 
 /**
+ * Metadata about the HTTP request that triggered the current function execution.
+ *
+ * `ip` and `userAgent` are `null` when the function was not triggered by an
+ * HTTP request (e.g. scheduled jobs or cron jobs).
+ *
+ * Functions called from within a function (i.e. using `runMutation` or
+ * `runAction`) will have the same request metadata as the parent function.
+ *
+ * @public
+ */
+export type RequestMetadata = {
+  ip: string | null;
+  userAgent: string | null;
+  requestId: string;
+};
+
+/**
  * Extra context available in Convex query functions.
  *
  * @public
@@ -89,7 +106,12 @@ export interface QueryMeta {
  *
  * @public
  */
-export interface MutationMeta extends QueryMeta {}
+export interface MutationMeta extends QueryMeta {
+  /**
+   * @internal
+   */
+  getRequestMetadata(): Promise<RequestMetadata>;
+}
 
 /**
  * Extra context available in Convex action functions.
@@ -100,4 +122,9 @@ export interface ActionMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
   /** @internal */
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
+
+  /**
+   * @internal
+   */
+  getRequestMetadata(): Promise<RequestMetadata>;
 }

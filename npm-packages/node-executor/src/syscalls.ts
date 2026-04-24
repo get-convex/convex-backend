@@ -165,6 +165,13 @@ export class SyscallsImpl {
         this.executionContext.parentScheduledJobComponentId;
     }
     headers["Convex-Request-Id"] = this.executionContext.requestId;
+    if (this.executionContext.ip !== null) {
+      headers["Convex-Request-Client-Ip"] = this.executionContext.ip;
+    }
+    if (this.executionContext.userAgent !== null) {
+      headers["Convex-Request-Client-User-Agent"] =
+        this.executionContext.userAgent;
+    }
     if (this.executionContext.executionId !== undefined) {
       headers["Convex-Execution-Id"] = this.executionContext.executionId;
     }
@@ -334,6 +341,12 @@ export class SyscallsImpl {
           });
         case "1.0/getDeploymentMetadata":
           return JSON.stringify(this.deployment);
+        case "1.0/getRequestMetadata":
+          return JSON.stringify({
+            ip: this.executionContext.ip,
+            userAgent: this.executionContext.userAgent,
+            requestId: this.executionContext.requestId,
+          });
         default:
           throw new Error(`Unknown operation ${op}`);
       }
