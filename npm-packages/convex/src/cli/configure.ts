@@ -671,15 +671,6 @@ async function selectExistingProject(
 
   logFinishedStep(`Reinitialized project ${chalkStderr.bold(projectSlug)}`);
 
-  const { configPath, projectConfig } = await readProjectConfig(ctx);
-  const folder = functionsDir(configPath, projectConfig);
-  await attemptSetupAiFiles({
-    ctx,
-    aiFilesConfig: projectConfig.aiFiles,
-    convexDir: path.resolve(folder),
-    projectDir: path.resolve(path.dirname(configPath)),
-  });
-
   return { teamSlug, projectSlug, devDeployment };
 }
 
