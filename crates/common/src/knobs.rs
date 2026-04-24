@@ -818,6 +818,12 @@ pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> =
 pub static APPLICATION_MAX_CONCURRENT_UPLOADS: LazyLock<usize> =
     LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_UPLOADS", 4));
 
+/// The number of modules to analyze concurrently during a push.
+///
+/// This only applies to isolate modules, not node ones.
+pub static ANALYZE_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("ANALYZE_CONCURRENCY", 4));
+
 /// Set a 64MB limit on the heap size.
 pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_USER_HEAP_SIZE", 1 << 26));

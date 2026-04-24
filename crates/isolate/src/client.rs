@@ -6,6 +6,7 @@ use std::{
         VecDeque,
     },
     env,
+    pin::pin,
     sync::{
         Arc,
         Once,
@@ -20,6 +21,7 @@ use ::metrics::{
 use async_trait::async_trait;
 use common::{
     auth::AuthConfig,
+    backoff::Backoff,
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     codel_queue::{
         new_codel_queue_async,
@@ -46,6 +48,7 @@ use common::{
         RoutedHttpPath,
     },
     knobs::{
+        ANALYZE_CONCURRENCY,
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         HEAP_WORKER_REPORT_INTERVAL_SECONDS,
         ISOLATE_IDLE_TIMEOUT,
@@ -93,9 +96,11 @@ use file_storage::TransactionalFileStorage;
 use futures::{
     select_biased,
     stream::{
+        self,
         FuturesUnordered,
         StreamExt,
     },
+    TryStreamExt as _,
 };
 use itertools::Either;
 use keybroker::{
@@ -110,6 +115,7 @@ use model::{
     },
     modules::module_versions::{
         AnalyzedModule,
+        FullModuleSource,
         ModuleSource,
         SourceMap,
     },
@@ -277,11 +283,10 @@ pub enum RequestType<RT: Runtime> {
     },
     Analyze {
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>>,
+        to_analyze: CanonicalizedModulePath,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-        response: oneshot::Sender<
-            anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>,
-        >,
+        response: oneshot::Sender<anyhow::Result<Result<AnalyzedModule, JsError>>>,
         max_user_heap_size: usize,
     },
     EvaluateSchema {
@@ -742,23 +747,70 @@ impl<RT: Runtime> IsolateClient<RT> {
                 .all(|m| m.environment == ModuleEnvironment::Isolate),
             "Can only analyze Isolate modules"
         );
-        let (tx, rx) = oneshot::channel();
-        let request = RequestType::Analyze {
-            modules,
-            response: tx,
-            udf_config,
-            environment_variables,
-            max_user_heap_size,
-        };
-        self.send_request(Request::new(
-            instance_name,
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        match IsolateClient::<RT>::receive_response(rx).await? {
-            Ok(outcome) => Ok(outcome),
-            Err(e) => Err(recapture_stacktrace(e).await),
+        let to_analyze: Vec<_> = modules
+            .keys()
+            .filter(|path| !path.is_deps())
+            .cloned()
+            .collect();
+        let modules: Arc<BTreeMap<_, _>> = Arc::new(
+            modules
+                .into_iter()
+                .map(|(path, module_config)| {
+                    (
+                        path,
+                        Arc::new(FullModuleSource {
+                            source: module_config.source,
+                            source_map: module_config.source_map,
+                        }),
+                    )
+                })
+                .collect(),
+        );
+        let mut stream = pin!(stream::iter(to_analyze)
+            .map(|to_analyze| async {
+                let mut backoff = Backoff::new(Duration::from_millis(500), Duration::from_secs(2));
+                let mut attempt = 1;
+                const MAX_ATTEMPTS: u32 = 3;
+                loop {
+                    let (tx, rx) = oneshot::channel();
+                    let request = RequestType::Analyze {
+                        modules: modules.clone(),
+                        to_analyze: to_analyze.clone(),
+                        response: tx,
+                        udf_config: udf_config.clone(),
+                        environment_variables: environment_variables.clone(),
+                        max_user_heap_size,
+                    };
+                    self.send_request(Request::new(
+                        instance_name.clone(),
+                        request,
+                        EncodedSpan::from_parent(),
+                    ))?;
+                    match IsolateClient::<RT>::receive_response(rx).await? {
+                        Ok(outcome) => return Ok((to_analyze, outcome)),
+                        Err(e)
+                            if attempt < MAX_ATTEMPTS
+                                && (e.is_rejected_before_execution() || e.is_overloaded()) =>
+                        {
+                            tracing::warn!("Retrying analyze after system error: {e:?}");
+                            let wait = backoff.fail(&mut self.rt.rng());
+                            self.rt.wait(wait).await;
+                            attempt += 1;
+                            continue;
+                        },
+                        Err(e) => return Err(recapture_stacktrace(e).await),
+                    }
+                }
+            })
+            .buffer_unordered(*ANALYZE_CONCURRENCY));
+        let mut analyzed_modules = BTreeMap::new();
+        while let Some((path, r)) = stream.try_next().await? {
+            match r {
+                Ok(analyzed_module) => analyzed_modules.insert(path, analyzed_module),
+                Err(r) => return Ok(Err(r)),
+            };
         }
+        Ok(Ok(analyzed_modules))
     }
 
     #[fastrace::trace]
