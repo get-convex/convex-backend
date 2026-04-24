@@ -6295,8 +6295,8 @@ importers:
         specifier: ^4.19.4
         version: 4.20.6
       typescript:
-        specifier: ~5.0.3
-        version: 5.0.4
+        specifier: ^5.9.2
+        version: 5.9.3
 
   ../../udf-runtime:
     dependencies:
