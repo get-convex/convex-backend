@@ -82,8 +82,7 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os:
-              "runs-on=${{ github.run_id }}-linux-x64/runner=xlarge-x64"
+            os: "runs-on=${{ github.run_id }}-linux-x64/runner=xlarge-x64"
           - target: x86_64-apple-darwin
             # large are on intel
             os: "macos-latest-large"
@@ -93,8 +92,7 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: "windows-latest"
           - target: aarch64-unknown-linux-gnu
-            os:
-              "runs-on=${{ github.run_id }}-linux-arm64/runner=xlarge-arm64"
+            os: "runs-on=${{ github.run_id }}-linux-arm64/runner=xlarge-arm64"
     name: Build Convex Backend
     runs-on: ${{ matrix.os }}
     steps:
