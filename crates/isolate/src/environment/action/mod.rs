@@ -260,6 +260,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             default_system_env_vars,
             file_storage,
             module_loader,
+            deployment,
         }: EnvironmentData<RT>,
         identity: Identity,
         transaction: Transaction<RT>,
@@ -292,6 +293,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             udf_path,
             component_path,
             convex_origin_override: convex_origin_override.clone(),
+            deployment,
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));

@@ -33,7 +33,10 @@ use common::{
         Resource,
     },
     errors::JsError,
-    execution_context::ExecutionContext,
+    execution_context::{
+        ExecutionContext,
+        RequestContext,
+    },
     fastrace_helpers::EncodedSpan,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
@@ -713,7 +716,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Query,
         )
         .await?;
-        let context = ExecutionContext::new(request_id, &caller);
+        let context =
+            ExecutionContext::new(RequestContext::new_for_system_request(request_id), &caller);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
@@ -765,7 +769,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     pub async fn retry_mutation(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         arguments: SerializedArgs,
         identity: Identity,
@@ -776,7 +780,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let timer = mutation_timer();
         let result = self
             ._retry_mutation(
-                request_id,
+                request_context,
                 path,
                 arguments,
                 identity,
@@ -796,7 +800,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     async fn _retry_mutation(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         arguments: SerializedArgs,
         identity: Identity,
@@ -827,7 +831,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
             // Note that we use different context for every mutation attempt.
             // This so every JS function run gets a different executionId.
-            let context = ExecutionContext::new(request_id.clone(), &caller);
+            let context = ExecutionContext::new(request_context.clone(), &caller);
 
             let start = self.runtime.monotonic_now();
             let mut tx = self
@@ -1140,7 +1144,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     pub async fn run_action(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         arguments: SerializedArgs,
         identity: Identity,
@@ -1149,7 +1153,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
-        let context = ExecutionContext::new(request_id.clone(), &caller);
+        let context = ExecutionContext::new(request_context, &caller);
         let usage_tracking = FunctionUsageTracker::new();
         let start = self.runtime.monotonic_now();
         let completion_result = self
@@ -1804,7 +1808,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     pub async fn run_query_at_ts(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -1813,7 +1817,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         caller: FunctionCaller,
     ) -> anyhow::Result<QueryReturn> {
         let result = self
-            .run_query_at_ts_inner(request_id, path, args, identity, ts, journal, caller)
+            .run_query_at_ts_inner(request_context, path, args, identity, ts, journal, caller)
             .await;
         match result.as_ref() {
             Ok(udf_outcome) => {
@@ -1837,7 +1841,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     async fn run_query_at_ts_inner(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -1849,12 +1853,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             anyhow::bail!(unauthorized_error("query"));
         }
         let start = self.runtime.monotonic_now();
-        let context = ExecutionContext::new(request_id.clone(), &caller);
+        let context = ExecutionContext::new(request_context.clone(), &caller);
         let usage_tracker = FunctionUsageTracker::new();
         let result = self
             .cache_manager
             .get(
-                request_id,
+                request_context,
                 path.clone(),
                 args.clone(),
                 identity.clone(),
@@ -1970,7 +1974,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let ts = self.database.now_ts_for_reads();
         let result = self
             .run_query_at_ts(
-                context.request_id,
+                RequestContext::new(context.request_id, context.request_metadata),
                 PublicFunctionPath::Component(path),
                 args,
                 identity,
@@ -1996,7 +2000,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     ) -> anyhow::Result<FunctionResult> {
         let result = self
             .retry_mutation(
-                context.request_id,
+                RequestContext::new(context.request_id, context.request_metadata),
                 PublicFunctionPath::Component(path),
                 args,
                 identity,
@@ -2026,7 +2030,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let _tx = self.database.begin(identity.clone()).await?;
         let result = self
             .run_action(
-                context.request_id,
+                RequestContext::new(context.request_id, context.request_metadata),
                 PublicFunctionPath::Component(path),
                 args,
                 identity,

@@ -17,11 +17,13 @@ use common::{
             Query,
         },
         ExtractRequestId,
+        ExtractRequestMetadata,
         ExtractResolvedHostname,
         HttpResponseError,
     },
     runtime::Runtime,
     types::remove_type_prefix_from_admin_key,
+    RequestContext,
 };
 use errors::ErrorMetadata;
 use keybroker::Identity;
@@ -152,7 +154,14 @@ impl FromRequestParts<RouterState> for TryExtractIdentity {
             Ok(id) => id,
             Err(e) => return Ok(Self(Err(e.into()))),
         };
-        Ok(Self(st.api.authenticate(&host, request_id.0, token).await))
+        let request_metadata = match parts.extract::<ExtractRequestMetadata>().await {
+            Ok(m) => m.0,
+            Err(e) => return Ok(Self(Err(e.into()))),
+        };
+        let request_context = RequestContext::new(request_id.0, request_metadata);
+        Ok(Self(
+            st.api.authenticate(&host, request_context, token).await,
+        ))
     }
 }
 

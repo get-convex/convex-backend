@@ -126,6 +126,7 @@ use common::{
         AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
+        DeploymentMetadata,
         EnvVarName,
         EnvVarValue,
         FullyQualifiedObjectKey,
@@ -135,12 +136,12 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
-        RegionName,
         RepeatableTimestamp,
         TableName,
         Timestamp,
         UdfType,
     },
+    RequestContext,
     RequestId,
 };
 use cron_jobs::CronJobExecutor;
@@ -560,7 +561,7 @@ pub struct Application<RT: Runtime> {
     usage_counter: UsageCounter,
     usage_event_logger: Arc<dyn UsageEventLogger>,
     key_broker: KeyBroker,
-    instance_name: String,
+    deployment: DeploymentMetadata,
     workers: WorkerHandles,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
@@ -646,8 +647,7 @@ impl<RT: Runtime> Application<RT> {
         application_storage: ApplicationStorage,
         usage_event_logger: Arc<dyn UsageEventLogger>,
         key_broker: KeyBroker,
-        instance_name: String,
-        deployment_region: Option<RegionName>,
+        deployment: DeploymentMetadata,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
@@ -665,6 +665,8 @@ impl<RT: Runtime> Application<RT> {
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
+        let instance_name = deployment.name.clone();
+        let deployment_region = deployment.region.clone();
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
@@ -865,7 +867,7 @@ impl<RT: Runtime> Application<RT> {
             usage_event_logger,
             usage_counter,
             key_broker,
-            instance_name,
+            deployment,
             workers,
             log_visibility,
             module_cache,
@@ -915,7 +917,11 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub fn instance_name(&self) -> String {
-        self.instance_name.clone()
+        self.deployment.name.clone()
+    }
+
+    pub fn deployment(&self) -> &DeploymentMetadata {
+        &self.deployment
     }
 
     #[fastrace::trace]
@@ -1021,21 +1027,21 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn read_only_udf(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let ts = *self.now_ts_for_reads();
-        self.read_only_udf_at_ts(request_id, path, args, identity, ts, None, caller)
+        self.read_only_udf_at_ts(request_context, path, args, identity, ts, None, caller)
             .await
     }
 
     #[fastrace::trace]
     pub async fn read_only_udf_at_ts(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -1043,6 +1049,7 @@ impl<RT: Runtime> Application<RT> {
         journal: Option<Option<String>>,
         caller: FunctionCaller,
     ) -> anyhow::Result<RedactedQueryReturn> {
+        let request_id = request_context.request_id.clone();
         let persistence_version = self.database.persistence_version();
         let block_logging = self
             .log_visibility
@@ -1062,7 +1069,7 @@ impl<RT: Runtime> Application<RT> {
                 .transpose()?;
             self.runner
                 .run_query_at_ts(
-                    request_id.clone(),
+                    request_context.clone(),
                     path,
                     args,
                     identity,
@@ -1107,7 +1114,7 @@ impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
     pub async fn mutation_udf(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -1124,10 +1131,11 @@ impl<RT: Runtime> Application<RT> {
                 caller.allowed_visibility(),
             )
             .await?;
+        let request_id = request_context.request_id.clone();
         let result = match self
             .runner
             .retry_mutation(
-                request_id.clone(),
+                request_context,
                 path,
                 args,
                 identity,
@@ -1172,7 +1180,7 @@ impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
     pub async fn action_udf(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         name: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -1189,13 +1197,13 @@ impl<RT: Runtime> Application<RT> {
 
         let should_spawn = caller.run_until_completion_if_cancelled();
         let runner: Arc<ApplicationFunctionRunner<RT>> = self.runner.clone();
-        let request_id_ = request_id.clone();
+        let request_id = request_context.request_id.clone();
         let span = SpanContext::current_local_parent()
             .map(|ctx| Span::root(format!("{}::actions_future", func_path!()), ctx))
             .unwrap_or(Span::noop());
         let run_action = async move {
             runner
-                .run_action(request_id_, name, args, identity, caller)
+                .run_action(request_context, name, args, identity, caller)
                 .in_span(span)
                 .await
         };
@@ -1237,7 +1245,7 @@ impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
     pub async fn http_action_udf(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         http_request: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
@@ -1266,7 +1274,7 @@ impl<RT: Runtime> Application<RT> {
             .spawn_background("run_http_action", async move {
                 let result = runner
                     .run_http_action(
-                        request_id,
+                        request_context,
                         http_request,
                         response_streamer_,
                         identity,
@@ -1302,12 +1310,13 @@ impl<RT: Runtime> Application<RT> {
     /// Run a function of an arbitrary type from its name
     pub async fn any_udf(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: CanonicalizedComponentFunctionPath,
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        let request_id = request_context.request_id.clone();
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -1352,7 +1361,7 @@ impl<RT: Runtime> Application<RT> {
         match analyzed_function.udf_type {
             UdfType::Query => self
                 .read_only_udf(
-                    request_id,
+                    request_context,
                     PublicFunctionPath::Component(path),
                     args,
                     identity,
@@ -1371,7 +1380,7 @@ impl<RT: Runtime> Application<RT> {
                 ),
             UdfType::Mutation => self
                 .mutation_udf(
-                    request_id,
+                    request_context,
                     PublicFunctionPath::Component(path),
                     args,
                     identity,
@@ -1394,7 +1403,7 @@ impl<RT: Runtime> Application<RT> {
                 }),
             UdfType::Action => self
                 .action_udf(
-                    request_id,
+                    request_context,
                     PublicFunctionPath::Component(path),
                     args,
                     identity,
@@ -1546,7 +1555,7 @@ impl<RT: Runtime> Application<RT> {
         let filename = format!(
             // This should match the format in SnapshotExport.tsx.
             "snapshot_{}_{snapshot_ts}.zip",
-            self.instance_name
+            self.deployment.name
         );
         Ok((storage_get_stream, filename))
     }

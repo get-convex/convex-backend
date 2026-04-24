@@ -492,7 +492,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             },
             Some(CursorPosition::After(cursor)) => SearchOnDiskState::Backfilling(BackfillState {
                 segments: new_and_modified_segments,
-                cursor: Some(SearchBackfillCursor::WalkingForwards {
+                cursor: Some(SearchBackfillCursor {
                     last_segment_ts: *backfill_result.new_ts,
                     table_scan_cursor: cursor.0,
                 }),

@@ -1,3 +1,5 @@
+// These APIs are informally documented in https://convexdev.slack.com/archives/C071SS99WLA/p1776902623741739?thread_ts=1776900543.948619&cid=C071SS99WLA
+
 use std::{
     collections::HashMap,
     fmt,
@@ -121,11 +123,30 @@ fn is_auth_error(err: &anyhow::Error) -> bool {
         .unwrap_or(false)
 }
 
+/// Check if an error is a WorkOS "team_not_found" error (HTTP 404 with the
+/// corresponding error code in the response body). This happens when the
+/// WorkOS team has been deleted on WorkOS's side.
+pub fn is_team_not_found_error(err: &anyhow::Error) -> bool {
+    let Some(api_err) = err.downcast_ref::<WorkOSApiError>() else {
+        return false;
+    };
+    if api_err.status != http::StatusCode::NOT_FOUND {
+        return false;
+    }
+    serde_json::from_str::<WorkOSErrorResponse>(&api_err.response_body)
+        .ok()
+        .and_then(|r| r.code)
+        .as_deref()
+        == Some("team_not_found")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub enum WorkOSProductionState {
     Active,
     Inactive,
+    Suspended,
+    Deleting,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

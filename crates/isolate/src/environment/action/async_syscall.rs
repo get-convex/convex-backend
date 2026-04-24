@@ -69,6 +69,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 "1.0/actions/cancel_job" => self.async_syscall_cancel_job(args).await?.into(),
                 "1.0/actions/vectorSearch" => self.async_syscall_vectorSearch(args).await?.into(),
                 "1.0/getFunctionMetadata" => self.async_syscall_getFunctionMetadata()?.into(),
+                "1.0/getDeploymentMetadata" => self.async_syscall_getDeploymentMetadata()?.into(),
+                "1.0/getRequestMetadata" => self.async_syscall_getRequestMetadata()?.into(),
                 "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await?.into(),
                 "1.0/storageDelete" => self.async_syscall_storageDelete(args).await?.into(),
                 "1.0/storageGetMetadata" => {
@@ -350,6 +352,23 @@ impl<RT: Runtime> TaskExecutor<RT> {
         Ok(json!({
             "name": self.udf_path.clone().strip().to_string(),
             "componentPath": self.component_path.to_string(),
+        }))
+    }
+
+    fn async_syscall_getDeploymentMetadata(&self) -> anyhow::Result<JsonValue> {
+        Ok(json!({
+            "name": self.deployment.name,
+            "region": self.deployment.region,
+            "class": self.deployment.class,
+        }))
+    }
+
+    fn async_syscall_getRequestMetadata(&self) -> anyhow::Result<JsonValue> {
+        let metadata = &self.context.request_metadata;
+        Ok(json!({
+            "ip": metadata.ip.as_ref().map(|ip| ip.as_str()),
+            "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
+            "requestId": self.context.request_id.as_str(),
         }))
     }
 

@@ -7,6 +7,8 @@ use serde::{
 };
 use utoipa::ToSchema;
 
+use crate::types::RegionName;
+
 #[derive(
     Copy,
     Clone,
@@ -83,4 +85,14 @@ impl DeploymentType {
     pub fn default_send_logs_to_client(&self) -> bool {
         matches!(self, DeploymentType::Dev | DeploymentType::Preview)
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeploymentMetadata {
+    pub name: String,
+    pub region: Option<RegionName>,
+    pub class: DeploymentClass,
+}
+
+impl DeploymentMetadata {
 }

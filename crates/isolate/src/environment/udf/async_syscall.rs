@@ -45,6 +45,7 @@ use common::{
     try_anyhow,
     types::{
         AllowedVisibility,
+        DeploymentMetadata,
         UdfType,
     },
     value::ConvexValue,
@@ -359,8 +360,10 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
 
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
+    fn udf_type(&self) -> UdfType;
     fn udf_path(&self) -> &CanonicalizedUdfPath;
     fn component_path(&self) -> &ComponentPath;
+    fn deployment(&self) -> &DeploymentMetadata;
 
     fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>>;
     fn insert_query(&mut self, query_id: QueryId, query: DeveloperQuery<RT>);
@@ -449,12 +452,20 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .log_async_syscall(name, duration, is_success);
     }
 
+    fn udf_type(&self) -> UdfType {
+        self.udf_type
+    }
+
     fn udf_path(&self) -> &CanonicalizedUdfPath {
         &self.path.udf_path
     }
 
     fn component_path(&self) -> &ComponentPath {
         &self.path.component_path
+    }
+
+    fn deployment(&self) -> &DeploymentMetadata {
+        &self.deployment
     }
 
     fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>> {
@@ -637,6 +648,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                     default_system_env_vars: BTreeMap::new(),
                     file_storage: self.file_storage.clone(),
                     module_loader: self.phase.module_loader().clone(),
+                    deployment: self.deployment.clone(),
                 },
                 rng_seed,
                 new_reactor_depth,
@@ -782,6 +794,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/queryPage" => Box::pin(Self::query_page(provider, args)).await,
                     "1.0/getTransactionMetrics" => Self::tx_metrics(provider),
                     "1.0/getFunctionMetadata" => Self::function_metadata(provider),
+                    "1.0/getDeploymentMetadata" => Self::deployment_metadata(provider),
+                    "1.0/getRequestMetadata" => Self::request_metadata(provider),
                     // Auth
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
@@ -860,6 +874,34 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(json!({
             "name": udf_path.clone().strip().to_string(),
             "componentPath": component_path.to_string(),
+        }))
+    }
+
+    /// Returns metadata about the deployment this function is running on.
+    fn deployment_metadata(provider: &mut P) -> anyhow::Result<JsonValue> {
+        let deployment = provider.deployment();
+        Ok(json!({
+            "name": deployment.name,
+            "region": deployment.region,
+            "class": deployment.class,
+        }))
+    }
+
+    /// Returns metadata about the originating HTTP request.
+    fn request_metadata(provider: &mut P) -> anyhow::Result<JsonValue> {
+        anyhow::ensure!(
+            provider.udf_type() == UdfType::Mutation,
+            ErrorMetadata::bad_request(
+                "RequestMetadataNotAllowed",
+                format!("Cannot get request metadata in a {}", provider.udf_type())
+            )
+        );
+        let context = provider.context();
+        let metadata = &context.request_metadata;
+        Ok(json!({
+            "ip": metadata.ip.as_ref().map(|ip| ip.as_str()),
+            "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
+            "requestId": context.request_id.as_str(),
         }))
     }
 

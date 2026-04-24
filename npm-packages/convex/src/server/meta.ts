@@ -50,6 +50,46 @@ export type FunctionMetadata = {
 };
 
 /**
+ * Metadata about the deployment this function is running on.
+ *
+ * @public
+ */
+export type DeploymentMetadata = {
+  /**
+   * The deployment name, e.g. `"tall-tiger-123"` for cloud deployments,
+   * `"local-my_team-my_project"` for local deployments, or
+   * `"anonymous-*"` for anonymous deployments.
+   */
+  name: string;
+  /**
+   * The deployment region, e.g. `"aws-us-east-1"`.
+   * `null` for local and self-hosted deployments.
+   */
+  region: string | null;
+  /**
+   * The deployment class, e.g. `"s16"`, `"s256"`, or `"d1024"`.
+   */
+  class: "s16" | "s256" | "d1024";
+};
+
+/**
+ * Metadata about the HTTP request that triggered the current function execution.
+ *
+ * `ip` and `userAgent` are `null` when the function was not triggered by an
+ * HTTP request (e.g. scheduled jobs or cron jobs).
+ *
+ * Functions called from within a function (i.e. using `runMutation` or
+ * `runAction`) will have the same request metadata as the parent function.
+ *
+ * @public
+ */
+export type RequestMetadata = {
+  ip: string | null;
+  userAgent: string | null;
+  requestId: string;
+};
+
+/**
  * Extra context available in Convex query functions.
  *
  * @public
@@ -57,6 +97,8 @@ export type FunctionMetadata = {
 export interface QueryMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
   getTransactionMetrics(): Promise<TransactionMetrics>;
+  /** @internal */
+  getDeploymentMetadata(): Promise<DeploymentMetadata>;
 }
 
 /**
@@ -64,7 +106,12 @@ export interface QueryMeta {
  *
  * @public
  */
-export interface MutationMeta extends QueryMeta {}
+export interface MutationMeta extends QueryMeta {
+  /**
+   * @internal
+   */
+  getRequestMetadata(): Promise<RequestMetadata>;
+}
 
 /**
  * Extra context available in Convex action functions.
@@ -73,4 +120,11 @@ export interface MutationMeta extends QueryMeta {}
  */
 export interface ActionMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
+  /** @internal */
+  getDeploymentMetadata(): Promise<DeploymentMetadata>;
+
+  /**
+   * @internal
+   */
+  getRequestMetadata(): Promise<RequestMetadata>;
 }

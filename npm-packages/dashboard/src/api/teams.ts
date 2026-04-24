@@ -1,4 +1,4 @@
-import { TeamResponse } from "generatedApi";
+import type { TeamResponse } from "generatedApi";
 import { useLastViewedTeam } from "hooks/useLastViewed";
 import { useInitialData } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
@@ -192,5 +192,22 @@ export function useUpdateSSO(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "SSO settings updated.",
+  });
+}
+
+export function usePotentialVercelTeams() {
+  const { data, error } = useBBQuery({
+    path: "/vercel/potential_teams",
+    pathParams: undefined,
+  });
+  return { data, error };
+}
+
+export function useJoinVercelTeam(proposedTeamId: number) {
+  return useBBMutation({
+    path: "/vercel/potential_teams/{proposed_team_id}/join",
+    pathParams: { proposed_team_id: proposedTeamId.toString() },
+    mutateKey: "/teams",
+    successToast: "Joined team.",
   });
 }

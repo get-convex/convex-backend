@@ -45,6 +45,7 @@ const NO_TEAM_ROUTES = [
   "/accept",
   "/suspended",
   "/verify",
+  "/join-vercel-team",
 ];
 
 const NO_HEADER_ROUTES = ["/oauth/authorize/project", "/oauth/authorize/team"];

@@ -26,6 +26,7 @@ use common::{
             WebSocketUpgrade,
         },
         ExtractClientVersion,
+        ExtractRequestMetadata,
         ExtractResolvedHostname,
         HttpResponseError,
         ResolvedHostname,
@@ -39,6 +40,7 @@ use common::{
         ClientVersion,
     },
     ws::is_connection_closed_error,
+    RequestMetadata,
 };
 use futures::{
     select_biased,
@@ -123,6 +125,7 @@ impl Drop for SyncSocketDropToken {
 async fn run_sync_socket(
     st: RouterState,
     host: ResolvedHostname,
+    request_metadata: RequestMetadata,
     config: SyncWorkerConfig,
     socket: WebSocket,
     sentry_scope: sentry::Scope,
@@ -244,6 +247,7 @@ async fn run_sync_socket(
             server_tx,
             on_connect,
             partition_id?,
+            request_metadata,
         );
         let r = sync_worker.go().await;
         identity_version = Some(sync_worker.identity_version());
@@ -412,6 +416,7 @@ fn maybe_split_transition(
 pub async fn sync_handler(
     st: RouterState,
     host: ResolvedHostname,
+    request_metadata: RequestMetadata,
     client_version: ClientVersion,
     ws: WebSocketUpgrade,
     on_connect: Box<dyn FnOnce(SessionId) + Send>,
@@ -426,7 +431,16 @@ pub async fn sync_handler(
         upgrade_timer.finish();
         let monitor = ProdRuntime::task_monitor("sync_socket");
         monitor.instrument(
-            run_sync_socket(st, host, config, ws, sentry_scope, on_connect).bind_hub(hub),
+            run_sync_socket(
+                st,
+                host,
+                request_metadata,
+                config,
+                ws,
+                sentry_scope,
+                on_connect,
+            )
+            .bind_hub(hub),
         )
     }))
 }
@@ -434,8 +448,17 @@ pub async fn sync_handler(
 pub async fn sync(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    sync_handler(st, host, client_version, ws, Box::new(|_session_id| ())).await
+    sync_handler(
+        st,
+        host,
+        request_metadata,
+        client_version,
+        ws,
+        Box::new(|_session_id| ()),
+    )
+    .await
 }

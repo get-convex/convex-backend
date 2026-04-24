@@ -16,8 +16,11 @@ use common::{
         PublicFunctionPath,
     },
     execution_context::{
+        ClientIp,
+        ClientUserAgent,
         ExecutionContext,
         ExecutionId,
+        RequestMetadata,
     },
     fastrace_helpers::{
         initialize_root_from_parent,
@@ -38,6 +41,7 @@ use common::{
         FunctionCaller,
         UdfIdentifier,
     },
+    RequestContext,
     RequestId,
 };
 use errors::ErrorMetadata;
@@ -116,7 +120,7 @@ pub async fn internal_query_post(
     let udf_return = st
         .application
         .read_only_udf(
-            context.request_id,
+            RequestContext::new(context.request_id, context.request_metadata),
             PublicFunctionPath::Component(path),
             req.args.into_serialized_args()?,
             identity,
@@ -170,7 +174,7 @@ pub async fn internal_mutation_post(
     let udf_result = st
         .application
         .mutation_udf(
-            context.request_id,
+            RequestContext::new(context.request_id, context.request_metadata),
             PublicFunctionPath::Component(path),
             req.args.into_serialized_args()?,
             identity,
@@ -229,7 +233,7 @@ pub async fn internal_action_post(
     let udf_result = st
         .application
         .action_udf(
-            context.request_id,
+            RequestContext::new(context.request_id, context.request_metadata),
             PublicFunctionPath::Component(path),
             req.args.into_serialized_args()?,
             identity,
@@ -696,11 +700,39 @@ impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
         )
         .context("Invalid parent scheduled job component id")?;
 
+        let client_ip: Option<ClientIp> = parts
+            .headers
+            .get("Convex-Request-Client-Ip")
+            .map(|v| {
+                ClientIp::try_from(
+                    v.to_str()
+                        .context("Request client IP must be a string")?
+                        .to_owned(),
+                )
+            })
+            .transpose()?;
+
+        let client_user_agent: Option<ClientUserAgent> = parts
+            .headers
+            .get("Convex-Request-Client-User-Agent")
+            .map(|v| {
+                ClientUserAgent::try_from(
+                    v.to_str()
+                        .context("Request User-Agent must be a string")?
+                        .to_owned(),
+                )
+            })
+            .transpose()?;
+
         Ok(Self(ExecutionContext::new_from_parts(
             request_id,
             execution_id,
             parent_job_id.map(|id| (parent_component_id, id)),
             is_root,
+            RequestMetadata {
+                ip: client_ip,
+                user_agent: client_user_agent,
+            },
         )))
     }
 }

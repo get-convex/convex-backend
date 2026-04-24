@@ -482,14 +482,16 @@ export type FunctionVisibility = "public" | "internal";
  * Given a {@link FunctionVisibility}, should this function have `isPublic: true`
  * or `isInternal: true`?
  */
-type VisibilityProperties<Visiblity extends FunctionVisibility> =
-  Visiblity extends "public"
-    ? {
-        isPublic: true;
-      }
-    : {
-        isInternal: true;
-      };
+type VisibilityProperties<Visiblity extends FunctionVisibility> = {
+  /** Phantom type marker; not present at runtime. */
+  _visibility: Visiblity;
+} & (Visiblity extends "public"
+  ? {
+      isPublic: true;
+    }
+  : {
+      isInternal: true;
+    });
 
 /**
  * A mutation function that is part of this app.

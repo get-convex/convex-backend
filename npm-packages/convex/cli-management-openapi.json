@@ -1172,7 +1172,9 @@
         "type": "string",
         "enum": [
           "active",
-          "inactive"
+          "inactive",
+          "suspended",
+          "deleting"
         ]
       },
       "WorkOSTeamHealthResponse": {

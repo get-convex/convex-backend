@@ -24,7 +24,10 @@ use async_broadcast::{
 };
 use common::{
     components::PublicFunctionPath,
-    execution_context::ExecutionContext,
+    execution_context::{
+        ExecutionContext,
+        RequestContext,
+    },
     identity::IdentityCacheKey,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
@@ -40,7 +43,6 @@ use common::{
         Timestamp,
         UdfType,
     },
-    RequestId,
 };
 use database::{
     Database,
@@ -323,7 +325,7 @@ impl<RT: Runtime> CacheManager<RT> {
     #[fastrace::trace]
     pub async fn get(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -335,7 +337,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let timer = get_timer();
         let result = self
             ._get(
-                request_id,
+                request_context,
                 path,
                 args,
                 identity,
@@ -362,7 +364,7 @@ impl<RT: Runtime> CacheManager<RT> {
 
     async fn _get(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         path: PublicFunctionPath,
         args: SerializedArgs,
         identity: Identity,
@@ -381,7 +383,7 @@ impl<RT: Runtime> CacheManager<RT> {
             journal: journal.unwrap_or_else(QueryJournal::new),
             allowed_visibility: caller.allowed_visibility(),
         };
-        let context = ExecutionContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_context, &caller);
         // If the query exists at some cache key, but the cached entry is invalid,
         // create a Waiting entry at that key, even if it's not the most precise for the
         // request. e.g. if the query was cached with identity:None, create a

@@ -31,6 +31,8 @@ use common::{
     execution_context::{
         ExecutionContext,
         ExecutionId,
+        RequestContext,
+        RequestMetadata,
     },
     fastrace_helpers::get_sampled_span,
     knobs::{
@@ -607,7 +609,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
                 let request_id = RequestId::new();
-                let context = ExecutionContext::new(request_id, &caller);
+                let context = ExecutionContext::new(
+                    RequestContext::new_for_system_request(request_id),
+                    &caller,
+                );
                 // We don't know what the UdfType is since this is an invalid module.
                 // Log as mutation for now.
                 self.function_log
@@ -654,7 +659,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
                 let request_id = RequestId::new();
-                let context = ExecutionContext::new(request_id, &caller);
+                let context = ExecutionContext::new(
+                    RequestContext::new_for_system_request(request_id),
+                    &caller,
+                );
                 match udf_type {
                     UdfType::Query => {
                         self.function_log
@@ -724,7 +732,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 return Ok(());
             };
             let start = self.rt.monotonic_now();
-            let context = ExecutionContext::new(request_id.clone(), &caller);
+            let context = ExecutionContext::new(
+                RequestContext::new_for_system_request(request_id.clone()),
+                &caller,
+            );
             sentry::configure_scope(|scope| context.add_sentry_tags(scope));
             let identity = tx.inert_identity();
             let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
@@ -880,7 +891,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             ScheduledJobState::Pending => {
                 // Create a new request & execution ID
                 let request_id = RequestId::new();
-                let context = ExecutionContext::new(request_id, &caller);
+                let context = ExecutionContext::new(
+                    RequestContext::new_for_system_request(request_id),
+                    &caller,
+                );
                 sentry::configure_scope(|scope| context.add_sentry_tags(scope));
 
                 // Set state to in progress
@@ -953,6 +967,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     (*execution_id).unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
+                    RequestMetadata::system(),
                 );
                 sentry::configure_scope(|scope| context.add_sentry_tags(scope));
                 let path = job.path.clone();

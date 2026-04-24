@@ -41,6 +41,8 @@ use common::{
     types::{
         ConvexOrigin,
         ConvexSite,
+        DeploymentClass,
+        DeploymentMetadata,
         TEST_REGION_NAME,
     },
 };
@@ -186,6 +188,11 @@ pub async fn make_app(
         database: database.clone(),
     };
 
+    let deployment = DeploymentMetadata {
+        name: config.name(),
+        region: None,
+        class: DeploymentClass::S16,
+    };
     let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
     let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout).await?);
     let actions = Actions::new(
@@ -193,6 +200,7 @@ pub async fn make_app(
         config.convex_origin_url()?,
         *ACTION_USER_TIMEOUT,
         runtime.clone(),
+        deployment.clone(),
     );
 
     #[cfg(not(debug_assertions))]
@@ -213,7 +221,7 @@ pub async fn make_app(
     );
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> =
         Arc::new(InProcessFunctionRunner::new(
-            config.name().clone(),
+            deployment,
             key_broker.function_runner_keybroker(),
             config.convex_origin_url()?,
             runtime.clone(),
@@ -233,8 +241,11 @@ pub async fn make_app(
         application_storage,
         usage_event_logger,
         key_broker.clone(),
-        config.name(),
-        Some(TEST_REGION_NAME.clone()),
+        DeploymentMetadata {
+            name: config.name(),
+            region: Some(TEST_REGION_NAME.clone()),
+            class: DeploymentClass::S16,
+        },
         function_runner,
         config.convex_origin_url()?,
         config.convex_site_url()?,

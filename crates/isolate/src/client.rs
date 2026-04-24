@@ -66,6 +66,7 @@ use common::{
     schemas::DatabaseSchema,
     static_span,
     types::{
+        DeploymentMetadata,
         ModuleEnvironment,
         UdfType,
     },
@@ -223,6 +224,7 @@ pub struct EnvironmentData<RT: Runtime> {
     pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub file_storage: TransactionalFileStorage<RT>,
     pub module_loader: Arc<dyn ModuleCache<RT>>,
+    pub deployment: DeploymentMetadata,
 }
 
 pub struct Request<RT: Runtime> {

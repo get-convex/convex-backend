@@ -30,6 +30,7 @@ use common::{
     types::{
         ActionCallbackToken,
         ConvexOrigin,
+        DeploymentMetadata,
         NodeDependency,
         ObjectKey,
         UdfType,
@@ -157,6 +158,7 @@ pub struct Actions<RT: Runtime> {
     convex_origin: ConvexOrigin,
     user_timeout: Duration,
     runtime: RT,
+    deployment: DeploymentMetadata,
 }
 
 fn construct_js_error(
@@ -208,12 +210,14 @@ impl<RT: Runtime> Actions<RT> {
         convex_origin: ConvexOrigin,
         user_timeout: Duration,
         runtime: RT,
+        deployment: DeploymentMetadata,
     ) -> Self {
         Self {
             executor,
             convex_origin,
             user_timeout,
             runtime,
+            deployment,
         }
     }
 
@@ -243,6 +247,7 @@ impl<RT: Runtime> Actions<RT> {
             // total Node timeout. This allows us to preempt early and give
             // better error message and logs in the common case.
             timeout: self.user_timeout,
+            deployment: self.deployment.clone(),
         };
         let InvokeResponse {
             response,
@@ -559,6 +564,7 @@ pub enum ExecutorRequest {
         request: ExecuteRequest,
         backend_address: ConvexOrigin,
         timeout: Duration,
+        deployment: DeploymentMetadata,
     },
     Analyze(AnalyzeRequest),
     BuildDeps(BuildDepsRequest),
@@ -573,6 +579,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                 request: r,
                 backend_address,
                 timeout,
+                deployment,
             } => {
                 let environment_variables: Vec<JsonValue> = r
                     .environment_variables
@@ -607,6 +614,11 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                     "npmVersion": npm_version.map(|v| v.to_string()),
                     "executionContext": JsonValue::from(r.context),
                     "encodedParentTrace": JsonValue::from(r.encoded_parent_trace),
+                    "deployment": {
+                        "name": deployment.name,
+                        "region": deployment.region,
+                        "class": deployment.class,
+                    },
                 })
             },
             ExecutorRequest::Analyze(r) => {

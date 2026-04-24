@@ -35,6 +35,7 @@ use common::{
     schemas::DatabaseSchema,
     types::{
         ConvexOrigin,
+        DeploymentMetadata,
         IndexId,
         RepeatableTimestamp,
         UdfType,
@@ -103,7 +104,7 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
     persistence_reader: Arc<dyn PersistenceReader>,
 
     // Static information about the backend.
-    instance_name: String,
+    deployment: DeploymentMetadata,
     key_broker: FunctionRunnerKeyBroker,
     convex_origin: ConvexOrigin,
     database: Database<RT>,
@@ -115,7 +116,7 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
 
 impl<RT: Runtime> InProcessFunctionRunner<RT> {
     pub fn new(
-        instance_name: String,
+        deployment: DeploymentMetadata,
         keybroker: FunctionRunnerKeyBroker,
         convex_origin: ConvexOrigin,
         rt: RT,
@@ -130,7 +131,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
         Ok(Self {
             server,
             persistence_reader,
-            instance_name,
+            deployment,
             key_broker: keybroker,
             convex_origin,
             database,
@@ -248,7 +249,6 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         );
         let index_reader = Arc::new(repeatable_persistence.read_snapshot(ts)?);
         let request_metadata = RunRequestArgs {
-            instance_name: self.instance_name.clone(),
             key_broker: self.key_broker.clone(),
             index_reader,
             convex_origin: self.convex_origin.clone(),
@@ -266,6 +266,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             in_memory_index_last_modified,
             context,
             subfunctions_in_same_isolate: *SUBFUNCTIONS_IN_SAME_ISOLATE,
+            deployment: self.deployment.clone(),
         };
 
         // NOTE: We run the function without checking retention until after the
@@ -302,7 +303,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 udf_config,
                 modules,
                 environment_variables,
-                self.instance_name.clone(),
+                self.deployment.name.clone(),
                 max_user_heap_size,
             )
             .await
@@ -324,7 +325,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 dependency_graph,
                 user_environment_variables,
                 system_env_vars,
-                self.instance_name.clone(),
+                self.deployment.name.clone(),
             )
             .await
     }
@@ -345,7 +346,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 definition,
                 args,
                 name,
-                self.instance_name.clone(),
+                self.deployment.name.clone(),
             )
             .await
     }
@@ -364,7 +365,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 source_map,
                 rng_seed,
                 unix_timestamp,
-                self.instance_name.clone(),
+                self.deployment.name.clone(),
             )
             .await
     }
@@ -383,7 +384,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 source_map,
                 environment_variables,
                 explanation,
-                self.instance_name.clone(),
+                self.deployment.name.clone(),
             )
             .await
     }

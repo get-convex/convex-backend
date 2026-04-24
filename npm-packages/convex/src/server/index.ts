@@ -107,6 +107,8 @@ export type {
   TransactionMetric,
   TransactionMetrics,
   FunctionMetadata,
+  DeploymentMetadata,
+  RequestMetadata,
   QueryMeta,
   MutationMeta,
   ActionMeta,

@@ -160,14 +160,13 @@ pub struct ExecutionContext {
 }
 
 impl ExecutionContext {
-    pub fn new(request_id: RequestId, caller: &FunctionCaller) -> Self {
+    pub fn new(request_context: RequestContext, caller: &FunctionCaller) -> Self {
         Self {
-            request_id,
+            request_id: request_context.request_id,
             execution_id: ExecutionId::new(),
             parent_scheduled_job: caller.parent_scheduled_job(),
             is_root: caller.is_root(),
-            // TODO: populate with request metadata
-            request_metadata: RequestMetadata::system(),
+            request_metadata: request_context.request_metadata,
         }
     }
 
@@ -176,14 +175,14 @@ impl ExecutionContext {
         execution_id: ExecutionId,
         parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
         is_root: bool,
+        request_metadata: RequestMetadata,
     ) -> Self {
         Self {
             request_id,
             execution_id,
             parent_scheduled_job,
             is_root,
-            // TODO: populate with request metadata
-            request_metadata: RequestMetadata::system(),
+            request_metadata,
         }
     }
 

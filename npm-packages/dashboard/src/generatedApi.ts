@@ -1801,6 +1801,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vercel/potential_teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_potential_vercel_teams_dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vercel/potential_teams/{proposed_team_id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["join_vercel_team_dashboard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2450,6 +2482,17 @@ export interface components {
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
         };
+        PotentialVercelTeam: {
+            planId: string;
+            planName: string;
+            /** @description Human-readable description of billing impact when joining this team.
+             *     `None` for free plans. Clients should show this verbatim so CLI and
+             *     dashboard stay in sync on pricing copy. */
+            pricingNotice?: string | null;
+            teamId: components["schemas"]["TeamId"];
+            teamName: components["schemas"]["TeamName"];
+            teamSlug: components["schemas"]["TeamSlug"];
+        };
         PreviewDeploymentIdentifier: string;
         ProfileEmailArgs: {
             email: string;
@@ -2768,7 +2811,7 @@ export interface components {
             workosEnvironmentName: string;
         };
         /** @enum {string} */
-        WorkOSProductionState: "active" | "inactive";
+        WorkOSProductionState: "active" | "inactive" | "suspended" | "deleting";
         WorkOSTeamAssociation: {
             adminEmail: string;
             creatorEmail: string;
@@ -2892,6 +2935,7 @@ export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig']
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
+export type PotentialVercelTeam = components['schemas']['PotentialVercelTeam'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
@@ -5487,6 +5531,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerateSSOConfigurationLinkResponse"];
+                };
+            };
+        };
+    };
+    list_potential_vercel_teams_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PotentialVercelTeam"][];
+                };
+            };
+        };
+    };
+    join_vercel_team_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The Convex team to join */
+                proposed_team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamResponse"];
                 };
             };
         };

@@ -3216,6 +3216,51 @@
           }
         }
       }
+    },
+    "/vercel/potential_teams": {
+      "get": {
+        "operationId": "list_potential_vercel_teams_dashboard",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PotentialVercelTeam"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vercel/potential_teams/{proposed_team_id}/join": {
+      "post": {
+        "operationId": "join_vercel_team_dashboard",
+        "parameters": [
+          {
+            "name": "proposed_team_id",
+            "in": "path",
+            "description": "The Convex team to join",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5654,6 +5699,40 @@
           }
         ]
       },
+      "PotentialVercelTeam": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "teamName",
+          "teamSlug",
+          "planId",
+          "planName"
+        ],
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "pricingNotice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable description of billing impact when joining this team.\n`None` for free plans. Clients should show this verbatim so CLI and\ndashboard stay in sync on pricing copy."
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "teamName": {
+            "$ref": "#/components/schemas/TeamName"
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          }
+        }
+      },
       "PreviewDeploymentIdentifier": {
         "type": "string"
       },
@@ -6850,7 +6929,9 @@
         "type": "string",
         "enum": [
           "active",
-          "inactive"
+          "inactive",
+          "suspended",
+          "deleting"
         ]
       },
       "WorkOSTeamAssociation": {
