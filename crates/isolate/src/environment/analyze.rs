@@ -27,7 +27,6 @@ use common::{
     },
     types::{
         HttpActionRoute,
-        ModuleEnvironment,
         RoutableMethod,
         UdfType,
     },
@@ -43,7 +42,6 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use model::{
-    config::types::ModuleConfig,
     cron_jobs::types::{
         CronIdentifier,
         CronSpec,
@@ -123,7 +121,7 @@ use crate::{
 };
 
 pub struct AnalyzeEnvironment {
-    modules: BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>,
+    modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>>,
     // This is used to lazily cache the result of sourcemap::SourceMap::from_slice across
     // modules and functions. There are certain source maps whose source origin we don't
     // need to construct during analysis (i.e. if all of the UDFs it defines have function
@@ -254,35 +252,15 @@ impl AnalyzeEnvironment {
         v8_context: v8::Global<v8::Context>,
         isolate_clean: &mut bool,
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>>,
+        to_analyze: CanonicalizedModulePath,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
-        let to_analyze = modules
-            .keys()
-            .filter(|p| !p.is_deps())
-            .cloned()
-            .collect::<Vec<_>>();
-        anyhow::ensure!(
-            modules
-                .values()
-                .all(|m| m.environment == ModuleEnvironment::Isolate),
-            "Isolate environment can only analyze Isolate modules"
-        );
+    ) -> anyhow::Result<Result<AnalyzedModule, JsError>> {
+        anyhow::ensure!(!to_analyze.is_deps());
         let rng = ChaCha12Rng::from_seed(udf_config.import_phase_rng_seed);
         let unix_timestamp = udf_config.import_phase_unix_timestamp;
         let environment = AnalyzeEnvironment {
-            modules: modules
-                .into_iter()
-                .map(|(path, module)| {
-                    (
-                        path,
-                        Arc::new(FullModuleSource {
-                            source: module.source,
-                            source_map: module.source_map,
-                        }),
-                    )
-                })
-                .collect(),
+            modules,
             source_maps_cache: BTreeMap::new(),
             rng,
             unix_timestamp,
@@ -359,109 +337,100 @@ impl AnalyzeEnvironment {
     async fn run_analyze<RT: Runtime>(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
         timeout: &mut Timeout<RT>,
-        to_analyze: Vec<CanonicalizedModulePath>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+        path: CanonicalizedModulePath,
+    ) -> anyhow::Result<Result<AnalyzedModule, JsError>> {
         scope!(let v8_scope, isolate.scope());
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
-        // Iterate through modules paths to_analyze
-        let mut result = BTreeMap::new();
-        for path in to_analyze {
-            // module_specifier is the key in the ModuleMap which we use to address the
-            // ModuleId for this module. We then use this ModuleId to fetch the
-            // v8::Module for evaluation.
-            let module_specifier = module_specifier_from_path(&path)?;
-            // Register the module and its dependencies with V8, instantiate the module, and
-            // evaluate the module. After this, we can inspect the module's
-            // in-memory objects to find functions which we can analyze as UDFs.
-            // For more info on registration/instantiation see here: https://choubey.gitbook.io/internals-of-deno/import-and-ops/registration-and-instantiation
-            let module: v8::Local<v8::Module> =
-                match scope.eval_module(&module_specifier, timeout).await {
-                    Ok(m) => m,
-                    Err(e) => {
-                        if let Some(e) = e.downcast_ref::<ModuleNotFoundError>() {
-                            return Ok(Err(JsError::from_message(format!("{e}"))));
-                        }
-                        if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
-                            return Ok(Err(JsError::from_message(format!("{e}"))));
-                        }
-                        if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
-                            return Ok(Err(JsError::from_message(format!("{e}"))));
-                        }
-                        match e.downcast::<JsError>() {
-                            Ok(e) => {
-                                return Ok(Err(JsError {
-                                    message: format!(
-                                        "Failed to analyze {}: {}",
-                                        path.as_str(),
-                                        e.message
-                                    ),
-                                    custom_data: None,
-                                    frames: e.frames,
-                                }))
-                            },
-                            Err(e) => return Err(e),
-                        }
+        // module_specifier is the key in the ModuleMap which we use to address the
+        // ModuleId for this module. We then use this ModuleId to fetch the
+        // v8::Module for evaluation.
+        let module_specifier = module_specifier_from_path(&path)?;
+        // Register the module and its dependencies with V8, instantiate the module, and
+        // evaluate the module. After this, we can inspect the module's
+        // in-memory objects to find functions which we can analyze as UDFs.
+        // For more info on registration/instantiation see here: https://choubey.gitbook.io/internals-of-deno/import-and-ops/registration-and-instantiation
+        let module: v8::Local<v8::Module> = match scope
+            .eval_module(&module_specifier, timeout)
+            .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                if let Some(e) = e.downcast_ref::<ModuleNotFoundError>() {
+                    return Ok(Err(JsError::from_message(format!("{e}"))));
+                }
+                if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
+                    return Ok(Err(JsError::from_message(format!("{e}"))));
+                }
+                if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
+                    return Ok(Err(JsError::from_message(format!("{e}"))));
+                }
+                match e.downcast::<JsError>() {
+                    Ok(e) => {
+                        return Ok(Err(JsError {
+                            message: format!("Failed to analyze {}: {}", path.as_str(), e.message),
+                            custom_data: None,
+                            frames: e.frames,
+                        }))
                     },
-                };
+                    Err(e) => return Err(e),
+                }
+            },
+        };
 
-            // Gather UDFs, HTTP action routes, and crons
-            let functions = match udf_analyze(&mut scope, &module, &path)? {
-                Err(e) => return Ok(Err(e)),
-                Ok(funcs) => WithHeapSize::from(funcs),
+        // Gather UDFs, HTTP action routes, and crons
+        let functions = match udf_analyze(&mut scope, &module, &path)? {
+            Err(e) => return Ok(Err(e)),
+            Ok(funcs) => WithHeapSize::from(funcs),
+        };
+
+        let mut http_routes = None;
+        if path.is_http() {
+            let routes = match http_analyze(&mut scope, &module, &path)? {
+                Err(err) => {
+                    return Ok(Err(err));
+                },
+                Ok(value) => value,
             };
-
-            let mut http_routes = None;
-            if path.is_http() {
-                let routes = match http_analyze(&mut scope, &module, &path)? {
-                    Err(err) => {
-                        return Ok(Err(err));
-                    },
-                    Ok(value) => value,
-                };
-                http_routes = Some(routes);
-            }
-
-            let mut cron_specs = None;
-            if path.is_cron() {
-                let crons = match cron_analyze(&mut scope, &module, &path)? {
-                    Err(err) => {
-                        return Ok(Err(err));
-                    },
-                    Ok(value) => value,
-                };
-                cron_specs = Some(WithHeapSize::from(crons));
-            }
-
-            // Get source_index of current module
-            let source_index = scope
-                .state_mut()?
-                .environment
-                .get_source_map(&path)?
-                .as_ref()
-                .and_then(|source_map| {
-                    for (i, filename) in source_map.sources().enumerate() {
-                        if Path::new(filename).file_stem()
-                            != Path::new(module_specifier.path()).file_stem()
-                        {
-                            continue;
-                        }
-
-                        return source_map.get_source_contents(i as u32).map(|_| i as u32);
-                    }
-                    None
-                });
-
-            let analyzed_module = AnalyzedModule {
-                functions,
-                http_routes,
-                cron_specs,
-                source_index,
-            };
-            result.insert(path, analyzed_module);
+            http_routes = Some(routes);
         }
 
-        Ok(Ok(result))
+        let mut cron_specs = None;
+        if path.is_cron() {
+            let crons = match cron_analyze(&mut scope, &module, &path)? {
+                Err(err) => {
+                    return Ok(Err(err));
+                },
+                Ok(value) => value,
+            };
+            cron_specs = Some(WithHeapSize::from(crons));
+        }
+
+        // Get source_index of current module
+        let source_index = scope
+            .state_mut()?
+            .environment
+            .get_source_map(&path)?
+            .as_ref()
+            .and_then(|source_map| {
+                for (i, filename) in source_map.sources().enumerate() {
+                    if Path::new(filename).file_stem()
+                        != Path::new(module_specifier.path()).file_stem()
+                    {
+                        continue;
+                    }
+
+                    return source_map.get_source_contents(i as u32).map(|_| i as u32);
+                }
+                None
+            });
+
+        Ok(Ok(AnalyzedModule {
+            functions,
+            http_routes,
+            cron_specs,
+            source_index,
+        }))
     }
 }
 

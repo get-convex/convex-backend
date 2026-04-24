@@ -177,6 +177,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
             RequestType::Analyze {
                 udf_config,
                 modules,
+                to_analyze,
                 environment_variables,
                 response,
                 max_user_heap_size: _,
@@ -188,6 +189,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     isolate_clean,
                     udf_config,
                     modules,
+                    to_analyze,
                     environment_variables,
                 )
                 .await;
