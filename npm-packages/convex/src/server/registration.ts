@@ -482,14 +482,16 @@ export type FunctionVisibility = "public" | "internal";
  * Given a {@link FunctionVisibility}, should this function have `isPublic: true`
  * or `isInternal: true`?
  */
-type VisibilityProperties<Visiblity extends FunctionVisibility> =
-  Visiblity extends "public"
-    ? {
-        isPublic: true;
-      }
-    : {
-        isInternal: true;
-      };
+type VisibilityProperties<Visiblity extends FunctionVisibility> = {
+  /** Phantom type marker; not present at runtime. */
+  _visibility: Visiblity;
+} & (Visiblity extends "public"
+  ? {
+      isPublic: true;
+    }
+  : {
+      isInternal: true;
+    });
 
 /**
  * A mutation function that is part of this app.
@@ -506,8 +508,6 @@ export type RegisteredMutation<
 > = {
   isConvexFunction: true;
   isMutation: true;
-  /** Phantom type marker; not present at runtime. */
-  _visibility: Visibility;
 
   /** @internal */
   invokeMutation(argsStr: string): Promise<string>;
@@ -537,8 +537,6 @@ export type RegisteredQuery<
 > = {
   isConvexFunction: true;
   isQuery: true;
-  /** Phantom type marker; not present at runtime. */
-  _visibility: Visibility;
 
   /** @internal */
   invokeQuery(argsStr: string): Promise<string>;
@@ -568,8 +566,6 @@ export type RegisteredAction<
 > = {
   isConvexFunction: true;
   isAction: true;
-  /** Phantom type marker; not present at runtime. */
-  _visibility: Visibility;
 
   /** @internal */
   invokeAction(requestId: string, argsStr: string): Promise<string>;
