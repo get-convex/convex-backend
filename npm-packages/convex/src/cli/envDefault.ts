@@ -28,7 +28,7 @@ function addEnvDefaultOptions<T extends Command<any, any>>(cmd: T): T {
     .addOption(
       new Option(
         "--type <type>",
-        "Manage default env vars for the given deployment type instead of inferring from the current deployment.",
+        "Manage default env vars for the given deployment type (dev, preview, prod) instead of inferring from the current deployment.",
       ),
     )
     .addOption(
