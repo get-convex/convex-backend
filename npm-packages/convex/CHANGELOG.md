@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.36.1
+
+- Updated `npx convex login --vercel` to ask before joining a Convex team through the Vercel Marketplace.
+
+
 ## 1.36.0
 
 - `npx convex run` now supports `--inline-query` for evaluating readonly queries
