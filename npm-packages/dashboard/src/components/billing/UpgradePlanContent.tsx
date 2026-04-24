@@ -262,35 +262,21 @@ export function UpgradePlanContent({
     if (index === 0) {
       return (
         <div className="flex flex-col gap-6">
-          {plan.planType === "CONVEX_PROFESSIONAL" && (
-            <div className="flex max-w-64 items-center gap-2">
-              <TextInput
-                label="Promo code"
-                placeholder="Enter a promo code"
-                onChange={(e) =>
-                  formState.setFieldValue(
-                    "promoCode",
-                    e.target.value.toUpperCase(),
-                  )
-                }
-                value={formState.values.promoCode}
-                id="promoCode"
-                error={promoCodeError}
-              />
-              {isLoadingPromo && (
-                <span data-testid="loading-spinner" className="mt-4">
-                  <Spinner />
-                </span>
-              )}
-            </div>
-          )}
-
           <div className="flex flex-col gap-2">
             <h5>Billing Contact</h5>
             <BillingContactInputs formState={formState} />
           </div>
 
           {billingAddressInputs}
+
+          {plan.planType === "CONVEX_PROFESSIONAL" && (
+            <PromoCodeField
+              value={formState.values.promoCode}
+              onChange={(value) => formState.setFieldValue("promoCode", value)}
+              isLoading={isLoadingPromo}
+              error={promoCodeError}
+            />
+          )}
         </div>
       );
     }
@@ -444,5 +430,50 @@ export function UpgradePlanContent({
         </Stepper>
       </div>
     </>
+  );
+}
+
+function PromoCodeField({
+  value,
+  onChange,
+  isLoading,
+  error,
+}: {
+  value: string | undefined;
+  onChange: (value: string) => void;
+  isLoading: boolean;
+  error?: string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(() => !!value || !!error);
+
+  if (!isExpanded) {
+    return (
+      <Button
+        variant="unstyled"
+        onClick={() => setIsExpanded(true)}
+        className="self-start text-xs text-content-tertiary underline hover:text-content-secondary"
+      >
+        Have a promo code?
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex max-w-64 items-center gap-2">
+      <TextInput
+        label="Promo code"
+        placeholder="Enter a promo code"
+        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        value={value}
+        id="promoCode"
+        error={error}
+        autoFocus
+      />
+      {isLoading && (
+        <span data-testid="loading-spinner" className="mt-4">
+          <Spinner />
+        </span>
+      )}
+    </div>
   );
 }
