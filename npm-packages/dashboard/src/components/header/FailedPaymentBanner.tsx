@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { useCurrentTeam } from "api/teams";
-import { useListInvoices } from "api/billing";
+import { useHasFailedPayment } from "api/billing";
 import { Link } from "@ui/Link";
 
 export function FailedPaymentBanner() {
@@ -23,14 +23,8 @@ export function FailedPaymentBanner() {
 
 export function useShowFailedPaymentBanner() {
   const team = useCurrentTeam();
-  const { invoices } = useListInvoices(
+  const { hasFailedPayment } = useHasFailedPayment(
     team?.managedBy === "vercel" ? undefined : team?.id,
   );
-  const failedInvoice = invoices
-    ? invoices.find(
-        (invoice) => invoice.status === "issued" && invoice.hasFailedPayment,
-      )
-    : undefined;
-
-  return failedInvoice !== undefined;
+  return hasFailedPayment;
 }

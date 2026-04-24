@@ -131,6 +131,24 @@ export function useGetCoupon(
   return { coupon: data, isLoading: !!promoCode && isLoading };
 }
 
+export function useHasFailedPayment(teamId?: number) {
+  const { data, error, isLoading } = useBBQuery({
+    path: "/teams/{team_id}/has_failed_payment",
+    pathParams: {
+      team_id: teamId?.toString() || "",
+    },
+    swrOptions: {
+      refreshInterval: 1000 * 60,
+    },
+  });
+
+  if (error) {
+    return { isLoading, hasFailedPayment: false };
+  }
+
+  return { isLoading, hasFailedPayment: data?.hasFailedPayment ?? false };
+}
+
 export function useListInvoices(teamId?: number) {
   const { data, error, isLoading } = useBBQuery({
     path: "/teams/{team_id}/list_invoices",
