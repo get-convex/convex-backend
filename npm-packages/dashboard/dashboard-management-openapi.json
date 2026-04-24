@@ -1854,6 +1854,31 @@
         }
       }
     },
+    "/teams/{team_id}/has_failed_payment": {
+      "get": {
+        "operationId": "has_failed_payment",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HasFailedPaymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/unschedule_cancel_orb_subscription": {
       "post": {
         "operationId": "unschedule_cancel_orb_subscription",
@@ -3416,6 +3441,8 @@
           "deleteCloudBackup",
           "disableTeamExceedingSpendingLimits",
           "setSpendingLimit",
+          "viewBillingDetails",
+          "viewInvoices",
           "applyReferralCode",
           "createOAuthApplication",
           "updateOAuthApplication",
@@ -4896,6 +4923,17 @@
           },
           "teamId": {
             "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "HasFailedPaymentResponse": {
+        "type": "object",
+        "required": [
+          "hasFailedPayment"
+        ],
+        "properties": {
+          "hasFailedPayment": {
+            "type": "boolean"
           }
         }
       },
