@@ -506,6 +506,8 @@ export type RegisteredMutation<
 > = {
   isConvexFunction: true;
   isMutation: true;
+  /** Phantom type marker; not present at runtime. */
+  _visibility: Visibility;
 
   /** @internal */
   invokeMutation(argsStr: string): Promise<string>;
@@ -535,6 +537,8 @@ export type RegisteredQuery<
 > = {
   isConvexFunction: true;
   isQuery: true;
+  /** Phantom type marker; not present at runtime. */
+  _visibility: Visibility;
 
   /** @internal */
   invokeQuery(argsStr: string): Promise<string>;
@@ -564,6 +568,8 @@ export type RegisteredAction<
 > = {
   isConvexFunction: true;
   isAction: true;
+  /** Phantom type marker; not present at runtime. */
+  _visibility: Visibility;
 
   /** @internal */
   invokeAction(requestId: string, argsStr: string): Promise<string>;
