@@ -14,10 +14,19 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install libsodium and libssl
+    - name: Install system build deps
       shell: bash
       if: runner.os == 'Linux'
-      run: sudo apt-get install pkg-config libsodium-dev libssl-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          pkg-config \
+          libsodium-dev \
+          libssl-dev \
+          librocksdb-dev \
+          libsnappy-dev \
+          cmake \
+          libclang-dev
 
     - name: Install Just
       uses: extractions/setup-just@v3
@@ -52,8 +61,8 @@ runs:
     - name: Start sccache
       shell: bash
       env:
-        SCCACHE_ENDPOINT: https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com
-        SCCACHE_BUCKET: cvx-actions-cache
+        SCCACHE_ENDPOINT: https://ea26d42490b89665b79782576c63381c.r2.cloudflarestorage.com
+        SCCACHE_BUCKET: defy-convex-runner
         SCCACHE_REGION: auto
         AWS_ACCESS_KEY_ID: ${{ inputs.r2-access-key }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-key }}

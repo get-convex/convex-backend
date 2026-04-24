@@ -10,6 +10,14 @@ on:
         description: "arm64 image digest"
         value: ${{ fromJson(jobs.read.outputs.result).digest.backend-arm64 }}
 
+env:
+  IMAGE_NAMESPACE:
+    ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE ||
+    github.repository_owner }}
+  BACKEND_IMAGE_NAME:
+    ${{ vars.BACKEND_IMAGE_NAME != '' && vars.BACKEND_IMAGE_NAME ||
+    'convex-backend' }}
+
 permissions:
   contents: read
   packages: write
@@ -21,7 +29,9 @@ jobs:
     strategy:
       matrix:
         arch: [x64, arm64]
-    runs-on: [self-hosted, aws, "${{ matrix.arch }}", xlarge]
+    runs-on:
+      "runs-on=${{ github.run_id }}-${{ matrix.arch }}/runner=xlarge-${{
+      matrix.arch }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,13 +60,13 @@ jobs:
           context: .
           file: self-hosted/docker-build/Dockerfile.backend
           tags: |
-            ghcr.io/get-convex/convex-backend
+            ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}
           cache-from: |
-            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.sha }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
-            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.ref_name }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.sha }},prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.ref_name }},prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
           cache-to: |
-            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.sha }},mode=max,prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
-            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.ref_name }},mode=max,prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.sha }},mode=max,prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.ref_name }},mode=max,prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
           outputs: push-by-digest=true,type=image,push=true
           provenance: false
           build-args: |

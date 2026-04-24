@@ -8,7 +8,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [enhanced]
   pull_request:
     branches: ["**"]
 
