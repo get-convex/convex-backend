@@ -48,6 +48,15 @@ improvements for self-hosting.
 - `release`: release-tracking branch used to build and publish self-hosted
   images when upstream release updates land.
 
+### Support this fork
+
+This fork is currently solo-maintained, and the running costs come out of my own
+pocket — AWS runners for the release workflows, time spent reviewing incoming
+PRs, and the occasional infra fix on top of upstream Convex. If the fork is
+useful to your self-hosted setup,
+[sponsoring on GitHub](https://github.com/sponsors/defy-works) is appreciated
+and entirely optional.
+
 ---
 
 ## About Convex
