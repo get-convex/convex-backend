@@ -63,8 +63,7 @@ export function SettingsSidebar({
         {allowedPages.map((page) => {
           const showInCloudDashboard =
             page === "backups" && isCloudDeploymentInSelfHostedDashboard;
-          const isUnavailableForSelfHosted =
-            page === "backups" && isSelfHostedDeployment;
+          const isUnavailableForSelfHosted = false;
           const isUnavailableForLocal =
             (page === "backups" || page === "custom-domains") &&
             deployment?.kind === "local";
