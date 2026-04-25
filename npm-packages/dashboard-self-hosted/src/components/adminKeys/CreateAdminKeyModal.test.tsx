@@ -5,14 +5,12 @@ import { CreateAdminKeyModal } from "./CreateAdminKeyModal";
 
 describe("CreateAdminKeyModal", () => {
   it("calls onCreate and shows the key once", async () => {
-    const onCreate = jest
-      .fn()
-      .mockResolvedValue({
-        adminKey: "prod:XYZ",
-        id: "a",
-        name: "CI",
-        creationTime: 1,
-      });
+    const onCreate = jest.fn().mockResolvedValue({
+      adminKey: "prod:XYZ",
+      id: "a",
+      name: "CI",
+      creationTime: 1,
+    });
     const onClose = jest.fn();
 
     render(<CreateAdminKeyModal onCreate={onCreate} onClose={onClose} />);
