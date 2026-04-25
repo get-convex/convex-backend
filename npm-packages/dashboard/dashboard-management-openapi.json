@@ -3406,8 +3406,6 @@
           "deleteCloudBackup",
           "disableTeamExceedingSpendingLimits",
           "setSpendingLimit",
-          "viewBillingDetails",
-          "viewInvoices",
           "applyReferralCode",
           "createOAuthApplication",
           "updateOAuthApplication",
@@ -5326,7 +5324,6 @@
         "type": "object",
         "required": [
           "plan",
-          "billingContact",
           "status",
           "nextBillingPeriodStart",
           "hasNewBilling"
@@ -5343,7 +5340,14 @@
             ]
           },
           "billingContact": {
-            "$ref": "#/components/schemas/BillingContactResponse"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingContactResponse"
+              }
+            ]
           },
           "endDate": {
             "type": [
