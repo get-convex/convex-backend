@@ -1,20 +1,20 @@
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { joinUrlPath } from "@common/lib/helpers/joinUrlPath";
+import udfs from "@common/udfs";
 import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";
 import { Checkbox } from "@ui/Checkbox";
 import { Link } from "@ui/Link";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
-import udfs from "@common/udfs";
-import { joinUrlPath } from "@common/lib/helpers/joinUrlPath";
 import {
   ArchiveIcon,
   DownloadIcon,
   EnvelopeClosedIcon,
 } from "@radix-ui/react-icons";
-import { useContext, useId, useState } from "react";
 import { useQuery } from "convex/react";
+import { useContext, useId, useState } from "react";
 
 export default function BackupsPage() {
   return (
@@ -36,11 +36,11 @@ function BackupsBody() {
     );
   }
   return (
-    <BackupsCard deploymentUrl={ctx.deploymentUrl} adminKey={ctx.adminKey} />
+    <BackupsLayout deploymentUrl={ctx.deploymentUrl} adminKey={ctx.adminKey} />
   );
 }
 
-function BackupsCard({
+function BackupsLayout({
   deploymentUrl,
   adminKey,
 }: {
@@ -53,10 +53,10 @@ function BackupsCard({
   const [requestError, setRequestError] = useState<string | null>(null);
   const includeStorageId = useId();
 
-  const inFlight =
+  const inProgress =
     existingExport?.state === "requested" ||
-    existingExport?.state === "in_progress" ||
-    isRequesting;
+    existingExport?.state === "in_progress";
+  const buttonBusy = isRequesting || inProgress;
 
   const requestBackup = async () => {
     setIsRequesting(true);
@@ -85,66 +85,84 @@ function BackupsCard({
   };
 
   return (
-    <Sheet>
-      <div className="mb-2 flex w-full items-center justify-between gap-4">
-        <h3>Backup &amp; Restore</h3>
-        <Button
-          icon={<ArchiveIcon />}
-          onClick={requestBackup}
-          loading={inFlight}
-          disabled={inFlight}
-        >
-          {inFlight ? "Back up in progress" : "Back up now"}
-        </Button>
+    <div className="flex h-full flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h3 className="min-w-fit">Backup &amp; Restore</h3>
+        <span className="text-sm">
+          Trigger a snapshot of this deployment from the dashboard. To restore,
+          run{" "}
+          <code className="rounded bg-background-tertiary px-1 text-xs">
+            npx convex import --replace-all backup.zip
+          </code>
+          {" — "}
+          <Link
+            href="https://docs.convex.dev/database/import-export/import#restore-data-from-a-backup-zip-file"
+            target="_blank"
+          >
+            restore docs
+          </Link>
+          .
+        </span>
       </div>
-      <p className="mb-3 max-w-prose text-content-primary">
-        Trigger an immediate snapshot of this deployment. The resulting{" "}
-        <code className="rounded bg-background-tertiary px-1 text-xs">
-          .zip
-        </code>{" "}
-        is a portable backup you can download here. To restore from a backup,
-        run{" "}
-        <code className="rounded bg-background-tertiary px-1 text-xs">
-          npx convex import --replace-all backup.zip
-        </code>{" "}
-        from your project — see the{" "}
-        <Link
-          href="https://docs.convex.dev/database/import-export/import#restore-data-from-a-backup-zip-file"
-          target="_blank"
-        >
-          restore docs
-        </Link>
-        .
-      </p>
 
-      <label
-        htmlFor={includeStorageId}
-        className="mb-4 ml-px inline-flex items-center gap-2 text-sm"
-      >
-        <Checkbox
-          id={includeStorageId}
-          checked={includeStorage}
-          onChange={() => setIncludeStorage((v) => !v)}
-        />
-        Include file storage in the backup
-      </label>
+      <div className="scrollbar flex grow flex-col gap-4 overflow-auto pt-1 pl-1 xl:flex-row xl:overflow-hidden">
+        <Sheet className="flex h-fit w-full shrink-0 flex-col items-start gap-4 xl:w-60 xl:items-center">
+          <Button
+            icon={<ArchiveIcon />}
+            onClick={requestBackup}
+            loading={buttonBusy}
+            disabled={buttonBusy}
+            className="w-fit"
+          >
+            Back up now
+          </Button>
+          <label
+            htmlFor={includeStorageId}
+            className="ml-px flex items-center gap-2 text-sm"
+          >
+            <Checkbox
+              id={includeStorageId}
+              checked={includeStorage}
+              onChange={() => setIncludeStorage((v) => !v)}
+            />
+            Include file storage
+          </label>
+          <p className="text-xs text-content-secondary">
+            Snapshots are stored on this deployment&apos;s configured backend
+            storage. Periodic backups are{" "}
+            <Link
+              href="https://docs.convex.dev/database/backup-restore"
+              target="_blank"
+            >
+              not yet supported
+            </Link>{" "}
+            on self-hosted; trigger them with cron from your container host.
+          </p>
+        </Sheet>
 
-      {requestError && (
-        <Callout variant="error" className="mb-3">
-          Failed to request backup: {requestError}
-        </Callout>
-      )}
-
-      <LatestExport
-        existingExport={existingExport}
-        deploymentUrl={deploymentUrl}
-        adminKey={adminKey}
-      />
-    </Sheet>
+        <div className="flex flex-col gap-4 pb-8 xl:grow xl:pb-0">
+          {requestError && (
+            <Callout variant="error">
+              Failed to request backup: {requestError}
+            </Callout>
+          )}
+          <Sheet padding={false} className="flex min-h-72 flex-col">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h4>Existing Backups</h4>
+            </div>
+            <BackupsContent
+              existingExport={existingExport}
+              deploymentUrl={deploymentUrl}
+              adminKey={adminKey}
+            />
+          </Sheet>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function LatestExport({
+function BackupsContent({
   existingExport,
   deploymentUrl,
   adminKey,
@@ -154,39 +172,49 @@ function LatestExport({
   adminKey: string;
 }) {
   if (existingExport === undefined) {
-    return <Spinner />;
-  }
-  if (existingExport === null) {
     return (
-      <span className="text-content-secondary">
-        No snapshot has been requested yet.
-      </span>
+      <div className="flex flex-1 items-center justify-center py-10">
+        <Spinner />
+      </div>
     );
   }
+
+  if (existingExport === null) {
+    return <BackupsEmptyState message="No backups in this deployment." />;
+  }
+
   if (existingExport.state === "requested") {
     return (
-      <div className="flex items-center gap-2 text-content-primary">
-        <Spinner /> Backup requested, waiting to start…
-      </div>
+      <BackupsStatusRow
+        icon={<Spinner />}
+        primary="Backup requested"
+        secondary="Waiting to start…"
+      />
     );
   }
+
   if (existingExport.state === "in_progress") {
     return (
-      <div className="flex items-center gap-2 text-content-primary">
-        <Spinner /> Backup in progress…
-      </div>
+      <BackupsStatusRow
+        icon={<Spinner />}
+        primary="Backup in progress"
+        secondary="This usually takes a moment for small deployments."
+      />
     );
   }
+
   if (existingExport.state === "failed") {
     return (
-      <Callout variant="error">
-        Latest backup failed. Try again, or report the issue at{" "}
-        <Link href="mailto:support@convex.dev">
-          <EnvelopeClosedIcon className="mr-0.5 inline" />
-          support@convex.dev
-        </Link>
-        .
-      </Callout>
+      <div className="p-4">
+        <Callout variant="error">
+          Latest backup failed. Try again, or report the issue at{" "}
+          <Link href="mailto:support@convex.dev">
+            <EnvelopeClosedIcon className="mr-0.5 inline" />
+            support@convex.dev
+          </Link>
+          .
+        </Callout>
+      </div>
     );
   }
 
@@ -200,9 +228,7 @@ function LatestExport({
   const isExpired = Date.now() >= expiresAt.getTime();
   if (isExpired) {
     return (
-      <span className="text-content-secondary">
-        Latest backup has expired. Create a new one above.
-      </span>
+      <BackupsEmptyState message="The most recent backup has expired. Create a new one to download." />
     );
   }
 
@@ -214,25 +240,60 @@ function LatestExport({
   const filename = `convex-backup-${existingExport.start_ts.toString()}.zip`;
 
   return (
-    <div className="max-w-2xl rounded-md border">
-      <div className="rounded-t-md bg-background-primary px-4 py-2 text-sm sm:flex sm:justify-between sm:gap-4">
-        <div className="truncate">Created {completedAt.toLocaleString()}</div>
-        <div className="truncate text-content-errorSecondary">
-          Expires {expiresAt.toLocaleString()}
+    <div className="divide-y">
+      <div className="flex items-center justify-between gap-4 px-4 py-3">
+        <div className="flex min-w-0 flex-col">
+          <div className="truncate font-mono text-sm">{filename}</div>
+          <div className="text-xs text-content-secondary">
+            Created {completedAt.toLocaleString()} · Expires{" "}
+            {expiresAt.toLocaleString()}
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-x-4 px-4 py-2">
-        <div className="flex-1 truncate font-mono text-sm">{filename}</div>
         <Button
           size="sm"
           variant="primary"
           inline
           aria-label="Download backup"
           href={downloadHref}
+          icon={<DownloadIcon />}
         >
-          <DownloadIcon aria-label="Download" />
           <span className="hidden md:flex">Download</span>
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function BackupsStatusRow({
+  icon,
+  primary,
+  secondary,
+}: {
+  icon: React.ReactNode;
+  primary: string;
+  secondary?: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10">
+      <div className="text-content-secondary">{icon}</div>
+      <div className="text-sm text-content-primary">{primary}</div>
+      {secondary && (
+        <div className="text-xs text-content-secondary">{secondary}</div>
+      )}
+    </div>
+  );
+}
+
+function BackupsEmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center">
+      <div className="rounded-md bg-purple-100/40 p-2 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+        <ArchiveIcon className="size-5" />
+      </div>
+      <div className="text-content-primary">{message}</div>
+      <div className="max-w-sm text-xs text-content-secondary">
+        Use the <span className="font-medium">Back up now</span> button on the
+        left to create a downloadable snapshot.
       </div>
     </div>
   );
