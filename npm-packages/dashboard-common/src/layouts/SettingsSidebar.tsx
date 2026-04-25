@@ -64,8 +64,7 @@ export function SettingsSidebar({
           const showInCloudDashboard =
             page === "backups" && isCloudDeploymentInSelfHostedDashboard;
           const isUnavailableForSelfHosted =
-            (page === "backups" || page === "custom-domains") &&
-            isSelfHostedDeployment;
+            page === "backups" && isSelfHostedDeployment;
           const isUnavailableForLocal =
             (page === "backups" || page === "custom-domains") &&
             deployment?.kind === "local";
