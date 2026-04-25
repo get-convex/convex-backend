@@ -1303,22 +1303,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_slug}/usage/record_tokens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["record_tokens"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/unlink_identity": {
         parameters: {
             query?: never;
@@ -2593,10 +2577,6 @@ export interface components {
             workosTeamId: string;
             workosTeamName: string;
         };
-        RecordTokensArgs: {
-            /** Format: int64 */
-            centitokens: number;
-        };
         ReferralCode: string;
         ReferralState: {
             referrals: components["schemas"]["TeamName"][];
@@ -2973,7 +2953,6 @@ export type ProvisionProjectEnvironmentRequest = components['schemas']['Provisio
 export type ProvisionProjectEnvironmentResponse = components['schemas']['ProvisionProjectEnvironmentResponse'];
 export type ProvisionWorkOsTeamRequest = components['schemas']['ProvisionWorkOSTeamRequest'];
 export type ProvisionWorkOsTeamResponse = components['schemas']['ProvisionWorkOSTeamResponse'];
-export type RecordTokensArgs = components['schemas']['RecordTokensArgs'];
 export type ReferralCode = components['schemas']['ReferralCode'];
 export type ReferralState = components['schemas']['ReferralState'];
 export type RegionName = components['schemas']['RegionName'];
@@ -4852,31 +4831,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetTokenInfoResponse"];
-                };
-            };
-        };
-    };
-    record_tokens: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecordTokensArgs"];
-            };
-        };
         responses: {
             200: {
                 headers: {

@@ -2312,41 +2312,6 @@
         }
       }
     },
-    "/teams/{team_slug}/usage/record_tokens": {
-      "post": {
-        "operationId": "record_tokens",
-        "parameters": [
-          {
-            "name": "team_slug",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordTokensArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetTokenInfoResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/unlink_identity": {
       "post": {
         "description": "Unlink a secondary identity from a user's account",
@@ -6055,19 +6020,6 @@
           },
           "workosTeamName": {
             "type": "string"
-          }
-        }
-      },
-      "RecordTokensArgs": {
-        "type": "object",
-        "required": [
-          "centitokens"
-        ],
-        "properties": {
-          "centitokens": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
           }
         }
       },
