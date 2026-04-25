@@ -1,5 +1,7 @@
 import { HealthView } from "@common/features/health/components/HealthView";
 
+import { SelfHostedDeploymentSummary } from "../components/SelfHostedDeploymentSummary";
+
 export default function Page() {
   return (
     <HealthView
@@ -12,6 +14,7 @@ export default function Page() {
           {children}
         </div>
       )}
+      summary={<SelfHostedDeploymentSummary />}
     />
   );
 }

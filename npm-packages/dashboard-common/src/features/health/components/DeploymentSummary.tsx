@@ -33,7 +33,7 @@ import { Spinner } from "@ui/Spinner";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 
-function useLatestConvexVersion(currentVersion: string | undefined) {
+export function useLatestConvexVersion(currentVersion: string | undefined) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [latestVersion, setLatestVersion] = useState<string>();
 

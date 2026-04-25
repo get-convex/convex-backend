@@ -29,6 +29,7 @@ export function HealthView({
   regions,
   showSubscriptionInvalidations = false,
   showHeatmaps = false,
+  summary,
 }: {
   header: JSX.Element;
   PageWrapper: React.FC<{ children: React.ReactNode }>;
@@ -41,6 +42,14 @@ export function HealthView({
   regions?: Array<{ name: string; displayName: string }>;
   showSubscriptionInvalidations?: boolean;
   showHeatmaps?: boolean;
+  /**
+   * Override for the Summary section's contents. When supplied, takes priority
+   * over the cloud-style `<DeploymentSummary>` rendered from `deployment`.
+   * Self-hosted dashboards pass their own summary card here because they don't
+   * have the cloud platform fields (team, project, region, etc.) that
+   * `<DeploymentSummary>` expects.
+   */
+  summary?: React.ReactNode;
 }) {
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
   const canViewMetrics = useIsOperationAllowed("ViewMetrics");
@@ -72,17 +81,25 @@ export function HealthView({
         <PagesWrapper>
           <PageWrapper>
             <div>
-              {deployment && teamSlug && projectSlug && (
+              {summary ? (
                 <DisclosureSection id="summary" title="Summary" defaultOpen>
-                  <DeploymentSummary
-                    deployment={deployment}
-                    teamSlug={teamSlug}
-                    projectSlug={projectSlug}
-                    lastBackupTime={lastBackupTime}
-                    teamMembers={teamMembers}
-                    regions={regions}
-                  />
+                  {summary}
                 </DisclosureSection>
+              ) : (
+                deployment &&
+                teamSlug &&
+                projectSlug && (
+                  <DisclosureSection id="summary" title="Summary" defaultOpen>
+                    <DeploymentSummary
+                      deployment={deployment}
+                      teamSlug={teamSlug}
+                      projectSlug={projectSlug}
+                      lastBackupTime={lastBackupTime}
+                      teamMembers={teamMembers}
+                      regions={regions}
+                    />
+                  </DisclosureSection>
+                )
               )}
 
               <DisclosureSection

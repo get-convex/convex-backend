@@ -5,6 +5,8 @@ import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { Link } from "@ui/Link";
 import { Sheet } from "@ui/Sheet";
 
+import { SelfHostedDeploymentSummary } from "../../components/SelfHostedDeploymentSummary";
+
 export default function Settings() {
   const pauseDeploymentRef = useRef<HTMLDivElement | null>(null);
 
@@ -13,6 +15,7 @@ export default function Settings() {
   return (
     <DeploymentSettingsLayout page="general">
       <div className="flex flex-col gap-4">
+        <SelfHostedDeploymentSummary />
         <Sheet>
           <h3>Deploy Key</h3>
           <p className="mt-2 max-w-prose text-content-secondary">
