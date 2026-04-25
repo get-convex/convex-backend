@@ -352,5 +352,44 @@ export const screenshots = [
       "width": 2048,
       "height": 1400
     }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/Integrations",
+    "light": {
+      "filename": "pages_project_deployment_settings_integrations_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_integrations_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/Integrations#Configure Sentry",
+    "light": {
+      "filename": "pages_project_deployment_settings_integrations_configure_sentry_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_integrations_configure_sentry_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/Integrations#Configure Datadog",
+    "light": {
+      "filename": "pages_project_deployment_settings_integrations_configure_datadog_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_integrations_configure_datadog_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
   }
 ] as const;

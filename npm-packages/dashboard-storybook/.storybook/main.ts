@@ -16,6 +16,7 @@ const config: StorybookConfig = {
     "@storybook/addon-vitest",
   ],
   staticDirs: [
+    path.resolve(import.meta.dirname, "../../dashboard/public"),
     {
       from: path.resolve(
         import.meta.dirname,

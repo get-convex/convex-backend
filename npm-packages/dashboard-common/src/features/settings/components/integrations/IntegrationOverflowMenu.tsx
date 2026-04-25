@@ -75,6 +75,7 @@ export function IntegrationOverflowMenu({
       tip="Configure Integration"
       tipSide="right"
       onClick={onConfigure}
+      data-testid="configure-integration"
     />
   );
 }
