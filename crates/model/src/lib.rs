@@ -35,6 +35,10 @@ use std::{
     sync::LazyLock,
 };
 
+use audit_log_config::{
+    AuditLogConfigTable,
+    AUDIT_LOG_CONFIG_TABLE,
+};
 use auth::AUTH_TABLE;
 use aws_lambda_versions::{
     AwsLambdaVersionsTable,
@@ -209,6 +213,7 @@ use crate::{
 };
 
 pub mod airbyte_import;
+pub mod audit_log_config;
 pub mod auth;
 pub mod aws_lambda_versions;
 pub mod backend_info;
@@ -271,9 +276,10 @@ enum DefaultTableNumber {
     IndexBackfills = 36,
     SchemaValidationProgress = 37,
     ScheduledJobArgs = 38,
+    AuditLogConfig = 39,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 39 - emma
+    // Next Number - 40 - reece
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -318,6 +324,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::IndexBackfills => &IndexBackfillTable,
             DefaultTableNumber::SchemaValidationProgress => &SchemaValidationProgressTable,
             DefaultTableNumber::ScheduledJobArgs => &ScheduledJobArgsTable,
+            DefaultTableNumber::AuditLogConfig => &AuditLogConfigTable,
         }
     }
 }
@@ -553,6 +560,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &FunctionHandlesTable,
         &CanonicalUrlsTable,
         &LogSinksTable,
+        &AuditLogConfigTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
     ];
@@ -640,6 +648,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         INDEX_BACKFILLS_TABLE.clone() => 120,
         SCHEMA_VALIDATION_PROGRESS_TABLE.clone() => 122,
         SCHEDULED_JOBS_ARGS_TABLE.clone() => 123,
+        AUDIT_LOG_CONFIG_TABLE.clone() => 124,
     }
 });
 

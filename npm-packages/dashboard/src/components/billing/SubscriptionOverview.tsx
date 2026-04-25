@@ -114,17 +114,18 @@ export function SubscriptionOverview({
             team={team}
             hasAdminPermissions={hasAdminPermissions}
           />
-          {team.managedBy !== "vercel" && (
+          {team.managedBy !== "vercel" && subscription.billingContact && (
             <>
               <hr />
               <BillingContactForm
-                subscription={subscription}
+                billingContact={subscription.billingContact}
                 team={team}
                 hasAdminPermissions={hasAdminPermissions}
               />
               <hr />
               <BillingAddressForm
                 subscription={subscription}
+                billingContact={subscription.billingContact}
                 team={team}
                 hasAdminPermissions={hasAdminPermissions}
               />
@@ -318,11 +319,11 @@ function CostLabel({
 }
 
 function BillingContactForm({
-  subscription,
+  billingContact,
   team,
   hasAdminPermissions,
 }: {
-  subscription: OrbSubscriptionResponse;
+  billingContact: BillingContactResponse;
   team: TeamResponse;
   hasAdminPermissions: boolean;
 }) {
@@ -330,8 +331,8 @@ function BillingContactForm({
   const updateBillingContact = useUpdateBillingContact(team.id);
   const formState = useFormik<BillingContactResponse>({
     initialValues: {
-      name: subscription.billingContact.name,
-      email: subscription.billingContact.email,
+      name: billingContact.name,
+      email: billingContact.email,
     },
     validationSchema: CreateSubscriptionSchema,
     onSubmit: async (v) => {
@@ -349,11 +350,9 @@ function BillingContactForm({
         <>
           <div className="text-sm">
             <div>
-              <span className="font-semibold">
-                {subscription.billingContact.name}
-              </span>
+              <span className="font-semibold">{billingContact.name}</span>
             </div>
-            <div>{subscription.billingContact.email}</div>
+            <div>{billingContact.email}</div>
           </div>
           <Button
             className="w-fit"
@@ -414,10 +413,12 @@ function BillingContactForm({
 function BillingAddressForm({
   team,
   subscription,
+  billingContact,
   hasAdminPermissions,
 }: {
   team: TeamResponse;
   subscription: OrbSubscriptionResponse;
+  billingContact: BillingContactResponse;
   hasAdminPermissions: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -519,7 +520,7 @@ function BillingAddressForm({
                   existingBillingAddress={
                     subscription.billingAddress || undefined
                   }
-                  name={subscription.billingContact.name}
+                  name={billingContact.name}
                 />
               </Elements>
             ) : null

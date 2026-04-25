@@ -237,8 +237,6 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           return <span>suspended the deployment</span>;
         case "disabled":
           return <span>disabled the deployment</span>;
-        case "resumable":
-          return <span>allowed the deployment to be unpaused</span>;
         case "none":
           return <span>unblocked the deployment</span>;
         default:

@@ -202,7 +202,6 @@ export const unpauseDeployment = v.object({
 export const systemStopState = v.union(
   v.literal("none"),
   v.literal("disabled"),
-  v.literal("resumable"),
   v.literal("suspended"),
 );
 

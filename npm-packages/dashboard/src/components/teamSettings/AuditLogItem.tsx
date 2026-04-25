@@ -583,12 +583,6 @@ function EntryAction({
         </>
       );
     }
-    case "viewBillingDetails": {
-      return <span>viewed billing details</span>;
-    }
-    case "viewInvoices": {
-      return <span>viewed invoices</span>;
-    }
     case "verifyOAuthApplication": {
       return <span>verified an OAuth application</span>;
     }

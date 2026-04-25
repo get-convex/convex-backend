@@ -34,6 +34,7 @@ import {
   useListInvoices,
   useGetSpendingLimits,
   useListPlans,
+  useHasFailedPayment,
 } from "../../dashboard/src/api/billing";
 import {
   useDeployments,
@@ -264,6 +265,10 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       disableThresholdCents: null,
       warningThresholdCents: null,
     },
+  });
+  mocked(useHasFailedPayment).mockReturnValue({
+    isLoading: false,
+    hasFailedPayment: false,
   });
   mocked(useTeamUsageState).mockReturnValue("Default");
   mocked(useReferralState).mockReturnValue(null);

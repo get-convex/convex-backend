@@ -26,7 +26,7 @@ use crate::{
 
 /// A client IP address extracted from HTTP headers, with max length
 /// enforcement.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClientIp(String);
 
 impl ClientIp {
@@ -56,7 +56,7 @@ impl TryFrom<String> for ClientIp {
 
 /// A client user-agent string extracted from HTTP headers, with max length
 /// enforcement.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClientUserAgent(String);
 
 impl ClientUserAgent {

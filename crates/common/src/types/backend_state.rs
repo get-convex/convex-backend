@@ -47,10 +47,6 @@ pub enum SystemStopState {
     /// Stopped by going over the free plan limits or spending limits
     Disabled,
 
-    /// The backend is stopped because the user went over the free plan limits
-    /// spending limits, but the user can now manually resume it.
-    Resumable,
-
     /// Stopped manually by an admin
     Suspended,
 }
@@ -70,7 +66,6 @@ impl BackendState {
         match (self.system, self.user) {
             (SystemStopState::Disabled, _) => OldBackendState::Disabled,
             (SystemStopState::Suspended, _) => OldBackendState::Suspended,
-            (SystemStopState::Resumable, _) => OldBackendState::Paused,
             (SystemStopState::None, UserStopState::Paused) => OldBackendState::Paused,
             (SystemStopState::None, UserStopState::None) => OldBackendState::Running,
         }
