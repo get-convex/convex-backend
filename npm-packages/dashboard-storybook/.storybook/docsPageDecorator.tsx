@@ -91,6 +91,36 @@ const mockUser: User = {
   metadata: {},
 };
 
+const STORYBOOK_DEV_DEPLOYMENT: PlatformDeploymentResponse = {
+  id: 11,
+  name: "happy-capybara-123",
+  deploymentType: "dev",
+  kind: "cloud",
+  isDefault: true,
+  projectId: 7,
+  creator: 1,
+  createTime: 0,
+  class: "s256",
+  deploymentUrl: "https://happy-capybara-123.convex.cloud",
+  reference: "dev/nicolas",
+  region: "aws-us-east-1",
+};
+
+const STORYBOOK_PROD_DEPLOYMENT: PlatformDeploymentResponse = {
+  id: 12,
+  name: "musical-otter-456",
+  deploymentType: "prod",
+  kind: "cloud",
+  isDefault: true,
+  projectId: 7,
+  creator: 1,
+  createTime: 0,
+  class: "s256",
+  deploymentUrl: "https://musical-otter-456.eu-west-1.convex.cloud",
+  reference: "production",
+  region: "aws-eu-west-1",
+};
+
 /**
  * Stories in dashboard/src/docs/pages/ replicate dashboard pages.
  * This decorator adds some useful mocks for various hooks used
@@ -148,6 +178,13 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   const shouldMockCurrentDeployment = title.startsWith(
     "docs/pages/project/deployment/",
   );
+  const deploymentTypeOverride = (
+    context.parameters as { docsPage?: { deploymentType?: "dev" | "prod" } }
+  )?.docsPage?.deploymentType;
+  const activeDeployment =
+    deploymentTypeOverride === "prod"
+      ? STORYBOOK_PROD_DEPLOYMENT
+      : STORYBOOK_DEV_DEPLOYMENT;
   const mockTeamEntitlements = {
     auditLogRetentionDays: 90,
     customDomainsEnabled: true,
@@ -272,38 +309,8 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   });
   mocked(useTeamUsageState).mockReturnValue("Default");
   mocked(useReferralState).mockReturnValue(null);
-  const DEV_DEPLOYMENT: PlatformDeploymentResponse = {
-    id: 11,
-    name: "happy-capybara-123",
-    deploymentType: "dev",
-    kind: "cloud",
-    isDefault: true,
-    projectId: mockProject.id,
-    creator: 1,
-    createTime: Date.now(),
-    class: "s256",
-    deploymentUrl: "https://happy-capybara-123.convex.cloud",
-    reference: "dev/nicolas",
-    region: "aws-us-east-1",
-  };
   mocked(useDeployments).mockReturnValue({
-    deployments: [
-      DEV_DEPLOYMENT,
-      {
-        id: 12,
-        name: "musical-otter-456",
-        deploymentType: "prod",
-        kind: "cloud",
-        isDefault: true,
-        projectId: mockProject.id,
-        creator: 1,
-        createTime: Date.now(),
-        class: "s256",
-        deploymentUrl: "https://musical-otter-456.eu-west-1.convex.cloud",
-        reference: "production",
-        region: "aws-eu-west-1",
-      },
-    ],
+    deployments: [STORYBOOK_DEV_DEPLOYMENT, STORYBOOK_PROD_DEPLOYMENT],
     isLoading: false,
   });
   mocked(useHasProjectAdminPermissions).mockReturnValue(true);
@@ -317,7 +324,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     enableStatuspageWidget: false,
   });
   mocked(useCurrentDeployment).mockReturnValue(
-    shouldMockCurrentDeployment ? DEV_DEPLOYMENT : undefined,
+    shouldMockCurrentDeployment ? activeDeployment : undefined,
   );
   mocked(deploymentAuth).mockImplementation(async (deploymentName) => {
     return {
@@ -366,7 +373,14 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   // ConvexProvider backed by a mock client so the components inside (e.g.
   // DeploymentDomainInfo) can still call useQuery without hitting a real backend.
   const mockClient = mockConvexReactClient()
-    .registerQueryFake(udfs.convexCloudUrl.default, () => undefined)
+    .registerQueryFake(
+      udfs.convexCloudUrl.default,
+      () => activeDeployment.deploymentUrl,
+    )
+    .registerQueryFake(
+      udfs.convexSiteUrl.default,
+      () => `https://${activeDeployment.name}.convex.site`,
+    )
     .registerQueryFake(udfs.components.list, () => [])
     .registerQueryFake(udfs.deploymentState.deploymentState, () => ({
       _id: "" as any,
@@ -374,7 +388,12 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       state: "running" as const,
     }))
     .registerQueryFake(udfs.modules.listForAllComponents, () => [])
-    .registerQueryFake(udfs.getSchemas.default, () => ({}));
+    .registerQueryFake(udfs.getSchemas.default, () => ({}))
+    .registerQueryFake(udfs.listConfiguredSinks.default, () => [])
+    .registerQueryFake(udfs.getVersion.default, () => "1.18.0")
+    .registerQueryFake(udfs.deploymentEvents.lastPushEvent, () => null)
+    .registerQueryFake(udfs.fileStorageV2.numFiles, () => 0)
+    .registerQueryFake(udfs.tableSize.sizeOfAllTables, () => 0);
   mocked(DeploymentProvider).mockImplementation(({ children }) => (
     <ConvexProvider client={mockClient}>{children}</ConvexProvider>
   ));
@@ -382,16 +401,18 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     deployment: {
       client: mockClient,
       httpClient: {} as never,
-      deploymentUrl: DEV_DEPLOYMENT.deploymentUrl,
+      deploymentUrl: STORYBOOK_DEV_DEPLOYMENT.deploymentUrl,
       adminKey: "STORYBOOK-FAKE-KEY",
-      deploymentName: DEV_DEPLOYMENT.name,
+      deploymentName: STORYBOOK_DEV_DEPLOYMENT.name,
     },
     isDisconnected: false,
   };
 
   return (
     <DocsShell
-      deployment={shouldMockCurrentDeployment ? DEV_DEPLOYMENT.name : null}
+      deployment={
+        shouldMockCurrentDeployment ? STORYBOOK_DEV_DEPLOYMENT.name : null
+      }
       mockConnectedDeployment={
         shouldMockCurrentDeployment ? mockConnectedDeployment : null
       }

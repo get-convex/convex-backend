@@ -6,6 +6,8 @@ description:
   "Configure exception reporting integrations for your Convex deployment"
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 Configure exception reporting to gain visibility into errors from your Convex
 function executions. Convex supports integration with
 [Sentry](https://sentry.io/),
@@ -20,13 +22,19 @@ To configure sentry, navigate to the
 [Deployment Settings](/dashboard/deployments/settings.mdx) in the Dashboard, and
 the "Integrations" tab in the sidebar.
 
-![Integrations Page](/screenshots/integrations_page.png)
+<Screenshot
+  story="docs/pages/project/deployment/settings/Integrations"
+  alt="Integrations page"
+/>
 
 Click on the Sentry card and follow the setup directions. You will need your
 [Sentry DSN](https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/).
 You may optionally specify additional tags to be added to each exception event.
 
-![Configure sentry](/screenshots/configure_sentry.png)
+<Screenshot
+  story="docs/pages/project/deployment/settings/Integrations#Configure Sentry"
+  alt="Configure Sentry integration"
+/>
 
 ## Supported Tags
 
