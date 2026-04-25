@@ -2,6 +2,7 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 
+mod admin_key_hash;
 mod broker;
 mod encryptor;
 mod legacy_encryptor;
@@ -12,6 +13,10 @@ pub use pb::convex_identity::DeploymentOperation;
 pub use sync_types::UserIdentityAttributes;
 
 pub use self::{
+    admin_key_hash::{
+        admin_key_hash,
+        AdminKeyHash,
+    },
     broker::{
         AdminIdentity,
         AdminIdentityPrincipal,

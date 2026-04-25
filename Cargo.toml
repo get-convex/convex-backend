@@ -97,6 +97,7 @@ hdrhistogram = "7.5.4"
 headers = "0.4"
 health_check = { path = "crates/health_check" }
 hex = "0.4"
+hmac = "0.12"
 home = "0.5"
 http = "1.0.0"
 http-body-util = "0.1.2"

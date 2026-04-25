@@ -295,6 +295,20 @@ pub fn router(st: LocalAppState) -> Router {
         // Environment variable routes
         .route("/update_environment_variables", post(update_environment_variables))
         .route("/list_environment_variables", get(list_environment_variables))
+        // Admin key routes (self-hosted dashboard management)
+        .route(
+            "/admin_keys",
+            get(crate::admin_keys::list_admin_keys)
+                .post(crate::admin_keys::create_admin_key),
+        )
+        .route(
+            "/admin_keys/{id}",
+            axum::routing::patch(crate::admin_keys::rename_admin_key),
+        )
+        .route(
+            "/admin_keys/{id}/revoke",
+            post(crate::admin_keys::revoke_admin_key),
+        )
         // Canonical URL routes
         .route("/update_canonical_url", post(update_canonical_url))
         // Scheduled jobs routes

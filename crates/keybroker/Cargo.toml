@@ -29,6 +29,7 @@ common = { workspace = true }
 derive_more = { workspace = true }
 errors = { workspace = true }
 hex = { workspace = true }
+hmac = { workspace = true }
 metrics = { workspace = true }
 openidconnect = { workspace = true }
 pb = { workspace = true }
@@ -39,6 +40,7 @@ rand = { workspace = true }
 rsa = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 sodium_secretbox = { workspace = true }
 sync_types = { workspace = true }
 tracing = { workspace = true }

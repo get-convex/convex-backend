@@ -46,6 +46,7 @@ fastrace = { workspace = true }
 fivetran_destination = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
+hex = { workspace = true }
 humansize = { workspace = true }
 imbl = { workspace = true }
 keybroker = { workspace = true }

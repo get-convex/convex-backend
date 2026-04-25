@@ -5312,6 +5312,7 @@ dependencies = [
  "derive_more",
  "errors",
  "hex",
+ "hmac",
  "metrics",
  "openidconnect",
  "pb",
@@ -5324,6 +5325,7 @@ dependencies = [
  "runtime",
  "serde",
  "serde_json",
+ "sha2",
  "sodium_secretbox",
  "tracing",
 ]
@@ -6074,6 +6076,7 @@ dependencies = [
  "fivetran_destination",
  "futures",
  "futures-async-stream",
+ "hex",
  "humansize",
  "imbl",
  "keybroker",

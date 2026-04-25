@@ -120,6 +120,7 @@ const MAX_TS_DELAY: Duration = Duration::from_secs(15);
 #[derive(Clone)]
 pub struct KeyBroker {
     instance_name: String,
+    deployment_secret: DeploymentSecret,
     encryptor: LegacyEncryptor,
     admin_key_encryptor: RandomEncryptor,
     action_callback_encryptor: RandomEncryptor,
@@ -754,6 +755,7 @@ impl KeyBroker {
     pub fn new(instance_name: &str, deployment_secret: DeploymentSecret) -> anyhow::Result<Self> {
         Ok(Self {
             instance_name: instance_name.to_owned(),
+            deployment_secret,
             encryptor: LegacyEncryptor::new(deployment_secret)?,
             admin_key_encryptor: RandomEncryptor::derive_from_secret(
                 &deployment_secret,
@@ -776,6 +778,10 @@ impl KeyBroker {
                 Purpose::STORE_FILE_AUTHORIZATION,
             )?,
         })
+    }
+
+    pub fn deployment_secret(&self) -> &DeploymentSecret {
+        &self.deployment_secret
     }
 
     pub fn dev() -> Self {

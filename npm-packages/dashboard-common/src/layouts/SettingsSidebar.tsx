@@ -16,6 +16,7 @@ export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   components: "Components",
   backups: "Backup & Restore",
   integrations: "Integrations",
+  "admin-keys": "Admin Keys",
 };
 
 export type SettingsPageKind = keyof typeof DEPLOYMENT_SETTINGS_PAGES_AND_NAMES;
@@ -29,8 +30,6 @@ export function SettingsSidebar({
 }: {
   selectedPage: SettingsPageKind;
 }) {
-  const allowedPages = useAllowedPages();
-
   const {
     isSelfHosted,
     useCurrentProject,
@@ -47,6 +46,8 @@ export function SettingsSidebar({
     useIsCloudDeploymentInSelfHostedDashboard();
   const isSelfHostedDeployment =
     isSelfHosted && !isCloudDeploymentInSelfHostedDashboard;
+
+  const allowedPages = useAllowedPages({ isSelfHostedDeployment });
 
   return (
     <>
@@ -153,7 +154,11 @@ export function SettingsSidebar({
   );
 }
 
-function useAllowedPages() {
+function useAllowedPages({
+  isSelfHostedDeployment,
+}: {
+  isSelfHostedDeployment: boolean;
+}) {
   const { nents } = useNents();
 
   let pages = DEPLOYMENT_SETTINGS_PAGES;
@@ -163,6 +168,11 @@ function useAllowedPages() {
   }
 
   pages = pages.filter((d) => d !== "snapshots");
+
+  // Admin Keys management is only available on true self-hosted deployments.
+  if (!isSelfHostedDeployment) {
+    pages = pages.filter((d) => d !== "admin-keys");
+  }
 
   return pages;
 }

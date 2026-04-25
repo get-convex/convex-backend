@@ -35,6 +35,10 @@ use std::{
     sync::LazyLock,
 };
 
+use admin_keys::{
+    AdminKeysTable,
+    ADMIN_KEYS_BY_HASH_INDEX,
+};
 use audit_log_config::{
     AuditLogConfigTable,
     AUDIT_LOG_CONFIG_TABLE,
@@ -212,6 +216,7 @@ use crate::{
     },
 };
 
+pub mod admin_keys;
 pub mod airbyte_import;
 pub mod audit_log_config;
 pub mod auth;
@@ -277,9 +282,10 @@ enum DefaultTableNumber {
     SchemaValidationProgress = 37,
     ScheduledJobArgs = 38,
     AuditLogConfig = 39,
+    AdminKeys = 40,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 40 - reece
+    // Next Number - 41 - mingu
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -325,6 +331,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::SchemaValidationProgress => &SchemaValidationProgressTable,
             DefaultTableNumber::ScheduledJobArgs => &ScheduledJobArgsTable,
             DefaultTableNumber::AuditLogConfig => &AuditLogConfigTable,
+            DefaultTableNumber::AdminKeys => &AdminKeysTable,
         }
     }
 }
@@ -375,6 +382,7 @@ static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = Laz
         SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name(),
         SCHEDULED_JOBS_INDEX_BY_UDF_PATH.name(),
         SESSION_REQUESTS_INDEX.name(),
+        ADMIN_KEYS_BY_HASH_INDEX.name(),
         TABLES_BY_NAME_INDEX.name(),
         SCHEMAS_STATE_INDEX.name(),
         INDEX_DOC_ID_INDEX.name(),
@@ -563,6 +571,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &AuditLogConfigTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
+        &AdminKeysTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());

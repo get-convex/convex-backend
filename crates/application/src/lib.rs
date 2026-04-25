@@ -392,6 +392,7 @@ use crate::{
     },
 };
 
+pub mod admin_keys_cache;
 pub mod airbyte_import;
 pub mod api;
 pub mod application_function_runner;
@@ -569,6 +570,7 @@ pub struct Application<RT: Runtime> {
     app_auth: Arc<ApplicationAuth>,
     log_manager_client: LogManagerClient,
     oidc_http_client: CachedHttpClient,
+    pub(crate) admin_keys_cache: crate::admin_keys_cache::AdminKeysCache,
 }
 
 /// Create storage based on the storage type configuration
@@ -857,6 +859,24 @@ impl<RT: Runtime> Application<RT> {
             migration_worker,
         };
 
+        let admin_keys_cache = {
+            let mut tx = database.begin_system().await?;
+            let rows = model::admin_keys::AdminKeysModel::new(&mut tx).list().await?;
+            let entries = rows.into_iter().map(|doc| {
+                let id = doc.id().to_string();
+                let v = doc.into_value();
+                (
+                    v.key_hash,
+                    crate::admin_keys_cache::CachedAdminKey {
+                        doc_id: id,
+                        name: v.name,
+                        revoked_time: v.revoked_time,
+                    },
+                )
+            });
+            crate::admin_keys_cache::AdminKeysCache::load(entries)
+        };
+
         Ok(Self {
             runtime,
             database,
@@ -875,6 +895,7 @@ impl<RT: Runtime> Application<RT> {
             app_auth,
             log_manager_client,
             oidc_http_client,
+            admin_keys_cache,
         })
     }
 
@@ -892,6 +913,10 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn key_broker(&self) -> &KeyBroker {
         &self.key_broker
+    }
+
+    pub fn admin_keys_cache(&self) -> &crate::admin_keys_cache::AdminKeysCache {
+        &self.admin_keys_cache
     }
 
     pub fn runner(&self) -> Arc<ApplicationFunctionRunner<RT>> {
@@ -2881,6 +2906,81 @@ impl<RT: Runtime> Application<RT> {
         Ok(file_stream)
     }
 
+    /// Consult the tracked-keys cache for an already-signature-verified admin
+    /// key. Returns `Ok(())` if the request should proceed; an
+    /// `AdminKeyRevoked` error if the key has been revoked. Auto-adopts
+    /// unknown keys — on DB write failure, logs a warning and returns
+    /// `Ok(())` (fail-open on adoption writes).
+    async fn check_admin_key_tracked(&self, raw_admin_key: &str) -> anyhow::Result<()> {
+        use crate::admin_keys_cache::{
+            AdminKeyCheck,
+            CachedAdminKey,
+        };
+        use keybroker::admin_key_hash;
+
+        let hash = admin_key_hash(raw_admin_key, self.key_broker().deployment_secret());
+        match self.admin_keys_cache.check(&hash) {
+            AdminKeyCheck::Valid => Ok(()),
+            AdminKeyCheck::Revoked(_) => Err(anyhow::anyhow!(ErrorMetadata::unauthenticated(
+                "AdminKeyRevoked",
+                "This admin key has been revoked.",
+            ))),
+            AdminKeyCheck::Unknown => {
+                let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+                let proposed_name = format!("Adopted {today}");
+
+                // adopt_result carries the row we ended up with plus a flag for
+                // whether we inserted it (to gate the audit log).
+                type AdoptOutcome = (CachedAdminKey, bool);
+                let adopt_result: anyhow::Result<AdoptOutcome> = async {
+                    let mut tx = self.database.begin_system().await?;
+                    let (doc, was_inserted) = model::admin_keys::AdminKeysModel::new(&mut tx)
+                        .insert_or_get(hash, || proposed_name.clone())
+                        .await?;
+                    let entry = CachedAdminKey {
+                        doc_id: doc.id().to_string(),
+                        name: doc.name.clone(),
+                        revoked_time: doc.revoked_time,
+                    };
+                    if was_inserted {
+                        self.commit_with_audit_log_events(
+                            tx,
+                            vec![
+                                model::deployment_audit_log::types::DeploymentAuditLogEvent::AdminKeyAdopted {
+                                    id: entry.doc_id.clone(),
+                                    name: entry.name.clone(),
+                                },
+                            ],
+                            "adopt_admin_key",
+                        )
+                        .await?;
+                    }
+                    Ok((entry, was_inserted))
+                }
+                .await;
+                match adopt_result {
+                    Ok((entry, _was_inserted)) => {
+                        let revoked = entry.revoked_time;
+                        self.admin_keys_cache.insert(hash, entry);
+                        if revoked.is_some() {
+                            return Err(anyhow::anyhow!(ErrorMetadata::unauthenticated(
+                                "AdminKeyRevoked",
+                                "This admin key has been revoked.",
+                            )));
+                        }
+                    },
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to auto-adopt admin key; accepting request and will retry \
+                             next time: {e:#}"
+                        );
+                    },
+                }
+                Ok(())
+            },
+        }
+    }
+
     pub async fn authenticate(
         &self,
         token: AuthenticationToken,
@@ -2889,6 +2989,7 @@ impl<RT: Runtime> Application<RT> {
         let identity = match token {
             AuthenticationToken::Admin(token, acting_as) => {
                 let admin_identity = self.app_auth().check_key(token.to_string()).await?;
+                self.check_admin_key_tracked(&token).await?;
 
                 match acting_as {
                     Some(acting_user) => {

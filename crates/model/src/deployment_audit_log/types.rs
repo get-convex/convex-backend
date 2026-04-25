@@ -245,6 +245,21 @@ pub enum DeploymentAuditLogEvent {
         component_id: Option<String>,
         component: ComponentPath,
     },
+    AdminKeyCreated {
+        id: String,
+        name: String,
+    },
+    AdminKeyAdopted {
+        id: String,
+        name: String,
+    },
+    AdminKeyRevoked {
+        id: String,
+    },
+    AdminKeyRenamed {
+        id: String,
+        new_name: String,
+    },
 }
 
 impl From<IndexDiff> for DeploymentAuditLogEvent {
@@ -322,6 +337,10 @@ impl DeploymentAuditLogEvent {
             DeploymentAuditLogEvent::CreateTable { .. } => "create_table",
             DeploymentAuditLogEvent::DeleteFiles { .. } => "delete_files",
             DeploymentAuditLogEvent::GenerateUploadUrl { .. } => "generate_upload_url",
+            DeploymentAuditLogEvent::AdminKeyCreated { .. } => "admin_key_created",
+            DeploymentAuditLogEvent::AdminKeyAdopted { .. } => "admin_key_adopted",
+            DeploymentAuditLogEvent::AdminKeyRevoked { .. } => "admin_key_revoked",
+            DeploymentAuditLogEvent::AdminKeyRenamed { .. } => "admin_key_renamed",
         }
     }
 
@@ -631,6 +650,18 @@ impl DeploymentAuditLogEvent {
                     "component_id" => component_id,
                     "component" => component.serialize()
                 )
+            },
+            DeploymentAuditLogEvent::AdminKeyCreated { id, name } => {
+                obj!("id" => id, "name" => name)
+            },
+            DeploymentAuditLogEvent::AdminKeyAdopted { id, name } => {
+                obj!("id" => id, "name" => name)
+            },
+            DeploymentAuditLogEvent::AdminKeyRevoked { id } => {
+                obj!("id" => id)
+            },
+            DeploymentAuditLogEvent::AdminKeyRenamed { id, new_name } => {
+                obj!("id" => id, "new_name" => new_name)
             },
         }
     }
@@ -955,6 +986,25 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     component,
                 }
             },
+            "admin_key_created" => {
+                let id = remove_string(&mut fields, "id")?;
+                let name = remove_string(&mut fields, "name")?;
+                DeploymentAuditLogEvent::AdminKeyCreated { id, name }
+            },
+            "admin_key_adopted" => {
+                let id = remove_string(&mut fields, "id")?;
+                let name = remove_string(&mut fields, "name")?;
+                DeploymentAuditLogEvent::AdminKeyAdopted { id, name }
+            },
+            "admin_key_revoked" => {
+                let id = remove_string(&mut fields, "id")?;
+                DeploymentAuditLogEvent::AdminKeyRevoked { id }
+            },
+            "admin_key_renamed" => {
+                let id = remove_string(&mut fields, "id")?;
+                let new_name = remove_string(&mut fields, "new_name")?;
+                DeploymentAuditLogEvent::AdminKeyRenamed { id, new_name }
+            },
             _ => anyhow::bail!("action {action} unrecognized"),
         };
         Ok(event)
@@ -1137,3 +1187,40 @@ impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
 }
 
 codegen_convex_serialization!(PushComponentDiffs, SerializedPushComponentDiffs);
+
+#[cfg(test)]
+mod admin_key_audit_tests {
+    use super::DeploymentAuditLogEvent;
+
+    #[test]
+    fn admin_key_variants_have_action_strings() {
+        assert_eq!(
+            DeploymentAuditLogEvent::AdminKeyCreated {
+                name: "x".into(),
+                id: "abc".into(),
+            }
+            .action(),
+            "admin_key_created"
+        );
+        assert_eq!(
+            DeploymentAuditLogEvent::AdminKeyAdopted {
+                name: "y".into(),
+                id: "abc".into(),
+            }
+            .action(),
+            "admin_key_adopted"
+        );
+        assert_eq!(
+            DeploymentAuditLogEvent::AdminKeyRevoked { id: "abc".into() }.action(),
+            "admin_key_revoked"
+        );
+        assert_eq!(
+            DeploymentAuditLogEvent::AdminKeyRenamed {
+                id: "abc".into(),
+                new_name: "z".into(),
+            }
+            .action(),
+            "admin_key_renamed"
+        );
+    }
+}
