@@ -1,5 +1,5 @@
 import { RequestMetadata } from "convex/server";
-import { api } from "./_generated/api";
+import { api, components } from "./_generated/api";
 import { mutation, action } from "./_generated/server";
 
 // Direct request metadata access
@@ -46,5 +46,25 @@ export const fromMutationCallingMutation = mutation({
   args: {},
   handler: async (ctx): Promise<RequestMetadata> => {
     return await ctx.runMutation(api.requestMetadata.fromMutation, {});
+  },
+});
+
+// Action calling a mutation in a component
+export const fromComponentMutation = action({
+  args: {},
+  handler: async (ctx): Promise<RequestMetadata> => {
+    return await ctx.runMutation(
+      components.myComponent.requestMetadata.fromMutation,
+    );
+  },
+});
+
+// Action calling an action in a component
+export const fromComponentAction = action({
+  args: {},
+  handler: async (ctx): Promise<RequestMetadata> => {
+    return await ctx.runAction(
+      components.myComponent.requestMetadata.fromAction,
+    );
   },
 });
