@@ -18,26 +18,45 @@ export function AdminKeysList({
   onRevoke: (id: string, isCurrent: boolean) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
 }) {
-  if (keys.length === 0) {
-    return (
-      <div className="my-6 flex w-full justify-center text-content-secondary">
-        There are no admin keys yet.
-      </div>
-    );
-  }
+  const [showRevoked, setShowRevoked] = useState(false);
+  const activeKeys = keys.filter((k) => k.revokedTime === null);
+  const revokedCount = keys.length - activeKeys.length;
+  const visibleKeys = showRevoked ? keys : activeKeys;
+
   return (
-    <div className="flex w-full flex-col divide-y">
-      {[...keys]
-        .sort((a, b) => b.creationTime - a.creationTime)
-        .map((adminKey) => (
-          <AdminKeyListItem
-            key={adminKey.id}
-            adminKey={adminKey}
-            onRevoke={onRevoke}
-            onRename={onRename}
-          />
-        ))}
-    </div>
+    <>
+      {visibleKeys.length === 0 ? (
+        <div className="my-6 flex w-full justify-center text-content-secondary">
+          There are no admin keys yet.
+        </div>
+      ) : (
+        <div className="flex w-full flex-col divide-y">
+          {[...visibleKeys]
+            .sort((a, b) => b.creationTime - a.creationTime)
+            .map((adminKey) => (
+              <AdminKeyListItem
+                key={adminKey.id}
+                adminKey={adminKey}
+                onRevoke={onRevoke}
+                onRename={onRename}
+              />
+            ))}
+        </div>
+      )}
+      {revokedCount > 0 && (
+        <div className="mt-3 flex w-full justify-center">
+          <Button
+            variant="neutral"
+            size="xs"
+            onClick={() => setShowRevoked((v) => !v)}
+          >
+            {showRevoked
+              ? "Hide revoked keys"
+              : `Show revoked keys (${revokedCount})`}
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 

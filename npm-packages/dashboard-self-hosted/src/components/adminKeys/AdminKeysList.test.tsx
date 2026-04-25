@@ -23,17 +23,41 @@ const rows = [
 ];
 
 describe("AdminKeysList", () => {
-  it("renders rows with the current-key badge, a revoked timestamp, and the key suffix", () => {
+  it("renders only active rows by default, with the current-key badge and key suffix", () => {
     render(
       <AdminKeysList keys={rows} onRevoke={jest.fn()} onRename={jest.fn()} />,
     );
     expect(screen.getByText("laptop")).toBeInTheDocument();
-    expect(screen.getByText("CI")).toBeInTheDocument();
     expect(screen.getByText(/this key/i)).toBeInTheDocument();
-    // Revoked timestamp prefix is rendered for revoked rows.
-    expect(screen.getAllByText(/Revoked/i).length).toBeGreaterThan(0);
-    // Key suffix shown only for the row that has one.
     expect(screen.getByText(/····Ab12Cd34/)).toBeInTheDocument();
+    // Revoked rows are hidden by default.
+    expect(screen.queryByText("CI")).not.toBeInTheDocument();
+  });
+
+  it("toggles revoked keys into view via the show/hide button", () => {
+    render(
+      <AdminKeysList keys={rows} onRevoke={jest.fn()} onRename={jest.fn()} />,
+    );
+    const toggle = screen.getByRole("button", { name: /show revoked keys/i });
+    expect(toggle).toHaveTextContent("Show revoked keys (1)");
+    fireEvent.click(toggle);
+    expect(screen.getByText("CI")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /hide revoked keys/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show the toggle when there are no revoked keys", () => {
+    render(
+      <AdminKeysList
+        keys={[rows[0]]}
+        onRevoke={jest.fn()}
+        onRename={jest.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /show revoked keys/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the empty state when there are no keys", () => {
