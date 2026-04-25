@@ -23,15 +23,23 @@ improvements for self-hosting.
   keys from **Settings → Admin Keys** instead of shelling into the container for
   every key. Keys minted by `generate_admin_key.sh` (or pasted into
   `CONVEX_SELF_HOSTED_ADMIN_KEY`) auto-adopt into the list on first use, so
-  every key in active use is revocable without changing your workflow.
+  every key in active use is revocable without changing your workflow. Each row
+  shows the last few characters of the key so you can tell which one you're
+  revoking.
+- Self-hosted dashboard **Backups** tab. Trigger an immediate snapshot from the
+  dashboard and download the resulting `.zip` (powered by the same backend
+  endpoints `npx convex export` already uses). Restore is via
+  `npx convex import --replace-all backup.zip` per the upstream docs.
+- Self-hosted dashboard **Custom Domains** tab. Surfaces the live values of the
+  `CONVEX_CLOUD_ORIGIN` and `CONVEX_SITE_ORIGIN` environment variables (with
+  copy buttons) and points users at the self-hosting guide for changing them,
+  instead of being disabled with a tooltip.
+- Self-hosted deployment **Summary** card on the Health and Settings → General
+  pages: "Self-Hosted" badge, backend version with an "update available" notice,
+  last-deployment timestamp, and the deployment URL + HTTP Actions URL.
 - Scheduled upstream sync automation so `enhanced` stays aligned with
   `get-convex/convex-backend` and `release` stays aligned with upstream release
   updates.
-- Fork-owned Docker publishing automation, with image names and GHCR namespace
-  configurable through GitHub Actions variables instead of publishing to
-  `ghcr.io/get-convex/...`.
-- Release verification updated to test the fork's published backend image rather
-  than upstream's container namespace.
 
 ### Branches
 
