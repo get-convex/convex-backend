@@ -68,10 +68,10 @@ function AdminKeysPageBody({
         </Button>
       </div>
       <p className="mb-2 max-w-prose text-content-primary">
-        Admin keys grant full access to this deployment via the dashboard or
-        the Convex CLI. Use them in CI environments, hosting integrations, or
-        to log additional people into this dashboard. Any key first seen by
-        the backend — including those minted by{" "}
+        Admin keys grant full access to this deployment via the dashboard or the
+        Convex CLI. Use them in CI environments, hosting integrations, or to log
+        additional people into this dashboard. Any key first seen by the backend
+        — including those minted by{" "}
         <code className="rounded bg-background-tertiary px-1 text-xs">
           generate_admin_key.sh
         </code>{" "}
