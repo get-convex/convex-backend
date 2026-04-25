@@ -64,9 +64,14 @@ export function SettingsSidebar({
           const showInCloudDashboard =
             page === "backups" && isCloudDeploymentInSelfHostedDashboard;
           const isUnavailableForSelfHosted = false;
+          // The self-hosted dashboard fakes a deployment with `kind: "local"`,
+          // so we must explicitly exclude `isSelfHostedDeployment` here — the
+          // self-hosted Backups and Custom Domains pages exist and work, only
+          // genuine cloud "local-mode" (npx convex dev) deployments lack them.
           const isUnavailableForLocal =
             (page === "backups" || page === "custom-domains") &&
-            deployment?.kind === "local";
+            deployment?.kind === "local" &&
+            !isSelfHostedDeployment;
 
           return (
             <SidebarLink
