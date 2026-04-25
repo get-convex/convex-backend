@@ -7,6 +7,10 @@ use sha2::Sha256;
 
 use crate::DeploymentSecret;
 
+/// Number of trailing characters of the normalized admin key core to expose as
+/// an identifying preview in UIs.
+pub const ADMIN_KEY_SUFFIX_LEN: usize = 8;
+
 type HmacSha256 = Hmac<Sha256>;
 
 /// Stable 32-byte identity for an admin key. Used as the lookup key in the
@@ -23,11 +27,7 @@ impl AdminKeyHash {
 /// Normalize a raw admin key (strip deployment-type prefix and impersonation
 /// suffix) and compute `HMAC-SHA-256(normalized, INSTANCE_SECRET)`.
 pub fn admin_key_hash(raw: &str, secret: &DeploymentSecret) -> AdminKeyHash {
-    let without_prefix = remove_type_prefix_from_admin_key(raw);
-    let core = match without_prefix.split_once(':') {
-        Some((base, _acting_user_b64)) => base,
-        None => without_prefix.as_str(),
-    };
+    let core = normalized_core(raw);
     let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
         .expect("HMAC accepts any key length");
     mac.update(core.as_bytes());
@@ -35,6 +35,27 @@ pub fn admin_key_hash(raw: &str, secret: &DeploymentSecret) -> AdminKeyHash {
     let mut bytes = [0u8; 32];
     bytes.copy_from_slice(&out);
     AdminKeyHash(bytes)
+}
+
+/// Last `n` ASCII characters of the normalized admin key core, for displaying
+/// a short identifying preview in UIs (e.g. so users can tell which key they
+/// are about to revoke). Returns the whole core if it is shorter than `n`.
+pub fn admin_key_suffix(raw: &str, n: usize) -> String {
+    let core = normalized_core(raw);
+    if core.len() <= n {
+        core
+    } else {
+        // Admin keys are ASCII, so byte slicing matches char slicing.
+        core[core.len() - n..].to_string()
+    }
+}
+
+fn normalized_core(raw: &str) -> String {
+    let without_prefix = remove_type_prefix_from_admin_key(raw);
+    match without_prefix.split_once(':') {
+        Some((base, _acting_user_b64)) => base.to_string(),
+        None => without_prefix,
+    }
 }
 
 #[cfg(test)]
@@ -74,6 +95,24 @@ mod tests {
 
         assert_eq!(a, b);
         assert_eq!(a, c);
+    }
+
+    #[test]
+    fn suffix_strips_prefix_and_impersonation() {
+        let broker = broker();
+        let admin_key = broker.issue_admin_key(MemberId(0));
+        let raw = admin_key.as_str().to_string();
+        let with_type_prefix = format!("prod:{raw}");
+        let with_impersonation = format!("{raw}:dGVzdA");
+
+        let s_a = super::admin_key_suffix(&raw, 8);
+        let s_b = super::admin_key_suffix(&with_type_prefix, 8);
+        let s_c = super::admin_key_suffix(&with_impersonation, 8);
+
+        assert_eq!(s_a.len(), 8);
+        assert_eq!(s_a, s_b);
+        assert_eq!(s_a, s_c);
+        assert!(raw.ends_with(&s_a));
     }
 
     #[test]

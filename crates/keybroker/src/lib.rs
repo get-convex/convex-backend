@@ -15,7 +15,9 @@ pub use sync_types::UserIdentityAttributes;
 pub use self::{
     admin_key_hash::{
         admin_key_hash,
+        admin_key_suffix,
         AdminKeyHash,
+        ADMIN_KEY_SUFFIX_LEN,
     },
     broker::{
         AdminIdentity,

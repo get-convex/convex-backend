@@ -1,7 +1,9 @@
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { LoadingTransition } from "@ui/Loading";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 import { useContext, useState } from "react";
 
 import { AdminKeysList } from "../../components/adminKeys/AdminKeysList";
@@ -16,9 +18,11 @@ export default function AdminKeysPage() {
   if (!ctx.ok) {
     return (
       <DeploymentSettingsLayout page="admin-keys">
-        <div className="text-sm text-content-secondary">
-          Loading deployment credentials…
-        </div>
+        <Sheet>
+          <div className="text-content-secondary">
+            Loading deployment credentials…
+          </div>
+        </Sheet>
       </DeploymentSettingsLayout>
     );
   }
@@ -52,42 +56,54 @@ function AdminKeysPageBody({
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h3>Admin Keys</h3>
-          <p className="text-sm text-content-secondary">
-            Create, view, and revoke admin keys for this deployment. Admin keys
-            grant full access to the dashboard and CLI.
-          </p>
-        </div>
-        <Button icon={<PlusIcon />} onClick={() => setShowCreate(true)}>
-          Create
+    <Sheet>
+      <div className="mb-2 flex w-full items-center justify-between">
+        <h3>Admin Keys</h3>
+        <Button
+          icon={<PlusIcon />}
+          onClick={() => setShowCreate(true)}
+          disabled={error !== undefined}
+        >
+          Create Admin Key
         </Button>
-      </header>
+      </div>
+      <p className="mb-2 max-w-prose text-content-primary">
+        Admin keys grant full access to this deployment via the dashboard or
+        the Convex CLI. Use them in CI environments, hosting integrations, or
+        to log additional people into this dashboard. Any key first seen by
+        the backend — including those minted by{" "}
+        <code className="rounded bg-background-tertiary px-1 text-xs">
+          generate_admin_key.sh
+        </code>{" "}
+        — is automatically tracked here so you can revoke it later.
+      </p>
 
       {error && (
-        <div className="text-sm text-content-errorSecondary">
+        <div className="my-4 text-sm text-content-errorSecondary">
           Failed to load admin keys: {error.message}
         </div>
       )}
 
-      {keys && (
-        <AdminKeysList
-          keys={keys}
-          onRevoke={async (id, isCurrent) => {
-            await revoke(id);
-            if (isCurrent) {
-              // Mirror the credential-clearing path used by `Header.onLogout`
-              // in `_app.tsx` (it zeroes the same session-storage keys via
-              // `useSessionStorage`). After clearing we reload so the
-              // `DeploymentInfoProvider` falls back to the credentials form.
-              clearCurrentCredentials();
-            }
-          }}
-          onRename={rename}
-        />
-      )}
+      <LoadingTransition
+        loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
+      >
+        {keys && (
+          <AdminKeysList
+            keys={keys}
+            onRevoke={async (id, isCurrent) => {
+              await revoke(id);
+              if (isCurrent) {
+                // Mirror the credential-clearing path used by `Header.onLogout`
+                // in `_app.tsx` (it zeroes the same session-storage keys via
+                // `useSessionStorage`). After clearing we reload so the
+                // `DeploymentInfoProvider` falls back to the credentials form.
+                clearCurrentCredentials();
+              }
+            }}
+            onRename={rename}
+          />
+        )}
+      </LoadingTransition>
 
       {showCreate && (
         <CreateAdminKeyModal
@@ -95,7 +111,7 @@ function AdminKeysPageBody({
           onClose={() => setShowCreate(false)}
         />
       )}
-    </div>
+    </Sheet>
   );
 }
 

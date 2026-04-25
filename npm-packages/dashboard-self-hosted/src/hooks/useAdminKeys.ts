@@ -8,6 +8,13 @@ export type AdminKey = {
   creationTime: number;
   revokedTime: number | null;
   isCurrent: boolean;
+  /**
+   * Last few characters of the underlying admin key, captured at insert /
+   * auto-adopt time. Surfaced so the UI can show users which key they are
+   * about to revoke without leaking the full secret. `null` for rows that
+   * pre-date this field.
+   */
+  keySuffix: string | null;
 };
 
 export type CreatedAdminKey = {

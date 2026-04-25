@@ -19,6 +19,11 @@ improvements for self-hosting.
 
 - Configurable isolate worker cap via `FUNRUN_MAX_ISOLATE_WORKERS` instead of a
   hardcoded `128` worker limit.
+- Self-hosted dashboard admin key management. Create, rename, and revoke admin
+  keys from **Settings → Admin Keys** instead of shelling into the container
+  for every key. Keys minted by `generate_admin_key.sh` (or pasted into
+  `CONVEX_SELF_HOSTED_ADMIN_KEY`) auto-adopt into the list on first use, so
+  every key in active use is revocable without changing your workflow.
 - Scheduled upstream sync automation so `enhanced` stays aligned with
   `get-convex/convex-backend` and `release` stays aligned with upstream release
   updates.

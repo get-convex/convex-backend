@@ -12,6 +12,10 @@ pub struct AdminKeyMetadata {
     pub key_hash: AdminKeyHash,
     pub name: String,
     pub revoked_time: Option<Timestamp>,
+    /// Last few characters of the normalized key core, captured at insert /
+    /// auto-adopt time. Used purely as a UI hint so users can tell which key
+    /// they are revoking. `None` for rows persisted before this field existed.
+    pub key_suffix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -21,6 +25,8 @@ pub struct SerializedAdminKeyMetadata {
     key_hash: String,
     name: String,
     revoked_time: Option<i64>,
+    #[serde(default)]
+    key_suffix: Option<String>,
 }
 
 impl TryFrom<AdminKeyMetadata> for SerializedAdminKeyMetadata {
@@ -31,6 +37,7 @@ impl TryFrom<AdminKeyMetadata> for SerializedAdminKeyMetadata {
             key_hash: hex::encode(value.key_hash.as_bytes()),
             name: value.name,
             revoked_time: value.revoked_time.map(|t| t.into()),
+            key_suffix: value.key_suffix,
         })
     }
 }
@@ -47,6 +54,7 @@ impl TryFrom<SerializedAdminKeyMetadata> for AdminKeyMetadata {
             key_hash: AdminKeyHash(arr),
             name: value.name,
             revoked_time: value.revoked_time.map(Timestamp::try_from).transpose()?,
+            key_suffix: value.key_suffix,
         })
     }
 }

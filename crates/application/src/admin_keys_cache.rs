@@ -14,6 +14,7 @@ pub struct CachedAdminKey {
     pub doc_id: String,
     pub name: String,
     pub revoked_time: Option<Timestamp>,
+    pub key_suffix: Option<String>,
 }
 
 #[derive(Debug)]
@@ -105,6 +106,7 @@ mod tests {
                 doc_id: "d1".into(),
                 name: "k".into(),
                 revoked_time: None,
+                key_suffix: None,
             },
         );
         assert!(matches!(cache.check(&hash(2)), AdminKeyCheck::Valid));
@@ -119,6 +121,7 @@ mod tests {
                 doc_id: "d1".into(),
                 name: "k".into(),
                 revoked_time: None,
+                key_suffix: None,
             },
         );
         cache.mark_revoked(&hash(3), ts(1_000_000_000));
@@ -134,6 +137,7 @@ mod tests {
                 doc_id: "d1".into(),
                 name: "old".into(),
                 revoked_time: Some(ts(1)),
+                key_suffix: None,
             },
         );
         cache.rename(&hash(4), "new".into());

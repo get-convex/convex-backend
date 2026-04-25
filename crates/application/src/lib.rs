@@ -871,6 +871,7 @@ impl<RT: Runtime> Application<RT> {
                         doc_id: id,
                         name: v.name,
                         revoked_time: v.revoked_time,
+                        key_suffix: v.key_suffix,
                     },
                 )
             });
@@ -2916,7 +2917,11 @@ impl<RT: Runtime> Application<RT> {
             AdminKeyCheck,
             CachedAdminKey,
         };
-        use keybroker::admin_key_hash;
+        use keybroker::{
+            admin_key_hash,
+            admin_key_suffix,
+            ADMIN_KEY_SUFFIX_LEN,
+        };
 
         let hash = admin_key_hash(raw_admin_key, self.key_broker().deployment_secret());
         match self.admin_keys_cache.check(&hash) {
@@ -2928,6 +2933,8 @@ impl<RT: Runtime> Application<RT> {
             AdminKeyCheck::Unknown => {
                 let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
                 let proposed_name = format!("Adopted {today}");
+                let proposed_suffix =
+                    Some(admin_key_suffix(raw_admin_key, ADMIN_KEY_SUFFIX_LEN));
 
                 // adopt_result carries the row we ended up with plus a flag for
                 // whether we inserted it (to gate the audit log).
@@ -2935,12 +2942,13 @@ impl<RT: Runtime> Application<RT> {
                 let adopt_result: anyhow::Result<AdoptOutcome> = async {
                     let mut tx = self.database.begin_system().await?;
                     let (doc, was_inserted) = model::admin_keys::AdminKeysModel::new(&mut tx)
-                        .insert_or_get(hash, || proposed_name.clone())
+                        .insert_or_get(hash, || (proposed_name.clone(), proposed_suffix.clone()))
                         .await?;
                     let entry = CachedAdminKey {
                         doc_id: doc.id().to_string(),
                         name: doc.name.clone(),
                         revoked_time: doc.revoked_time,
+                        key_suffix: doc.key_suffix.clone(),
                     };
                     if was_inserted {
                         self.commit_with_audit_log_events(

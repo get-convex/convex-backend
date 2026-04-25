@@ -108,11 +108,13 @@ impl<'a, RT: Runtime> AdminKeysModel<'a, RT> {
         &mut self,
         hash: AdminKeyHash,
         name: String,
+        key_suffix: Option<String>,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let doc = AdminKeyMetadata {
             key_hash: hash,
             name,
             revoked_time: None,
+            key_suffix,
         };
         SystemMetadataModel::new_global(self.tx)
             .insert(&ADMIN_KEYS_TABLE, doc.try_into()?)
@@ -120,7 +122,7 @@ impl<'a, RT: Runtime> AdminKeysModel<'a, RT> {
     }
 
     /// Idempotent: if a row for `hash` already exists, return it; else insert
-    /// a new row using `name_for_insert()` as the display name.
+    /// a new row using the `(name, key_suffix)` returned by `metadata_for_insert`.
     ///
     /// The `bool` is `true` only when this call performed the insert. Callers
     /// can use it to gate one-time side effects (audit-log entries, cache
@@ -130,12 +132,13 @@ impl<'a, RT: Runtime> AdminKeysModel<'a, RT> {
     pub async fn insert_or_get(
         &mut self,
         hash: AdminKeyHash,
-        name_for_insert: impl FnOnce() -> String,
+        metadata_for_insert: impl FnOnce() -> (String, Option<String>),
     ) -> anyhow::Result<(ParsedDocument<AdminKeyMetadata>, bool)> {
         if let Some(existing) = self.get_by_hash(&hash).await? {
             return Ok((existing, false));
         }
-        self.insert(hash, name_for_insert()).await?;
+        let (name, key_suffix) = metadata_for_insert();
+        self.insert(hash, name, key_suffix).await?;
         let inserted = self
             .get_by_hash(&hash)
             .await?
@@ -202,6 +205,7 @@ mod tests {
             key_hash: AdminKeyHash([7u8; 32]),
             name: "laptop".to_string(),
             revoked_time: None,
+            key_suffix: Some("Ab12Cd34".to_string()),
         };
         let obj: ConvexObject = original.clone().try_into()?;
         let decoded: AdminKeyMetadata = obj.try_into()?;
@@ -215,6 +219,7 @@ mod tests {
             key_hash: AdminKeyHash([0xABu8; 32]),
             name: "ci".to_string(),
             revoked_time: Some(Timestamp::try_from(1_700_000_000_000_000_000u64)?),
+            key_suffix: None,
         };
         let obj: ConvexObject = original.clone().try_into()?;
         let decoded: AdminKeyMetadata = obj.try_into()?;
@@ -233,6 +238,7 @@ mod tests {
             key_hash: AdminKeyHash(bytes),
             name: "".to_string(),
             revoked_time: None,
+            key_suffix: None,
         };
         let obj: ConvexObject = original.clone().try_into()?;
         let decoded: AdminKeyMetadata = obj.try_into()?;

@@ -24,8 +24,10 @@ use errors::ErrorMetadata;
 use http::HeaderMap;
 use keybroker::{
     admin_key_hash,
+    admin_key_suffix,
     AdminKeyHash,
     Identity,
+    ADMIN_KEY_SUFFIX_LEN,
 };
 use model::{
     admin_keys::{
@@ -63,6 +65,11 @@ pub struct AdminKeyRow {
     /// `true` if this row represents the same admin key the caller used to
     /// authenticate this request.
     pub is_current: bool,
+    /// Last few characters of the normalized admin key (captured at insert /
+    /// auto-adopt time). Surfaced so the UI can show users which key they are
+    /// about to revoke without leaking the full secret. `None` for rows that
+    /// pre-date this field.
+    pub key_suffix: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -117,6 +124,7 @@ fn to_row(doc: &ParsedDocument<AdminKeyMetadata>, is_current: bool) -> AdminKeyR
         creation_time: creation_time_ms,
         revoked_time: doc.revoked_time.map(ts_to_ms),
         is_current,
+        key_suffix: doc.key_suffix.clone(),
     }
 }
 
@@ -193,10 +201,11 @@ pub async fn create_admin_key(
         .as_str()
         .to_string();
     let hash = admin_key_hash(&admin_key, st.application.key_broker().deployment_secret());
+    let key_suffix = Some(admin_key_suffix(&admin_key, ADMIN_KEY_SUFFIX_LEN));
 
     let mut tx = st.application.begin(Identity::system()).await?;
     let doc_id = AdminKeysModel::new(&mut tx)
-        .insert(hash, name.clone())
+        .insert(hash, name.clone(), key_suffix.clone())
         .await?;
     st.application
         .commit_with_audit_log_events(
@@ -214,6 +223,7 @@ pub async fn create_admin_key(
             doc_id: doc_id.to_string(),
             name: name.clone(),
             revoked_time: None,
+            key_suffix,
         },
     );
 
