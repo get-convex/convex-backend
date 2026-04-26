@@ -27,8 +27,12 @@ pub struct PeriodicBackupConfig {
     pub last_run_ts: Option<Timestamp>,
 }
 
+/// Snake-case field names — this struct is serialized via
+/// `codegen_convex_serialization!` and ends up as the actual stored
+/// `_periodic_backup_config` row. The dashboard reads the row through
+/// `udfs.periodicBackup.get`, so the field names here must match what
+/// `npm-packages/system-udfs/convex/schema.ts` declares for the table.
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SerializedPeriodicBackupConfig {
     cronspec: String,
     include_storage: bool,

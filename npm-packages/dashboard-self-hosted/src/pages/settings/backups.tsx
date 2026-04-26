@@ -666,7 +666,9 @@ function PeriodicBackupSelector({
       setEnabled(false);
     } else {
       setEnabled(true);
-      setIncludeStorage(config.include_storage);
+      // Defensive: coerce in case the persisted row was ever written by
+      // an older serialization that didn't include the field.
+      setIncludeStorage(Boolean(config.include_storage));
       const parsed = parseCronspec(config.cronspec);
       if (parsed) {
         setFrequency(parsed.frequency);
@@ -707,7 +709,14 @@ function PeriodicBackupSelector({
             "Convex-Client": "dashboard-0.0.0",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ cronspec, includeStorage }),
+          // Coerce to a definite boolean so we never accidentally drop the
+          // field if local state was never written (JSON.stringify omits
+          // `undefined` values and the backend would 400 on the missing
+          // `includeStorage`).
+          body: JSON.stringify({
+            cronspec,
+            includeStorage: Boolean(includeStorage),
+          }),
         });
         if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
       }
@@ -821,7 +830,7 @@ function PeriodicBackupSelector({
           >
             Save schedule
           </Button>
-          {config !== null && (
+          {config !== null && config.next_run_ts !== undefined && (
             <div className="text-content-secondary">
               Next run: {nanosToDate(config.next_run_ts).toLocaleString()}
               {config.last_run_ts !== undefined &&
