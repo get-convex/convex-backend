@@ -24,7 +24,11 @@ export function AdminKeysList({
   const visibleKeys = showRevoked ? keys : activeKeys;
 
   return (
-    <>
+    // Wrap in a single block so LoadingTransition's surrounding flex row
+    // doesn't lay these children out side-by-side. Without this wrapper,
+    // the toggle button below would render as a sibling column to the right
+    // of the list and stretch to match its height.
+    <div className="flex w-full flex-col">
       {visibleKeys.length === 0 ? (
         <div className="my-6 flex w-full justify-center text-content-secondary">
           There are no admin keys yet.
@@ -44,11 +48,12 @@ export function AdminKeysList({
         </div>
       )}
       {revokedCount > 0 && (
-        <div className="mt-3 flex w-full justify-center">
+        <div className="mt-3 flex w-full justify-end">
           <Button
-            variant="neutral"
+            variant="unstyled"
             size="xs"
             onClick={() => setShowRevoked((v) => !v)}
+            className="text-xs text-content-secondary underline-offset-2 hover:text-content-primary hover:underline"
           >
             {showRevoked
               ? "Hide revoked keys"
@@ -56,7 +61,7 @@ export function AdminKeysList({
           </Button>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

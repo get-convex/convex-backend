@@ -25,6 +25,22 @@ type ExportRow = NonNullable<
   ReturnType<typeof useQuery<typeof udfs.latestExport.list>>
 >[number];
 
+/**
+ * Convert a Convex int64 timestamp (nanoseconds since the unix epoch) into a
+ * `Date`. Convex's `v.int64()` always reaches the client as `bigint`, but we
+ * also tolerate plain numbers in case the wire format ever shifts — runtime
+ * `bigint -> number` arithmetic can throw 'cannot convert BigInt to number'
+ * if mixed implicitly, so this helper is the single place we narrow the type.
+ */
+function nanosToDate(value: bigint | number): Date {
+  if (typeof value === "bigint") {
+    // BigInt(1_000_000) avoids the ES2020 1_000_000n literal that the
+    // dashboard's tsconfig target doesn't allow.
+    return new Date(Number(value / BigInt(1_000_000)));
+  }
+  return new Date(Math.floor(value / 1_000_000));
+}
+
 export default function BackupsPage() {
   return (
     <DeploymentSettingsLayout page="backups">
@@ -245,7 +261,7 @@ function RestoreStatusBanner({
     );
   }
   if (state.state === "completed") {
-    const completedAt = new Date(Number(state.timestamp / BigInt(1_000_000)));
+    const completedAt = nanosToDate(state.timestamp);
     // Don't render forever — stale "completed" banners would be noise.
     const ageMs = Date.now() - completedAt.getTime();
     const oneHour = 60 * 60 * 1000;
@@ -335,7 +351,7 @@ function BackupsContent({
   // more and just clutter the UI.
   const visible = exports.filter((e) => {
     if (e.state !== "completed") return true;
-    return Date.now() < Number(e.expiration_ts / BigInt(1_000_000));
+    return Date.now() < nanosToDate(e.expiration_ts).getTime();
   });
 
   if (visible.length === 0) {
@@ -471,9 +487,7 @@ function BackupRow({
               {isCompleted && (
                 <>
                   {" · Expires "}
-                  {new Date(
-                    Number(row.expiration_ts / BigInt(1_000_000)),
-                  ).toLocaleString()}
+                  {nanosToDate(row.expiration_ts).toLocaleString()}
                 </>
               )}
             </div>
@@ -729,10 +743,13 @@ function PeriodicBackupSelector({
         {submitting && <Spinner className="size-3" />}
       </label>
       {enabled && (
-        <div className="flex flex-col gap-2 pl-6 text-xs text-content-secondary">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 pl-6 text-xs text-content-secondary">
+          {/* Each control on its own line so the picker survives the
+              narrow xl:w-60 sidebar without horizontal overflow. */}
+          <label className="flex flex-col gap-1">
+            <span className="text-content-primary">Frequency</span>
             <select
-              className="rounded border bg-background-secondary px-2 py-0.5"
+              className="w-full rounded border bg-background-secondary px-2 py-1"
               value={frequency}
               disabled={submitting}
               onChange={(e) =>
@@ -743,56 +760,56 @@ function PeriodicBackupSelector({
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
-            {frequency !== "hourly" && (
-              <>
-                <span>at</span>
-                <select
-                  className="rounded border bg-background-secondary px-2 py-0.5"
-                  value={hourUtc}
-                  disabled={submitting}
-                  onChange={(e) => setHourUtc(Number(e.target.value))}
-                >
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <option key={h} value={h}>
-                      {String(h).padStart(2, "0")}:00 UTC
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            {frequency === "weekly" && (
-              <>
-                <span>on</span>
-                <select
-                  className="rounded border bg-background-secondary px-2 py-0.5"
-                  value={dayOfWeek}
-                  disabled={submitting}
-                  onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                >
-                  {[
-                    "Sunday",
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                  ].map((name, i) => (
-                    <option key={i} value={i}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-          </div>
-          <label className="flex items-center gap-2">
+          </label>
+          {frequency === "weekly" && (
+            <label className="flex flex-col gap-1">
+              <span className="text-content-primary">Day of week</span>
+              <select
+                className="w-full rounded border bg-background-secondary px-2 py-1"
+                value={dayOfWeek}
+                disabled={submitting}
+                onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              >
+                {[
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ].map((name, i) => (
+                  <option key={i} value={i}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {frequency !== "hourly" && (
+            <label className="flex flex-col gap-1">
+              <span className="text-content-primary">Time (UTC)</span>
+              <select
+                className="w-full rounded border bg-background-secondary px-2 py-1"
+                value={hourUtc}
+                disabled={submitting}
+                onChange={(e) => setHourUtc(Number(e.target.value))}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>
+                    {String(h).padStart(2, "0")}:00
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="flex items-start gap-2">
             <Checkbox
               checked={includeStorage}
               disabled={submitting}
               onChange={() => setIncludeStorage((v) => !v)}
             />
-            Include file storage in scheduled backups
+            <span>Include file storage</span>
           </label>
           <Button
             size="xs"
@@ -806,18 +823,14 @@ function PeriodicBackupSelector({
           </Button>
           {config !== null && (
             <div className="text-content-secondary">
-              Next run:{" "}
-              {new Date(
-                Number(config.next_run_ts / BigInt(1_000_000)),
-              ).toLocaleString()}
-              {config.last_run_ts && (
-                <>
-                  {" · Last run: "}
-                  {new Date(
-                    Number(config.last_run_ts / BigInt(1_000_000)),
-                  ).toLocaleString()}
-                </>
-              )}
+              Next run: {nanosToDate(config.next_run_ts).toLocaleString()}
+              {config.last_run_ts !== undefined &&
+                config.last_run_ts !== null && (
+                  <>
+                    {" · Last run: "}
+                    {nanosToDate(config.last_run_ts).toLocaleString()}
+                  </>
+                )}
             </div>
           )}
         </div>
