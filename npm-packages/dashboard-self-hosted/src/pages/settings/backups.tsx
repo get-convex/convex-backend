@@ -11,7 +11,7 @@ import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Menu, MenuItem } from "@ui/Menu";
 import { Combobox } from "@ui/Combobox";
-import { SegmentedControl } from "@ui/SegmentedControl";
+import { cn } from "@ui/cn";
 import {
   ArchiveIcon,
   CheckCircledIcon,
@@ -776,16 +776,43 @@ function PeriodicBackupSelector({
       {enabled && (
         <div className="flex flex-col gap-3 rounded-md border bg-background-tertiary/30 p-3">
           <FieldLabel>Frequency</FieldLabel>
-          <SegmentedControl
-            className="w-full"
-            options={[
-              { label: "Hourly", value: "hourly" },
-              { label: "Daily", value: "daily" },
-              { label: "Weekly", value: "weekly" },
-            ]}
-            value={frequency}
-            onChange={setFrequency}
-          />
+          <div
+            role="radiogroup"
+            aria-label="Frequency"
+            className="flex w-full overflow-hidden rounded-md border"
+          >
+            {(
+              [
+                { label: "Hourly", value: "hourly" },
+                { label: "Daily", value: "daily" },
+                { label: "Weekly", value: "weekly" },
+              ] as const
+            ).map((option, i) => {
+              const selected = frequency === option.value;
+              return (
+                // eslint-disable-next-line react/forbid-elements -- @ui/Button doesn't support the radio role / aria-checked semantics this segmented row needs.
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={submitting}
+                  onClick={() => setFrequency(option.value)}
+                  className={cn(
+                    "flex-1 px-2 py-1 text-xs font-medium transition-colors",
+                    "focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-border-selected",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                    i > 0 && "border-l",
+                    selected
+                      ? "bg-background-secondary text-content-primary"
+                      : "bg-background-tertiary/40 text-content-secondary hover:bg-background-tertiary",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
 
           {frequency === "weekly" && (
             <div className="flex flex-col gap-1">

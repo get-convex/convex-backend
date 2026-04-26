@@ -32,12 +32,20 @@ pub struct PeriodicBackupConfig {
 /// `_periodic_backup_config` row. The dashboard reads the row through
 /// `udfs.periodicBackup.get`, so the field names here must match what
 /// `npm-packages/system-udfs/convex/schema.ts` declares for the table.
+///
+/// The camelCase aliases hydrate legacy rows written before this
+/// struct dropped its `rename_all = "camelCase"` attribute — without
+/// them, the next `set()` fails its existing-row fetch and locks the
+/// user out of saving. Writes always use snake_case, so stale rows
+/// self-heal on the next save.
 #[derive(Serialize, Deserialize)]
 pub struct SerializedPeriodicBackupConfig {
     cronspec: String,
+    #[serde(alias = "includeStorage")]
     include_storage: bool,
+    #[serde(alias = "nextRunTs")]
     next_run_ts: i64,
-    #[serde(default)]
+    #[serde(default, alias = "lastRunTs")]
     last_run_ts: Option<i64>,
 }
 
