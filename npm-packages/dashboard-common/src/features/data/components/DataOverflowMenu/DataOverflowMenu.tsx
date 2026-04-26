@@ -16,6 +16,7 @@ export function DataOverflowMenu({
   tableSchemaStatus,
   numRows,
   onClickCustomQuery,
+  onClickCustomMutation,
   onClickClearTable,
   onClickSchema,
   onClickIndexes,
@@ -25,6 +26,7 @@ export function DataOverflowMenu({
   tableSchemaStatus: TableSchemaStatus | undefined;
   numRows: number;
   onClickCustomQuery: () => void;
+  onClickCustomMutation: () => void;
   onClickClearTable: () => void;
   onClickSchema: () => void;
   onClickIndexes: () => void;
@@ -71,6 +73,10 @@ export function DataOverflowMenu({
       <MenuItem action={onClickCustomQuery}>
         <CodeIcon />
         Custom query
+      </MenuItem>
+      <MenuItem action={onClickCustomMutation}>
+        <CodeIcon />
+        Custom mutation
       </MenuItem>
       <MenuItem action={onClickSchema}>
         <CubeIcon />

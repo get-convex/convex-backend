@@ -264,6 +264,7 @@ pub struct RunTestFunctionArgs {
     args: UdfArgsJson,
     format: String,
     component_id: Option<String>,
+    udf_type: String,
 }
 
 /// Run test function
@@ -282,28 +283,53 @@ pub async fn run_test_function(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<RunTestFunctionArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let RunTestFunctionArgs {
+        admin_key,
+        bundle,
+        args,
+        format,
+        component_id,
+        udf_type,
+    } = req;
     let identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
-        req.admin_key.clone(),
+        admin_key.clone(),
     )
     .await?;
-    identity.require_operation(keybroker::DeploymentOp::RunTestQuery)?;
-    let args = req.args.into_serialized_args()?;
-    let module: ModuleConfig = req.bundle.try_into()?;
-    let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;
+    let udf_type = match udf_type.as_str() {
+        "query" => {
+            identity.require_operation(keybroker::DeploymentOp::RunTestQuery)?;
+            common::types::UdfType::Query
+        },
+        "mutation" => {
+            identity.require_operation(keybroker::DeploymentOp::RunTestMutation)?;
+            common::types::UdfType::Mutation
+        },
+        _ => {
+            return Err(anyhow::anyhow!(errors::ErrorMetadata::bad_request(
+                "InvalidTestFunction",
+                "Invalid test function type.",
+            ))
+            .into())
+        },
+    };
+    let args = args.into_serialized_args()?;
+    let module: ModuleConfig = bundle.try_into()?;
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     let udf_return = st
         .application
         .execute_standalone_module(
             request_id,
             module,
             args,
+            udf_type,
             identity,
             FunctionCaller::Tester(client_version.clone()),
             component_id,
         )
         .await?;
-    let value_format = Some(req.format.parse()?);
+    let value_format = Some(format.parse()?);
     let response = match udf_return {
         Ok(result) => UdfResponse::Success {
             value: export_value(result.value.unpack()?, value_format, client_version)?,

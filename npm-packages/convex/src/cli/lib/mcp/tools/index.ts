@@ -8,6 +8,7 @@ import { FunctionSpecTool } from "./functionSpec.js";
 import { RunTool } from "./run.js";
 import { EnvListTool, EnvGetTool, EnvSetTool, EnvRemoveTool } from "./env.js";
 import { RunOneoffQueryTool } from "./runOneoffQuery.js";
+import { RunOneoffMutationTool } from "./runOneoffMutation.js";
 import { LogsTool } from "./logs.js";
 import { InsightsTool } from "./insights.js";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
@@ -44,6 +45,7 @@ export const convexTools: ConvexTool<any, any>[] = [
   EnvSetTool,
   EnvRemoveTool,
   RunOneoffQueryTool,
+  RunOneoffMutationTool,
   LogsTool,
   InsightsTool,
 ];

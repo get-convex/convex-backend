@@ -51,6 +51,7 @@ export function useRunTestFunction() {
   return useCallback(
     async (
       transpiled: string,
+      udfType: "query" | "mutation",
       componentId?: Id<"_components">,
     ): Promise<FunctionResult> => {
       const response = await fetch(`${deploymentUrl}/api/run_test_function`, {
@@ -58,11 +59,15 @@ export function useRunTestFunction() {
         method: "POST",
         body: JSON.stringify({
           bundle: {
-            path: "testQuery.js",
+            path:
+              udfType === "query"
+                ? "__convex_repl__/testQuery.js"
+                : "__convex_repl__/testMutation.js",
             source: transpiled,
           },
           adminKey,
           componentId,
+          udfType,
           args: convexToJson({}),
           format: "convex_encoded_json",
         }),

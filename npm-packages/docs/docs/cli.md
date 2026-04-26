@@ -140,6 +140,31 @@ cannot modify the database or access the network.
 Use `--component <path>` to run the inline query inside a mounted component. Use
 `--prod` to run the inline query on the production deployment for a project.
 
+#### Run an inline mutation
+
+You can also evaluate a one-shot inline mutation on your deployment:
+
+```sh
+npx convex run --inline-mutation 'await ctx.db.insert("messages", { body: "hello", author: "me" })'
+```
+
+For multi-statement mutations, use an explicit `return`:
+
+```sh
+npx convex run --inline-mutation 'const id = await ctx.db.insert("messages", { body: "hello", author: "me" }); return { id };'
+```
+
+If you need full control, you can pass a full module source that exports a
+default mutation:
+
+```sh
+npx convex run --inline-mutation 'export default mutation({ handler: async (ctx) => { const id = await ctx.db.insert("YOUR_TABLE_NAME", { value: 1 }); return { id }; }, })'
+```
+
+Inline mutations commit their writes to the deployment, so they are useful for
+quick one-off data fixes and smoke tests. Use `--component <path>` to run the
+inline mutation inside a mounted component.
+
 ### Tail deployment logs
 
 You can choose how to pipe logs from your dev deployment to your console:

@@ -34,6 +34,7 @@ pub enum DeploymentOp {
     RunInternalMutations,
     RunInternalActions,
     RunTestQuery,
+    RunTestMutation,
     ViewAuditLog,
     #[serde(other)]
     Unknown,
@@ -67,6 +68,7 @@ impl From<DeploymentOp> for ProtoDeploymentOperation {
             DeploymentOp::RunInternalMutations => ProtoDeploymentOperation::RunInternalMutations,
             DeploymentOp::RunInternalActions => ProtoDeploymentOperation::RunInternalActions,
             DeploymentOp::RunTestQuery => ProtoDeploymentOperation::RunTestQuery,
+            DeploymentOp::RunTestMutation => ProtoDeploymentOperation::RunTestMutation,
             DeploymentOp::ViewAuditLog => ProtoDeploymentOperation::ViewAuditLog,
             DeploymentOp::Unknown => ProtoDeploymentOperation::Unspecified,
         }
@@ -98,6 +100,7 @@ impl From<ProtoDeploymentOperation> for DeploymentOp {
             ProtoDeploymentOperation::RunInternalMutations => Self::RunInternalMutations,
             ProtoDeploymentOperation::RunInternalActions => Self::RunInternalActions,
             ProtoDeploymentOperation::RunTestQuery => Self::RunTestQuery,
+            ProtoDeploymentOperation::RunTestMutation => Self::RunTestMutation,
             ProtoDeploymentOperation::ViewAuditLog => Self::ViewAuditLog,
         }
     }

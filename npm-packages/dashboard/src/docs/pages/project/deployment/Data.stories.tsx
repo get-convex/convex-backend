@@ -601,6 +601,34 @@ export const CustomQueryRunner: Story = {
 };
 
 /**
+ * Shows Data page with the "Custom mutation" runner open.
+ */
+export const CustomMutationRunner: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await waitFor(async () => {
+      await expect(canvas.queryByLabelText("Open table settings")).toBeTruthy();
+    });
+
+    const overflowButton = canvas.getByLabelText("Open table settings");
+    await userEvent.click(overflowButton);
+
+    const body = within(document.body);
+    await waitFor(async () => {
+      await expect(body.queryAllByRole("menuitem").length).toBeGreaterThan(0);
+    });
+
+    const customMutationItem = body.queryByRole("menuitem", {
+      name: /custom mutation/i,
+    });
+    if (customMutationItem) {
+      await userEvent.click(customMutationItem);
+    }
+  },
+};
+
+/**
  * Shows Data page with the full schema view open.
  */
 export const GenerateSchema: Story = {

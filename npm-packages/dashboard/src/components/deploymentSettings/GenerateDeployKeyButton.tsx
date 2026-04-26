@@ -117,6 +117,12 @@ export const OPERATION_GROUPS: OperationGroup[] = [
           "Allows running custom test queries against this deployment.",
       },
       {
+        key: "RunTestMutation",
+        label: formatOperationName("RunTestMutation"),
+        description:
+          "Allows running custom test mutations against this deployment.",
+      },
+      {
         key: "ActAsUser",
         label: formatOperationName("ActAsUser"),
         description:

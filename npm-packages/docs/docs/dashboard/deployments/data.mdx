@@ -92,6 +92,23 @@ If you're not on the data page, you can still open this UI via the persistent
 _fn_ button shown on the bottom right of all deployment pages. The keyboard
 shortcut to open the function runner is Ctrl + ` (backtick).
 
+## Writing custom mutations
+
+You can also write a [mutation](/functions/mutation-functions.mdx) directly in
+the dashboard. This is useful for one-off data fixes, backfills, or quick
+experiments while debugging your deployment.
+
+In the `⋮` overflow menu at the top of the data page click on the “Custom
+mutation" option.
+
+This opens the same runner UI, but with the “Custom test mutation" option
+selected. When you click “Run Custom Mutation", the mutation source is sent to
+your deployment, executed, and any writes are committed if the mutation
+succeeds.
+
+Like custom queries, you can also open this UI from the persistent _fn_ button
+shown on the bottom right of all deployment pages.
+
 ## Creating tables
 
 You may create a table from the dashboard by clicking the "Create Table" button

@@ -81,6 +81,7 @@ use common::{
         report_error,
         JsError,
     },
+    execution_context::ExecutionContext,
     http::{
         fetch::FetchClient,
         RequestDestination,
@@ -2399,6 +2400,7 @@ impl<RT: Runtime> Application<RT> {
         request_id: RequestId,
         module: ModuleConfig,
         args: SerializedArgs,
+        expected_udf_type: UdfType,
         identity: Identity,
         caller: FunctionCaller,
         component: ComponentId,
@@ -2482,15 +2484,24 @@ impl<RT: Runtime> Application<RT> {
                 analyzed_function = Some(function.clone());
             } else {
                 anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidTestQuery",
+                    "InvalidTestFunction",
                     "Only `export default` is supported."
                 ));
             }
         }
         let analyzed_function = analyzed_function.context(ErrorMetadata::bad_request(
-            "InvalidTestQuery",
+            "InvalidTestFunction",
             "Default export is not a Convex function.",
         ))?;
+        if analyzed_function.udf_type != expected_udf_type {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidTestFunction",
+                format!(
+                    "Expected a test {} but received a {}.",
+                    expected_udf_type, analyzed_function.udf_type
+                ),
+            ));
+        }
 
         let source_package_id = SourcePackageModel::new(&mut tx, component.into())
             .put(source_package)
@@ -2501,13 +2512,14 @@ impl<RT: Runtime> Application<RT> {
             component,
             module_path: module_path.clone(),
         };
-        let module_id = ModuleModel::new(&mut tx)
+        let module_metadata_path = path.clone();
+        let existing_module_id = ModuleModel::new(&mut tx)
             .get_metadata(path.clone())
             .await?
             .map(|m| m.id());
         ModuleModel::new(&mut tx)
             .put(
-                module_id,
+                existing_module_id,
                 path,
                 module.source,
                 source_package_id,
@@ -2516,6 +2528,11 @@ impl<RT: Runtime> Application<RT> {
                 ModuleEnvironment::Isolate,
             )
             .await?;
+        let module_id = ModuleModel::new(&mut tx)
+            .get_metadata(module_metadata_path)
+            .await?
+            .context("Temporary REPL module was not found after insert")?
+            .id();
 
         // 4. run the function within the transaction
         let function_name = FunctionName::default_export();
@@ -2532,20 +2549,45 @@ impl<RT: Runtime> Application<RT> {
                     .await
             },
             UdfType::Mutation => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "UnsupportedTestQuery",
-                    "Mutations are not supported in the REPL yet."
-                ))
+                let context = ExecutionContext::new(
+                    RequestContext::new_for_system_request(request_id.clone()),
+                    &caller,
+                );
+                let (mut tx, outcome) = self
+                    .runner
+                    .run_mutation_no_udf_log(
+                        tx,
+                        PublicFunctionPath::Component(path.clone()),
+                        args,
+                        caller.allowed_visibility(),
+                        context,
+                        None,
+                    )
+                    .await?;
+                ModuleModel::new(&mut tx)
+                    .delete(component, module_id)
+                    .await?;
+                SourcePackageModel::new(&mut tx, component.into())
+                    .delete(source_package_id)
+                    .await?;
+                let log_lines = outcome.log_lines.clone();
+                match outcome.result {
+                    Ok(value) => {
+                        self.commit(tx, "run_test_function_mutation").await?;
+                        Ok((Ok(value), log_lines))
+                    },
+                    Err(error) => Ok((Err(error), log_lines)),
+                }
             },
             UdfType::Action => {
                 anyhow::bail!(ErrorMetadata::bad_request(
-                    "UnsupportedTestQuery",
+                    "UnsupportedTestFunction",
                     "Actions are not supported in the REPL yet."
                 ))
             },
             UdfType::HttpAction => {
                 anyhow::bail!(ErrorMetadata::bad_request(
-                    "UnsupportedTestQuery",
+                    "UnsupportedTestFunction",
                     "HTTP actions are not supported in the REPL yet."
                 ))
             },

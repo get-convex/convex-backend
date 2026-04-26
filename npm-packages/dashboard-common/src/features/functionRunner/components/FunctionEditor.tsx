@@ -32,7 +32,7 @@ import convexServerTypes from "../../../lib/generated/convexServerTypes.json";
 
 // Used for typechecking
 const globals = `
-import type { QueryBuilder } from "./convex/server"
+import type { MutationBuilder, QueryBuilder } from "./convex/server"
 import type { DataModel } from "./_generated/dataModel"
 
 declare global {
@@ -56,6 +56,20 @@ declare global {
    */
   const internalQuery: QueryBuilder<DataModel, "public">;
 
+  /**
+   * Define a mutation in this Convex app's public API.
+   *
+   * This function will be allowed to read and write your Convex database and will be accessible from the client.
+   */
+  const mutation: MutationBuilder<DataModel, "public">;
+
+  /**
+   * Define a mutation that is only accessible from other Convex functions (but not from the client).
+   *
+   * This function will be allowed to read and write your Convex database.
+   */
+  const internalMutation: MutationBuilder<DataModel, "public">;
+
   const process: {
     env: {
       [key: string]: string | undefined;
@@ -68,12 +82,13 @@ declare global {
 
 // Used when bundling and at runtime
 const preamble = `
-import { query, internalQuery } from "convex:/_system/repl/wrappers.js";
+import { query, internalQuery, mutation, internalMutation } from "convex:/_system/repl/wrappers.js";
 `;
 
-const generatedServer = `import { DataModelFromSchemaDefinition, GenericQueryCtx } from "../convex/server";
+const generatedServer = `import { GenericMutationCtx, GenericQueryCtx } from "../convex/server";
 import { DataModel } from "./dataModel";
 export type QueryCtx = GenericQueryCtx<DataModel>;
+export type MutationCtx = GenericMutationCtx<DataModel>;
 `;
 
 const CONVEX_SERVER_FILES = {
@@ -170,16 +185,29 @@ export type Id<TableName extends TableNames | SystemTableNames> =
 export type DataModel = DataModelFromSchemaDefinition<typeof schema>;
 `;
 
-function defaultCode(tableName: string) {
-  return `export default query({
+function defaultCode(
+  mode: "customQuery" | "customMutation",
+  tableName: string,
+) {
+  const wrapper = mode === "customMutation" ? "mutation" : "query";
+  const exampleLine =
+    mode === "customMutation"
+      ? `    return await ctx.db.insert("${tableName}", {});`
+      : `    return await ctx.db.query("${tableName}").take(10);`;
+  const helpText =
+    mode === "customMutation"
+      ? "Write and test your mutation function here!"
+      : "Write and test your query function here!";
+  return `export default ${wrapper}({
   handler: async (ctx) => {
-    console.log("Write and test your query function here!");
-    return await ctx.db.query("${tableName}").take(10);
+    console.log("${helpText}");
+${exampleLine}
   },
 })`;
 }
 
 export function useFunctionEditor(
+  mode: "customQuery" | "customMutation",
   initialTableName: string | null,
   componentId: ComponentId,
   runHistoryItem: RunHistoryItem | undefined,
@@ -187,12 +215,14 @@ export function useFunctionEditor(
   onRanCustomQuery?: () => void,
 ) {
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
-  const canRunTestQuery = useIsOperationAllowed("RunTestQuery");
+  const canRunTestFunction = useIsOperationAllowed(
+    mode === "customMutation" ? "RunTestMutation" : "RunTestQuery",
+  );
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
-  const [prevInitialTable, setPrevInitialTable] = useState<
-    string | null | undefined
+  const [prevInitialState, setPrevInitialState] = useState<
+    [typeof mode, string | null] | undefined
   >(undefined);
 
   const [code, setCode] = useState<string>();
@@ -226,9 +256,12 @@ export function useFunctionEditor(
   // We store this in state to avoid importing the Uri class /facepalm
   const [monacoModelUri, setMonacoModelUri] = useState<Uri>();
 
-  if (prevInitialTable !== initialTableName) {
-    setPrevInitialTable(initialTableName);
-    setCode(defaultCode(initialTableName ?? "YOUR_TABLE_NAME"));
+  if (
+    prevInitialState?.[0] !== mode ||
+    prevInitialState?.[1] !== initialTableName
+  ) {
+    setPrevInitialState([mode, initialTableName]);
+    setCode(defaultCode(mode, initialTableName ?? "YOUR_TABLE_NAME"));
   }
 
   // Refresh files related to the schema
@@ -258,7 +291,9 @@ export function useFunctionEditor(
 
   const runTestFunction = useRunTestFunction();
 
-  const { appendRunHistory } = useRunHistory("_testQuery", componentId);
+  const functionIdentifier =
+    mode === "customMutation" ? "_testMutation" : "_testQuery";
+  const { appendRunHistory } = useRunHistory(functionIdentifier, componentId);
 
   const onSave = useCallback(async () => {
     if (monaco === undefined || monacoModelUri === undefined) {
@@ -273,6 +308,7 @@ export function useFunctionEditor(
       const compiled = await client.getEmitOutput(monacoModelUri.toString());
       functionResult = await runTestFunction(
         preamble + compiled.outputFiles[0].text,
+        mode === "customMutation" ? "mutation" : "query",
         componentId || undefined,
       );
     } catch (e: any) {
@@ -307,6 +343,7 @@ export function useFunctionEditor(
     componentId,
     appendRunHistory,
     code,
+    mode,
   ]);
 
   // So the editor has a callback ref to call.
@@ -323,9 +360,11 @@ export function useFunctionEditor(
       // function tester is expanded/collapsed
       <div className="flex grow flex-col gap-2">
         <div className="flex w-full items-center justify-between">
-          <h5 className="text-xs text-content-secondary">Custom Query</h5>
+          <h5 className="text-xs text-content-secondary">
+            {mode === "customMutation" ? "Custom Mutation" : "Custom Query"}
+          </h5>
           <RunHistory
-            functionIdentifier="_testQuery"
+            functionIdentifier={functionIdentifier}
             componentId={componentId}
             selectItem={(item) => {
               if (item.type === "custom") setCode(item.code);
@@ -422,8 +461,8 @@ export function useFunctionEditor(
     );
 
   return {
-    queryEditor,
-    customQueryResult: (
+    editor: queryEditor,
+    result: (
       <Result
         result={result}
         loading={isInFlight}
@@ -432,7 +471,7 @@ export function useFunctionEditor(
         startCursor={0}
       />
     ),
-    runCustomQueryButton: (
+    runButton: (
       <Button
         onClick={() => {
           void onSave();
@@ -440,16 +479,18 @@ export function useFunctionEditor(
         }}
         size="sm"
         className={classNames("items-center justify-center", "w-full")}
-        disabled={!canRunTestQuery}
+        disabled={!canRunTestFunction}
         tip={
-          !canRunTestQuery
-            ? "You do not have permission to run custom queries in this deployment."
+          !canRunTestFunction
+            ? `You do not have permission to run custom ${
+                mode === "customMutation" ? "mutations" : "queries"
+              } in this deployment.`
             : undefined
         }
         loading={isInFlight}
         icon={<PlayIcon />}
       >
-        Run Custom Query
+        {mode === "customMutation" ? "Run Custom Mutation" : "Run Custom Query"}
       </Button>
     ),
   };

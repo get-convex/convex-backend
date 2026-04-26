@@ -15,6 +15,7 @@ use database::{
 };
 use value::{
     id_v6::DeveloperDocumentId,
+    ResolvedDocumentId,
     TableName,
     TableNamespace,
 };
@@ -110,5 +111,14 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             .all(|id| &id == &source_package_id));
 
         Ok(Some(self.get(source_package_id).await?))
+    }
+
+    pub async fn delete(&mut self, source_package_id: SourcePackageId) -> anyhow::Result<()> {
+        let id: DeveloperDocumentId = source_package_id.into();
+        let document_id: ResolvedDocumentId = self.tx.resolve_developer_id(&id, self.namespace)?;
+        SystemMetadataModel::new(self.tx, self.namespace)
+            .delete(document_id)
+            .await?;
+        Ok(())
     }
 }

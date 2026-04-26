@@ -169,6 +169,12 @@ export function DataToolbar({
                   "click",
                 )
               }
+              onClickCustomMutation={() =>
+                showGlobalRunner(
+                  { type: "customMutation", table: tableName },
+                  "click",
+                )
+              }
               onClickClearTable={() => {
                 log("open delete document panel", {
                   how: "toolbar",

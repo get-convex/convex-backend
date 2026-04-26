@@ -62,6 +62,7 @@ export type DeploymentOp =
   | "RunInternalMutations"
   | "RunInternalActions"
   | "RunTestQuery"
+  | "RunTestMutation"
   | "ViewAuditLog";
 
 export function requireOperation(operation: DeploymentOp): void {
