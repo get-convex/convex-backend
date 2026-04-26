@@ -11,6 +11,24 @@ export default queryPrivateSystem("ViewBackups")({
   },
 });
 
+/**
+ * Multi-export listing for the self-hosted Backups dashboard. Returns the
+ * `requestor: "snapshotExport"` rows newest-first, capped at 100 entries
+ * (matches what the cloud Backups list practically shows). Self-hosted has
+ * no team-level retention policy, so callers display them all without
+ * separate cap UI.
+ */
+export const list = queryPrivateSystem("ViewBackups")({
+  args: {},
+  handler: async function ({ db }): Promise<Export[]> {
+    return await db
+      .query("_exports")
+      .withIndex("by_requestor", (q) => q.eq("requestor", "snapshotExport"))
+      .order("desc")
+      .take(100);
+  },
+});
+
 export const latestCloudExport = queryPrivateSystem("ViewBackups")({
   args: {},
   handler: async function ({ db }): Promise<Export | null> {
