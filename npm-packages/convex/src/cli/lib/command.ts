@@ -8,7 +8,10 @@ import {
   parseInteger,
   parsePositiveInteger,
 } from "./utils/utils.js";
-import { INLINE_QUERY_DESCRIPTION } from "./runTestFunction.js";
+import {
+  INLINE_MUTATION_DESCRIPTION,
+  INLINE_QUERY_DESCRIPTION,
+} from "./runTestFunction.js";
 
 declare module "@commander-js/extra-typings" {
   interface Command<Args extends any[] = [], Opts extends OptionValues = {}> {
@@ -90,6 +93,7 @@ declare module "@commander-js/extra-typings" {
         push?: boolean;
         identity?: string;
         inlineQuery?: string;
+        inlineMutation?: string;
         typecheck: "enable" | "try" | "disable";
         typecheckComponents: boolean;
         codegen: "enable" | "disable";
@@ -423,10 +427,14 @@ Command.prototype.addRunOptions = function () {
         "Watch a query, printing its result if the underlying data changes. Given function must be a query.",
       )
       .addOption(
-        new Option(
-          "--inline-query <query>",
-          INLINE_QUERY_DESCRIPTION,
-        ).conflicts("--watch"),
+        new Option("--inline-query <query>", INLINE_QUERY_DESCRIPTION)
+          .conflicts("--watch")
+          .conflicts("--inline-mutation"),
+      )
+      .addOption(
+        new Option("--inline-mutation <mutation>", INLINE_MUTATION_DESCRIPTION)
+          .conflicts("--watch")
+          .conflicts("--inline-query"),
       )
       .option("--push", "Push code to deployment before running the function.")
       .addOption(

@@ -85,8 +85,8 @@ npx -y convex@latest mcp start --disable-tools data,run,envSet
 ```
 
 Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
-`envSet`, `functionSpec`, `insights`, `logs`, `run`, `runOneoffQuery`, `status`,
-`tables`
+`envSet`, `functionSpec`, `insights`, `logs`, `run`, `runOneoffMutation`,
+`runOneoffQuery`, `status`, `tables`
 
 ## Available Tools
 
@@ -99,7 +99,6 @@ Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
 ### Table Tools
 
 - **`tables`**: Lists all tables in a deployment along with their:
-
   - Declared schemas (if present)
   - Inferred schemas (automatically tracked by Convex)
   - Table names and metadata
@@ -110,10 +109,13 @@ Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
   queries against your deployment's data. These queries are read-only and cannot
   modify the database.
 
+- **`runOneoffMutation`**: Enables writing and executing one-off JavaScript
+  mutations against your deployment's data. These mutations can write to the
+  database and return a result plus log lines.
+
 ### Function Tools
 
 - **`functionSpec`**: Provides metadata about all deployed functions, including:
-
   - Function types
   - Visibility settings
   - Interface specifications

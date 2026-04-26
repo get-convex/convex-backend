@@ -36,9 +36,10 @@ import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { NENT_APP_PLACEHOLDER, useNents } from "@common/lib/useNents";
 import { NentNameOption } from "@common/elements/NentSwitcher";
 import {
-  CustomQuery,
+  CustomFunction,
   findFirstWritingFunction,
   findFunction,
+  isCustomFunction,
   useGlobalRunnerSelectedItem,
   useHideGlobalRunner,
   useIsGlobalRunnerShown,
@@ -57,6 +58,8 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 const CUSTOM_TEST_QUERY_PLACEHOLDER =
   "__CONVEX_PLACEHOLDER_custom_test_query_1255035852";
+const CUSTOM_TEST_MUTATION_PLACEHOLDER =
+  "__CONVEX_PLACEHOLDER_custom_test_mutation_1255035852";
 
 const impersonatedUserSchema = z.object({
   subject: z.string(),
@@ -127,10 +130,18 @@ export function GlobalFunctionTester({
       selectedItem?.componentId ?? undefined,
     ),
   };
-  options = [customTestQueryOption, ...options];
+  const customTestMutationOption: Option<string> = {
+    label: functionIdentifierValue("Custom test mutation"),
+    value: functionIdentifierValue(
+      CUSTOM_TEST_MUTATION_PLACEHOLDER,
+      undefined,
+      selectedItem?.componentId ?? undefined,
+    ),
+  };
+  options = [customTestQueryOption, customTestMutationOption, ...options];
 
   const selectedFunction =
-    selectedItem?.fn.type !== "customQuery"
+    selectedItem !== null && !isCustomFunction(selectedItem.fn)
       ? ((selectedItem &&
           // Get the most up to date version of this module. Important if the udf type changes.
           findFunction(
@@ -155,14 +166,23 @@ export function GlobalFunctionTester({
     setRunHistoryItem,
     onCopiedQueryResult,
   });
-  const { queryEditor, customQueryResult, runCustomQueryButton } =
-    useFunctionEditor(
-      selectedItem?.fn.type === "customQuery" ? selectedItem.fn.table : null,
-      selectedItem?.componentId ?? null,
-      runHistoryItem,
-      setRunHistoryItem,
-      onRanCustomQuery,
-    );
+  const selectedCustomFunction =
+    selectedItem !== null && isCustomFunction(selectedItem.fn)
+      ? selectedItem.fn
+      : null;
+
+  const {
+    editor,
+    result: customFunctionResult,
+    runButton,
+  } = useFunctionEditor(
+    selectedCustomFunction?.type ?? "customQuery",
+    selectedCustomFunction?.table ?? null,
+    selectedItem?.componentId ?? null,
+    runHistoryItem,
+    setRunHistoryItem,
+    onRanCustomQuery,
+  );
 
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
@@ -173,7 +193,7 @@ export function GlobalFunctionTester({
       visibility: selectedFunction?.visibility,
       identifier: selectedFunction.identifier,
     },
-    customQuery: selectedItem?.fn.type === "customQuery",
+    customFunction: selectedCustomFunction?.type,
   };
 
   return (
@@ -277,19 +297,18 @@ export function GlobalFunctionTester({
                   }
                   Option={NentNameOption}
                   setSelectedOption={(component) => {
-                    const customQuery: CustomQuery = {
-                      type: "customQuery",
+                    const customFunction: CustomFunction = {
+                      type: selectedCustomFunction?.type ?? "customQuery",
                       table: null,
                     };
                     void setSelectedItem({
                       componentId: component?.id ?? null,
-                      fn:
-                        selectedItem?.fn.type === "customQuery"
-                          ? customQuery
-                          : findFirstWritingFunction(
-                              moduleFunctions,
-                              component?.id ?? null,
-                            ) || customQuery,
+                      fn: selectedCustomFunction
+                        ? customFunction
+                        : findFirstWritingFunction(
+                            moduleFunctions,
+                            component?.id ?? null,
+                          ) || customFunction,
                     });
                   }}
                   searchPlaceholder="Search components..."
@@ -322,11 +341,13 @@ export function GlobalFunctionTester({
                   optionsWidth="full"
                   searchPlaceholder="Search functions..."
                   selectedOption={
-                    selectedItem?.fn.type === "customQuery"
+                    selectedCustomFunction
                       ? functionIdentifierValue(
-                          CUSTOM_TEST_QUERY_PLACEHOLDER,
+                          selectedCustomFunction.type === "customQuery"
+                            ? CUSTOM_TEST_QUERY_PLACEHOLDER
+                            : CUSTOM_TEST_MUTATION_PLACEHOLDER,
                           undefined,
-                          selectedItem.componentId ?? undefined,
+                          selectedItem?.componentId ?? undefined,
                         )
                       : selectedItem
                         ? itemIdentifier(selectedItem.fn)
@@ -343,6 +364,16 @@ export function GlobalFunctionTester({
                         componentId: componentId ?? null,
                         fn: {
                           type: "customQuery",
+                          table: null,
+                        },
+                      });
+                      return;
+                    }
+                    if (identifier === CUSTOM_TEST_MUTATION_PLACEHOLDER) {
+                      setSelectedItem({
+                        componentId: componentId ?? null,
+                        fn: {
+                          type: "customMutation",
                           table: null,
                         },
                       });
@@ -374,10 +405,10 @@ export function GlobalFunctionTester({
             </div>
             {!isVertical && (
               <>
-                {selectedItem?.fn.type === "customQuery" ? (
+                {selectedCustomFunction ? (
                   <div className="mb-2 flex grow flex-col gap-4 px-4 pt-2">
-                    {queryEditor}
-                    {runCustomQueryButton}
+                    {editor}
+                    {runButton}
                   </div>
                 ) : selectedItem !== null ? (
                   <div className="mb-2 flex h-full flex-col gap-2 overflow-y-auto">
@@ -390,10 +421,10 @@ export function GlobalFunctionTester({
           </div>
           {isVertical && (
             <>
-              {selectedItem?.fn.type === "customQuery" ? (
+              {selectedCustomFunction ? (
                 <div className="flex h-full w-full flex-col gap-4 px-4 pt-4 pb-6">
-                  {queryEditor}
-                  {runCustomQueryButton}
+                  {editor}
+                  {runButton}
                 </div>
               ) : selectedItem !== null ? (
                 <div className="flex h-fit w-full flex-col gap-2 pt-4 pb-6">
@@ -408,8 +439,8 @@ export function GlobalFunctionTester({
               "w-full h-full overflow-y-auto scrollbar max-w-full",
             )}
           >
-            {selectedItem?.fn.type === "customQuery" ? (
-              <div className="flex h-full">{customQueryResult}</div>
+            {selectedCustomFunction ? (
+              <div className="flex h-full">{customFunctionResult}</div>
             ) : selectedItem !== null ? (
               <div className="flex h-full">{result}</div>
             ) : null}

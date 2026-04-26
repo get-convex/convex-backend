@@ -1,15 +1,26 @@
 import type { Context } from "../../bundler/context.js";
 import { deploymentFetch } from "./utils/utils.js";
 
+export type TestFunctionUdfType = "query" | "mutation";
+
 const QUERY_MODULE_PREAMBLE =
   'import { query, internalQuery } from "convex:/_system/repl/wrappers.js";';
+const MUTATION_MODULE_PREAMBLE =
+  'import { mutation, internalMutation } from "convex:/_system/repl/wrappers.js";';
 
 /** Shared help text for the query/module string (CLI argument + MCP input). */
 export const RUN_ONEOFF_QUERY_SOURCE_DESCRIPTION =
   'JavaScript module source for a single file (testQuery.js) that exports a default readonly query, for example: export default query({ handler: async (ctx) => ({ count: (await ctx.db.query("messages").take(10)).length }) });';
 
+/** Shared help text for the mutation/module string (CLI argument). */
+export const RUN_ONEOFF_MUTATION_SOURCE_DESCRIPTION =
+  'JavaScript module source for a single file (testMutation.js) that exports a default mutation, for example: export default mutation({ handler: async (ctx) => { const id = await ctx.db.insert("messages", { body: "hello" }); return { id }; } });';
+
 export const INLINE_QUERY_DESCRIPTION =
   "JavaScript to evaluate as a readonly query, for example: 'await ctx.db.query(\"messages\").take(5)'. Simple expressions are returned automatically. For multi-statement queries, use an explicit return. Full `export default query(...)` modules are also supported. This is a one-shot query and cannot be combined with `--watch`. Use `--component` to target a mounted component. For more examples, see `npx convex docs`.";
+
+export const INLINE_MUTATION_DESCRIPTION =
+  'JavaScript to evaluate as a one-shot mutation, for example: \'await ctx.db.insert("messages", { body: "hello" })\'. Simple expressions are returned automatically. For multi-statement mutations, use an explicit return. Full `export default mutation(...)` modules are also supported. This is a one-shot mutation and cannot be combined with `--watch`. Use `--component` to target a mounted component. For more examples, see `npx convex docs`.';
 
 export type RunTestFunctionQuerySuccess = {
   kind: "success";
@@ -27,19 +38,11 @@ export type RunTestFunctionQueryResult =
   | RunTestFunctionQueryApplicationFailure;
 
 export function inlineQueryToQuerySource(inlineQuery: string) {
-  const trimmedQuery = inlineQuery.trim();
-  if (looksLikeQueryModuleSource(trimmedQuery)) {
-    return injectQueryModulePreamble(trimmedQuery);
-  }
+  return inlineFunctionToSource("query", inlineQuery);
+}
 
-  const queryBody = inlineQueryBody(trimmedQuery);
-  return `${QUERY_MODULE_PREAMBLE}
-
-export default query({
-  handler: async (ctx) => {
-${indent(queryBody, 4)}
-  },
-});`;
+export function inlineMutationToMutationSource(inlineMutation: string) {
+  return inlineFunctionToSource("mutation", inlineMutation);
 }
 
 /**
@@ -56,6 +59,47 @@ export async function runTestFunctionQuery(
     componentId?: string;
   },
 ): Promise<RunTestFunctionQueryResult> {
+  return await runTestFunction(ctx, {
+    deploymentUrl: args.deploymentUrl,
+    adminKey: args.adminKey,
+    udfType: "query",
+    functionSource: args.querySource,
+    ...(args.componentId !== undefined
+      ? { componentId: args.componentId }
+      : {}),
+  });
+}
+
+export async function runTestFunctionMutation(
+  ctx: Context,
+  args: {
+    deploymentUrl: string;
+    adminKey: string;
+    mutationSource: string;
+    componentId?: string;
+  },
+): Promise<RunTestFunctionQueryResult> {
+  return await runTestFunction(ctx, {
+    deploymentUrl: args.deploymentUrl,
+    adminKey: args.adminKey,
+    udfType: "mutation",
+    functionSource: args.mutationSource,
+    ...(args.componentId !== undefined
+      ? { componentId: args.componentId }
+      : {}),
+  });
+}
+
+async function runTestFunction(
+  ctx: Context,
+  args: {
+    deploymentUrl: string;
+    adminKey: string;
+    udfType: TestFunctionUdfType;
+    functionSource: string;
+    componentId?: string;
+  },
+): Promise<RunTestFunctionQueryResult> {
   const fetchDeployment = deploymentFetch(ctx, {
     deploymentUrl: args.deploymentUrl,
     adminKey: args.adminKey,
@@ -66,9 +110,13 @@ export async function runTestFunctionQuery(
       adminKey: args.adminKey,
       args: {},
       bundle: {
-        path: "testQuery.js",
-        source: args.querySource,
+        path:
+          args.udfType === "query"
+            ? "__convex_repl__/testQuery.js"
+            : "__convex_repl__/testMutation.js",
+        source: args.functionSource,
       },
+      udfType: args.udfType,
       format: "convex_encoded_json",
       ...(args.componentId !== undefined
         ? { componentId: args.componentId }
@@ -96,21 +144,52 @@ export async function runTestFunctionQuery(
   };
 }
 
-function looksLikeQueryModuleSource(querySource: string) {
-  if (!querySource.includes("export default")) return false;
-  return /\b(?:query|internalQuery)\s*\(/.test(querySource);
+function inlineFunctionToSource(
+  udfType: TestFunctionUdfType,
+  inlineSource: string,
+) {
+  const trimmedSource = inlineSource.trim();
+  if (looksLikeFunctionModuleSource(udfType, trimmedSource)) {
+    return injectFunctionModulePreamble(udfType, trimmedSource);
+  }
+
+  const functionBody = inlineFunctionBody(trimmedSource);
+  const wrapperName = udfType === "query" ? "query" : "mutation";
+  return `${modulePreamble(udfType)}
+
+export default ${wrapperName}({
+  handler: async (ctx) => {
+${indent(functionBody, 4)}
+  },
+});`;
 }
 
-function injectQueryModulePreamble(querySource: string) {
-  if (querySource.includes("convex:/_system/repl/wrappers.js"))
-    return querySource;
-  return `${QUERY_MODULE_PREAMBLE}
-
-${querySource}`;
+function looksLikeFunctionModuleSource(
+  udfType: TestFunctionUdfType,
+  source: string,
+) {
+  if (!source.includes("export default")) return false;
+  return udfType === "query"
+    ? /\b(?:query|internalQuery)\s*\(/.test(source)
+    : /\b(?:mutation|internalMutation)\s*\(/.test(source);
 }
 
-function inlineQueryBody(inlineQuery: string) {
-  const trimmed = inlineQuery.trim();
+function injectFunctionModulePreamble(
+  udfType: TestFunctionUdfType,
+  source: string,
+) {
+  if (source.includes("convex:/_system/repl/wrappers.js")) return source;
+  return `${modulePreamble(udfType)}
+
+${source}`;
+}
+
+function modulePreamble(udfType: TestFunctionUdfType) {
+  return udfType === "query" ? QUERY_MODULE_PREAMBLE : MUTATION_MODULE_PREAMBLE;
+}
+
+function inlineFunctionBody(inlineSource: string) {
+  const trimmed = inlineSource.trim();
   if (!isExpression(trimmed)) return trimmed;
   return `return (${trimmed.replace(/;$/, "")});`;
 }

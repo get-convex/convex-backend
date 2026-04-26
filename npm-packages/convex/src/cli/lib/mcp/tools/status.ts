@@ -50,7 +50,8 @@ When running locally, there will be a single "urlWithAdminKey" deployment.
 
 If a deployment has "readOnly: true", it can only be used with read-only tools
 that don't expose PII (\`insights\`, \`functionSpec\`, \`tables\`). Tools that read
-user data (\`data\`, \`logs\`, \`runOneoffQuery\`) and mutating tools will reject it.
+user data (\`data\`, \`logs\`, \`runOneoffQuery\`) and mutating tools such as
+\`run\`, \`envSet\`, \`envRemove\`, and \`runOneoffMutation\` will reject it.
 
 If "readOnly" is false or absent, all tools can be used with the deployment.
 `.trim();

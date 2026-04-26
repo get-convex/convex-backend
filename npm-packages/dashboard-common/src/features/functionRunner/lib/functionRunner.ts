@@ -13,16 +13,22 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 export const useCurrentGloballyOpenFunction =
   createGlobalState<ModuleFunction | null>(null);
 
-export type CustomQuery = {
-  type: "customQuery";
+export type CustomFunction = {
+  type: "customQuery" | "customMutation";
   table: string | null;
 };
 
 const useGlobalRunnerShown = createGlobalState(false);
 export const useGlobalRunnerSelectedItem = createGlobalState<{
   componentId: ComponentId;
-  fn: ModuleFunction | CustomQuery;
+  fn: ModuleFunction | CustomFunction;
 } | null>(null);
+
+export function isCustomFunction(
+  fn: ModuleFunction | CustomFunction,
+): fn is CustomFunction {
+  return "type" in fn;
+}
 
 export function useIsGlobalRunnerShown() {
   const [isShown] = useGlobalRunnerShown();
@@ -48,19 +54,22 @@ export function useShowGlobalRunner() {
 
   return useCallback(
     (
-      selected: ModuleFunction | CustomQuery | null,
+      selected: ModuleFunction | CustomFunction | null,
       how: "click" | "keyboard" | "tutorial" | "redirect",
     ) => {
       log(`open function runner`, {
         how,
         orientation: isGlobalRunnerVertical ? "vertical" : "horizontal",
-        function: selected?.type !== "customQuery" &&
-          selected !== null && {
+        function: selected !== null &&
+          !isCustomFunction(selected) && {
             udfType: selected.udfType,
             visibility: selected.visibility,
             identifier: selected.identifier,
           },
-        customQuery: selected?.type === "customQuery",
+        customFunction:
+          selected !== null && isCustomFunction(selected)
+            ? selected.type
+            : undefined,
       });
       if (selected || !selectedItem) {
         const fn = selected ??
@@ -70,10 +79,9 @@ export function useShowGlobalRunner() {
             table: tableMetadata?.name ?? null,
           };
         setGlobalRunnerSelectedItem({
-          componentId:
-            fn.type === "customQuery"
-              ? (selectedNent?.id ?? null)
-              : fn.componentId,
+          componentId: isCustomFunction(fn)
+            ? (selectedNent?.id ?? null)
+            : fn.componentId,
           fn,
         });
       }

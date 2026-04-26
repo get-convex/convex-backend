@@ -15,7 +15,9 @@ import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { withRunningBackend } from "./lib/localDeployment/run.js";
 import {
+  inlineMutationToMutationSource,
   inlineQueryToQuerySource,
+  runTestFunctionMutation,
   runTestFunctionQuery,
 } from "./lib/runTestFunction.js";
 import {
@@ -25,7 +27,7 @@ import {
 
 export const run = new Command("run")
   .description(
-    "Run a function or evaluate an inline readonly query on your deployment",
+    "Run a function or evaluate an inline query or mutation on your deployment",
   )
   .allowExcessArguments(false)
   .addRunOptions()
@@ -70,7 +72,7 @@ export const run = new Command("run")
         deploymentFields: deployment.deploymentFields,
       },
       action: async () => {
-        if (target.kind === "inlineQuery") {
+        if (target.kind === "inlineQuery" || target.kind === "inlineMutation") {
           if (options.push) {
             await pushToDeployment(ctx, {
               deploymentUrl: deployment.url,
@@ -83,11 +85,22 @@ export const run = new Command("run")
               liveComponentSources: Boolean(options.liveComponentSources),
             });
           }
-          return await runInlineQueryInDeployment({
+          if (target.kind === "inlineQuery") {
+            return await runInlineQueryInDeployment({
+              ctx,
+              deploymentUrl: deployment.url,
+              adminKey: deployment.adminKey,
+              inlineQuery: target.inlineQuery,
+              ...(options.component !== undefined
+                ? { componentPath: options.component }
+                : {}),
+            });
+          }
+          return await runInlineMutationInDeployment({
             ctx,
             deploymentUrl: deployment.url,
             adminKey: deployment.adminKey,
-            inlineQuery: target.inlineQuery,
+            inlineMutation: target.inlineMutation,
             ...(options.component !== undefined
               ? { componentPath: options.component }
               : {}),
@@ -122,6 +135,10 @@ type RunTarget =
   | {
       kind: "inlineQuery";
       inlineQuery: string;
+    }
+  | {
+      kind: "inlineMutation";
+      inlineMutation: string;
     };
 
 async function resolveRunTarget(args: {
@@ -130,6 +147,7 @@ async function resolveRunTarget(args: {
   argsString: string | undefined;
   options: {
     inlineQuery?: string;
+    inlineMutation?: string;
     watch?: boolean;
     push?: boolean;
     identity?: string;
@@ -137,21 +155,32 @@ async function resolveRunTarget(args: {
   };
 }): Promise<RunTarget> {
   const inlineQuery = args.options.inlineQuery?.trim();
-  if (inlineQuery !== undefined && args.functionName !== undefined) {
+  const inlineMutation = args.options.inlineMutation?.trim();
+  const hasInlineTarget =
+    inlineQuery !== undefined || inlineMutation !== undefined;
+  if (hasInlineTarget && args.functionName !== undefined) {
     return await args.ctx.crash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage:
-        "`npx convex run` accepts either <functionName> or `--inline-query`, not both.",
+        "`npx convex run` accepts either <functionName> or one inline option, not both.",
     });
   }
-  if (inlineQuery === undefined) {
+  if (inlineQuery !== undefined && inlineMutation !== undefined) {
+    return await args.ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`npx convex run` accepts either `--inline-query` or `--inline-mutation`, not both.",
+    });
+  }
+  if (!hasInlineTarget) {
     if (args.functionName === undefined) {
       return await args.ctx.crash({
         exitCode: 1,
         errorType: "fatal",
         printedMessage:
-          "`npx convex run` requires either <functionName> or `--inline-query`.",
+          "`npx convex run` requires either <functionName>, `--inline-query`, or `--inline-mutation`.",
       });
     }
     return {
@@ -160,11 +189,18 @@ async function resolveRunTarget(args: {
       argsString: args.argsString ?? "{}",
     };
   }
-  if (inlineQuery.length === 0) {
+  if (inlineQuery !== undefined && inlineQuery.length === 0) {
     return await args.ctx.crash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage: "`--inline-query` must not be empty.",
+    });
+  }
+  if (inlineMutation !== undefined && inlineMutation.length === 0) {
+    return await args.ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "`--inline-mutation` must not be empty.",
     });
   }
   if (args.options.watch) {
@@ -172,17 +208,21 @@ async function resolveRunTarget(args: {
       exitCode: 1,
       errorType: "fatal",
       printedMessage:
-        "`--inline-query` can't be combined with `--watch`. Use `convex run <functionName> --watch` for named deployed queries.",
+        "Inline test functions can't be combined with `--watch`. Use `convex run <functionName> --watch` for named deployed queries.",
     });
   }
   if (args.options.identity !== undefined) {
     return await args.ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "`--inline-query` can't be combined with `--identity`.",
+      printedMessage:
+        "Inline test functions can't be combined with `--identity`.",
     });
   }
-  return { kind: "inlineQuery", inlineQuery };
+  if (inlineQuery !== undefined) {
+    return { kind: "inlineQuery", inlineQuery };
+  }
+  return { kind: "inlineMutation", inlineMutation: inlineMutation! };
 }
 
 async function runInlineQueryInDeployment(args: {
@@ -193,7 +233,7 @@ async function runInlineQueryInDeployment(args: {
   componentPath?: string;
 }) {
   try {
-    const componentId = await resolveInlineQueryComponentId(args);
+    const componentId = await resolveInlineTestFunctionComponentId(args);
     const outcome = await runTestFunctionQuery(args.ctx, {
       deploymentUrl: args.deploymentUrl,
       adminKey: args.adminKey,
@@ -222,7 +262,44 @@ async function runInlineQueryInDeployment(args: {
   }
 }
 
-async function resolveInlineQueryComponentId(args: {
+async function runInlineMutationInDeployment(args: {
+  ctx: Awaited<ReturnType<typeof oneoffContext>>;
+  deploymentUrl: string;
+  adminKey: string;
+  inlineMutation: string;
+  componentPath?: string;
+}) {
+  try {
+    const componentId = await resolveInlineTestFunctionComponentId(args);
+    const outcome = await runTestFunctionMutation(args.ctx, {
+      deploymentUrl: args.deploymentUrl,
+      adminKey: args.adminKey,
+      mutationSource: inlineMutationToMutationSource(args.inlineMutation),
+      ...(componentId !== undefined ? { componentId } : {}),
+    });
+    if (outcome.kind === "applicationFailure") {
+      return await args.ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: chalkStderr.red(
+          `Mutation failed: ${JSON.stringify(outcome.payload, null, 2)}`,
+        ),
+      });
+    }
+
+    for (const line of outcome.logLines) {
+      logMessage(line);
+    }
+
+    const convexValue = jsonToConvex(outcome.value as JSONValue);
+    if (convexValue !== null) logOutput(formatValue(convexValue));
+  } catch (err) {
+    if (err instanceof ThrowingFetchError) return await err.handle(args.ctx);
+    return await logAndHandleFetchError(args.ctx, err);
+  }
+}
+
+async function resolveInlineTestFunctionComponentId(args: {
   ctx: Awaited<ReturnType<typeof oneoffContext>>;
   deploymentUrl: string;
   adminKey: string;

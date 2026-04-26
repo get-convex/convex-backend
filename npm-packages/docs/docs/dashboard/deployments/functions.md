@@ -44,6 +44,10 @@ You can also
 by choosing the “Custom test query“ option instead of one of your deployed
 functions.
 
+You can also
+[write a custom mutation function](/dashboard/deployments/data.mdx#writing-custom-mutations)
+by choosing the “Custom test mutation” option.
+
 ### Querying a paginated function
 
 When querying a paginated function in the dashboard, the UI will expect the

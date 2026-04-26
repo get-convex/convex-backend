@@ -25,6 +25,7 @@ use common::{
         reduced::ReducedShape,
     },
     types::FunctionCaller,
+    RequestId,
 };
 use database::IndexModel;
 use http::StatusCode;
@@ -264,6 +265,7 @@ pub struct RunTestFunctionArgs {
     args: UdfArgsJson,
     format: String,
     component_id: Option<String>,
+    udf_type: String,
 }
 
 /// Run test function
@@ -282,28 +284,57 @@ pub async fn run_test_function(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<RunTestFunctionArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let RunTestFunctionArgs {
+        admin_key,
+        bundle,
+        args,
+        format,
+        component_id,
+        udf_type,
+    } = req;
     let identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
-        req.admin_key.clone(),
+        admin_key.clone(),
     )
     .await?;
-    identity.require_operation(keybroker::DeploymentOp::RunTestQuery)?;
-    let args = req.args.into_serialized_args()?;
-    let module: ModuleConfig = req.bundle.try_into()?;
-    let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;
+    let udf_type = match udf_type.as_str() {
+        "query" => {
+            identity.require_operation(keybroker::DeploymentOp::RunTestQuery)?;
+            common::types::UdfType::Query
+        },
+        "mutation" => {
+            identity.require_operation(keybroker::DeploymentOp::RunTestMutation)?;
+            common::types::UdfType::Mutation
+        },
+        _ => {
+            return Err(anyhow::anyhow!(errors::ErrorMetadata::bad_request(
+                "InvalidTestFunction",
+                "Invalid test function type.",
+            ))
+            .into())
+        },
+    };
+    let args = args.into_serialized_args()?;
+    let module: ModuleConfig = ModuleJson {
+        path: fresh_repl_module_path(udf_type),
+        ..bundle
+    }
+    .try_into()?;
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     let udf_return = st
         .application
         .execute_standalone_module(
             request_id,
             module,
             args,
+            udf_type,
             identity,
             FunctionCaller::Tester(client_version.clone()),
             component_id,
         )
         .await?;
-    let value_format = Some(req.format.parse()?);
+    let value_format = Some(format.parse()?);
     let response = match udf_return {
         Ok(result) => UdfResponse::Success {
             value: export_value(result.value.unpack()?, value_format, client_version)?,
@@ -314,6 +345,54 @@ pub async fn run_test_function(
         },
     };
     Ok(Json(response))
+}
+
+fn fresh_repl_module_path(udf_type: common::types::UdfType) -> String {
+    repl_module_path(RequestId::new().as_str(), udf_type)
+}
+
+fn repl_module_path(module_id: &str, udf_type: common::types::UdfType) -> String {
+    let function_kind = match udf_type {
+        common::types::UdfType::Query => "query",
+        common::types::UdfType::Mutation => "mutation",
+        common::types::UdfType::Action => "action",
+        common::types::UdfType::HttpAction => "http_action",
+    };
+    format!("__convex_repl__/{function_kind}/{module_id}.js")
+}
+
+#[cfg(test)]
+mod tests {
+    use common::types::UdfType;
+
+    use super::{
+        fresh_repl_module_path,
+        repl_module_path,
+    };
+
+    #[test]
+    fn repl_module_path_uses_module_id_and_udf_type() {
+        assert_eq!(
+            repl_module_path("abc123", UdfType::Mutation),
+            "__convex_repl__/mutation/abc123.js"
+        );
+        assert_eq!(
+            repl_module_path("abc123", UdfType::Query),
+            "__convex_repl__/query/abc123.js"
+        );
+    }
+
+    #[test]
+    fn fresh_repl_module_path_generates_unique_temp_paths() {
+        let first = fresh_repl_module_path(UdfType::Mutation);
+        let second = fresh_repl_module_path(UdfType::Mutation);
+
+        assert!(first.starts_with("__convex_repl__/mutation/"));
+        assert!(first.ends_with(".js"));
+        assert!(second.starts_with("__convex_repl__/mutation/"));
+        assert!(second.ends_with(".js"));
+        assert_ne!(first, second);
+    }
 }
 
 pub fn local_only_dashboard_router() -> OpenApiRouter<crate::LocalAppState> {
