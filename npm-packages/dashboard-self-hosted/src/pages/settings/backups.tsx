@@ -10,9 +10,12 @@ import { Link } from "@ui/Link";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Menu, MenuItem } from "@ui/Menu";
+import { Combobox } from "@ui/Combobox";
+import { SegmentedControl } from "@ui/SegmentedControl";
 import {
   ArchiveIcon,
   CheckCircledIcon,
+  ClockIcon,
   CrossCircledIcon,
   DotsVerticalIcon,
   DownloadIcon,
@@ -735,9 +738,28 @@ function PeriodicBackupSelector({
     );
   }
 
+  // Dirty-state detection: only show the Save button when the local edits
+  // diverge from what's persisted. Avoids the "always-on" Save that begs
+  // the question "did I change anything?".
+  const dirty = (() => {
+    if (!enabled) return false;
+    if (config === null) return true; // first time turning on
+    const persistedParsed = parseCronspec(config.cronspec);
+    if (!persistedParsed) return true; // we couldn't read it; safer to allow save
+    return (
+      persistedParsed.frequency !== frequency ||
+      (frequency !== "hourly" && persistedParsed.hourUtc !== hourUtc) ||
+      (frequency === "weekly" && persistedParsed.dayOfWeek !== dayOfWeek) ||
+      Boolean(config.include_storage) !== includeStorage
+    );
+  })();
+
   return (
-    <div className="flex w-full flex-col gap-2">
-      <label className="flex items-center gap-2 text-sm">
+    <div className="flex w-full flex-col gap-3">
+      <label
+        htmlFor={checkboxId}
+        className="flex items-center gap-2 text-sm text-content-primary"
+      >
         <Checkbox
           id={checkboxId}
           checked={enabled}
@@ -748,38 +770,29 @@ function PeriodicBackupSelector({
             await submit(next);
           }}
         />
-        Backup automatically
+        <span className="font-medium">Backup automatically</span>
         {submitting && <Spinner className="size-3" />}
       </label>
       {enabled && (
-        <div className="flex flex-col gap-3 pl-6 text-xs text-content-secondary">
-          {/* Each control on its own line so the picker survives the
-              narrow xl:w-60 sidebar without horizontal overflow. */}
-          <label className="flex flex-col gap-1">
-            <span className="text-content-primary">Frequency</span>
-            <select
-              className="w-full rounded border bg-background-secondary px-2 py-1"
-              value={frequency}
-              disabled={submitting}
-              onChange={(e) =>
-                setFrequency(e.target.value as "hourly" | "daily" | "weekly")
-              }
-            >
-              <option value="hourly">Hourly</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-          </label>
+        <div className="flex flex-col gap-3 rounded-md border bg-background-tertiary/30 p-3">
+          <FieldLabel>Frequency</FieldLabel>
+          <SegmentedControl
+            className="w-full"
+            options={[
+              { label: "Hourly", value: "hourly" },
+              { label: "Daily", value: "daily" },
+              { label: "Weekly", value: "weekly" },
+            ]}
+            value={frequency}
+            onChange={setFrequency}
+          />
+
           {frequency === "weekly" && (
-            <label className="flex flex-col gap-1">
-              <span className="text-content-primary">Day of week</span>
-              <select
-                className="w-full rounded border bg-background-secondary px-2 py-1"
-                value={dayOfWeek}
-                disabled={submitting}
-                onChange={(e) => setDayOfWeek(Number(e.target.value))}
-              >
-                {[
+            <div className="flex flex-col gap-1">
+              <FieldLabel>Day of week</FieldLabel>
+              <Combobox
+                label="Day of week"
+                options={[
                   "Sunday",
                   "Monday",
                   "Tuesday",
@@ -787,32 +800,36 @@ function PeriodicBackupSelector({
                   "Thursday",
                   "Friday",
                   "Saturday",
-                ].map((name, i) => (
-                  <option key={i} value={i}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {frequency !== "hourly" && (
-            <label className="flex flex-col gap-1">
-              <span className="text-content-primary">Time (UTC)</span>
-              <select
-                className="w-full rounded border bg-background-secondary px-2 py-1"
-                value={hourUtc}
+                ].map((name, value) => ({ label: name, value }))}
+                selectedOption={dayOfWeek}
+                setSelectedOption={(v) => v !== null && setDayOfWeek(v)}
+                buttonClasses="w-full"
+                disableSearch
                 disabled={submitting}
-                onChange={(e) => setHourUtc(Number(e.target.value))}
-              >
-                {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h}>
-                    {String(h).padStart(2, "0")}:00
-                  </option>
-                ))}
-              </select>
-            </label>
+                size="sm"
+              />
+            </div>
           )}
-          <label className="flex items-start gap-2">
+
+          {frequency !== "hourly" && (
+            <div className="flex flex-col gap-1">
+              <FieldLabel>Time (UTC)</FieldLabel>
+              <Combobox
+                label="Time"
+                options={Array.from({ length: 24 }, (_, h) => ({
+                  label: `${String(h).padStart(2, "0")}:00`,
+                  value: h,
+                }))}
+                selectedOption={hourUtc}
+                setSelectedOption={(v) => v !== null && setHourUtc(v)}
+                buttonClasses="w-full"
+                disabled={submitting}
+                size="sm"
+              />
+            </div>
+          )}
+
+          <label className="mt-1 flex items-center gap-2 text-xs text-content-primary">
             <Checkbox
               checked={includeStorage}
               disabled={submitting}
@@ -820,26 +837,58 @@ function PeriodicBackupSelector({
             />
             <span>Include file storage</span>
           </label>
-          <Button
-            size="xs"
-            variant="neutral"
-            disabled={submitting}
-            loading={submitting}
-            onClick={() => submit(true)}
-            className="self-start"
-          >
-            Save schedule
-          </Button>
-          {config !== null && config.next_run_ts !== undefined && (
-            <div className="text-content-secondary">
-              Next run: {nanosToDate(config.next_run_ts).toLocaleString()}
-              {config.last_run_ts !== undefined &&
-                config.last_run_ts !== null && (
-                  <>
-                    {" · Last run: "}
-                    {nanosToDate(config.last_run_ts).toLocaleString()}
-                  </>
+
+          {(config?.next_run_ts !== undefined || config?.last_run_ts) && (
+            <div className="mt-1 flex items-start gap-2 border-t pt-3 text-[11px] text-content-secondary">
+              <ClockIcon className="mt-px size-3 shrink-0" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                {config?.next_run_ts !== undefined && (
+                  <div>
+                    <span className="text-content-tertiary">Next run </span>
+                    <span className="text-content-primary">
+                      {nanosToDate(config.next_run_ts).toLocaleString(
+                        undefined,
+                        {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
+                    </span>
+                  </div>
                 )}
+                {config?.last_run_ts !== undefined &&
+                  config.last_run_ts !== null && (
+                    <div>
+                      <span className="text-content-tertiary">Last run </span>
+                      <span className="text-content-primary">
+                        {nanosToDate(config.last_run_ts).toLocaleString(
+                          undefined,
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </span>
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+
+          {dirty && (
+            <div className="flex justify-end">
+              <Button
+                size="xs"
+                disabled={submitting}
+                loading={submitting}
+                onClick={() => submit(true)}
+              >
+                Save changes
+              </Button>
             </div>
           )}
         </div>
@@ -850,6 +899,19 @@ function PeriodicBackupSelector({
         </Callout>
       )}
     </div>
+  );
+}
+
+/**
+ * Tiny uppercase micro-label used above each picker control. Distinct from
+ * the rest of the dashboard's label patterns on purpose — the schedule card
+ * is a settings sub-form and benefits from the extra typographic step-down.
+ */
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[10px] font-medium tracking-wider text-content-tertiary uppercase">
+      {children}
+    </span>
   );
 }
 
