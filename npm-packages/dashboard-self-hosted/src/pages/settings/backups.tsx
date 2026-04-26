@@ -19,7 +19,7 @@ import {
   EnvelopeClosedIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
-import { useContext, useId, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 
 type ExportRow = NonNullable<
   ReturnType<typeof useQuery<typeof udfs.latestExport.list>>
@@ -155,7 +155,10 @@ function BackupsLayout({
               Failed to request backup: {requestError}
             </Callout>
           )}
-          <RestoreStatusBanner />
+          <RestoreStatusBanner
+            deploymentUrl={deploymentUrl}
+            adminKey={adminKey}
+          />
           <Sheet padding={false} className="flex min-h-72 flex-col">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h4>Existing Backups</h4>
@@ -178,11 +181,49 @@ function BackupsLayout({
  * — the dashboard shows the same progress / outcome they'd see if they were
  * waiting in the terminal.
  */
-function RestoreStatusBanner() {
+function RestoreStatusBanner({
+  deploymentUrl,
+  adminKey,
+}: {
+  deploymentUrl: string;
+  adminKey: string;
+}) {
   const imports = useQuery(udfs.snapshotImport.list);
-  if (!imports || imports.length === 0) return null;
-  // The list is already newest-first.
-  const latest = imports[0];
+  const autoConfirmedRef = useRef<Set<string>>(new Set());
+
+  // When an import we triggered server-side reaches `WaitingForConfirmation`,
+  // auto-confirm it by POSTing /api/perform_import. Mirrors what the cloud
+  // BackupRestoreStatus useEffect does, so the user doesn't have to click a
+  // separate "confirm" button before the restore can run.
+  const latest = imports && imports.length > 0 ? imports[0] : null;
+  const latestId = latest?._id;
+  const latestState = latest?.state.state;
+  useEffect(() => {
+    if (!latestId || latestState !== "waiting_for_confirmation") return;
+    if (autoConfirmedRef.current.has(latestId)) return;
+    autoConfirmedRef.current.add(latestId);
+    void (async () => {
+      try {
+        const url = joinUrlPath(
+          deploymentUrl,
+          `/api/perform_import`,
+        ).toString();
+        await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Convex ${adminKey}`,
+            "Convex-Client": "dashboard-0.0.0",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ importId: latestId }),
+        });
+      } catch {
+        // Surfaced via the existing failed-state banner if the worker errors.
+      }
+    })();
+  }, [latestId, latestState, deploymentUrl, adminKey]);
+
+  if (!imports || imports.length === 0 || !latest) return null;
   const state = latest.state;
 
   if (state.state === "in_progress") {
@@ -326,6 +367,7 @@ function BackupRow({
   adminKey: string;
 }) {
   const [showDelete, setShowDelete] = useState(false);
+  const [showRestore, setShowRestore] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const isPending = row.state === "requested" || row.state === "in_progress";
@@ -393,6 +435,29 @@ function BackupRow({
     }
   };
 
+  const restoreFromBackup = async () => {
+    setActionError(null);
+    try {
+      const url = joinUrlPath(
+        deploymentUrl,
+        `/api/export/restore/${row._id}`,
+      ).toString();
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Convex ${adminKey}`,
+          "Convex-Client": "dashboard-0.0.0",
+        },
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`${res.status}: ${body}`);
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1 px-4 py-3">
       <div className="flex items-center justify-between gap-4">
@@ -442,9 +507,16 @@ function BackupRow({
                 Cancel
               </MenuItem>
             ) : (
-              <MenuItem variant="danger" action={() => setShowDelete(true)}>
-                Delete
-              </MenuItem>
+              <>
+                {isCompleted && (
+                  <MenuItem action={() => setShowRestore(true)}>
+                    Restore from this backup
+                  </MenuItem>
+                )}
+                <MenuItem variant="danger" action={() => setShowDelete(true)}>
+                  Delete
+                </MenuItem>
+              </>
             )}
           </Menu>
         </div>
@@ -478,6 +550,33 @@ function BackupRow({
                 {createdAt.toLocaleString()}
               </span>
               ? The backup zip will no longer be downloadable.
+            </>
+          }
+        />
+      )}
+      {showRestore && (
+        <ConfirmationDialog
+          onClose={() => setShowRestore(false)}
+          onConfirm={restoreFromBackup}
+          confirmText="Restore"
+          validationText="restore"
+          dialogTitle="Restore from Backup"
+          dialogBody={
+            <>
+              <p className="text-sm">
+                The tables in this deployment will be <strong>replaced</strong>{" "}
+                by the contents of the backup from{" "}
+                <span className="font-semibold">
+                  {createdAt.toLocaleString()}
+                </span>
+                . Existing rows will be deleted before the restore writes the
+                backup&apos;s data. The rest of your deployment configuration
+                (code, environment variables, scheduled functions) is not
+                changed.
+              </p>
+              <p className="mt-3 text-sm text-content-secondary">
+                Type <code className="font-mono">restore</code> to confirm.
+              </p>
             </>
           }
         />

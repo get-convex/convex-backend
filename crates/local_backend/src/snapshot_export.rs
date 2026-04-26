@@ -38,7 +38,10 @@ use model::{
         ExportsModel,
     },
 };
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use storage::StorageGetStream;
 use sync_types::Timestamp;
 use value::DeveloperDocumentId;
@@ -178,4 +181,34 @@ pub async fn cancel_export(
         )
         .await?;
     Ok(StatusCode::OK)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreFromExportResponse {
+    /// ID of the new `_snapshot_imports` row. The dashboard polls
+    /// `udfs.snapshotImport.list` to follow progress and auto-confirms when
+    /// the row reaches `WaitingForConfirmation`.
+    pub import_id: String,
+}
+
+/// Start a restore from a previously-completed snapshot export. The export's
+/// stored zip is streamed server-side from `exports_storage` into the import
+/// pipeline, so the user does not have to download-and-re-upload the backup.
+#[fastrace::trace]
+pub async fn restore_from_export(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let export_id: DeveloperDocumentId = snapshot_id
+        .parse::<DeveloperDocumentId>()
+        .map_err(|e| anyhow::anyhow!(e))?;
+    let import_id = st
+        .application
+        .restore_from_export(identity, export_id)
+        .await?;
+    Ok(Json(RestoreFromExportResponse {
+        import_id: import_id.encode(),
+    }))
 }

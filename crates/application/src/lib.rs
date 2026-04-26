@@ -186,7 +186,11 @@ use fivetran_destination::{
     constants::FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
 };
 use function_runner::FunctionRunner;
-use futures::stream::BoxStream;
+use futures::{
+    stream::BoxStream,
+    StreamExt,
+    TryStreamExt,
+};
 use headers::{
     ContentLength,
     ContentType,
@@ -2326,6 +2330,73 @@ impl<RT: Runtime> Application<RT> {
             mode,
             component_path,
             fq_key,
+            ImportRequestor::SnapshotImport,
+        )
+        .await
+    }
+
+    /// Start a snapshot-restore from an existing completed export (one of the
+    /// rows surfaced by `udfs.latestExport.list`). Streams the export's stored
+    /// zip from `exports_storage` into the import pipeline so the user does
+    /// not have to re-upload the backup from their browser. Returns the new
+    /// import id; callers should poll `udfs.snapshotImport.list` for status
+    /// and call `perform_import` once the row reaches
+    /// `WaitingForConfirmation` (the dashboard's RestoreStatusBanner does
+    /// this auto-confirmation, mirroring cloud's behavior).
+    pub async fn restore_from_export(
+        &self,
+        identity: Identity,
+        export_id: DeveloperDocumentId,
+    ) -> anyhow::Result<DeveloperDocumentId> {
+        identity.require_operation(DeploymentOp::ImportBackups)?;
+
+        let object_key = {
+            let mut tx = self.begin(identity.clone()).await?;
+            let export = ExportsModel::new(&mut tx)
+                .get(export_id)
+                .await?
+                .context(ErrorMetadata::not_found(
+                    "ExportNotFound",
+                    format!("The requested export {export_id} was not found"),
+                ))?;
+            match export.into_value() {
+                Export::Completed { zip_object_key, .. } => zip_object_key,
+                Export::Failed { .. }
+                | Export::Canceled { .. }
+                | Export::InProgress { .. }
+                | Export::Requested { .. } => {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "ExportNotComplete",
+                        format!(
+                            "Export {export_id} has not completed and cannot be restored"
+                        ),
+                    ))
+                },
+            }
+        };
+
+        let StorageGetStream { stream, .. } = self
+            .application_storage
+            .exports_storage
+            .get(&object_key)
+            .await?
+            .context(ErrorMetadata::not_found(
+                "ExportObjectNotFound",
+                format!(
+                    "The requested export object {object_key:?} was not found in storage"
+                ),
+            ))?;
+        let body_stream: BoxStream<'_, anyhow::Result<Bytes>> =
+            stream.map_err(anyhow::Error::from).boxed();
+        let imports_fq_key = self.upload_snapshot_import(body_stream).await?;
+
+        start_stored_import(
+            self,
+            identity,
+            ImportFormat::Zip,
+            ImportMode::ReplaceAll,
+            ComponentPath::root(),
+            imports_fq_key,
             ImportRequestor::SnapshotImport,
         )
         .await
