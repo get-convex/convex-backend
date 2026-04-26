@@ -12,6 +12,8 @@ import { Spinner } from "@ui/Spinner";
 import { Menu, MenuItem } from "@ui/Menu";
 import {
   ArchiveIcon,
+  CheckCircledIcon,
+  CrossCircledIcon,
   DotsVerticalIcon,
   DownloadIcon,
   EnvelopeClosedIcon,
@@ -153,6 +155,7 @@ function BackupsLayout({
               Failed to request backup: {requestError}
             </Callout>
           )}
+          <RestoreStatusBanner />
           <Sheet padding={false} className="flex min-h-72 flex-col">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <h4>Existing Backups</h4>
@@ -167,6 +170,108 @@ function BackupsLayout({
       </div>
     </div>
   );
+}
+
+/**
+ * Banner that surfaces the most recent in-flight or recently-finished
+ * snapshot import. Useful for users running `npx convex import` from the CLI
+ * — the dashboard shows the same progress / outcome they'd see if they were
+ * waiting in the terminal.
+ */
+function RestoreStatusBanner() {
+  const imports = useQuery(udfs.snapshotImport.list);
+  if (!imports || imports.length === 0) return null;
+  // The list is already newest-first.
+  const latest = imports[0];
+  const state = latest.state;
+
+  if (state.state === "in_progress") {
+    return (
+      <RestoreOngoing
+        title="Restoring from a backup"
+        message={state.progress_message ?? "Restoring snapshot…"}
+      />
+    );
+  }
+  if (
+    state.state === "uploaded" ||
+    state.state === "waiting_for_confirmation"
+  ) {
+    return (
+      <RestoreOngoing
+        title="Restoring from a backup"
+        message="Starting the restore…"
+      />
+    );
+  }
+  if (state.state === "completed") {
+    const completedAt = new Date(Number(state.timestamp / BigInt(1_000_000)));
+    // Don't render forever — stale "completed" banners would be noise.
+    const ageMs = Date.now() - completedAt.getTime();
+    const oneHour = 60 * 60 * 1000;
+    if (ageMs > oneHour) return null;
+    const rows = Number(state.num_rows_written);
+    return (
+      <Callout className="flex items-center gap-2">
+        <CheckCircledIcon className="size-4 shrink-0 text-content-success" />
+        <span className="text-sm">
+          Restored <strong>{rows.toLocaleString()}</strong>{" "}
+          {rows === 1 ? "document" : "documents"} from a backup{" "}
+          {timeAgo(completedAt)}.
+        </span>
+      </Callout>
+    );
+  }
+  if (state.state === "failed") {
+    return (
+      <Callout variant="error" className="flex items-start gap-2">
+        <CrossCircledIcon className="size-4 shrink-0 text-content-errorSecondary" />
+        <div className="flex flex-col gap-1">
+          <span className="text-sm">
+            The most recent restore failed{" "}
+            {timeAgo(new Date(latest._creationTime))}.
+          </span>
+          <code className="text-xs whitespace-pre-wrap">
+            {state.error_message}
+          </code>
+        </div>
+      </Callout>
+    );
+  }
+  return null;
+}
+
+function RestoreOngoing({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <div className="flex min-h-16 flex-col flex-wrap justify-center gap-2 rounded-lg border bg-background-secondary px-4 py-2 text-sm">
+      <div className="flex flex-wrap justify-end gap-4">
+        <div className="grow font-semibold">{title}</div>
+        <div className="min-w-56 text-right text-content-secondary">
+          {message}
+        </div>
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded bg-background-tertiary">
+        <div className="h-full w-1/3 animate-pulse bg-content-link" />
+      </div>
+    </div>
+  );
+}
+
+function timeAgo(date: Date): string {
+  const ms = Date.now() - date.getTime();
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
 }
 
 function BackupsContent({
