@@ -115,7 +115,12 @@ function BackupsLayout({
       </div>
 
       <div className="scrollbar flex grow flex-col gap-4 overflow-auto pt-1 pl-1 xl:flex-row xl:overflow-hidden">
-        <Sheet className="flex h-fit w-full shrink-0 flex-col items-start gap-4 xl:w-60 xl:items-center">
+        <Sheet className="flex h-fit w-full shrink-0 flex-col items-start gap-4 xl:w-60">
+          <PeriodicBackupSelector
+            deploymentUrl={deploymentUrl}
+            adminKey={adminKey}
+          />
+          <hr className="w-full" />
           <Button
             icon={<ArchiveIcon />}
             onClick={requestBackup}
@@ -138,14 +143,8 @@ function BackupsLayout({
           </label>
           <p className="text-xs text-content-secondary">
             Snapshots are stored on this deployment&apos;s configured backend
-            storage. Periodic backups are{" "}
-            <Link
-              href="https://docs.convex.dev/database/backup-restore"
-              target="_blank"
-            >
-              not yet supported
-            </Link>{" "}
-            on self-hosted; trigger them with cron from your container host.
+            storage. Manual backups run immediately; periodic backups fire in
+            the background per the schedule above.
           </p>
         </Sheet>
 
@@ -611,4 +610,262 @@ function BackupsEmptyState({ message }: { message: string }) {
       </div>
     </div>
   );
+}
+
+/**
+ * UI for the singleton `_periodic_backup_config` row. Reads the current
+ * config via `udfs.periodicBackup.get` (system query) and writes via
+ * POST /api/periodic_backup/configure or /api/periodic_backup/disable.
+ *
+ * Picker is intentionally restricted to a small set of common cadences
+ * (hourly / daily / weekly) — anything beyond that is best expressed as
+ * a hand-written cronspec and configured directly via the HTTP endpoint.
+ */
+function PeriodicBackupSelector({
+  deploymentUrl,
+  adminKey,
+}: {
+  deploymentUrl: string;
+  adminKey: string;
+}) {
+  const config = useQuery(udfs.periodicBackup.get, {});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const checkboxId = useId();
+
+  // Local edit state mirrors the persisted config but lets the user adjust
+  // the cron picker without immediately writing on every keystroke.
+  const [enabled, setEnabled] = useState(false);
+  const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly">(
+    "daily",
+  );
+  const [hourUtc, setHourUtc] = useState(3);
+  const [dayOfWeek, setDayOfWeek] = useState(0); // Sunday
+  const [includeStorage, setIncludeStorage] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate local state from the backend exactly once; subsequent server
+  // updates win automatically the next time we re-render.
+  useEffect(() => {
+    if (config === undefined || hydrated) return;
+    if (config === null) {
+      setEnabled(false);
+    } else {
+      setEnabled(true);
+      setIncludeStorage(config.include_storage);
+      const parsed = parseCronspec(config.cronspec);
+      if (parsed) {
+        setFrequency(parsed.frequency);
+        if (parsed.hourUtc !== undefined) setHourUtc(parsed.hourUtc);
+        if (parsed.dayOfWeek !== undefined) setDayOfWeek(parsed.dayOfWeek);
+      }
+    }
+    setHydrated(true);
+  }, [config, hydrated]);
+
+  const submit = async (newEnabled: boolean) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (!newEnabled) {
+        const url = joinUrlPath(
+          deploymentUrl,
+          `/api/periodic_backup/disable`,
+        ).toString();
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Convex ${adminKey}`,
+            "Convex-Client": "dashboard-0.0.0",
+          },
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      } else {
+        const cronspec = buildCronspec(frequency, hourUtc, dayOfWeek);
+        const url = joinUrlPath(
+          deploymentUrl,
+          `/api/periodic_backup/configure`,
+        ).toString();
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Convex ${adminKey}`,
+            "Convex-Client": "dashboard-0.0.0",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ cronspec, includeStorage }),
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (config === undefined) {
+    return (
+      <div className="flex w-full items-center justify-center py-2">
+        <Spinner className="size-4" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <label className="flex items-center gap-2 text-sm">
+        <Checkbox
+          id={checkboxId}
+          checked={enabled}
+          disabled={submitting}
+          onChange={async () => {
+            const next = !enabled;
+            setEnabled(next);
+            await submit(next);
+          }}
+        />
+        Backup automatically
+        {submitting && <Spinner className="size-3" />}
+      </label>
+      {enabled && (
+        <div className="flex flex-col gap-2 pl-6 text-xs text-content-secondary">
+          <div className="flex items-center gap-2">
+            <select
+              className="rounded border bg-background-secondary px-2 py-0.5"
+              value={frequency}
+              disabled={submitting}
+              onChange={(e) =>
+                setFrequency(e.target.value as "hourly" | "daily" | "weekly")
+              }
+            >
+              <option value="hourly">Hourly</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            {frequency !== "hourly" && (
+              <>
+                <span>at</span>
+                <select
+                  className="rounded border bg-background-secondary px-2 py-0.5"
+                  value={hourUtc}
+                  disabled={submitting}
+                  onChange={(e) => setHourUtc(Number(e.target.value))}
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, "0")}:00 UTC
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {frequency === "weekly" && (
+              <>
+                <span>on</span>
+                <select
+                  className="rounded border bg-background-secondary px-2 py-0.5"
+                  value={dayOfWeek}
+                  disabled={submitting}
+                  onChange={(e) => setDayOfWeek(Number(e.target.value))}
+                >
+                  {[
+                    "Sunday",
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                  ].map((name, i) => (
+                    <option key={i} value={i}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={includeStorage}
+              disabled={submitting}
+              onChange={() => setIncludeStorage((v) => !v)}
+            />
+            Include file storage in scheduled backups
+          </label>
+          <Button
+            size="xs"
+            variant="neutral"
+            disabled={submitting}
+            loading={submitting}
+            onClick={() => submit(true)}
+            className="self-start"
+          >
+            Save schedule
+          </Button>
+          {config !== null && (
+            <div className="text-content-secondary">
+              Next run:{" "}
+              {new Date(
+                Number(config.next_run_ts / BigInt(1_000_000)),
+              ).toLocaleString()}
+              {config.last_run_ts && (
+                <>
+                  {" · Last run: "}
+                  {new Date(
+                    Number(config.last_run_ts / BigInt(1_000_000)),
+                  ).toLocaleString()}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {error && (
+        <Callout variant="error" className="text-xs">
+          {error}
+        </Callout>
+      )}
+    </div>
+  );
+}
+
+/** Build a 5-field UTC cron expression from the picker's choices. */
+function buildCronspec(
+  frequency: "hourly" | "daily" | "weekly",
+  hourUtc: number,
+  dayOfWeek: number,
+): string {
+  switch (frequency) {
+    case "hourly":
+      return `0 * * * *`;
+    case "daily":
+      return `0 ${hourUtc} * * *`;
+    case "weekly":
+      return `0 ${hourUtc} * * ${dayOfWeek}`;
+  }
+}
+
+/**
+ * Best-effort reverse of `buildCronspec` so the picker hydrates from a
+ * persisted config. Anything we don't recognize falls back to "daily 03:00"
+ * and the user can re-pick from there.
+ */
+function parseCronspec(cronspec: string): {
+  frequency: "hourly" | "daily" | "weekly";
+  hourUtc?: number;
+  dayOfWeek?: number;
+} | null {
+  const parts = cronspec.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [minute, hour, , , dow] = parts;
+  if (minute !== "0") return null;
+  if (hour === "*") return { frequency: "hourly" };
+  const h = Number(hour);
+  if (!Number.isInteger(h) || h < 0 || h > 23) return null;
+  if (dow === "*") return { frequency: "daily", hourUtc: h };
+  const d = Number(dow);
+  if (!Number.isInteger(d) || d < 0 || d > 6) return null;
+  return { frequency: "weekly", hourUtc: h, dayOfWeek: d };
 }

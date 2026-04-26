@@ -26,6 +26,7 @@ pub struct WorkerHandles {
     pub(crate) schema_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     pub(crate) snapshot_import_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) export_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    pub(crate) periodic_backup_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     pub(crate) migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
 }
@@ -46,6 +47,10 @@ impl WorkerHandles {
         let export_worker = self.export_worker.lock().take();
         if let Some(export_worker) = export_worker {
             shutdown_and_join(export_worker).await?;
+        }
+        let periodic_backup_worker = self.periodic_backup_worker.lock().take();
+        if let Some(periodic_backup_worker) = periodic_backup_worker {
+            shutdown_and_join(periodic_backup_worker).await?;
         }
         let snapshot_import_worker = self.snapshot_import_worker.lock().take();
         if let Some(snapshot_import_worker) = snapshot_import_worker {

@@ -52,6 +52,7 @@ import type * as _system_frontend_listEnvironmentVariables from "../_system/fron
 import type * as _system_frontend_listTableScan from "../_system/frontend/listTableScan.js";
 import type * as _system_frontend_modules from "../_system/frontend/modules.js";
 import type * as _system_frontend_node from "../_system/frontend/node.js";
+import type * as _system_frontend_periodicBackup from "../_system/frontend/periodicBackup.js";
 import type * as _system_frontend_paginatedDeploymentEvents from "../_system/frontend/paginatedDeploymentEvents.js";
 import type * as _system_frontend_paginatedScheduledJobs from "../_system/frontend/paginatedScheduledJobs.js";
 import type * as _system_frontend_paginatedTableDocuments from "../_system/frontend/paginatedTableDocuments.js";
@@ -116,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/listTableScan": typeof _system_frontend_listTableScan;
   "_system/frontend/modules": typeof _system_frontend_modules;
   "_system/frontend/node": typeof _system_frontend_node;
+  "_system/frontend/periodicBackup": typeof _system_frontend_periodicBackup;
   "_system/frontend/paginatedDeploymentEvents": typeof _system_frontend_paginatedDeploymentEvents;
   "_system/frontend/paginatedScheduledJobs": typeof _system_frontend_paginatedScheduledJobs;
   "_system/frontend/paginatedTableDocuments": typeof _system_frontend_paginatedTableDocuments;

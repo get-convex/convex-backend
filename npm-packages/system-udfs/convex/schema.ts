@@ -414,6 +414,12 @@ export default defineSchema({
       // TODO: add canceled
     ),
   ).index("by_requestor", ["requestor"]),
+  _periodic_backup_config: defineTable({
+    cronspec: v.string(),
+    include_storage: v.boolean(),
+    next_run_ts: v.int64(),
+    last_run_ts: v.optional(v.int64()),
+  }),
   _deployment_audit_log: deploymentAuditLogTable,
   _scheduled_jobs: defineTable({
     nextTs: v.union(v.int64(), v.null()),

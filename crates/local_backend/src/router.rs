@@ -107,6 +107,10 @@ use crate::{
         storage_get_url,
         vector_search,
     },
+    periodic_backup::{
+        configure_periodic_backup,
+        disable_periodic_backup,
+    },
     public_api::public_api_router,
     scheduling::{
         cancel_all_jobs,
@@ -310,6 +314,12 @@ pub fn router(st: LocalAppState) -> Router {
             "/admin_keys/{id}/revoke",
             post(crate::admin_keys::revoke_admin_key),
         )
+        // Periodic-backup config (self-hosted scheduled backups)
+        .route(
+            "/periodic_backup/configure",
+            post(configure_periodic_backup),
+        )
+        .route("/periodic_backup/disable", post(disable_periodic_backup))
         // Canonical URL routes
         .route("/update_canonical_url", post(update_canonical_url))
         // Scheduled jobs routes

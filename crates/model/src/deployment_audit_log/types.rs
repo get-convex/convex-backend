@@ -30,6 +30,7 @@ use serde_json::Value as JsonValue;
 use value::{
     codegen_convex_serialization,
     obj,
+    remove_boolean,
     remove_int64,
     remove_nullable_string,
     remove_object,
@@ -260,6 +261,18 @@ pub enum DeploymentAuditLogEvent {
         id: String,
         new_name: String,
     },
+    PeriodicBackupConfigured {
+        cronspec: String,
+        include_storage: bool,
+    },
+    PeriodicBackupDisabled,
+    /// Emitted by the periodic-backup worker each time it auto-triggers a
+    /// snapshot export, so the History page shows scheduled fires alongside
+    /// manual ones. The export's id is included for cross-reference with the
+    /// surrounding RequestExport audit row.
+    PeriodicBackupTriggered {
+        export_id: String,
+    },
 }
 
 impl From<IndexDiff> for DeploymentAuditLogEvent {
@@ -341,6 +354,13 @@ impl DeploymentAuditLogEvent {
             DeploymentAuditLogEvent::AdminKeyAdopted { .. } => "admin_key_adopted",
             DeploymentAuditLogEvent::AdminKeyRevoked { .. } => "admin_key_revoked",
             DeploymentAuditLogEvent::AdminKeyRenamed { .. } => "admin_key_renamed",
+            DeploymentAuditLogEvent::PeriodicBackupConfigured { .. } => {
+                "periodic_backup_configured"
+            },
+            DeploymentAuditLogEvent::PeriodicBackupDisabled => "periodic_backup_disabled",
+            DeploymentAuditLogEvent::PeriodicBackupTriggered { .. } => {
+                "periodic_backup_triggered"
+            },
         }
     }
 
@@ -662,6 +682,21 @@ impl DeploymentAuditLogEvent {
             },
             DeploymentAuditLogEvent::AdminKeyRenamed { id, new_name } => {
                 obj!("id" => id, "new_name" => new_name)
+            },
+            DeploymentAuditLogEvent::PeriodicBackupConfigured {
+                cronspec,
+                include_storage,
+            } => {
+                obj!(
+                    "cronspec" => cronspec,
+                    "include_storage" => include_storage
+                )
+            },
+            DeploymentAuditLogEvent::PeriodicBackupDisabled => {
+                obj!()
+            },
+            DeploymentAuditLogEvent::PeriodicBackupTriggered { export_id } => {
+                obj!("export_id" => export_id)
             },
         }
     }
@@ -1005,6 +1040,19 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                 let new_name = remove_string(&mut fields, "new_name")?;
                 DeploymentAuditLogEvent::AdminKeyRenamed { id, new_name }
             },
+            "periodic_backup_configured" => {
+                let cronspec = remove_string(&mut fields, "cronspec")?;
+                let include_storage = remove_boolean(&mut fields, "include_storage")?;
+                DeploymentAuditLogEvent::PeriodicBackupConfigured {
+                    cronspec,
+                    include_storage,
+                }
+            },
+            "periodic_backup_disabled" => DeploymentAuditLogEvent::PeriodicBackupDisabled,
+            "periodic_backup_triggered" => {
+                let export_id = remove_string(&mut fields, "export_id")?;
+                DeploymentAuditLogEvent::PeriodicBackupTriggered { export_id }
+            },
             _ => anyhow::bail!("action {action} unrecognized"),
         };
         Ok(event)
@@ -1221,6 +1269,29 @@ mod admin_key_audit_tests {
             }
             .action(),
             "admin_key_renamed"
+        );
+    }
+
+    #[test]
+    fn periodic_backup_variants_have_action_strings() {
+        assert_eq!(
+            DeploymentAuditLogEvent::PeriodicBackupConfigured {
+                cronspec: "0 3 * * *".into(),
+                include_storage: true,
+            }
+            .action(),
+            "periodic_backup_configured"
+        );
+        assert_eq!(
+            DeploymentAuditLogEvent::PeriodicBackupDisabled.action(),
+            "periodic_backup_disabled"
+        );
+        assert_eq!(
+            DeploymentAuditLogEvent::PeriodicBackupTriggered {
+                export_id: "abc".into()
+            }
+            .action(),
+            "periodic_backup_triggered"
         );
     }
 }

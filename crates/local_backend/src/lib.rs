@@ -98,6 +98,7 @@ pub mod log_sinks;
 pub mod logs;
 pub mod node_action_callbacks;
 pub mod parse;
+pub mod periodic_backup;
 pub mod proxy;
 pub mod public_api;
 pub mod router;

@@ -379,6 +379,7 @@ use vector::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     exports::worker::ExportWorker,
+    periodic_backup::worker::PeriodicBackupWorker,
     function_log::{
         FunctionEntriesLog,
         FunctionExecutionLog,
@@ -411,6 +412,7 @@ pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
 mod module_cache;
+pub mod periodic_backup;
 pub mod redaction;
 pub mod scheduled_jobs;
 mod schema_worker;
@@ -818,6 +820,15 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("export_worker", export_worker),
         )));
 
+        // Self-hosted periodic-backup worker. Reads `_periodic_backup_config`
+        // every minute and inserts a `requested` row into `_exports` (which the
+        // ExportWorker above then picks up) when the cron schedule is due.
+        let periodic_backup_worker =
+            PeriodicBackupWorker::start(runtime.clone(), database.clone());
+        let periodic_backup_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("periodic_backup_worker", periodic_backup_worker),
+        )));
+
         let snapshot_import_worker = SnapshotImportWorker::start(
             runtime.clone(),
             database.clone(),
@@ -859,6 +870,7 @@ impl<RT: Runtime> Application<RT> {
             schema_worker,
             snapshot_import_worker,
             export_worker,
+            periodic_backup_worker,
             system_table_cleanup_worker,
             migration_worker,
         };

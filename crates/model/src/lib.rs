@@ -39,6 +39,7 @@ use admin_keys::{
     AdminKeysTable,
     ADMIN_KEYS_BY_HASH_INDEX,
 };
+use periodic_backup::PeriodicBackupConfigTable;
 use audit_log_config::{
     AuditLogConfigTable,
     AUDIT_LOG_CONFIG_TABLE,
@@ -238,6 +239,7 @@ pub mod log_sinks;
 mod metrics;
 pub mod migrations;
 pub mod modules;
+pub mod periodic_backup;
 pub mod scheduled_jobs;
 pub mod session_requests;
 pub mod snapshot_imports;
@@ -283,9 +285,10 @@ enum DefaultTableNumber {
     ScheduledJobArgs = 38,
     AuditLogConfig = 39,
     AdminKeys = 40,
+    PeriodicBackupConfig = 41,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 41 - mingu
+    // Next Number - 42 - mingu
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -332,6 +335,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::ScheduledJobArgs => &ScheduledJobArgsTable,
             DefaultTableNumber::AuditLogConfig => &AuditLogConfigTable,
             DefaultTableNumber::AdminKeys => &AdminKeysTable,
+            DefaultTableNumber::PeriodicBackupConfig => &PeriodicBackupConfigTable,
         }
     }
 }
@@ -572,6 +576,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
         &AdminKeysTable,
+        &PeriodicBackupConfigTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());

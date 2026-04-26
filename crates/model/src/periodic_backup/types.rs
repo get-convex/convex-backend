@@ -1,0 +1,66 @@
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use sync_types::Timestamp;
+use value::codegen_convex_serialization;
+
+/// Configuration for self-hosted periodic snapshot exports. The
+/// `_periodic_backup_config` table holds at most one row; when present,
+/// the periodic-backup background worker triggers a new snapshot export
+/// (via the same path as a manual "Back up now") whenever
+/// `next_run_ts <= now`, then advances `next_run_ts` to the next match
+/// of `cronspec` and updates `last_run_ts`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PeriodicBackupConfig {
+    /// 5-field UTC cron expression (e.g. `0 3 * * *` for daily 03:00 UTC).
+    /// Validated with `saffron::Cron` at write time.
+    pub cronspec: String,
+    /// Whether triggered exports include file storage in the produced zip.
+    pub include_storage: bool,
+    /// Wall-clock time of the next scheduled run, recomputed each tick from
+    /// `cronspec`. Stored as a `Timestamp` so it shares the persistence path
+    /// the rest of the system uses.
+    pub next_run_ts: Timestamp,
+    /// Wall-clock time of the most recent successful trigger; `None` until
+    /// the worker fires for the first time.
+    pub last_run_ts: Option<Timestamp>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedPeriodicBackupConfig {
+    cronspec: String,
+    include_storage: bool,
+    next_run_ts: i64,
+    #[serde(default)]
+    last_run_ts: Option<i64>,
+}
+
+impl TryFrom<PeriodicBackupConfig> for SerializedPeriodicBackupConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: PeriodicBackupConfig) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cronspec: value.cronspec,
+            include_storage: value.include_storage,
+            next_run_ts: value.next_run_ts.into(),
+            last_run_ts: value.last_run_ts.map(|t| t.into()),
+        })
+    }
+}
+
+impl TryFrom<SerializedPeriodicBackupConfig> for PeriodicBackupConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedPeriodicBackupConfig) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cronspec: value.cronspec,
+            include_storage: value.include_storage,
+            next_run_ts: Timestamp::try_from(value.next_run_ts)?,
+            last_run_ts: value.last_run_ts.map(Timestamp::try_from).transpose()?,
+        })
+    }
+}
+
+codegen_convex_serialization!(PeriodicBackupConfig, SerializedPeriodicBackupConfig);
