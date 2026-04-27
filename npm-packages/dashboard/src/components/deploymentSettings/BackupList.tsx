@@ -57,8 +57,8 @@ export function BackupList({
       selectedDeployment.class.startsWith("d") ? (
         <Callout className="m-4 max-w-prose">
           Backups for {selectedDeployment.class.toUpperCase()} deployments are
-          produced every 12 hours. Contact the Convex team to restore from a
-          backup.
+          produced every 24 hours and retained for 7 days. Contact the Convex
+          team to restore from a backup.
         </Callout>
       ) : (
         <div className="scrollbar grow overflow-auto">

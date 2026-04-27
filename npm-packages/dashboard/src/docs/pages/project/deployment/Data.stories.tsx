@@ -357,9 +357,6 @@ export const AddDocument: Story = {
       const inputs = canvas.queryAllByRole("textbox");
       await expect(inputs.length).toBeGreaterThan(0);
     });
-
-    // Wait for Monaco editor to fully render and stabilize
-    await new Promise((r) => setTimeout(r, 5000));
   },
 };
 

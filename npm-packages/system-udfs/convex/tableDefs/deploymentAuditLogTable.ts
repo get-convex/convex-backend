@@ -172,18 +172,19 @@ export const pushConfigWithComponents = v.object({
   }),
 });
 
-export const deploymentState = v.union(
+export const oldBackendState = v.union(
   v.literal("paused"),
   v.literal("running"),
   v.literal("disabled"),
+  v.literal("suspended"),
 );
 
 export const changeDeploymentState = v.object({
   action: v.literal("change_deployment_state"),
   member_id: v.union(v.int64(), v.null()),
   metadata: v.object({
-    old_state: deploymentState,
-    new_state: deploymentState,
+    old_state: oldBackendState,
+    new_state: oldBackendState,
   }),
 });
 

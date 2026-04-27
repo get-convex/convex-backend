@@ -62,8 +62,8 @@ export function Backups({
         <Callout className="max-w-prose">
           <span>
             Backups for {deployment.class.toUpperCase()} deployments are
-            produced every 12 hours. Contact the Convex team to restore from a
-            backup{" "}
+            produced every 24 hours and retained for 7 days. Contact the Convex
+            team to restore from a backup{" "}
             <Link href="https://docs.convex.dev/database/backup-restore">
               Learn more about backups
             </Link>
