@@ -1,7 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import deploymentAuditLogTable, {
-  deploymentState,
+  oldBackendState,
+  systemStopState,
 } from "./tableDefs/deploymentAuditLogTable";
 import { snapshotImportsTable } from "./tableDefs/snapshotImport";
 import { awsLambdaVersionsTable } from "./tableDefs/awsLambdaVersions";
@@ -257,8 +258,20 @@ const logSinksTable = defineTable({
   config: sinkConfig,
 });
 
+const userStopState = v.union(v.literal("none"), v.literal("paused"));
+
+export const backendState = v.union(
+  // TODO(nicolas) Remove this once the migration is completed
+  oldBackendState,
+
+  v.object({
+    system: systemStopState,
+    user: userStopState,
+  }),
+);
+
 const backendStateTable = defineTable({
-  state: deploymentState,
+  state: backendState,
 });
 
 export const cronJobState = v.union(

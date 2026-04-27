@@ -220,6 +220,8 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           return <span>resumed the deployment</span>;
         case "disabled":
           return <span>disabled the deployment</span>;
+        case "suspended":
+          return <span>suspended the deployment</span>;
         default:
           event.metadata.new_state satisfies never;
           return null;
