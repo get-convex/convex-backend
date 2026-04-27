@@ -387,7 +387,7 @@ export function DeploymentSummary({
                     deployment.kind === "cloud" &&
                     deployment.class.startsWith("d") ? (
                       <span className="text-sm text-content-primary">
-                        Backup every 12 hours
+                        Backup every 24 hours
                       </span>
                     ) : (
                       <span className="text-sm text-content-secondary">
