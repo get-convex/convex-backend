@@ -46,7 +46,10 @@ use value::{
     ConvexValue,
 };
 
-use crate::metrics::log_errors_reported_total;
+use crate::{
+    knobs::SHOW_PII_IN_ERRORS,
+    metrics::log_errors_reported_total,
+};
 
 // Regex to match emails from https://colinhacks.com/essays/reasonable-email-regex
 // This regex doesn’t match all valid email addresses (e.g. it skips emails
@@ -91,6 +94,9 @@ impl Debug for MainError {
 }
 
 fn strip_pii(err: &mut anyhow::Error) {
+    if *SHOW_PII_IN_ERRORS {
+        return;
+    }
     if let Some(error_metadata) = err.downcast_mut::<ErrorMetadata>() {
         for (regex, replacement) in PII_REPLACEMENTS.iter() {
             match regex.replace_all(&error_metadata.msg, *replacement) {

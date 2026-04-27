@@ -1617,3 +1617,8 @@ pub static ENV_VAR_TOTAL_SIZE_LIMIT: LazyLock<usize> =
 /// If set, disable the /metrics endpoint
 pub static DISABLE_METRICS_ENDPOINT: LazyLock<bool> =
     LazyLock::new(|| env_config("DISABLE_METRICS_ENDPOINT", false));
+
+/// If set, skip stripping PII from errors before they are reported. Useful for
+/// local debugging where the operator wants to see the original error contents.
+pub static SHOW_PII_IN_ERRORS: LazyLock<bool> =
+    LazyLock::new(|| env_config("SHOW_PII_IN_ERRORS", false));
