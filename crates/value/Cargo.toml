@@ -10,12 +10,7 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 doctest = false
 
 [features]
-testing = [
-    "errors/testing",
-    "proptest",
-    "proptest-derive",
-    "sync_types/testing",
-]
+testing = ["errors/testing", "proptest", "proptest-derive", "sync_types/testing"]
 
 [dependencies]
 anyhow = { workspace = true }
