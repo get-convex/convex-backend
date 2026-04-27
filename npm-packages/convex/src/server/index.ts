@@ -179,6 +179,7 @@ export type {
   PartialApi,
   ArgsAndOptions,
   FunctionReturnType,
+  ValidatorTypeToReturnType,
 } from "./api.js";
 export {
   defineApp,
