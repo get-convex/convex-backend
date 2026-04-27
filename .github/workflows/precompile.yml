@@ -12,10 +12,10 @@ jobs:
     runs-on: [self-hosted, aws, x64, xlarge]
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Cache pnpm artifacts
-        uses: runs-on/cache@v4
+        uses: runs-on/cache@a5f51d6f3fece787d03b7b4e981c82538a0654ed # v4
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
@@ -29,12 +29,14 @@ jobs:
           restore-keys: pnpm-cache-
 
       - name: Node setup
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".nvmrc"
 
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2
+          with:
+          tool: just
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -65,7 +67,7 @@ jobs:
 
       - name: Create Upload Precompiled Artifacts
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             dashboard.zip
@@ -97,7 +99,7 @@ jobs:
     runs-on: ${{ fromJSON(matrix.os) }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -107,7 +109,7 @@ jobs:
           r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       - name: Cache pnpm artifacts
-        uses: runs-on/cache@v4
+        uses: runs-on/cache@a5f51d6f3fece787d03b7b4e981c82538a0654ed # v4
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
@@ -121,7 +123,7 @@ jobs:
           restore-keys: pnpm-cache-
 
       - name: Node setup
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".nvmrc"
 
@@ -154,7 +156,7 @@ jobs:
           mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
 
       - name: Zip backend into arch
-        uses: thedoctor0/zip-release@0.7.5
+        uses: thedoctor0/zip-release@7fddfdd07cadb5b8c6c0dbcdcec17f8cd7784b80 # 0.7.5
         with:
           type: zip
           filename: ${{ steps.release_name.outputs.ZIP_NAME }}
@@ -162,7 +164,7 @@ jobs:
 
       - name: Create Upload Precompiled Artifacts
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             ${{ steps.release_name.outputs.ZIP_NAME }}

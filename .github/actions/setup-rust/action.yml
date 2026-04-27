@@ -20,17 +20,18 @@ runs:
       run: sudo apt-get install pkg-config libsodium-dev libssl-dev
 
     - name: Install Just
-      uses: extractions/setup-just@v3
+      uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2
       with:
-        just-version: "1.49.0"
+        tool: just
+
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - name: Install Rust
-      uses: dsherret/rust-toolchain-file@v1
+      uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
 
     - name: Install Mold
-      uses: rui314/setup-mold@v1
+      uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
 
     - name: Export environment variables
       shell: bash
@@ -47,7 +48,7 @@ runs:
         echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
 
     - name: Install sccache
-      uses: mozilla-actions/sccache-action@v0.0.9
+      uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # v0.0.9
       with:
         version: "v0.12.0"
 
@@ -69,7 +70,7 @@ runs:
     # this step runs, the cache key used for storing the job outputs will not
     # match the cache key used for restoring.
     - name: Cached load of cargo registry
-      uses: Swatinem/rust-cache@v2.8.2
+      uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       with:
         # Only cache the `.cargo` directory; not build artifacts.
         cache-targets: "false"
