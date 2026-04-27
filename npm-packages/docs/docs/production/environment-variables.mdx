@@ -95,15 +95,19 @@ The following environment variables are always available in Convex functions:
 
 ## Project environment variable defaults
 
-You can set up default environment variable values for a project for development
-and preview deployments in Project Settings.
+You can set up default environment variable values for a project in Project
+Settings.
 
 ![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
 
-These default values will be used when creating a new development or preview
-deployment, and will have no effect on existing deployments (they are not kept
-in sync).
+These default values will be used when creating a new deployment, and will have
+no effect on existing deployments (they are not kept in sync). You can set a
+different default value for each
+[deployment type](/production/multiple-deployments.mdx#deployment-types).
 
 The Deployment Settings will indicate when a deployment has environment
 variables that do not match the project defaults.
 ![Environment Variable Default Mismatch](/screenshots/environment_variable_default_diff.png)
+
+You can also change the default environment variables from the CLI using
+`npx convex env default`.
