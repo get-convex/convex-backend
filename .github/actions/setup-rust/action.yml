@@ -21,6 +21,8 @@ runs:
 
     - name: Install Just
       uses: extractions/setup-just@v3
+      with:
+        just-version: "1.49.0"
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
 
