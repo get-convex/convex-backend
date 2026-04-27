@@ -209,6 +209,9 @@ async function captureScreenshot(
       content:
         ".monaco-editor .cursors-layer > .cursor { display: none !important; }",
     });
+    await page.addStyleTag({
+      content: ".monaco-editor .slider { opacity: 0 !important; }",
+    });
 
     // Check for element-level crop selector from story parameters.
     // In Storybook 10, the store API is storyStoreValue.loadStory().
