@@ -78,6 +78,14 @@ export function DeployKeyListItem({
                 )}
               </div>
             </div>
+            {deployKey.expiresAt !== null &&
+              deployKey.expiresAt !== undefined && (
+                <TimestampDistance
+                  prefix="Expires "
+                  date={new Date(deployKey.expiresAt)}
+                  className="text-left text-content-errorSecondary"
+                />
+              )}
           </div>
           <Menu
             placement="bottom-end"

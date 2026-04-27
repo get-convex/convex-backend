@@ -13,6 +13,11 @@ import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import { usePostHog } from "hooks/usePostHog";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { HelpTooltip } from "@ui/HelpTooltip";
+import {
+  TokenExpirationSelector,
+  TokenExpirationValue,
+  resolveExpirationTime,
+} from "components/TokenExpirationSelector";
 
 export type DeployKeyGenerationDisabledReason =
   | "CannotManageProd"
@@ -210,6 +215,7 @@ export type GenerateDeployKeyWithNameButtonProps = {
   getAdminKey: (
     name: string,
     allowedOperations: string[] | undefined,
+    expiresAt: number | undefined,
   ) => Promise<{ ok: true; adminKey: string } | { ok: false }>;
   deploymentType: DeploymentTypeType;
   showCustomPermissions?: boolean;
@@ -228,8 +234,9 @@ export function GenerateDeployKeyWithNameButton({
     useState<PermissionMode>("deploy");
   const [selectedOps, setSelectedOps] = useState<Set<string>>(() => new Set());
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
   const { capture } = usePostHog();
-  const { scopedDeployKeys } = useLaunchDarkly();
+  const { scopedDeployKeys, allowTokenExpiry } = useLaunchDarkly();
 
   const handleClose = () => {
     setIsOpen(false);
@@ -237,6 +244,7 @@ export function GenerateDeployKeyWithNameButton({
     setName("");
     setPermissionMode("deploy");
     setSelectedOps(new Set());
+    setExpiration(null);
   };
 
   return (
@@ -278,7 +286,14 @@ export function GenerateDeployKeyWithNameButton({
                         ? ["Deploy"]
                         : Array.from(selectedOps)
                       : undefined;
-                  const result = await getAdminKey(name, allowedOperations);
+                  const expiresAt = allowTokenExpiry
+                    ? resolveExpirationTime(expiration)
+                    : null;
+                  const result = await getAdminKey(
+                    name,
+                    allowedOperations,
+                    expiresAt ?? undefined,
+                  );
                   if (!result.ok) {
                     toast("error", "Error generating deploy key");
                     return;
@@ -389,6 +404,12 @@ export function GenerateDeployKeyWithNameButton({
                     </>
                   )}
                 </div>
+              )}
+              {allowTokenExpiry && (
+                <TokenExpirationSelector
+                  value={expiration}
+                  onChange={setExpiration}
+                />
               )}
               <div className="flex items-center justify-end gap-2">
                 {scopedDeployKeys &&

@@ -580,9 +580,16 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
               deploymentType: "preview",
               disabledReason: null,
               showCustomPermissions: false,
-              getAdminKey: async (name: string) => {
+              getAdminKey: async (
+                name: string,
+                _allowedOperations: string[] | undefined,
+                expiresAt: number | undefined,
+              ) => {
                 try {
-                  const result = await createPreviewDeployKey({ name });
+                  const result = await createPreviewDeployKey({
+                    name,
+                    ...(expiresAt !== undefined && { expiresAt }),
+                  });
                   if (!result) return { ok: false as const };
                   return {
                     ok: true as const,

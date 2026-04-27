@@ -15,7 +15,10 @@ export function TeamAccessTokens({
   onCreateToken,
 }: {
   accessTokens: TeamAccessTokenResponse[] | undefined;
-  onCreateToken: (tokenName: string) => Promise<void>;
+  onCreateToken: (args: {
+    tokenName: string;
+    expiresAt?: number;
+  }) => Promise<void>;
 }) {
   const team = useCurrentTeam();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -104,8 +107,8 @@ export function TeamAccessTokens({
       {showCreateDialog && (
         <CreateTokenDialog
           onClose={() => setShowCreateDialog(false)}
-          onSubmit={async (tokenName: string) => {
-            await onCreateToken(tokenName);
+          onSubmit={async (args) => {
+            await onCreateToken(args);
             setShowCreateDialog(false);
           }}
         />

@@ -74,6 +74,13 @@ export function AccessTokenListItem({
                 </div>
               )}
             </div>
+            {token.expiresAt !== null && token.expiresAt !== undefined && (
+              <TimestampDistance
+                prefix="Expires "
+                date={new Date(token.expiresAt)}
+                className="text-left text-content-errorSecondary"
+              />
+            )}
           </div>
           <div className="flex gap-2">
             <Button
