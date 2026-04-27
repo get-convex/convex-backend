@@ -253,6 +253,10 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         })
     }
 
+    pub fn concurrency_limiter(&self) -> &isolate::ConcurrencyLimiter {
+        self.isolate_client.concurrency_limiter()
+    }
+
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.isolate_client.shutdown().await
     }

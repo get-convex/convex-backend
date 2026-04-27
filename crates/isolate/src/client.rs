@@ -449,6 +449,7 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
             scheduler: self.scheduler.clone(),
             sender: self.sender.clone(),
             concurrency_logger: self.concurrency_logger.clone(),
+            concurrency_limiter: self.concurrency_limiter.clone(),
         }
     }
 }
@@ -532,6 +533,7 @@ pub struct IsolateClient<RT: Runtime> {
     scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     sender: CoDelQueueSender<RT, Request<RT>>,
     concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    concurrency_limiter: ConcurrencyLimiter,
 }
 
 impl<RT: Runtime> IsolateClient<RT> {
@@ -541,17 +543,17 @@ impl<RT: Runtime> IsolateClient<RT> {
         max_isolate_workers: usize,
         isolate_config: Option<IsolateConfig>,
     ) -> anyhow::Result<Self> {
-        let concurrency_limit = if *FUNRUN_ISOLATE_ACTIVE_THREADS > 0 {
+        let concurrency_limiter = if *FUNRUN_ISOLATE_ACTIVE_THREADS > 0 {
             ConcurrencyLimiter::new(*FUNRUN_ISOLATE_ACTIVE_THREADS)
         } else {
             ConcurrencyLimiter::unlimited()
         };
         let concurrency_logger = rt.spawn(
             "concurrency_logger",
-            concurrency_limit.go_log(rt.clone(), ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY),
+            concurrency_limiter.go_log(rt.clone(), ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY),
         );
         let isolate_config =
-            isolate_config.unwrap_or(IsolateConfig::new("funrun", concurrency_limit));
+            isolate_config.unwrap_or(IsolateConfig::new("funrun", concurrency_limiter.clone()));
 
         initialize_v8();
         // NB: We don't call V8::Dispose or V8::ShutdownPlatform since we just assume a
@@ -582,7 +584,12 @@ impl<RT: Runtime> IsolateClient<RT> {
             scheduler: Arc::new(Mutex::new(Some(scheduler))),
             concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
             handles,
+            concurrency_limiter,
         })
+    }
+
+    pub fn concurrency_limiter(&self) -> &ConcurrencyLimiter {
+        &self.concurrency_limiter
     }
 
     pub fn aggregate_heap_stats(&self) -> IsolateHeapStats {

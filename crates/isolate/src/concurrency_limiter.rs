@@ -50,6 +50,14 @@ impl ConcurrencyLimiter {
         Self { tx, rx, tracker }
     }
 
+    pub fn active_permits(&self) -> usize {
+        self.tx.len()
+    }
+
+    pub fn max_permits(&self) -> Option<usize> {
+        self.tx.capacity()
+    }
+
     // If a client uses a thread for too long. We still want to log periodically.
     pub fn go_log<RT: Runtime>(
         &self,

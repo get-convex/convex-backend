@@ -1096,6 +1096,17 @@ pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
 pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 100)));
 
+/// CPU utilization at which the funrun load reporter's
+/// `effective_load` saturates to 1.0.
+pub static FUNRUN_TARGET_CPU_USAGE: LazyLock<f64> =
+    LazyLock::new(|| env_config("FUNRUN_TARGET_CPU_USAGE", 0.90));
+
+/// Linux CPU PSI at which the funrun load reporter's `effective_load` saturates
+/// to 1.0. Pressure rises before pure utilization does, so this gives the
+/// router an earlier signal that a host is starting to struggle.
+pub static FUNRUN_MAX_CPU_PRESSURE: LazyLock<f64> =
+    LazyLock::new(|| env_config("FUNRUN_MAX_CPU_PRESSURE", 0.20));
+
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
 /// knob doesn't delay deploys that are required due to the user pushing new
 /// node actions. Only affects deploys on startup triggered by changes to
