@@ -656,13 +656,13 @@ function PeriodicBackupSelector({
   const [frequency, setFrequency] = useState<"hourly" | "daily" | "weekly">(
     "daily",
   );
-  const [hourUtc, setHourUtc] = useState(3);
-  const [dayOfWeek, setDayOfWeek] = useState(0); // Sunday
+  // Hour and dayOfWeek are stored in the user's *local* timezone — we convert
+  // to UTC at the cron boundary in buildCronspec.
+  const [hour, setHour] = useState(3);
+  const [dayOfWeek, setDayOfWeek] = useState(0); // Sunday (local)
   const [includeStorage, setIncludeStorage] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate local state from the backend exactly once; subsequent server
-  // updates win automatically the next time we re-render.
   useEffect(() => {
     if (config === undefined || hydrated) return;
     if (config === null) {
@@ -675,8 +675,20 @@ function PeriodicBackupSelector({
       const parsed = parseCronspec(config.cronspec);
       if (parsed) {
         setFrequency(parsed.frequency);
-        if (parsed.hourUtc !== undefined) setHourUtc(parsed.hourUtc);
-        if (parsed.dayOfWeek !== undefined) setDayOfWeek(parsed.dayOfWeek);
+        if (
+          parsed.frequency === "weekly" &&
+          parsed.hourUtc !== undefined &&
+          parsed.dayOfWeek !== undefined
+        ) {
+          const local = utcToLocal(parsed.hourUtc, parsed.dayOfWeek);
+          setHour(local.hour);
+          setDayOfWeek(local.dayOfWeek);
+        } else if (
+          parsed.frequency === "daily" &&
+          parsed.hourUtc !== undefined
+        ) {
+          setHour(utcToLocal(parsed.hourUtc).hour);
+        }
       }
     }
     setHydrated(true);
@@ -700,7 +712,7 @@ function PeriodicBackupSelector({
         });
         if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
       } else {
-        const cronspec = buildCronspec(frequency, hourUtc, dayOfWeek);
+        const cronspec = buildCronspec(frequency, hour, dayOfWeek);
         const url = joinUrlPath(
           deploymentUrl,
           `/api/periodic_backup/configure`,
@@ -746,12 +758,22 @@ function PeriodicBackupSelector({
     if (config === null) return true; // first time turning on
     const persistedParsed = parseCronspec(config.cronspec);
     if (!persistedParsed) return true; // we couldn't read it; safer to allow save
-    return (
-      persistedParsed.frequency !== frequency ||
-      (frequency !== "hourly" && persistedParsed.hourUtc !== hourUtc) ||
-      (frequency === "weekly" && persistedParsed.dayOfWeek !== dayOfWeek) ||
-      Boolean(config.include_storage) !== includeStorage
+    if (persistedParsed.frequency !== frequency) return true;
+    if (Boolean(config.include_storage) !== includeStorage) return true;
+    if (frequency === "hourly") return false;
+    // Compare against persisted UTC values by re-projecting the local edits
+    // through the same conversion buildCronspec uses.
+    const editedUtc = localToUtc(
+      hour,
+      frequency === "weekly" ? dayOfWeek : undefined,
     );
+    if (persistedParsed.hourUtc !== editedUtc.hour) return true;
+    if (
+      frequency === "weekly" &&
+      persistedParsed.dayOfWeek !== editedUtc.dayOfWeek
+    )
+      return true;
+    return false;
   })();
 
   return (
@@ -774,7 +796,7 @@ function PeriodicBackupSelector({
         {submitting && <Spinner className="size-3" />}
       </label>
       {enabled && (
-        <div className="flex flex-col gap-3 rounded-md border bg-background-tertiary/30 p-3">
+        <div className="flex flex-col gap-3">
           <FieldLabel>Frequency</FieldLabel>
           <div
             role="radiogroup"
@@ -840,15 +862,15 @@ function PeriodicBackupSelector({
 
           {frequency !== "hourly" && (
             <div className="flex flex-col gap-1">
-              <FieldLabel>Time (UTC)</FieldLabel>
+              <FieldLabel>Time ({localTimezoneName()})</FieldLabel>
               <Combobox
                 label="Time"
                 options={Array.from({ length: 24 }, (_, h) => ({
                   label: `${String(h).padStart(2, "0")}:00`,
                   value: h,
                 }))}
-                selectedOption={hourUtc}
-                setSelectedOption={(v) => v !== null && setHourUtc(v)}
+                selectedOption={hour}
+                setSelectedOption={(v) => v !== null && setHour(v)}
                 buttonClasses="w-full"
                 disabled={submitting}
                 size="sm"
@@ -942,20 +964,65 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Build a 5-field UTC cron expression from the picker's choices. */
+/**
+ * Build a 5-field UTC cron expression from the picker's choices, which are
+ * expressed in the user's local timezone. For weekly schedules we have to
+ * convert *both* hour and day-of-week together — picking "Sunday 23:00" in
+ * UTC-5 maps to "Monday 04:00 UTC", not "Sunday 04:00 UTC".
+ */
 function buildCronspec(
   frequency: "hourly" | "daily" | "weekly",
-  hourUtc: number,
-  dayOfWeek: number,
+  hourLocal: number,
+  dayOfWeekLocal: number,
 ): string {
   switch (frequency) {
     case "hourly":
       return `0 * * * *`;
-    case "daily":
-      return `0 ${hourUtc} * * *`;
-    case "weekly":
-      return `0 ${hourUtc} * * ${dayOfWeek}`;
+    case "daily": {
+      const { hour } = localToUtc(hourLocal);
+      return `0 ${hour} * * *`;
+    }
+    case "weekly": {
+      const { hour, dayOfWeek } = localToUtc(hourLocal, dayOfWeekLocal);
+      return `0 ${hour} * * ${dayOfWeek}`;
+    }
   }
+}
+
+/**
+ * Convert a (dayOfWeek, hour) wall-clock time in the user's local timezone
+ * to the equivalent (dayOfWeek, hour) in UTC. Anchored at a known Sunday so
+ * the day-of-week math wraps cleanly across midnight.
+ */
+function localToUtc(
+  hourLocal: number,
+  dayOfWeekLocal?: number,
+): { hour: number; dayOfWeek: number } {
+  // 2024-01-07 was a Sunday.
+  const d = new Date(2024, 0, 7 + (dayOfWeekLocal ?? 0), hourLocal, 0);
+  return { hour: d.getUTCHours(), dayOfWeek: d.getUTCDay() };
+}
+
+/** Inverse of `localToUtc`. */
+function utcToLocal(
+  hourUtc: number,
+  dayOfWeekUtc?: number,
+): { hour: number; dayOfWeek: number } {
+  const d = new Date(Date.UTC(2024, 0, 7 + (dayOfWeekUtc ?? 0), hourUtc, 0));
+  return { hour: d.getHours(), dayOfWeek: d.getDay() };
+}
+
+/**
+ * Short localized name of the user's timezone (e.g. "PST", "GMT+9"). Used
+ * to label the time picker so the user knows which zone the picker is in.
+ */
+function localTimezoneName(): string {
+  const part = new Intl.DateTimeFormat(undefined, {
+    timeZoneName: "short",
+  })
+    .formatToParts(new Date())
+    .find((p) => p.type === "timeZoneName");
+  return part?.value ?? "local";
 }
 
 /**
