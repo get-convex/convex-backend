@@ -162,6 +162,7 @@ pub enum StructuredLogEvent {
         user_execution_time: Option<Duration>,
         usage_stats: AggregatedFunctionUsageStats,
         occ_info: Option<OccInfo>,
+        will_retry: bool,
         scheduler_info: Option<SchedulerInfo>,
     },
     /// Topic for exceptions. These happen when a UDF raises an exception from
@@ -321,6 +322,7 @@ impl LogEvent {
                     user_execution_time,
                     usage_stats,
                     occ_info: _,
+                    will_retry: _,
                     scheduler_info: _,
                 } => {
                     let (reason, status) = match error {
@@ -487,6 +489,7 @@ impl LogEvent {
                     user_execution_time,
                     usage_stats,
                     occ_info,
+                    will_retry,
                     scheduler_info,
                 } => {
                     let function_source = source.to_json_map();
@@ -530,6 +533,7 @@ impl LogEvent {
                         "status": status,
                         "error_message": error_message,
                         "occ_info": occ_info,
+                        "will_retry": will_retry,
                         "scheduler_info": scheduler_info,
                         "usage": Usage {
                             database_read_bytes: usage_stats.database_read_bytes,
@@ -757,6 +761,7 @@ pub enum FunctionExecutionJson {
         usage_stats: UsageStatsJson,
         return_bytes: Option<f64>,
         occ_info: Option<OccInfoJson>,
+        will_retry: bool,
         execution_timestamp: f64,
         identity_type: String,
         environment: String,

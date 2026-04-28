@@ -118,14 +118,14 @@ use value::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     function_log::FunctionExecutionLog,
-    occ_info_for_logging,
 };
 
 mod metrics;
 
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
 pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
-pub(crate) const SCHEDULED_JOB_MUTATION_ERROR: &str = "scheduled_job_mutation_error";
+pub(crate) const SCHEDULED_JOB_WRITE_THROUGHPUT_ERROR: &str =
+    "scheduled_job_write_throughput_error";
 pub(crate) const SCHEDULED_JOB_SUCCEEDED: &str = "scheduled_job_succeeded";
 pub(crate) const SCHEDULED_JOB_QUERIED: &str = "scheduled_job_queried";
 pub(crate) const SCHEDULER_STARTED: &str = "scheduler_started";
@@ -756,25 +756,41 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             let (mut tx, mut outcome) = match result {
                 Ok(r) => r,
                 Err(e) => {
-                    self.function_log
-                        .log_mutation_system_error(
-                            &e,
-                            path,
-                            udf_args.clone(),
-                            identity,
-                            start,
-                            caller.clone(),
-                            context,
-                            None,
-                            mutation_retry_count,
-                        )
-                        .await?;
                     if e.short_msg() == "TooManyWrites" {
-                        pause_client.wait(SCHEDULED_JOB_MUTATION_ERROR).await;
+                        self.function_log
+                            .log_mutation_write_throughput_error(
+                                &e,
+                                path,
+                                udf_args.clone(),
+                                identity,
+                                start,
+                                caller.clone(),
+                                context,
+                                None,
+                                mutation_retry_count,
+                                true,
+                            )
+                            .await?;
+                        pause_client
+                            .wait(SCHEDULED_JOB_WRITE_THROUGHPUT_ERROR)
+                            .await;
                         let delay = backoff.fail(&mut self.rt.rng());
                         self.rt.wait(delay).await;
                         continue;
                     } else {
+                        self.function_log
+                            .log_mutation_system_error(
+                                &e,
+                                path,
+                                udf_args.clone(),
+                                identity,
+                                start,
+                                caller.clone(),
+                                context,
+                                None,
+                                mutation_retry_count,
+                            )
+                            .await?;
                         // Only retry in this loop on write throughput errors and OCC errors on
                         // commit (below), other system errors should cause
                         // the mutation to be rescheduled.
@@ -802,26 +818,22 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 if let Err(err) = commit_result {
                     if err.is_deterministic_user_error() {
                         outcome.result = Err(JsError::from_error(err));
-                    } else if err.is_occ() || err.short_msg() == "TooManyWrites" {
+                    } else if let Some(occ_info) = err.occ_info() {
                         metrics::log_scheduled_job_failure(&err, mutation_retry_count as u32);
-                        if err.occ_info().is_some() {
-                            // TODO log errors on write throughput limit too
-                            let occ_info =
-                                occ_info_for_logging(err.occ_info(), mutation_retry_count);
-                            self.function_log
-                                .log_mutation_occ_error(
-                                    outcome,
-                                    stats,
-                                    execution_time,
-                                    caller.clone(),
-                                    usage_tracker,
-                                    context,
-                                    occ_info,
-                                    None,
-                                    mutation_retry_count,
-                                )
-                                .await;
-                        }
+                        self.function_log
+                            .log_mutation_occ_error(
+                                outcome,
+                                stats,
+                                execution_time,
+                                caller.clone(),
+                                usage_tracker,
+                                context,
+                                occ_info,
+                                None,
+                                mutation_retry_count,
+                                true,
+                            )
+                            .await;
                         let delay = backoff.fail(&mut self.rt.rng());
                         self.rt.wait(delay).await;
                         continue;

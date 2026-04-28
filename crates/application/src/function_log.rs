@@ -179,6 +179,10 @@ pub struct FunctionExecution {
 
     // If this execution resulted in an OCC error, this will be Some.
     pub occ_info: Option<OccInfo>,
+
+    /// Whether this function will be retried (e.g. a mutation that OCCs or hits
+    /// write throughput limits)
+    pub will_retry: bool,
 }
 
 impl HeapSize for FunctionExecution {
@@ -273,6 +277,7 @@ impl FunctionExecution {
                 execution_time,
                 user_execution_time: self.user_execution_time,
                 occ_info: self.occ_info.clone(),
+                will_retry: self.will_retry,
                 scheduler_info: match self.caller {
                     FunctionCaller::Scheduler { job_id, .. } => Some(SchedulerInfo {
                         job_id: job_id.to_string(),
@@ -752,6 +757,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             mutation_retry_count: None,
             occ_info: None,
+            will_retry: false,
         };
         self.log_execution(execution, true, true);
     }
@@ -777,6 +783,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             None,
             mutation_queue_length,
             mutation_retry_count,
+            false,
         )
         .await
     }
@@ -814,6 +821,44 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             None,
             mutation_queue_length,
             mutation_retry_count,
+            false,
+        )
+        .await;
+        Ok(())
+    }
+
+    pub async fn log_mutation_write_throughput_error(
+        &self,
+        e: &anyhow::Error,
+        path: CanonicalizedComponentFunctionPath,
+        arguments: SerializedArgs,
+        identity: InertIdentity,
+        start: tokio::time::Instant,
+        caller: FunctionCaller,
+        context: ExecutionContext,
+        mutation_queue_length: Option<usize>,
+        mutation_retry_count: usize,
+        will_retry: bool,
+    ) -> anyhow::Result<()> {
+        let outcome = ValidatedUdfOutcome::from_error(
+            JsError::from_error_ref(e),
+            path,
+            arguments,
+            identity,
+            self.rt.clone(),
+            None,
+        )?;
+        self._log_mutation(
+            outcome,
+            Default::default(),
+            start.elapsed(),
+            caller,
+            TrackUsage::SystemError,
+            context,
+            None,
+            mutation_queue_length,
+            mutation_retry_count,
+            will_retry,
         )
         .await;
         Ok(())
@@ -827,10 +872,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: FunctionUsageTracker,
         context: ExecutionContext,
-        occ_info: OccInfo,
+        mut occ_info: OccInfo,
         mutation_queue_length: Option<usize>,
         mutation_retry_count: usize,
+        will_retry: bool,
     ) {
+        occ_info.retry_count = Some(mutation_retry_count as u64);
         self._log_mutation(
             outcome,
             tables_touched,
@@ -841,6 +888,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             Some(occ_info),
             mutation_queue_length,
             mutation_retry_count,
+            will_retry,
         )
         .await;
     }
@@ -856,6 +904,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         occ_info: Option<OccInfo>,
         mutation_queue_length: Option<usize>,
         mutation_retry_count: usize,
+        will_retry: bool,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -909,6 +958,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             mutation_retry_count: Some(mutation_retry_count),
             occ_info,
+            will_retry,
         };
         self.log_execution(execution, true, true);
     }
@@ -1005,6 +1055,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context: completion.context,
             mutation_retry_count: None,
             occ_info: None,
+            will_retry: false,
         };
         self.log_execution(execution, /* send_console_events */ false, true)
     }
@@ -1165,6 +1216,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             mutation_retry_count: None,
             occ_info: None,
+            will_retry: false,
         };
         self.log_execution(
             execution,

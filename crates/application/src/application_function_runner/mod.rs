@@ -223,7 +223,6 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
-    occ_info_for_logging,
     ActionError,
     ActionReturn,
     MutationError,
@@ -944,7 +943,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             log_lines,
                         })
                     } else {
-                        if e.is_occ()
+                        if let Some(occ_info) = e.occ_info()
                             && (backoff.failures() as usize) < *UDF_EXECUTOR_OCC_MAX_RETRIES
                         {
                             let sleep = backoff.fail(&mut self.runtime.rng());
@@ -958,7 +957,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             {
                                 self.database.wait_for_write_ts(write_ts).await;
                             }
-                            let occ_info = occ_info_for_logging(e.occ_info(), mutation_retry_count);
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -970,14 +968,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    true,
                                 )
                                 .await;
                             continue;
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
 
-                        if e.is_occ() {
-                            let occ_info = occ_info_for_logging(e.occ_info(), mutation_retry_count);
+                        if let Some(occ_info) = e.occ_info() {
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -989,6 +987,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    false,
                                 )
                                 .await;
                         } else {
