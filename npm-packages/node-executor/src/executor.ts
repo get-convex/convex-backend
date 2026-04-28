@@ -72,7 +72,12 @@ export function setupGlobals(modulePath: string) {
 
 let numInvocations = 0;
 
-export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
+async function runWithEnvironmentVariables<T>(
+  envs: EnvironmentVariable[],
+  fn: (envHash: string) => Promise<T>,
+): Promise<T> {
+  const savedEnv = process.env;
+
   // AWS Lambda populates a number of environment variables, like Lambda version,
   // handler name, session, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc. We
   // don't want to expose any of that. Only expose variables that are common
@@ -100,7 +105,16 @@ export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
   }
 
   // Compute a hash based on the user defined environment variables.
-  return createHash("md5").update(JSON.stringify(envs)).digest("hex");
+  const envHash = createHash("md5").update(JSON.stringify(envs)).digest("hex");
+
+  try {
+    return await fn(envHash);
+  } finally {
+    // Restore the initial environment when we’re done.
+    // This is helpful to bypass a AWS Lambda bug affecting Node.js 24 where the lambda
+    // would crash when AWS’s own env vars are missing after a second function execution.
+    process.env = savedEnv;
+  }
 }
 
 export const ogProcessExit = process.exit;
@@ -357,90 +371,93 @@ export async function executeInner(
   const start = performance.now();
   // We have to reevaluate the module if the envs change since they can be used
   // in global scope. We add them as query argument to achieve this behavior.
-  const envHash = setEnvironmentVariables(environmentVariables);
+  return await runWithEnvironmentVariables(
+    environmentVariables,
+    async (envHash) => {
+      setupGlobals(`${modulesDir}/${relPath}`);
+      const module = await import(
+        path.join(modulesDir, `${relPath}?envHash=${envHash}`)
+      );
+      const importTimeMs = logDurationMs("importTimeMs", start);
 
-  setupGlobals(`${modulesDir}/${relPath}`);
-  const module = await import(
-    path.join(modulesDir, `${relPath}?envHash=${envHash}`)
-  );
-  const importTimeMs = logDurationMs("importTimeMs", start);
+      const userFunction = module[name];
+      if (!userFunction) {
+        throw new Error(`Couldn't find action \`${name}\` in \`${relPath}\``);
+      }
+      if (!isConvexAction(userFunction)) {
+        throw new Error(
+          `\`${name}\` wasn't registered as a Convex action in \`${relPath}\``,
+        );
+      }
+      const invoke = userFunction.invokeAction;
+      const startExecute = performance.now();
 
-  const userFunction = module[name];
-  if (!userFunction) {
-    throw new Error(`Couldn't find action \`${name}\` in \`${relPath}\``);
-  }
-  if (!isConvexAction(userFunction)) {
-    throw new Error(
-      `\`${name}\` wasn't registered as a Convex action in \`${relPath}\``,
-    );
-  }
-  const invoke = userFunction.invokeAction;
-  const startExecute = performance.now();
+      // Use this symbol to determine if the result of the Promise.race
+      // was a timeout or not.
+      const timeoutError = Symbol();
+      let udfReturn: string | symbol;
+      try {
+        let timer: NodeJS.Timeout | null = null;
 
-  // Use this symbol to determine if the result of the Promise.race
-  // was a timeout or not.
-  const timeoutError = Symbol();
-  let udfReturn: string | symbol;
-  try {
-    let timer: NodeJS.Timeout | null = null;
+        const timeout = new Promise<symbol>((res) => {
+          timer = setTimeout(() => res(timeoutError), timeoutSecs * 1000);
+        });
 
-    const timeout = new Promise<symbol>((res) => {
-      timer = setTimeout(() => res(timeoutError), timeoutSecs * 1000);
-    });
+        udfReturn = await globalSyscalls.run(syscalls, () => {
+          return Promise.race<string | symbol>([
+            invoke(lambdaExecuteId, args),
+            timeout,
+          ]).finally(() => {
+            // Always clear the timeout after the promise is settled.
+            // There shouldn't be a race because the timeout promise is created first.
+            // But it's also fine because with Promise.race the timeout promise should be swallowed
+            if (timer) {
+              clearTimeout(timer);
+            }
+          });
+        });
+      } catch (e: any) {
+        // Accessing `e.stack` is important! Without it e.__frameData
+        // is not generated!
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        e?.stack;
 
-    udfReturn = await globalSyscalls.run(syscalls, () => {
-      return Promise.race<string | symbol>([
-        invoke(lambdaExecuteId, args),
-        timeout,
-      ]).finally(() => {
-        // Always clear the timeout after the promise is settled.
-        // There shouldn't be a race because the timeout promise is created first.
-        // But it's also fine because with Promise.race the timeout promise should be swallowed
-        if (timer) {
-          clearTimeout(timer);
-        }
-      });
-    });
-  } catch (e: any) {
-    // Accessing `e.stack` is important! Without it e.__frameData
-    // is not generated!
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    e?.stack;
+        const udfTimeMs = logDurationMs("executeUdf", startExecute);
+        return {
+          type: "error",
+          message: extractErrorMessage(e),
+          name: e?.name ?? "",
+          data: getConvexErrorData(e),
+          frames: e?.__frameData ? JSON.parse(e.__frameData) : [],
+          udfTimeMs,
+          importTimeMs,
+          exitingProcess: false,
+        };
+      }
 
-    const udfTimeMs = logDurationMs("executeUdf", startExecute);
-    return {
-      type: "error",
-      message: extractErrorMessage(e),
-      name: e?.name ?? "",
-      data: getConvexErrorData(e),
-      frames: e?.__frameData ? JSON.parse(e.__frameData) : [],
-      udfTimeMs,
-      importTimeMs,
-      exitingProcess: false,
-    };
-  }
-
-  if (udfReturn === timeoutError) {
-    throw new Error(
-      `Action \`${name}\` execution timed out (maximum duration ${timeoutSecs}s)`,
-    );
-  }
-  if (typeof udfReturn !== "string") {
-    throw new Error(
-      // Need to cast to a string here to make TS happy.
-      `Action \`${name}\` did not return a string (returned \`${String(
+      if (udfReturn === timeoutError) {
+        throw new Error(
+          `Action \`${name}\` execution timed out (maximum duration ${timeoutSecs}s)`,
+        );
+      }
+      if (typeof udfReturn !== "string") {
+        throw new Error(
+          // Need to cast to a string here to make TS happy.
+          `Action \`${name}\` did not return a string (returned \`${String(
+            udfReturn,
+          )}\`)`,
+        );
+      }
+      syscalls.assertNoPendingSyscalls();
+      const udfTimeMs = logDurationMs("executeUdf", startExecute);
+      return {
+        type: "success",
         udfReturn,
-      )}\`)`,
-    );
-  }
-  syscalls.assertNoPendingSyscalls();
-  const udfTimeMs = logDurationMs("executeUdf", startExecute);
-  return {
-    type: "success",
-    udfReturn,
-    udfTimeMs,
-    importTimeMs,
-  };
+        udfTimeMs,
+        importTimeMs,
+      };
+    },
+  );
 }
 
 // Keep in sync with registration_impl
@@ -481,27 +498,31 @@ export type AnalyzeResponse =
 export async function analyze(
   request: AnalyzeRequest,
 ): Promise<AnalyzeResponse> {
-  setEnvironmentVariables(request.environmentVariables);
-  const local = await maybeDownloadAndLinkPackages(request.sourcePackage);
-  const modulesDir = path.join(local.dir, "modules");
-  registerPrepareStackTrace(modulesDir);
-  const modules: Record<CanonicalizedModulePath, AnalyzedFunctions> = {};
-  for (const modulePath of local.modules) {
-    try {
-      const filePath = path.join(modulesDir, modulePath);
-      modules[modulePath] = await analyzeModule(filePath);
-    } catch (e: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-      e.stack;
-      return {
-        type: "error",
-        message: `Failed to analyze ${modulePath}: ${extractErrorMessage(e)}`,
-        frames: e.__frameData ? JSON.parse(e.__frameData) : [],
-      };
-    }
-  }
+  return await runWithEnvironmentVariables(
+    request.environmentVariables,
+    async () => {
+      const local = await maybeDownloadAndLinkPackages(request.sourcePackage);
+      const modulesDir = path.join(local.dir, "modules");
+      registerPrepareStackTrace(modulesDir);
+      const modules: Record<CanonicalizedModulePath, AnalyzedFunctions> = {};
+      for (const modulePath of local.modules) {
+        try {
+          const filePath = path.join(modulesDir, modulePath);
+          modules[modulePath] = await analyzeModule(filePath);
+        } catch (e: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+          e.stack;
+          return {
+            type: "error",
+            message: `Failed to analyze ${modulePath}: ${extractErrorMessage(e)}`,
+            frames: e.__frameData ? JSON.parse(e.__frameData) : [],
+          };
+        }
+      }
 
-  return { type: "success", modules };
+      return { type: "success", modules };
+    },
+  );
 }
 
 type Visibility = { kind: "public" } | { kind: "internal" };
