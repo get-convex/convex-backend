@@ -26,6 +26,10 @@ use crate::external_packages::types::ExternalDepsPackageId;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum NodeVersion {
+    /// Node 18 is deprecated in AWS, so customers with it set will
+    /// no longer be able to update their static lambdas. This is okay because
+    /// users can update their Node version to unblock themselves. This also
+    /// means that new deployments with Node 18 will fail.
     V18x,
     V20x,
     V22x,
