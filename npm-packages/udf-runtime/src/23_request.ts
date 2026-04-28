@@ -73,8 +73,7 @@ export class Request {
   private readonly _headers: Headers;
   private readonly _url: string;
   private readonly _method: string;
-  // @ts-expect-error FIXME
-  private _bodyStream: ReadableStream | null;
+  private _bodyStream: ReadableStream | null = null;
   private _bodyUsed = false;
   private _signal: AbortSignal;
   [_contentLength]: number | null;
