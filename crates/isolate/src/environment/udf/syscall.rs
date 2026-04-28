@@ -4,7 +4,6 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use common::{
-    audit_log_lines::AuditLogLine,
     query::Query,
     runtime::Runtime,
     static_span,
@@ -39,13 +38,10 @@ use super::{
     async_syscall::AsyncSyscallProvider,
     DatabaseUdfEnvironment,
 };
-use crate::environment::{
-    helpers::{
-        parse_version,
-        with_argument_error,
-        ArgName,
-    },
-    IsolateEnvironment,
+use crate::environment::helpers::{
+    parse_version,
+    with_argument_error,
+    ArgName,
 };
 
 pub trait SyscallProvider<RT: Runtime> {
@@ -59,8 +55,6 @@ pub trait SyscallProvider<RT: Runtime> {
     fn cleanup_query(&mut self, query_id: u32) -> bool;
 
     fn require_operation(&mut self, op: DeploymentOp) -> anyhow::Result<()>;
-
-    fn audit_log(&mut self, body: JsonValue) -> anyhow::Result<()>;
 }
 
 impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
@@ -116,17 +110,6 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     fn require_operation(&mut self, op: DeploymentOp) -> anyhow::Result<()> {
         self.phase.tx()?.identity().require_operation(op)
     }
-
-    fn audit_log(&mut self, body: JsonValue) -> anyhow::Result<()> {
-        let timestamp = self.unix_timestamp()?;
-        let path = self.path.clone().for_logging();
-        self.emit_audit_log_line(AuditLogLine {
-            body,
-            timestamp,
-            path,
-        });
-        Ok(())
-    }
 }
 
 pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
@@ -140,7 +123,6 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
         "1.0/db/normalizeId" => syscall_normalize_id(provider, args),
         "1.0/componentArgument" => syscall_component_argument(provider, args),
         "1.0/requireOperation" => syscall_require_operation(provider, args),
-        "1.0/auditLog" => syscall_audit_log(provider, args),
 
         "throwOcc" => anyhow::bail!(ErrorMetadata::user_occ(None, None, None)),
         "throwOverloaded" => {
@@ -287,20 +269,4 @@ fn syscall_require_operation<RT: Runtime, P: SyscallProvider<RT>>(
     })?;
     provider.require_operation(operation)?;
     Ok(json!({}))
-}
-
-fn syscall_audit_log<RT: Runtime, P: SyscallProvider<RT>>(
-    provider: &mut P,
-    args: JsonValue,
-) -> anyhow::Result<JsonValue> {
-    let _s = static_span!();
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct AuditLogArgs {
-        body: JsonValue,
-    }
-    let args: AuditLogArgs = with_argument_error("auditLog", || Ok(serde_json::from_value(args)?))?;
-    provider.audit_log(args.body)?;
-    Ok(JsonValue::Null)
 }

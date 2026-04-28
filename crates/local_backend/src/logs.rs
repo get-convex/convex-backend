@@ -205,6 +205,7 @@ fn execution_to_json(
     let occ_info_json = execution
         .occ_info
         .map(common::log_streaming::OccInfoJson::from);
+    let will_retry = execution.will_retry;
     let identity_type = execution.identity.tag().value.to_string();
     let environment = execution.environment.to_string();
     let execution_timestamp = execution.execution_timestamp.as_secs_f64();
@@ -236,6 +237,7 @@ fn execution_to_json(
                 usage_stats: usage_stats_json,
                 return_bytes: execution.return_bytes.map(|bytes| bytes as f64),
                 occ_info: occ_info_json,
+                will_retry,
                 execution_timestamp,
                 identity_type,
                 environment,
@@ -270,6 +272,7 @@ fn execution_to_json(
                 usage_stats: usage_stats_json,
                 return_bytes: None, // Not supported in HTTP actions
                 occ_info: occ_info_json,
+                will_retry,
                 execution_timestamp,
                 identity_type,
                 environment,

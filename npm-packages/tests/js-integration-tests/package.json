@@ -4,7 +4,7 @@
   "scripts": {
     "test-integration": "jest warmup-jest-cache.test.ts && jest --silent",
     "clean": "",
-    "build": ""
+    "build": "tsc --noEmit"
   },
   "dependencies": {
     "jest": "^30.0.0",

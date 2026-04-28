@@ -267,6 +267,7 @@ export class Blob {
         );
       } else if (
         (element.buffer instanceof ArrayBuffer ||
+          // @ts-expect-error FIXME
           element.buffer instanceof SharedArrayBuffer) &&
         typeof element.byteLength === "number" &&
         typeof element.byteOffset === "number"

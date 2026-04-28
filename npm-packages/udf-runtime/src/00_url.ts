@@ -55,7 +55,7 @@ class URLSearchParams {
             "Failed to construct 'URLSearchParams': Failed to construct 'URLSearchParams': Sequence initializer must only contain pair elements",
           );
         }
-        this.append(pair[0], pair[1]);
+        this.append(pair[0]!, pair[1]!);
       }
     } else if (init instanceof URLSearchParams) {
       init.forEach((value, key) => {
@@ -63,7 +63,7 @@ class URLSearchParams {
       });
     } else {
       for (const key in init) {
-        this.append(key, init[key]);
+        this.append(key, init[key]!);
       }
     }
   }
