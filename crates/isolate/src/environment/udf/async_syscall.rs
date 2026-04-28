@@ -456,13 +456,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn audit_log(&mut self, body: JsonValue) -> anyhow::Result<()> {
-        let timestamp = self.phase.unix_timestamp()?;
-        let path = self.path.clone().for_logging();
-        self.emit_audit_log_line(AuditLogLine {
-            body,
-            timestamp,
-            path,
-        });
+        self.emit_audit_log_line(AuditLogLine { body });
         Ok(())
     }
 

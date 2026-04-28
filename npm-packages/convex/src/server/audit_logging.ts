@@ -1,18 +1,5 @@
 import { performAsyncSyscall } from "./impl/syscall.js";
-
-const REQUEST_ID = Symbol("var.requestId");
-const IP = Symbol("var.ip");
-const USER_AGENT = Symbol("var.userAgent");
-const NOW = Symbol("var.now");
-
-type AuditVar = typeof REQUEST_ID | typeof IP | typeof USER_AGENT | typeof NOW;
-
-const varNames: Record<symbol, string> = {
-  [REQUEST_ID]: "requestId",
-  [IP]: "ip",
-  [USER_AGENT]: "userAgent",
-  [NOW]: "now",
-};
+import { LogVar, varNames } from "./log.js";
 
 export type AuditLogBody = { [key: string]: AuditLogValue };
 export type AuditLogValue =
@@ -21,7 +8,7 @@ export type AuditLogValue =
   | boolean
   | number
   | string
-  | AuditVar
+  | LogVar
   | AuditLogValue[]
   | { [key: string]: AuditLogValue };
 
@@ -44,7 +31,7 @@ function cloneValue(value: AuditLogValue): JsonValue {
   if (typeof value === "symbol") {
     if (!(value in varNames)) {
       throw new Error(
-        `Unknown audit var symbol: ${String(value)}. Use one of audit.var.requestId, audit.var.ip, audit.var.userAgent, or audit.var.now.`,
+        `Unknown audit var symbol: ${String(value)}. Use one of log.var.requestId, log.var.ip, log.var.userAgent, or log.var.now.`,
       );
     }
     return { $var: varNames[value] };
@@ -78,33 +65,11 @@ export function cloneWithSentinels(body: AuditLogBody): {
   return result;
 }
 
-const auditVars = {
-  /** Resolved to the request ID. */
-  requestId: REQUEST_ID,
-  /** Resolved to the client's IP address. */
-  ip: IP,
-  /** Resolved to the client's User-Agent header. */
-  userAgent: USER_AGENT,
-  /**
-   * Resolved to the current server timestamp, as milliseconds from the
-   * Unix epoch.
-   */
-  now: NOW,
-} as const;
-
 /**
- * Audit logging API. Use `audit.log()` to emit an audit log line from a
- * Convex function. The body can contain `audit.var` sentinels that are
- * resolved server-side when the log line is recorded.
- *
  * @internal
  */
-export const audit = {
-  log: async (body: AuditLogBody): Promise<void> => {
-    await performAsyncSyscall("1.0/auditLog", {
-      body: cloneWithSentinels(body),
-    });
-  },
-
-  var: auditVars,
+export const audit = async (body: AuditLogBody): Promise<void> => {
+  await performAsyncSyscall("1.0/auditLog", {
+    body: cloneWithSentinels(body),
+  });
 };

@@ -14,6 +14,7 @@ use aws_credential_types::provider::ProvideCredentials;
 use aws_sdk_s3::config::Builder as S3ConfigBuilder;
 use aws_types::region::Region;
 
+pub mod firehose;
 pub mod s3;
 
 static S3_ENDPOINT_URL: LazyLock<Option<String>> =
