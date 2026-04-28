@@ -1,4 +1,4 @@
-import { performSyscall } from "./impl/syscall.js";
+import { performAsyncSyscall } from "./impl/syscall.js";
 
 const REQUEST_ID = Symbol("var.requestId");
 const IP = Symbol("var.ip");
@@ -100,8 +100,10 @@ const auditVars = {
  * @internal
  */
 export const audit = {
-  log: (body: AuditLogBody) => {
-    performSyscall("1.0/auditLog", { body: cloneWithSentinels(body) });
+  log: async (body: AuditLogBody): Promise<void> => {
+    await performAsyncSyscall("1.0/auditLog", {
+      body: cloneWithSentinels(body),
+    });
   },
 
   var: auditVars,

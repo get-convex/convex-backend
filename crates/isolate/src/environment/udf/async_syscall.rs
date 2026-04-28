@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    audit_log_lines::AuditLogLine,
     bootstrap_model::components::handles::FunctionHandle,
     components::{
         CanonicalizedComponentFunctionPath,
@@ -360,6 +361,8 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
 
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
+    fn audit_log(&mut self, body: JsonValue) -> anyhow::Result<()>;
+
     fn udf_type(&self) -> UdfType;
     fn udf_path(&self) -> &CanonicalizedUdfPath;
     fn component_path(&self) -> &ComponentPath;
@@ -450,6 +453,17 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool) {
         self.syscall_trace
             .log_async_syscall(name, duration, is_success);
+    }
+
+    fn audit_log(&mut self, body: JsonValue) -> anyhow::Result<()> {
+        let timestamp = self.phase.unix_timestamp()?;
+        let path = self.path.clone().for_logging();
+        self.emit_audit_log_line(AuditLogLine {
+            body,
+            timestamp,
+            path,
+        });
+        Ok(())
     }
 
     fn udf_type(&self) -> UdfType {
@@ -812,6 +826,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/schedule" => Box::pin(Self::schedule(provider, args)).await,
                     "1.0/cancel_job" => Box::pin(Self::cancel_job(provider, args)).await,
 
+                    // Audit logging
+                    "1.0/auditLog" => Box::pin(Self::audit_log(provider, args)).await,
                     // Audit logging (system UDFs only)
                     "1.0/writeDeploymentAuditLog" => {
                         Box::pin(Self::write_deployment_audit_log(provider, args)).await
@@ -1137,6 +1153,18 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             .cancel(virtual_id_v6)
             .await?;
 
+        Ok(JsonValue::Null)
+    }
+
+    async fn audit_log(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct AuditLogArgs {
+            body: JsonValue,
+        }
+        let args: AuditLogArgs =
+            with_argument_error("auditLog", || Ok(serde_json::from_value(args)?))?;
+        provider.audit_log(args.body)?;
         Ok(JsonValue::Null)
     }
 
