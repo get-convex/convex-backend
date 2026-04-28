@@ -3426,7 +3426,10 @@
           "updateSSO",
           "transferDeployment",
           "receiveDeployment",
-          "updateDeployment"
+          "updateDeployment",
+          "createCustomRole",
+          "updateCustomRole",
+          "deleteCustomRole"
         ]
       },
       "AuditLogActor": {

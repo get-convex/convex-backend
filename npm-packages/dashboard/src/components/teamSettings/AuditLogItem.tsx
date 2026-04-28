@@ -667,6 +667,26 @@ function EntryAction({
     case "receiveDeployment": {
       return <span>received a deployment from another project</span>;
     }
+    case "createCustomRole":
+    case "updateCustomRole":
+    case "deleteCustomRole": {
+      const name = metadata.current?.name || metadata.previous?.name;
+      if (!name) {
+        captureMessage(`Found malformed metadata for ${action}`, "error");
+        return <UnhandledAction action={action} />;
+      }
+      const verb =
+        action === "createCustomRole"
+          ? "created"
+          : action === "updateCustomRole"
+            ? "updated"
+            : "deleted";
+      return (
+        <span>
+          {verb} the custom role <span className="font-semibold">{name}</span>
+        </span>
+      );
+    }
     default:
       action satisfies never;
       captureMessage(`Unhandled audit log action: ${action}`, "error");
