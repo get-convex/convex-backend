@@ -12,11 +12,18 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
   const teamAccessTokens = useTeamAccessTokens(team.id);
   const createTeamAccessToken = useCreateTeamAccessToken(team.id);
 
-  const handleCreateToken = async (tokenName: string) => {
+  const handleCreateToken = async ({
+    tokenName,
+    expiresAt,
+  }: {
+    tokenName: string;
+    expiresAt?: number;
+  }) => {
     await createTeamAccessToken({
       authnToken: accessToken,
       deviceName: tokenName,
       teamId: team.id,
+      ...(expiresAt !== undefined && { expiresAt }),
     });
   };
 

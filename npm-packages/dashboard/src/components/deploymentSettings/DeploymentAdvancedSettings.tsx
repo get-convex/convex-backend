@@ -16,6 +16,7 @@ import { HelpTooltip } from "@ui/HelpTooltip";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
+import { THIRTY_MINUTES_MS, toDateTimeLocalValue } from "@common/lib/format";
 import { DeploymentReference } from "./DeploymentReference";
 
 type TriStateValue = boolean | null;
@@ -41,17 +42,6 @@ function isSecurityWarningDeployment(deploymentType: DeploymentType): boolean {
 function triStateDisplayValue(value: TriStateValue): string {
   if (value === null) return "Default";
   return value ? "Enabled" : "Disabled";
-}
-
-const THIRTY_MINUTES_MS = 30 * 60 * 1000;
-
-function toDateTimeLocalValue(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function TriStateRadioGroup({

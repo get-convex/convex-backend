@@ -1903,6 +1903,14 @@
           "name"
         ],
         "properties": {
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this personal access token will\nexpire. Must be at least 30 minutes in the future."
+          },
           "name": {
             "type": "string",
             "description": "Name for the personal access token."
@@ -2213,7 +2221,7 @@
             "type": "integer",
             "format": "int64"
           },
-          "expirationTime": {
+          "expiresAt": {
             "type": [
               "integer",
               "null"
@@ -2248,6 +2256,14 @@
           "name"
         ],
         "properties": {
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this deploy key will expire. Must be\nat least 30 minutes in the future."
+          },
           "name": {
             "type": "string",
             "description": "Name for the deploy key."
@@ -2324,6 +2340,14 @@
           "name"
         ],
         "properties": {
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this preview deploy key will expire.\nMust be at least 30 minutes in the future."
+          },
           "name": {
             "type": "string",
             "description": "Name for the preview deploy key."
@@ -2525,6 +2549,14 @@
                 "description": "The member ID that created this deploy key (if available)."
               }
             ]
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this deploy key will expire."
           },
           "lastUsedTime": {
             "type": [

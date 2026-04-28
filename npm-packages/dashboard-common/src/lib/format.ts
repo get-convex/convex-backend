@@ -431,6 +431,34 @@ export function toNumericUTC(dateString: string) {
   return Date.UTC(Number(year), Number(month) - 1, Number(day));
 }
 
+export const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+
+export function toDateTimeLocalValue(
+  d: Date,
+  options?: { includeSeconds?: boolean },
+): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const base = `${year}-${month}-${day}T${hours}:${minutes}`;
+  if (!options?.includeSeconds) return base;
+  const seconds = String(d.getSeconds()).padStart(2, "0");
+  return `${base}:${seconds}`;
+}
+
+export function toDateInputValue(d: Date): string {
+  return toDateTimeLocalValue(d).slice(0, 10);
+}
+
+export function parseDateInputValue(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
 export const timeLabelForMinute = (value: string | number | undefined) => {
   // Handle undefined, null, or empty values
   if (value === undefined || value === null || value === "") {

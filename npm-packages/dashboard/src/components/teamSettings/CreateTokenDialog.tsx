@@ -3,7 +3,13 @@ import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
 import { Formik } from "formik";
 import * as Yup from "yup";
-import React from "react";
+import React, { useState } from "react";
+import {
+  TokenExpirationSelector,
+  TokenExpirationValue,
+  resolveExpirationTime,
+} from "components/TokenExpirationSelector";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 const CREATE_TOKEN_SCHEMA = Yup.object({
   tokenName: Yup.string()
@@ -17,15 +23,24 @@ export function CreateTokenDialog({
   onSubmit,
 }: {
   onClose: () => void;
-  onSubmit: (tokenName: string) => Promise<void>;
+  onSubmit: (args: { tokenName: string; expiresAt?: number }) => Promise<void>;
 }) {
+  const { allowTokenExpiry } = useLaunchDarkly();
+  const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
+
   return (
     <Modal onClose={onClose} title="Create Team Access Token">
       <Formik
         initialValues={{ tokenName: "" }}
         validationSchema={CREATE_TOKEN_SCHEMA}
         onSubmit={async (values, { setSubmitting }) => {
-          await onSubmit(values.tokenName);
+          const expiresAt = allowTokenExpiry
+            ? resolveExpirationTime(expiration)
+            : null;
+          await onSubmit({
+            tokenName: values.tokenName,
+            ...(expiresAt !== null && { expiresAt }),
+          });
           setSubmitting(false);
         }}
       >
@@ -57,6 +72,13 @@ export function CreateTokenDialog({
               }
               required
             />
+
+            {allowTokenExpiry && (
+              <TokenExpirationSelector
+                value={expiration}
+                onChange={setExpiration}
+              />
+            )}
 
             <div className="flex justify-end gap-2">
               <Button variant="neutral" onClick={onClose} type="button">
