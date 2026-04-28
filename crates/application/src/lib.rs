@@ -2396,13 +2396,14 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn execute_standalone_module(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         module: ModuleConfig,
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
         component: ComponentId,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        let request_id = request_context.request_id.clone();
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -2528,7 +2529,7 @@ impl<RT: Runtime> Application<RT> {
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => {
                 self.runner
-                    .run_query_without_caching(request_id.clone(), tx, path, args, caller)
+                    .run_query_without_caching(request_context, tx, path, args, caller)
                     .await
             },
             UdfType::Mutation => {

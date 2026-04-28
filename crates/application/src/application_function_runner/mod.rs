@@ -75,7 +75,6 @@ use common::{
         UdfIdentifier,
         UdfType,
     },
-    RequestId,
 };
 use database::{
     unauthorized_error,
@@ -696,7 +695,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     // Only used for running queries from REPLs.
     pub async fn run_query_without_caching(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         mut tx: Transaction<RT>,
         path: CanonicalizedComponentFunctionPath,
         arguments: SerializedArgs,
@@ -716,8 +715,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Query,
         )
         .await?;
-        let context =
-            ExecutionContext::new(RequestContext::new_for_system_request(request_id), &caller);
+        let context = ExecutionContext::new(request_context, &caller);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
