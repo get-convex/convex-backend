@@ -20,7 +20,6 @@ interface FrameData {
 export function setupSourceMapping() {
   // This function is called on-demand when the `stack` property of an `Error` is accessed for the first time.
   // See https://v8.dev/docs/stack-trace-api for more details.
-  // @ts-expect-error FIXME
   Error.prepareStackTrace = (error, stackFrames) => {
     const frameData: FrameData[] = stackFrames.map((v8Frame) => {
       return {
@@ -30,7 +29,7 @@ export function setupSourceMapping() {
         fileName: v8Frame.getFileName(),
         lineNumber: v8Frame.getLineNumber(),
         columnNumber: v8Frame.getColumnNumber(),
-        evalOrigin: v8Frame.getEvalOrigin(),
+        evalOrigin: v8Frame.getEvalOrigin() ?? null,
         isToplevel: v8Frame.isToplevel(),
         isEval: v8Frame.isEval(),
         isNative: v8Frame.isNative(),

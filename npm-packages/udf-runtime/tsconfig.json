@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "nodenext",
     "target": "esnext",
-    "types": [],
+    "types": ["node"],
 
     // For nodejs:
     // "lib": ["esnext"],
