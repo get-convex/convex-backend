@@ -16,6 +16,45 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/DeploymentEnvironmentVariables",
+    "light": {
+      "filename": "components_deployment_environment_variables_light.webp",
+      "width": 1408,
+      "height": 870
+    },
+    "dark": {
+      "filename": "components_deployment_environment_variables_dark.webp",
+      "width": 1408,
+      "height": 870
+    }
+  },
+  {
+    "storyTitle": "docs/components/DeploymentEnvironmentVariables#With Default Diff",
+    "light": {
+      "filename": "components_deployment_environment_variables_with_default_diff_light.webp",
+      "width": 1408,
+      "height": 1018
+    },
+    "dark": {
+      "filename": "components_deployment_environment_variables_with_default_diff_dark.webp",
+      "width": 1408,
+      "height": 1018
+    }
+  },
+  {
+    "storyTitle": "docs/components/DeploymentEnvironmentVariables#Edit Inline",
+    "light": {
+      "filename": "components_deployment_environment_variables_edit_inline_light.webp",
+      "width": 1408,
+      "height": 1076
+    },
+    "dark": {
+      "filename": "components_deployment_environment_variables_edit_inline_dark.webp",
+      "width": 1408,
+      "height": 1076
+    }
+  },
+  {
     "storyTitle": "docs/components/DeploymentExpiry",
     "light": {
       "filename": "components_deployment_expiry_light.webp",
@@ -58,12 +97,12 @@ export const screenshots = [
     "storyTitle": "docs/components/OverrideEnvironmentVariables",
     "light": {
       "filename": "components_override_environment_variables_light.webp",
-      "width": 1856,
+      "width": 1408,
       "height": 644
     },
     "dark": {
       "filename": "components_override_environment_variables_dark.webp",
-      "width": 1856,
+      "width": 1408,
       "height": 644
     }
   },
@@ -78,6 +117,19 @@ export const screenshots = [
       "filename": "components_project_card_dark.webp",
       "width": 1039,
       "height": 455
+    }
+  },
+  {
+    "storyTitle": "docs/components/ProjectDefaultEnvironmentVariables",
+    "light": {
+      "filename": "components_project_default_environment_variables_light.webp",
+      "width": 1408,
+      "height": 904
+    },
+    "dark": {
+      "filename": "components_project_default_environment_variables_dark.webp",
+      "width": 1408,
+      "height": 904
     }
   },
   {
@@ -349,6 +401,45 @@ export const screenshots = [
     },
     "dark": {
       "filename": "pages_project_deployment_deployment_settings_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/EnvironmentVariables",
+    "light": {
+      "filename": "pages_project_deployment_settings_environment_variables_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_environment_variables_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/EnvironmentVariables#Auth 0",
+    "light": {
+      "filename": "pages_project_deployment_settings_environment_variables_auth_0_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_environment_variables_auth_0_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/EnvironmentVariables#Clerk",
+    "light": {
+      "filename": "pages_project_deployment_settings_environment_variables_clerk_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_environment_variables_clerk_dark.webp",
       "width": 2048,
       "height": 1400
     }

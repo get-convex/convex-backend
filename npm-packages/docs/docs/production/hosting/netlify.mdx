@@ -5,6 +5,8 @@ description: "Host your frontend on Netlify and your backend on Convex"
 sidebar_position: 20
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 Hosting your Convex app on Netlify allows you to automatically re-deploy both
 your backend and your frontend whenever you push your code.
 
@@ -139,9 +141,10 @@ This assumes you have already followed the steps in
   <Step title="(optional) Set up default environment variables">
     If your app depends on certain Convex environment variables, you can set up [default
     environment variables](/production/environment-variables.mdx#project-environment-variable-defaults) for preview and development deployments in your project.
-    <div className="screenshot-border">
-      ![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
-    </div>
+    <Screenshot
+      story="docs/components/ProjectDefaultEnvironmentVariables"
+      alt="Project default environment variables"
+    />
   </Step>
 
 <Step title="(optional) Run a function to set up initial data">

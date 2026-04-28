@@ -53,7 +53,7 @@ const meta = {
     <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
       <ConvexProvider client={mockClient}>
         <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-          <div className="max-w-4xl">
+          <div className="max-w-2xl">
             <CanonicalDomainForm {...args} />
           </div>
         </DeploymentInfoContext.Provider>
