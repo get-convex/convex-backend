@@ -47,7 +47,7 @@ impl ResolvedAuditLogLine {
 }
 
 #[derive(Serialize)]
-pub struct AuditLogSentinelValues {
+pub struct AuditLogVars {
     request_id: RequestId,
     ip: Option<ClientIp>,
     user_agent: Option<ClientUserAgent>,
@@ -57,12 +57,9 @@ pub struct AuditLogSentinelValues {
 impl AuditLogLine {
     /// Resolve all `{ "$var": "<name>" }` sentinel objects in the body,
     /// returning a [`ResolvedAuditLogLine`] with the substitutions applied.
-    pub fn resolve_body(
-        &self,
-        sentinel_values: &AuditLogSentinelValues,
-    ) -> anyhow::Result<ResolvedAuditLogLine> {
+    pub fn resolve_body(&self, vars: &AuditLogVars) -> anyhow::Result<ResolvedAuditLogLine> {
         let mut body = self.body.clone();
-        resolve_vars(&mut body, sentinel_values)?;
+        resolve_vars(&mut body, vars)?;
         Ok(ResolvedAuditLogLine(body))
     }
 }
@@ -77,16 +74,13 @@ fn as_var_sentinel(value: &JsonValue) -> Option<&str> {
     obj.get("$var")?.as_str()
 }
 
-fn resolve_vars(
-    value: &mut JsonValue,
-    sentinel_values: &AuditLogSentinelValues,
-) -> anyhow::Result<()> {
-    let AuditLogSentinelValues {
+fn resolve_vars(value: &mut JsonValue, vars: &AuditLogVars) -> anyhow::Result<()> {
+    let AuditLogVars {
         request_id,
         ip,
         user_agent,
         now,
-    } = sentinel_values;
+    } = vars;
     if let Some(var_name) = as_var_sentinel(value) {
         match var_name {
             "requestId" => *value = serde_json::to_value(request_id)?,
@@ -103,12 +97,12 @@ fn resolve_vars(
     match value {
         JsonValue::Object(map) => {
             for v in map.values_mut() {
-                resolve_vars(v, sentinel_values)?;
+                resolve_vars(v, vars)?;
             }
         },
         JsonValue::Array(arr) => {
             for v in arr.iter_mut() {
-                resolve_vars(v, sentinel_values)?;
+                resolve_vars(v, vars)?;
             }
         },
         _ => {},
