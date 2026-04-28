@@ -9,6 +9,7 @@ import LogoutButtonTSX from "!!raw-loader!@site/../demos/users-and-auth/src/Logo
 import UnderTheHood from "@site/docs/auth/_under_the_hood.mdx";
 import Config from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuth0.tsx";
 import ConfigEnv from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuth0Env.tsx";
+import { Screenshot } from "@site/src/components/Screenshot";
 
 [Auth0](https://auth0.com) is an authentication platform providing login via
 passwords, social identity providers, one-time email or SMS access codes,
@@ -214,13 +215,10 @@ export default {
 Open the Settings for your dev deployment on the Convex
 [dashboard](https://dashboard.convex.dev) and add the variables there:
 
-<p style={{ textAlign: "center" }}>
-  <img
-    src="/screenshots/auth0-convex-dashboard.png"
-    alt="Convex dashboard dev deployment settings"
-    width={600}
-  />
-</p>
+<Screenshot
+  story="docs/pages/project/deployment/settings/EnvironmentVariables#Auth 0"
+  alt="Convex dashboard dev deployment settings"
+/>
 
 Now switch to the new configuration by running `npx convex dev`.
 

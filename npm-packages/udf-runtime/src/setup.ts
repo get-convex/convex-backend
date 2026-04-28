@@ -81,12 +81,9 @@ function setupDate(global) {
   const originalDate = global.Date;
   delete global.Date;
 
-  function Date(...args) {
+  function Date(this: any, ...args) {
     // `Date()` was called directly, not as a constructor.
-    if (
-      // @ts-expect-error FIXME
-      !(this instanceof Date)
-    ) {
+    if (!(this instanceof Date)) {
       const date = new (Date as any)();
       return date.toString();
     }

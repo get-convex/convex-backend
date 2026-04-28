@@ -10,6 +10,7 @@ import Config from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-t
 import ConfigEnv from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerkEnv.tsx";
 import App from "!!raw-loader!@site/../private-demos/snippets/src/clerkApp.tsx";
 import Messages from "!!raw-loader!@site/../private-demos/snippets/convex/clerkMessages.ts";
+import { Screenshot } from "@site/src/components/Screenshot";
 
 [Clerk](https://clerk.com) is an authentication platform providing login via
 passwords, social identity providers, one-time email or SMS access codes, and
@@ -512,13 +513,10 @@ Clerk instance.
 
 {/* TODO: Update screenshot to use `CLERK_FRONTEND_API_URL`. It should be in the format `https://verb-noun-00.clerk.accounts.dev` */}
 
-<p style={{ textAlign: "center" }}>
-  <img
-    src="/screenshots/clerk-convex-dashboard.png"
-    alt="Convex dashboard dev deployment settings"
-    width={600}
-  />
-</p>
+<Screenshot
+  story="docs/pages/project/deployment/settings/EnvironmentVariables#Clerk"
+  alt="Convex dashboard dev deployment settings"
+/>
 
 Then, to switch your deployment to the new configuration, run `npx convex dev`.
 
