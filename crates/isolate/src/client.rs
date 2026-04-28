@@ -518,7 +518,7 @@ pub fn initialize_v8() {
         // Calls into `v8::V8::Initialize`
         V8::initialize();
 
-        crate::udf_runtime::initialize().expect("Failed to set up UDF runtime");
+        crate::udf_runtime::initialize();
     });
 }
 
