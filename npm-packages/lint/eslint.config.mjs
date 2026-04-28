@@ -127,6 +127,7 @@ export default defineConfig([
   ...[
     "@convex-dev/eslint-plugin",
     "tests/js-integration-tests",
+    "udf-runtime",
     "scenario-runner/convex",
     "system-udfs",
     "tests/udf-tests/convex",

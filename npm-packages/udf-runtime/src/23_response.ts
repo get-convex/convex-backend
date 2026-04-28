@@ -16,6 +16,7 @@ export class Response {
   private _status: number;
   private _statusText: string;
   private _headers: Headers;
+  // @ts-expect-error FIXME
   private _bodyStream: ReadableStream | null;
   private _bodyUsed = false;
   private _url: string;
@@ -129,9 +130,13 @@ export class Response {
       } else if (body instanceof ReadableStream) {
         this._bodyStream = body;
       } else if (isSupportedBlobPart(body)) {
-        const bodyBlob = new Blob([body], {
-          type: this._headers.get("content-type") ?? undefined,
-        });
+        const bodyBlob = new Blob(
+          // @ts-expect-error FIXME
+          [body],
+          {
+            type: this._headers.get("content-type") ?? undefined,
+          },
+        );
         this[_contentLength] = bodyBlob.size;
         this._bodyStream = bodyBlob.stream();
       } else {
@@ -175,7 +180,11 @@ export class Response {
       }
     };
     await read();
-    return new Blob(chunks, { type });
+    return new Blob(
+      // @ts-expect-error FIXME
+      chunks,
+      { type },
+    );
   }
 
   get bodyUsed() {

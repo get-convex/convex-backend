@@ -73,6 +73,7 @@ export class Request {
   private readonly _headers: Headers;
   private readonly _url: string;
   private readonly _method: string;
+  // @ts-expect-error FIXME
   private _bodyStream: ReadableStream | null;
   private _bodyUsed = false;
   private _signal: AbortSignal;
@@ -153,9 +154,13 @@ export class Request {
       } else if (body instanceof ReadableStream) {
         this._bodyStream = body;
       } else if (isSupportedBlobPart(body)) {
-        const bodyBlob = new Blob([body], {
-          type: this._headers.get("content-type") ?? undefined,
-        });
+        const bodyBlob = new Blob(
+          // @ts-expect-error FIXME
+          [body],
+          {
+            type: this._headers.get("content-type") ?? undefined,
+          },
+        );
         this[_contentLength] = bodyBlob.size;
         this._bodyStream = bodyBlob.stream();
       } else {
@@ -203,7 +208,11 @@ export class Request {
       }
     };
     await read();
-    return new Blob(chunks, { type });
+    return new Blob(
+      // @ts-expect-error FIXME
+      chunks,
+      { type },
+    );
   }
 
   get headers() {
@@ -354,7 +363,7 @@ export class Request {
 function extractAbortSignal(signalId: string) {
   const abortController = new AbortController();
   const stream = extractStream(signalId);
-  stream
+  void stream
     .getReader()
     .read()
     .then(() => abortController.abort());
