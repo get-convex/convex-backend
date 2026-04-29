@@ -1,44 +1,16 @@
 import { audit } from "./audit_logging.js";
+import { vars } from "./logVars.js";
 
-const REQUEST_ID = Symbol("var.requestId");
-const IP = Symbol("var.ip");
-const USER_AGENT = Symbol("var.userAgent");
-const NOW = Symbol("var.now");
-
-export type LogVar =
-  | typeof REQUEST_ID
-  | typeof IP
-  | typeof USER_AGENT
-  | typeof NOW;
+// Type annotations are needed for the `unique symbol` types in `vars` to typecheck correctly
+interface Log {
+  audit: typeof audit;
+  vars: typeof vars;
+}
 
 /**
  * @internal
  */
-export const varNames: Record<symbol, string> = {
-  [REQUEST_ID]: "requestId",
-  [IP]: "ip",
-  [USER_AGENT]: "userAgent",
-  [NOW]: "now",
-};
-
-const vars = {
-  /** Resolved to the request ID. */
-  requestId: REQUEST_ID,
-  /** Resolved to the client's IP address. */
-  ip: IP,
-  /** Resolved to the client's User-Agent header. */
-  userAgent: USER_AGENT,
-  /**
-   * Resolved to the current server timestamp, as milliseconds from the
-   * Unix epoch.
-   */
-  now: NOW,
-} as const;
-
-/**
- * @internal
- */
-export const log = {
+export const log: Log = {
   audit,
   vars,
 };

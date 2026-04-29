@@ -1,5 +1,5 @@
 import { performAsyncSyscall } from "./impl/syscall.js";
-import { LogVar, varNames } from "./log.js";
+import { LogVar, varNames } from "./logVars.js";
 
 export type AuditLogBody = { [key: string]: AuditLogValue };
 export type AuditLogValue =
