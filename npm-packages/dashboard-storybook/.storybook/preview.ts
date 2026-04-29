@@ -54,6 +54,9 @@ sb.mock(
 sb.mock(import("../../dashboard-common/src/lib/deploymentApi.ts"), {
   spy: true,
 });
+sb.mock(import("../../dashboard-common/src/lib/appMetrics.ts"), {
+  spy: true,
+});
 
 const preview: Preview = {
   initialGlobals: {

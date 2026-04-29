@@ -68,6 +68,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/HealthCacheHitRate",
+    "light": {
+      "filename": "components_health_cache_hit_rate_light.webp",
+      "width": 832,
+      "height": 556
+    },
+    "dark": {
+      "filename": "components_health_cache_hit_rate_dark.webp",
+      "width": 832,
+      "height": 556
+    }
+  },
+  {
     "storyTitle": "docs/components/HealthFailureRate",
     "light": {
       "filename": "components_health_failure_rate_light.webp",
