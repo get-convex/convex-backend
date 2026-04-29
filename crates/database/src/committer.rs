@@ -285,9 +285,10 @@ impl<RT: Runtime> Committer<RT> {
                     self.bump_max_repeatable_ts(tx, commit_id, committer_span);
                     commit_id += 1;
                     last_bumped_repeatable_ts = self.runtime.monotonic_now();
-                }
+                },
                 result = self.persistence_writes.select_next_some() => {
-                    let pending_commit = result.context("Write failed. Unsure if transaction committed to disk.")?;
+                    let pending_commit =
+                        result.context("Write failed. Unsure if transaction committed to disk.")?;
                     let pending_commit_id = pending_commit.commit_id();
                     match pending_commit {
                         PersistenceWrite::Commit {
@@ -298,8 +299,15 @@ impl<RT: Runtime> Committer<RT> {
                             write_bytes,
                             ..
                         } => {
-                            let parent_span = initialize_root_from_parent("Committer::publish_commit", parent_trace);
-                            let publish_commit_span = committer_span.as_ref().map(|root| Span::enter_with_parents("publish_commit", [root, &parent_span])).unwrap_or_else(|| parent_span);
+                            let publish_commit_span = initialize_root_from_parent(
+                                "Committer::publish_commit",
+                                parent_trace,
+                            );
+                            if let Some(root) = &committer_span
+                                && let Some(ctx) = SpanContext::from_span(root)
+                            {
+                                publish_commit_span.add_link(ctx);
+                            }
                             let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
                             self.publish_commit(pending_write, write_bytes);
@@ -318,32 +326,45 @@ impl<RT: Runtime> Committer<RT> {
                             result,
                             ..
                         } => {
-                            let span = committer_span.as_ref().map(|root| Span::enter_with_parent("publish_max_repeatable_ts", root)).unwrap_or_else(Span::noop);
+                            let span = committer_span
+                                .as_ref()
+                                .map(|root| {
+                                    Span::enter_with_parent("publish_max_repeatable_ts", root)
+                                })
+                                .unwrap_or_else(Span::noop);
                             span.set_local_parent();
                             self.publish_max_repeatable_ts(new_max_repeatable)?;
                             let base_period = *MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY;
                             next_bump_wait = Some(
-                                self.runtime.rng().random_range(base_period..base_period * 2),
+                                self.runtime
+                                    .rng()
+                                    .random_range(base_period..base_period * 2),
                             );
                             let _ = result.send(new_max_repeatable);
                             drop(timer);
                         },
                     }
                     // Report the trace if it is longer than the threshold
-                    if let Some(id) = span_commit_id && id == pending_commit_id
-                        && let Some(span) = committer_span.take() {
-                            if span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
-                                tracing::debug!("Not sending span to honeycomb because it is below the threshold");
-                                span.cancel();
-                            } else {
-                                tracing::debug!("Sending trace to honeycomb");
-                            }
+                    if let Some(id) = span_commit_id
+                        && id == pending_commit_id
+                        && let Some(span) = committer_span.take()
+                    {
+                        if span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
+                            tracing::debug!(
+                                "Not sending span to honeycomb because it is below the threshold"
+                            );
+                            span.cancel();
+                        } else {
+                            tracing::debug!("Sending trace to honeycomb");
                         }
-                }
+                    }
+                },
                 maybe_message = rx.recv().fuse() => {
                     match maybe_message {
                         None => {
-                            tracing::info!("All clients have gone away, shutting down committer...");
+                            tracing::info!(
+                                "All clients have gone away, shutting down committer..."
+                            );
                             return Ok(());
                         },
                         Some(CommitterMessage::Commit {
@@ -353,28 +374,40 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         }) => {
-
-                            let parent_span = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
-                                .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
+                            let start_commit_span = initialize_root_from_parent(
+                                "handle_commit_message",
+                                parent_trace.clone(),
+                            )
+                            .with_property(|| {
+                                (
+                                    "time_in_queue_ms",
+                                    format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0),
+                                )
+                            });
                             let committer_span_ref = committer_span.get_or_insert_with(|| {
                                 span_commit_id = Some(commit_id);
                                 Span::root("commit", SpanContext::random())
                             });
-                            let start_commit_span =
-                                Span::enter_with_parents("start_commit", [committer_span_ref, &parent_span]);
+                            if let Some(ctx) = SpanContext::from_span(committer_span_ref) {
+                                start_commit_span.add_link(ctx);
+                            }
                             let _guard = start_commit_span.set_local_parent();
                             drop(queue_timer);
-                            if let Some(persistence_write_future) = self.start_commit(transaction,
+                            if let Some(persistence_write_future) = self.start_commit(
+                                transaction,
                                 result,
                                 write_source,
                                 parent_trace,
                                 commit_id,
-                                committer_span_ref) {
-                                    self.persistence_writes.push_back(persistence_write_future);
-                                    commit_id += 1;
+                                committer_span_ref,
+                            ) {
+                                self.persistence_writes.push_back(persistence_write_future);
+                                commit_id += 1;
                             } else if span_commit_id == Some(commit_id) {
-                                // If the span_commit_id is the same as the commit_id, that means we created a root span in this block
-                                // and it didn't get incremented, so it's not a write to persistence and we should not trace it.
+                                // If the span_commit_id is the same as the commit_id, that means we
+                                // created a root span in this block
+                                // and it didn't get incremented, so it's not a write to persistence
+                                // and we should not trace it.
                                 // We also need to reset the span_commit_id and committer_span.
                                 committer_span_ref.cancel();
                                 committer_span = None;
@@ -389,20 +422,17 @@ impl<RT: Runtime> Committer<RT> {
                             self.finish_search_and_vector_bootstrap(
                                 bootstrapped_indexes,
                                 bootstrap_ts,
-                                result
-                            ).await;
+                                result,
+                            )
+                            .await;
                         },
-                        Some(CommitterMessage::FinishTableSummaryBootstrap {
-                            result,
-                        }) => {
+                        Some(CommitterMessage::FinishTableSummaryBootstrap { result }) => {
                             self.finish_table_summary_bootstrap(result).await;
                         },
-                        Some(CommitterMessage::LoadIndexesIntoMemory {
-                            tables, result
-                        }) => {
+                        Some(CommitterMessage::LoadIndexesIntoMemory { tables, result }) => {
                             let response = self.load_indexes_into_memory(tables).await;
                             let _ = result.send(response);
-                        }
+                        },
                     }
                 },
             }
@@ -918,9 +948,11 @@ impl<RT: Runtime> Committer<RT> {
         // necessary because this value is moved
         let parent_trace_copy = parent_trace.clone();
         let persistence = self.persistence.clone();
-        let request_span =
+        let outer_span =
             initialize_root_from_parent("Committer::persistence_writes_future", parent_trace);
-        let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
+        if let Some(ctx) = SpanContext::from_span(root_span) {
+            outer_span.add_link(ctx);
+        }
         let pause_client = self.runtime.pause_client();
         let rt = self.runtime.clone();
         let virtual_system_mapping = self.virtual_system_mapping.clone();
@@ -1003,7 +1035,6 @@ impl<RT: Runtime> Committer<RT> {
                 }
             }
             .in_span(outer_span)
-            .in_span(request_span)
             .boxed(),
         )
     }

@@ -78,7 +78,7 @@ errors = { path = "crates/errors" }
 event-listener = "5.3.1"
 events = { path = "crates/events" }
 exports = { path = "crates/exports" }
-fastrace = { git = "https://github.com/get-convex/fastrace", rev = "8ceac57a6371c96db3778827e31ec0b3ac760075", version = "0.7", features = [ "enable" ] }
+fastrace = { version = "0.7", features = [ "enable" ] }
 fastrand = "2.3.0"
 file_storage = { path = "crates/file_storage" }
 fivetran_common = { path = "crates/fivetran_common" }
@@ -161,9 +161,9 @@ prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "879
 proptest = "1"
 proptest-derive = "0.5.0"
 proptest-http = { git = "https://github.com/nipunn1313/proptest-http", rev = "0e658bd4f6dbb73bdd3be66f0d2c34c00cc3a446" }
-prost = { version = "0.13", features = [ "no-recursion-limit" ] }
-prost-reflect = { version = "0.15.0", features = [ "text-format", "miette" ] }
-prost-types = "0.13"
+prost = { version = "0.14", features = [ "no-recursion-limit" ] }
+prost-reflect = { version = "0.16", features = [ "text-format", "miette" ] }
+prost-types = "0.14"
 pyo3 = "0.27"
 pyo3-async-runtimes = { version = "0.27", features = [ "tokio-runtime" ] }
 pyo3-build-config = { version = "0.27", features = [ "resolve-config" ] }
@@ -229,10 +229,12 @@ tokio-postgres-rustls = { version = "0.13" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.28.0", features = [ "native-tls-vendored" ] }
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util", "join-map" ] }
-tonic = { package = "tonic", version = "0.13", features = [ "gzip", "tls-aws-lc", "tls-native-roots" ] }
-tonic-build = "0.13"
-tonic-health = "0.13"
-tonic-middleware = "0.3"
+tonic = { package = "tonic", version = "0.14", features = [ "gzip", "tls-aws-lc", "tls-native-roots" ] }
+tonic-build = "0.14"
+tonic-health = "0.14"
+tonic-middleware = "0.4"
+tonic-prost = "0.14"
+tonic-prost-build = "0.14"
 tower = { version = "0.5.2", features = [ "limit", "timeout", "util" ] }
 tower-cookies = "0.11"
 tower-http = { version = "0.6", features = [ "trace", "cors", "decompression-br", "limit" ] }
