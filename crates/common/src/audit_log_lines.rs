@@ -21,18 +21,40 @@ use crate::{
     execution_context::{
         ClientIp,
         ClientUserAgent,
+        ExecutionContext,
         RequestId,
     },
-    runtime::UnixTimestamp,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
 };
 
 /// List of user-space audit log lines from a Convex function execution.
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct AuditLogLines(WithHeapSize<Vec<AuditLogLine>>);
 
+impl AuditLogLines {
+    pub fn resolve_bodies(&self, vars: &AuditLogVars) -> anyhow::Result<ResolvedAuditLogLines> {
+        let logs = self
+            .0
+            .iter()
+            .map(|log| log.resolve_body(vars))
+            .collect::<anyhow::Result<Vec<ResolvedAuditLogLine>>>()?;
+        let timestamp = vars.now;
+        Ok(ResolvedAuditLogLines { logs, timestamp })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuditLogLine {
     pub body: JsonValue,
+}
+
+pub struct ResolvedAuditLogLines {
+    pub logs: Vec<ResolvedAuditLogLine>,
+    /// This timestamp is only used when emitting to log streams
+    pub timestamp: UnixTimestamp,
 }
 
 /// A resolved audit log line whose body has all sentinel objects replaced
@@ -52,6 +74,17 @@ pub struct AuditLogVars {
     ip: Option<ClientIp>,
     user_agent: Option<ClientUserAgent>,
     now: UnixTimestamp,
+}
+
+impl AuditLogVars {
+    pub fn from_context(context: ExecutionContext, rt: &impl Runtime) -> Self {
+        AuditLogVars {
+            ip: context.request_metadata.ip,
+            request_id: context.request_id,
+            now: rt.unix_timestamp(),
+            user_agent: context.request_metadata.user_agent,
+        }
+    }
 }
 
 impl AuditLogLine {

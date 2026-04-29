@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
+    audit_log_lines::AuditLogVars,
     auth::AuthConfig,
     backoff::Backoff,
     bootstrap_model::components::{
@@ -214,6 +215,7 @@ use crate::{
         log_function_wait_timeout,
         log_mutation_already_committed,
     },
+    audit_logging::AuditLogClient,
     cache::{
         CacheManager,
         QueryCache,
@@ -628,6 +630,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     file_storage: TransactionalFileStorage<RT>,
 
     function_log: FunctionExecutionLog<RT>,
+    audit_log_client: AuditLogClient,
 
     cache_manager: CacheManager<RT>,
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -645,6 +648,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
+        audit_log_client: AuditLogClient,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
     ) -> Self {
@@ -660,6 +664,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database.clone(),
             isolate_functions.clone(),
             function_log.clone(),
+            audit_log_client.clone(),
             cache,
         );
 
@@ -680,6 +685,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             modules_storage,
             file_storage,
             function_log,
+            audit_log_client,
             cache_manager,
             default_system_env_vars,
             node_action_limiter,
@@ -755,9 +761,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 start.elapsed(),
                 caller,
                 tx.usage_tracker,
-                context,
+                context.clone(),
             )
             .await;
+        let vars = AuditLogVars::from_context(context, &self.runtime);
+        self.audit_log_client
+            .send_logs(outcome.audit_log_lines.resolve_bodies(&vars)?);
 
         Ok((result, log_lines))
     }
@@ -1117,13 +1126,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 path_and_args,
                 UdfType::Mutation,
                 QueryJournal::new(),
-                context,
+                context.clone(),
             )
             .await?;
         let mutation_outcome = match outcome {
             FunctionOutcome::Mutation(o) => o,
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
+
+        let vars = AuditLogVars::from_context(context, &self.runtime);
+        self.audit_log_client
+            .send_logs(mutation_outcome.audit_log_lines.resolve_bodies(&vars)?);
+
         let component = path.component;
 
         let table_mapping = tx.table_mapping().namespace(component.into());
