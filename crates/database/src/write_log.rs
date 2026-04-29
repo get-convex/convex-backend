@@ -485,31 +485,28 @@ impl WriteLog {
         self.max_ts
     }
 
-    #[fastrace::trace]
     fn is_stale(
         &self,
         reads: &ReadSet,
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        block_in_place(|| {
-            let from = reads_ts.succ()?;
-            anyhow::ensure!(
-                from > self.purged_ts,
-                anyhow::anyhow!(
-                    "Timestamp {reads_ts} is outside of write log retention window (minimum \
-                     timestamp {})",
-                    self.purged_ts
-                )
-                .context(ErrorMetadata::out_of_retention())
-            );
-            Ok(reads.writes_overlap_by_index(
-                &self.by_database_index.0,
-                &self.by_text_index.0,
-                from,
-                ts,
-            ))
-        })
+        let from = reads_ts.succ()?;
+        anyhow::ensure!(
+            from > self.purged_ts,
+            anyhow::anyhow!(
+                "Timestamp {reads_ts} is outside of write log retention window (minimum timestamp \
+                 {})",
+                self.purged_ts
+            )
+            .context(ErrorMetadata::out_of_retention())
+        );
+        Ok(reads.writes_overlap_by_index(
+            &self.by_database_index.0,
+            &self.by_text_index.0,
+            from,
+            ts,
+        ))
     }
 
     /// Returns Err(write_ts) if the token could not be refreshed, where
@@ -586,14 +583,12 @@ impl LogReader {
             return Ok(Ok(token));
         }
         let snapshot = { self.inner.lock().log.clone() };
-        block_in_place(|| {
-            let max_ts = snapshot.max_ts();
-            anyhow::ensure!(
-                ts <= max_ts,
-                "Can't refresh token to newer timestamp {ts} than max ts {max_ts}"
-            );
-            snapshot.refresh_token(token, ts)
-        })
+        let max_ts = snapshot.max_ts();
+        anyhow::ensure!(
+            ts <= max_ts,
+            "Can't refresh token to newer timestamp {ts} than max ts {max_ts}"
+        );
+        snapshot.refresh_token(token, ts)
     }
 
     pub fn refresh_reads_until_max_ts(
