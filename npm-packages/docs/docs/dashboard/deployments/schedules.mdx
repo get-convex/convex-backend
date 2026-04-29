@@ -6,6 +6,8 @@ description:
   "Monitor and manage scheduled functions and cron jobs in your deployment"
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 The [schedules page](https://dashboard.convex.dev/deployment/schedules) displays
 all [scheduled functions](docs/scheduling/scheduled-functions.mdx) and
 [cron jobs](/scheduling/cron-jobs.mdx) in your deployment. Use the tabs at the
@@ -24,9 +26,15 @@ scheduled functions runs.
 The cron jobs UI lists all of your cron jobs, including their run frequency and
 scheduled run time.
 
-![Cron jobs](/screenshots/cron_jobs.png)
+<Screenshot
+  story="docs/pages/project/deployment/schedules/Crons"
+  alt="Cron jobs history"
+/>
 
 Expanding a specific cron job will open the execution history for the selected
 job.
 
-![Cron job history](/screenshots/cron_job_history.png)
+<Screenshot
+  story="docs/pages/project/deployment/schedules/Crons#History"
+  alt="Cron job history"
+/>

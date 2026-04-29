@@ -458,6 +458,32 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/project/deployment/schedules/Crons",
+    "light": {
+      "filename": "pages_project_deployment_schedules_crons_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_schedules_crons_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/schedules/Crons#History",
+    "light": {
+      "filename": "pages_project_deployment_schedules_crons_history_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_schedules_crons_history_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/project/deployment/settings/EnvironmentVariables",
     "light": {
       "filename": "pages_project_deployment_settings_environment_variables_light.webp",
