@@ -19,7 +19,10 @@ mod time;
 mod validate_args;
 mod validate_returns;
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    time::Duration,
+};
 
 use ::errors::ErrorMetadata;
 use anyhow::anyhow;
@@ -101,6 +104,8 @@ use self::{
     time::{
         async_op_sleep,
         op_now,
+        op_performance_now,
+        op_performance_time_origin,
     },
     validate_args::op_validate_args,
 };
@@ -134,6 +139,8 @@ pub trait OpProvider<'b> {
     ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>>;
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
     fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp>;
+    fn performance_now(&mut self) -> anyhow::Result<Duration>;
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp>;
 
     fn start_async_op(
         &mut self,
@@ -209,6 +216,16 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'i>
     fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
         let state = self.state_mut()?;
         Ok(state.unix_timestamp_non_deterministic())
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        let state = self.state_mut()?;
+        state.environment.performance_now()
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        let state = self.state_mut()?;
+        state.environment.performance_time_origin()
     }
 
     fn start_async_op(
@@ -323,6 +340,8 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "error/stack" => op_error_stack(provider, args, rv)?,
         "random" => op_random(provider, args, rv)?,
         "now" => op_now(provider, args, rv)?,
+        "performance_now" => op_performance_now(provider, args, rv)?,
+        "performance_time_origin" => op_performance_time_origin(provider, args, rv)?,
         "url/getUrlInfo" => op_url_get_url_info(provider, args, rv)?,
         "url/getUrlSearchParamPairs" => op_url_get_url_search_param_pairs(provider, args, rv)?,
         "url/stringifyUrlSearchParams" => op_url_stringify_url_search_params(provider, args, rv)?,

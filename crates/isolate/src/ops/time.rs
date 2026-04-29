@@ -38,3 +38,23 @@ pub fn op_now<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNum
     let n = JsonNumber::from(ms_since_epoch);
     Ok(n)
 }
+
+#[convex_macro::v8_op]
+pub fn op_performance_now<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
+    secs_as_dom_high_res_ms(provider.performance_now()?.as_secs_f64())
+}
+
+#[convex_macro::v8_op]
+pub fn op_performance_time_origin<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+) -> anyhow::Result<JsonNumber> {
+    secs_as_dom_high_res_ms(provider.performance_time_origin()?.as_secs_f64())
+}
+
+fn secs_as_dom_high_res_ms(secs: f64) -> anyhow::Result<JsonNumber> {
+    let ms = secs * 1000.0;
+    // Round down to 100 µs (0.1 ms) to reduce timing precision and protect
+    // against side-channel attacks.
+    let rounded = (ms * 10.0).floor() / 10.0;
+    JsonNumber::from_f64(rounded).ok_or_else(|| anyhow::anyhow!("timestamp produced NaN/inf"))
+}

@@ -65,6 +65,7 @@ use std::{
     cmp::Ordering,
     collections::VecDeque,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{
@@ -267,6 +268,14 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         self.phase.unix_timestamp()
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        anyhow::bail!(not_allowed_in_udf("Performance", "the Performance API"))
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        anyhow::bail!(not_allowed_in_udf("Performance", "the Performance API"))
     }
 
     fn get_environment_variable(

@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use common::{
@@ -96,6 +99,20 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.unix_timestamp)
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceInSchema",
+            "The Performance API is not supported when evaluating schema"
+        ))
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceInSchema",
+            "The Performance API is not supported when evaluating schema"
+        ))
     }
 
     fn get_environment_variable(
