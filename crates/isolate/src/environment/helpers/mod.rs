@@ -1,4 +1,5 @@
 pub mod module_loader;
+mod performance;
 mod promise;
 pub mod syscall_error;
 mod version;
@@ -18,6 +19,7 @@ use serde_json::Value as JsonValue;
 use value::TableName;
 
 pub use self::{
+    performance::PerformanceTimeOrigin,
     promise::{
         resolve_promise,
         resolve_promise_allow_all_errors,

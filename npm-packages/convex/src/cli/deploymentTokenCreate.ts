@@ -37,11 +37,11 @@ export const deploymentTokenCreate = new Command("create")
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage:
-          "Creating a deploy key currently requires being logged in with a personal access token. " +
-          !!process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME]
+        printedMessage: `Creating a deploy key currently requires being logged in with a personal access token. ${
+          process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME]
             ? `Unset ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}`
-            : `Run ${chalkStderr.bold("npx convex login")}` + " and try again.",
+            : `Run ${chalkStderr.bold("npx convex login")}`
+        } and try again.`,
       });
     }
 

@@ -701,7 +701,7 @@ function invokeEventListeners(tuple, eventImpl) {
   innerInvokeEventListeners(eventImpl, getListeners(tuple.item));
 }
 
-class EventTarget {
+export class EventTarget {
   constructor() {
     this[eventTargetData] = getDefaultTargetData();
   }

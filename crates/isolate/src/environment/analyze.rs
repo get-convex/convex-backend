@@ -7,6 +7,7 @@ use std::{
     path::Path,
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{
@@ -163,6 +164,20 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.unix_timestamp)
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceDuringImport",
+            "The Performance API is not supported at import time"
+        ))
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceDuringImport",
+            "The Performance API is not supported at import time"
+        ))
     }
 
     fn get_environment_variable(

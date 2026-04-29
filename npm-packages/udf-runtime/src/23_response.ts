@@ -129,13 +129,9 @@ export class Response {
       } else if (body instanceof ReadableStream) {
         this._bodyStream = body;
       } else if (isSupportedBlobPart(body)) {
-        const bodyBlob = new Blob(
-          // @ts-expect-error FIXME
-          [body],
-          {
-            type: this._headers.get("content-type") ?? undefined,
-          },
-        );
+        const bodyBlob = new Blob([body], {
+          type: this._headers.get("content-type") ?? undefined,
+        });
         this[_contentLength] = bodyBlob.size;
         this._bodyStream = bodyBlob.stream();
       } else {
@@ -179,11 +175,7 @@ export class Response {
       }
     };
     await read();
-    return new Blob(
-      // @ts-expect-error FIXME
-      chunks,
-      { type },
-    );
+    return new Blob(chunks, { type });
   }
 
   get bodyUsed() {

@@ -12,6 +12,7 @@ use std::{
     cmp::Ordering,
     collections::BTreeMap,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::anyhow;
@@ -1376,6 +1377,14 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         self.phase.unix_timestamp()
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        self.phase.performance_now()
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        self.phase.performance_time_origin()
     }
 
     fn get_environment_variable(

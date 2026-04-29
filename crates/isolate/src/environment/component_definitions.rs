@@ -5,6 +5,7 @@ use std::{
     },
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -508,6 +509,20 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoDateDuringDefinitionEvaluation",
             "Date unsupported when evaluating app definition"
+        ))
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceDuringDefinitionEvaluation",
+            "The Performance API is not supported when evaluating app definition"
+        ))
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceDuringDefinitionEvaluation",
+            "The Performance API is not supported when evaluating app definition"
         ))
     }
 

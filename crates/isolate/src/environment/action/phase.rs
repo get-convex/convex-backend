@@ -2,6 +2,7 @@ use std::{
     collections::BTreeMap,
     mem,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -66,7 +67,10 @@ use value::{
 use crate::{
     environment::{
         action::task::TaskRequestEnum,
-        helpers::Phase,
+        helpers::{
+            PerformanceTimeOrigin,
+            Phase,
+        },
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
@@ -106,6 +110,7 @@ enum ActionPreloaded<RT: Runtime> {
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
         rng: Option<ChaCha12Rng>,
         import_time_unix_timestamp: Option<UnixTimestamp>,
+        performance_time_origin: Option<PerformanceTimeOrigin>,
     },
 }
 
@@ -283,6 +288,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             component_arguments,
             rng,
             import_time_unix_timestamp,
+            performance_time_origin: None,
         };
 
         Ok(())
@@ -326,12 +332,18 @@ impl<RT: Runtime> ActionPhase<RT> {
         if self.phase != Phase::Importing {
             anyhow::bail!("Phase was already {:?}", self.phase)
         }
-        let ActionPreloaded::Ready { ref mut rng, .. } = self.preloaded else {
+        let ActionPreloaded::Ready {
+            ref mut rng,
+            ref mut performance_time_origin,
+            ..
+        } = self.preloaded
+        else {
             anyhow::bail!("Phase not initialized");
         };
         self.phase = Phase::Executing;
         let rng_seed = self.rt.rng().random();
         *rng = Some(ChaCha12Rng::from_seed(rng_seed));
+        *performance_time_origin = Some(PerformanceTimeOrigin::new(&self.rt));
         Ok(())
     }
 
@@ -403,6 +415,46 @@ impl<RT: Runtime> ActionPhase<RT> {
             self.rt.unix_timestamp()
         };
         Ok(timestamp)
+    }
+
+    pub fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        let ActionPreloaded::Ready {
+            performance_time_origin,
+            ..
+        } = &self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+
+        let now = performance_time_origin
+            .as_ref()
+            .context(ErrorMetadata::bad_request(
+                "NoPerformanceDuringImport",
+                "Performance unsupported at import time",
+            ))?
+            .now(&self.rt);
+
+        Ok(now)
+    }
+
+    pub fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        let ActionPreloaded::Ready {
+            performance_time_origin,
+            ..
+        } = &self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+
+        let time_origin = performance_time_origin
+            .as_ref()
+            .context(ErrorMetadata::bad_request(
+                "NoPerformanceDuringImport",
+                "Performance unsupported at import time",
+            ))?
+            .as_unix_timestamp();
+
+        Ok(time_origin)
     }
 
     pub fn require_executing(&self, request: &TaskRequestEnum) -> anyhow::Result<()> {

@@ -63,16 +63,29 @@ export const deploymentTokenDelete = new Command("delete")
       });
     }
 
+    // A full deploy key has the form `<type>:<deployment-name>|<token>`. If we
+    // see the prefix without the `|`, the user almost certainly forgot to
+    // quote: the shell ate `|` and everything after.
+    if (/^(dev|prod|preview|local):[^|]*$/.test(nameOrToken)) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `"${nameOrToken}" looks like a partial deploy key — your shell likely consumed the \`|\` and everything after it. Wrap the value in single quotes (e.g. ${chalkStderr.bold(`npx convex deployment token delete '${nameOrToken}|...'`)}) and try again.`,
+      });
+    }
+    // The server matches against just the token portion, so strip the prefix
+    // when present so users can paste the value of CONVEX_DEPLOY_KEY directly.
+    const pipeIdx = nameOrToken.indexOf("|");
+    const id = pipeIdx >= 0 ? nameOrToken.slice(pipeIdx + 1) : nameOrToken;
+
     showSpinner(`Deleting deploy key for ${deploymentName}...`);
     await typedPlatformClient(ctx).POST(
       "/deployments/{deployment_name}/delete_deploy_key",
       {
         params: { path: { deployment_name: deploymentName } },
-        body: { id: nameOrToken },
+        body: { id },
       },
     );
 
-    logFinishedStep(
-      `Deleted deploy key "${nameOrToken}" for ${deploymentName}.`,
-    );
+    logFinishedStep(`Deleted deploy key for ${deploymentName}.`);
   });

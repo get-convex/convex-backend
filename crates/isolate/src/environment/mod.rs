@@ -78,6 +78,8 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
     fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng>;
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
+    fn performance_now(&mut self) -> anyhow::Result<Duration>;
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp>;
 
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
