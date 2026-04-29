@@ -341,6 +341,27 @@ export async function execute(
   };
 }
 
+/**
+ * Build the URL string passed to dynamic `import()` for a user action module.
+ *
+ * Always returns a `file://` URL via `pathToFileURL`. Node's ESM loader rejects
+ * raw filesystem paths whose first segment parses as a URL scheme — on Windows
+ * `C:\...` parses with protocol `c:` and the loader throws
+ * "Only URLs with a scheme in: file, data, and node are supported". See
+ * https://github.com/get-convex/convex-backend/issues/152.
+ *
+ * The `envHash` query parameter forces re-evaluation when env vars change,
+ * since they may be referenced at module top level.
+ */
+export function makeModuleImportUrl(
+  modulesDir: string,
+  relPath: string,
+  envHash: string,
+): string {
+  const fileUrl = pathToFileURL(path.join(modulesDir, relPath)).href;
+  return `${fileUrl}?envHash=${envHash}`;
+}
+
 export async function executeInner(
   lambdaExecuteId: string,
   dir: string,
@@ -361,7 +382,7 @@ export async function executeInner(
 
   setupGlobals(`${modulesDir}/${relPath}`);
   const module = await import(
-    path.join(modulesDir, `${relPath}?envHash=${envHash}`)
+    makeModuleImportUrl(modulesDir, relPath, envHash)
   );
   const importTimeMs = logDurationMs("importTimeMs", start);
 
