@@ -3,11 +3,7 @@
     "module": "nodenext",
     "target": "esnext",
     "types": ["node"],
-
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
 
     // Other Outputs
     "sourceMap": true,
@@ -33,6 +29,6 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true
+    "skipLibCheck": false
   }
 }
