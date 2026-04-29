@@ -444,6 +444,7 @@ impl TryFrom<SerializedCompletedSpan> for SpanRecord {
             name: value.name.into(),
             properties,
             events,
+            links: vec![],
         })
     }
 }

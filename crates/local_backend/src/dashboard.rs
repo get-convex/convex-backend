@@ -18,6 +18,7 @@ use common::{
         },
         ExtractClientVersion,
         ExtractRequestId,
+        ExtractRequestMetadata,
         HttpResponseError,
     },
     shapes::{
@@ -25,6 +26,7 @@ use common::{
         reduced::ReducedShape,
     },
     types::FunctionCaller,
+    RequestContext,
 };
 use database::IndexModel;
 use http::StatusCode;
@@ -279,6 +281,7 @@ pub struct RunTestFunctionArgs {
 pub async fn run_test_function(
     State(st): State<LocalAppState>,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<RunTestFunctionArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -292,10 +295,11 @@ pub async fn run_test_function(
     let args = req.args.into_serialized_args()?;
     let module: ModuleConfig = req.bundle.try_into()?;
     let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;
+    let request_context = RequestContext::new(request_id, request_metadata);
     let udf_return = st
         .application
         .execute_standalone_module(
-            request_id,
+            request_context,
             module,
             args,
             identity,

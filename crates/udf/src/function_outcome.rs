@@ -69,6 +69,17 @@ impl FunctionOutcome {
             },
         }
     }
+
+    pub fn user_execution_time_micros(&self) -> u64 {
+        let duration = match self {
+            FunctionOutcome::Query(outcome) => outcome.user_execution_time,
+            FunctionOutcome::Mutation(outcome) => outcome.user_execution_time,
+            FunctionOutcome::Action(outcome) => outcome.user_execution_time,
+            FunctionOutcome::HttpAction(outcome) => outcome.user_execution_time,
+        };
+
+        duration.map(|d| d.as_micros()).unwrap_or(0) as u64
+    }
 }
 
 impl TryFrom<FunctionOutcome> for FunctionOutcomeProto {

@@ -28,12 +28,11 @@ static BASE_SNAPSHOT: OnceLock<Vec<u8>> = OnceLock::new();
 ///
 /// This must be called once per process, prior to calling
 /// `create_isolate_with_udf_runtime`.
-pub(crate) fn initialize() -> anyhow::Result<()> {
-    let snapshot = create_base_snapshot()?.to_vec();
+pub(crate) fn initialize() {
+    let snapshot = create_base_snapshot().to_vec();
     BASE_SNAPSHOT
         .set(snapshot)
-        .map_err(|_| anyhow::anyhow!("can't initialize more than once"))?;
-    Ok(())
+        .expect("can't initialize more than once");
 }
 
 /// Set a 64KB initial heap size
@@ -78,7 +77,7 @@ fn external_references() -> Vec<v8::ExternalReference> {
     }]
 }
 
-fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
+fn create_base_snapshot() -> v8::StartupData {
     // TODO: set external references. For now we:
     // 1. do not reuse snapshot blobs across processes,
     // 2. only use 'static external references
@@ -90,7 +89,7 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
         let context = v8::Context::new(scope, v8::ContextOptions::default());
 
         let crypto_key = v8::FunctionTemplate::new(scope, illegal_constructor);
-        crypto_key.set_class_name(strings::CryptoKey.create(scope)?);
+        crypto_key.set_class_name(strings::CryptoKey.create(scope).unwrap());
         assert!(crypto_key
             .instance_template(scope)
             .set_internal_field_count(1));
@@ -98,7 +97,7 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
         let symbol_tostringtag = v8::Symbol::get_to_string_tag(scope);
         crypto_key_prototype.set_with_attr(
             symbol_tostringtag.into(),
-            strings::CryptoKey.create(scope)?.into(),
+            strings::CryptoKey.create(scope).unwrap().into(),
             v8::PropertyAttribute::DONT_ENUM,
         );
 
@@ -109,15 +108,15 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
 
         // Create `global.Convex`, so that `setup.js` can populate `Convex.jsSyscall`
         let convex_value = v8::Object::new(context_scope);
-        let convex_key = strings::Convex.create(context_scope)?;
+        let convex_key = strings::Convex.create(context_scope).unwrap();
         let global = context.global(context_scope);
         global.set(context_scope, convex_key.into(), convex_value.into());
 
         {
             let crypto_key_instance = crypto_key
                 .get_function(context_scope)
-                .context("instantiate CryptoKey")?;
-            let crypto_key_key = strings::CryptoKey.create(context_scope)?;
+                .expect("instantiate CryptoKey");
+            let crypto_key_key = strings::CryptoKey.create(context_scope).unwrap();
             global.set(
                 context_scope,
                 crypto_key_key.into(),
@@ -127,7 +126,7 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
             let private_crypto_key_key = v8::Private::for_api(context_scope, Some(crypto_key_key));
             let crypto_key_private_instance = crypto_key_private
                 .new_instance(context_scope)
-                .context("instantiate CryptoKeyPrivate")?;
+                .expect("instantiate CryptoKeyPrivate");
             assert!(crypto_key_private_instance.set_internal_field(0, crypto_key.into()));
             global.set_private(
                 context_scope,
@@ -136,7 +135,7 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
             );
         }
 
-        run_setup_module(context_scope)?;
+        run_setup_module(context_scope).expect("failed to run setup module");
 
         // Mark the context we created as the "default context", so that every
         // new context created from the snapshot will include this
@@ -144,11 +143,9 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
         context_scope.set_default_context(context);
     }
 
-    let data = isolate
+    isolate
         .create_blob(v8::FunctionCodeHandling::Keep)
-        .context("Failed to create snapshot")?;
-
-    Ok(data)
+        .expect("Failed to create snapshot")
 }
 
 /// Go through all the V8 boilerplate to compile, instantiate, evaluate, and run

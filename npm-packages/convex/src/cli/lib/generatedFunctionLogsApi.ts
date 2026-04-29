@@ -35,6 +35,7 @@ export interface components {
             usageStats: components["schemas"]["UsageStatsJson"];
             /** Format: double */
             userExecutionTime?: number | null;
+            willRetry: boolean;
         } | {
             componentPath?: string | null;
             executionId: string;

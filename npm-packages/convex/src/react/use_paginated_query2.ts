@@ -4,9 +4,8 @@ import { FunctionReference, getFunctionName } from "../server/api.js";
 import {
   PaginatedQueryReference,
   PaginatedQueryArgs,
-  UsePaginatedQueryOptions,
+  PaginatedQueryItem,
   UsePaginatedQueryReturnType,
-  UsePaginatedQueryObjectReturnType,
 } from "./use_paginated_query.js";
 import { convexToJson, Value } from "../values/value.js";
 import { useQueries } from "./use_queries.js";
@@ -14,6 +13,66 @@ import { PaginatedQueryResult } from "../browser/sync/pagination.js";
 import { SubscribeToPaginatedQueryOptions } from "../browser/sync/paginated_query_client.js";
 import { ConvexError } from "../values/errors.js";
 import { useConvex } from "./client.js";
+
+/**
+ * Options for object-form {@link usePaginatedQuery_experimental}.
+ *
+ * @public
+ */
+export type UsePaginatedQueryOptions<
+  Query extends PaginatedQueryReference,
+  ThrowOnError extends boolean = false,
+> = {
+  query: Query;
+  args: PaginatedQueryArgs<Query> | "skip";
+  initialNumItems: number;
+  /**
+   * When `true` (default for positional form), errors are thrown and caught
+   * by an error boundary. When `false` (default for object form), errors are
+   * returned as `{ status: "Error", error: Error }` instead of being thrown.
+   */
+  throwOnError?: ThrowOnError;
+};
+
+/**
+ * Return type of the object-form {@link usePaginatedQuery_experimental} overload.
+ *
+ * Uses lowercase query status (`"pending" | "success" | "error"`) and a
+ * `canLoadMore` boolean instead of the TitleCase pagination status strings
+ * used by the positional form.
+ *
+ * @public
+ */
+export type UsePaginatedQueryObjectReturnType<
+  Query extends PaginatedQueryReference,
+  ThrowOnError extends boolean = false,
+> =
+  | {
+      data: PaginatedQueryItem<Query>[] | undefined;
+      status: "pending";
+      canLoadMore: false;
+      isLoading: true;
+      error: undefined;
+      loadMore: (numItems: number) => void;
+    }
+  | {
+      data: PaginatedQueryItem<Query>[];
+      status: "success";
+      canLoadMore: boolean;
+      isLoading: false;
+      error: undefined;
+      loadMore: (numItems: number) => void;
+    }
+  | (ThrowOnError extends true
+      ? never
+      : {
+          data: PaginatedQueryItem<Query>[];
+          status: "error";
+          canLoadMore: false;
+          isLoading: false;
+          error: Error;
+          loadMore: (numItems: number) => void;
+        });
 
 type UsePaginatedQueryState = {
   query: FunctionReference<"query">;
@@ -83,12 +142,26 @@ export function usePaginatedQuery_experimental<
   options: { initialNumItems: number },
 ): UsePaginatedQueryReturnType<Query>;
 
-/** @internal */
+/**
+ * Experimental new usePaginatedQuery implementation that accepts an options object
+ * rather than positional arguments.
+ *
+ * @param options - A {@link UsePaginatedQueryOptions} object including `query` and `args`.
+ * @returns A {@link UsePaginatedQueryObjectReturnType} object with `data`, `status`,
+ * `canLoadMore`, `isLoading`, `error`, and `loadMore`. `status` is `"pending"` while
+ * loading, `"success"` when data is available, or `"error"` if the query threw.
+ * When `throwOnError` is `true`, the `"error"` status is excluded from the return
+ * type since errors will be thrown instead.
+ * `canLoadMore` is `true` only when idle and more pages exist.
+ *
+ * @public
+ */
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
+  ThrowOnError extends boolean = false,
 >(
-  options: UsePaginatedQueryOptions<Query>,
-): UsePaginatedQueryObjectReturnType<Query>;
+  options: UsePaginatedQueryOptions<Query, ThrowOnError>,
+): UsePaginatedQueryObjectReturnType<Query, ThrowOnError>;
 
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,

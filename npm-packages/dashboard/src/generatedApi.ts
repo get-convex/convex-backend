@@ -1864,7 +1864,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createProjectAccessToken" | "updateProjectAccessToken" | "deleteProjectAccessToken" | "viewProjectAccessToken" | "createDeploymentAccessToken" | "updateDeploymentAccessToken" | "deleteDeploymentAccessToken" | "viewDeploymentAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "deleteWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "inviteWorkosTeamMember" | "createProjectWorkosEnvironment" | "deleteProjectWorkosEnvironment" | "retrieveProjectWorkosEnvironmentCredentials" | "enableSSO" | "disableSSO" | "updateSSO" | "transferDeployment" | "receiveDeployment" | "updateDeployment";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createProjectAccessToken" | "updateProjectAccessToken" | "deleteProjectAccessToken" | "viewProjectAccessToken" | "createDeploymentAccessToken" | "updateDeploymentAccessToken" | "deleteDeploymentAccessToken" | "viewDeploymentAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "deleteWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "inviteWorkosTeamMember" | "createProjectWorkosEnvironment" | "deleteProjectWorkosEnvironment" | "retrieveProjectWorkosEnvironmentCredentials" | "enableSSO" | "disableSSO" | "updateSSO" | "transferDeployment" | "receiveDeployment" | "updateDeployment" | "createCustomRole" | "updateCustomRole" | "deleteCustomRole";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1924,6 +1924,12 @@ export interface components {
             authnToken: string;
             deploymentId?: null | components["schemas"]["DeploymentId"];
             deviceName?: null | components["schemas"]["DeviceName"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this token will expire. Must be at
+             *     least 30 minutes in the future.
+             */
+            expiresAt?: number | null;
             oauthApp?: null | components["schemas"]["OauthAppMetadata"];
             permissions?: string[] | null;
             projectId?: null | components["schemas"]["ProjectId"];
@@ -2650,7 +2656,7 @@ export interface components {
             creationTime: number;
             creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
-            expirationTime?: number | null;
+            expiresAt?: number | null;
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];

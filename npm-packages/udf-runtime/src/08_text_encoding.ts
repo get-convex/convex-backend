@@ -169,6 +169,7 @@ class TextDecoderStream {
           return Promise.reject(err);
         }
       },
+      // @ts-expect-error FIXME
       cancel: (_reason) => {
         try {
           const _ = this.#decoder.decode();

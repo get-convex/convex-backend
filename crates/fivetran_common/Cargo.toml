@@ -13,7 +13,7 @@ homepage = "https://www.convex.dev/"
 ignored = [
     # Build dependencies not understood
     "cfg_if",
-    "tonic_build",
+    "tonic_prost_build",
     # Prost required via tonic macro
     "prost",
 ]
@@ -31,13 +31,14 @@ proptest = { workspace = true, optional = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 url = { workspace = true }
 
 [build-dependencies]
 cfg-if = { workspace = true }
 fxhash = { workspace = true }
 pb_build = { workspace = true }
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
 
 [dev-dependencies]
 maplit = { workspace = true }

@@ -32,6 +32,7 @@ use airbyte_import::{
     ValidatedAirbyteStream,
 };
 use anyhow::Context;
+use audit_logging::AuditLogClient;
 use authentication::{
     application_auth::ApplicationAuth,
     validate_id_token,
@@ -127,6 +128,7 @@ use common::{
         ConvexOrigin,
         ConvexSite,
         DeploymentMetadata,
+        DeploymentType,
         EnvVarName,
         EnvVarValue,
         FullyQualifiedObjectKey,
@@ -401,6 +403,7 @@ pub mod admin_keys_cache;
 pub mod airbyte_import;
 pub mod api;
 pub mod application_function_runner;
+pub mod audit_logging;
 mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
@@ -431,16 +434,6 @@ use crate::{
     },
     worker_handles::WorkerHandles,
 };
-
-/// Set the retry count on an `OccInfo` from an error for logging purposes.
-pub(crate) fn occ_info_for_logging(
-    info: Option<errors::OccInfo>,
-    retry_count: usize,
-) -> errors::OccInfo {
-    let mut occ_info = info.unwrap_or_default();
-    occ_info.retry_count = Some(retry_count as u64);
-    occ_info
-}
 
 pub struct ConfigMetadataAndSchema {
     pub config_metadata: ConfigMetadata,
@@ -575,6 +568,7 @@ pub struct Application<RT: Runtime> {
     system_env_var_names: HashSet<EnvVarName>,
     app_auth: Arc<ApplicationAuth>,
     log_manager_client: LogManagerClient,
+    audit_log_client: AuditLogClient,
     oidc_http_client: CachedHttpClient,
     pub(crate) admin_keys_cache: crate::admin_keys_cache::AdminKeysCache,
 }
@@ -740,11 +734,11 @@ impl<RT: Runtime> Application<RT> {
         // entitlement in testing and in load generator. If not local, we
         // read the entitlement from the database.
         let mut tx = database.begin(Identity::system()).await?;
+        let mut bi = BackendInfoModel::new(&mut tx);
         let log_streaming_allowed = if let Some(path) = local_log_sink {
             add_local_log_sink_on_startup(database.clone(), path).await?;
             true
         } else {
-            let mut bi = BackendInfoModel::new(&mut tx);
             bi.is_log_streaming_allowed().await?
         };
 
@@ -759,6 +753,13 @@ impl<RT: Runtime> Application<RT> {
             usage_counter.clone(),
         )
         .await;
+
+        let is_dev_deployment = if let Some(doc) = bi.get().await? {
+            doc.deployment_type == DeploymentType::Dev
+        } else {
+            false
+        };
+        let audit_log_client = AuditLogClient::new(log_manager_client.clone(), is_dev_deployment);
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
@@ -783,6 +784,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage.modules_storage.clone(),
             module_loader,
             function_log.clone(),
+            audit_log_client.clone(),
             default_system_env_vars.clone(),
             cache,
         ));
@@ -911,6 +913,7 @@ impl<RT: Runtime> Application<RT> {
             system_env_var_names: default_system_env_vars.into_keys().collect(),
             app_auth,
             log_manager_client,
+            audit_log_client,
             oidc_http_client,
             admin_keys_cache,
         })
@@ -952,6 +955,10 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn log_manager_client(&self) -> &LogManagerClient {
         &self.log_manager_client
+    }
+
+    pub fn audit_log_client(&self) -> &AuditLogClient {
+        &self.audit_log_client
     }
 
     pub fn now_ts_for_reads(&self) -> RepeatableTimestamp {
@@ -2505,13 +2512,14 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn execute_standalone_module(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         module: ModuleConfig,
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
         component: ComponentId,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        let request_id = request_context.request_id.clone();
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -2637,7 +2645,7 @@ impl<RT: Runtime> Application<RT> {
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => {
                 self.runner
-                    .run_query_without_caching(request_id.clone(), tx, path, args, caller)
+                    .run_query_without_caching(request_context, tx, path, args, caller)
                     .await
             },
             UdfType::Mutation => {

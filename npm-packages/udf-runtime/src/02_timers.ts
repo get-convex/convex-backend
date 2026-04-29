@@ -72,7 +72,7 @@ const runAfterTimeout = (
 ) => {
   const startTime = Date.now();
   ACTIVE_TIMERS.set(timerKey, startTime + timeoutMs);
-  performAsyncOp("sleep", name, timeoutMs).then(() => {
+  void performAsyncOp("sleep", name, timeoutMs).then(() => {
     // TODO(CX-4534) Wait until any invocations of this algorithm,
     // that started before this one, and whose milliseconds is equal to or less
     // than this one's, have completed.

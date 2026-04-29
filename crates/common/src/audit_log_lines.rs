@@ -18,24 +18,43 @@ use value::heap_size::{
 };
 
 use crate::{
-    components::CanonicalizedComponentFunctionPath,
     execution_context::{
         ClientIp,
         ClientUserAgent,
+        ExecutionContext,
         RequestId,
     },
-    runtime::UnixTimestamp,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
 };
 
 /// List of user-space audit log lines from a Convex function execution.
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct AuditLogLines(WithHeapSize<Vec<AuditLogLine>>);
 
+impl AuditLogLines {
+    pub fn resolve_bodies(&self, vars: &AuditLogVars) -> anyhow::Result<ResolvedAuditLogLines> {
+        let logs = self
+            .0
+            .iter()
+            .map(|log| log.resolve_body(vars))
+            .collect::<anyhow::Result<Vec<ResolvedAuditLogLine>>>()?;
+        let timestamp = vars.now;
+        Ok(ResolvedAuditLogLines { logs, timestamp })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuditLogLine {
     pub body: JsonValue,
+}
+
+pub struct ResolvedAuditLogLines {
+    pub logs: Vec<ResolvedAuditLogLine>,
+    /// This timestamp is only used when emitting to log streams
     pub timestamp: UnixTimestamp,
-    pub path: CanonicalizedComponentFunctionPath,
 }
 
 /// A resolved audit log line whose body has all sentinel objects replaced
@@ -50,22 +69,30 @@ impl ResolvedAuditLogLine {
 }
 
 #[derive(Serialize)]
-pub struct AuditLogSentinelValues {
+pub struct AuditLogVars {
     request_id: RequestId,
     ip: Option<ClientIp>,
     user_agent: Option<ClientUserAgent>,
     now: UnixTimestamp,
 }
 
+impl AuditLogVars {
+    pub fn from_context(context: ExecutionContext, rt: &impl Runtime) -> Self {
+        AuditLogVars {
+            ip: context.request_metadata.ip,
+            request_id: context.request_id,
+            now: rt.unix_timestamp(),
+            user_agent: context.request_metadata.user_agent,
+        }
+    }
+}
+
 impl AuditLogLine {
     /// Resolve all `{ "$var": "<name>" }` sentinel objects in the body,
     /// returning a [`ResolvedAuditLogLine`] with the substitutions applied.
-    pub fn resolve_body(
-        &self,
-        sentinel_values: &AuditLogSentinelValues,
-    ) -> anyhow::Result<ResolvedAuditLogLine> {
+    pub fn resolve_body(&self, vars: &AuditLogVars) -> anyhow::Result<ResolvedAuditLogLine> {
         let mut body = self.body.clone();
-        resolve_vars(&mut body, sentinel_values)?;
+        resolve_vars(&mut body, vars)?;
         Ok(ResolvedAuditLogLine(body))
     }
 }
@@ -80,16 +107,13 @@ fn as_var_sentinel(value: &JsonValue) -> Option<&str> {
     obj.get("$var")?.as_str()
 }
 
-fn resolve_vars(
-    value: &mut JsonValue,
-    sentinel_values: &AuditLogSentinelValues,
-) -> anyhow::Result<()> {
-    let AuditLogSentinelValues {
+fn resolve_vars(value: &mut JsonValue, vars: &AuditLogVars) -> anyhow::Result<()> {
+    let AuditLogVars {
         request_id,
         ip,
         user_agent,
         now,
-    } = sentinel_values;
+    } = vars;
     if let Some(var_name) = as_var_sentinel(value) {
         match var_name {
             "requestId" => *value = serde_json::to_value(request_id)?,
@@ -106,12 +130,12 @@ fn resolve_vars(
     match value {
         JsonValue::Object(map) => {
             for v in map.values_mut() {
-                resolve_vars(v, sentinel_values)?;
+                resolve_vars(v, vars)?;
             }
         },
         JsonValue::Array(arr) => {
             for v in arr.iter_mut() {
-                resolve_vars(v, sentinel_values)?;
+                resolve_vars(v, vars)?;
             }
         },
         _ => {},
@@ -156,7 +180,7 @@ impl FromIterator<AuditLogLine> for AuditLogLines {
 
 impl HeapSize for AuditLogLine {
     fn heap_size(&self) -> usize {
-        self.body.heap_size() + self.path.heap_size() + self.timestamp.heap_size()
+        self.body.heap_size()
     }
 }
 
@@ -164,9 +188,6 @@ impl From<AuditLogLine> for pb::outcome::AuditLogLine {
     fn from(value: AuditLogLine) -> Self {
         pb::outcome::AuditLogLine {
             body_json: Some(value.body.to_string()),
-            timestamp: Some(value.timestamp.into()),
-            component_path: Some(String::from(value.path.component)),
-            udf_path: Some(String::from(value.path.udf_path)),
         }
     }
 }
@@ -177,14 +198,6 @@ impl TryFrom<pb::outcome::AuditLogLine> for AuditLogLine {
     fn try_from(value: pb::outcome::AuditLogLine) -> Result<Self, Self::Error> {
         Ok(AuditLogLine {
             body: value.body_json.context("Missing body")?.parse()?,
-            timestamp: value.timestamp.context("Missing timestamp")?.try_into()?,
-            path: CanonicalizedComponentFunctionPath {
-                component: value
-                    .component_path
-                    .context("Missing component path")?
-                    .parse()?,
-                udf_path: value.udf_path.context("Missing udf path")?.parse()?,
-            },
         })
     }
 }

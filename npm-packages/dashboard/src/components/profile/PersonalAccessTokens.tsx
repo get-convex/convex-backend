@@ -18,12 +18,18 @@ import {
 } from "api/personalAccessTokens";
 import { useTeams } from "api/teams";
 import { PaginationControls } from "elements/PaginationControls";
+import {
+  TokenExpirationSelector,
+  TokenExpirationValue,
+  resolveExpirationTime,
+} from "components/TokenExpirationSelector";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 type PersonalAccessToken = {
   name: string;
   creationTime: number;
   lastUsedTime?: number | null;
-  expirationTime?: number | null;
+  expiresAt?: number | null;
   ssoTeamId?: number | null;
 };
 
@@ -110,8 +116,11 @@ export function PersonalAccessTokens() {
       {showCreateDialog && (
         <CreatePersonalTokenDialog
           onClose={() => setShowCreateDialog(false)}
-          onCreate={async (tokenName: string) => {
-            const result = await createToken({ name: tokenName });
+          onCreate={async ({ tokenName, expiresAt }) => {
+            const result = await createToken({
+              name: tokenName,
+              ...(expiresAt !== undefined && { expiresAt }),
+            });
             return result?.accessToken ?? null;
           }}
         />
@@ -158,6 +167,13 @@ function PersonalAccessTokenItem({ token }: { token: PersonalAccessToken }) {
               prefix="Created "
               date={new Date(token.creationTime)}
             />
+            {token.expiresAt !== null && token.expiresAt !== undefined && (
+              <TimestampDistance
+                prefix="Expires "
+                date={new Date(token.expiresAt)}
+                className="text-left text-content-errorSecondary"
+              />
+            )}
           </div>
           <Button
             variant="danger"
@@ -200,9 +216,14 @@ function CreatePersonalTokenDialog({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (tokenName: string) => Promise<string | null>;
+  onCreate: (args: {
+    tokenName: string;
+    expiresAt?: number;
+  }) => Promise<string | null>;
 }) {
+  const { allowTokenExpiry } = useLaunchDarkly();
   const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
 
   if (createdToken) {
     return (
@@ -231,7 +252,13 @@ function CreatePersonalTokenDialog({
         initialValues={{ tokenName: "" }}
         validationSchema={CREATE_TOKEN_SCHEMA}
         onSubmit={async (values, { setSubmitting }) => {
-          const token = await onCreate(values.tokenName);
+          const expiresAt = allowTokenExpiry
+            ? resolveExpirationTime(expiration)
+            : null;
+          const token = await onCreate({
+            tokenName: values.tokenName,
+            ...(expiresAt !== null && { expiresAt }),
+          });
           if (token) {
             setCreatedToken(token);
           }
@@ -265,6 +292,12 @@ function CreatePersonalTokenDialog({
               }
               required
             />
+            {allowTokenExpiry && (
+              <TokenExpirationSelector
+                value={expiration}
+                onChange={setExpiration}
+              />
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="neutral" onClick={onClose} type="button">
                 Cancel

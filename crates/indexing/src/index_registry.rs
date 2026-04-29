@@ -104,7 +104,7 @@ impl IndexRegistry {
     /// all of them as completed since we'll be streaming in all non
     /// `_index` documents later.
     #[fastrace::trace]
-    pub fn bootstrap<'a, Doc: ParseDocument<TabletIndexMetadata>>(
+    pub fn bootstrap<Doc: ParseDocument<TabletIndexMetadata>>(
         table_mapping: &TableMapping,
         index_documents: impl Iterator<Item = Doc>,
     ) -> anyhow::Result<Self> {

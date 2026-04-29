@@ -492,6 +492,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
 async function invokeAction<
   F extends (ctx: GenericActionCtx<GenericDataModel>, ...args: any) => any,
 >(func: F, requestId: string, argsStr: string, visibility: FunctionVisibility) {
+  (globalThis as any).Convex?.setupPerformance?.();
   const args = jsonToConvex(JSON.parse(argsStr));
   const calls = setupActionCalls(requestId);
   const ctx = {
@@ -673,6 +674,7 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
 async function invokeHttpAction<
   F extends (ctx: GenericActionCtx<GenericDataModel>, request: Request) => any,
 >(func: F, request: Request) {
+  (globalThis as any).Convex?.setupPerformance?.();
   // TODO(presley): Change the function signature and propagate the requestId from Rust.
   // Ok, to mock it out for now, since http endpoints are only running in V8.
   const requestId = "";

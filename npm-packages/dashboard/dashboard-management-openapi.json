@@ -3426,7 +3426,10 @@
           "updateSSO",
           "transferDeployment",
           "receiveDeployment",
-          "updateDeployment"
+          "updateDeployment",
+          "createCustomRole",
+          "updateCustomRole",
+          "deleteCustomRole"
         ]
       },
       "AuditLogActor": {
@@ -3686,6 +3689,14 @@
                 "$ref": "#/components/schemas/DeviceName"
               }
             ]
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this token will expire. Must be at\nleast 30 minutes in the future."
           },
           "oauthApp": {
             "oneOf": [
@@ -6251,7 +6262,7 @@
               }
             ]
           },
-          "expirationTime": {
+          "expiresAt": {
             "type": [
               "integer",
               "null"

@@ -35,23 +35,6 @@ export type PaginatedQueryReference = FunctionReference<
   PaginationResult<any>
 >;
 
-/**
- * Options for object-form {@link usePaginatedQuery}.
- *
- * @internal
- */
-export type UsePaginatedQueryOptions<Query extends PaginatedQueryReference> = {
-  query: Query;
-  args: PaginatedQueryArgs<Query> | "skip";
-  initialNumItems: number;
-  /**
-   * When `true` (default for positional form), errors are thrown and caught
-   * by an error boundary. When `false` (default for object form), errors are
-   * returned as `{ status: "Error", error: Error }` instead of being thrown.
-   */
-  throwOnError?: boolean;
-};
-
 // Incrementing integer for each page queried in the usePaginatedQuery hook.
 type QueryPageKey = number;
 
@@ -182,56 +165,18 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   options: { initialNumItems: number },
 ): UsePaginatedQueryReturnType<Query>;
 
-/**
- * Load data reactively from a paginated query using an options object.
- *
- * @param options - Object-form options for the paginated query.
- * @returns An object with `data`, `status`, `canLoadMore`, `isLoading`,
- * `error`, and `loadMore`. `status` is `"pending"` while loading,
- * `"success"` when data is available, or `"error"` if the query threw.
- * `canLoadMore` is `true` only when idle and more pages exist.
- *
- * @internal
- */
 export function usePaginatedQuery<Query extends PaginatedQueryReference>(
-  options: UsePaginatedQueryOptions<Query>,
-): UsePaginatedQueryObjectReturnType<Query>;
-
-export function usePaginatedQuery<Query extends PaginatedQueryReference>(
-  queryOrOptions: Query | UsePaginatedQueryOptions<Query>,
-  args?: PaginatedQueryArgs<Query> | "skip",
-  options?: { initialNumItems: number },
-):
-  | UsePaginatedQueryReturnType<Query>
-  | UsePaginatedQueryObjectReturnType<Query> {
-  const isObjectOptions =
-    typeof queryOrOptions === "object" &&
-    queryOrOptions !== null &&
-    "query" in queryOrOptions;
-
-  const query = isObjectOptions ? queryOrOptions.query : queryOrOptions;
-  const queryArgs = isObjectOptions ? queryOrOptions.args : args;
-  const throwOnError = isObjectOptions
-    ? (queryOrOptions.throwOnError ?? false)
-    : true;
-  const initialOptions = isObjectOptions
-    ? { initialNumItems: queryOrOptions.initialNumItems }
-    : options;
-
+  query: Query,
+  args: PaginatedQueryArgs<Query> | "skip",
+  options: { initialNumItems: number },
+): UsePaginatedQueryReturnType<Query> {
   const { user: positionalResult } = usePaginatedQueryInternal(
     query,
-    queryArgs as PaginatedQueryArgs<Query> | "skip",
-    initialOptions as { initialNumItems: number },
-    throwOnError,
+    args,
+    options,
+    true,
   );
-
-  if (!isObjectOptions) {
-    return positionalResult as unknown as UsePaginatedQueryReturnType<Query>;
-  }
-
-  return reshapeToObjectForm(
-    positionalResult,
-  ) as unknown as UsePaginatedQueryObjectReturnType<Query>;
+  return positionalResult as unknown as UsePaginatedQueryReturnType<Query>;
 }
 
 /** @internal */
@@ -504,48 +449,6 @@ export function usePaginatedQueryInternal<
   };
 }
 
-/**
- * Reshape the internal TitleCase pagination result into the object-form
- * return type with lowercase `status`, `canLoadMore`, and `data`.
- */
-function reshapeToObjectForm<Item>(
-  internal: UsePaginatedQueryInternalResult<Item>,
-) {
-  const { results, loadMore } = internal;
-  if (internal.status === "Error" && "error" in internal) {
-    return {
-      data: results,
-      status: "error" as const,
-      canLoadMore: false as const,
-      isLoading: false as const,
-      error: internal.error,
-      loadMore,
-    };
-  }
-  if (
-    internal.status === "LoadingFirstPage" ||
-    internal.status === "LoadingMore"
-  ) {
-    return {
-      data: internal.status === "LoadingFirstPage" ? undefined : results,
-      status: "pending" as const,
-      canLoadMore: false as const,
-      isLoading: true as const,
-      error: undefined,
-      loadMore,
-    };
-  }
-  // CanLoadMore or Exhausted
-  return {
-    data: results,
-    status: "success" as const,
-    canLoadMore: internal.status === "CanLoadMore",
-    isLoading: false as const,
-    error: undefined,
-    loadMore,
-  };
-}
-
 let paginationId = 0;
 /**
  * Generate a new, unique ID for a pagination session.
@@ -668,43 +571,6 @@ export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
  */
 export type UsePaginatedQueryReturnType<Query extends PaginatedQueryReference> =
   UsePaginatedQueryResult<PaginatedQueryItem<Query>>;
-
-/**
- * Return type of the object-form {@link usePaginatedQuery} overload.
- *
- * Uses lowercase query status (`"pending" | "success" | "error"`) and a
- * `canLoadMore` boolean instead of the TitleCase pagination status strings
- * used by the positional form.
- *
- * @internal
- */
-export type UsePaginatedQueryObjectReturnType<
-  Query extends PaginatedQueryReference,
-> =
-  | {
-      data: PaginatedQueryItem<Query>[] | undefined;
-      status: "pending";
-      canLoadMore: false;
-      isLoading: true;
-      error: undefined;
-      loadMore: (numItems: number) => void;
-    }
-  | {
-      data: PaginatedQueryItem<Query>[];
-      status: "success";
-      canLoadMore: boolean;
-      isLoading: false;
-      error: undefined;
-      loadMore: (numItems: number) => void;
-    }
-  | {
-      data: PaginatedQueryItem<Query>[];
-      status: "error";
-      canLoadMore: false;
-      isLoading: false;
-      error: Error;
-      loadMore: (numItems: number) => void;
-    };
 
 /**
  * Optimistically update the values in a paginated list.

@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
+    audit_log_lines::AuditLogVars,
     auth::AuthConfig,
     backoff::Backoff,
     bootstrap_model::components::{
@@ -75,7 +76,6 @@ use common::{
         UdfIdentifier,
         UdfType,
     },
-    RequestId,
 };
 use database::{
     unauthorized_error,
@@ -215,6 +215,7 @@ use crate::{
         log_function_wait_timeout,
         log_mutation_already_committed,
     },
+    audit_logging::AuditLogClient,
     cache::{
         CacheManager,
         QueryCache,
@@ -224,7 +225,6 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
-    occ_info_for_logging,
     ActionError,
     ActionReturn,
     MutationError,
@@ -630,6 +630,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     file_storage: TransactionalFileStorage<RT>,
 
     function_log: FunctionExecutionLog<RT>,
+    audit_log_client: AuditLogClient,
 
     cache_manager: CacheManager<RT>,
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -647,6 +648,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
+        audit_log_client: AuditLogClient,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
     ) -> Self {
@@ -662,6 +664,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database.clone(),
             isolate_functions.clone(),
             function_log.clone(),
+            audit_log_client.clone(),
             cache,
         );
 
@@ -682,6 +685,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             modules_storage,
             file_storage,
             function_log,
+            audit_log_client,
             cache_manager,
             default_system_env_vars,
             node_action_limiter,
@@ -696,7 +700,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     // Only used for running queries from REPLs.
     pub async fn run_query_without_caching(
         &self,
-        request_id: RequestId,
+        request_context: RequestContext,
         mut tx: Transaction<RT>,
         path: CanonicalizedComponentFunctionPath,
         arguments: SerializedArgs,
@@ -716,8 +720,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Query,
         )
         .await?;
-        let context =
-            ExecutionContext::new(RequestContext::new_for_system_request(request_id), &caller);
+        let context = ExecutionContext::new(request_context, &caller);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
@@ -758,9 +761,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 start.elapsed(),
                 caller,
                 tx.usage_tracker,
-                context,
+                context.clone(),
             )
             .await;
+        let vars = AuditLogVars::from_context(context, &self.runtime);
+        self.audit_log_client
+            .send_logs(outcome.audit_log_lines.resolve_bodies(&vars)?);
 
         Ok((result, log_lines))
     }
@@ -946,7 +952,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             log_lines,
                         })
                     } else {
-                        if e.is_occ()
+                        if let Some(occ_info) = e.occ_info()
                             && (backoff.failures() as usize) < *UDF_EXECUTOR_OCC_MAX_RETRIES
                         {
                             let sleep = backoff.fail(&mut self.runtime.rng());
@@ -960,7 +966,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             {
                                 self.database.wait_for_write_ts(write_ts).await;
                             }
-                            let occ_info = occ_info_for_logging(e.occ_info(), mutation_retry_count);
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -972,14 +977,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    true,
                                 )
                                 .await;
                             continue;
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
 
-                        if e.is_occ() {
-                            let occ_info = occ_info_for_logging(e.occ_info(), mutation_retry_count);
+                        if let Some(occ_info) = e.occ_info() {
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -991,6 +996,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    false,
                                 )
                                 .await;
                         } else {
@@ -1120,13 +1126,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 path_and_args,
                 UdfType::Mutation,
                 QueryJournal::new(),
-                context,
+                context.clone(),
             )
             .await?;
         let mutation_outcome = match outcome {
             FunctionOutcome::Mutation(o) => o,
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
+
+        let vars = AuditLogVars::from_context(context, &self.runtime);
+        self.audit_log_client
+            .send_logs(mutation_outcome.audit_log_lines.resolve_bodies(&vars)?);
+
         let component = path.component;
 
         let table_mapping = tx.table_mapping().namespace(component.into());

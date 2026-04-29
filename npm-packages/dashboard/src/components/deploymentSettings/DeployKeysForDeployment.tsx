@@ -65,12 +65,15 @@ export function DeployKeysForDeployment() {
             getAdminKey: async (
               name: string,
               allowedOperations: string[] | undefined,
+              expiresAt: number | undefined,
             ) => {
               try {
-                const result = await createDeployKey(
+                const result = await createDeployKey({
+                  name,
                   // @ts-expect-error allowedOperations is not in the public API spec yet
-                  { name, allowedOperations },
-                );
+                  allowedOperations,
+                  ...(expiresAt !== undefined && { expiresAt }),
+                });
                 if (!result) return { ok: false as const };
                 return { ok: true as const, adminKey: result.deployKey };
               } catch {

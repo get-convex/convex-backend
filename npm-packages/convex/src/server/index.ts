@@ -179,6 +179,7 @@ export type {
   PartialApi,
   ArgsAndOptions,
   FunctionReturnType,
+  ValidatorTypeToReturnType,
 } from "./api.js";
 export {
   defineApp,
@@ -202,6 +203,15 @@ export type {
  * @internal
  */
 export type { Index, SearchIndex, VectorIndex } from "./schema.js";
+
+/**
+ * @internal
+ */
+export { log } from "./log.js";
+/**
+ * @internal
+ */
+export type { AuditLogBody, AuditLogValue } from "./audit_logging.js";
 
 export type {
   SearchIndexConfig,

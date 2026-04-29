@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::anyhow;
@@ -98,6 +99,20 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoDateDuringAuthConfig",
             "Date unsupported when evaluating auth config file"
+        ))
+    }
+
+    fn performance_now(&mut self) -> anyhow::Result<Duration> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceDuringAuthConfig",
+            "The Performance API is not supported when evaluating auth config file"
+        ))
+    }
+
+    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoPerformanceDuringAuthConfig",
+            "The Performance API is not supported when evaluating auth config file"
         ))
     }
 

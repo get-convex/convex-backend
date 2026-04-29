@@ -73,7 +73,7 @@ export class Request {
   private readonly _headers: Headers;
   private readonly _url: string;
   private readonly _method: string;
-  private _bodyStream: ReadableStream | null;
+  private _bodyStream: ReadableStream | null = null;
   private _bodyUsed = false;
   private _signal: AbortSignal;
   [_contentLength]: number | null;
@@ -354,7 +354,7 @@ export class Request {
 function extractAbortSignal(signalId: string) {
   const abortController = new AbortController();
   const stream = extractStream(signalId);
-  stream
+  void stream
     .getReader()
     .read()
     .then(() => abortController.abort());

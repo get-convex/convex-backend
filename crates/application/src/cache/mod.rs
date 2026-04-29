@@ -23,6 +23,7 @@ use async_broadcast::{
     Sender,
 };
 use common::{
+    audit_log_lines::AuditLogVars,
     components::PublicFunctionPath,
     execution_context::{
         ExecutionContext,
@@ -95,6 +96,7 @@ use value::{
 
 use crate::{
     application_function_runner::FunctionRouter,
+    audit_logging::AuditLogClient,
     function_log::FunctionExecutionLog,
     QueryReturn,
 };
@@ -116,6 +118,7 @@ pub struct CacheManager<RT: Runtime> {
     database: Database<RT>,
     function_router: FunctionRouter<RT>,
     udf_execution: FunctionExecutionLog<RT>,
+    audit_log_client: AuditLogClient,
 
     instance_id: InstanceId,
     cache: QueryCache,
@@ -303,6 +306,7 @@ impl<RT: Runtime> CacheManager<RT> {
         database: Database<RT>,
         function_router: FunctionRouter<RT>,
         udf_execution: FunctionExecutionLog<RT>,
+        audit_log_client: AuditLogClient,
         cache: QueryCache,
     ) -> Self {
         // each `CacheManager` (for a different instance) gets its own cache key space
@@ -313,6 +317,7 @@ impl<RT: Runtime> CacheManager<RT> {
             database,
             function_router,
             udf_execution,
+            audit_log_client,
             instance_id,
             cache,
         }
@@ -504,6 +509,10 @@ impl<RT: Runtime> CacheManager<RT> {
                     context.clone(),
                 )
                 .await;
+
+            let vars = AuditLogVars::from_context(context, &self.rt);
+            self.audit_log_client
+                .send_logs(cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?);
 
             let result = QueryReturn {
                 result: cache_result.outcome.result.clone(),

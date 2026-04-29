@@ -738,6 +738,12 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         CreatePersonalAccessTokenArgs: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this personal access token will
+             *     expire. Must be at least 30 minutes in the future.
+             */
+            expiresAt?: number | null;
             /** @description Name for the personal access token. */
             name: string;
         };
@@ -827,13 +833,19 @@ export interface components {
             /** Format: int64 */
             creationTime: number;
             /** Format: int64 */
-            expirationTime?: number | null;
+            expiresAt?: number | null;
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
             ssoTeamId?: null | components["schemas"]["TeamId"];
         };
         PlatformCreateDeployKeyArgs: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deploy key will expire. Must be
+             *     at least 30 minutes in the future.
+             */
+            expiresAt?: number | null;
             /** @description Name for the deploy key. */
             name: string;
         };
@@ -878,6 +890,12 @@ export interface components {
             type: components["schemas"]["CreateDeploymentType"];
         };
         PlatformCreatePreviewDeployKeyArgs: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this preview deploy key will expire.
+             *     Must be at least 30 minutes in the future.
+             */
+            expiresAt?: number | null;
             /** @description Name for the preview deploy key. */
             name: string;
         };
@@ -951,6 +969,11 @@ export interface components {
              */
             creationTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deploy key will expire.
+             */
+            expiresAt?: number | null;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was last used (if ever).

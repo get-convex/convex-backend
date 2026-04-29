@@ -86,7 +86,6 @@ use value::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     function_log::FunctionExecutionLog,
-    occ_info_for_logging,
 };
 
 mod metrics;
@@ -440,19 +439,36 @@ impl<RT: Runtime> CronJobContext<RT> {
         let (mut tx, mut outcome) = match mutation_result {
             Ok(r) => r,
             Err(e) => {
-                self.function_log
-                    .log_mutation_system_error(
-                        &e,
-                        path,
-                        job.cron_spec.udf_args.clone(),
-                        identity,
-                        start,
-                        caller,
-                        context,
-                        None,
-                        mutation_retry_count,
-                    )
-                    .await?;
+                if e.short_msg() == "TooManyWrites" {
+                    self.function_log
+                        .log_mutation_write_throughput_error(
+                            &e,
+                            path,
+                            job.cron_spec.udf_args.clone(),
+                            identity,
+                            start,
+                            caller,
+                            context,
+                            None,
+                            mutation_retry_count,
+                            true,
+                        )
+                        .await?;
+                } else {
+                    self.function_log
+                        .log_mutation_system_error(
+                            &e,
+                            path,
+                            job.cron_spec.udf_args.clone(),
+                            identity,
+                            start,
+                            caller,
+                            context,
+                            None,
+                            mutation_retry_count,
+                        )
+                        .await?;
+                }
                 return Err(e);
             },
         };
@@ -493,8 +509,7 @@ impl<RT: Runtime> CronJobContext<RT> {
             if let Err(err) = commit_result {
                 if err.is_deterministic_user_error() {
                     outcome.result = Err(JsError::from_error(err));
-                } else if err.is_occ() {
-                    let occ_info = occ_info_for_logging(err.occ_info(), mutation_retry_count);
+                } else if let Some(occ_info) = err.occ_info() {
                     self.function_log
                         .log_mutation_occ_error(
                             outcome,
@@ -506,6 +521,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                             occ_info,
                             None,
                             mutation_retry_count,
+                            true,
                         )
                         .await;
                     return Err(err);

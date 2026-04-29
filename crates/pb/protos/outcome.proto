@@ -100,7 +100,5 @@ message LogLine {
 
 message AuditLogLine {
   optional string body_json = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  optional string component_path = 3;
-  optional string udf_path = 4;
+  reserved 2, 3, 4;
 }
