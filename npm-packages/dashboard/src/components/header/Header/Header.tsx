@@ -72,6 +72,7 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
             href={logoLink}
             passHref
             className="flex min-h-[28px] min-w-[28px] rounded-full"
+            data-testid="home-link"
           >
             <ConvexLogo />
           </Link>

@@ -18,6 +18,9 @@ import { DataView } from "@common/features/data/components/DataView";
 import { FunctionsContext } from "@common/lib/functions/FunctionsProvider";
 import { api } from "system-udfs/convex/_generated/api";
 
+// Fixed "now" so timestamps are stable.
+const NOW = new Date("2026-03-10T14:25:00Z").getTime();
+
 const mockTeam = {
   id: 2,
   slug: "acme",
@@ -39,7 +42,7 @@ const mockDeployment = {
   isDefault: true,
   projectId: mockProject.id,
   creator: 1,
-  createTime: Date.now(),
+  createTime: NOW,
   class: "s256",
   deploymentUrl: "https://happy-capybara-123.convex.cloud",
   reference: "dev/nicolas",
@@ -114,7 +117,7 @@ const mockShapesData: Record<string, Shape> = {
   },
 };
 
-const now = Date.now();
+const now = NOW;
 
 const mockDocuments: Record<string, GenericDocument[]> = {
   channels: [
@@ -255,6 +258,14 @@ const meta = {
       },
     },
     a11y: { test: "todo" },
+  },
+  beforeEach: () => {
+    const originalDateNow = Date.now;
+    Date.now = () => NOW;
+
+    return () => {
+      Date.now = originalDateNow;
+    };
   },
   decorators: [
     (storyFn) => {
@@ -617,6 +628,132 @@ export const GenerateSchema: Story = {
   },
 };
 
+const mockComponents = [
+  {
+    id: "k17componentsaaaaaaaaaaaaaaaa1111" as GenericId<"_components">,
+    name: "rateLimiter",
+    path: "rateLimiter",
+    args: {},
+    state: "active" as const,
+  },
+  {
+    id: "k17componentsaaaaaaaaaaaaaaaa2222" as GenericId<"_components">,
+    name: "migrations",
+    path: "migrations",
+    args: {},
+    state: "active" as const,
+  },
+];
+
+const mockConvexClientWithComponents = mockConvexReactClient()
+  .registerQueryFake(udfs.components.list, () => mockComponents)
+  .registerQueryFake(udfs.getVersion.default, () => "1.18.0")
+  .registerQueryFake(udfs.getSchemas.default, () => ({
+    active: undefined,
+    inProgress: undefined,
+  }))
+  .registerQueryFake(udfs.getSchemas.schemaValidationProgress, () => null)
+  .registerQueryFake(
+    udfs.tableSize.default,
+    ({ tableName }: { tableName: string }) =>
+      mockDocuments[tableName]?.length ?? 0,
+  )
+  .registerQueryFake(
+    udfs.paginatedTableDocuments.default,
+    ({ table }: { table: string }) => ({
+      page: mockDocuments[table] ?? [],
+      isDone: true,
+      continueCursor: "",
+    }),
+  )
+  .registerQueryFake(api._system.frontend.indexes.default, () => [
+    {
+      name: "by_name",
+      fields: ["name", "_creation_time"],
+      staged: false,
+      backfill: { state: "done" as const },
+    },
+  ])
+  .registerQueryFake(udfs.getTableMapping.default, () => ({
+    1: "channels",
+    2: "messages",
+    3: "users",
+  }))
+  .registerQueryFake(udfs.deploymentState.deploymentState, () => ({
+    _id: "" as GenericId<"_backend_state">,
+    _creationTime: 0,
+    state: "running" as const,
+  }))
+  .registerQueryFake(udfs.deploymentEvents.lastPushEvent, () => null)
+  .registerQueryFake(
+    udfs.convexCloudUrl.default,
+    () => mockDeployment.deploymentUrl,
+  )
+  .registerQueryFake(
+    udfs.convexSiteUrl.default,
+    () => "https://happy-capybara-123.convex.site",
+  )
+  .registerQueryFake(udfs.fileStorageV2.numFiles, () => 0)
+  .registerQueryFake(udfs.tableSize.sizeOfAllTables, () => 0);
+
+const mockConnectedDeploymentWithComponents = {
+  deployment: {
+    client: mockConvexClientWithComponents,
+    httpClient: {} as never,
+    deploymentUrl: mockDeployment.deploymentUrl,
+    adminKey: "storybook-admin-key",
+    deploymentName: mockDeployment.name,
+  },
+  isDisconnected: false,
+};
+
+/**
+ * Shows the component dropdown expanded in the Data page header.
+ */
+export const ComponentDropdown: Story = {
+  parameters: {
+    screenshotSelector:
+      '[data-testid="combobox-button-Select component"], [role="listbox"], [data-testid="home-link"]',
+  },
+  render: () => (
+    <ConnectedDeploymentContext.Provider
+      value={mockConnectedDeploymentWithComponents}
+    >
+      <ConvexProvider client={mockConvexClientWithComponents}>
+        <DeploymentInfoContext.Provider
+          value={{
+            ...mockDeploymentInfo,
+            useCurrentTeam: () => mockTeam,
+            useCurrentProject: () => mockProject,
+            useCurrentDeployment: () => mockDeployment,
+            useIsDeploymentPaused: () => false,
+            useLogDeploymentEvent: () => fn(),
+            deploymentsURI: "/t/acme/my-amazing-app/happy-capybara-123",
+            projectsURI: "/t/acme/my-amazing-app",
+            teamsURI: "/t/acme",
+            isSelfHosted: false,
+          }}
+        >
+          <FunctionsContext.Provider value={new Map()}>
+            <DataView />
+          </FunctionsContext.Provider>
+        </DeploymentInfoContext.Provider>
+      </ConvexProvider>
+    </ConnectedDeploymentContext.Provider>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(async () => {
+      await expect(
+        canvas.queryByTestId("combobox-button-Select component"),
+      ).toBeTruthy();
+    });
+    await userEvent.click(
+      canvas.getByTestId("combobox-button-Select component"),
+    );
+  },
+};
+
 export const MultipleDevDeploymentsSelector: Story = {
   parameters: {
     ...meta.parameters,
@@ -634,7 +771,7 @@ export const MultipleDevDeploymentsSelector: Story = {
             isDefault: true,
             projectId: mockProject.id,
             creator: 1,
-            createTime: Date.now(),
+            createTime: NOW,
             class: "s256",
             deploymentUrl: "https://happy-capybara-123.convex.cloud",
             reference: "dev/nicolas",
@@ -648,7 +785,7 @@ export const MultipleDevDeploymentsSelector: Story = {
             isDefault: true,
             projectId: mockProject.id,
             creator: 1,
-            createTime: Date.now(),
+            createTime: NOW,
             class: "s256",
             deploymentUrl: "https://musical-otter-456.convex.cloud",
             reference: "production",
@@ -662,7 +799,7 @@ export const MultipleDevDeploymentsSelector: Story = {
             isDefault: false,
             projectId: mockProject.id,
             creator: 1,
-            createTime: Date.now() - 100000000,
+            createTime: NOW - 100000000,
             class: "s256",
             deploymentUrl: "https://steady-hawk-789.convex.cloud",
             reference: "prod/staging",
@@ -677,7 +814,7 @@ export const MultipleDevDeploymentsSelector: Story = {
             isDefault: false,
             projectId: mockProject.id,
             creator: 2,
-            createTime: Date.now() - 72000000,
+            createTime: NOW - 72000000,
             class: "s256",
             deploymentUrl: "https://quick-panda-202.convex.cloud",
             reference: "dev/ari/auth-flow",
@@ -691,7 +828,7 @@ export const MultipleDevDeploymentsSelector: Story = {
             isDefault: false,
             projectId: mockProject.id,
             creator: 2,
-            createTime: Date.now() - 60000000,
+            createTime: NOW - 60000000,
             class: "s256",
             deploymentUrl: "https://calm-tiger-203.convex.cloud",
             reference: "dev/ari/payment-v2",
@@ -705,7 +842,7 @@ export const MultipleDevDeploymentsSelector: Story = {
             isDefault: false,
             projectId: mockProject.id,
             creator: 2,
-            createTime: Date.now() - 48000000,
+            createTime: NOW - 48000000,
             class: "s256",
             deploymentUrl: "https://swift-eagle-204.convex.cloud",
             reference: "dev/ari/onboarding",

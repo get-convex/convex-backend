@@ -380,6 +380,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/project/deployment/Data#Component Dropdown",
+    "light": {
+      "filename": "pages_project_deployment_data_component_dropdown_light.webp",
+      "width": 828,
+      "height": 538
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_component_dropdown_dark.webp",
+      "width": 828,
+      "height": 538
+    }
+  },
+  {
     "storyTitle": "docs/pages/project/deployment/Data#Multiple Dev Deployments Selector",
     "light": {
       "filename": "pages_project_deployment_data_multiple_dev_deployments_selector_light.webp",
