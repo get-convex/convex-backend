@@ -5,14 +5,14 @@ edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
 [package.metadata.cargo-machete]
-ignored = ["tonic_build"]
+ignored = ["tonic_prost_build"]
 
 [lib]
 doctest = false
 
 [dependencies]
 prost = { workspace = true }
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
 
 [lints]
 workspace = true

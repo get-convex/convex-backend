@@ -25,6 +25,7 @@ prost = { workspace = true }
 prost-reflect = { workspace = true }
 prost-types = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 value = { workspace = true }
 
 [build-dependencies]

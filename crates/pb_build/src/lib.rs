@@ -10,7 +10,7 @@ use std::{
 };
 
 use prost::Message;
-use tonic_build::FileDescriptorSet;
+use tonic_prost_build::FileDescriptorSet;
 
 pub fn set_protoc_path() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("protoc");
@@ -49,7 +49,7 @@ fn find_packages(proto_dir: &Path) -> Result<Vec<String>> {
     Ok(packages)
 }
 
-pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static str>) -> Result<()> {
+pub fn pb_build(features: Vec<&'static str>, extra_includes: Vec<&'static str>) -> Result<()> {
     set_protoc_path();
     println!("cargo:rerun-if-changed=protos");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -76,11 +76,11 @@ pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static st
         external_paths.append(&mut packages)
     }
 
-    let mut includes = vec!["protos/"];
-    includes.append(&mut extra_includes);
+    let mut includes = vec!["protos/".to_string()];
+    includes.extend(extra_includes.into_iter().map(str::to_string));
 
     let descriptor_set_path = out_dir.join("descriptors.bin");
-    let mut builder = tonic_build::configure().file_descriptor_set_path(&descriptor_set_path);
+    let mut builder = tonic_prost_build::configure().file_descriptor_set_path(&descriptor_set_path);
     for (proto_path, rust_path) in external_paths {
         builder = builder.extern_path(proto_path, rust_path);
     }

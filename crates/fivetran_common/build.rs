@@ -38,8 +38,8 @@ fn main() -> Result<()> {
     if hash != FILE_HASH {
         panic!("Files have hash {hash}, expected {FILE_HASH}");
     }
-    tonic_build::configure()
-        .btree_map(["."])
+    tonic_prost_build::configure()
+        .btree_map(".")
         .compile_protos(&proto_files, &[protos_dir])?;
 
     Ok(())

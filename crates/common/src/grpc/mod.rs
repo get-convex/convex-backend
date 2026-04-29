@@ -106,6 +106,14 @@ impl ConvexGrpcService {
         let listener = socket.listen(*HTTP_SERVER_TCP_BACKLOG)?;
         let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
         tonic::transport::Server::builder()
+            // Internal Convex gRPC clients can validly cancel many streams on
+            // long-lived connections; don't let h2's external-peer abuse
+            // heuristic close those trusted connections.
+            // TODO: Apply the same policy to internal gRPC clients once tonic
+            // exposes h2's client-side max_local_error_reset_streams setting.
+            // The Sentry "too_many_internal_resets" issues are likely from
+            // client-side channels, so this server setting alone is incomplete.
+            .http2_max_local_error_reset_streams(None)
             .layer(convex_layers)
             .add_routes(self.routes)
             .serve_with_incoming_shutdown(incoming, shutdown)
