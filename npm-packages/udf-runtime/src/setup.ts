@@ -13,6 +13,7 @@ import { setupFormData } from "./21_formdata.js";
 import { requestFromConvexJson, setupRequest } from "./23_request.js";
 import { convexJsonFromResponse, setupResponse } from "./23_response.js";
 import { setupFetch } from "./26_fetch.js";
+import { setupPerformance } from "./27_performance.js";
 import { setupSourceMapping } from "./errors.js";
 import { throwUncatchableDeveloperError } from "./helpers.js";
 import { getBlob, getResponse, storeBlob, storeRequest } from "./storage.js";
@@ -51,6 +52,8 @@ export function setup(global: any) {
   setupRequest(global);
   setupResponse(global);
   setupFetch(global);
+
+  global.Convex.setupPerformance = () => setupPerformance(global);
 
   global.Convex.jsSyscall = (op: string, args: Record<string, any>) => {
     switch (op) {
