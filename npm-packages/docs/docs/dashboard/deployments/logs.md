@@ -27,7 +27,7 @@ Function activity includes:
   latency).
 
 In addition to function activity,
-[deployment events](/dashboard/deployments/history.md) describing configuration
+[deployment events](/dashboard/deployments/history.mdx) describing configuration
 changes will be present here.
 
 Clicking on log will open a view for all logs associated with the same Request
