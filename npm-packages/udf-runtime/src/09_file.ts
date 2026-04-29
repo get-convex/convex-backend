@@ -110,22 +110,31 @@ function iteratorToReadableStream(
 
 const NORMALIZE_PATTERN = new RegExp(/^[\x20-\x7E]*$/);
 
-export function isSupportedBlobPart(part): boolean {
+export function isSupportedBlobPart(part: unknown): part is BlobPart {
   if (part === undefined || part === null) {
     return false;
   }
-  return (
+  if (
     typeof part === "string" ||
     part instanceof ArrayBuffer ||
-    part instanceof Blob ||
-    ((part.buffer instanceof ArrayBuffer ||
-      part.buffer instanceof SharedArrayBuffer) &&
-      typeof part.byteLength === "number" &&
-      typeof part.byteOffset === "number")
+    part instanceof Blob
+  ) {
+    return true;
+  }
+  const view = part as {
+    buffer?: unknown;
+    byteLength?: unknown;
+    byteOffset?: unknown;
+  };
+  return (
+    (view.buffer instanceof ArrayBuffer ||
+      view.buffer instanceof SharedArrayBuffer) &&
+    typeof view.byteLength === "number" &&
+    typeof view.byteOffset === "number"
   );
 }
 
-type BlobPart = string | BufferSource | Blob;
+type BlobPart = string | ArrayBufferView | ArrayBuffer | Blob;
 
 export class Blob {
   private _parts: (BlobReference | BlobStreamReference | Blob)[];
@@ -267,7 +276,6 @@ export class Blob {
         );
       } else if (
         (element.buffer instanceof ArrayBuffer ||
-          // @ts-expect-error FIXME
           element.buffer instanceof SharedArrayBuffer) &&
         typeof element.byteLength === "number" &&
         typeof element.byteOffset === "number"
