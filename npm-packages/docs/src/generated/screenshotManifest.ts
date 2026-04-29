@@ -68,6 +68,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/HealthCacheHitRate",
+    "light": {
+      "filename": "components_health_cache_hit_rate_light.webp",
+      "width": 832,
+      "height": 556
+    },
+    "dark": {
+      "filename": "components_health_cache_hit_rate_dark.webp",
+      "width": 832,
+      "height": 556
+    }
+  },
+  {
     "storyTitle": "docs/components/HealthFailureRate",
     "light": {
       "filename": "components_health_failure_rate_light.webp",
@@ -377,6 +390,19 @@ export const screenshots = [
       "filename": "pages_project_deployment_data_generate_schema_dark.webp",
       "width": 2048,
       "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Component Dropdown",
+    "light": {
+      "filename": "pages_project_deployment_data_component_dropdown_light.webp",
+      "width": 828,
+      "height": 538
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_component_dropdown_dark.webp",
+      "width": 828,
+      "height": 538
     }
   },
   {

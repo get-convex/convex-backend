@@ -6,6 +6,8 @@ hide_table_of_contents: true
 description: "Using existing components"
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 Convex Components add new features to your backend in their own sandbox with
 their own functions, schema and data, scheduled functions and all other
 fundamental Convex features.
@@ -181,13 +183,10 @@ You can see your component’s data, functions, files, logs, and other info usin
 the dropdown in the Dashboard. You can also use the dropdown to exclude info
 from certain components.
 
-<p style={{ textAlign: "center" }}>
-  <img
-    src="/screenshots/component_dropdown.png"
-    alt="Screenshot of the component dropdown"
-    width={414}
-  />
-</p>
+<Screenshot
+  story="docs/pages/project/deployment/Data#Component Dropdown"
+  alt="Screenshot of the component dropdown"
+/>
 
 ## Testing components
 
