@@ -1865,6 +1865,228 @@
           }
         ]
       }
+    },
+    "/teams/{team_id}/create_custom_role": {
+      "post": {
+        "tags": [
+          "Custom Roles",
+          "alpha"
+        ],
+        "summary": "Create a custom role",
+        "description": "Creates a new custom role for the team with the specified name,\ndescription, and permission statements.",
+        "operationId": "create custom role",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomRoleArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomRoleResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/list_custom_roles": {
+      "get": {
+        "tags": [
+          "Custom Roles",
+          "alpha"
+        ],
+        "summary": "List custom roles",
+        "description": "Lists all custom roles for the team with cursor-based pagination.",
+        "operationId": "list custom roles",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max results per page (default: 100, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCustomRolesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/update_custom_role": {
+      "post": {
+        "tags": [
+          "Custom Roles",
+          "alpha"
+        ],
+        "summary": "Update a custom role",
+        "description": "Updates an existing custom role's name, description, and permission\nstatements.",
+        "operationId": "update custom role",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomRoleArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomRoleResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/delete_custom_role": {
+      "post": {
+        "tags": [
+          "Custom Roles",
+          "alpha"
+        ],
+        "summary": "Delete a custom role",
+        "description": "Deletes a custom role from the team.",
+        "operationId": "delete custom role",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteCustomRoleArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1872,6 +2094,31 @@
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
+      },
+      "CreateCustomRoleArgs": {
+        "type": "object",
+        "required": [
+          "name",
+          "statements"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatement"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "CreateDeploymentType": {
         "type": "string",
@@ -1945,6 +2192,54 @@
           }
         }
       },
+      "CustomRoleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "teamId",
+          "name",
+          "statements",
+          "createTime"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatement"
+            }
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
       "DefaultEnvironmentVariableChangeArgs": {
         "type": "object",
         "required": [
@@ -1990,6 +2285,19 @@
             "type": "string"
           }
         }
+      },
+      "DeleteCustomRoleArgs": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
       },
       "DeletePersonalAccessTokenArgs": {
         "type": "object",
@@ -2070,6 +2378,24 @@
       "IsDefaultDeployment": {
         "type": "boolean",
         "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
+      },
+      "ListCustomRolesResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
+          }
+        }
       },
       "ListDeploymentClassesResponse": {
         "type": "object",
@@ -3028,6 +3354,125 @@
           "developer"
         ]
       },
+      "RoleStatement": {
+        "type": "object",
+        "description": "A single permission rule within a custom role.",
+        "required": [
+          "effect",
+          "actions",
+          "resource"
+        ],
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/RoleStatementActions"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/RoleStatementEffect"
+          },
+          "resource": {
+            "type": "string",
+            "description": "Resource path like `project/*`, `project/slug:my-app`, or\n`project/*/deployment/type:prod`.",
+            "example": "project/*"
+          }
+        }
+      },
+      "RoleStatementAction": {
+        "type": "string",
+        "description": "Wire-format mirror of [`RolePolicyAction`] without resource parameters.\nThis is what appears in custom-role statements and the OpenAPI schema.",
+        "enum": [
+          "updateTeam",
+          "deleteTeam",
+          "createProject",
+          "transferProject",
+          "receiveProject",
+          "updateProject",
+          "deleteProject",
+          "viewProject",
+          "updateMemberProjectRole",
+          "createProjectEnvironmentVariable",
+          "updateProjectEnvironmentVariable",
+          "deleteProjectEnvironmentVariable",
+          "createDeployment",
+          "transferDeployment",
+          "receiveDeployment",
+          "updateDeployment",
+          "createCustomDomain",
+          "deleteCustomDomain",
+          "inviteMember",
+          "cancelMemberInvitation",
+          "removeMember",
+          "updateMemberRole",
+          "updatePaymentMethod",
+          "updateBillingContact",
+          "updateBillingAddress",
+          "createSubscription",
+          "resumeSubscription",
+          "cancelSubscription",
+          "changeSubscriptionPlan",
+          "setSpendingLimit",
+          "viewBillingDetails",
+          "viewInvoices",
+          "createTeamAccessToken",
+          "updateTeamAccessToken",
+          "deleteTeamAccessToken",
+          "viewTeamAccessToken",
+          "createProjectAccessToken",
+          "updateProjectAccessToken",
+          "deleteProjectAccessToken",
+          "viewProjectAccessToken",
+          "createDeploymentAccessToken",
+          "updateDeploymentAccessToken",
+          "deleteDeploymentAccessToken",
+          "viewDeploymentAccessToken",
+          "createOAuthApplication",
+          "updateOAuthApplication",
+          "deleteOAuthApplication",
+          "viewOAuthApplication",
+          "generateOAuthClientSecret",
+          "viewUsage",
+          "startManualCloudBackup",
+          "restoreFromCloudBackup",
+          "configurePeriodicBackup",
+          "disablePeriodicBackup",
+          "deleteCloudBackup",
+          "applyReferralCode",
+          "enableSSO",
+          "disableSSO",
+          "updateSSO",
+          "viewSSO",
+          "createCustomRole",
+          "updateCustomRole",
+          "deleteCustomRole",
+          "viewCustomRoles"
+        ]
+      },
+      "RoleStatementActions": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RoleStatementWildcardAction"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatementAction"
+            }
+          }
+        ]
+      },
+      "RoleStatementEffect": {
+        "type": "string",
+        "description": "Whether a rule grants or revokes access.",
+        "enum": [
+          "allow",
+          "deny"
+        ]
+      },
+      "RoleStatementWildcardAction": {
+        "type": "string",
+        "enum": [
+          "*"
+        ]
+      },
       "TeamId": {
         "type": "integer",
         "format": "int64",
@@ -3145,6 +3590,36 @@
       },
       "TeamSlug": {
         "type": "string"
+      },
+      "UpdateCustomRoleArgs": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "statements"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatement"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "UpdateDefaultEnvironmentVariablesArgs": {
         "type": "object",
