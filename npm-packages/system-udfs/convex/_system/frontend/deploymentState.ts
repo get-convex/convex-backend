@@ -1,5 +1,6 @@
 import { Infer } from "convex/values";
 import { queryPrivateSystem } from "../secretSystemTables";
+import { noPermissionRequired } from "../server";
 
 import { oldBackendState } from "../../tableDefs/deploymentAuditLogTable";
 import { backendState } from "../../schema";
@@ -7,7 +8,7 @@ import { backendState } from "../../schema";
 type OldBackendState = Infer<typeof oldBackendState>;
 type BackendState = Infer<typeof backendState>;
 
-export const deploymentState = queryPrivateSystem("ViewData")({
+export const deploymentState = queryPrivateSystem(noPermissionRequired)({
   args: {},
   handler: async function ({ db }): Promise<{ state: OldBackendState }> {
     const { state } = (await db.query("_backend_state").first())!;

@@ -11,6 +11,7 @@ import {
   query as serverQuery,
   queryGeneric as serverQueryGeneric,
   DeploymentOp,
+  NoPermissionRequired,
 } from "./server";
 import { Id } from "../_generated/dataModel";
 
@@ -102,7 +103,7 @@ type FunctionDefinition = {
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
 };
 
-const queryWithComponent = (operation: DeploymentOp) => {
+const queryWithComponent = (operation: DeploymentOp | NoPermissionRequired) => {
   const query = serverQuery(operation);
   return ((functionDefinition: FunctionDefinition) => {
     return query({
@@ -128,7 +129,9 @@ const queryWithComponent = (operation: DeploymentOp) => {
 /// although db.system is used under the hood.
 /// In a `queryPrivateSystem` there is no access to user tables or public system
 /// tables. For those, use `queryGeneric` instead.
-export const queryPrivateSystem = (operation: DeploymentOp) => {
+export const queryPrivateSystem = (
+  operation: DeploymentOp | NoPermissionRequired,
+) => {
   const qwc = queryWithComponent(operation);
   return ((functionDefinition: FunctionDefinition) => {
     if (!("args" in functionDefinition)) {
@@ -147,7 +150,9 @@ export const queryPrivateSystem = (operation: DeploymentOp) => {
   }) as typeof qwc;
 };
 
-const queryGenericWithComponent = (operation: DeploymentOp) => {
+const queryGenericWithComponent = (
+  operation: DeploymentOp | NoPermissionRequired,
+) => {
   const query = serverQueryGeneric(operation);
   return ((functionDefinition: FunctionDefinition) => {
     return query({
@@ -171,7 +176,9 @@ const queryGenericWithComponent = (operation: DeploymentOp) => {
 /// `queryGeneric` is a query that the developer could write themselves.
 /// It does not access private system tables, so `db.get` and `db.system.get`
 /// only operate on user tables and public system tables.
-export const queryGeneric = (operation: DeploymentOp) => {
+export const queryGeneric = (
+  operation: DeploymentOp | NoPermissionRequired,
+) => {
   const qgwc = queryGenericWithComponent(operation);
   return ((functionDefinition: FunctionDefinition) => {
     if (!("args" in functionDefinition)) {

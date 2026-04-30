@@ -25,10 +25,11 @@ export function useNents(): {
   const { query, push } = useRouter();
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
   const canViewData = useIsOperationAllowed("ViewData");
-  const allComponents = useQuery(
+  const allComponentsOrSkipped = useQuery(
     api._system.frontend.components.list,
     canViewData ? {} : "skip",
   );
+  const allComponents = canViewData ? allComponentsOrSkipped : [];
 
   // Ensure the selected component is in the list of all components
   if (allComponents !== undefined && typeof query.component === "string") {
