@@ -725,12 +725,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/create_custom_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a custom role
+         * @description Creates a new custom role for the team with the specified name,
+         *     description, and permission statements.
+         */
+        post: operations["create custom role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/list_custom_roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List custom roles
+         * @description Lists all custom roles for the team with cursor-based pagination.
+         */
+        get: operations["list custom roles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/update_custom_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update a custom role
+         * @description Updates an existing custom role's name, description, and permission
+         *     statements.
+         */
+        post: operations["update custom role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/delete_custom_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a custom role
+         * @description Deletes a custom role from the team.
+         */
+        post: operations["delete custom role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @description Encrypted admin key */
         AdminKey: string;
+        CreateCustomRoleArgs: {
+            description?: string | null;
+            name: string;
+            statements: components["schemas"]["RoleStatement"][];
+        };
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod" | "preview" | "custom";
         CreateInvitationArgs: {
@@ -755,6 +842,17 @@ export interface components {
             accessToken: string;
             tokenType: string;
         };
+        CustomRoleResponse: {
+            /** Format: int64 */
+            createTime: number;
+            creator?: null | components["schemas"]["MemberId"];
+            description?: string | null;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            statements: components["schemas"]["RoleStatement"][];
+            teamId: components["schemas"]["TeamId"];
+        };
         DefaultEnvironmentVariableChangeArgs: {
             deploymentType: components["schemas"]["DeploymentType"];
             name: string;
@@ -772,6 +870,10 @@ export interface components {
             deploymentTypes: components["schemas"]["DeploymentType"][];
             name: string;
             value: string;
+        };
+        DeleteCustomRoleArgs: {
+            /** Format: int64 */
+            id: number;
         };
         DeletePersonalAccessTokenArgs: {
             /** @description The token to delete. This can be the secret value of the token or the
@@ -799,6 +901,10 @@ export interface components {
         /** @description Indicates whether the deployment is the default prod deployment for the
          *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
+        ListCustomRolesResponse: {
+            items: components["schemas"]["CustomRoleResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
+        };
         ListDeploymentClassesResponse: {
             items: components["schemas"]["DeploymentClassMetadata"][];
         };
@@ -1180,6 +1286,31 @@ export interface components {
         RequestDestination: "convexCloud" | "convexSite";
         /** @enum {string} */
         Role: "admin" | "developer";
+        /** @description A single permission rule within a custom role. */
+        RoleStatement: {
+            actions: components["schemas"]["RoleStatementActions"];
+            effect: components["schemas"]["RoleStatementEffect"];
+            /**
+             * @description Resource path like `project/*`, `project/slug:my-app`, or
+             *     `project/*\/deployment/type:prod`.
+             * @example project/*
+             */
+            resource: string;
+        };
+        /**
+         * @description Wire-format mirror of [`RolePolicyAction`] without resource parameters.
+         *     This is what appears in custom-role statements and the OpenAPI schema.
+         * @enum {string}
+         */
+        RoleStatementAction: "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "viewProject" | "updateMemberProjectRole" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "transferDeployment" | "receiveDeployment" | "updateDeployment" | "createCustomDomain" | "deleteCustomDomain" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "setSpendingLimit" | "viewBillingDetails" | "viewInvoices" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createProjectAccessToken" | "updateProjectAccessToken" | "deleteProjectAccessToken" | "viewProjectAccessToken" | "createDeploymentAccessToken" | "updateDeploymentAccessToken" | "deleteDeploymentAccessToken" | "viewDeploymentAccessToken" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "viewOAuthApplication" | "generateOAuthClientSecret" | "viewUsage" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "applyReferralCode" | "enableSSO" | "disableSSO" | "updateSSO" | "viewSSO" | "createCustomRole" | "updateCustomRole" | "deleteCustomRole" | "viewCustomRoles";
+        RoleStatementActions: components["schemas"]["RoleStatementWildcardAction"] | components["schemas"]["RoleStatementAction"][];
+        /**
+         * @description Whether a rule grants or revokes access.
+         * @enum {string}
+         */
+        RoleStatementEffect: "allow" | "deny";
+        /** @enum {string} */
+        RoleStatementWildcardAction: "*";
         /** Format: int64 */
         TeamId: number;
         TeamMember: {
@@ -1206,6 +1337,13 @@ export interface components {
             suspended: boolean;
         };
         TeamSlug: string;
+        UpdateCustomRoleArgs: {
+            description?: string | null;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            statements: components["schemas"]["RoleStatement"][];
+        };
         UpdateDefaultEnvironmentVariablesArgs: {
             changes: components["schemas"]["DefaultEnvironmentVariableChangeArgs"][];
         };
@@ -1217,13 +1355,16 @@ export interface components {
     pathItems: never;
 }
 export type AdminKey = components['schemas']['AdminKey'];
+export type CreateCustomRoleArgs = components['schemas']['CreateCustomRoleArgs'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
 export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs'];
 export type CreatePersonalAccessTokenArgs = components['schemas']['CreatePersonalAccessTokenArgs'];
 export type CreatePersonalAccessTokenResponse = components['schemas']['CreatePersonalAccessTokenResponse'];
 export type CreateTeamAccessTokenResponse = components['schemas']['CreateTeamAccessTokenResponse'];
+export type CustomRoleResponse = components['schemas']['CustomRoleResponse'];
 export type DefaultEnvironmentVariableChangeArgs = components['schemas']['DefaultEnvironmentVariableChangeArgs'];
 export type DefaultEnvironmentVariableResponse = components['schemas']['DefaultEnvironmentVariableResponse'];
+export type DeleteCustomRoleArgs = components['schemas']['DeleteCustomRoleArgs'];
 export type DeletePersonalAccessTokenArgs = components['schemas']['DeletePersonalAccessTokenArgs'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
@@ -1233,6 +1374,7 @@ export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMe
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
+export type ListCustomRolesResponse = components['schemas']['ListCustomRolesResponse'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeploymentsResponse'];
@@ -1273,11 +1415,17 @@ export type ReferralCode = components['schemas']['ReferralCode'];
 export type RegionName = components['schemas']['RegionName'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type Role = components['schemas']['Role'];
+export type RoleStatement = components['schemas']['RoleStatement'];
+export type RoleStatementAction = components['schemas']['RoleStatementAction'];
+export type RoleStatementActions = components['schemas']['RoleStatementActions'];
+export type RoleStatementEffect = components['schemas']['RoleStatementEffect'];
+export type RoleStatementWildcardAction = components['schemas']['RoleStatementWildcardAction'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
+export type UpdateCustomRoleArgs = components['schemas']['UpdateCustomRoleArgs'];
 export type UpdateDefaultEnvironmentVariablesArgs = components['schemas']['UpdateDefaultEnvironmentVariablesArgs'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -2159,6 +2307,109 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateDefaultEnvironmentVariablesArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "create custom role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomRoleArgs"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRoleResponse"];
+                };
+            };
+        };
+    };
+    "list custom roles": {
+        parameters: {
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Max results per page (default: 100, max: 100) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListCustomRolesResponse"];
+                };
+            };
+        };
+    };
+    "update custom role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomRoleArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomRoleResponse"];
+                };
+            };
+        };
+    };
+    "delete custom role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteCustomRoleArgs"];
             };
         };
         responses: {

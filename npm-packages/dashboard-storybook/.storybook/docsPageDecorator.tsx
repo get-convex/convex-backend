@@ -188,6 +188,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   const mockTeamEntitlements = {
     auditLogRetentionDays: 90,
     customDomainsEnabled: true,
+    customRolesEnabled: false,
     deploymentClassSelectionEnabled: false,
     logStreamingEnabled: true,
     managementApiEnabled: true,

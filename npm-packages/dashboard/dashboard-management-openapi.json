@@ -6332,7 +6332,8 @@
           "managementApiEnabled",
           "previewDeploymentRetentionDays",
           "deploymentClassSelectionEnabled",
-          "teamMaxSearchQueries"
+          "teamMaxSearchQueries",
+          "customRolesEnabled"
         ],
         "properties": {
           "auditLogRetentionDays": {
@@ -6340,6 +6341,9 @@
             "format": "int64"
           },
           "customDomainsEnabled": {
+            "type": "boolean"
+          },
+          "customRolesEnabled": {
             "type": "boolean"
           },
           "deploymentClassSelectionEnabled": {
