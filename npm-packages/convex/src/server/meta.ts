@@ -97,7 +97,6 @@ export type RequestMetadata = {
 export interface QueryMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
   getTransactionMetrics(): Promise<TransactionMetrics>;
-  /** @internal */
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
 }
 
@@ -120,7 +119,6 @@ export interface MutationMeta extends QueryMeta {
  */
 export interface ActionMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
-  /** @internal */
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
 
   /**
