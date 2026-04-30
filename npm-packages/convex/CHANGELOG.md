@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.37.0 (Unreleased)
+## 1.37.0
 
 - Adds `useQuery_experimental`, which accepts object-based args and returns an
   object with status, data, and error that doesn't throw errors by default.
