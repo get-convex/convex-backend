@@ -1623,7 +1623,7 @@ pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR
 
 /// Maximum total size in bytes of all environment variables (names + values).
 pub static ENV_VAR_TOTAL_SIZE_LIMIT: LazyLock<usize> =
-    LazyLock::new(|| env_config("ENV_VAR_TOTAL_SIZE_LIMIT", 1 << 20)); // 1 MiB
+    LazyLock::new(|| env_config("ENV_VAR_TOTAL_SIZE_LIMIT", 500 * 1024)); // 500 KiB
 
 /// If set, disable the /metrics endpoint
 pub static DISABLE_METRICS_ENDPOINT: LazyLock<bool> =
