@@ -45,7 +45,6 @@ pub use admin_key::{
     split_admin_key,
     AdminKey,
     AdminKeyParts,
-    PreviewDeploymentAdminKeyParts,
     SystemKey,
 };
 pub use backend_info::{

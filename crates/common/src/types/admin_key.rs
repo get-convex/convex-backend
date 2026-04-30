@@ -142,37 +142,6 @@ pub struct AdminKeyParts {
     pub encrypted_part: String,
 }
 
-pub struct PreviewDeploymentAdminKeyParts {
-    pub team_slug: String,
-    pub project_slug: String,
-    pub key: String,
-}
-
-impl TryFrom<AdminKey> for PreviewDeploymentAdminKeyParts {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AdminKey) -> Result<Self, Self::Error> {
-        match value.0.split_once('|') {
-            Some((prefix, key)) => {
-                if prefix.starts_with("preview:") {
-                    let (_, rest) = prefix.split_once(':').unwrap();
-                    match rest.split_once(':') {
-                        Some((team_slug, project_slug)) => Ok(PreviewDeploymentAdminKeyParts {
-                            team_slug: team_slug.to_string(),
-                            project_slug: project_slug.to_string(),
-                            key: key.to_string(),
-                        }),
-                        None => anyhow::bail!("Invalid preview admin key"),
-                    }
-                } else {
-                    anyhow::bail!("Invalid preview admin key")
-                }
-            },
-            None => anyhow::bail!("Invalid preview admin key"),
-        }
-    }
-}
-
 // TODO - encompass these floating methods into the `AdminKey` type
 
 pub fn split_admin_key(admin_key: &str) -> Option<(&str, &str)> {
