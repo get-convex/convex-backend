@@ -317,8 +317,14 @@ export function GenerateDeployKeyWithNameButton({
                   setName(event.target.value);
                 }}
               />
+              {allowTokenExpiry && (
+                <TokenExpirationSelector
+                  value={expiration}
+                  onChange={setExpiration}
+                />
+              )}
               {scopedDeployKeys && showCustomPermissions && (
-                <div className="flex flex-col gap-3">
+                <div className="mt-2 flex flex-col gap-3">
                   <SegmentedControl
                     className="w-fit"
                     options={PERMISSION_MODE_OPTIONS}
@@ -363,7 +369,7 @@ export function GenerateDeployKeyWithNameButton({
                           Select none
                         </Button>
                       </div>
-                      <div className="scrollbar max-h-[60dvh] overflow-y-auto">
+                      <div className="scrollbar max-h-[50dvh] overflow-y-auto">
                         <div className="flex flex-col gap-3">
                           {OPERATION_GROUPS.map((group) => (
                             <div key={group.label}>
@@ -404,12 +410,6 @@ export function GenerateDeployKeyWithNameButton({
                     </>
                   )}
                 </div>
-              )}
-              {allowTokenExpiry && (
-                <TokenExpirationSelector
-                  value={expiration}
-                  onChange={setExpiration}
-                />
               )}
               <div className="flex items-center justify-end gap-2">
                 {scopedDeployKeys &&

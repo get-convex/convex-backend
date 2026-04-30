@@ -17,6 +17,8 @@
 - AI Files will no longer prompt when connecting to an existing project.
 - Updates the `VisibilityProperties` type to allow types like `RegisteredQuery`
   to be more easily extended without losing covariance.
+- New `ctx.meta.getDeploymentMetadata()` function.
+  - Includes the name, region and class of the deployment.
 
 ## 1.36.1
 
