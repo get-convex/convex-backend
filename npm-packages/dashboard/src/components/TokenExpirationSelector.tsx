@@ -44,26 +44,29 @@ export function TokenExpirationSelector({
   }));
 
   return (
-    <Combobox
-      label={
-        <span className="flex items-center gap-1">
-          Expiration
-          <Tooltip tip="If set, the token will automatically be disabled after the expiration time.">
-            <InfoCircledIcon className="text-content-tertiary" />
-          </Tooltip>
-        </span>
-      }
-      options={comboboxOptions}
-      selectedOption={selectedKey}
-      setSelectedOption={(key) => {
-        if (key === null) return;
-        const preset = PRESET_OPTIONS.find((o) => optionKey(o.value) === key);
-        if (preset) onChange(preset.value);
-      }}
-      disableSearch
-      className={className}
-      buttonClasses="w-full"
-      innerButtonClasses="w-full"
-    />
+    <div className="flex flex-col gap-1">
+      <Combobox
+        label={
+          <span className="flex items-center gap-1">
+            Expiration
+            <Tooltip tip="If set, the token will automatically be disabled after the expiration time.">
+              <InfoCircledIcon className="text-content-tertiary" />
+            </Tooltip>
+          </span>
+        }
+        labelHidden={false}
+        options={comboboxOptions}
+        selectedOption={selectedKey}
+        setSelectedOption={(key) => {
+          if (key === null) return;
+          const preset = PRESET_OPTIONS.find((o) => optionKey(o.value) === key);
+          if (preset) onChange(preset.value);
+        }}
+        disableSearch
+        className={className}
+        buttonClasses="w-full"
+        innerButtonClasses="w-full"
+      />
+    </div>
   );
 }
