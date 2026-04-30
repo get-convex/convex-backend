@@ -1625,6 +1625,17 @@ pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR
 pub static ENV_VAR_TOTAL_SIZE_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("ENV_VAR_TOTAL_SIZE_LIMIT", 1 << 20)); // 1 MiB
 
+/// Maximum length (in bytes) of an environment variable name. Defaults to the
+/// historical limit of 40, which keeps existing projects compatible. Long
+/// auto-generated names from third-party SDKs (e.g.
+/// `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` or
+/// `TRIGGER_OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT`) routinely exceed that, so
+/// self-hosted operators can opt in to a higher limit by setting this knob.
+/// The total budget is still bounded by `ENV_VAR_LIMIT` and
+/// `ENV_VAR_TOTAL_SIZE_LIMIT`.
+pub static ENV_VAR_NAME_MAX_LENGTH: LazyLock<usize> =
+    LazyLock::new(|| env_config("ENV_VAR_NAME_MAX_LENGTH", 40));
+
 /// If set, disable the /metrics endpoint
 pub static DISABLE_METRICS_ENDPOINT: LazyLock<bool> =
     LazyLock::new(|| env_config("DISABLE_METRICS_ENDPOINT", false));
