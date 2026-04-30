@@ -20,10 +20,11 @@ export function useListModulesAllNents():
   | undefined {
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
   const canViewData = useIsOperationAllowed("ViewData");
-  const rawModules = useQuery(
+  const rawModulesOrSkipped = useQuery(
     udfs.modules.listForAllComponents,
     canViewData ? {} : "skip",
   );
+  const rawModules = canViewData ? rawModulesOrSkipped : [];
 
   const allModules: Map<ComponentId | null, Map<string, Module>> | undefined =
     useMemo(() => {

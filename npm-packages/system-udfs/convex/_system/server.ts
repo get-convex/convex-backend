@@ -40,6 +40,12 @@ declare const Convex: {
   syscall: (op: string, jsonArgs: string) => string;
 };
 
+export type NoPermissionRequired = { noPermissionRequired: true };
+// Allows permissions a system op without a specific operation check. Still requires an admin identity for system functions.
+export const noPermissionRequired: NoPermissionRequired = {
+  noPermissionRequired: true,
+};
+
 export type DeploymentOp =
   | "Deploy"
   | "ViewEnvironmentVariables"
@@ -64,7 +70,12 @@ export type DeploymentOp =
   | "RunTestQuery"
   | "ViewAuditLog";
 
-export function requireOperation(operation: DeploymentOp): void {
+export function requireOperation(
+  operation: DeploymentOp | NoPermissionRequired,
+): void {
+  if (typeof operation === "object" && operation.noPermissionRequired) {
+    return;
+  }
   Convex.syscall("1.0/requireOperation", JSON.stringify({ operation }));
 }
 
@@ -84,9 +95,11 @@ type WrappedFunctionDefinition = {
 
 type Wrapper = (def: FunctionDefinition) => WrappedFunctionDefinition;
 
-function withArgsValidated<T>(wrapper: T): (operation: DeploymentOp) => T {
-  return (operation: DeploymentOp) => {
-    if (!operation || typeof operation !== "string") {
+function withArgsValidated<T>(
+  wrapper: T,
+): (operation: DeploymentOp | NoPermissionRequired) => T {
+  return (operation: DeploymentOp | NoPermissionRequired) => {
+    if (!operation) {
       throw new Error("operation required for system udf");
     }
     return ((functionDefinition: FunctionDefinition) => {
@@ -148,7 +161,7 @@ export const internalActionGeneric = withArgsValidated(
 export const mutationGeneric = (
   operation: DeploymentOp,
 ): typeof baseMutationGeneric => {
-  if (!operation || typeof operation !== "string") {
+  if (!operation) {
     throw new Error("operation required for system udf");
   }
   return ((functionDefinition: FunctionDefinition) => {
