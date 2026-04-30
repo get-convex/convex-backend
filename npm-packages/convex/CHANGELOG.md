@@ -1,9 +1,29 @@
 # Changelog
 
+## 1.37.0 (Unreleased)
+
+- Adds `useQuery_experimental`, which accepts object-based args and returns an
+  object with status, data, and error that doesn't throw errors by default.
+- Adds `npx convex deployment token create my-token --save-env`, enabling
+  scripts to configure agent environments with access only to develop and deploy
+  against their own cloud deployment. e.g.
+  ```sh
+  npx convex deployment create dev/foo --select --expiration "in 7 days" --type dev
+  # npx convex env set ... (optional - typically default env vars suffice)
+  npx convex deployment token create foo --save-env
+  # npx convex dev --once (optional)
+  ```
+- Re-exports ValidatorTypeToReturnType from convex/server
+- AI Files will no longer prompt when connecting to an existing project.
+- Updates the `VisibilityProperties` type to allow types like `RegisteredQuery`
+  to be more easily extended without losing covariance.
+
 ## 1.36.1
 
-- Updated `npx convex login --vercel` to ask before joining a Convex team through the Vercel Marketplace.
-
+- Updated `npx convex login --vercel` to ask before joining a Convex team
+  through the Vercel Marketplace.
+- Allows targeting a project or specific deployment type rather than just a
+  deployment for `npx convex env default *`.
 
 ## 1.36.0
 
@@ -17,35 +37,37 @@
     transaction. Only available in queries and mutations.
 - Added a `npx convex env default` command for getting and setting default
   environment variables for a project.
-- `npx convex deploy` now supports a `--message` option that allows you to
-  write details in the deployment’s audit log. When running
-  `npx convex deploy` on CI runners on popular platforms (including GitHub Actions,
-  Vercel, and Netlify), a default message will be provided if you don’t provide one
-  (e.g. “Deployed from GitHub Actions • e83c516”).
-- When deploying to a preview deployment, you can now reuse the existing deployment
-  instead of creating a new one by using `--preview-name` instead of `--preview-create`.
-  This behavior is also used when deploying to preview deployments from the CI
-  without specifying `--preview-create` explictly, but you can
-  specify `--preview-create` explicitly to restore the old behavior. When using the
-  `--preview-run` flag, the function only runs when a new deployment is created.
-- `npx convex codegen` can now automatically start a local backend when necessary.
+- `npx convex deploy` now supports a `--message` option that allows you to write
+  details in the deployment’s audit log. When running `npx convex deploy` on CI
+  runners on popular platforms (including GitHub Actions, Vercel, and Netlify),
+  a default message will be provided if you don’t provide one (e.g. “Deployed
+  from GitHub Actions • e83c516”).
+- When deploying to a preview deployment, you can now reuse the existing
+  deployment instead of creating a new one by using `--preview-name` instead of
+  `--preview-create`. This behavior is also used when deploying to preview
+  deployments from the CI without specifying `--preview-create` explictly, but
+  you can specify `--preview-create` explicitly to restore the old behavior.
+  When using the `--preview-run` flag, the function only runs when a new
+  deployment is created.
+- `npx convex codegen` can now automatically start a local backend when
+  necessary.
 - You can now increase the timeout used by the CLI when starting a local backend
-  with `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS`; this can be useful when using
-  large local databases.
-- Fixed a bug where `npx convex ai-files remove` would also remove skill files that
-  were not installed by `npx convex ai-files`
-- Fixed a bug where the automatically-generated files would sometimes sort imports
-  in inconsistent order across platforms.
-- Fixed a bug in `npx convex dev --start` where, in some cases, the `--start` command
-  would continue to run after closing the Convex dev server with <kbd>Ctrl+C</kbd>.
+  with `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS`; this can be useful when
+  using large local databases.
+- Fixed a bug where `npx convex ai-files remove` would also remove skill files
+  that were not installed by `npx convex ai-files`
+- Fixed a bug where the automatically-generated files would sometimes sort
+  imports in inconsistent order across platforms.
+- Fixed a bug in `npx convex dev --start` where, in some cases, the `--start`
+  command would continue to run after closing the Convex dev server with
+  <kbd>Ctrl+C</kbd>.
 - Generating APIs via function-spec now supports validators with int64 literals.
-
 
 ## 1.35.1
 
 - Adds support for automatic preview deployments on Cloudflare Pages
-- Removes a new API in `useQuery` that was accidentally included as part
-  of the `1.35.0` release.
+- Removes a new API in `useQuery` that was accidentally included as part of the
+  `1.35.0` release.
 
 ## 1.35.0
 
