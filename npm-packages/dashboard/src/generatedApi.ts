@@ -4781,6 +4781,7 @@ export interface operations {
                 from?: string;
                 to?: string;
                 projectId?: components["schemas"]["ProjectId"];
+                /** @description Required for insights queries; ignored otherwise. */
                 deploymentName?: components["schemas"]["CloudDeploymentName"];
                 componentPath?: string;
                 udfId?: string;

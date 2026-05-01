@@ -2187,6 +2187,7 @@
           {
             "name": "deploymentName",
             "in": "query",
+            "description": "Required for insights queries; ignored otherwise.",
             "required": false,
             "schema": {
               "$ref": "#/components/schemas/CloudDeploymentName"

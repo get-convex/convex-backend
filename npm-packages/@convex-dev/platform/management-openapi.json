@@ -3432,6 +3432,7 @@
           "viewOAuthApplication",
           "generateOAuthClientSecret",
           "viewUsage",
+          "viewInsights",
           "startManualCloudBackup",
           "restoreFromCloudBackup",
           "configurePeriodicBackup",
