@@ -675,6 +675,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Invite a team member
+         * @description Invite a member to the given team by email.
+         */
         post: operations["invite team member"];
         delete?: never;
         options?: never;
@@ -2249,6 +2253,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Team ID */
                 team_id: string;
             };
             cookie?: never;
