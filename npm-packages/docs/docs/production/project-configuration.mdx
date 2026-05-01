@@ -281,3 +281,11 @@ This configuration controls how WorkOS environments are provisioned and
 configured for each deployment type (dev, preview, prod). See the
 [Automatic AuthKit Configuration](/auth/authkit/auto-provision.mdx) guide for
 complete details.
+
+<Admonition type="info">
+  Provisioning the Convex-managed WorkOS team and disconnecting it require the
+  you to be an admin of the team. Provisioning a per-deployment WorkOS
+  environment uses the deployment's own management permission, any team member
+  can self-serve one for their dev/preview deployment via `npx convex dev`, but
+  production deployments require you to be a team or project admin.
+</Admonition>
