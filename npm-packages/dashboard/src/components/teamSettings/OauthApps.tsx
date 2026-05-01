@@ -221,7 +221,7 @@ function OauthAppForm({
             htmlFor="redirect-uris"
             className="flex flex-col gap-1 text-sm text-content-primary"
           >
-            Redirect URIs (seperated by commas)
+            Redirect URIs (separated by commas)
             <textarea
               id="redirect-uris"
               name="redirectUris"

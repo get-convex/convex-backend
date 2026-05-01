@@ -223,7 +223,7 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                               ? "This domain has been verified and may be used with SSO"
                               : isPending
                                 ? "This domain has not yet completed verification. Check the status by clicking 'Manage domains' below."
-                                : "An error occured verifying this domain. Check the status by clicking 'Manage domains' below.";
+                                : "An error occurred verifying this domain. Check the status by clicking 'Manage domains' below.";
 
                             // Check if user has a verified email for this domain
                             const hasVerifiedEmailForDomain =
