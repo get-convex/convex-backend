@@ -29,6 +29,14 @@ WorkOS environments for projects and deployments. If you have an existing WorkOS
 team and account that you want to use with your Convex application then you
 should follow the **Standard WorkOS team** instructions.
 
+<Admonition type="info">
+  Setting up the Managed WorkOS team and inviting members to it require **team
+  admin**. Per-deployment WorkOS environments use the deployment's own
+  management permission, so any team member can provision one for their
+  dev/preview deployment, while prod envs and shared project-level envs require
+  team admin or project admin.
+</Admonition>
+
 <Tabs groupId="workos-integration">
 <TabItem value="managed-workos" label="Managed WorkOS team" default>
   <StepByStep>

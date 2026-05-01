@@ -49,13 +49,20 @@ proceed, follow the instructions in one of the sections below.
   the auto-provisioning and auto-configuration that the full integration offers.
 </Admonition>
 
-Follow the prompts to create a WorkOS team that will be associated with your
-Convex team. After this, Convex deployments for projects in this team will be
-able to automatically provision and configure their own WorkOS environments.
+<Admonition type="info">
+  Permissions: provisioning the Convex-managed WorkOS team, disconnecting it,
+  inviting WorkOS team members, and creating/deleting shared project-level
+  WorkOS environments all require **team admin** (or project admin, for the
+  project-level operations). Provisioning a WorkOS environment for an individual
+  deployment uses the same permission as managing that deployment, so any team
+  member can self-serve a WorkOS env for their dev/preview deployment but only
+  admins can do so for production.
+</Admonition>
 
-**That's it!** You and other members of your Convex team can now create and
-configure development WorkOS environments without visiting
-[workos.com](https://workos.com).
+Follow the prompts to create a WorkOS team that will be associated with your
+Convex team. After this, team members of this Convex team can self-serve WorkOS
+environments for their dev/preview deployments, and team admins can provision
+shared project-level environments and production envs.
 
 See what additional functionality is available in [Next steps](#next-steps) and
 see [AuthKit configuration in convex.json](/auth/authkit/auto-provision.mdx) to

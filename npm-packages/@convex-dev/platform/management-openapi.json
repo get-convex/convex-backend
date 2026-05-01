@@ -3443,7 +3443,11 @@
           "createCustomRole",
           "updateCustomRole",
           "deleteCustomRole",
-          "viewCustomRoles"
+          "viewCustomRoles",
+          "viewTeamIntegrations",
+          "createTeamIntegrations",
+          "updateTeamIntegrations",
+          "deleteTeamIntegrations"
         ]
       },
       "RoleStatementActions": {
