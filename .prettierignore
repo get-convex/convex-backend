@@ -103,3 +103,5 @@ ops/services/service-index/html/aws-url-transformer
 npm-packages/docs/src/generated/screenshotManifest.ts
 # PlanetScale OpenAPI spec, mirrored from PlanetScale docs
 crates_private/planetscale_client/openapi.yaml
+# Vendored third-party crates ship as-is; don't reformat them.
+crates_private/thirdparty/**
