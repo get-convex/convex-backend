@@ -826,6 +826,10 @@
     {
       "packageName": "demo_browser_tests",
       "projectFolder": "demo_browser_tests"
+    },
+    {
+      "packageName": "react-native-demo",
+      "projectFolder": "demos/react-native"
     }
     // {
     //   /**
