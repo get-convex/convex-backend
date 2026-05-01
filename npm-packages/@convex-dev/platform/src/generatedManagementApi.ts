@@ -675,6 +675,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Invite a team member
+         * @description Invite a member to the given team by email.
+         */
         post: operations["invite team member"];
         delete?: never;
         options?: never;
@@ -1291,9 +1295,9 @@ export interface components {
             actions: components["schemas"]["RoleStatementActions"];
             effect: components["schemas"]["RoleStatementEffect"];
             /**
-             * @description Resource path like `project/*`, `project/slug:my-app`, or
-             *     `project/*\/deployment/type:prod`.
-             * @example project/*
+             * @description Resource path like `project:*`, `project:slug=my-app`, or
+             *     `project:*:deployment:type=prod`.
+             * @example project:*
              */
             resource: string;
         };
@@ -1302,7 +1306,7 @@ export interface components {
          *     This is what appears in custom-role statements and the OpenAPI schema.
          * @enum {string}
          */
-        RoleStatementAction: "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "viewProject" | "updateMemberProjectRole" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "transferDeployment" | "receiveDeployment" | "updateDeployment" | "createCustomDomain" | "deleteCustomDomain" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "setSpendingLimit" | "viewBillingDetails" | "viewInvoices" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createProjectAccessToken" | "updateProjectAccessToken" | "deleteProjectAccessToken" | "viewProjectAccessToken" | "createDeploymentAccessToken" | "updateDeploymentAccessToken" | "deleteDeploymentAccessToken" | "viewDeploymentAccessToken" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "viewOAuthApplication" | "generateOAuthClientSecret" | "viewUsage" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "applyReferralCode" | "enableSSO" | "disableSSO" | "updateSSO" | "viewSSO" | "createCustomRole" | "updateCustomRole" | "deleteCustomRole" | "viewCustomRoles" | "viewTeamIntegrations" | "createTeamIntegrations" | "updateTeamIntegrations" | "deleteTeamIntegrations";
+        RoleStatementAction: "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "viewProject" | "updateMemberProjectRole" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "transferDeployment" | "receiveDeployment" | "updateDeployment" | "createCustomDomain" | "deleteCustomDomain" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "setSpendingLimit" | "viewBillingDetails" | "viewInvoices" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createProjectAccessToken" | "updateProjectAccessToken" | "deleteProjectAccessToken" | "viewProjectAccessToken" | "createDeploymentAccessToken" | "updateDeploymentAccessToken" | "deleteDeploymentAccessToken" | "viewDeploymentAccessToken" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "viewOAuthApplication" | "generateOAuthClientSecret" | "viewUsage" | "viewInsights" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "applyReferralCode" | "enableSSO" | "disableSSO" | "updateSSO" | "viewSSO" | "createCustomRole" | "updateCustomRole" | "deleteCustomRole" | "viewCustomRoles" | "viewTeamIntegrations" | "createTeamIntegrations" | "updateTeamIntegrations" | "deleteTeamIntegrations";
         RoleStatementActions: components["schemas"]["RoleStatementWildcardAction"] | components["schemas"]["RoleStatementAction"][];
         /**
          * @description Whether a rule grants or revokes access.
@@ -2249,6 +2253,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Team ID */
                 team_id: string;
             };
             cookie?: never;

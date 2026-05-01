@@ -1712,14 +1712,16 @@
     "/teams/{team_id}/invite_team_member": {
       "post": {
         "tags": [
-          "Team Members"
+          "Teams"
         ],
+        "summary": "Invite a team member",
+        "description": "Invite a member to the given team by email.",
         "operationId": "invite team member",
         "parameters": [
           {
             "name": "team_id",
             "in": "path",
-            "description": "",
+            "description": "Team ID",
             "required": true
           }
         ],
@@ -3371,8 +3373,8 @@
           },
           "resource": {
             "type": "string",
-            "description": "Resource path like `project/*`, `project/slug:my-app`, or\n`project/*/deployment/type:prod`.",
-            "example": "project/*"
+            "description": "Resource path like `project:*`, `project:slug=my-app`, or\n`project:*:deployment:type=prod`.",
+            "example": "project:*"
           }
         }
       },
@@ -3430,6 +3432,7 @@
           "viewOAuthApplication",
           "generateOAuthClientSecret",
           "viewUsage",
+          "viewInsights",
           "startManualCloudBackup",
           "restoreFromCloudBackup",
           "configurePeriodicBackup",
