@@ -95,6 +95,7 @@ use crate::{
     },
     node_action_callbacks::{
         action_callbacks_middleware,
+        audit_log,
         cancel_developer_job,
         create_function_handle,
         internal_action_post,
@@ -446,6 +447,7 @@ where
         .route("/storage_get_url", post(storage_get_url))
         .route("/storage_get_metadata", post(storage_get_metadata))
         .route("/storage_delete", post(storage_delete))
+        .route("/audit_log", post(audit_log))
         // All routes above this line get the increased limit
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_RPC_REQUEST_SIZE))
         .layer(axum::middleware::from_fn_with_state(state, action_callbacks_middleware::<S>))

@@ -538,6 +538,23 @@ pub async fn storage_delete(
     Ok(Json(json!(null)))
 }
 
+#[derive(Deserialize)]
+pub struct AuditLogParams {
+    #[allow(dead_code)]
+    body: JsonValue,
+}
+
+pub async fn audit_log(
+    _: ExtractActionIdentity,
+    Json(_): Json<AuditLogParams>,
+) -> Result<Json<JsonValue>, HttpResponseError> {
+    Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+        "AuditLogNotSupportedInAction",
+        "Audit logging is not yet supported in actions",
+    ))
+    .into())
+}
+
 pub static CONVEX_ACTIONS_CALLBACK_TOKEN: &str = "Convex-Action-Callback-Token";
 
 async fn check_actions_token(
