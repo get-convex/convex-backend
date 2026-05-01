@@ -84,6 +84,12 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 "1.0/createFunctionHandle" => {
                     self.async_syscall_createFunctionHandle(args).await?.into()
                 },
+                "1.0/auditLog" => {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "AuditLogNotSupportedInAction",
+                        "Audit logging is not yet supported in actions",
+                    ));
+                },
                 _ => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "UnknownAsyncOperation",

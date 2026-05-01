@@ -61,6 +61,7 @@ export const Primary: Story = {
       managementApiEnabled: true,
       previewDeploymentRetentionDays: 1,
       deploymentClassSelectionEnabled: false,
+      customRolesEnabled: false,
     },
     hasFilter: false,
   },

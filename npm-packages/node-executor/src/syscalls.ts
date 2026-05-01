@@ -347,6 +347,8 @@ export class SyscallsImpl {
             userAgent: this.executionContext.userAgent,
             requestId: this.executionContext.requestId,
           });
+        case "1.0/auditLog":
+          return JSON.stringify(await this.syscallAuditLog(jsonArgs));
         default:
           throw new Error(`Unknown operation ${op}`);
       }
@@ -655,6 +657,22 @@ export class SyscallsImpl {
       version: args.version,
       body: { storageId: args.storageId },
       path: "/api/actions/storage_delete",
+      operationName,
+      responseValidator: z.any(),
+    });
+  }
+
+  async syscallAuditLog(rawArgs: string): Promise<JSONValue> {
+    const auditLogSchema = z.object({
+      body: z.record(z.string(), z.any()),
+      version: z.string(),
+    });
+    const operationName = "audit log";
+    const args = this.validateArgs(rawArgs, auditLogSchema, operationName);
+    return this.actionCallback({
+      version: args.version,
+      body: { body: args.body },
+      path: "/api/actions/audit_log",
       operationName,
       responseValidator: z.any(),
     });

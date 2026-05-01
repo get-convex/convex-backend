@@ -2671,6 +2671,7 @@ export interface components {
             /** Format: int64 */
             auditLogRetentionDays: number;
             customDomainsEnabled: boolean;
+            customRolesEnabled: boolean;
             deploymentClassSelectionEnabled: boolean;
             logStreamingEnabled: boolean;
             managementApiEnabled: boolean;

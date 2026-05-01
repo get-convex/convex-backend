@@ -4,6 +4,9 @@ async function buildDocs() {
   console.log("📁 Cleaning docs/api directory...");
   execSync("npx rimraf docs/api", { stdio: "inherit" });
 
+  console.log("🧹 Filtering alpha-tagged endpoints from OpenAPI specs...");
+  execSync("node scripts/filter-alpha-endpoints.js", { stdio: "inherit" });
+
   console.log("📚 Generating platform API documentation...");
   execSync("npm run generate-platform-api", { stdio: "inherit" });
 
