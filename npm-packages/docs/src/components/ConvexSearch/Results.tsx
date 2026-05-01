@@ -60,7 +60,7 @@ export default function Results({ query }: ResultsProps) {
             hits.map((hit) => ({
               // Unclear why, but some pages are indexed with an empty title.
               title: hit.title === "" ? "Convex Docs" : hit.title,
-              url: hit.objectID,
+              url: toRelativeUrl(hit.objectID),
               snippet: hit.contents,
             })),
           );
@@ -98,7 +98,7 @@ export default function Results({ query }: ResultsProps) {
 
               return {
                 title: heading !== "" ? heading : page,
-                url: hit.source_url,
+                url: toRelativeUrl(hit.source_url),
                 ...(heading !== "" && { subtext: page }),
               };
             }),
@@ -129,4 +129,16 @@ export default function Results({ query }: ResultsProps) {
       </div>
     </div>
   );
+}
+
+function toRelativeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "docs.convex.dev") {
+      return parsed.pathname + parsed.search + parsed.hash;
+    }
+  } catch {
+    // invalid URL — fall through
+  }
+  return url;
 }
