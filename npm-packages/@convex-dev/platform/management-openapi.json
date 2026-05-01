@@ -3373,8 +3373,8 @@
           },
           "resource": {
             "type": "string",
-            "description": "Resource path like `project/*`, `project/slug:my-app`, or\n`project/*/deployment/type:prod`.",
-            "example": "project/*"
+            "description": "Resource path like `project:*`, `project:slug=my-app`, or\n`project:*:deployment:type=prod`.",
+            "example": "project:*"
           }
         }
       },

@@ -1295,9 +1295,9 @@ export interface components {
             actions: components["schemas"]["RoleStatementActions"];
             effect: components["schemas"]["RoleStatementEffect"];
             /**
-             * @description Resource path like `project/*`, `project/slug:my-app`, or
-             *     `project/*\/deployment/type:prod`.
-             * @example project/*
+             * @description Resource path like `project:*`, `project:slug=my-app`, or
+             *     `project:*:deployment:type=prod`.
+             * @example project:*
              */
             resource: string;
         };
