@@ -3438,6 +3438,7 @@
           "configurePeriodicBackup",
           "disablePeriodicBackup",
           "deleteCloudBackup",
+          "viewCloudBackups",
           "applyReferralCode",
           "enableSSO",
           "disableSSO",
