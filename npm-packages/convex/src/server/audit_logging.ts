@@ -1,3 +1,4 @@
+import { version } from "../index.js";
 import { performAsyncSyscall } from "./impl/syscall.js";
 import { LogVar, varNames } from "./logVars.js";
 
@@ -71,5 +72,6 @@ export function cloneWithSentinels(body: AuditLogBody): {
 export const audit = async (body: AuditLogBody): Promise<void> => {
   await performAsyncSyscall("1.0/auditLog", {
     body: cloneWithSentinels(body),
+    version,
   });
 };
