@@ -8,6 +8,7 @@ import { Filesystem, consistentPathSort } from "./fs.js";
 import { Context } from "./context.js";
 import { logVerbose, logWarning } from "./log.js";
 import { wasmPlugin } from "./wasm.js";
+import { serverOnlyPlugin } from "./serverOnly.js";
 import {
   ExternalPackage,
   computeExternalPackages,
@@ -100,8 +101,10 @@ async function doEsbuild({
       chunksFolder,
       extraConditions,
       dir,
-      // The wasmPlugin should be last so it doesn't run on external modules.
-      plugins: [external.plugin, wasmPlugin],
+      // serverOnlyPlugin runs first so `server-only` is always stubbed,
+      // even if it appears in the external packages list.
+      // wasmPlugin runs last so it doesn't run on external modules.
+      plugins: [serverOnlyPlugin, external.plugin, wasmPlugin],
       includeSourcesContent,
       splitting,
     });
@@ -112,7 +115,8 @@ async function doEsbuild({
       if (
         relPath.indexOf("(disabled):") !== -1 ||
         relPath.startsWith("wasm-binary:") ||
-        relPath.startsWith("wasm-stub:")
+        relPath.startsWith("wasm-stub:") ||
+        relPath.startsWith("server-only-stub:")
       ) {
         continue;
       }

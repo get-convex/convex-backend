@@ -9,6 +9,7 @@ import {
   logMessage,
 } from "./log.js";
 import { wasmPlugin } from "./wasm.js";
+import { serverOnlyPlugin } from "./serverOnly.js";
 import dependencyTrackerPlugin from "./depgraph.js";
 
 export async function innerEsbuild({
@@ -111,7 +112,7 @@ export async function debugIsolateBundlesSerially(
         chunksFolder: "_deps",
         extraConditions,
         dir,
-        plugins: [plugin, wasmPlugin],
+        plugins: [serverOnlyPlugin, plugin, wasmPlugin],
         logLevel: "silent",
       });
     } catch (error) {
