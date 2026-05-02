@@ -51,6 +51,7 @@ pub struct AuditLogLine {
     pub body: JsonValue,
 }
 
+#[derive(Clone)]
 pub struct ResolvedAuditLogLines {
     pub logs: Vec<ResolvedAuditLogLine>,
     /// This timestamp is only used when emitting to log streams
@@ -59,7 +60,7 @@ pub struct ResolvedAuditLogLines {
 
 /// A resolved audit log line whose body has all sentinel objects replaced
 /// with concrete values.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResolvedAuditLogLine(JsonValue);
 
 impl ResolvedAuditLogLine {

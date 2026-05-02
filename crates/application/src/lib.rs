@@ -212,6 +212,7 @@ use model::{
         AirbyteImportModel,
         AIRBYTE_PRIMARY_KEY_INDEX_DESCRIPTOR,
     },
+    audit_log_config::AuditLogConfigModel,
     auth::AuthInfoModel,
     backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
@@ -751,7 +752,17 @@ impl<RT: Runtime> Application<RT> {
         } else {
             false
         };
-        let audit_log_client = AuditLogClient::new(log_manager_client.clone(), is_dev_deployment);
+        let firehose_stream_name = AuditLogConfigModel::new(&mut tx)
+            .get()
+            .await?
+            .and_then(|c| c.firehose_stream_name.clone());
+        let audit_log_client = AuditLogClient::new(
+            log_manager_client.clone(),
+            is_dev_deployment,
+            firehose_stream_name,
+            &deployment.name,
+        )
+        .await?;
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
