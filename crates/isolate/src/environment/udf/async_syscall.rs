@@ -628,12 +628,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         };
         let tx = self.phase.tx()?;
         let table_mapping = tx.table_mapping().namespace(called_component_id.into());
-        if let Some(e) =
-            returns_validator.check_output(&result, &table_mapping, virtual_system_mapping())
-        {
-            anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
+        match returns_validator.check_output(&result, &table_mapping, virtual_system_mapping()) {
+            Err(e) => {
+                anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
+            },
+            Ok(validated) => Ok(validated.value),
         }
-        Ok(result)
     }
 
     async fn create_function_handle(

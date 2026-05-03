@@ -89,6 +89,7 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
     ConvexValue,
+    JsonPackedValue,
 };
 
 use crate::{
@@ -621,13 +622,19 @@ impl<RT: Runtime> CacheManager<RT> {
                             let output: ConvexValue = json_packed_value.unpack()?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
-                            let returns_validation_error = returns_validator.check_output(
+                            match returns_validator.check_output(
                                 &output,
                                 &table_mapping,
                                 virtual_system_mapping,
-                            );
-                            if let Some(js_err) = returns_validation_error {
-                                query_outcome.result = Err(js_err);
+                            ) {
+                                Err(js_err) => {
+                                    query_outcome.result = Err(js_err);
+                                },
+                                Ok(validated_output) if validated_output.stripped => {
+                                    query_outcome.result =
+                                        Ok(JsonPackedValue::pack(validated_output.value));
+                                },
+                                Ok(_) => {},
                             }
                         }
                         (tx, query_outcome)

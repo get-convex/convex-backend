@@ -175,20 +175,18 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         let table_name = table_mapping_for_schema.tablet_name(document.id().tablet_id)?;
         let mut stripped_value = None;
         if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
-            if let Err(schema_error) = active_schema.check_new_document(
-                document,
-                table_name.clone(),
-                table_mapping_for_schema,
-                self.tx.virtual_system_mapping(),
-            ) {
-                anyhow::bail!(schema_error.to_error_metadata());
-            }
-            stripped_value = active_schema.strip_new_document(
-                document,
-                table_mapping_for_schema,
-                self.tx.virtual_system_mapping(),
-            )?;
+            stripped_value = active_schema
+                .validate_and_strip_new_document(
+                    document,
+                    table_name.clone(),
+                    table_mapping_for_schema,
+                    self.tx.virtual_system_mapping(),
+                )
+                .map_err(|e| anyhow::anyhow!(e.to_error_metadata()))?;
         }
+        // NOTE: Pending/validated schemas only validate — they do NOT strip.
+        // Documents written during the pending→active window may retain extra
+        // fields if the pending schema has strip-mode validators.
         let pending_schema = self.get_by_state(SchemaState::Pending).await?;
         let validated_schema = self.get_by_state(SchemaState::Validated).await?;
         match (pending_schema, validated_schema) {

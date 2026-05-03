@@ -25,6 +25,11 @@ pub struct ValidatedArgs {
     pub stripped: bool,
 }
 
+pub struct ValidatedOutput {
+    pub value: ConvexValue,
+    pub stripped: bool,
+}
+
 /**
  * A validator for the arguments to a UDF.
  */
@@ -58,7 +63,7 @@ impl ArgsValidator {
                 if args_vec.len() != 1 {
                     let error_message = format!(
                         "Expected to receive a single object as the function's argument. Instead \
-                         received {} arguments.",
+                         received {} arguments: {args_vec:?}",
                         args_vec.len(),
                     );
                     return Ok(Err(JsError::from_message(error_message)));
@@ -78,12 +83,20 @@ impl ArgsValidator {
                     return Ok(Err(JsError::from_message(error.to_string())));
                 }
 
-                let stripped = object_validator.unknown_keys.strips_unknown_fields();
-                let final_object = if stripped {
-                    object_validator.strip_unknown_fields(object_arg)?
-                } else {
-                    object_arg
-                };
+                let (final_object, stripped) =
+                    if object_validator.unknown_keys.strips_unknown_fields() {
+                        let has_extra_fields = object_arg.iter().any(|(field_name, _)| {
+                            let s: &str = field_name;
+                            !object_validator.fields.contains_key::<str>(s)
+                        });
+                        if has_extra_fields {
+                            (object_validator.strip_unknown_fields(object_arg)?, true)
+                        } else {
+                            (object_arg, false)
+                        }
+                    } else {
+                        (object_arg, false)
+                    };
                 Ok(Ok(ValidatedArgs {
                     args: ConvexArray::try_from(vec![ConvexValue::Object(final_object)])?,
                     stripped,
@@ -161,18 +174,44 @@ impl ReturnsValidator {
         output: &ConvexValue,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
-    ) -> Option<JsError> {
+    ) -> Result<ValidatedOutput, JsError> {
         match self {
-            ReturnsValidator::Unvalidated => None,
+            ReturnsValidator::Unvalidated => Ok(ValidatedOutput {
+                value: output.clone(),
+                stripped: false,
+            }),
             ReturnsValidator::Validated(validator) => {
-                let validation_error =
-                    validator.check_value(output, table_mapping, virtual_system_mapping);
-                match validation_error {
-                    Err(error) => Some(JsError::from_message(format!(
+                if let Err(error) =
+                    validator.check_value(output, table_mapping, virtual_system_mapping)
+                {
+                    return Err(JsError::from_message(format!(
                         "ReturnsValidationError: {error}"
-                    ))),
-                    Ok(()) => None,
+                    )));
                 }
+                if let Validator::Object(obj_validator) = validator
+                    && obj_validator.unknown_keys.strips_unknown_fields()
+                    && let ConvexValue::Object(obj) = output
+                {
+                    let has_extra = obj.iter().any(|(field_name, _)| {
+                        let s: &str = field_name;
+                        !obj_validator.fields.contains_key::<str>(s)
+                    });
+                    if has_extra {
+                        let stripped_obj = obj_validator
+                            .strip_unknown_fields(obj.clone())
+                            .map_err(|e| {
+                                JsError::from_message(format!("ReturnsValidationError: {e}"))
+                            })?;
+                        return Ok(ValidatedOutput {
+                            value: ConvexValue::Object(stripped_obj),
+                            stripped: true,
+                        });
+                    }
+                }
+                Ok(ValidatedOutput {
+                    value: output.clone(),
+                    stripped: false,
+                })
             },
         }
     }

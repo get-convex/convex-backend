@@ -30,11 +30,11 @@ pub fn op_validate_returns<'b, P: OpProvider<'b>>(
     let table_mapping = provider.get_all_table_mappings()?;
     match returns_validator.check_output(&function_result, &table_mapping, virtual_system_mapping())
     {
-        Some(js_error) => Ok(json!({
+        Err(js_error) => Ok(json!({
             "valid": false,
             "message": format!("{}", js_error)
         })),
-        None => Ok(json!({
+        Ok(_) => Ok(json!({
             "valid": true,
         })),
     }

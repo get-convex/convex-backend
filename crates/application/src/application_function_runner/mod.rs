@@ -1466,13 +1466,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
                 if let Ok(ref mut node_outcome) = node_outcome_result
                     && let Ok(ref output) = node_outcome.result
-                    && let Some(js_err) = returns_validator.check_output(
+                {
+                    match returns_validator.check_output(
                         output,
                         &table_mapping,
                         &virtual_system_mapping,
-                    )
-                {
-                    node_outcome.result = Err(js_err);
+                    ) {
+                        Err(js_err) => {
+                            node_outcome.result = Err(js_err);
+                        },
+                        Ok(validated_output) if validated_output.stripped => {
+                            node_outcome.result = Ok(validated_output.value);
+                        },
+                        Ok(_) => {},
+                    }
                 }
 
                 node_outcome_result.map(|node_outcome| {

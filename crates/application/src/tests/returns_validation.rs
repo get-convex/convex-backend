@@ -141,7 +141,7 @@ async fn test_query_extra_fields_strip_mode(rt: TestRuntime) -> anyhow::Result<(
         run_zero_arg_query(&application, "returns_validation:extraOutputFieldsStrip").await?;
     let value = result.result.unwrap().json_value();
     assert!(value.get("a").is_some());
-    assert!(value.get("b").is_some());
+    assert!(value.get("b").is_none());
     Ok(())
 }
 

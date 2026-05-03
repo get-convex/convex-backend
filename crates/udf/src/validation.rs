@@ -942,11 +942,16 @@ impl ValidatedUdfOutcome {
                 Err(_) => return validated,
             };
 
-            if let Some(js_err) =
-                returns_validator.check_output(&returns, table_mapping, virtual_system_mapping())
+            match returns_validator.check_output(&returns, table_mapping, virtual_system_mapping())
             {
-                validated.result = Err(js_err);
-            };
+                Err(js_err) => {
+                    validated.result = Err(js_err);
+                },
+                Ok(validated_output) if validated_output.stripped => {
+                    validated.result = Ok(JsonPackedValue::pack(validated_output.value));
+                },
+                Ok(_) => {},
+            }
         }
         validated
     }
@@ -993,12 +998,18 @@ impl ValidatedActionOutcome {
         {
             match json_packed_value.unpack() {
                 Ok(output) => {
-                    if let Some(js_err) = returns_validator.check_output(
+                    match returns_validator.check_output(
                         &output,
                         table_mapping,
                         virtual_system_mapping(),
                     ) {
-                        validated.result = Err(js_err);
+                        Err(js_err) => {
+                            validated.result = Err(js_err);
+                        },
+                        Ok(validated_output) if validated_output.stripped => {
+                            validated.result = Ok(JsonPackedValue::pack(validated_output.value));
+                        },
+                        Ok(_) => {},
                     }
                 },
                 Err(mut e) => report_error_sync(&mut e),

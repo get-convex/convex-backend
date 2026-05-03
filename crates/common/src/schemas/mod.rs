@@ -35,6 +35,7 @@ use value::{
 
 use self::validator::{
     ObjectValidator,
+    ValidationContext,
     ValidationError,
     Validator,
 };
@@ -362,23 +363,29 @@ impl DatabaseSchema {
             })
     }
 
-    pub fn strip_new_document(
+    /// Validates the document and strips extra fields in a single pass.
+    /// Returns Ok(None) if valid with no stripping needed.
+    /// Returns Ok(Some(stripped_value)) if valid but fields were stripped.
+    /// Returns Err if the document doesn't match any schema variant.
+    pub fn validate_and_strip_new_document(
         &self,
         doc: &ResolvedDocument,
+        table_name: TableName,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
-    ) -> anyhow::Result<Option<ConvexObject>> {
-        if self.schema_validation
-            && let Ok(table_name) = table_mapping.tablet_name(doc.id().tablet_id)
-            && let Some(document_schema) = self.schema_for_table(&table_name)
-        {
-            return document_schema.strip_value(
-                &doc.value().0,
-                table_mapping,
-                virtual_system_mapping,
-            );
+    ) -> Result<Option<ConvexObject>, SchemaEnforcementError> {
+        if !self.schema_validation {
+            return Ok(None);
         }
-        Ok(None)
+        let Some(document_schema) = self.schema_for_table(&table_name) else {
+            return Ok(None);
+        };
+        document_schema
+            .validate_and_strip(&doc.value().0, table_mapping, virtual_system_mapping)
+            .map_err(|validation_error| SchemaEnforcementError::Document {
+                validation_error,
+                table_name,
+            })
     }
 
     fn contains_table_as_reference(&self, table_name: &TableName) -> Option<TableName> {
@@ -891,18 +898,22 @@ impl DocumentSchema {
         }
     }
 
-    pub fn strip_value(
+    /// Validates the document and optionally strips extra fields in one pass.
+    /// Returns Ok(None) if valid and no stripping needed.
+    /// Returns Ok(Some(stripped)) if valid but fields were stripped.
+    /// Returns Err(ValidationError) if no variant matches.
+    pub fn validate_and_strip(
         &self,
         value: &ConvexObject,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
-    ) -> anyhow::Result<Option<ConvexObject>> {
+    ) -> Result<Option<ConvexObject>, ValidationError> {
         match self {
             DocumentSchema::Any => Ok(None),
             DocumentSchema::Union(validators) => {
                 let user_fields = value.clone().filter_system_fields();
 
-                // Prefer the first strict validator that matches.
+                // First: prefer the first strict validator that matches exactly.
                 for obj_validator in validators {
                     if obj_validator.unknown_keys.strips_unknown_fields() {
                         continue;
@@ -915,7 +926,7 @@ impl DocumentSchema {
                     }
                 }
 
-                // Otherwise use the first strip validator that matches.
+                // Second: try strip validators — allow extra fields.
                 for obj_validator in validators {
                     if !obj_validator.unknown_keys.strips_unknown_fields() {
                         continue;
@@ -926,7 +937,26 @@ impl DocumentSchema {
                     {
                         continue;
                     }
-                    let stripped = obj_validator.strip_unknown_fields(user_fields)?;
+                    let has_extra_fields = user_fields.iter().any(|(field_name, _)| {
+                        let s: &str = field_name;
+                        !obj_validator.fields.contains_key::<str>(s)
+                    });
+                    if !has_extra_fields {
+                        return Ok(None);
+                    }
+                    let stripped =
+                        obj_validator
+                            .strip_unknown_fields(user_fields)
+                            .map_err(|_| ValidationError::NoMatch {
+                                value: ConvexValue::Object(value.clone()),
+                                validator: Validator::Union(
+                                    validators
+                                        .iter()
+                                        .map(|v| Validator::Object(v.clone()))
+                                        .collect(),
+                                ),
+                                context: ValidationContext::new(),
+                            })?;
                     let mut fields: BTreeMap<FieldName, ConvexValue> =
                         stripped.into_iter().collect();
                     fields.extend(
@@ -935,9 +965,30 @@ impl DocumentSchema {
                             .filter(|(k, _)| k.is_system())
                             .map(|(k, v)| (k.clone(), v.clone())),
                     );
-                    return Ok(Some(ConvexObject::try_from(fields)?));
+                    let result =
+                        ConvexObject::try_from(fields).map_err(|_| ValidationError::NoMatch {
+                            value: ConvexValue::Object(value.clone()),
+                            validator: Validator::Union(
+                                validators
+                                    .iter()
+                                    .map(|v| Validator::Object(v.clone()))
+                                    .collect(),
+                            ),
+                            context: ValidationContext::new(),
+                        })?;
+                    return Ok(Some(result));
                 }
-                Ok(None)
+
+                // No validator matched.
+                let schema_type: Vec<_> = validators
+                    .iter()
+                    .map(|v| Validator::Object(v.clone()))
+                    .collect();
+                Err(ValidationError::NoMatch {
+                    value: ConvexValue::Object(user_fields),
+                    validator: Validator::Union(schema_type),
+                    context: ValidationContext::new(),
+                })
             },
         }
     }

@@ -428,6 +428,7 @@ impl Validator {
         }
     }
 
+
     /// Is this something like `v.union(v.literal("foo"), v.literal("bar"))`
     /// These need to be treated differently if they are the key type for
     /// Validator::Record
@@ -2050,6 +2051,7 @@ mod tests {
         assert!(strict_a.is_subset(&strict_b));
         Ok(())
     }
+
 
     #[test]
     fn unknown_keys_mode_display_roundtrip() {
