@@ -65,11 +65,6 @@ export function printLocalDeploymentWelcomeMessage() {
       "To learn more, read the docs: https://docs.convex.dev/cli/local-deployments",
     ),
   );
-  logMessage(
-    chalkStderr.cyan(
-      "To opt out at any time, run `npx convex disable-local-deployments`",
-    ),
-  );
 }
 
 export function generateInstanceSecret(): string {

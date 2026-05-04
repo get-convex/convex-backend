@@ -43,7 +43,6 @@ import {
   promptString,
   promptYesNo,
 } from "./lib/utils/prompts.js";
-import { readGlobalConfig } from "./lib/utils/globalConfig.js";
 import { attemptSetupAiFiles } from "./lib/aiFiles/index.js";
 import {
   DeploymentSelection,
@@ -175,17 +174,6 @@ export async function _deploymentCredentialsOrConfigure(
     } | null;
   }
 > {
-  const config = readGlobalConfig(ctx);
-  const globallyForceCloud = !!config?.optOutOfLocalDevDeploymentsUntilBetaOver;
-  if (globallyForceCloud && cmdOptions.local) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage:
-        "Can't specify --local when local deployments are disabled on this machine. Run `npx convex disable-local-deployments --undo-global` to allow use of --local.",
-    });
-  }
-
   switch (deploymentSelection.kind) {
     case "existingDeployment":
       return {
@@ -205,9 +193,6 @@ export async function _deploymentCredentialsOrConfigure(
         ctx,
         chosenConfiguration,
         deploymentSelection.selectionWithinProject,
-        {
-          globallyForceCloud,
-        },
         cmdOptions,
       );
     }
@@ -222,7 +207,6 @@ export async function _deploymentCredentialsOrConfigure(
         chosenConfiguration,
         deploymentSelection,
         cmdOptions,
-        globallyForceCloud,
       });
     }
     case "anonymous": {
@@ -244,9 +228,6 @@ export async function _deploymentCredentialsOrConfigure(
             ctx,
             chosenConfiguration,
             deploymentSelection.selectionWithinProject,
-            {
-              globallyForceCloud,
-            },
             cmdOptions,
           );
         }
@@ -300,9 +281,6 @@ export async function _deploymentCredentialsOrConfigure(
         ctx,
         chosenConfiguration,
         deploymentSelection.selectionWithinProject,
-        {
-          globallyForceCloud,
-        },
         cmdOptions,
       );
     }
@@ -315,14 +293,12 @@ async function handleDeploymentWithinProject(
     chosenConfiguration,
     deploymentSelection,
     cmdOptions,
-    globallyForceCloud,
   }: {
     chosenConfiguration: ChosenConfiguration;
     deploymentSelection: DeploymentSelection & {
       kind: "deploymentWithinProject";
     };
     cmdOptions: ConfigureCmdOptions;
-    globallyForceCloud: boolean;
   },
 ) {
   const hasAuth = ctx.bigBrainAuth() !== null;
@@ -343,9 +319,6 @@ async function handleDeploymentWithinProject(
       ctx,
       chosenConfiguration,
       deploymentSelection.selectionWithinProject,
-      {
-        globallyForceCloud,
-      },
       cmdOptions,
     );
     return result;
@@ -361,9 +334,6 @@ async function handleDeploymentWithinProject(
       ctx,
       chosenConfiguration,
       deploymentSelection.selectionWithinProject,
-      {
-        globallyForceCloud,
-      },
       cmdOptions,
     );
     return result;
@@ -405,9 +375,6 @@ async function handleChooseProject(
   ctx: Context,
   chosenConfiguration: ChosenConfiguration,
   selectionWithinProject: DeploymentSelectionWithinProject,
-  args: {
-    globallyForceCloud: boolean;
-  },
   cmdOptions: ConfigureCmdOptions,
 ): Promise<
   DeploymentCredentials & {
@@ -429,8 +396,8 @@ async function handleChooseProject(
     team: cmdOptions.team,
     project: cmdOptions.project,
     devDeployment: cmdOptions.devDeployment,
-    local: args.globallyForceCloud ? false : cmdOptions.local,
-    cloud: args.globallyForceCloud ? true : cmdOptions.cloud,
+    local: cmdOptions.local,
+    cloud: cmdOptions.cloud,
   });
   // TODO complain about any non-default cmdOptions.localOptions here
   // because we're ignoring them if this isn't a local development.
