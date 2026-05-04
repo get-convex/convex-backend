@@ -1289,7 +1289,7 @@ export interface components {
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
         /** @enum {string} */
-        Role: "admin" | "developer";
+        Role: "admin" | "developer" | "custom";
         /** @description A single permission rule within a custom role. */
         RoleStatement: {
             actions: components["schemas"]["RoleStatementActions"];

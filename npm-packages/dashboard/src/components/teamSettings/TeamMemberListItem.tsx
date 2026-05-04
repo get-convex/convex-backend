@@ -1,6 +1,7 @@
 import type {
   MemberResponse,
   ProjectMemberRoleResponse,
+  Role,
   UpdateProjectRolesArgs,
   TeamResponse,
   TeamMember,
@@ -30,10 +31,7 @@ type TeamMemberListItemProps = {
   member: TeamMember;
   members: TeamMember[];
   canChangeRole: boolean;
-  onChangeRole: (body: {
-    memberId: number;
-    role: "admin" | "developer";
-  }) => Promise<Response>;
+  onChangeRole: (body: { memberId: number; role: Role }) => Promise<Response>;
   onRemoveMember: (body: { memberId: number }) => Promise<Response>;
   onUpdateProjectRoles: (body: UpdateProjectRolesArgs) => Promise<undefined>;
   hasAdminPermissions: boolean;

@@ -6130,7 +6130,8 @@
         "type": "string",
         "enum": [
           "admin",
-          "developer"
+          "developer",
+          "custom"
         ]
       },
       "SSODomainState": {

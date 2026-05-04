@@ -2604,7 +2604,7 @@ export interface components {
             id: components["schemas"]["CloudBackupId"];
         };
         /** @enum {string} */
-        Role: "admin" | "developer";
+        Role: "admin" | "developer" | "custom";
         /** @enum {string} */
         SSODomainState: "verified" | "pending" | "failed" | "legacyVerified";
         SSOOrganizationDomain: {
