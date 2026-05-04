@@ -10,6 +10,7 @@ use application::deploy_config::{
     StartPushRequest,
     StartPushResponse,
 };
+use common::bootstrap_model::push_mode::PushMode;
 use axum::{
     debug_handler,
     extract::State,
@@ -207,13 +208,19 @@ pub async fn start_push(
     )
     .await?;
     _identity.require_operation(keybroker::DeploymentOp::Deploy)?;
+    let push_mode = if req.dry_run {
+        PushMode::DryRun
+    } else {
+        PushMode::Normal
+    };
     let config = req.into_project_config().map_err(|e| {
         anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
     })?;
-    let result =
-        st.application.start_push(&config).await.map_err(|e| {
-            e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}"))
-        })?;
+    let result = st
+        .application
+        .start_push(&config, push_mode)
+        .await
+        .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
     Ok(Json(SerializedStartPushResponse::try_from(
         result.response,
     )?))
@@ -253,6 +260,11 @@ pub struct WaitForSchemaRequest {
     admin_key: String,
     schema_change: SerializedSchemaChange,
     timeout_ms: Option<u32>,
+    /// When true, return complete as soon as the schema reaches Validated
+    /// without waiting for index backfill to finish. Dry-run pushes never
+    /// create index documents, so there is nothing to backfill.
+    #[serde(default)]
+    dry_run: bool,
 }
 
 pub async fn wait_for_schema(
@@ -268,12 +280,14 @@ pub async fn wait_for_schema(
     identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(DEFAULT_SCHEMA_TIMEOUT_MS) as u64);
     let schema_change = req.schema_change.try_into()?;
-
-    // In dry_run mode, we commit the schema changes in start_push so we can
-    // validate the schema against existing data.
+    let push_mode = if req.dry_run {
+        PushMode::DryRun
+    } else {
+        PushMode::Normal
+    };
     let resp = st
         .application
-        .wait_for_schema(identity, schema_change, timeout)
+        .wait_for_schema(identity, schema_change, timeout, push_mode)
         .await?;
     Ok(Json(SchemaStatusJson::from(resp)))
 }
@@ -303,10 +317,16 @@ pub async fn finish_push_internal(
     let start_push = StartPushResponse::try_from(req.start_push)?;
     let message = req.message.map(PushMessage::try_from).transpose()?;
 
-    // We can't actually run `finish_push` in a dry run, since we rolled back all of
-    // our changes during start push.
     if req.dry_run {
-        tracing::info!("Skipping finish_push in dry run");
+        tracing::info!("Rolling back dry-run schema and index changes");
+        st.application
+            .rollback_dry_run_schema_change(&start_push.schema_change)
+            .await
+            .map_err(|e| {
+                e.wrap_error_message(|msg| {
+                    format!("Hit an error while rolling back dry-run push:\n{msg}")
+                })
+            })?;
         let empty_diff = FinishPushDiff::default();
         return Ok((SerializedFinishPushDiff::try_from(empty_diff)?, None));
     }

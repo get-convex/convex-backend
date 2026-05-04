@@ -464,7 +464,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         Ok(num_deleted)
     }
 
-    async fn mark_overwritten(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
+    pub async fn mark_overwritten(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
         SystemMetadataModel::new(self.tx, self.namespace)
             .patch(
                 id,
