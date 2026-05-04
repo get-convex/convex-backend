@@ -221,6 +221,7 @@ const statementsSchema = {
       type: "string",
       minLength: 1,
       pattern: RESOURCE_PATTERN,
+      patternErrorMessage: "Invalid resource specifier.",
       description:
         "Resource path like `team:*`, `project:*`, `project:slug=my-app`, or `project:*:deployment:type=prod`.",
     },
