@@ -3398,6 +3398,7 @@
           "transferDeployment",
           "receiveDeployment",
           "updateDeployment",
+          "deleteDeployment",
           "viewDeployment",
           "createCustomDomain",
           "deleteCustomDomain",
