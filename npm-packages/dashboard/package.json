@@ -27,6 +27,7 @@
     "@convex-dev/platform": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "2.2.0",
+    "@monaco-editor/react": "4.7.0",
     "@next/bundle-analyzer": "~12.3.0",
     "@radix-ui/react-icons": "~1.3.0",
     "@sentry/nextjs": "7.120.4",

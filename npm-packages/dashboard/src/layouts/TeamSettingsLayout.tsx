@@ -23,6 +23,7 @@ export function TeamSettingsLayout({
     | "referrals"
     | "access-tokens"
     | "applications"
+    | "custom-roles"
     | "sso";
   Component: React.FunctionComponent<{ team: TeamResponse }>;
   title: string;
@@ -32,7 +33,7 @@ export function TeamSettingsLayout({
   const entitlements = useTeamEntitlements(selectedTeam?.id);
   const auditLogsEnabled = entitlements?.auditLogRetentionDays !== 0;
 
-  const { singleSignOn } = useLaunchDarkly();
+  const { singleSignOn, customRoles } = useLaunchDarkly();
 
   const pages = [
     "general",
@@ -91,6 +92,14 @@ export function TeamSettingsLayout({
             >
               Audit Log
             </SidebarLink>
+            {customRoles && (
+              <SidebarLink
+                isActive={selectedPage === "custom-roles"}
+                href={`/t/${selectedTeam?.slug}/settings/custom-roles`}
+              >
+                Custom Roles
+              </SidebarLink>
+            )}
             {singleSignOn && (
               <SidebarLink
                 isActive={selectedPage === "sso"}
@@ -101,7 +110,7 @@ export function TeamSettingsLayout({
             )}
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
-            <div className="flex max-w-[80rem] flex-col gap-6 p-6">
+            <div className="flex h-full max-w-[80rem] flex-col gap-6 p-6">
               {selectedTeam ? (
                 <Component team={selectedTeam} key={selectedTeam.id} />
               ) : (

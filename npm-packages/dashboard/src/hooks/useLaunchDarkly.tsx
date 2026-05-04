@@ -16,6 +16,7 @@ export const flagDefaults: {
   subscriptionInvalidationsChart: boolean;
   transferDeployment: boolean;
   scopedDeployKeys: boolean;
+  customRoles: boolean;
   healthHeatmaps: boolean;
   allowTokenExpiry: boolean;
 } = {
@@ -33,6 +34,7 @@ export const flagDefaults: {
   subscriptionInvalidationsChart: false,
   transferDeployment: false,
   scopedDeployKeys: false,
+  customRoles: false,
   healthHeatmaps: false,
   allowTokenExpiry: false,
 };
