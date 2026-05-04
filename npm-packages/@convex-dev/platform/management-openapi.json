@@ -3417,6 +3417,7 @@
           "setSpendingLimit",
           "viewBillingDetails",
           "viewInvoices",
+          "viewTeamAuditLog",
           "createTeamAccessToken",
           "updateTeamAccessToken",
           "deleteTeamAccessToken",
