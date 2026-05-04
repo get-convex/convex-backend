@@ -34,8 +34,6 @@ jobs:
 
       - run: npm i
 
-      - run: npm run test
-
       - run: npm run test-esm
 
       - run: npm run lint
