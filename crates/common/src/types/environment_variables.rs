@@ -10,7 +10,10 @@ use serde::{
     Serialize,
 };
 
-use crate::knobs::ENV_VAR_LIMIT;
+use crate::knobs::{
+    ENV_VAR_LIMIT,
+    ENV_VAR_NAME_MAX_LENGTH,
+};
 
 #[rustfmt::skip]
 #[derive(
@@ -60,10 +63,10 @@ static NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap());
 
 // NOTE: Make sure to update the doc if you change any of these limits. Also
-// don't reduce them since that might break existing projects.
+// don't reduce them since that might break existing projects. The maximum
+// name length is configurable via the `ENV_VAR_NAME_MAX_LENGTH` knob and
+// defaults to 40 for backwards compatibility.
 
-/// Maximum length of the name of an environment variable
-pub const MAX_NAME_LENGTH: usize = 40;
 /// Maximum length of an environment variable value. 8KiB corresponds to the
 /// maximum length of an HTTP header.
 pub const MAX_VALUE_LENGTH: usize = 8 * (1 << 10);
@@ -83,13 +86,14 @@ impl FromStr for EnvVarName {
                 ),
             )
         );
+        let max_name_length = *ENV_VAR_NAME_MAX_LENGTH;
         anyhow::ensure!(
-            s.len() <= MAX_NAME_LENGTH,
+            s.len() <= max_name_length,
             ErrorMetadata::bad_request(
                 "EnvironmentVariableNameTooLong",
                 format!(
                     "The environment variable name {s} is too long. Environment variable names \
-                     must be less than {MAX_NAME_LENGTH}."
+                     must be less than {max_name_length}."
                 )
             )
         );
