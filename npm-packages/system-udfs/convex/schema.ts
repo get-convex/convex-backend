@@ -260,19 +260,19 @@ const logSinksTable = defineTable({
 
 const userStopState = v.union(v.literal("none"), v.literal("paused"));
 
+export const newBackendState = v.object({
+  system: systemStopState,
+  user: userStopState,
+});
+
 export const backendState = v.union(
   // TODO(nicolas) Remove this once the migration is completed
-  oldBackendState,
+  v.object({ state: oldBackendState }),
 
-  v.object({
-    system: systemStopState,
-    user: userStopState,
-  }),
+  newBackendState,
 );
 
-const backendStateTable = defineTable({
-  state: backendState,
-});
+const backendStateTable = defineTable(backendState);
 
 export const cronJobState = v.union(
   v.object({ type: v.literal("pending") }),
