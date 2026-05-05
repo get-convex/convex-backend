@@ -29,7 +29,7 @@ export function IntegrationsView({
     udfs.listConfiguredSinks.default,
     canViewIntegrations ? undefined : "skip",
   );
-  const workosData = workOSOperations.useDeploymentWorkOSEnvironment(
+  const { data: workosData } = workOSOperations.useDeploymentWorkOSEnvironment(
     deployment?.name,
   );
 

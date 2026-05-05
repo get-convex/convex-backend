@@ -105,32 +105,35 @@ export type DeploymentInfo = (
   useIsDeploymentPaused(): boolean | undefined;
   useLogDeploymentEvent(): (msg: string, props?: object | null) => void;
   workOSOperations: {
-    useDeploymentWorkOSEnvironment(deploymentName?: string):
-      | {
-          teamId: number;
-          environment?:
-            | {
-                deploymentName: string;
-                workosEnvironmentId: string;
-                workosEnvironmentName: string;
-                workosClientId: string;
-                workosTeamId: string;
-                isProduction: boolean;
-              }
-            | undefined
-            | null;
-          workosTeam?:
-            | {
-                convexTeamId: number;
-                workosTeamId: string;
-                workosTeamName: string;
-                workosAdminEmail: string;
-                creatorMemberId: number;
-              }
-            | undefined
-            | null;
-        }
-      | undefined;
+    useDeploymentWorkOSEnvironment(deploymentName?: string): {
+      data?:
+        | {
+            teamId: number;
+            environment?:
+              | {
+                  deploymentName: string;
+                  workosEnvironmentId: string;
+                  workosEnvironmentName: string;
+                  workosClientId: string;
+                  workosTeamId: string;
+                  isProduction: boolean;
+                }
+              | undefined
+              | null;
+            workosTeam?:
+              | {
+                  convexTeamId: number;
+                  workosTeamId: string;
+                  workosTeamName: string;
+                  workosAdminEmail: string;
+                  creatorMemberId: number;
+                }
+              | undefined
+              | null;
+          }
+        | undefined;
+      error?: any;
+    };
     useTeamWorkOSIntegration(teamId?: string):
       | {
           teamAssociation?:

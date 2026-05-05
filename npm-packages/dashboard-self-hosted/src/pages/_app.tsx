@@ -251,7 +251,10 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   // no-op. don't send analytics in the self-hosted dashboard.
   useLogDeploymentEvent: () => () => {},
   workOSOperations: {
-    useDeploymentWorkOSEnvironment: () => undefined,
+    useDeploymentWorkOSEnvironment: () => ({
+      data: undefined,
+      error: undefined,
+    }),
     useTeamWorkOSIntegration: () => undefined,
     useWorkOSTeamHealth: () => undefined,
     useWorkOSEnvironmentHealth: () => ({ data: undefined, error: undefined }),

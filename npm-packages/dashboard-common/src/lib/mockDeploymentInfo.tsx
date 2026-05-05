@@ -24,7 +24,10 @@ export const mockDeploymentInfo: DeploymentInfo = {
   }),
   useLogDeploymentEvent: () => () => {},
   workOSOperations: {
-    useDeploymentWorkOSEnvironment: () => undefined,
+    useDeploymentWorkOSEnvironment: () => ({
+      data: undefined,
+      error: undefined,
+    }),
     useTeamWorkOSIntegration: () => undefined,
     useWorkOSTeamHealth: () => undefined,
     useWorkOSEnvironmentHealth: () => ({ data: undefined, error: undefined }),

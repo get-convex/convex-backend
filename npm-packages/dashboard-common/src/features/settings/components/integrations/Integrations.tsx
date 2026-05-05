@@ -31,7 +31,7 @@ export function Integrations({
   integrations: Doc<"_log_sinks">[];
   workosData: ReturnType<
     DeploymentInfo["workOSOperations"]["useDeploymentWorkOSEnvironment"]
-  >;
+  >["data"];
   onAddedIntegration?: (kind: string) => void;
   showPostHogIntegrations?: boolean;
 }) {
