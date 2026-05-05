@@ -45,12 +45,22 @@ function errorMessage(e: unknown, fallback: string): string {
   return fallback;
 }
 
-type ResourceKind = "team" | "project" | "deployment" | "member" | "token";
+// Categories below match the (leaf, parent) pairs the server's
+// `RoleStatement::validate` enforces in
+// crates_private/big_brain_lib/src/roles/types.rs. Token actions split by
+// owner so e.g. `team:*:token:*` only allows team-token actions. The server
+// enforces this pairing too — this duplication just gives inline editor
+// feedback.
+type ActionCategory =
+  | "team"
+  | "project"
+  | "deployment"
+  | "member"
+  | "teamToken"
+  | "projectToken"
+  | "deploymentToken";
 
-// Mirrors RoleStatementAction::resource_kind() in
-// crates_private/big_brain_lib/src/roles/types.rs. The server enforces this
-// pairing too — this duplication just gives inline editor feedback.
-const ACTIONS_BY_RESOURCE: Record<ResourceKind, RoleStatementAction[]> = {
+const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
   team: [
     "updateTeam",
     "deleteTeam",
@@ -112,15 +122,19 @@ const ACTIONS_BY_RESOURCE: Record<ResourceKind, RoleStatementAction[]> = {
     "removeMember",
     "updateMemberRole",
   ],
-  token: [
+  teamToken: [
     "createTeamAccessToken",
     "updateTeamAccessToken",
     "deleteTeamAccessToken",
     "viewTeamAccessToken",
+  ],
+  projectToken: [
     "createProjectAccessToken",
     "updateProjectAccessToken",
     "deleteProjectAccessToken",
     "viewProjectAccessToken",
+  ],
+  deploymentToken: [
     "createDeploymentAccessToken",
     "updateDeploymentAccessToken",
     "deleteDeploymentAccessToken",
@@ -128,28 +142,30 @@ const ACTIONS_BY_RESOURCE: Record<ResourceKind, RoleStatementAction[]> = {
   ],
 };
 
-const actionsForKind = (kind: ResourceKind) => ({
+const actionsForCategory = (category: ActionCategory) => ({
   if: { type: "array" },
   then: {
     minItems: 1,
-    items: { type: "string", enum: ACTIONS_BY_RESOURCE[kind] },
+    items: { type: "string", enum: ACTIONS_BY_CATEGORY[category] },
   },
   else: { const: "*" },
 });
 
 // Mirrors ResourceSpecifier::FromStr in
-// crates_private/big_brain_lib/src/roles/parse.rs.
+// crates_private/big_brain_lib/src/roles/parse.rs. Tokens nest directly under
+// their owning resource: `team:*:token:*`, `project:*:token:*`, or
+// `project:*:deployment:*:token:*`.
 const SELECTOR_VAL = "[^,:]+";
 const projectSel = `(\\*|id=${SELECTOR_VAL}|slug=${SELECTOR_VAL})`;
 const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${SELECTOR_VAL}|creator=${SELECTOR_VAL})`;
 const memberSel = `(\\*|id=${SELECTOR_VAL})`;
-const tokenSel = `(\\*|scope=(team|project|deployment)|creator=${SELECTOR_VAL})`;
+const tokenSel = `(\\*|creator=${SELECTOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
+const tokenTail = `:token:${csv(tokenSel)}`;
 const RESOURCE_PATTERN =
-  `^(team:\\*` +
-  `|project:${csv(projectSel)}(:deployment:${csv(deploymentSel)})?` +
-  `|member:${csv(memberSel)}` +
-  `|token:${csv(tokenSel)})$`;
+  `^(team:\\*(${tokenTail})?` +
+  `|project:${csv(projectSel)}(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail})?)?` +
+  `|member:${csv(memberSel)})$`;
 
 const statementsSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
@@ -170,16 +186,16 @@ const statementsSchema = {
         {
           if: {
             required: ["resource"],
-            properties: { resource: { pattern: "^team:" } },
+            properties: { resource: { pattern: "^team:[^:]+$" } },
           },
-          then: { properties: { actions: actionsForKind("team") } },
+          then: { properties: { actions: actionsForCategory("team") } },
         },
         {
           if: {
             required: ["resource"],
             properties: { resource: { pattern: "^project:[^:]+$" } },
           },
-          then: { properties: { actions: actionsForKind("project") } },
+          then: { properties: { actions: actionsForCategory("project") } },
         },
         {
           if: {
@@ -188,21 +204,47 @@ const statementsSchema = {
               resource: { pattern: "^project:[^:]+:deployment:[^:]+$" },
             },
           },
-          then: { properties: { actions: actionsForKind("deployment") } },
+          then: {
+            properties: { actions: actionsForCategory("deployment") },
+          },
         },
         {
           if: {
             required: ["resource"],
-            properties: { resource: { pattern: "^member:" } },
+            properties: { resource: { pattern: "^member:[^:]+$" } },
           },
-          then: { properties: { actions: actionsForKind("member") } },
+          then: { properties: { actions: actionsForCategory("member") } },
         },
         {
           if: {
             required: ["resource"],
-            properties: { resource: { pattern: "^token:" } },
+            properties: { resource: { pattern: "^team:[^:]+:token:[^:]+$" } },
           },
-          then: { properties: { actions: actionsForKind("token") } },
+          then: { properties: { actions: actionsForCategory("teamToken") } },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: {
+              resource: { pattern: "^project:[^:]+:token:[^:]+$" },
+            },
+          },
+          then: {
+            properties: { actions: actionsForCategory("projectToken") },
+          },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: {
+              resource: {
+                pattern: "^project:[^:]+:deployment:[^:]+:token:[^:]+$",
+              },
+            },
+          },
+          then: {
+            properties: { actions: actionsForCategory("deploymentToken") },
+          },
         },
       ],
     },
@@ -223,7 +265,7 @@ const statementsSchema = {
       pattern: RESOURCE_PATTERN,
       patternErrorMessage: "Invalid resource specifier.",
       description:
-        "Resource path like `team:*`, `project:*`, `project:slug=my-app`, or `project:*:deployment:type=prod`.",
+        "Resource path like `team:*`, `project:*`, `project:slug=my-app`, `project:*:deployment:type=prod`, or with a `:token:*` suffix to scope token actions (e.g. `team:*:token:*`).",
     },
   },
 };
@@ -252,6 +294,11 @@ function CustomRoleForm({
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
   const [hasSchemaError, setHasSchemaError] = useState(false);
+  // Tracks the id of a role created in this form instance so that a fast
+  // second save after Create still routes through update, even if the SWR
+  // cache for `list_custom_roles` hasn't yet repopulated `existingRole`.
+  const [createdRoleId, setCreatedRoleId] = useState<number | undefined>();
+  const savedRoleId = existingRole?.id ?? createdRoleId;
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
@@ -326,14 +373,14 @@ function CustomRoleForm({
 
     setIsSubmitting(true);
     try {
-      if (existingRole) {
+      if (savedRoleId !== undefined) {
         await updateCustomRole({
-          id: existingRole.id,
+          id: savedRoleId,
           name: name.trim(),
           description: description.trim() || null,
           statements: parsedStatements,
         });
-        onSaved(existingRole.id);
+        onSaved(savedRoleId);
       } else {
         const created = await createCustomRole({
           name: name.trim(),
@@ -341,6 +388,7 @@ function CustomRoleForm({
           statements: parsedStatements,
         });
         if (created) {
+          setCreatedRoleId(created.id);
           onSaved(created.id);
         }
       }
@@ -352,8 +400,8 @@ function CustomRoleForm({
   };
 
   return (
-    <Sheet className="flex flex-1 flex-col">
-      <div className="flex flex-1 flex-col gap-4">
+    <Sheet>
+      <div className="flex flex-col gap-4">
         <TextInput
           id="role-name"
           label="Name"
@@ -380,11 +428,11 @@ function CustomRoleForm({
             placeholder="Optional description for this role"
           />
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1">
+        <div className="flex flex-col gap-1">
           <div className="text-left text-sm text-content-primary">
             Statements
           </div>
-          <div className="min-h-48 flex-1 overflow-hidden rounded border">
+          <div className="h-[60vh] min-h-96 overflow-hidden rounded border">
             <Editor
               path={STATEMENTS_EDITOR_PATH}
               value={statementsText}
@@ -417,7 +465,7 @@ function CustomRoleForm({
                 : undefined
             }
           >
-            {existingRole ? "Save" : "Create"}
+            {savedRoleId !== undefined ? "Save" : "Create"}
           </Button>
         </div>
       </div>
@@ -571,7 +619,7 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
     : (editingRole?.name ?? (editingRoleId ? "Edit" : undefined));
 
   return (
-    <div className="-mx-6 flex h-full flex-col">
+    <div className="-mx-6 flex flex-col">
       <div className="sticky top-0 z-10 -mt-6 flex items-center gap-2 bg-background-primary p-6">
         {showForm ? (
           <Link href={listHref}>
@@ -589,16 +637,16 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
           </>
         )}
       </div>
-      <div className="relative flex min-h-0 flex-1 overflow-x-hidden">
+      <div className="relative flex overflow-x-hidden">
         <div
           className={cn(
-            "flex h-full w-full gap-6 transition-transform duration-500 motion-reduce:transition-none",
+            "flex w-full gap-6 transition-transform duration-500 motion-reduce:transition-none",
             showForm ? "-translate-x-[calc(100%+1.5rem)]" : "translate-x-0",
           )}
         >
           <div
             className={cn(
-              "flex w-full shrink-0 flex-col gap-4 overflow-y-auto px-6",
+              "flex w-full shrink-0 flex-col gap-4 px-6",
               showForm ? "pointer-events-none select-none" : "",
             )}
             // @ts-expect-error https://github.com/facebook/react/issues/17157
@@ -651,7 +699,7 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
           </div>
           <div
             className={cn(
-              "flex min-h-0 w-full shrink-0 flex-col gap-4 px-6",
+              "flex w-full shrink-0 flex-col gap-4 px-6",
               !showForm ? "pointer-events-none select-none" : "",
             )}
             // @ts-expect-error https://github.com/facebook/react/issues/17157
@@ -661,8 +709,12 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
               (editingRoleId !== undefined && customRolesData === undefined ? (
                 <Loading fullHeight={false} className="h-48 w-full" />
               ) : (
+                // Stable key: the form is unmounted whenever `showForm` flips
+                // to false (Cancel / breadcrumb), so a fresh mount picks up
+                // the right `existingRole`. Keying by `editingRoleId` would
+                // remount on the create→edit URL flip and wipe the editor.
                 <CustomRoleForm
-                  key={editingRoleId ?? "new"}
+                  key="custom-role-form"
                   teamId={team.id}
                   existingRole={editingRole}
                   onClose={goToList}
