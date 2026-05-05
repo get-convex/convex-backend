@@ -27,8 +27,6 @@ export function HealthView({
   lastBackupTime,
   teamMembers,
   regions,
-  showSubscriptionInvalidations = false,
-  showHeatmaps = false,
 }: {
   header: JSX.Element;
   PageWrapper: React.FC<{ children: React.ReactNode }>;
@@ -39,8 +37,6 @@ export function HealthView({
   lastBackupTime?: number | null;
   teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
-  showSubscriptionInvalidations?: boolean;
-  showHeatmaps?: boolean;
 }) {
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
   const canViewMetrics = useIsOperationAllowed("ViewMetrics");
@@ -50,10 +46,7 @@ export function HealthView({
     lag,
     running,
     queued,
-  } = useConcurrencyStatus(
-    canViewMetrics,
-    showSubscriptionInvalidations ? 4 : 3,
-  );
+  } = useConcurrencyStatus(canViewMetrics, 4);
 
   if (!canViewMetrics) {
     return (
@@ -97,8 +90,8 @@ export function HealthView({
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <FunctionCalls />
-                  <FailureRate showHeatmaps={showHeatmaps} />
-                  <CacheHitRate showHeatmaps={showHeatmaps} />
+                  <FailureRate />
+                  <CacheHitRate />
                 </div>
               </DisclosureSection>
 
@@ -128,9 +121,7 @@ export function HealthView({
                       kind="functionConcurrency"
                     />
                   </HealthCard>
-                  {showSubscriptionInvalidations && (
-                    <SubscriptionInvalidations />
-                  )}
+                  <SubscriptionInvalidations />
                 </div>
               </DisclosureSection>
             </div>

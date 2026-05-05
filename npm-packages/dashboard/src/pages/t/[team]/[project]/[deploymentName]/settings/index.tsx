@@ -12,7 +12,6 @@ import { PauseDeployment } from "@common/features/settings/components/PauseDeplo
 import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { usePostHog } from "hooks/usePostHog";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useListCloudBackupsIfAvailable } from "api/backups";
@@ -49,7 +48,6 @@ function DeploymentURLAndDeployKey() {
   const { capture } = usePostHog();
   const pauseDeploymentRef = useRef<HTMLDivElement | null>(null);
   useScrollToHash("#pause-deployment", pauseDeploymentRef);
-  const { transferDeployment } = useLaunchDarkly();
 
   const team = useCurrentTeam();
   const project = useCurrentProject();
@@ -91,7 +89,7 @@ function DeploymentURLAndDeployKey() {
         />
       </div>
       <DeleteDeployment />
-      {transferDeployment && <TransferDeployment />}
+      <TransferDeployment />
     </div>
   );
 }

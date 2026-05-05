@@ -9,7 +9,6 @@ import {
   TokenExpirationValue,
   resolveExpirationTime,
 } from "components/TokenExpirationSelector";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 const CREATE_TOKEN_SCHEMA = Yup.object({
   tokenName: Yup.string()
@@ -25,7 +24,6 @@ export function CreateTokenDialog({
   onClose: () => void;
   onSubmit: (args: { tokenName: string; expiresAt?: number }) => Promise<void>;
 }) {
-  const { allowTokenExpiry } = useLaunchDarkly();
   const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
 
   return (
@@ -34,9 +32,7 @@ export function CreateTokenDialog({
         initialValues={{ tokenName: "" }}
         validationSchema={CREATE_TOKEN_SCHEMA}
         onSubmit={async (values, { setSubmitting }) => {
-          const expiresAt = allowTokenExpiry
-            ? resolveExpirationTime(expiration)
-            : null;
+          const expiresAt = resolveExpirationTime(expiration);
           await onSubmit({
             tokenName: values.tokenName,
             ...(expiresAt !== null && { expiresAt }),
@@ -73,12 +69,10 @@ export function CreateTokenDialog({
               required
             />
 
-            {allowTokenExpiry && (
-              <TokenExpirationSelector
-                value={expiration}
-                onChange={setExpiration}
-              />
-            )}
+            <TokenExpirationSelector
+              value={expiration}
+              onChange={setExpiration}
+            />
 
             <div className="flex justify-end gap-2">
               <Button variant="neutral" onClick={onClose} type="button">

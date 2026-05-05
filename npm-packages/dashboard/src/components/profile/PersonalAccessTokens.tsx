@@ -23,7 +23,6 @@ import {
   TokenExpirationValue,
   resolveExpirationTime,
 } from "components/TokenExpirationSelector";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 type PersonalAccessToken = {
   name: string;
@@ -221,7 +220,6 @@ function CreatePersonalTokenDialog({
     expiresAt?: number;
   }) => Promise<string | null>;
 }) {
-  const { allowTokenExpiry } = useLaunchDarkly();
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
 
@@ -252,9 +250,7 @@ function CreatePersonalTokenDialog({
         initialValues={{ tokenName: "" }}
         validationSchema={CREATE_TOKEN_SCHEMA}
         onSubmit={async (values, { setSubmitting }) => {
-          const expiresAt = allowTokenExpiry
-            ? resolveExpirationTime(expiration)
-            : null;
+          const expiresAt = resolveExpirationTime(expiration);
           const token = await onCreate({
             tokenName: values.tokenName,
             ...(expiresAt !== null && { expiresAt }),
@@ -292,12 +288,10 @@ function CreatePersonalTokenDialog({
               }
               required
             />
-            {allowTokenExpiry && (
-              <TokenExpirationSelector
-                value={expiration}
-                onChange={setExpiration}
-              />
-            )}
+            <TokenExpirationSelector
+              value={expiration}
+              onChange={setExpiration}
+            />
             <div className="flex justify-end gap-2">
               <Button variant="neutral" onClick={onClose} type="button">
                 Cancel

@@ -84,12 +84,6 @@ function JobItemImpl({
   const canCancelJobs =
     (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
     canWriteData;
-  const { showScheduledJobArgsInComponents } = useContext(
-    DeploymentInfoContext,
-  );
-  const isComponentJob = componentId !== null;
-  const canViewArgs =
-    !isComponentJob || !argsId || showScheduledJobArgsInComponents;
 
   if (nextTs === null) {
     throw new Error("Could not find timestamp to run scheduled job at");
@@ -149,16 +143,7 @@ function JobItemImpl({
               variant: "neutral",
             }}
           >
-            <MenuItem
-              action={() => setShowArgs(true)}
-              disabled={!canViewArgs}
-              tip={
-                !canViewArgs &&
-                "Cannot currently show arguments for scheduled jobs in a component. Please try again later."
-              }
-            >
-              View Arguments
-            </MenuItem>
+            <MenuItem action={() => setShowArgs(true)}>View Arguments</MenuItem>
             <MenuItem
               action={() => setShowDeleteModal(true)}
               disabled={currentlyRunning || !canCancelJobs}

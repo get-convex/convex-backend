@@ -23,11 +23,7 @@ import { useNents } from "@common/lib/useNents";
 import { Sheet } from "@ui/Sheet";
 import { FunctionLogs } from "./FunctionLogs";
 
-export function FunctionsView({
-  showSubscriptionInvalidations = false,
-}: {
-  showSubscriptionInvalidations?: boolean;
-} = {}) {
+export function FunctionsView() {
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
   const canViewData = useIsOperationAllowed("ViewData");
 
@@ -43,17 +39,11 @@ export function FunctionsView({
   return (
     <>
       <DeploymentPageTitle title="Functions" />
-      <Functions
-        showSubscriptionInvalidations={showSubscriptionInvalidations}
-      />
+      <Functions />
     </>
   );
 }
-function Functions({
-  showSubscriptionInvalidations,
-}: {
-  showSubscriptionInvalidations: boolean;
-}) {
+function Functions() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const deploymentId = deployment && "id" in deployment ? deployment.id : null;
@@ -100,9 +90,7 @@ function Functions({
 
           <HeadlessTabPanels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow flex-col overflow-x-auto p-6">
             <HeadlessTabPanel className="grow">
-              <PerformanceGraphs
-                showSubscriptionInvalidations={showSubscriptionInvalidations}
-              />
+              <PerformanceGraphs />
             </HeadlessTabPanel>
 
             <HeadlessTabPanel className="flex min-h-0 min-w-0 grow">

@@ -29,51 +29,44 @@ export function FailureRateCard({
   );
 }
 
-export function FailureRate({
-  showHeatmaps = false,
-}: {
-  showHeatmaps?: boolean;
-}) {
-  const [storedView, setStoredView] = useGlobalLocalStorage<ViewMode>(
+export function FailureRate() {
+  const [view, setView] = useGlobalLocalStorage<ViewMode>(
     "health-failure-rate-view",
     "lineChart",
   );
-  const view = showHeatmaps ? storedView : "lineChart";
 
   return (
     <HealthCard
       title="Failure Rate"
       tip="The failure rate of all running functions."
       action={
-        showHeatmaps ? (
-          <Menu
-            placement="bottom-end"
-            buttonProps={{
-              "aria-label": "Failure rate display options",
-              tip: "Display options",
-              size: "xs",
-              variant: "neutral",
-              inline: true,
-              icon: <MixerVerticalIcon className="text-content-tertiary" />,
-            }}
-          >
-            {VIEW_OPTIONS.map((opt) => (
-              <MenuItem
-                key={`view-${opt.value}`}
-                action={() => setStoredView(opt.value)}
-              >
-                <CheckIcon
-                  className={
-                    view === opt.value
-                      ? "text-content-primary"
-                      : "text-transparent"
-                  }
-                />
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Menu>
-        ) : undefined
+        <Menu
+          placement="bottom-end"
+          buttonProps={{
+            "aria-label": "Failure rate display options",
+            tip: "Display options",
+            size: "xs",
+            variant: "neutral",
+            inline: true,
+            icon: <MixerVerticalIcon className="text-content-tertiary" />,
+          }}
+        >
+          {VIEW_OPTIONS.map((opt) => (
+            <MenuItem
+              key={`view-${opt.value}`}
+              action={() => setView(opt.value)}
+            >
+              <CheckIcon
+                className={
+                  view === opt.value
+                    ? "text-content-primary"
+                    : "text-transparent"
+                }
+              />
+              {opt.label}
+            </MenuItem>
+          ))}
+        </Menu>
       }
     >
       {view === "heatmap" ? (

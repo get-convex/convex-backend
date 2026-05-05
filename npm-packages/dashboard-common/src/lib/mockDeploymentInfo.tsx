@@ -107,5 +107,4 @@ export const mockDeploymentInfo: DeploymentInfo = {
   isSelfHosted: true,
   workosIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
-  showScheduledJobArgsInComponents: false,
 };

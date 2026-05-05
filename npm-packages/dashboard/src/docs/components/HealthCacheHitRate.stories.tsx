@@ -7,7 +7,11 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import type { ChartData } from "@common/lib/charts/types";
-import { useTopKFunctionMetrics } from "@common/lib/appMetrics";
+import {
+  useTopKFunctionMetrics,
+  useTopKFunctionRateHeatmap,
+  type FunctionRateHeatmapData,
+} from "@common/lib/appMetrics";
 import { CacheHitRate } from "@common/features/health/components/CacheHitRate";
 
 const mockClient = mockConvexReactClient().registerQueryFake(
@@ -36,11 +40,41 @@ const chartData: ChartData = {
   ],
 };
 
+const bucketStartTimes = Array.from(
+  { length: 12 },
+  (_, i) => new Date(Date.UTC(2026, 0, 1, 12, i * 5)),
+);
+
+const heatmapData: FunctionRateHeatmapData = {
+  bucketStartTimes,
+  rows: [
+    {
+      key: list,
+      cells: [98, 96, 95, 97, 92, 90, 88, 95, 96, 97, 95, 94].map(
+        (value, i) => ({ time: bucketStartTimes[i], value }),
+      ),
+    },
+    {
+      key: channels,
+      cells: [85, 82, 78, 75, 80, 78, 75, 72, 78, 80, 82, 85].map(
+        (value, i) => ({ time: bucketStartTimes[i], value }),
+      ),
+    },
+    {
+      key: users,
+      cells: [60, 58, 55, 52, 60, 65, 62, 58, 60, 62, 65, 68].map(
+        (value, i) => ({ time: bucketStartTimes[i], value }),
+      ),
+    },
+  ],
+};
+
 const meta = {
   component: CacheHitRate,
   parameters: { a11y: { test: "todo" } },
   beforeEach: () => {
     mocked(useTopKFunctionMetrics).mockReturnValue(chartData);
+    mocked(useTopKFunctionRateHeatmap).mockReturnValue(heatmapData);
   },
   render: () => (
     <ConvexProvider client={mockClient}>

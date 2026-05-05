@@ -133,7 +133,6 @@ export function DeploymentInfoProvider({
   const {
     workOsEnvironmentProvisioningDashboardUi,
     connectionStateCheckIntervalMs,
-    showScheduledJobArgsInComponents,
   } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
@@ -210,7 +209,6 @@ export function DeploymentInfoProvider({
         isSelfHosted: false,
         workosIntegrationEnabled: workOsEnvironmentProvisioningDashboardUi,
         connectionStateCheckIntervalMs,
-        showScheduledJobArgsInComponents,
       });
     };
     if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
@@ -228,7 +226,6 @@ export function DeploymentInfoProvider({
     teamsURI,
     workOsEnvironmentProvisioningDashboardUi,
     connectionStateCheckIntervalMs,
-    showScheduledJobArgsInComponents,
   ]);
 
   return deploymentInfo ? (

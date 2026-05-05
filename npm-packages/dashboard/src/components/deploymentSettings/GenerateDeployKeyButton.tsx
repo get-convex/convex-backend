@@ -236,7 +236,7 @@ export function GenerateDeployKeyWithNameButton({
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
   const { capture } = usePostHog();
-  const { scopedDeployKeys, allowTokenExpiry } = useLaunchDarkly();
+  const { scopedDeployKeys } = useLaunchDarkly();
 
   const handleClose = () => {
     setIsOpen(false);
@@ -286,9 +286,7 @@ export function GenerateDeployKeyWithNameButton({
                         ? ["Deploy"]
                         : Array.from(selectedOps)
                       : undefined;
-                  const expiresAt = allowTokenExpiry
-                    ? resolveExpirationTime(expiration)
-                    : null;
+                  const expiresAt = resolveExpirationTime(expiration);
                   const result = await getAdminKey(
                     name,
                     allowedOperations,
@@ -317,12 +315,10 @@ export function GenerateDeployKeyWithNameButton({
                   setName(event.target.value);
                 }}
               />
-              {allowTokenExpiry && (
-                <TokenExpirationSelector
-                  value={expiration}
-                  onChange={setExpiration}
-                />
-              )}
+              <TokenExpirationSelector
+                value={expiration}
+                onChange={setExpiration}
+              />
               {scopedDeployKeys && showCustomPermissions && (
                 <div className="mt-2 flex flex-col gap-3">
                   <SegmentedControl
