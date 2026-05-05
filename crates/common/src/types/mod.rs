@@ -66,6 +66,8 @@ pub use environment_variables::{
     env_var_limit_met,
     env_var_name_forbidden,
     env_var_name_not_unique,
+    env_var_total_size,
+    env_var_total_size_limit_met,
     EnvVarName,
     EnvVarValue,
     EnvironmentVariable,

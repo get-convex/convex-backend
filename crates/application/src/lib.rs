@@ -92,6 +92,7 @@ use common::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         ENABLE_INDEX_BACKFILL,
         ENV_VAR_LIMIT,
+        ENV_VAR_TOTAL_SIZE_LIMIT,
         MAX_JOBS_CANCEL_BATCH,
         MAX_USER_MODULES,
     },
@@ -124,6 +125,7 @@ use common::{
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
+        env_var_total_size,
         AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
@@ -1620,6 +1622,13 @@ impl<RT: Runtime> Application<RT> {
         let all_env_vars = model.get_all().await?;
 
         anyhow::ensure!(all_env_vars.len() <= *ENV_VAR_LIMIT, env_var_limit_met(),);
+        let total_size = env_var_total_size(&all_env_vars);
+        if total_size > *ENV_VAR_TOTAL_SIZE_LIMIT {
+            tracing::info!(
+                "Environment variable total size {total_size} exceeds limit {}",
+                *ENV_VAR_TOTAL_SIZE_LIMIT,
+            );
+        }
 
         Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await?;
 
@@ -1636,6 +1645,17 @@ impl<RT: Runtime> Application<RT> {
             environment_variables.len() + all_env_vars.len() <= *ENV_VAR_LIMIT,
             env_var_limit_met(),
         );
+        let mut all_env_vars_with_new = all_env_vars;
+        for ev in &environment_variables {
+            all_env_vars_with_new.insert(ev.name().clone(), ev.value().clone());
+        }
+        let total_size = env_var_total_size(&all_env_vars_with_new);
+        if total_size > *ENV_VAR_TOTAL_SIZE_LIMIT {
+            tracing::info!(
+                "Environment variable total size {total_size} exceeds limit {}",
+                *ENV_VAR_TOTAL_SIZE_LIMIT,
+            );
+        }
         for environment_variable in environment_variables.clone() {
             self.create_one_environment_variable(tx, environment_variable)
                 .await?;

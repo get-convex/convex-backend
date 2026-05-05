@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     str::FromStr,
     sync::LazyLock,
 };
@@ -10,7 +11,10 @@ use serde::{
     Serialize,
 };
 
-use crate::knobs::ENV_VAR_LIMIT;
+use crate::knobs::{
+    ENV_VAR_LIMIT,
+    ENV_VAR_TOTAL_SIZE_LIMIT,
+};
 
 #[rustfmt::skip]
 #[derive(
@@ -63,7 +67,7 @@ static NAME_REGEX: LazyLock<Regex> =
 // don't reduce them since that might break existing projects.
 
 /// Maximum length of the name of an environment variable
-pub const MAX_NAME_LENGTH: usize = 40;
+pub const MAX_NAME_LENGTH: usize = 256;
 /// Maximum length of an environment variable value. 8KiB corresponds to the
 /// maximum length of an HTTP header.
 pub const MAX_VALUE_LENGTH: usize = 8 * (1 << 10);
@@ -142,6 +146,24 @@ pub fn env_var_limit_met() -> ErrorMetadata {
             *ENV_VAR_LIMIT
         ),
     )
+}
+
+pub fn env_var_total_size_limit_met(total_size: usize) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "EnvVarTotalSizeLimitMet",
+        format!(
+            "The total size of all environment variables ({total_size} bytes) exceeds the limit \
+             ({} bytes).",
+            *ENV_VAR_TOTAL_SIZE_LIMIT
+        ),
+    )
+}
+
+pub fn env_var_total_size(env_vars: &BTreeMap<EnvVarName, EnvVarValue>) -> usize {
+    env_vars
+        .iter()
+        .map(|(name, value)| name.as_ref().len() + value.as_ref().len())
+        .sum()
 }
 
 pub fn env_var_name_not_unique(name: Option<&EnvVarName>) -> ErrorMetadata {
