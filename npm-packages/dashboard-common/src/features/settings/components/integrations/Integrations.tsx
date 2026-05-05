@@ -72,7 +72,7 @@ export function Integrations({
     ? [
         {
           kind: "workos",
-          // Consider this integration to exist if a WorkOS enviroment has been provisioned
+          // Consider this integration to exist if a WorkOS environment has been provisioned
           existing: workosData?.environment ?? null,
         },
       ]

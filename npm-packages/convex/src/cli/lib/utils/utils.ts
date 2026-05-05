@@ -109,7 +109,7 @@ export type ErrorData = {
 };
 
 /**
- * Error thrown on non-2XX reponse codes to make most `fetch()` error handling
+ * Error thrown on non-2XX response codes to make most `fetch()` error handling
  * follow a single code path.
  */
 export class ThrowingFetchError extends Error {
