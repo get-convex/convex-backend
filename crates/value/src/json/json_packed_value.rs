@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use serde_json::Value as JsonValue;
+use serde_json::{
+    value::RawValue,
+    Value as JsonValue,
+};
 
 use crate::{
     heap_size::HeapSize,
@@ -37,6 +40,10 @@ impl JsonPackedValue {
     pub fn from_network(json: String) -> anyhow::Result<Self> {
         // TODO: consider checking JSON validity here
         Ok(Self(json.into()))
+    }
+
+    pub fn to_raw_value(&self) -> anyhow::Result<Box<RawValue>> {
+        Ok(serde_json::from_str(&self.0)?)
     }
 }
 
