@@ -137,6 +137,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             TabletIndexName::by_id(tablet_id),
             IndexedFields::by_id(),
             Interval::all(),
+            &self.tx.limits,
         )?;
         Ok(())
     }

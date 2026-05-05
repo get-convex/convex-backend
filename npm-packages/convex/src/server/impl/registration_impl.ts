@@ -60,11 +60,12 @@ async function invokeMutation<
     scheduler: setupMutationScheduler(),
     meta: setupMutationMeta(visibility),
 
-    runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
-    runSnapshotQuery: (reference: any, args?: any) =>
-      runUdf("snapshotQuery", reference, args),
-    runMutation: (reference: any, args?: any) =>
-      runUdf("mutation", reference, args),
+    runQuery: (reference: any, args?: any, options?: any) =>
+      runUdf("query", reference, args, options?.transactionLimits),
+    runSnapshotQuery: (reference: any, args?: any, options?: any) =>
+      runUdf("snapshotQuery", reference, args, options?.transactionLimits),
+    runMutation: (reference: any, args?: any, options?: any) =>
+      runUdf("mutation", reference, args, options?.transactionLimits),
   };
   const result = await invokeFunction(func, mutationCtx, args as any);
   validateReturnValue(result);
@@ -337,7 +338,8 @@ async function invokeQuery<
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
     meta: setupQueryMeta(visibility),
-    runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
+    runQuery: (reference: any, args?: any, options?: any) =>
+      runUdf("query", reference, args, options?.transactionLimits),
   };
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);
@@ -750,13 +752,17 @@ async function runUdf(
   udfType: "query" | "mutation" | "snapshotQuery",
   f: any,
   args?: Record<string, Value>,
+  transactionLimits?: Record<string, number>,
 ): Promise<any> {
   const queryArgs = parseArgs(args);
-  const syscallArgs = {
+  const syscallArgs: Record<string, any> = {
     udfType,
     args: convexToJson(queryArgs),
     ...getFunctionAddress(f),
   };
+  if (transactionLimits) {
+    syscallArgs.transactionLimits = transactionLimits;
+  }
   const result = await performAsyncSyscall("1.0/runUdf", syscallArgs);
   return jsonToConvex(result);
 }

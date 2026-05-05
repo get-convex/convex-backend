@@ -20,11 +20,6 @@ use common::{
         Interval,
         IntervalSet,
     },
-    knobs::{
-        TRANSACTION_MAX_READ_SET_INTERVALS,
-        TRANSACTION_MAX_READ_SIZE_BYTES,
-        TRANSACTION_MAX_READ_SIZE_ROWS,
-    },
     static_span,
     types::{
         TabletIndexName,
@@ -56,6 +51,7 @@ use crate::{
         ConflictingRead,
         ConflictingReadWithWriteSource,
     },
+    execution_size::TransactionLimits,
     stack_traces::StackTrace,
     write_log::{
         PackedDocumentUpdate,
@@ -448,6 +444,7 @@ impl TransactionReadSet {
         document_size: usize,
         usage_tracker: &FunctionUsageTracker,
         virtual_system_mapping: &VirtualSystemMapping,
+        limits: &TransactionLimits,
     ) -> anyhow::Result<()> {
         // Database bandwidth for document reads
         // TODO: Remove when we switch over to using egress_v2
@@ -480,6 +477,9 @@ impl TransactionReadSet {
             skip_logging_usage,
         );
 
+        let max_rows = limits.documents_read;
+        let max_bytes = limits.bytes_read;
+
         let tx_size = if skip_logging_usage {
             &mut self.system_tx_size
         } else {
@@ -494,24 +494,24 @@ impl TransactionReadSet {
 
         if !skip_logging_usage {
             anyhow::ensure!(
-                tx_size.total_document_count <= *TRANSACTION_MAX_READ_SIZE_ROWS,
+                tx_size.total_document_count <= max_rows,
                 ErrorMetadata::pagination_limit(
                     "TooManyDocumentsRead",
                     format!(
                         "Too many documents read in a single function execution (limit: {}). \
                          {OVER_LIMIT_HELP}",
-                        *TRANSACTION_MAX_READ_SIZE_ROWS,
+                        max_rows,
                     )
                 ),
             );
             anyhow::ensure!(
-                tx_size.total_document_size <= *TRANSACTION_MAX_READ_SIZE_BYTES,
+                tx_size.total_document_size <= max_bytes,
                 ErrorMetadata::pagination_limit(
                     "TooManyBytesRead",
                     format!(
                         "Too many bytes read in a single function execution (limit: {} bytes). \
                          {OVER_LIMIT_HELP}",
-                        *TRANSACTION_MAX_READ_SIZE_BYTES,
+                        max_bytes,
                     )
                 ),
             );
@@ -524,6 +524,7 @@ impl TransactionReadSet {
         index_name: TabletIndexName,
         fields: IndexedFields,
         interval: Interval,
+        limits: &TransactionLimits,
     ) -> anyhow::Result<()> {
         let _s = static_span!();
 
@@ -532,7 +533,8 @@ impl TransactionReadSet {
 
         self.num_intervals = self.num_intervals.saturating_sub(num_intervals_before);
         self.num_intervals += num_intervals_after;
-        if self.num_intervals > *TRANSACTION_MAX_READ_SET_INTERVALS {
+        let max_intervals = limits.database_queries;
+        if self.num_intervals > max_intervals {
             anyhow::bail!(
                 anyhow::anyhow!("top three: {}", self.top_three_intervals()).context(
                     ErrorMetadata::pagination_limit(
@@ -540,7 +542,7 @@ impl TransactionReadSet {
                         format!(
                             "Too many reads in a single function execution (limit: {}). \
                              {OVER_LIMIT_HELP}",
-                            *TRANSACTION_MAX_READ_SET_INTERVALS,
+                            max_intervals,
                         ),
                     )
                 )

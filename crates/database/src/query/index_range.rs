@@ -223,6 +223,7 @@ impl IndexRange {
                 tablet_index_name,
                 self.indexed_fields.clone(),
                 used_interval,
+                &tx.limits,
             )?;
 
             // Database bandwidth for index reads
@@ -247,6 +248,7 @@ impl IndexRange {
                 tablet_index_name,
                 self.indexed_fields.clone(),
                 self.initial_unfetched_interval.clone(),
+                &tx.limits,
             )?;
             return Ok(QueryStreamNext::Ready(None));
         }
@@ -255,6 +257,7 @@ impl IndexRange {
                 tablet_index_name,
                 self.indexed_fields.clone(),
                 self.initial_unfetched_interval.clone(),
+                &tx.limits,
             )?;
             // We're out of results. If we have an end cursor then we must
             // have reached it. Otherwise we're at the end of the entire

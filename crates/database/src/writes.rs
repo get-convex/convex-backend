@@ -27,10 +27,8 @@ use common::{
         Interval,
     },
     knobs::{
-        TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_SYSTEM_NUM_WRITES,
         TRANSACTION_MAX_SYSTEM_WRITE_SIZE_BYTES,
-        TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
     types::{
         TabletIndexName,
@@ -51,6 +49,7 @@ use value::{
 
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
+    execution_size::TransactionLimits,
     reads::TransactionReadSet,
     schema_registry::SchemaRegistry,
     ComponentRegistry,
@@ -245,6 +244,7 @@ impl Writes {
         document_id: ResolvedDocumentId,
         old_document: Option<(ResolvedDocument, WriteTimestamp)>,
         new_document: Option<ResolvedDocument>,
+        limits: &TransactionLimits,
     ) -> anyhow::Result<()> {
         if old_document.is_none() {
             anyhow::ensure!(!self.updates.contains(&document_id), "Duplicate insert");
@@ -284,22 +284,22 @@ impl Writes {
         } else {
             let tx_size = &self.user_tx_size;
             anyhow::ensure!(
-                tx_size.num_writes <= *TRANSACTION_MAX_NUM_USER_WRITES,
+                tx_size.num_writes <= limits.documents_written,
                 ErrorMetadata::pagination_limit(
                     "TooManyWrites",
                     format!(
                         "Too many writes in a single function execution (limit: {})",
-                        *TRANSACTION_MAX_NUM_USER_WRITES,
+                        limits.documents_written,
                     )
                 ),
             );
             anyhow::ensure!(
-                tx_size.size <= *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
+                tx_size.size <= limits.bytes_written,
                 ErrorMetadata::pagination_limit(
                     "TooManyBytesWritten",
                     format!(
                         "Too many bytes written in a single function execution (limit: {})",
-                        common::fmt::format_bytes(*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES as u64),
+                        common::fmt::format_bytes(limits.bytes_written as u64),
                     )
                 ),
             );

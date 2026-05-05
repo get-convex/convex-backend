@@ -52,6 +52,7 @@ impl PreloadedIndexRange {
             self.tablet_index_name.clone(),
             vec![self.indexed_field.clone()].try_into()?,
             Interval::prefix(BinaryKey::from(values_to_bytes(slice::from_ref(key)))),
+            &tx.limits,
         )?;
         let result = self.range.get(key);
         if let Some(document) = result {

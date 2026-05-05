@@ -25,13 +25,7 @@ use common::{
     knobs::{
         MAX_REACTOR_CALL_DEPTH,
         MAX_SYSCALL_BATCH_SIZE,
-        TRANSACTION_MAX_NUM_SCHEDULED,
-        TRANSACTION_MAX_NUM_USER_WRITES,
-        TRANSACTION_MAX_READ_SET_INTERVALS,
-        TRANSACTION_MAX_READ_SIZE_BYTES,
         TRANSACTION_MAX_READ_SIZE_ROWS,
-        TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
-        TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
     query::{
         Cursor,
@@ -64,6 +58,7 @@ use database::{
     DeveloperQuery,
     PatchValue,
     Transaction,
+    TransactionLimits,
     UserFacingModel,
 };
 use deno_core::v8;
@@ -398,6 +393,7 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
         udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
+        transaction_limits: Option<TransactionLimits>,
         udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue>;
 
@@ -574,6 +570,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         nested_udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
+        transaction_limits: Option<TransactionLimits>,
         udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue> {
         match (self.udf_type, nested_udf_type) {
@@ -634,6 +631,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         };
 
         let tokens = nested_tx.begin_subtransaction();
+
+        if let Some(limits) = transaction_limits {
+            nested_tx.set_transaction_limits(limits);
+        }
 
         let query_journal = if self.is_system() && nested_udf_type == NestedUdfType::Query {
             self.prev_journal.clone()
@@ -859,6 +860,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     fn tx_metrics(provider: &mut P) -> anyhow::Result<JsonValue> {
         let tx = provider.tx()?;
         let s = tx.execution_size();
+        let limits = tx.transaction_limits();
         let limit_value = |limit: usize, used: usize| {
             let remaining = limit as isize - used as isize;
             json!({
@@ -867,13 +869,13 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             })
         };
         Ok(json!({
-            "bytesRead": limit_value(*TRANSACTION_MAX_READ_SIZE_BYTES, s.read_size.total_document_size),
-            "bytesWritten": limit_value(*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES, s.write_size.size),
-            "databaseQueries": limit_value(*TRANSACTION_MAX_READ_SET_INTERVALS, s.num_intervals),
-            "documentsRead": limit_value(*TRANSACTION_MAX_READ_SIZE_ROWS, s.read_size.total_document_count),
-            "documentsWritten": limit_value(*TRANSACTION_MAX_NUM_USER_WRITES, s.write_size.num_writes),
-            "functionsScheduled": limit_value(*TRANSACTION_MAX_NUM_SCHEDULED, s.scheduled_size.num_writes),
-            "scheduledFunctionArgsBytes": limit_value(*TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES, s.scheduled_size.size),
+            "bytesRead": limit_value(limits.bytes_read, s.read_size.total_document_size),
+            "bytesWritten": limit_value(limits.bytes_written, s.write_size.size),
+            "databaseQueries": limit_value(limits.database_queries, s.num_intervals),
+            "documentsRead": limit_value(limits.documents_read, s.read_size.total_document_count),
+            "documentsWritten": limit_value(limits.documents_written, s.write_size.num_writes),
+            "functionsScheduled": limit_value(limits.functions_scheduled, s.scheduled_size.num_writes),
+            "scheduledFunctionArgsBytes": limit_value(limits.scheduled_function_args_bytes, s.scheduled_size.size),
         }))
     }
 
@@ -1546,6 +1548,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             reference: Option<String>,
             function_handle: Option<String>,
             args: JsonValue,
+            transaction_limits: Option<TransactionLimits>,
         }
         let RunUdfArgs {
             udf_type,
@@ -1553,6 +1556,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             reference,
             function_handle,
             args,
+            transaction_limits,
         } = with_argument_error("runUdf", || Ok(serde_json::from_value(args)?))?;
         let (udf_type, args) = with_argument_error("runUdf", || {
             let udf_type: NestedUdfType = udf_type.parse().context(ArgName("udfType"))?;
@@ -1600,7 +1604,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 }
             },
         };
-        let value = provider.run_udf(udf_type, path, args, udf_callback).await?;
+        let value = provider
+            .run_udf(udf_type, path, args, transaction_limits, udf_callback)
+            .await?;
         Ok(value.into())
     }
 

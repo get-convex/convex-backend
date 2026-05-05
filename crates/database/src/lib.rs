@@ -57,7 +57,10 @@ pub use database_index_workers::{
     },
     IndexWorker,
 };
-pub use execution_size::FunctionExecutionSize;
+pub use execution_size::{
+    FunctionExecutionSize,
+    TransactionLimits,
+};
 pub use indexing::backend_in_memory_indexes::{
     DatabaseIndexSnapshotCache,
     TimestampedIndexCache,

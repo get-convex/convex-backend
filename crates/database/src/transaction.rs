@@ -107,6 +107,7 @@ use crate::{
     execution_size::{
         FunctionExecutionSize,
         ScheduledFunctionsSize,
+        TransactionLimits,
     },
     metrics::{
         self,
@@ -156,6 +157,9 @@ pub struct Transaction<RT: Runtime> {
     // Size of any functions scheduled from this transaction.
     pub scheduled_size: ScheduledFunctionsSize,
 
+    // Transaction limits (reads, writes, scheduled). Defaults to global limits.
+    pub(crate) limits: TransactionLimits,
+
     pub(crate) reads: TransactionReadSet,
     pub(crate) writes: NestedWrites<Writes>,
 
@@ -191,6 +195,9 @@ pub struct SubtransactionToken {
     tables: NestedWriteToken,
     schema_registry: NestedWriteToken,
     component_registry: NestedWriteToken,
+    /// Parent's transaction limits, restored when the subtransaction
+    /// commits or rolls back.
+    limits: TransactionLimits,
 }
 
 impl<RT: Runtime> Transaction<RT> {
@@ -214,6 +221,7 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator,
             next_creation_time: creation_time,
             scheduled_size: ScheduledFunctionsSize::default(),
+            limits: TransactionLimits::default(),
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
             schema_registry: NestedWrites::new(schema_registry),
@@ -327,6 +335,7 @@ impl<RT: Runtime> Transaction<RT> {
             tables: self.metadata.begin_nested(),
             schema_registry: self.schema_registry.begin_nested(),
             component_registry: self.component_registry.begin_nested(),
+            limits: self.limits.clone(),
         }
     }
 
@@ -337,6 +346,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.schema_registry.commit_nested(tokens.schema_registry)?;
         self.component_registry
             .commit_nested(tokens.component_registry)?;
+        self.limits = tokens.limits;
         Ok(())
     }
 
@@ -348,6 +358,7 @@ impl<RT: Runtime> Transaction<RT> {
             .rollback_nested(tokens.schema_registry)?;
         self.component_registry
             .rollback_nested(tokens.component_registry)?;
+        self.limits = tokens.limits;
         Ok(())
     }
 
@@ -411,6 +422,21 @@ impl<RT: Runtime> Transaction<RT> {
             write_size: self.writes.user_size().to_owned(),
             scheduled_size: self.scheduled_size.clone(),
         }
+    }
+
+    /// Returns the transaction limits.
+    pub fn transaction_limits(&self) -> &TransactionLimits {
+        &self.limits
+    }
+
+    /// Apply a per-call budget on top of the transaction's current usage,
+    /// clamped by the transaction's existing limits. The argument is
+    /// interpreted as "this call may use up to N additional bytes/rows/etc.";
+    /// the result is an absolute ceiling that can only tighten the current
+    /// limits, never loosen them.
+    pub fn set_transaction_limits(&mut self, budget: TransactionLimits) {
+        let usage = self.execution_size();
+        self.limits = TransactionLimits::from_budget(budget, &usage, &self.limits);
     }
 
     pub fn user_tx_read_size(&self) -> &TransactionReadSize {
@@ -902,8 +928,12 @@ impl<RT: Runtime> Transaction<RT> {
             .await
             .try_into()
             .map_err(|_| anyhow::anyhow!("expected result"))?;
-        self.reads
-            .record_indexed_directly(index_name, IndexedFields::by_id(), interval)?;
+        self.reads.record_indexed_directly(
+            index_name,
+            IndexedFields::by_id(),
+            interval,
+            &self.limits,
+        )?;
         let IndexRangeResponse {
             page: range_results,
             cursor,
@@ -927,6 +957,7 @@ impl<RT: Runtime> Transaction<RT> {
                     doc.size(),
                     &self.usage_tracker,
                     &self.virtual_system_mapping,
+                    &self.limits,
                 )?;
 
                 Some((doc.unpack(), timestamp))
@@ -1004,6 +1035,7 @@ impl<RT: Runtime> Transaction<RT> {
             id,
             old_document_and_ts,
             new_document,
+            &self.limits,
         )?;
         stats.rows_written += 1;
 
@@ -1089,6 +1121,7 @@ impl<RT: Runtime> Transaction<RT> {
             document.size(),
             &self.usage_tracker,
             &self.virtual_system_mapping,
+            &self.limits,
         )
     }
 
@@ -1134,6 +1167,7 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator: self.id_generator.clone_for_snapshot_query(),
             next_creation_time: self.next_creation_time,
             scheduled_size: self.scheduled_size.clone(),
+            limits: self.limits.clone(),
             // Don't clone the read set because it is expensive and doesn't matter in a snapshot
             // query
             reads: TransactionReadSet::new(),
