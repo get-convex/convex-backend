@@ -1,4 +1,4 @@
-import { PropertyValidators, convexToJson } from "../../values/index.js";
+import { convexToJson } from "../../values/index.js";
 import { version } from "../../index.js";
 import {
   AnyFunctionReference,
@@ -151,7 +151,6 @@ type CommonDefinitionData = {
 };
 
 type ComponentDefinitionData = CommonDefinitionData & {
-  _args: PropertyValidators;
   _name: string;
   _onInitCallbacks: Record<string, (argsStr: string) => string>;
 };
@@ -369,19 +368,10 @@ function serializeChildComponents(
 function exportComponentForAnalysis(
   this: ComponentDefinition<any> & ComponentDefinitionData,
 ): ComponentDefinitionAnalysis {
-  const args: [string, { type: "value"; value: string }][] = Object.entries(
-    this._args,
-  ).map(([name, validator]) => [
-    name,
-    {
-      type: "value",
-      value: JSON.stringify(validator.json),
-    },
-  ]);
   const definitionType: ComponentDefinitionType = {
     type: "childComponent" as const,
     name: this._name,
-    args,
+    args: [],
   };
   const childComponents = serializeChildComponents(this._childComponents);
   const httpMounts = buildHttpMounts(this._childComponents);
@@ -424,7 +414,6 @@ export function defineComponent<Exports extends ComponentExports = any>(
   const ret: RuntimeComponentDefinition = {
     _isRoot: false,
     _name: name,
-    _args: {},
     _childComponents: [],
     _exportTree: {},
     _onInitCallbacks: {},
@@ -432,8 +421,7 @@ export function defineComponent<Exports extends ComponentExports = any>(
     export: exportComponentForAnalysis,
     use,
 
-    // pretend to conform to ComponentDefinition, which temporarily expects __args
-    ...({} as { __args: any; __exports: any }),
+    ...({} as { __exports: any }),
   };
   return ret as any as ComponentDefinition<Exports>;
 }
