@@ -58,7 +58,8 @@ type ActionCategory =
   | "member"
   | "teamToken"
   | "projectToken"
-  | "deploymentToken";
+  | "deploymentToken"
+  | "customRole";
 
 const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
   team: [
@@ -149,6 +150,7 @@ const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
     "deleteDeploymentAccessToken",
     "viewDeploymentAccessToken",
   ],
+  customRole: ["viewCustomRoles"],
 };
 
 const actionsForCategory = (category: ActionCategory) => ({
@@ -174,7 +176,8 @@ const tokenTail = `:token:${csv(tokenSel)}`;
 const RESOURCE_PATTERN =
   `^(team:\\*(${tokenTail})?` +
   `|project:${csv(projectSel)}(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail})?)?` +
-  `|member:${csv(memberSel)})$`;
+  `|member:${csv(memberSel)}` +
+  `|customRole:\\*)$`;
 
 const statementsSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
@@ -255,6 +258,13 @@ const statementsSchema = {
             properties: { actions: actionsForCategory("deploymentToken") },
           },
         },
+        {
+          if: {
+            required: ["resource"],
+            properties: { resource: { pattern: "^customRole:[^:]+$" } },
+          },
+          then: { properties: { actions: actionsForCategory("customRole") } },
+        },
       ],
     },
     // Structural shape only — the per-resource-kind narrowing in `statement`
@@ -274,7 +284,7 @@ const statementsSchema = {
       pattern: RESOURCE_PATTERN,
       patternErrorMessage: "Invalid resource specifier.",
       description:
-        "Resource path like `team:*`, `project:*`, `project:slug=my-app`, `project:*:deployment:type=prod`, or with a `:token:*` suffix to scope token actions (e.g. `team:*:token:*`).",
+        "Resource path like `team:*`, `project:*`, `project:slug=my-app`, `project:*:deployment:type=prod`, `customRole:*`, or with a `:token:*` suffix to scope token actions (e.g. `team:*:token:*`).",
     },
   },
 };

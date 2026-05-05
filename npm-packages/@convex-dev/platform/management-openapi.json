@@ -3381,7 +3381,7 @@
       },
       "RoleStatementAction": {
         "type": "string",
-        "description": "Wire-format mirror of [`RolePolicyAction`] without resource parameters.\nThis is what appears in custom-role statements and the OpenAPI schema.",
+        "description": "An action that can be allowed or denied by a custom role statement.",
         "enum": [
           "updateTeam",
           "deleteTeam",
@@ -3456,6 +3456,7 @@
           "disableSSO",
           "updateSSO",
           "viewSSO",
+          "viewCustomRoles",
           "viewTeamIntegrations",
           "createTeamIntegrations",
           "updateTeamIntegrations",
