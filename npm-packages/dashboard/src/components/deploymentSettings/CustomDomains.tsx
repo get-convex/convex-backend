@@ -458,7 +458,7 @@ function VanityDomainForm({
 
   return (
     <form
-      className="mb-4 flex flex-col gap-2 overflow-x-clip pt-2 md:flex-row"
+      className="mb-4 flex flex-col gap-2 overflow-x-clip pt-2 md:flex-row md:items-start"
       onSubmit={(e) => {
         e.preventDefault();
         formState.handleSubmit();
