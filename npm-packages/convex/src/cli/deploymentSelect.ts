@@ -9,6 +9,9 @@ import {
 import { parseDeploymentSelector } from "./lib/deploymentSelector.js";
 import { updateEnvAndConfigForDeploymentSelection } from "./configure.js";
 import { fetchDeploymentCanonicalUrls } from "./lib/deploy2.js";
+import { loadProjectLocalConfig } from "./lib/localDeployment/filePaths.js";
+import { promptYesNo } from "./lib/utils/prompts.js";
+import { createLocalDeployment } from "./deploymentCreate.js";
 import { chalkStderr } from "chalk";
 
 export const deploymentSelect = new Command("select")
@@ -48,6 +51,37 @@ export const deploymentSelect = new Command("select")
         errorType: "fatal",
         printedMessage: `No project configured. Run \`npx convex dev\` to set up a project first, or use a full selector like 'my-team:my-project:dev/james' or 'happy-capybara-123'.`,
       });
+    }
+
+    // If selecting `local` and no local deployment exists, offer to create one interactively.
+    if (
+      parsed.kind === "local" &&
+      process.stdin.isTTY &&
+      loadProjectLocalConfig(ctx) === null
+    ) {
+      // Creating a local deployment requires a configured project, so bail out
+      // before prompting the user if there isn't one.
+      if (currentSelection.kind === "chooseProject") {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `No project configured. Run \`npx convex dev\` to set up a project first.`,
+        });
+      }
+
+      const wantsToCreate = await promptYesNo(ctx, {
+        message: "No local deployment found. Create one now?",
+        default: true,
+      });
+      if (!wantsToCreate) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
+        });
+      }
+      await createLocalDeployment(ctx, currentSelection, true);
+      return;
     }
 
     // Resolve the new deployment using the selector relative to the current project

@@ -212,7 +212,7 @@ export const deploymentCreate = new Command("create")
     }
   });
 
-async function createLocalDeployment(
+export async function createLocalDeployment(
   ctx: Context,
   currentDeployment: DeploymentSelection,
   select: boolean,

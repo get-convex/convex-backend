@@ -51,13 +51,18 @@ local deployments with your account.
 To use a local deployment for an existing project, run:
 
 ```sh
-npx convex dev --local --once
+npx convex deployment select local
 ```
 
-You'll also always be given the option for a local deployment if you run
-`npx convex dev --configure`. Other flows may assume you want a cloud deployment
-in some situations, for example when connecting to a project for which you
-already have a cloud development deployment.
+The CLI commands you run next (for instance `npx convex dev`)
+will target your local deployment.
+
+If you want to go back to your personal cloud dev deployment, run:
+
+```sh
+npx convex deployment select dev
+```
+
 
 ## Local deployments vs. production
 
