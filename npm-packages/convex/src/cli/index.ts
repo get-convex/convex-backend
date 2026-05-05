@@ -181,6 +181,12 @@ async function main() {
   } finally {
     await Sentry.close();
   }
+  // When stdout is a pipe, Node buffers writes and `process.exit()` does not
+  // wait for them to flush — drain first so piped output isn't truncated.
+  await Promise.all([
+    new Promise<void>((resolve) => process.stdout.write("", () => resolve())),
+    new Promise<void>((resolve) => process.stderr.write("", () => resolve())),
+  ]);
   process.exit();
 }
 void main();
