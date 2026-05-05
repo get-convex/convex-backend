@@ -992,15 +992,12 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         key: &FullyQualifiedObjectKey,
     ) -> anyhow::Result<Option<ObjectAttributes>> {
         let path = Path::new(key.as_str());
-        let mut buf = vec![];
-        let result = File::open(path);
-        if result.is_err() {
-            return Ok(None);
-        }
-        let mut file = result.unwrap();
-        file.read_to_end(&mut buf)?;
+        let metadata = match std::fs::metadata(path) {
+            Ok(m) => m,
+            Err(_) => return Ok(None),
+        };
         Ok(Some(ObjectAttributes {
-            size: buf.len() as u64,
+            size: metadata.len(),
         }))
     }
 

@@ -133,6 +133,7 @@ where
 
     let max_prefetch_bytes = *EXPORT_MAX_INFLIGHT_PREFETCH_BYTES;
     let inflight_bytes_semaphore = tokio::sync::Semaphore::new(max_prefetch_bytes);
+    let num_files = {
     let files_stream = table_iterator
         .stream_documents_in_table(*tablet_id, *by_id, None)
         .map_ok(|LatestDocument { value: doc, .. }| async {
@@ -231,7 +232,16 @@ where
             last_log_time = Instant::now();
         }
     }
+    num_files
+    };
     tracing::info!("Export _storage files complete: {num_files} files");
+
+    // Free buffered document metadata for the storage table.
+    // Without this, the MultiTableIterator retains all document IDs
+    // from _file_storage in its buffered_documents map, leaking memory
+    // across repeated exports.
+    table_iterator.unregister_table(*tablet_id)?;
+
     Ok(())
 }
 
