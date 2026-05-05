@@ -1629,6 +1629,17 @@ pub static ENV_VAR_TOTAL_SIZE_LIMIT: LazyLock<usize> =
 pub static DISABLE_METRICS_ENDPOINT: LazyLock<bool> =
     LazyLock::new(|| env_config("DISABLE_METRICS_ENDPOINT", false));
 
+/// When using the S3 storage provider with expiring AWS credentials, the
+/// duration before credential expiration that the AWS client should refresh
+/// those credentials.
+///
+/// Note that the AWS SDK automatically jitters the refresh so the final
+/// validity can actually be as little as half this value.
+///
+/// This ensures that presigned URLs (e.g. for node executor) stay valid.
+pub static AWS_S3_MIN_IDENTITY_VALIDITY: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_S3_MIN_IDENTITY_VALIDITY_SECS", 1230)));
+
 /// If set, skip stripping PII from errors before they are reported. Useful for
 /// local debugging where the operator wants to see the original error contents.
 pub static SHOW_PII_IN_ERRORS: LazyLock<bool> =

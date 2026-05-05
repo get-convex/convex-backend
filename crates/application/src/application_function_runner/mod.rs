@@ -235,7 +235,7 @@ use crate::{
 mod http_routing;
 mod metrics;
 
-static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_secs(1200));
+static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_secs(600));
 
 /// Wrapper for [IsolateClient]s and [FunctionRunner]s that determines where to
 /// route requests.
