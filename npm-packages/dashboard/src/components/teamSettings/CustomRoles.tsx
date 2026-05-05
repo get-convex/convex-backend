@@ -114,6 +114,7 @@ const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
     "createProjectEnvironmentVariable",
     "updateProjectEnvironmentVariable",
     "deleteProjectEnvironmentVariable",
+    "viewProjectEnvironmentVariables",
   ],
   deployment: [
     "createDeployment",

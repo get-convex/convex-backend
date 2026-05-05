@@ -3395,6 +3395,7 @@
           "createProjectEnvironmentVariable",
           "updateProjectEnvironmentVariable",
           "deleteProjectEnvironmentVariable",
+          "viewProjectEnvironmentVariables",
           "createDeployment",
           "transferDeployment",
           "receiveDeployment",
