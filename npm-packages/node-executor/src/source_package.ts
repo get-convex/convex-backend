@@ -92,43 +92,59 @@ export async function maybeDownloadAndLinkPackages(
     return local;
   }
 
-  const sourcePackagePromise = downloadSourcePackage(
-    sourcePackage.bundled_source,
-  );
-  const externalPackagePromise = sourcePackage.external_deps
-    ? maybeDownloadExternalPackage(sourcePackage.external_deps)
-    : null;
-  const [localPackage, externalPackage] = await Promise.all([
-    sourcePackagePromise,
-    externalPackagePromise,
-  ]);
-
-  // Do symlinking of external package into local source package node_modules folder.
-  //
-  // This symlink is necessary only if there does not already exist a node_modules folder
-  // in the source (localPackage) directory. Why? If a package already exists in the localPackage.dir
-  // directory, we can be sure it is up-to-date since a given source package can only ever map to
-  // one set of external deps. If external deps change, a new source package is created.
-  //
-  // If we reach this point and a valid externalPackage exists for this source, we can unconditionally
-  // symlink since we can be sure that the local package was not previously downloaded and cached, otherwise
-  // this function would have returned earlier. Thus, the local package directory has been freshly downloaded
-  // and so no node_modules folder can exist already.
-  if (externalPackage) {
-    logDebug(
-      `Attempting symlink from ${externalPackage.dir}/node_modules to ${localPackage.dir}/node_modules`,
-    );
-    await fs.promises.symlink(
-      `${externalPackage.dir}/node_modules`,
-      `${localPackage.dir}/node_modules`,
-      "dir",
-    );
+  // If another request is already downloading this key, await its result
+  // instead of starting a duplicate download that would race on the filesystem.
+  const inflight = inflightSourceDownloads.get(sourcePackage.key);
+  if (inflight !== undefined) {
+    return inflight;
   }
 
-  // Save result for next time
-  availableSourcePackages.set(sourcePackage.key, localPackage);
+  const promise = (async () => {
+    const sourcePackagePromise = downloadSourcePackage(
+      sourcePackage.bundled_source,
+    );
+    const externalPackagePromise = sourcePackage.external_deps
+      ? maybeDownloadExternalPackage(sourcePackage.external_deps)
+      : null;
+    const [localPackage, externalPackage] = await Promise.all([
+      sourcePackagePromise,
+      externalPackagePromise,
+    ]);
 
-  return localPackage;
+    // Do symlinking of external package into local source package node_modules folder.
+    //
+    // This symlink is necessary only if there does not already exist a node_modules folder
+    // in the source (localPackage) directory. Why? If a package already exists in the localPackage.dir
+    // directory, we can be sure it is up-to-date since a given source package can only ever map to
+    // one set of external deps. If external deps change, a new source package is created.
+    //
+    // If we reach this point and a valid externalPackage exists for this source, we can unconditionally
+    // symlink since we can be sure that the local package was not previously downloaded and cached, otherwise
+    // this function would have returned earlier. Thus, the local package directory has been freshly downloaded
+    // and so no node_modules folder can exist already.
+    if (externalPackage) {
+      logDebug(
+        `Attempting symlink from ${externalPackage.dir}/node_modules to ${localPackage.dir}/node_modules`,
+      );
+      await fs.promises.symlink(
+        `${externalPackage.dir}/node_modules`,
+        `${localPackage.dir}/node_modules`,
+        "dir",
+      );
+    }
+
+    // Save result for next time
+    availableSourcePackages.set(sourcePackage.key, localPackage);
+
+    return localPackage;
+  })();
+
+  inflightSourceDownloads.set(sourcePackage.key, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightSourceDownloads.delete(sourcePackage.key);
+  }
 }
 
 // Downloads sourcePackage and unzips it into `source/${sourcePackage.key}/modules`
@@ -167,11 +183,22 @@ async function downloadSourcePackage(
 async function maybeDownloadExternalPackage(
   externalPackage: Package,
 ): Promise<ExternalDepsPackage> {
-  const start = performance.now();
   const externalDeps =
     availableExternalPackages.get(externalPackage.key) || null;
 
-  if (!externalDeps) {
+  if (externalDeps) {
+    logDebug("External Package available locally");
+    return externalDeps;
+  }
+
+  // If another request is already downloading this key, await its result.
+  const inflight = inflightExternalDownloads.get(externalPackage.key);
+  if (inflight !== undefined) {
+    return inflight;
+  }
+
+  const promise = (async () => {
+    const start = performance.now();
     logDebug("External Package not available locally");
 
     // Cleanup other external dependency packages to not run out of disk space
@@ -202,14 +229,23 @@ async function maybeDownloadExternalPackage(
 
     logDurationMs("externalDepsProcessingTime", start);
     return result;
-  } else {
-    logDebug("External Package available locally");
-    return externalDeps;
+  })();
+
+  inflightExternalDownloads.set(externalPackage.key, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightExternalDownloads.delete(externalPackage.key);
   }
 }
 
 async function createFreshDir(dir: string) {
-  await fs.promises.rm(dir, { recursive: true, force: true });
+  await fs.promises.rm(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 100,
+  });
   // fs.promises.mkdir sometimes fails with ENOENT (the real error might be ENOSPC, but we're not sure)
   fs.mkdirSync(dir, { recursive: true, mode: 0o744 });
 }
@@ -375,6 +411,15 @@ async function processSourcePackageStream(
 export const availableSourcePackages = new Map<string, LocalSourcePackage>();
 export const availableExternalPackages = new Map<string, ExternalDepsPackage>();
 
+// In-flight download promises used to deduplicate concurrent requests for the
+// same package key. The synchronous .get()/.set() between cache miss and promise
+// creation guarantees event-loop atomicity in single-threaded Node.js.
+const inflightSourceDownloads = new Map<string, Promise<LocalSourcePackage>>();
+const inflightExternalDownloads = new Map<
+  string,
+  Promise<ExternalDepsPackage>
+>();
+
 /**
  * Prepopulates source and external deps caches if this Lambda was pushed with source and, optionally,
  * an external deps package.
@@ -465,11 +510,23 @@ function modulesFromMetadataJson(
 }
 
 // Delete all dynamically downloaded source packages.
+// Skips packages with in-flight downloads to avoid deleting directories another
+// request is actively writing to. Errors are logged rather than propagated since
+// cleanup is best-effort disk reclamation.
 export async function cleanupSourcePackages() {
   for (const [key, local] of availableSourcePackages) {
-    if (local.dynamicallyDownloaded) {
+    if (local.dynamicallyDownloaded && !inflightSourceDownloads.has(key)) {
       availableSourcePackages.delete(key);
-      await fs.promises.rm(local.dir, { recursive: true, force: true });
+      try {
+        await fs.promises.rm(local.dir, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 100,
+        });
+      } catch (e: any) {
+        logDebug(`Failed to clean up source package ${key}: ${e.message}`);
+      }
     }
   }
 }
@@ -479,9 +536,18 @@ export async function cleanupSourcePackages() {
 // is no prebuild of external packages yet.
 export async function cleanupExternalPackages() {
   for (const [key, pkg] of availableExternalPackages) {
-    if (pkg.dynamicallyDownloaded) {
+    if (pkg.dynamicallyDownloaded && !inflightExternalDownloads.has(key)) {
       availableExternalPackages.delete(key);
-      await fs.promises.rm(pkg.dir, { recursive: true, force: true });
+      try {
+        await fs.promises.rm(pkg.dir, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 100,
+        });
+      } catch (e: any) {
+        logDebug(`Failed to clean up external package ${key}: ${e.message}`);
+      }
     }
   }
 }
