@@ -3460,7 +3460,23 @@
           "viewTeamIntegrations",
           "createTeamIntegrations",
           "updateTeamIntegrations",
-          "deleteTeamIntegrations"
+          "deleteTeamIntegrations",
+          "deploy",
+          "viewEnvironmentVariables",
+          "writeEnvironmentVariables",
+          "pauseDeployment",
+          "unpauseDeployment",
+          "viewLogs",
+          "viewMetrics",
+          "viewData",
+          "writeData",
+          "downloadCloudBackups",
+          "actAsUser",
+          "runInternalQueries",
+          "runInternalMutations",
+          "runInternalActions",
+          "runTestQuery",
+          "viewAuditLog"
         ]
       },
       "RoleStatementActions": {
