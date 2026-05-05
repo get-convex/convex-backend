@@ -32,6 +32,7 @@ import {
   logAndHandleFetchError,
   ThrowingFetchError,
   currentPackageHomepage,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
 } from "./utils/utils.js";
 import { recursivelyDelete } from "./fsUtils.js";
 import { NodeDependency } from "./deployApi/modules.js";
@@ -979,6 +980,20 @@ export async function handlePushConfigError(
       setEnvVarInstructions = `Go to:\n\n    ${chalkStderr.bold(
         dashboardUrl,
       )}\n\n  to set it up. `;
+    } else if (process.env[CONVEX_SELF_HOSTED_URL_VAR_NAME]) {
+      const variableQuery =
+        variableName !== undefined ? `?var=${variableName}` : "";
+      try {
+        const backendUrl = new URL(
+          process.env[CONVEX_SELF_HOSTED_URL_VAR_NAME],
+        );
+        const dashboardUrl = `${backendUrl.protocol}//${backendUrl.hostname}:6791/settings/environment-variables${variableQuery}`;
+        setEnvVarInstructions = `Go to:\n\n    ${chalkStderr.bold(
+          dashboardUrl,
+        )}\n\n  to set it up. `;
+      } catch {
+        // If the URL is malformed, fall through to the generic message
+      }
     }
     await ctx.crash({
       exitCode: 1,
