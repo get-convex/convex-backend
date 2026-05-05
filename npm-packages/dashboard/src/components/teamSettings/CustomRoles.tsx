@@ -59,12 +59,22 @@ type ActionCategory =
   | "teamToken"
   | "projectToken"
   | "deploymentToken"
-  | "customRole";
+  | "customRole"
+  | "billing"
+  | "oauthApplication"
+  | "sso"
+  | "integration"
+  | "defaultEnvironmentVariable";
 
 const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
   team: [
     "updateTeam",
     "deleteTeam",
+    "applyReferralCode",
+    "viewTeamAuditLog",
+    "viewUsage",
+  ],
+  billing: [
     "updatePaymentMethod",
     "updateBillingContact",
     "updateBillingAddress",
@@ -75,17 +85,16 @@ const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
     "setSpendingLimit",
     "viewBillingDetails",
     "viewInvoices",
+  ],
+  oauthApplication: [
     "createOAuthApplication",
     "updateOAuthApplication",
     "deleteOAuthApplication",
     "viewOAuthApplications",
     "generateOAuthClientSecret",
-    "viewUsage",
-    "applyReferralCode",
-    "enableSSO",
-    "disableSSO",
-    "updateSSO",
-    "viewSSO",
+  ],
+  sso: ["enableSSO", "disableSSO", "updateSSO", "viewSSO"],
+  integration: [
     "viewTeamIntegrations",
     "createTeamIntegrations",
     "updateTeamIntegrations",
@@ -99,6 +108,8 @@ const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
     "deleteProject",
     "viewProjects",
     "updateMemberProjectRole",
+  ],
+  defaultEnvironmentVariable: [
     "createProjectEnvironmentVariable",
     "updateProjectEnvironmentVariable",
     "deleteProjectEnvironmentVariable",
@@ -173,11 +184,16 @@ const memberSel = `(\\*|id=${SELECTOR_VAL})`;
 const tokenSel = `(\\*|creator=${SELECTOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
 const tokenTail = `:token:${csv(tokenSel)}`;
+const projectTail = `(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail})?|:defaultEnvironmentVariable:\\*)`;
 const RESOURCE_PATTERN =
   `^(team:\\*(${tokenTail})?` +
-  `|project:${csv(projectSel)}(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail})?)?` +
+  `|project:${csv(projectSel)}${projectTail}?` +
   `|member:${csv(memberSel)}` +
-  `|customRole:\\*)$`;
+  `|customRole:\\*` +
+  `|billing:\\*` +
+  `|oauthApplication:\\*` +
+  `|sso:\\*` +
+  `|integration:\\*)$`;
 
 const statementsSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
@@ -265,6 +281,51 @@ const statementsSchema = {
           },
           then: { properties: { actions: actionsForCategory("customRole") } },
         },
+        {
+          if: {
+            required: ["resource"],
+            properties: { resource: { pattern: "^billing:[^:]+$" } },
+          },
+          then: { properties: { actions: actionsForCategory("billing") } },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: { resource: { pattern: "^oauthApplication:[^:]+$" } },
+          },
+          then: {
+            properties: { actions: actionsForCategory("oauthApplication") },
+          },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: { resource: { pattern: "^sso:[^:]+$" } },
+          },
+          then: { properties: { actions: actionsForCategory("sso") } },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: { resource: { pattern: "^integration:[^:]+$" } },
+          },
+          then: { properties: { actions: actionsForCategory("integration") } },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: {
+              resource: {
+                pattern: "^project:[^:]+:defaultEnvironmentVariable:[^:]+$",
+              },
+            },
+          },
+          then: {
+            properties: {
+              actions: actionsForCategory("defaultEnvironmentVariable"),
+            },
+          },
+        },
       ],
     },
     // Structural shape only — the per-resource-kind narrowing in `statement`
@@ -283,8 +344,6 @@ const statementsSchema = {
       minLength: 1,
       pattern: RESOURCE_PATTERN,
       patternErrorMessage: "Invalid resource specifier.",
-      description:
-        "Resource path like `team:*`, `project:*`, `project:slug=my-app`, `project:*:deployment:type=prod`, `customRole:*`, or with a `:token:*` suffix to scope token actions (e.g. `team:*:token:*`).",
     },
   },
 };
