@@ -9,6 +9,7 @@ import {
 } from "@common/lib/integrationsApi";
 import { toast } from "@common/lib/utils";
 import * as Yup from "yup";
+import { PostHogConnectButton } from "@common/features/settings/components/integrations/PostHogConnectButton";
 
 const validationSchema = Yup.object().shape({
   apiKey: Yup.string().required("PostHog project token is required"),
@@ -65,6 +66,15 @@ export function PostHogLogsConfigurationForm({
 
   return (
     <form onSubmit={formState.handleSubmit} className="flex flex-col gap-3">
+      <PostHogConnectButton
+        onSelectProject={(project) => {
+          void formState.setValues({
+            ...formState.values,
+            apiKey: project.apiKey,
+            host: project.host,
+          });
+        }}
+      />
       <TextInput
         value={formState.values.apiKey}
         onChange={formState.handleChange}
