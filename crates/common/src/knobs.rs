@@ -473,14 +473,6 @@ pub static DOCUMENT_RETENTION_DELETE_CHUNK: LazyLock<NonZeroU32> = LazyLock::new
 pub static RETENTION_DELETE_BATCH: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_DELETE_BATCH", 10000));
 
-/// Whether retention deletes are enabled.
-pub static RETENTION_DELETES_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("RETENTION_DELETES_ENABLED", true));
-
-/// Whether retention document deletes are enabled.
-pub static RETENTION_DOCUMENT_DELETES_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("RETENTION_DOCUMENT_DELETES_ENABLED", true));
-
 /// Time in between batches of deletes for document retention. This value is
 /// also used to jitter document retention on startup to avoid a thundering
 /// herd.
