@@ -1085,7 +1085,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 IndexConfig::Database {
                     spec: DatabaseIndexSpec { fields },
                     ..
-                } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
+                } => IndexMetadata::new_backfilling(
+                    *self.tx.begin_timestamp(),
+                    index_name,
+                    fields,
+                ),
                 IndexConfig::Text {
                     spec:
                         TextIndexSpec {

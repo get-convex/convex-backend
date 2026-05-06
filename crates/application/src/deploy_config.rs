@@ -15,6 +15,7 @@ use common::{
     auth::AuthInfo,
     bootstrap_model::{
         components::definition::ComponentDefinitionMetadata,
+        push_mode::PushMode,
         schema::{
             SchemaMetadata,
             SchemaState,
@@ -46,6 +47,7 @@ use database::{
     BootstrapComponentsModel,
     IndexModel,
     OccRetryStats,
+    SchemaModel,
     Token,
     WriteSource,
     SCHEMAS_TABLE,
@@ -170,7 +172,11 @@ struct EvaluatedPushContents {
 
 impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
-    pub async fn start_push(&self, config: &ProjectConfig) -> anyhow::Result<StartPushResult> {
+    pub async fn start_push(
+        &self,
+        config: &ProjectConfig,
+        push_mode: PushMode,
+    ) -> anyhow::Result<StartPushResult> {
         let EvaluatedPushContents {
             app,
             auth_info,
@@ -182,7 +188,7 @@ impl<RT: Runtime> Application<RT> {
         } = self.evaluate_push_contents(config).await?;
 
         let schema_change = self
-            .handle_schema_change_in_start_push(&app, &evaluated_components)
+            .handle_schema_change_in_start_push(&app, &evaluated_components, push_mode)
             .await?;
         self.database
             .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
@@ -314,9 +320,11 @@ impl<RT: Runtime> Application<RT> {
         &self,
         app: &CheckedComponent,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+        push_mode: PushMode,
     ) -> anyhow::Result<SchemaChange> {
-        // Even in dry run mode, we need to commit the schema changes so that
-        // wait_for_schema can validate the schema against existing data.
+        // We commit schema changes (even for dry runs) so that wait_for_schema can
+        // validate the schema against existing data. For dry runs, finish_push will
+        // roll back these changes instead of activating them.
         let (_ts, schema_change) = self
             .execute_with_occ_retries(
                 Identity::system(),
@@ -325,7 +333,7 @@ impl<RT: Runtime> Application<RT> {
                 |tx| {
                     async move {
                         let schema_change = ComponentConfigModel::new(tx)
-                            .start_component_schema_changes(app, evaluated_components)
+                            .start_component_schema_changes(app, evaluated_components, push_mode)
                             .await?;
                         Ok(schema_change)
                     }
@@ -344,7 +352,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<SchemaChange> {
         let mut tx = self.begin(Identity::system()).await?;
         let schema_change = ComponentConfigModel::new(&mut tx)
-            .start_component_schema_changes(app, evaluated_components)
+            .start_component_schema_changes(app, evaluated_components, PushMode::Normal)
             .await?;
         drop(tx);
         Ok(schema_change)
@@ -536,11 +544,12 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         schema_change: SchemaChange,
         timeout: Duration,
+        push_mode: PushMode,
     ) -> anyhow::Result<SchemaStatus> {
         let deadline = self.runtime().monotonic_now() + timeout;
         loop {
             let (status, token) = self
-                .load_component_schema_status(&identity, &schema_change)
+                .load_component_schema_status(&identity, &schema_change, push_mode)
                 .await?;
             let now = self.runtime().monotonic_now();
             let in_progress = matches!(status, SchemaStatus::InProgress { .. });
@@ -562,6 +571,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: &Identity,
         schema_change: &SchemaChange,
+        push_mode: PushMode,
     ) -> anyhow::Result<(SchemaStatus, Token)> {
         let mut tx = self.begin(identity.clone()).await?;
         let mut components_status = BTreeMap::new();
@@ -609,21 +619,29 @@ impl<RT: Runtime> Application<RT> {
                 ComponentId::Child(internal_id)
             };
             let namespace = TableNamespace::from(component_id);
-            let mut indexes_complete = 0;
-            let mut indexes_total = 0;
-            for index in IndexModel::new(&mut tx)
-                .get_application_indexes(namespace)
-                .await?
-            {
-                // Skip counting indexes that are staged
-                if index.config.is_staged() {
-                    continue;
+            // Dry-run pushes never create index documents, so there is nothing
+            // to backfill. Treat all indexes as done so that only
+            // schema_validation_complete gates progress.
+            let (indexes_complete, indexes_total) = if push_mode.is_dry_run() {
+                (0, 0)
+            } else {
+                let mut complete = 0;
+                let mut total = 0;
+                for index in IndexModel::new(&mut tx)
+                    .get_application_indexes(namespace)
+                    .await?
+                {
+                    // Skip counting indexes that are staged
+                    if index.config.is_staged() {
+                        continue;
+                    }
+                    if !index.config.is_backfilling() {
+                        complete += 1;
+                    }
+                    total += 1;
                 }
-                if !index.config.is_backfilling() {
-                    indexes_complete += 1;
-                }
-                indexes_total += 1;
-            }
+                (complete, total)
+            };
             components_status.insert(
                 component_path.clone(),
                 ComponentSchemaStatus {
@@ -642,6 +660,64 @@ impl<RT: Runtime> Application<RT> {
         };
         let token = tx.into_token()?;
         Ok((status, token))
+    }
+
+    /// Roll back schema changes committed during a dry-run start_push.
+    ///
+    /// Marks each pending/validated schema as Overwritten, stopping the
+    /// SchemaWorker and preventing enforcement of the dry-run schema against
+    /// live writes. Idempotent: safe to call multiple times on the same
+    /// schema_change.
+    #[fastrace::trace]
+    pub async fn rollback_dry_run_schema_change(
+        &self,
+        schema_change: &SchemaChange,
+    ) -> anyhow::Result<()> {
+        self.execute_with_occ_retries(
+            Identity::system(),
+            FunctionUsageTracker::new(),
+            WriteSource::system("rollback_dry_run"),
+            |tx| {
+                async move {
+                    for (component_path, schema_id) in &schema_change.schema_ids {
+                        let Some(schema_id) = schema_id else {
+                            continue;
+                        };
+                        let component_id = if component_path.is_root() {
+                            ComponentId::Root
+                        } else {
+                            let existing =
+                                BootstrapComponentsModel::new(tx).resolve_path(component_path)?;
+                            let allocated =
+                                schema_change.allocated_component_ids.get(component_path);
+                            let internal_id = match (existing, allocated) {
+                                (None, Some(id)) => *id,
+                                (Some(doc), None) => doc.id().into(),
+                                r => anyhow::bail!("Invalid existing component state: {r:?}"),
+                            };
+                            ComponentId::Child(internal_id)
+                        };
+                        let namespace = TableNamespace::from(component_id);
+                        let schema_table_number =
+                            tx.table_mapping().tablet_number(schema_id.table())?;
+                        let resolved_schema_id = ResolvedDocumentId::new(
+                            schema_id.table(),
+                            DeveloperDocumentId::new(
+                                schema_table_number,
+                                schema_id.internal_id(),
+                            ),
+                        );
+                        SchemaModel::new(tx, namespace)
+                            .mark_overwritten(resolved_schema_id)
+                            .await?;
+                    }
+                    Ok(())
+                }
+                .into()
+            },
+        )
+        .await?;
+        Ok(())
     }
 
     #[fastrace::trace]
@@ -913,6 +989,13 @@ impl<RT: Runtime> InitializerEvaluator for ApplicationInitializerEvaluator<'_, R
 #[serde(rename_all = "camelCase")]
 pub struct StartPushRequest {
     pub admin_key: String,
+
+    /// Whether this is a dry-run push. Dry-run pushes commit schema changes
+    /// so validation runs against real data, then roll them back in finish_push
+    /// instead of activating functions. Old clients that don't send this field
+    /// default to false (non-dry-run behavior).
+    #[serde(default)]
+    pub dry_run: bool,
 
     pub functions: String,
 

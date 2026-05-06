@@ -15,6 +15,7 @@ use common::{
             ComponentState,
             ComponentType,
         },
+        push_mode::PushMode,
         schema::SchemaState,
     },
     components::{
@@ -266,6 +267,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         &mut self,
         app: &CheckedComponent,
         new_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+        push_mode: PushMode,
     ) -> anyhow::Result<SchemaChange> {
         let existing_components_by_parent = BootstrapComponentsModel::new(self.tx)
             .load_all_components()
@@ -309,10 +311,17 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     .get(&new_node.definition_path)
                     .context("Missing definition for component")?;
                 let schema_id = if let Some(ref schema) = definition.schema {
-                    let index_diff = IndexModel::new(self.tx)
-                        .prepare_new_and_mutated_indexes(namespace, schema)
-                        .await?;
-
+                    // Dry runs only need the index diff for reporting — don't create
+                    // index documents or wake the IndexWorker.
+                    let index_diff = if push_mode.is_dry_run() {
+                        IndexModel::new(self.tx)
+                            .get_index_diff(namespace, &schema.tables)
+                            .await?
+                    } else {
+                        IndexModel::new(self.tx)
+                            .prepare_new_and_mutated_indexes(namespace, schema)
+                            .await?
+                    };
                     let (schema_id, schema_state) = SchemaModel::new(self.tx, namespace)
                         .submit_pending(schema.clone())
                         .await?;
