@@ -3491,6 +3491,19 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3)
 
+  ../../private-demos/audit-logging:
+    dependencies:
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+      prettier:
+        specifier: 3.8.1
+        version: 3.8.1
+    devDependencies:
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+
   ../../private-demos/bundle-size:
     dependencies:
       convex:
