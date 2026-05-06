@@ -121,7 +121,7 @@ export function TeamMemberListItem({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2">
-          {!canChangeRole ? (
+          {!canChangeRole || member.role === "custom" ? (
             <div className="text-sm text-content-primary">
               {startCase(member.role)}
             </div>

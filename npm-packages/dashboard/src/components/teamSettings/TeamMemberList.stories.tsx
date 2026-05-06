@@ -16,11 +16,13 @@ const members: TeamMember[] = [
     email: "user1@example.org",
     name: "User 1",
     role: "admin",
+    customRoles: [],
   },
   {
     id: 2,
     email: "user2@example.org",
     role: "developer",
+    customRoles: [],
   },
 ];
 const invites: InvitationResponse[] = [

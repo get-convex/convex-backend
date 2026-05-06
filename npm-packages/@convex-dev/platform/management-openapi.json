@@ -2049,7 +2049,7 @@
           "alpha"
         ],
         "summary": "Delete a custom role",
-        "description": "Deletes a custom role from the team.",
+        "description": "Deletes a custom role from the team. Fails with `CustomRoleInUse` if\nthe role is still attached to any team members; reassign those members\n(e.g. via `update_team_member_role`) before retrying.",
         "operationId": "delete custom role",
         "parameters": [
           {
@@ -2067,6 +2067,53 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DeleteCustomRoleArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/update_team_member_role": {
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "Update a team member's role",
+        "description": "Sets either the member's built-in `role` (admin/developer) or their\n`customRoles`. The two fields are mutually exclusive: setting `role`\nclears `customRoles`, and setting `customRoles` (must be non-empty)\nputs the member in the `custom` role.",
+        "operationId": "update team member role",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamMemberRoleArgs"
               }
             }
           },
@@ -2194,6 +2241,11 @@
           }
         }
       },
+      "CustomRoleId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "CustomRoleResponse": {
         "type": "object",
         "required": [
@@ -2225,8 +2277,7 @@
             ]
           },
           "id": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/components/schemas/CustomRoleId"
           },
           "name": {
             "type": "string"
@@ -2295,8 +2346,7 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/components/schemas/CustomRoleId"
           }
         },
         "additionalProperties": false
@@ -3520,6 +3570,16 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
+            },
+            "description": "The custom roles attached to this team member, with their display\nnames denormalized so consumers can render the role list without\na separate `list_custom_roles` lookup. `Some` iff `role` is\n`custom`."
+          },
           "email": {
             "type": "string",
             "description": "The email of the team member"
@@ -3536,7 +3596,23 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role",
-            "description": "The role of the team member"
+            "description": "The role of the team member. `custom` indicates the member's\npermissions come from the attached `customRoles`."
+          }
+        }
+      },
+      "TeamMemberCustomRole": {
+        "type": "object",
+        "description": "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
+        "required": [
+          "roleId",
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "roleId": {
+            "$ref": "#/components/schemas/CustomRoleId"
           }
         }
       },
@@ -3640,8 +3716,7 @@
             ]
           },
           "id": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/components/schemas/CustomRoleId"
           },
           "name": {
             "type": "string"
@@ -3666,6 +3741,39 @@
             "items": {
               "$ref": "#/components/schemas/DefaultEnvironmentVariableChangeArgs"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateTeamMemberRoleArgs": {
+        "type": "object",
+        "required": [
+          "memberId"
+        ],
+        "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "Replace the member's custom roles. Mutually exclusive with `role`.\nMust be non-empty. Sets the member's role to `custom`."
+          },
+          "memberId": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Role",
+                "description": "Set the member's built-in role to `admin` or `developer`. Mutually\nexclusive with `customRoles`. The `custom` value is not accepted\nhere; assign `customRoles` to put the member in the custom state."
+              }
+            ]
           }
         },
         "additionalProperties": false

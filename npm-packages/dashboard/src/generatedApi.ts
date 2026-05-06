@@ -2040,6 +2040,8 @@ export interface components {
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
         };
+        /** Format: int64 */
+        CustomRoleId: number;
         DeleteAccessTokenArgs: {
             name: components["schemas"]["DeviceName"];
         };
@@ -2710,13 +2712,26 @@ export interface components {
         /** Format: int64 */
         TeamId: number;
         TeamMember: {
+            /** @description The custom roles attached to this team member, with their display
+             *     names denormalized so consumers can render the role list without
+             *     a separate `list_custom_roles` lookup. `Some` iff `role` is
+             *     `custom`. */
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
             /** @description The email of the team member */
             email: string;
             id: components["schemas"]["MemberId"];
             /** @description The name of the team member */
             name?: string | null;
-            /** @description The role of the team member */
+            /** @description The role of the team member. `custom` indicates the member's
+             *     permissions come from the attached `customRoles`. */
             role: components["schemas"]["Role"];
+        };
+        /** @description A custom role attached to a team member, denormalized with the
+         *     role's display name so API consumers can render members without a
+         *     separate roles lookup. */
+        TeamMemberCustomRole: {
+            name: string;
+            roleId: components["schemas"]["CustomRoleId"];
         };
         TeamName: string;
         TeamResponse: {
@@ -2879,6 +2894,7 @@ export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
 export type CreateProjectResponse = components['schemas']['CreateProjectResponse'];
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
+export type CustomRoleId = components['schemas']['CustomRoleId'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
 export type DeleteProjectEnvironmentRequest = components['schemas']['DeleteProjectEnvironmentRequest'];
 export type DeleteProjectEnvironmentResponse = components['schemas']['DeleteProjectEnvironmentResponse'];
@@ -2981,6 +2997,7 @@ export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurren
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
+export type TeamMemberCustomRole = components['schemas']['TeamMemberCustomRole'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];

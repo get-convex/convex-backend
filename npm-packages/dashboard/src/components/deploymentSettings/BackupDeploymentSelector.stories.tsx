@@ -44,18 +44,21 @@ const mockTeamMembers: TeamMember[] = [
     email: "test@example.com",
     name: "Test User",
     role: "admin",
+    customRoles: [],
   },
   {
     id: 2,
     email: "jane@example.com",
     name: "Jane Doe",
     role: "developer",
+    customRoles: [],
   },
   {
     id: 3,
     email: "bob@example.com",
     name: "Bob Smith",
     role: "developer",
+    customRoles: [],
   },
 ];
 

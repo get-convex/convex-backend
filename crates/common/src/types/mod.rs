@@ -120,6 +120,7 @@ tuple_struct_u64!(MemberId);
 tuple_struct_u64!(TeamId);
 tuple_struct_u64!(DeploymentId);
 tuple_struct_u64!(ProjectId);
+tuple_struct_u64!(CustomRoleId);
 tuple_struct_string!(ConvexOrigin);
 tuple_struct_string!(ConvexSite);
 

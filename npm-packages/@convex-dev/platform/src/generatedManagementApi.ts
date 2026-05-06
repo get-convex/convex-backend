@@ -802,9 +802,34 @@ export interface paths {
         put?: never;
         /**
          * Delete a custom role
-         * @description Deletes a custom role from the team.
+         * @description Deletes a custom role from the team. Fails with `CustomRoleInUse` if
+         *     the role is still attached to any team members; reassign those members
+         *     (e.g. via `update_team_member_role`) before retrying.
          */
         post: operations["delete custom role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/update_team_member_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update a team member's role
+         * @description Sets either the member's built-in `role` (admin/developer) or their
+         *     `customRoles`. The two fields are mutually exclusive: setting `role`
+         *     clears `customRoles`, and setting `customRoles` (must be non-empty)
+         *     puts the member in the `custom` role.
+         */
+        post: operations["update team member role"];
         delete?: never;
         options?: never;
         head?: never;
@@ -846,13 +871,14 @@ export interface components {
             accessToken: string;
             tokenType: string;
         };
+        /** Format: int64 */
+        CustomRoleId: number;
         CustomRoleResponse: {
             /** Format: int64 */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
             description?: string | null;
-            /** Format: int64 */
-            id: number;
+            id: components["schemas"]["CustomRoleId"];
             name: string;
             statements: components["schemas"]["RoleStatement"][];
             teamId: components["schemas"]["TeamId"];
@@ -876,8 +902,7 @@ export interface components {
             value: string;
         };
         DeleteCustomRoleArgs: {
-            /** Format: int64 */
-            id: number;
+            id: components["schemas"]["CustomRoleId"];
         };
         DeletePersonalAccessTokenArgs: {
             /** @description The token to delete. This can be the secret value of the token or the
@@ -1317,13 +1342,26 @@ export interface components {
         /** Format: int64 */
         TeamId: number;
         TeamMember: {
+            /** @description The custom roles attached to this team member, with their display
+             *     names denormalized so consumers can render the role list without
+             *     a separate `list_custom_roles` lookup. `Some` iff `role` is
+             *     `custom`. */
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
             /** @description The email of the team member */
             email: string;
             id: components["schemas"]["MemberId"];
             /** @description The name of the team member */
             name?: string | null;
-            /** @description The role of the team member */
+            /** @description The role of the team member. `custom` indicates the member's
+             *     permissions come from the attached `customRoles`. */
             role: components["schemas"]["Role"];
+        };
+        /** @description A custom role attached to a team member, denormalized with the
+         *     role's display name so API consumers can render members without a
+         *     separate roles lookup. */
+        TeamMemberCustomRole: {
+            name: string;
+            roleId: components["schemas"]["CustomRoleId"];
         };
         TeamName: string;
         TeamResponse: {
@@ -1342,13 +1380,19 @@ export interface components {
         TeamSlug: string;
         UpdateCustomRoleArgs: {
             description?: string | null;
-            /** Format: int64 */
-            id: number;
+            id: components["schemas"]["CustomRoleId"];
             name: string;
             statements: components["schemas"]["RoleStatement"][];
         };
         UpdateDefaultEnvironmentVariablesArgs: {
             changes: components["schemas"]["DefaultEnvironmentVariableChangeArgs"][];
+        };
+        UpdateTeamMemberRoleArgs: {
+            /** @description Replace the member's custom roles. Mutually exclusive with `role`.
+             *     Must be non-empty. Sets the member's role to `custom`. */
+            customRoles?: components["schemas"]["CustomRoleId"][] | null;
+            memberId: components["schemas"]["MemberId"];
+            role?: null | components["schemas"]["Role"];
         };
     };
     responses: never;
@@ -1364,6 +1408,7 @@ export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs']
 export type CreatePersonalAccessTokenArgs = components['schemas']['CreatePersonalAccessTokenArgs'];
 export type CreatePersonalAccessTokenResponse = components['schemas']['CreatePersonalAccessTokenResponse'];
 export type CreateTeamAccessTokenResponse = components['schemas']['CreateTeamAccessTokenResponse'];
+export type CustomRoleId = components['schemas']['CustomRoleId'];
 export type CustomRoleResponse = components['schemas']['CustomRoleResponse'];
 export type DefaultEnvironmentVariableChangeArgs = components['schemas']['DefaultEnvironmentVariableChangeArgs'];
 export type DefaultEnvironmentVariableResponse = components['schemas']['DefaultEnvironmentVariableResponse'];
@@ -1425,11 +1470,13 @@ export type RoleStatementEffect = components['schemas']['RoleStatementEffect'];
 export type RoleStatementWildcardAction = components['schemas']['RoleStatementWildcardAction'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
+export type TeamMemberCustomRole = components['schemas']['TeamMemberCustomRole'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
 export type UpdateCustomRoleArgs = components['schemas']['UpdateCustomRoleArgs'];
 export type UpdateDefaultEnvironmentVariablesArgs = components['schemas']['UpdateDefaultEnvironmentVariablesArgs'];
+export type UpdateTeamMemberRoleArgs = components['schemas']['UpdateTeamMemberRoleArgs'];
 export type $defs = Record<string, never>;
 export interface operations {
     "create project": {
@@ -2414,6 +2461,30 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeleteCustomRoleArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "update team member role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTeamMemberRoleArgs"];
             };
         };
         responses: {
