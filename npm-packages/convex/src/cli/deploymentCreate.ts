@@ -70,7 +70,10 @@ export const deploymentCreate = new Command("create")
     "--expiration <value>",
     'When the deployment expires (e.g. "none", "in 7 days", "2026-04-01T00:00:00Z", or a UNIX timestamp in seconds or milliseconds)',
   )
+  .addOption(new Option("--expiry <value>").hideHelp())
+  .addOption(new Option("--expires <value>").hideHelp())
   .action(async (refParam, options) => {
+    const expiration = options.expiration ?? options.expiry ?? options.expires;
     const ctx = await oneoffContext({
       url: undefined,
       adminKey: undefined,
@@ -86,13 +89,7 @@ export const deploymentCreate = new Command("create")
     // Handle `deployment create local`
     if (refParam !== undefined) {
       if (refParam === "local") {
-        const cloudOnlyFlags = [
-          "type",
-          "region",
-          "class",
-          "default",
-          "expiration",
-        ] as const;
+        const cloudOnlyFlags = ["type", "region", "class", "default"] as const;
         for (const flag of cloudOnlyFlags) {
           if (options[flag]) {
             return await ctx.crash({
@@ -101,6 +98,13 @@ export const deploymentCreate = new Command("create")
               printedMessage: `--${flag} cannot be used when creating a local deployment`,
             });
           }
+        }
+        if (expiration !== undefined) {
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `--expiration cannot be used when creating a local deployment`,
+          });
         }
         await createLocalDeployment(
           ctx,
@@ -111,7 +115,7 @@ export const deploymentCreate = new Command("create")
       }
     }
 
-    const expiresAt = await resolveExpiresAtOrCrash(ctx, options.expiration);
+    const expiresAt = await resolveExpiresAtOrCrash(ctx, expiration);
 
     const {
       ref,
