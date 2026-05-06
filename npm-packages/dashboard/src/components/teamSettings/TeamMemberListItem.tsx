@@ -1,29 +1,22 @@
 import type {
   MemberResponse,
   ProjectMemberRoleResponse,
-  Role,
   UpdateProjectRolesArgs,
   TeamResponse,
   TeamMember,
 } from "generatedApi";
+import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
 import { useRouter } from "next/router";
 import { useRef, useState } from "react";
-import { Button } from "@ui/Button";
-import { Tooltip } from "@ui/Tooltip";
-import { Combobox, Option } from "@ui/Combobox";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { CaretSortIcon } from "@radix-ui/react-icons";
+import { Menu, MenuItem } from "@ui/Menu";
+import { Callout } from "@ui/Callout";
+import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { useMount } from "react-use";
 import classNames from "classnames";
 import startCase from "lodash/startCase";
-import { Link } from "@ui/Link";
-import { Callout } from "@ui/Callout";
 import { MemberProjectRolesModal } from "./MemberProjectRolesModal";
-
-export const roleOptions: Option<"admin" | "developer">[] = [
-  { label: "Admin", value: "admin" },
-  { label: "Developer", value: "developer" },
-];
+import { EditTeamRoleDialog } from "./EditTeamRoleDialog";
 
 type TeamMemberListItemProps = {
   team: TeamResponse;
@@ -31,7 +24,14 @@ type TeamMemberListItemProps = {
   member: TeamMember;
   members: TeamMember[];
   canChangeRole: boolean;
-  onChangeRole: (body: { memberId: number; role: Role }) => Promise<Response>;
+  customRoles: CustomRoleResponse[];
+  customRolesEnabled: boolean;
+  customRolesVisible: boolean;
+  onChangeRole: (body: {
+    memberId: number;
+    role?: "admin" | "developer";
+    customRoles?: number[];
+  }) => Promise<unknown>;
   onRemoveMember: (body: { memberId: number }) => Promise<Response>;
   onUpdateProjectRoles: (body: UpdateProjectRolesArgs) => Promise<undefined>;
   hasAdminPermissions: boolean;
@@ -43,6 +43,9 @@ export function TeamMemberListItem({
   member,
   members,
   canChangeRole,
+  customRoles,
+  customRolesEnabled,
+  customRolesVisible,
   onChangeRole,
   onUpdateProjectRoles,
   onRemoveMember,
@@ -67,33 +70,36 @@ export function TeamMemberListItem({
     }
   });
 
-  let removeMemberMessage = "";
+  let removeMemberDisabledReason: string | undefined;
   if (isMemberTheLastAdmin) {
-    removeMemberMessage =
+    removeMemberDisabledReason =
       "You cannot remove the last admin from this team. Contact us for help at support@convex.dev";
   } else if (!canManageMember) {
-    removeMemberMessage =
+    removeMemberDisabledReason =
       "You do not have permission to remove members from this team.";
   }
 
-  let updateRoleMessage = "";
-  if (team.managedBy === "vercel") {
-    updateRoleMessage = `This team is managed by ${startCase(team.managedBy)}. You may manage team roles in ${startCase(team.managedBy)}.`;
+  let updateRoleDisabledReason: string | undefined;
+  if (!canChangeRole) {
+    updateRoleDisabledReason =
+      "You cannot change your own team role. Ask another admin to do it for you.";
+  } else if (team.managedBy === "vercel") {
+    updateRoleDisabledReason = `This team is managed by ${startCase(team.managedBy)}. You may manage team roles in ${startCase(team.managedBy)}.`;
   } else if (isMemberTheLastAdmin) {
-    updateRoleMessage = "You cannot change the role of the last admin.";
+    updateRoleDisabledReason = "You cannot change the role of the last admin.";
   } else if (!hasAdminPermissions) {
-    updateRoleMessage = "You do not have permission to change member roles.";
+    updateRoleDisabledReason =
+      "You do not have permission to change member roles.";
   }
+  const canEditTeamRole = updateRoleDisabledReason === undefined;
 
   const [showRemoveMember, setShowRemoveMember] = useState(false);
-
-  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [showEditRole, setShowEditRole] = useState(false);
+  const [showProjectRolesModal, setShowProjectRolesModal] = useState(false);
 
   const confirmationDisplayName = member.name
     ? `${member.name} (${member.email})`
     : member.email;
-
-  const [showProjecRolesModal, setShowProjectRolesModal] = useState(false);
 
   return (
     <div
@@ -120,67 +126,41 @@ export function TeamMemberListItem({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2">
-          {!canChangeRole || member.role === "custom" ? (
-            <div className="text-sm text-content-primary">
-              {startCase(member.role)}
-            </div>
-          ) : !canManageMember || team.managedBy === "vercel" ? (
-            // Combobox is difficult to create a disabled state for, so we're using a div here that looks like a disabled input
-            <Tooltip tip={updateRoleMessage}>
-              <div className="flex cursor-not-allowed items-center gap-1 rounded-sm border bg-background-tertiary p-1.5 text-content-secondary">
-                {startCase(member.role)}
-                <CaretSortIcon className="h-5 w-5" />
-              </div>
-            </Tooltip>
-          ) : (
-            <Combobox
-              buttonClasses="w-fit"
-              disableSearch
-              label="Role"
-              options={roleOptions}
-              selectedOption={member.role}
-              buttonProps={{
-                loading: isUpdatingRole,
-                tip: (
-                  <span>
-                    Change this member's{" "}
-                    <Link href="https://docs.convex.dev/dashboard/teams#roles-and-permissions">
-                      team role
-                    </Link>
-                    .
-                  </span>
-                ),
-                tipSide: "top",
-              }}
-              setSelectedOption={async (role) => {
-                if (!role) {
-                  return;
-                }
-                setIsUpdatingRole(true);
-                try {
-                  await onChangeRole({ memberId: member.id, role });
-                } finally {
-                  setIsUpdatingRole(false);
-                }
-              }}
-            />
-          )}
-        </div>
-        <Button
-          variant="neutral"
-          onClick={() => setShowProjectRolesModal(true)}
+        <RoleDisplay member={member} />
+        <Menu
+          placement="bottom-end"
+          buttonProps={{
+            variant: "neutral",
+            size: "xs",
+            icon: <DotsVerticalIcon />,
+            "aria-label": "Member options",
+          }}
         >
-          Project Roles ({projectRoles?.length || 0})
-        </Button>
-        <Button
-          variant="danger"
-          disabled={!canManageMember}
-          tip={removeMemberMessage}
-          onClick={() => setShowRemoveMember(true)}
-        >
-          {isMemberMe ? "Leave team" : "Remove member"}
-        </Button>
+          <MenuItem
+            disabled={!canEditTeamRole}
+            tip={updateRoleDisabledReason}
+            tipSide="left"
+            action={() => {
+              if (canEditTeamRole) setShowEditRole(true);
+            }}
+          >
+            Edit team role
+          </MenuItem>
+          <MenuItem action={() => setShowProjectRolesModal(true)}>
+            Edit project roles
+          </MenuItem>
+          <MenuItem
+            variant="danger"
+            disabled={!canManageMember}
+            tip={removeMemberDisabledReason}
+            tipSide="left"
+            action={() => {
+              if (canManageMember) setShowRemoveMember(true);
+            }}
+          >
+            {isMemberMe ? "Leave team" : "Remove member"}
+          </MenuItem>
+        </Menu>
         {showRemoveMember && (
           <ConfirmationDialog
             onClose={() => setShowRemoveMember(false)}
@@ -214,7 +194,17 @@ export function TeamMemberListItem({
             confirmText="Confirm"
           />
         )}
-        {showProjecRolesModal && (
+        {showEditRole && (
+          <EditTeamRoleDialog
+            member={member}
+            customRoles={customRoles}
+            customRolesEnabled={customRolesEnabled}
+            customRolesVisible={customRolesVisible}
+            onSave={onChangeRole}
+            onClose={() => setShowEditRole(false)}
+          />
+        )}
+        {showProjectRolesModal && (
           <MemberProjectRolesModal
             member={member}
             team={team}
@@ -224,6 +214,33 @@ export function TeamMemberListItem({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function RoleDisplay({ member }: { member: TeamMember }) {
+  if (member.role !== "custom") {
+    return (
+      <div className="text-sm text-content-primary">
+        {startCase(member.role)}
+      </div>
+    );
+  }
+  const memberCustomRoles = member.customRoles ?? [];
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {memberCustomRoles.length === 0 ? (
+        <div className="text-sm text-content-primary">Custom</div>
+      ) : (
+        memberCustomRoles.map(({ roleId, name }) => (
+          <span
+            key={roleId}
+            className="rounded-sm border px-1.5 py-1 text-xs text-content-primary"
+          >
+            {name}
+          </span>
+        ))
+      )}
     </div>
   );
 }

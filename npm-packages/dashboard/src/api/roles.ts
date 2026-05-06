@@ -148,12 +148,12 @@ export function useDeleteCustomRole(teamId?: number) {
 }
 
 export function useUpdateTeamMemberRole(teamId: number) {
-  return useBBMutation({
-    path: `/teams/{team_id}/update_member_role`,
+  return useManagementApiMutation({
+    path: `/teams/{team_id}/update_team_member_role`,
     pathParams: {
-      team_id: teamId.toString(),
+      team_id: teamId,
     },
-    mutateKey: `/teams/{team_id}/members`,
+    mutateKey: `/teams/{team_id}/list_members`,
     mutatePathParams: {
       team_id: teamId.toString(),
     },
