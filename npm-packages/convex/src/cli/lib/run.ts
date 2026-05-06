@@ -1,6 +1,6 @@
 import { chalkStderr } from "chalk";
 import util from "util";
-import ws from "ws";
+import { nodeWebSocket } from "./nodeWebSocket.js";
 import { ConvexHttpClient } from "../../browser/http_client.js";
 import { BaseConvexClient } from "../../browser/index.js";
 import {
@@ -403,8 +403,8 @@ export async function subscribe(
       }
     },
     {
-      // pretend that a Node.js 'ws' library WebSocket is a browser WebSocket
-      webSocketConstructor: ws as unknown as typeof WebSocket,
+      // Uses native WebSocket on Bun/Node 21+, falls back to `ws` on older Node
+      webSocketConstructor: nodeWebSocket,
       unsavedChangesWarning: false,
     },
   );
