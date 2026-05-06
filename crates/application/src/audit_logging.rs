@@ -39,11 +39,12 @@ impl AuditLogClient {
     ) -> anyhow::Result<Self> {
         let is_dev_deployment = Arc::new(AtomicBool::new(is_dev_deployment));
         let firehose_client = if let Some(firehose_name) = firehose_stream_name {
+            let prefix = format!("customer-audit-logs-{deployment_name}");
             anyhow::ensure!(
-                firehose_name.starts_with(&format!("{deployment_name}-")),
+                firehose_name.starts_with(&prefix),
                 format!(
-                    "Expected audit log firehose stream name to start with \"{deployment_name}-\" \
-                     but got {firehose_name}"
+                    "Expected audit log firehose stream name to start with \"{prefix}\" but got \
+                     {firehose_name}"
                 )
             );
             Some(Arc::new(AuditLogFirehoseClient::new(firehose_name).await?))
