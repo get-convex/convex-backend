@@ -37,7 +37,7 @@ export function EditTeamRoleDialog({
   }) => Promise<unknown>;
   onClose: () => void;
 }) {
-  const memberCustomRoleIds = (member.customRoles ?? []).map((c) => c.roleId);
+  const memberCustomRoleIds = (member.customRoles ?? []).map((c) => c.id);
   const [choice, setChoice] = useState<RoleChoice>(
     member.role === "custom" ? "custom" : member.role,
   );

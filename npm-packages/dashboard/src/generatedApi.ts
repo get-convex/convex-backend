@@ -2712,10 +2712,8 @@ export interface components {
         /** Format: int64 */
         TeamId: number;
         TeamMember: {
-            /** @description The custom roles attached to this team member, with their display
-             *     names denormalized so consumers can render the role list without
-             *     a separate `list_custom_roles` lookup. `Some` iff `role` is
-             *     `custom`. */
+            /** @description The custom roles attached to this team member. Present iff
+             *     `role` is `custom`. */
             customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
             /** @description The email of the team member */
             email: string;
@@ -2730,8 +2728,8 @@ export interface components {
          *     role's display name so API consumers can render members without a
          *     separate roles lookup. */
         TeamMemberCustomRole: {
+            id: components["schemas"]["CustomRoleId"];
             name: string;
-            roleId: components["schemas"]["CustomRoleId"];
         };
         TeamName: string;
         TeamResponse: {

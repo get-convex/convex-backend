@@ -232,9 +232,9 @@ function RoleDisplay({ member }: { member: TeamMember }) {
       {memberCustomRoles.length === 0 ? (
         <div className="text-sm text-content-primary">Custom</div>
       ) : (
-        memberCustomRoles.map(({ roleId, name }) => (
+        memberCustomRoles.map(({ id, name }) => (
           <span
-            key={roleId}
+            key={id}
             className="rounded-sm border px-1.5 py-1 text-xs text-content-primary"
           >
             {name}

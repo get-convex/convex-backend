@@ -33,8 +33,8 @@ const customMember: TeamMember = {
   name: "Custom User",
   role: "custom",
   customRoles: [
-    { roleId: 10, name: "Project Auditor" },
-    { roleId: 20, name: "Billing Reader" },
+    { id: 10, name: "Project Auditor" },
+    { id: 20, name: "Billing Reader" },
   ],
 };
 
@@ -109,9 +109,9 @@ export const AllCustomRolesAssigned: Story = {
     member: {
       ...customMember,
       customRoles: [
-        { roleId: 10, name: "Project Auditor" },
-        { roleId: 20, name: "Billing Reader" },
-        { roleId: 30, name: "Deploy Operator" },
+        { id: 10, name: "Project Auditor" },
+        { id: 20, name: "Billing Reader" },
+        { id: 30, name: "Deploy Operator" },
       ],
     },
     customRoles,

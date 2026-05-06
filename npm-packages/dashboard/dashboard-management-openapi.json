@@ -6463,7 +6463,7 @@
             "items": {
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
-            "description": "The custom roles attached to this team member, with their display\nnames denormalized so consumers can render the role list without\na separate `list_custom_roles` lookup. `Some` iff `role` is\n`custom`."
+            "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
           },
           "email": {
             "type": "string",
@@ -6489,15 +6489,15 @@
         "type": "object",
         "description": "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
         "required": [
-          "roleId",
+          "id",
           "name"
         ],
         "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CustomRoleId"
+          },
           "name": {
             "type": "string"
-          },
-          "roleId": {
-            "$ref": "#/components/schemas/CustomRoleId"
           }
         }
       },
