@@ -198,7 +198,6 @@ const actionsForCategory = (category: ActionCategory) => ({
 const SELECTOR_VAL = "[^,:]+";
 const projectSel = `(\\*|id=${SELECTOR_VAL}|slug=${SELECTOR_VAL})`;
 const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${SELECTOR_VAL}|creator=${SELECTOR_VAL})`;
-const memberSel = `(\\*|id=${SELECTOR_VAL})`;
 const tokenSel = `(\\*|creator=${SELECTOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
 const tokenTail = `:token:${csv(tokenSel)}`;
@@ -206,7 +205,7 @@ const projectTail = `(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail
 const RESOURCE_PATTERN =
   `^(team:\\*(${tokenTail})?` +
   `|project:${csv(projectSel)}${projectTail}?` +
-  `|member:${csv(memberSel)}` +
+  `|member:\\*` +
   `|customRole:\\*` +
   `|billing:\\*` +
   `|oauthApplication:\\*` +
