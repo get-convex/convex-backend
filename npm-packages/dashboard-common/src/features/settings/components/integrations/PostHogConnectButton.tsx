@@ -41,7 +41,7 @@ export function PostHogConnectButton({
 
   if (projects && projects.length > 1) {
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex items-end gap-2">
         <Combobox<PostHogProject>
           label="PostHog project"
           labelHidden={false}
@@ -57,10 +57,9 @@ export function PostHogConnectButton({
           }}
         />
         <Button
-          variant="unstyled"
+          variant="neutral"
           type="button"
           onClick={() => setProjects(null)}
-          className="self-start text-xs text-content-secondary underline"
         >
           Cancel
         </Button>

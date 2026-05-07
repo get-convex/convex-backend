@@ -1,24 +1,9 @@
-import { webcrypto } from "crypto";
-import { TextEncoder } from "util";
 import {
   buildPostHogOAuthClientMetadata,
-  extractOrganizationId,
   fetchPostHogProjects,
   pkceChallenge,
   POSTHOG_OAUTH_SCOPES,
 } from "./posthogOAuth";
-
-// jsdom does not expose Web Crypto or TextEncoder; polyfill from Node.
-if (!globalThis.crypto?.subtle) {
-  Object.defineProperty(globalThis, "crypto", {
-    value: webcrypto,
-    configurable: true,
-  });
-}
-if (typeof globalThis.TextEncoder === "undefined") {
-  // @ts-expect-error — Node's TextEncoder is structurally compatible.
-  globalThis.TextEncoder = TextEncoder;
-}
 
 describe("pkceChallenge", () => {
   // RFC 7636 Appendix B test vector.
@@ -27,34 +12,6 @@ describe("pkceChallenge", () => {
     expect(await pkceChallenge(verifier)).toBe(
       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     );
-  });
-});
-
-describe("extractOrganizationId", () => {
-  it("reads a string organization", () => {
-    expect(extractOrganizationId({ organization: "org-1" })).toBe("org-1");
-  });
-
-  it("reads organization_id flat", () => {
-    expect(extractOrganizationId({ organization_id: "org-2" })).toBe("org-2");
-  });
-
-  it("reads nested organization.id", () => {
-    expect(extractOrganizationId({ organization: { id: "org-3" } })).toBe(
-      "org-3",
-    );
-  });
-
-  it("falls back to organization.uuid", () => {
-    expect(extractOrganizationId({ organization: { uuid: "org-4" } })).toBe(
-      "org-4",
-    );
-  });
-
-  it("returns null when nothing matches", () => {
-    expect(extractOrganizationId({})).toBeNull();
-    expect(extractOrganizationId(null)).toBeNull();
-    expect(extractOrganizationId("oops")).toBeNull();
   });
 });
 
@@ -86,7 +43,7 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 describe("fetchPostHogProjects", () => {
-  it("falls back from US to EU on non-2xx", async () => {
+  it("falls back from US to EU when /users/@me/ fails on US", async () => {
     const calls: string[] = [];
     const mockFetch: typeof fetch = jest.fn(async (input) => {
       const url = typeof input === "string" ? input : input.toString();
@@ -104,6 +61,7 @@ describe("fetchPostHogProjects", () => {
       ) {
         return jsonResponse(200, {
           results: [{ name: "EU Project", api_token: "phc_eu" }],
+          next: null,
         });
       }
       throw new Error(`unexpected ${url}`);
@@ -121,14 +79,14 @@ describe("fetchPostHogProjects", () => {
     expect(calls[1]).toContain("eu.posthog.com");
   });
 
-  it("falls back from US to EU on 5xx, not just auth failures", async () => {
+  it("falls back from US to EU on 5xx at /users/@me/", async () => {
     const mockFetch: typeof fetch = jest.fn(async (input) => {
       const url = typeof input === "string" ? input : input.toString();
-      if (url.startsWith("https://us.posthog.com")) {
+      if (url.startsWith("https://us.posthog.com/api/users/@me/")) {
         return jsonResponse(503, { detail: "down" });
       }
       if (url.startsWith("https://eu.posthog.com/api/users/@me/")) {
-        return jsonResponse(200, { organization_id: "org-eu" });
+        return jsonResponse(200, { organization: { id: "org-eu" } });
       }
       if (url.includes("/projects/")) {
         return jsonResponse(200, {
@@ -141,6 +99,29 @@ describe("fetchPostHogProjects", () => {
     const projects = await fetchPostHogProjects("token", mockFetch);
     expect(projects).toHaveLength(1);
     expect(projects[0].host).toBe("https://eu.i.posthog.com");
+  });
+
+  it("does not bounce to EU when /projects/ fails on the resolved region", async () => {
+    // Once /users/@me/ succeeds for a region, that region's token is what we
+    // have — retrying the other region with a stale token would surface a
+    // misleading 401.
+    const calls: string[] = [];
+    const mockFetch: typeof fetch = jest.fn(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      calls.push(url);
+      if (url.startsWith("https://us.posthog.com/api/users/@me/")) {
+        return jsonResponse(200, { organization: { id: "org-us" } });
+      }
+      if (url.includes("us.posthog.com/api/organizations/")) {
+        return jsonResponse(500, { detail: "boom" });
+      }
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+
+    await expect(fetchPostHogProjects("token", mockFetch)).rejects.toThrow(
+      /projects fetch failed \(500\)/,
+    );
+    expect(calls.every((u) => u.includes("us.posthog.com"))).toBe(true);
   });
 
   it("returns the US ingest host when US succeeds", async () => {
@@ -167,13 +148,38 @@ describe("fetchPostHogProjects", () => {
     ]);
   });
 
-  it("throws when neither region returns a usable response", async () => {
+  it("follows the next cursor across pages", async () => {
+    const mockFetch: typeof fetch = jest.fn(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/api/users/@me/")) {
+        return jsonResponse(200, { organization: { id: "org-us" } });
+      }
+      if (url === "https://us.posthog.com/api/organizations/org-us/projects/") {
+        return jsonResponse(200, {
+          results: [{ name: "A", api_token: "phc_a" }],
+          next: "https://us.posthog.com/api/organizations/org-us/projects/?cursor=2",
+        });
+      }
+      if (url.includes("?cursor=2")) {
+        return jsonResponse(200, {
+          results: [{ name: "B", api_token: "phc_b" }],
+          next: null,
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+
+    const projects = await fetchPostHogProjects("token", mockFetch);
+    expect(projects.map((p) => p.name)).toEqual(["A", "B"]);
+  });
+
+  it("throws when neither region's /users/@me/ succeeds", async () => {
     const mockFetch: typeof fetch = jest.fn(async () =>
       jsonResponse(500, { detail: "boom" }),
     ) as typeof fetch;
 
     await expect(fetchPostHogProjects("token", mockFetch)).rejects.toThrow(
-      /returned 500/,
+      /\/api\/users\/@me\/ 500/,
     );
   });
 });

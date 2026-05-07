@@ -11,6 +11,10 @@ const REGION_HOSTS = [
 
 const MESSAGE_TYPE = "convex-posthog-oauth-callback";
 
+// PostHog can return very large project lists for big orgs; cap the number of
+// pages we follow defensively rather than chase pagination forever.
+const MAX_PROJECT_PAGES = 10;
+
 export type PostHogProject = {
   name: string;
   apiKey: string;
@@ -145,7 +149,13 @@ async function exchangeCode(
     body,
   });
   if (!res.ok) {
-    throw new Error(`PostHog token exchange failed: ${await res.text()}`);
+    // eslint-disable-next-line no-console
+    console.error(
+      "PostHog token exchange failed",
+      res.status,
+      await res.text(),
+    );
+    throw new Error(`PostHog token exchange failed (${res.status})`);
   }
   const json = (await res.json()) as { access_token?: string };
   if (!json.access_token) {
@@ -154,60 +164,31 @@ async function exchangeCode(
   return json.access_token;
 }
 
-// PostHog has historically returned the user's current organization under a
-// few different shapes. Support all of them rather than picking one and
-// breaking on a future change.
-export function extractOrganizationId(me: unknown): string | null {
-  if (!me || typeof me !== "object") return null;
-  const m = me as Record<string, unknown>;
-  if (typeof m.organization === "string") return m.organization;
-  if (typeof m.organization_id === "string") return m.organization_id;
-  if (m.organization && typeof m.organization === "object") {
-    const org = m.organization as Record<string, unknown>;
-    if (typeof org.id === "string") return org.id;
-    if (typeof org.uuid === "string") return org.uuid;
-  }
-  return null;
-}
-
-export async function fetchPostHogProjects(
+// Locate the user's region by hitting /users/@me/ in each region host.
+// Region detection happens once: the first region that returns 2xx wins, and
+// every subsequent call is made against that region only.
+async function resolveUserRegion(
   accessToken: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<PostHogProject[]> {
+  fetchImpl: typeof fetch,
+): Promise<{
+  api: string;
+  ingest: string;
+  me: { organization?: { id?: string } };
+}> {
   let lastError: unknown = null;
   for (const region of REGION_HOSTS) {
     try {
-      const meRes = await fetchImpl(`${region.api}/api/users/@me/`, {
+      const res = await fetchImpl(`${region.api}/api/users/@me/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (!meRes.ok) {
-        lastError = new Error(
-          `${region.api}/api/users/@me/ returned ${meRes.status}`,
-        );
+      if (!res.ok) {
+        lastError = new Error(`${region.api}/api/users/@me/ ${res.status}`);
         continue;
       }
-      const me = (await meRes.json()) as unknown;
-      const orgId = extractOrganizationId(me);
-      if (!orgId) {
-        throw new Error("PostHog user has no current organization");
-      }
-      const projectsRes = await fetchImpl(
-        `${region.api}/api/organizations/${orgId}/projects/`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      if (!projectsRes.ok) {
-        throw new Error(
-          `PostHog /projects/ failed: ${await projectsRes.text()}`,
-        );
-      }
-      const data = (await projectsRes.json()) as {
-        results?: Array<{ name: string; api_token: string }>;
+      const me = (await res.json()) as {
+        organization?: { id?: string };
       };
-      return (data.results ?? []).map((p) => ({
-        name: p.name,
-        apiKey: p.api_token,
-        host: region.ingest,
-      }));
+      return { api: region.api, ingest: region.ingest, me };
     } catch (e) {
       lastError = e;
     }
@@ -217,7 +198,59 @@ export async function fetchPostHogProjects(
     : new Error("Unable to reach PostHog API in any region");
 }
 
+type ProjectsPage = {
+  results?: Array<{ name: string; api_token: string }>;
+  next?: string | null;
+};
+
+export async function fetchPostHogProjects(
+  accessToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<PostHogProject[]> {
+  const region = await resolveUserRegion(accessToken, fetchImpl);
+  const orgId = region.me.organization?.id;
+  if (!orgId) {
+    throw new Error("PostHog user has no current organization");
+  }
+
+  const projects: PostHogProject[] = [];
+  let url: string | null = `${region.api}/api/organizations/${orgId}/projects/`;
+  for (let page = 0; page < MAX_PROJECT_PAGES && url; page += 1) {
+    const res = await fetchImpl(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "PostHog projects fetch failed",
+        res.status,
+        await res.text(),
+      );
+      throw new Error(`PostHog projects fetch failed (${res.status})`);
+    }
+    const data = (await res.json()) as ProjectsPage;
+    for (const p of data.results ?? []) {
+      projects.push({
+        name: p.name,
+        apiKey: p.api_token,
+        host: region.ingest,
+      });
+    }
+    url = data.next ?? null;
+  }
+  return projects;
+}
+
 export async function connectPostHog(): Promise<PostHogProject[]> {
+  // crypto.subtle is only available in secure contexts (HTTPS or localhost),
+  // so PKCE will fail on a self-hosted dashboard served over plain HTTP.
+  // Fail with a clear message instead of an opaque "undefined" error later.
+  if (!window.isSecureContext || !crypto.subtle) {
+    throw new Error(
+      "PostHog OAuth requires the dashboard to be served over HTTPS.",
+    );
+  }
+
   const origin = window.location.origin;
   const verifier = randomString(48);
   const challenge = await pkceChallenge(verifier);
