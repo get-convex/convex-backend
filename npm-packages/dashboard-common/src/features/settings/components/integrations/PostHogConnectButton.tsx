@@ -7,6 +7,10 @@ import {
 } from "@common/features/settings/lib/posthogOAuth";
 import { toast } from "@common/lib/utils";
 
+// Shown on both cloud and self-hosted Convex dashboards. The flow targets
+// PostHog Cloud (us/eu). Users self-hosting PostHog can ignore this and
+// continue with manual entry — we cannot detect a self-hosted PostHog from
+// the Convex side, so we never hide the button.
 export function PostHogConnectButton({
   onSelectProject,
 }: {
@@ -26,8 +30,10 @@ export function PostHogConnectButton({
       } else {
         setProjects(found);
       }
-    } catch (e: any) {
-      toast("error", e?.message ?? "PostHog authorization failed");
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error ? e.message : "PostHog authorization failed";
+      toast("error", message);
     } finally {
       setIsConnecting(false);
     }
@@ -50,6 +56,14 @@ export function PostHogConnectButton({
             }
           }}
         />
+        <Button
+          variant="unstyled"
+          type="button"
+          onClick={() => setProjects(null)}
+          className="self-start text-xs text-content-secondary underline"
+        >
+          Cancel
+        </Button>
       </div>
     );
   }

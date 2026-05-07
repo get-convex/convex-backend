@@ -1,16 +1,17 @@
 const OAUTH_BASE = "https://oauth.posthog.com";
 const AUTHORIZE_URL = `${OAUTH_BASE}/oauth/authorize/`;
 const TOKEN_URL = `${OAUTH_BASE}/oauth/token/`;
-const SCOPES = "openid project:read user:read";
-const POPUP_NAME = "convex-posthog-oauth";
-const MESSAGE_TYPE = "convex-posthog-oauth-callback";
+
+export const POSTHOG_OAUTH_SCOPES = "openid project:read user:read";
+
 const REGION_HOSTS = [
   { api: "https://us.posthog.com", ingest: "https://us.i.posthog.com" },
   { api: "https://eu.posthog.com", ingest: "https://eu.i.posthog.com" },
 ] as const;
 
+const MESSAGE_TYPE = "convex-posthog-oauth-callback";
+
 export type PostHogProject = {
-  id: number;
   name: string;
   apiKey: string;
   host: string;
@@ -37,7 +38,7 @@ function randomString(byteLength: number): string {
   return base64UrlEncode(bytes);
 }
 
-async function pkceChallenge(verifier: string): Promise<string> {
+export async function pkceChallenge(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(verifier),
@@ -51,6 +52,30 @@ function clientId(origin: string): string {
 
 function redirectUri(origin: string): string {
   return `${origin}/oauth/posthog/callback`;
+}
+
+export function buildPostHogOAuthClientMetadata(baseUrl: string): {
+  client_id: string;
+  client_name: string;
+  client_uri: string;
+  redirect_uris: string[];
+  grant_types: string[];
+  response_types: string[];
+  token_endpoint_auth_method: string;
+  application_type: string;
+  scope: string;
+} {
+  return {
+    client_id: clientId(baseUrl),
+    client_name: "Convex Dashboard",
+    client_uri: baseUrl,
+    redirect_uris: [redirectUri(baseUrl)],
+    grant_types: ["authorization_code"],
+    response_types: ["code"],
+    token_endpoint_auth_method: "none",
+    application_type: "web",
+    scope: POSTHOG_OAUTH_SCOPES,
+  };
 }
 
 async function waitForCallback(
@@ -88,7 +113,8 @@ async function waitForCallback(
         finish(() => reject(new Error("Invalid PostHog OAuth response")));
         return;
       }
-      finish(() => resolve({ code: data.code as string }));
+      const { code } = data;
+      finish(() => resolve({ code }));
     };
 
     const closeWatch = window.setInterval(() => {
@@ -119,8 +145,7 @@ async function exchangeCode(
     body,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`PostHog token exchange failed: ${text}`);
+    throw new Error(`PostHog token exchange failed: ${await res.text()}`);
   }
   const json = (await res.json()) as { access_token?: string };
   if (!json.access_token) {
@@ -129,42 +154,63 @@ async function exchangeCode(
   return json.access_token;
 }
 
-async function fetchProjects(accessToken: string): Promise<PostHogProject[]> {
+// PostHog has historically returned the user's current organization under a
+// few different shapes. Support all of them rather than picking one and
+// breaking on a future change.
+export function extractOrganizationId(me: unknown): string | null {
+  if (!me || typeof me !== "object") return null;
+  const m = me as Record<string, unknown>;
+  if (typeof m.organization === "string") return m.organization;
+  if (typeof m.organization_id === "string") return m.organization_id;
+  if (m.organization && typeof m.organization === "object") {
+    const org = m.organization as Record<string, unknown>;
+    if (typeof org.id === "string") return org.id;
+    if (typeof org.uuid === "string") return org.uuid;
+  }
+  return null;
+}
+
+export async function fetchPostHogProjects(
+  accessToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<PostHogProject[]> {
   let lastError: unknown = null;
   for (const region of REGION_HOSTS) {
-    const meRes = await fetch(`${region.api}/api/users/@me/`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (meRes.status === 401 || meRes.status === 403) {
-      lastError = new Error(`${region.api} returned ${meRes.status}`);
-      continue;
+    try {
+      const meRes = await fetchImpl(`${region.api}/api/users/@me/`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!meRes.ok) {
+        lastError = new Error(
+          `${region.api}/api/users/@me/ returned ${meRes.status}`,
+        );
+        continue;
+      }
+      const me = (await meRes.json()) as unknown;
+      const orgId = extractOrganizationId(me);
+      if (!orgId) {
+        throw new Error("PostHog user has no current organization");
+      }
+      const projectsRes = await fetchImpl(
+        `${region.api}/api/organizations/${orgId}/projects/`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!projectsRes.ok) {
+        throw new Error(
+          `PostHog /projects/ failed: ${await projectsRes.text()}`,
+        );
+      }
+      const data = (await projectsRes.json()) as {
+        results?: Array<{ name: string; api_token: string }>;
+      };
+      return (data.results ?? []).map((p) => ({
+        name: p.name,
+        apiKey: p.api_token,
+        host: region.ingest,
+      }));
+    } catch (e) {
+      lastError = e;
     }
-    if (!meRes.ok) {
-      throw new Error(`PostHog /users/@me/ failed: ${await meRes.text()}`);
-    }
-    const me = (await meRes.json()) as {
-      organization?: { id?: string };
-    };
-    const orgId = me.organization?.id;
-    if (!orgId) {
-      throw new Error("PostHog user has no current organization");
-    }
-    const projectsRes = await fetch(
-      `${region.api}/api/organizations/${orgId}/projects/`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-    if (!projectsRes.ok) {
-      throw new Error(`PostHog /projects/ failed: ${await projectsRes.text()}`);
-    }
-    const data = (await projectsRes.json()) as {
-      results?: Array<{ id: number; name: string; api_token: string }>;
-    };
-    return (data.results ?? []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      apiKey: p.api_token,
-      host: region.ingest,
-    }));
   }
   throw lastError instanceof Error
     ? lastError
@@ -181,14 +227,16 @@ export async function connectPostHog(): Promise<PostHogProject[]> {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", clientId(origin));
   url.searchParams.set("redirect_uri", redirectUri(origin));
-  url.searchParams.set("scope", SCOPES);
+  url.searchParams.set("scope", POSTHOG_OAUTH_SCOPES);
   url.searchParams.set("state", state);
   url.searchParams.set("code_challenge", challenge);
   url.searchParams.set("code_challenge_method", "S256");
 
+  // Use a unique window name per call so that two concurrent flows (e.g. two
+  // integration modals open at once) do not navigate each other's popups.
   const popup = window.open(
     url.toString(),
-    POPUP_NAME,
+    `convex-posthog-oauth-${state}`,
     "popup,width=600,height=720",
   );
   if (!popup) {
@@ -197,7 +245,7 @@ export async function connectPostHog(): Promise<PostHogProject[]> {
 
   const { code } = await waitForCallback(popup, state, origin);
   const accessToken = await exchangeCode(code, verifier, origin);
-  const projects = await fetchProjects(accessToken);
+  const projects = await fetchPostHogProjects(accessToken);
   if (projects.length === 0) {
     throw new Error("No PostHog projects found for this account");
   }
