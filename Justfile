@@ -20,7 +20,10 @@ set positional-arguments
 
 # (*) Run the open source convex backend on port 3210
 run-local-backend *ARGS:
-  cargo run -p local_backend --bin convex-local-backend -- "$@"
+  cargo run -p local_backend --bin convex-local-backend -- \
+    --instance-name "$(cat {{justfile_directory()}}/../keybroker/dev/instance_name.txt)" \
+    --instance-secret "$(cat {{justfile_directory()}}/../keybroker/dev/secret.txt)" \
+    "$@"
 
 run-dashboard *ARGS:
   cd {{justfile_directory()}}/npm-packages/dashboard-self-hosted; NEXT_PUBLIC_DEPLOYMENT_URL="$@" npm run dev
