@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.38.0
+
+- Adds `ctx.meta.getRequestMetadata()` to access request metadata in mutations and actions:
+  request ID, client IP, and client User-Agent.
+- Default env vars are now imported when creating a new local deployment.
+- Allows creating new local deployments using `npx convex deployment select local`.
+- Adds support for `--expiry` and `--expires` aliases for `--expiration` in `npx
+  convex deployment create`.
+- Supports using `import "server-only"` to mark files as server-only.
+- Removes the `npx convex disable-local-deployments` command.
+- Fixes an issue where stdout/stderr would be truncated after exit in the CLI.
+
 ## 1.37.0
 
 - Adds `useQuery_experimental`, which accepts object-based args and returns an
