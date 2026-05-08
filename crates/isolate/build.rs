@@ -295,11 +295,15 @@ fn main() -> anyhow::Result<()> {
                     fs::remove_dir_all(out_path)?;
                 }
                 let suffix = path.strip_prefix(COMPONENT_TESTS_PROJECTS_DIR)?;
-                anyhow::ensure!(&COMPONENT_TESTS_PROJECTS.contains(
-                    &suffix
-                        .to_str()
-                        .context("Failed to convert suffix to string")?
-                ));
+                anyhow::ensure!(
+                    COMPONENT_TESTS_PROJECTS.contains(
+                        &suffix
+                            .to_str()
+                            .context("Failed to convert suffix to string")?,
+                    ),
+                    "Unexpected component test project {suffix:?} (missing in \
+                     COMPONENT_TESTS_PROJECTS?)"
+                );
                 let out_with_project = out_dir.join(suffix);
                 fs::create_dir_all(&out_with_project)?;
                 write_start_push_request(
