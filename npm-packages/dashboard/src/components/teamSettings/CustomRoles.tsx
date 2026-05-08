@@ -467,10 +467,12 @@ function CustomRoleForm({
             />
           </div>
         </div>
-        {error && (
-          <p className="text-sm text-content-errorSecondary">{error}</p>
-        )}
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          {error && (
+            <p className="mr-auto text-sm text-content-errorSecondary">
+              {error}
+            </p>
+          )}
           <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
