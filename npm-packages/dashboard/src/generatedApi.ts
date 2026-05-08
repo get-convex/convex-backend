@@ -2003,7 +2003,14 @@ export interface components {
             includeStorage?: boolean | null;
         };
         CreateInvitationArgs: {
+            /** @description Custom roles to attach when `role` is `custom`. Required and non-empty
+             *     in that case, and forbidden otherwise. */
+            customRoles?: components["schemas"]["CustomRoleId"][] | null;
             email: string;
+            /** @description Role to assign when the invitation is accepted.
+             *     Pass `custom` together with a non-empty `customRoles` list to invite a
+             *     member into a custom role; `admin` and `developer` must be sent without
+             *     `customRoles`. */
             role: components["schemas"]["Role"];
         };
         CreateProjectArgs: {
@@ -2279,6 +2286,9 @@ export interface components {
             eligibleEmails: string[];
         };
         InvitationResponse: {
+            /** @description The custom roles attached to this invitation. Present iff `role` is
+             *     `custom`. */
+            customRoles?: components["schemas"]["CustomRoleId"][] | null;
             email: string;
             expired: boolean;
             role: components["schemas"]["Role"];

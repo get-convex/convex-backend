@@ -1631,12 +1631,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
           }
         ]
       }
@@ -1715,7 +1709,7 @@
           "Teams"
         ],
         "summary": "Invite a team member",
-        "description": "Invite a member to the given team by email.",
+        "description": "Invite a member to the given team by email. `role` is required and must be\none of `admin`, `developer`, or `custom`. Pass `custom` together with a\nnon-empty `customRoles` list to invite a member into a custom role; for\n`admin` and `developer`, `customRoles` must be omitted.",
         "operationId": "invite team member",
         "parameters": [
           {
@@ -1740,7 +1734,83 @@
             "description": ""
           }
         },
-        "security": []
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/list_pending_invites": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "List pending team invitations",
+        "description": "List the pending invitations for the given team.",
+        "operationId": "list pending team invites",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListInvitationsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/cancel_team_member_invite": {
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "Cancel a pending team invitation",
+        "operationId": "cancel team member invite",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
       }
     },
     "/projects/{project_id}/list_default_environment_variables": {
@@ -2127,12 +2197,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
           }
         ]
       }
@@ -2143,6 +2207,18 @@
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
+      },
+      "CancelInvitationArgs": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CreateCustomRoleArgs": {
         "type": "object",
@@ -2185,11 +2261,22 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "Custom roles to attach when `role` is `custom`. Required and non-empty\nin that case, and forbidden otherwise."
+          },
           "email": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "$ref": "#/components/schemas/Role",
+            "description": "Role to assign when the invitation is accepted.\nPass `custom` together with a non-empty `customRoles` list to invite a\nmember into a custom role; `admin` and `developer` must be sent without\n`customRoles`."
           }
         }
       },
@@ -2426,6 +2513,35 @@
       },
       "DeviceName": {
         "type": "string"
+      },
+      "InvitationResponse": {
+        "type": "object",
+        "required": [
+          "email",
+          "expired",
+          "role"
+        ],
+        "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "The custom roles attached to this invitation. Present iff `role` is\n`custom`."
+          },
+          "email": {
+            "type": "string"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
       },
       "IsDefaultDeployment": {
         "type": "boolean",
@@ -3161,6 +3277,20 @@
               "$ref": "#/components/schemas/PlatformCustomDomainResponse"
             },
             "description": "List of custom domains configured for this deployment."
+          }
+        }
+      },
+      "PlatformListInvitationsResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvitationResponse"
+            }
           }
         }
       },

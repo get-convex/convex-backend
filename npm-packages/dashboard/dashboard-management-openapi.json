@@ -3967,11 +3967,22 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "Custom roles to attach when `role` is `custom`. Required and non-empty\nin that case, and forbidden otherwise."
+          },
           "email": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "$ref": "#/components/schemas/Role",
+            "description": "Role to assign when the invitation is accepted.\nPass `custom` together with a non-empty `customRoles` list to invite a\nmember into a custom role; `admin` and `developer` must be sent without\n`customRoles`."
           }
         }
       },
@@ -5018,6 +5029,16 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "The custom roles attached to this invitation. Present iff `role` is\n`custom`."
+          },
           "email": {
             "type": "string"
           },

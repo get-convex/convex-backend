@@ -677,9 +677,49 @@ export interface paths {
         put?: never;
         /**
          * Invite a team member
-         * @description Invite a member to the given team by email.
+         * @description Invite a member to the given team by email. `role` is required and must be
+         *     one of `admin`, `developer`, or `custom`. Pass `custom` together with a
+         *     non-empty `customRoles` list to invite a member into a custom role; for
+         *     `admin` and `developer`, `customRoles` must be omitted.
          */
         post: operations["invite team member"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/list_pending_invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending team invitations
+         * @description List the pending invitations for the given team.
+         */
+        get: operations["list pending team invites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/cancel_team_member_invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a pending team invitation */
+        post: operations["cancel team member invite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -842,6 +882,9 @@ export interface components {
     schemas: {
         /** @description Encrypted admin key */
         AdminKey: string;
+        CancelInvitationArgs: {
+            email: string;
+        };
         CreateCustomRoleArgs: {
             description?: string | null;
             name: string;
@@ -850,7 +893,14 @@ export interface components {
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod" | "preview" | "custom";
         CreateInvitationArgs: {
+            /** @description Custom roles to attach when `role` is `custom`. Required and non-empty
+             *     in that case, and forbidden otherwise. */
+            customRoles?: components["schemas"]["CustomRoleId"][] | null;
             email: string;
+            /** @description Role to assign when the invitation is accepted.
+             *     Pass `custom` together with a non-empty `customRoles` list to invite a
+             *     member into a custom role; `admin` and `developer` must be sent without
+             *     `customRoles`. */
             role: components["schemas"]["Role"];
         };
         CreatePersonalAccessTokenArgs: {
@@ -927,6 +977,14 @@ export interface components {
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
+        InvitationResponse: {
+            /** @description The custom roles attached to this invitation. Present iff `role` is
+             *     `custom`. */
+            customRoles?: components["schemas"]["CustomRoleId"][] | null;
+            email: string;
+            expired: boolean;
+            role: components["schemas"]["Role"];
+        };
         /** @description Indicates whether the deployment is the default prod deployment for the
          *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
@@ -1205,6 +1263,9 @@ export interface components {
             /** @description List of custom domains configured for this deployment. */
             domains: components["schemas"]["PlatformCustomDomainResponse"][];
         };
+        PlatformListInvitationsResponse: {
+            items: components["schemas"]["InvitationResponse"][];
+        };
         PlatformListPreviewDeployKeysResponse: {
             /** @description The list of preview deploy keys. */
             items: components["schemas"]["PlatformDeployKeyResponse"][];
@@ -1400,6 +1461,7 @@ export interface components {
     pathItems: never;
 }
 export type AdminKey = components['schemas']['AdminKey'];
+export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
 export type CreateCustomRoleArgs = components['schemas']['CreateCustomRoleArgs'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
 export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs'];
@@ -1419,6 +1481,7 @@ export type DeploymentReference = components['schemas']['DeploymentReference'];
 export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
+export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListCustomRolesResponse = components['schemas']['ListCustomRolesResponse'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
@@ -1446,6 +1509,7 @@ export type PlatformDeletePreviewDeployKeyArgs = components['schemas']['Platform
 export type PlatformDeployKeyResponse = components['schemas']['PlatformDeployKeyResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
+export type PlatformListInvitationsResponse = components['schemas']['PlatformListInvitationsResponse'];
 export type PlatformListPreviewDeployKeysResponse = components['schemas']['PlatformListPreviewDeployKeysResponse'];
 export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
@@ -2305,6 +2369,52 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateInvitationArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "list pending team invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformListInvitationsResponse"];
+                };
+            };
+        };
+    };
+    "cancel team member invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelInvitationArgs"];
             };
         };
         responses: {
