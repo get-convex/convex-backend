@@ -9,6 +9,7 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
+use errors::ErrorMetadata;
 use value::{
     ConvexValue,
     ResolvedDocumentId,
@@ -41,6 +42,24 @@ impl SystemTable for AuditLogConfigTable {
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
     }
+}
+
+pub fn validate_audit_log_firehose_stream_name(
+    firehose_stream_name: &str,
+    deployment_name: &str,
+) -> anyhow::Result<()> {
+    let prefix = format!("customer-audit-logs-{deployment_name}");
+    anyhow::ensure!(
+        firehose_stream_name.starts_with(&prefix),
+        ErrorMetadata::bad_request(
+            "InvalidAuditLogFirehoseStreamName",
+            format!(
+                "Expected audit log firehose stream name to start with \"{prefix}\" but got \
+                 {firehose_stream_name}"
+            ),
+        ),
+    );
+    Ok(())
 }
 
 pub struct AuditLogConfigModel<'a, RT: Runtime> {
@@ -86,8 +105,12 @@ impl<'a, RT: Runtime> AuditLogConfigModel<'a, RT> {
     /// needed.
     pub async fn set_firehose_stream_name(
         &mut self,
+        deployment_name: &str,
         firehose_stream_name: Option<String>,
     ) -> anyhow::Result<()> {
+        if let Some(name) = &firehose_stream_name {
+            validate_audit_log_firehose_stream_name(name, deployment_name)?;
+        }
         let id = self.get_or_create().await?;
         let value = firehose_stream_name
             .map(ConvexValue::try_from)

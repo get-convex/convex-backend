@@ -21,6 +21,7 @@ use common::{
 };
 use errors::ErrorMetadata;
 use log_streaming::LogManagerClient;
+use model::audit_log_config::validate_audit_log_firehose_stream_name;
 
 /// AuditLogClient implementation that forwards audit logs to log streams.
 #[derive(Clone)]
@@ -39,14 +40,7 @@ impl AuditLogClient {
     ) -> anyhow::Result<Self> {
         let is_dev_deployment = Arc::new(AtomicBool::new(is_dev_deployment));
         let firehose_client = if let Some(firehose_name) = firehose_stream_name {
-            let prefix = format!("customer-audit-logs-{deployment_name}");
-            anyhow::ensure!(
-                firehose_name.starts_with(&prefix),
-                format!(
-                    "Expected audit log firehose stream name to start with \"{prefix}\" but got \
-                     {firehose_name}"
-                )
-            );
+            validate_audit_log_firehose_stream_name(&firehose_name, deployment_name)?;
             Some(Arc::new(AuditLogFirehoseClient::new(firehose_name).await?))
         } else {
             None
