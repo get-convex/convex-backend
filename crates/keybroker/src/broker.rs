@@ -725,8 +725,11 @@ impl fmt::Debug for AdminIdentity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}/{:?}/{}",
-            self.instance_name, self.principal, self.key
+            "{}/{:?}/{}/{:?}",
+            self.instance_name,
+            self.principal,
+            self.key,
+            self.allowed_ops()
         )
     }
 }
