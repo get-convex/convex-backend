@@ -53,12 +53,10 @@ import { attemptSetupAiFiles } from "../aiFiles/index.js";
 export async function handleAnonymousDeployment(
   ctx: Context,
   options: {
-    ports?:
-      | {
-          cloud: number;
-          site: number;
-        }
-      | undefined;
+    ports: {
+      cloud: number | undefined;
+      site: number | undefined;
+    };
     backendVersion?: string | undefined;
     dashboardVersion?: string | undefined;
     forceUpgrade: boolean;

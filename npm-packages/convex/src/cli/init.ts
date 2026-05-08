@@ -27,7 +27,16 @@ export const init = new Command("init")
       ctx,
       deploymentSelection,
       null,
-      { prod: false, localOptions: { forceUpgrade: false } },
+      {
+        prod: false,
+        localOptions: {
+          ports: {
+            cloud: undefined,
+            site: undefined,
+          },
+          forceUpgrade: false,
+        },
+      },
     );
 
     if (credentials.deploymentFields !== null) {

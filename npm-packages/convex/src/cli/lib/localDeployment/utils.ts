@@ -56,10 +56,10 @@ export async function chooseLocalBackendPorts(
   ctx: Context,
   options?: {
     suggestedPorts?:
-      | { cloud?: number | null; site?: number | null }
+      | { cloud?: number | undefined; site?: number | undefined }
       | undefined;
     requestedPorts?:
-      | { cloud?: number | null; site?: number | null }
+      | { cloud?: number | undefined; site?: number | undefined }
       | undefined;
   },
 ): Promise<{ cloudPort: number; sitePort: number }> {
