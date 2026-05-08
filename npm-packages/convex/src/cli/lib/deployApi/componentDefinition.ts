@@ -39,7 +39,7 @@ export const componentEnvBinding = z.union([
 export const componentInstantiation = looseObject({
   name: identifier,
   path: componentDefinitionPath,
-  env: z.nullable(z.array(z.tuple([identifier, componentEnvBinding]))),
+  env: z.array(z.tuple([identifier, componentEnvBinding])).nullish(),
 });
 
 export type ComponentExports =
