@@ -1,6 +1,59 @@
 import { header } from "./common.js";
+import { parseValidator, validatorToType } from "./validator_helpers.js";
 
-export function serverCodegen({ useTypeScript }: { useTypeScript: boolean }) {
+export type EnvVarMeta = [
+  string,
+  { type: "value"; value: string; optional?: boolean | undefined },
+];
+
+const ENV_DOCSTRING = `/**
+ * Typesafe environment variables declared in \`convex.config.ts\`.
+ */`;
+
+export function serverCodegen({
+  useTypeScript,
+  envVars,
+}: {
+  useTypeScript: boolean;
+  // - undefined: env var declarations not yet known (initial codegen before
+  //   server analysis). Emits an untyped `env` stub so imports don't break.
+  // - non-empty array: emit a typed `Env` interface and typed `env` export.
+  // - empty array: no env vars declared. Omit `env` from generated code.
+  envVars: EnvVarMeta[] | undefined;
+}) {
+  const hasEnv = !!envVars && envVars.length > 0;
+  const envInterface = hasEnv ? generateEnvInterface(envVars!) : "";
+  const envDeclDTS = hasEnv
+    ? `
+${ENV_DOCSTRING}
+export declare const env: Env;
+`
+    : envVars === undefined
+      ? `
+export declare const env: Record<string, string | undefined>;
+`
+      : "";
+  const envDeclTS = hasEnv
+    ? `
+${ENV_DOCSTRING}
+export const env: Env = process.env as unknown as Env;
+`
+    : envVars === undefined
+      ? `
+export const env: Record<string, string | undefined> = process.env as unknown as Record<string, string | undefined>;
+`
+      : "";
+  const envDeclJS = hasEnv
+    ? `
+${ENV_DOCSTRING}
+export const env = process.env;
+`
+    : envVars === undefined
+      ? `
+export const env = process.env;
+`
+      : "";
+
   if (!useTypeScript) {
     // Generate separate .js and .d.ts files
     const serverDTS = `
@@ -19,6 +72,7 @@ export function serverCodegen({ useTypeScript }: { useTypeScript: boolean }) {
       GenericDatabaseWriter,
     } from "convex/server";
     import type { DataModel } from "./dataModel.js";
+    ${envInterface}
 
     /**
      * Define a query in this Convex app's public API.
@@ -93,7 +147,7 @@ export function serverCodegen({ useTypeScript }: { useTypeScript: boolean }) {
      * @returns The wrapped function. Import this function from \`convex/http.js\` and route it to hook it up.
      */
     export declare const httpAction: HttpActionBuilder;
-
+${envDeclDTS}
     /**
      * A set of services for use within Convex query functions.
      *
@@ -228,6 +282,7 @@ export function serverCodegen({ useTypeScript }: { useTypeScript: boolean }) {
      * @returns The wrapped function. Import this function from \`convex/http.js\` and route it to hook it up.
      */
     export const httpAction = httpActionGeneric;
+${envDeclJS}
     `;
 
     return {
@@ -260,6 +315,7 @@ import type {
   GenericDatabaseWriter,
 } from "convex/server";
 import type { DataModel } from "./dataModel.js";
+${envInterface}
 
 /**
  * Define a query in this Convex app's public API.
@@ -334,7 +390,7 @@ export const internalAction: ActionBuilder<DataModel, "internal"> = internalActi
  * @returns The wrapped function. Import this function from \`convex/http.js\` and route it to hook it up.
  */
 export const httpAction: HttpActionBuilder = httpActionGeneric;
-
+${envDeclTS}
 /**
  * A set of services for use within Convex query functions.
  *
@@ -386,4 +442,21 @@ export type DatabaseWriter = GenericDatabaseWriter<DataModel>;`;
       TS: serverTS,
     };
   }
+}
+
+export function generateEnvInterface(envVars: EnvVarMeta[]): string {
+  const lines: string[] = [];
+  for (const [name, decl] of envVars) {
+    const parsed = parseValidator(decl.value);
+    let tsType = parsed ? validatorToType(parsed, false) : "unknown";
+    if (decl.optional) {
+      tsType += " | undefined";
+    }
+    lines.push(`  readonly ${name}: ${tsType};`);
+  }
+  return `
+${ENV_DOCSTRING}
+type Env = {
+${lines.join("\n")}
+};`;
 }

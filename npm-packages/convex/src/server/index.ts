@@ -187,6 +187,10 @@ export {
   componentsGeneric,
   createFunctionHandle,
   type AnyChildComponents,
+  type EnvDefinition,
+  type EnvFromDefinition,
+  type EnvFromAppDefinition,
+  type AppDefinition,
 } from "./components/index.js";
 /**
  * @internal

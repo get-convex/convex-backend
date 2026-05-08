@@ -704,6 +704,10 @@
       "projectFolder": "tests/component-tests/projects/http_no_prefix_mounting"
     },
     {
+      "packageName": "component-tests-env-vars",
+      "projectFolder": "tests/component-tests/projects/env_vars"
+    },
+    {
       "packageName": "scenario-runner",
       "projectFolder": "scenario-runner"
     },

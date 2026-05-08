@@ -1,3 +1,7 @@
+// Mirrors Rust's SerializedComponentArgumentValidator.
+// The `value` field is a JSON-serialized validator.
+type SerializedValidator = { type: "value"; value: string };
+
 // These reflect server types.
 export type ComponentDefinitionExport = {
   name: string;
@@ -6,7 +10,6 @@ export type ComponentDefinitionExport = {
   definitionType: {
     type: "childComponent";
     name: string;
-    args: [string, { type: "value"; value: string }][];
   };
   childComponents: [];
   exports: { type: "branch"; branch: [] };
@@ -25,7 +28,8 @@ type ComponentInstantiation = {
   name: string;
   // This is a ComponentPath.
   path: string;
-  args: [string, { type: "value"; value: string }][];
+  args: [string, { type: "value"; value: string }][] | null;
+  env: [string, { type: "value"; value: string }][] | null;
 };
 
 export type HttpMount = string;
@@ -42,6 +46,7 @@ export type ComponentDefinitionAnalysis = {
   childComponents: ComponentInstantiation[];
   httpMounts: Record<string, HttpMount>;
   exports: ComponentExport;
+  envVars?: [string, SerializedValidator & { optional?: boolean }][];
 };
 export type AppDefinitionAnalysis = {
   definitionType: AppDefinitionType;
@@ -51,4 +56,5 @@ export type AppDefinitionAnalysis = {
   childComponents: ComponentInstantiation[];
   httpMounts: Record<string, HttpMount>;
   exports: ComponentExport;
+  envVars?: [string, SerializedValidator & { optional?: boolean }][];
 };

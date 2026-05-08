@@ -13,7 +13,7 @@ import {
   staticDataModelTS,
 } from "../codegen_templates/dataModel.js";
 import { readmeCodegen } from "../codegen_templates/readme.js";
-import { serverCodegen } from "../codegen_templates/server.js";
+import { serverCodegen, EnvVarMeta } from "../codegen_templates/server.js";
 import { tsconfigCodegen } from "../codegen_templates/tsconfig.js";
 import { Context } from "../../bundler/context.js";
 import {
@@ -30,7 +30,10 @@ import {
 } from "./config.js";
 import { recursivelyDelete } from "./fsUtils.js";
 import { componentServerTS } from "../codegen_templates/component_server.js";
-import { ComponentDirectory } from "./components/definition/directoryStructure.js";
+import {
+  ComponentDirectory,
+  toComponentDefinitionPath,
+} from "./components/definition/directoryStructure.js";
 import { StartPushResponse } from "./deployApi/startPush.js";
 import {
   componentApiDTS,
@@ -178,6 +181,7 @@ export async function doCodegen(
       tmpDir,
       codegenDir,
       useTypeScript,
+      undefined,
       opts,
     );
     writtenFiles.push(...serverFiles);
@@ -267,6 +271,7 @@ export async function doInitialComponentCodegen(
     tmpDir,
     codegenDir,
     useTypeScript,
+    undefined,
     opts,
   );
   writtenFiles.push(...serverFiles);
@@ -409,14 +414,23 @@ export async function doFinalComponentCodegen(
     );
   }
 
-  // server.ts - regenerate it in final codegen for consistency, even though
-  // the stub from initial codegen would be sufficient.
+  // server.ts - regenerate it in final codegen so we can emit typed env vars.
+  const definitionPath = toComponentDefinitionPath(
+    rootComponent,
+    componentDirectory,
+  );
+  const analysis = startPushResponse.analysis[definitionPath];
+  const envVars: EnvVarMeta[] =
+    analysis?.definition.envVars && analysis.definition.envVars.length > 0
+      ? analysis.definition.envVars
+      : [];
   await writeServerFilesForComponent(
     ctx,
     componentDirectory.isRoot,
     tmpDir,
     codegenDir,
     useTypeScript,
+    envVars,
     opts,
   );
 
@@ -570,10 +584,14 @@ async function writeServerFiles(
   tmpDir: TempDir,
   codegenDir: string,
   useTypeScript: boolean,
+  envVars: EnvVarMeta[] | undefined,
   opts?: { dryRun?: boolean; debug?: boolean },
 ): Promise<string[]> {
   if (!useTypeScript) {
-    const serverContent = serverCodegen({ useTypeScript: false });
+    const serverContent = serverCodegen({
+      useTypeScript: false,
+      envVars,
+    });
     await writeFormattedFile(
       ctx,
       tmpDir,
@@ -594,7 +612,10 @@ async function writeServerFiles(
 
     return ["server.js", "server.d.ts"];
   } else {
-    const serverContent = serverCodegen({ useTypeScript: true });
+    const serverContent = serverCodegen({
+      useTypeScript: true,
+      envVars,
+    });
     await writeFormattedFile(
       ctx,
       tmpDir,
@@ -616,10 +637,11 @@ async function writeComponentServerFile(
   ctx: Context,
   tmpDir: TempDir,
   codegenDir: string,
+  envVars: EnvVarMeta[] | undefined,
   opts?: { dryRun?: boolean; debug?: boolean },
 ): Promise<string[]> {
   const serverTSPath = path.join(codegenDir, "server.ts");
-  const serverTSContents = componentServerTS(false);
+  const serverTSContents = componentServerTS(false, envVars);
   await writeFormattedFile(
     ctx,
     tmpDir,
@@ -643,12 +665,26 @@ async function writeServerFilesForComponent(
   tmpDir: TempDir,
   codegenDir: string,
   useTypeScript: boolean,
+  envVars: EnvVarMeta[] | undefined,
   opts?: { dryRun?: boolean; debug?: boolean },
 ): Promise<string[]> {
   if (isRoot) {
-    return await writeServerFiles(ctx, tmpDir, codegenDir, useTypeScript, opts);
+    return await writeServerFiles(
+      ctx,
+      tmpDir,
+      codegenDir,
+      useTypeScript,
+      envVars,
+      opts,
+    );
   } else {
-    return await writeComponentServerFile(ctx, tmpDir, codegenDir, opts);
+    return await writeComponentServerFile(
+      ctx,
+      tmpDir,
+      codegenDir,
+      envVars,
+      opts,
+    );
   }
 }
 
@@ -658,14 +694,26 @@ async function doInitialComponentServerCodegen(
   tmpDir: TempDir,
   codegenDir: string,
   useTypeScript: boolean,
+  envVars: EnvVarMeta[] | undefined,
   opts?: { dryRun?: boolean; debug?: boolean },
 ) {
+  // Don't write our stub if the file already exists, since it may have
+  // better type information from `doFinalComponentCodegen` (e.g. env vars).
+  const serverFilename = useTypeScript ? "server.ts" : "server.js";
+  if (ctx.fs.exists(path.join(codegenDir, serverFilename))) {
+    const filenames = [serverFilename];
+    if (!useTypeScript) {
+      filenames.push("server.d.ts");
+    }
+    return filenames;
+  }
   return await writeServerFilesForComponent(
     ctx,
     isRoot,
     tmpDir,
     codegenDir,
     useTypeScript,
+    envVars,
     opts,
   );
 }
