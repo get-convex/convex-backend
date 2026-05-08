@@ -182,10 +182,11 @@ impl<RT: Runtime> Application<RT> {
             app_functions,
         } = self.evaluate_push_contents(config).await?;
 
+        let skip_index_diff = config.dry_run || config.for_codegen;
         let mut schema_change = self
-            .handle_schema_change_in_start_push(&app, &evaluated_components, config.dry_run)
+            .handle_schema_change_in_start_push(&app, &evaluated_components, skip_index_diff)
             .await?;
-        if config.dry_run {
+        if skip_index_diff {
             // Compute index diffs in a throwaway transaction so they're returned in
             // the response but not committed as pending indexes.
             let dry_run_schema_change = self
