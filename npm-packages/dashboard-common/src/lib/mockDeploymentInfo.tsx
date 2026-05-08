@@ -72,6 +72,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   }),
   useIsProtectedDeployment: () => false,
   useHasProjectAdminPermissions: () => true,
+  useCustomRolePermission: () => true,
   useIsOperationAllowed: () => true,
   useIsDeploymentPaused: () => false,
   useProjectEnvironmentVariables: () => ({ configs: [] }),

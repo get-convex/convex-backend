@@ -94,6 +94,27 @@ export function useUpdateProjectRoles(teamId?: number) {
   });
 }
 
+export function useMyCustomRoles(teamId?: number) {
+  const profile = useProfile();
+  const members = useTeamMembers(teamId);
+  const myRole = members?.find((m) => m.id === profile?.id)?.role;
+  // Built-in admin/developer members have no custom-role statements to
+  // evaluate, so skip the network round-trip and synthesize the response
+  // shape callers expect.
+  const skipFetch = myRole !== undefined && myRole !== "custom";
+  const { data } = useBBQuery({
+    path: `/teams/{team_id}/list_my_custom_roles`,
+    pathParams: {
+      // Empty path params pause the query in `useBBQuery`.
+      team_id: skipFetch ? "" : teamId?.toString() || "",
+    },
+  });
+  if (skipFetch) {
+    return { role: myRole, customRoles: [] };
+  }
+  return data;
+}
+
 export function useListCustomRoles(teamId?: number) {
   return useManagementApiQuery({
     path: `/teams/{team_id}/list_custom_roles`,

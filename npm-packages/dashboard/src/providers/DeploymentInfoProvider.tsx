@@ -18,7 +18,16 @@ import { LocalDeploymentDisconnectOverlay } from "@common/features/disconnectOve
 import { CloudDisconnectOverlay } from "@common/features/disconnectOverlay/CloudDisconnectOverlay";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
+import { useHasProjectAdminPermissions, useMyCustomRoles } from "api/roles";
+import {
+  actionResourceKind,
+  evaluateRoles,
+  type ConcreteResource,
+} from "lib/permissions";
+import type {
+  PlatformDeploymentResponse,
+  RoleStatementAction,
+} from "@convex-dev/platform/managementApi";
 import { useCurrentUsageBanner } from "components/header/UsageBanner";
 import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { CloudImport } from "elements/BackupIdentifier";
@@ -56,6 +65,81 @@ import { deploymentAuth } from "lib/deploymentAuth";
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function buildResourceForAction(
+  action: RoleStatementAction,
+  project: { id: number; slug: string } | undefined,
+  deployment: PlatformDeploymentResponse | undefined,
+): ConcreteResource | null {
+  const kind = actionResourceKind(action);
+  switch (kind) {
+    case "team":
+    case "billing":
+    case "sso":
+    case "oauthApplication":
+    case "integration":
+    case "customRole":
+      return { segments: [{ kind }] };
+    case "project":
+      if (!project) return null;
+      return {
+        segments: [{ kind: "project", id: project.id, slug: project.slug }],
+      };
+    case "defaultEnvironmentVariable":
+      if (!project) return null;
+      return {
+        segments: [
+          { kind: "project", id: project.id, slug: project.slug },
+          { kind: "defaultEnvironmentVariable" },
+        ],
+      };
+    case "deployment":
+      if (!project || !deployment || deployment.kind !== "cloud") return null;
+      return {
+        segments: [
+          { kind: "project", id: project.id, slug: project.slug },
+          {
+            kind: "deployment",
+            id: deployment.id,
+            deploymentType: deployment.deploymentType,
+            creator: deployment.creator ?? null,
+          },
+        ],
+      };
+    case "member":
+    case "token":
+      // Member- and token-target actions need IDs the page context
+      // doesn't expose; the server returns CustomRoleActionNotImplemented
+      // for these today. Deny in the UI to match.
+      return null;
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function useCustomRolePermissionImpl(action: RoleStatementAction): boolean {
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const deployment = useCurrentDeployment();
+  const myRoles = useMyCustomRoles(team?.id);
+  // Local deployments aren't subject to custom-role enforcement (they're
+  // single-user dev environments), so don't gate UI on them.
+  if (deployment?.kind === "local") {
+    return true;
+  }
+  if (!myRoles) {
+    // While the role list is loading, default to deny so a gated feature
+    // doesn't flicker visible-then-hidden on the first render.
+    return false;
+  }
+  const resource = buildResourceForAction(action, project, deployment);
+  if (!resource) {
+    return false;
+  }
+  return evaluateRoles(myRoles.customRoles, action, resource) === "allowed";
+}
 
 function DeploymentErrorBoundary({
   children,
@@ -176,6 +260,7 @@ export function DeploymentInfoProvider({
         useTeamMembers,
         useTeamEntitlements,
         useHasProjectAdminPermissions,
+        useCustomRolePermission: useCustomRolePermissionImpl,
         useIsOperationAllowed: () => true,
         useProjectEnvironmentVariables,
         useIsDeploymentPaused,

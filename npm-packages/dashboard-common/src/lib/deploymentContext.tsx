@@ -15,6 +15,7 @@ import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 export const PROVISION_DEV_PAGE_NAME = "development";
@@ -94,6 +95,21 @@ export type DeploymentInfo = (
     refreshInterval?: number,
   ): { configs: ProjectEnvVarConfig[] } | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
+  /**
+   * Check whether the current member's *custom roles* allow `action` on
+   * the resource implied by the current page context (team / project /
+   * deployment derived from the URL). Returns `true` for local
+   * deployments since they aren't subject to custom-role enforcement,
+   * and `false` for built-in admin/developer members because they have
+   * no custom roles attached — combine with `useIsCurrentMemberTeamAdmin`
+   * (or equivalent built-in role checks) at the call site if you also
+   * need to grant admins.
+   *
+   * Mirrors the server-side eval in
+   * `crates_private/big_brain_lib/src/roles/eval.rs`. Use only for UI
+   * gating — the server is the source of truth.
+   */
+  useCustomRolePermission(action: RoleStatementAction): boolean;
   /**
    * Check whether the current admin key is allowed to perform a specific
    * deployment operation (e.g. "ViewData", "WriteData").

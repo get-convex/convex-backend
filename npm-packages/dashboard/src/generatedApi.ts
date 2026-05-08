@@ -564,6 +564,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_my_custom_roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list my custom roles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployments/{deployment_id}/request_cloud_backup": {
         parameters: {
             query?: never;
@@ -2049,6 +2065,16 @@ export interface components {
         };
         /** Format: int64 */
         CustomRoleId: number;
+        CustomRoleResponse: {
+            /** Format: int64 */
+            createTime: number;
+            creator?: null | components["schemas"]["MemberId"];
+            description?: string | null;
+            id: components["schemas"]["CustomRoleId"];
+            name: string;
+            statements: components["schemas"]["RoleStatement"][];
+            teamId: components["schemas"]["TeamId"];
+        };
         DeleteAccessTokenArgs: {
             name: components["schemas"]["DeviceName"];
         };
@@ -2324,6 +2350,13 @@ export interface components {
         IsDefaultDeployment: boolean;
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
+        };
+        ListMyCustomRolesResponse: {
+            customRoles: components["schemas"]["CustomRoleResponse"][];
+            /** @description The team member's built-in role. When `custom`, `customRoles` lists
+             *     the role definitions whose statements determine what the member can
+             *     do; for `admin`/`developer` it is empty. */
+            role: components["schemas"]["Role"];
         };
         ManagedBy: "vercel" | {
             oauthApp: string;
@@ -2617,6 +2650,30 @@ export interface components {
         };
         /** @enum {string} */
         Role: "admin" | "developer" | "custom";
+        /** @description A single permission rule within a custom role. */
+        RoleStatement: {
+            actions: components["schemas"]["RoleStatementActions"];
+            effect: components["schemas"]["RoleStatementEffect"];
+            /**
+             * @description Resource path like `project:*`, `project:slug=my-app`, or
+             *     `project:*:deployment:type=prod`.
+             * @example project:*
+             */
+            resource: string;
+        };
+        /**
+         * @description An action that can be allowed or denied by a custom role statement.
+         * @enum {string}
+         */
+        RoleStatementAction: "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "viewProjects" | "updateMemberProjectRole" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "viewProjectEnvironmentVariables" | "createDeployment" | "transferDeployment" | "receiveDeployment" | "updateDeploymentReference" | "updateDeploymentDashboardEditConfirmation" | "updateDeploymentExpiresAt" | "updateDeploymentSendLogsToClient" | "updateDeploymentClass" | "updateDeploymentIsDefault" | "updateDeploymentType" | "deleteDeployment" | "viewDeployments" | "viewDeploymentIntegrations" | "writeDeploymentIntegrations" | "createCustomDomain" | "deleteCustomDomain" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "setSpendingLimit" | "viewBillingDetails" | "viewInvoices" | "viewTeamAuditLog" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessTokens" | "createProjectAccessToken" | "updateProjectAccessToken" | "deleteProjectAccessToken" | "viewProjectAccessTokens" | "createDeploymentAccessToken" | "updateDeploymentAccessToken" | "deleteDeploymentAccessToken" | "viewDeploymentAccessTokens" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "viewOAuthApplications" | "generateOAuthClientSecret" | "viewUsage" | "viewInsights" | "createBackups" | "importBackups" | "configurePeriodicBackups" | "disablePeriodicBackups" | "deleteBackups" | "viewBackups" | "applyReferralCode" | "enableSSO" | "disableSSO" | "updateSSO" | "viewSSO" | "viewCustomRoles" | "viewTeamIntegrations" | "createTeamIntegrations" | "updateTeamIntegrations" | "deleteTeamIntegrations" | "deploy" | "viewEnvironmentVariables" | "writeEnvironmentVariables" | "pauseDeployment" | "unpauseDeployment" | "viewLogs" | "viewMetrics" | "viewData" | "writeData" | "downloadBackups" | "actAsUser" | "runInternalQueries" | "runInternalMutations" | "runInternalActions" | "runTestQuery" | "viewAuditLog";
+        RoleStatementActions: components["schemas"]["RoleStatementWildcardAction"] | components["schemas"]["RoleStatementAction"][];
+        /**
+         * @description Whether a rule grants or revokes access.
+         * @enum {string}
+         */
+        RoleStatementEffect: "allow" | "deny";
+        /** @enum {string} */
+        RoleStatementWildcardAction: "*";
         /** @enum {string} */
         SSODomainState: "verified" | "pending" | "failed" | "legacyVerified";
         SSOOrganizationDomain: {
@@ -2903,6 +2960,7 @@ export type CreateProjectResponse = components['schemas']['CreateProjectResponse
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
 export type CustomRoleId = components['schemas']['CustomRoleId'];
+export type CustomRoleResponse = components['schemas']['CustomRoleResponse'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
 export type DeleteProjectEnvironmentRequest = components['schemas']['DeleteProjectEnvironmentRequest'];
 export type DeleteProjectEnvironmentResponse = components['schemas']['DeleteProjectEnvironmentResponse'];
@@ -2948,6 +3006,7 @@ export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
+export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
 export type MemberEmailId = components['schemas']['MemberEmailId'];
@@ -2992,6 +3051,11 @@ export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RequestCloudBackupArgs = components['schemas']['RequestCloudBackupArgs'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
+export type RoleStatement = components['schemas']['RoleStatement'];
+export type RoleStatementAction = components['schemas']['RoleStatementAction'];
+export type RoleStatementActions = components['schemas']['RoleStatementActions'];
+export type RoleStatementEffect = components['schemas']['RoleStatementEffect'];
+export type RoleStatementWildcardAction = components['schemas']['RoleStatementWildcardAction'];
 export type SsoDomainState = components['schemas']['SSODomainState'];
 export type SsoOrganizationDomain = components['schemas']['SSOOrganizationDomain'];
 export type SsoOrganizationResponse = components['schemas']['SSOOrganizationResponse'];
@@ -3849,6 +3913,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "list my custom roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMyCustomRolesResponse"];
+                };
             };
         };
     };
