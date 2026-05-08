@@ -1,0 +1,16 @@
+{
+  "name": "env-vars-playground",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tsc -p convex/tsconfig.json",
+    "dev": "convex dev"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "prettier": "3.8.1"
+  },
+  "devDependencies": {
+    "typescript": "~5.0.3",
+    "@types/node": "^18.17.0"
+  }
+}

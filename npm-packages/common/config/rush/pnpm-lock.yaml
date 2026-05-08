@@ -3878,6 +3878,22 @@ importers:
         specifier: ^1.52.0
         version: 1.59.1
 
+  ../../private-demos/env-vars-playground:
+    dependencies:
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+      prettier:
+        specifier: 3.8.1
+        version: 3.8.1
+    devDependencies:
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.130
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+
   ../../private-demos/http:
     dependencies:
       convex:
