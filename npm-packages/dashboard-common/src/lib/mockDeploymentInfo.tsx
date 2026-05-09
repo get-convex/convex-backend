@@ -24,7 +24,10 @@ export const mockDeploymentInfo: DeploymentInfo = {
   }),
   useLogDeploymentEvent: () => () => {},
   workOSOperations: {
-    useDeploymentWorkOSEnvironment: () => undefined,
+    useDeploymentWorkOSEnvironment: () => ({
+      data: undefined,
+      error: undefined,
+    }),
     useTeamWorkOSIntegration: () => undefined,
     useWorkOSTeamHealth: () => undefined,
     useWorkOSEnvironmentHealth: () => ({ data: undefined, error: undefined }),
@@ -69,6 +72,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   }),
   useIsProtectedDeployment: () => false,
   useHasProjectAdminPermissions: () => true,
+  useCustomRolePermission: () => true,
   useIsOperationAllowed: () => true,
   useIsDeploymentPaused: () => false,
   useProjectEnvironmentVariables: () => ({ configs: [] }),
@@ -104,5 +108,4 @@ export const mockDeploymentInfo: DeploymentInfo = {
   isSelfHosted: true,
   workosIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
-  showScheduledJobArgsInComponents: false,
 };

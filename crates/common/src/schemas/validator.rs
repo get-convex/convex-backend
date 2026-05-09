@@ -389,6 +389,19 @@ impl Validator {
         }
     }
 
+    /// Accepts only string-backed validators: `v.string()`, string
+    /// `v.literal("...")`, and `v.union(...)` of those (with arbitrary
+    /// nesting). Used to restrict component env-var declarations, since env
+    /// var values stay string-backed on the wire and in storage.
+    pub fn is_string_like_validator(&self) -> bool {
+        match self {
+            Validator::String => true,
+            Validator::Literal(LiteralValidator::String(_)) => true,
+            Validator::Union(cases) => cases.iter().all(|c| c.is_string_like_validator()),
+            _ => false,
+        }
+    }
+
     /// Is this something like `v.union(v.literal("foo"), v.literal("bar"))`
     /// These need to be treated differently if they are the key type for
     /// Validator::Record

@@ -9,7 +9,7 @@ import {
 } from "web-streams-polyfill";
 import { performAsyncOp, performOp } from "./syscall";
 
-export { ReadableStream };
+export { ReadableStream, TransformStream };
 
 export const constructStreamId = (stream: ReadableStream | null): string => {
   const streamId = performOp("stream/create");

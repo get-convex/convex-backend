@@ -1,5 +1,10 @@
 import { useCurrentTeam, useTeamMembers } from "api/teams";
-import { useBBMutation, useBBQuery } from "./api";
+import {
+  useBBMutation,
+  useBBQuery,
+  useManagementApiMutation,
+  useManagementApiQuery,
+} from "./api";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
 
@@ -89,13 +94,87 @@ export function useUpdateProjectRoles(teamId?: number) {
   });
 }
 
-export function useUpdateTeamMemberRole(teamId: number) {
-  return useBBMutation({
-    path: `/teams/{team_id}/update_member_role`,
+export function useMyCustomRoles(teamId?: number) {
+  const profile = useProfile();
+  const members = useTeamMembers(teamId);
+  const myRole = members?.find((m) => m.id === profile?.id)?.role;
+  // Built-in admin/developer members have no custom-role statements to
+  // evaluate, so skip the network round-trip and synthesize the response
+  // shape callers expect.
+  const skipFetch = myRole !== undefined && myRole !== "custom";
+  const { data } = useBBQuery({
+    path: `/teams/{team_id}/list_my_custom_roles`,
     pathParams: {
-      team_id: teamId.toString(),
+      // Empty path params pause the query in `useBBQuery`.
+      team_id: skipFetch ? "" : teamId?.toString() || "",
     },
-    mutateKey: `/teams/{team_id}/members`,
+  });
+  if (skipFetch) {
+    return { role: myRole, customRoles: [] };
+  }
+  return data;
+}
+
+export function useListCustomRoles(teamId?: number) {
+  return useManagementApiQuery({
+    path: `/teams/{team_id}/list_custom_roles`,
+    pathParams: {
+      team_id: teamId ?? 0,
+    },
+  });
+}
+
+export function useCreateCustomRole(teamId?: number) {
+  return useManagementApiMutation({
+    path: `/teams/{team_id}/create_custom_role`,
+    pathParams: {
+      team_id: teamId ?? 0,
+    },
+    mutateKey: `/teams/{team_id}/list_custom_roles`,
+    mutatePathParams: {
+      team_id: teamId ?? 0,
+    },
+    successToast: "Custom role created.",
+    toastOnError: false,
+  });
+}
+
+export function useUpdateCustomRole(teamId?: number) {
+  return useManagementApiMutation({
+    path: `/teams/{team_id}/update_custom_role`,
+    pathParams: {
+      team_id: teamId ?? 0,
+    },
+    mutateKey: `/teams/{team_id}/list_custom_roles`,
+    mutatePathParams: {
+      team_id: teamId ?? 0,
+    },
+    successToast: "Custom role updated.",
+    toastOnError: false,
+  });
+}
+
+export function useDeleteCustomRole(teamId?: number) {
+  return useManagementApiMutation({
+    path: `/teams/{team_id}/delete_custom_role`,
+    pathParams: {
+      team_id: teamId ?? 0,
+    },
+    mutateKey: `/teams/{team_id}/list_custom_roles`,
+    mutatePathParams: {
+      team_id: teamId ?? 0,
+    },
+    successToast: "Custom role deleted.",
+  });
+}
+
+export function useUpdateTeamMemberRole(teamId: number) {
+  return useManagementApiMutation({
+    path: `/teams/{team_id}/update_team_member_role`,
+    pathParams: {
+      team_id: teamId,
+    },
+    mutateKey: `/teams/{team_id}/list_members`,
     mutatePathParams: {
       team_id: teamId.toString(),
     },

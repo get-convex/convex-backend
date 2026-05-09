@@ -9,10 +9,8 @@ import { LoadingTransition } from "@ui/Loading";
 
 export function IntegrationsView({
   onAddedIntegration,
-  showPostHogIntegrations,
 }: {
   onAddedIntegration?: (kind: string) => void;
-  showPostHogIntegrations?: boolean;
 }) {
   const {
     useCurrentTeam,
@@ -29,7 +27,7 @@ export function IntegrationsView({
     udfs.listConfiguredSinks.default,
     canViewIntegrations ? undefined : "skip",
   );
-  const workosData = workOSOperations.useDeploymentWorkOSEnvironment(
+  const { data: workosData } = workOSOperations.useDeploymentWorkOSEnvironment(
     deployment?.name,
   );
 
@@ -46,7 +44,6 @@ export function IntegrationsView({
               integrations={integrations}
               workosData={workosData}
               onAddedIntegration={onAddedIntegration}
-              showPostHogIntegrations={showPostHogIntegrations}
             />
           )}
         </LoadingTransition>

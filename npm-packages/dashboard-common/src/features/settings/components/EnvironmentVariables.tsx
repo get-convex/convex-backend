@@ -543,7 +543,7 @@ function EnvironmentVariableName<T extends BaseEnvironmentVariable>({
 const EnvVarName = z
   .string()
   .min(1, "Environment variable name is required.")
-  .max(40, "Environment variable name cannot exceed 40 characters.")
+  .max(256, "Environment variable name cannot exceed 256 characters.")
   .refine(
     (n) => /^[a-zA-Z_]+[a-zA-Z0-9_]*$/.test(n),
     "Name must start with a letter and only contain letters, numbers, and underscores.",

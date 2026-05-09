@@ -97,7 +97,7 @@
      * These are for private-demos/nextjs-15-app to closely match
      * npx create-next-app@latest next-15-app
      */
-    "next": ["^15.5.15", "^16.2.3"],
+    "next": ["^15.5.18", "^16.2.3"],
     "react": ["^18.3.1", "^19.2.4"],
     "react-dom": ["^18.3.1", "^19.2.4"],
     //"typescript": ["^5"],

@@ -11,7 +11,11 @@ import { useTeamOrbSubscription } from "api/billing";
 import { TeamResponse, CreateInvitationArgs, TeamMember } from "generatedApi";
 import * as Yup from "yup";
 import { Link } from "@ui/Link";
-import { roleOptions } from "./TeamMemberListItem";
+
+const roleOptions = [
+  { label: "Admin", value: "admin" as const },
+  { label: "Developer", value: "developer" as const },
+];
 
 export type InviteMemberFormProps = {
   team: TeamResponse;

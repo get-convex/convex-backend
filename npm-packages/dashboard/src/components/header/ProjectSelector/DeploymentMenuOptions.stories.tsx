@@ -272,6 +272,7 @@ export const NonDefaultDev: Story = {
         name: "Jane Smith",
         email: "jane@example.com",
         role: "developer",
+        customRoles: [],
       },
     ]);
   },
@@ -328,6 +329,7 @@ export const NonDefaultDevAndDefaultDev: Story = {
         name: "Jane Smith",
         email: "jane@example.com",
         role: "developer",
+        customRoles: [],
       },
     ]);
   },

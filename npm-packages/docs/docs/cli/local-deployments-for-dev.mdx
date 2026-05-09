@@ -51,13 +51,18 @@ local deployments with your account.
 To use a local deployment for an existing project, run:
 
 ```sh
-npx convex dev --local --once
+npx convex deployment select local
 ```
 
-You'll also always be given the option for a local deployment if you run
-`npx convex dev --configure`. Other flows may assume you want a cloud deployment
-in some situations, for example when connecting to a project for which you
-already have a cloud development deployment.
+The CLI commands you run next (for instance `npx convex dev`)
+will target your local deployment.
+
+If you want to go back to your personal cloud dev deployment, run:
+
+```sh
+npx convex deployment select dev
+```
+
 
 ## Local deployments vs. production
 
@@ -71,19 +76,6 @@ on the Convex cloud. Learn more about deploying to production
 
 Alternatively, you can self-host a production deployment using the
 [open source convex-backend repo](https://github.com/get-convex/convex-backend).
-
-### Disabling
-
-To stop using local developments for a project, run the following:
-
-```sh
-npx convex disable-local-deployments
-```
-
-Remember your cloud dev deployment and each local dev deployment are completely
-separate, so contain different data. When switching between deployments you may
-wish to [export and re-import](/database/import-export/import-export.mdx) the
-data to keep using it.
 
 ## Limitations
 

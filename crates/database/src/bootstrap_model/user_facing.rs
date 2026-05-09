@@ -282,6 +282,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             document.size(),
             &self.tx.usage_tracker,
             &self.tx.virtual_system_mapping,
+            &self.tx.limits,
         )
     }
 }

@@ -242,6 +242,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   },
   useIsProtectedDeployment: () => false,
   useHasProjectAdminPermissions: () => true,
+  useCustomRolePermission: () => true,
   useIsOperationAllowed: () => true,
   useIsDeploymentPaused: () => {
     const deploymentState = useQuery(udfs.deploymentState.deploymentState);
@@ -251,7 +252,10 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   // no-op. don't send analytics in the self-hosted dashboard.
   useLogDeploymentEvent: () => () => {},
   workOSOperations: {
-    useDeploymentWorkOSEnvironment: () => undefined,
+    useDeploymentWorkOSEnvironment: () => ({
+      data: undefined,
+      error: undefined,
+    }),
     useTeamWorkOSIntegration: () => undefined,
     useWorkOSTeamHealth: () => undefined,
     useWorkOSEnvironmentHealth: () => ({ data: undefined, error: undefined }),
@@ -308,7 +312,6 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   isSelfHosted: true,
   workosIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
-  showScheduledJobArgsInComponents: false,
 };
 
 function DeploymentInfoProvider({

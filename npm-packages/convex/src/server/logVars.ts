@@ -9,9 +9,6 @@ export type LogVar =
   | typeof USER_AGENT
   | typeof NOW;
 
-/**
- * @internal
- */
 export const varNames: Record<symbol, string> = {
   [REQUEST_ID]: "requestId",
   [IP]: "ip",

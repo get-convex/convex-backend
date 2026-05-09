@@ -40,7 +40,7 @@ const COMPONENT_TESTS_DIR: &str = "../../npm-packages/tests/component-tests";
 const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: [&str; 3] = [".rush", "node_modules", "projects"];
 /// Directory where test projects that use components live.
 const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/tests/component-tests/projects";
-const COMPONENT_TESTS_PROJECTS: [&str; 10] = [
+const COMPONENT_TESTS_PROJECTS: [&str; 11] = [
     "basic",
     "with-schema",
     "schema_with_index",
@@ -51,10 +51,12 @@ const COMPONENT_TESTS_PROJECTS: [&str; 10] = [
     "http_prefix_and_mount_routing",
     "http_legacy_routes",
     "http_no_prefix_mounting",
+    "env_vars",
 ];
 /// Components in `component-tests` directory that are used in projects.
-const COMPONENTS: [&str; 5] = [
+const COMPONENTS: [&str; 6] = [
     "component",
+    "componentWithEnv",
     "envVars",
     "errors",
     "httpComponent",
@@ -293,11 +295,15 @@ fn main() -> anyhow::Result<()> {
                     fs::remove_dir_all(out_path)?;
                 }
                 let suffix = path.strip_prefix(COMPONENT_TESTS_PROJECTS_DIR)?;
-                anyhow::ensure!(&COMPONENT_TESTS_PROJECTS.contains(
-                    &suffix
-                        .to_str()
-                        .context("Failed to convert suffix to string")?
-                ));
+                anyhow::ensure!(
+                    COMPONENT_TESTS_PROJECTS.contains(
+                        &suffix
+                            .to_str()
+                            .context("Failed to convert suffix to string")?,
+                    ),
+                    "Unexpected component test project {suffix:?} (missing in \
+                     COMPONENT_TESTS_PROJECTS?)"
+                );
                 let out_with_project = out_dir.join(suffix);
                 fs::create_dir_all(&out_with_project)?;
                 write_start_push_request(

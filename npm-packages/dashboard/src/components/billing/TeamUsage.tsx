@@ -99,7 +99,6 @@ import {
   BUSINESS_GROUP_BY_OPTIONS,
   BUSINESS_DATABASE_GROUP_BY_OPTIONS,
 } from "./GroupBySelector";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { ProjectLink } from "./ProjectLink";
 import {
   useUsageTeamSummaryV2,
@@ -205,13 +204,10 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
 
   const { subscription } = useTeamOrbSubscription(team?.id);
 
-  const { usageDashboardV2 } = useLaunchDarkly();
-
   const isBusinessPlanType = subscription?.plan.planType === "CONVEX_BUSINESS";
   const hasNewBilling = subscription?.hasNewBilling ?? false;
   const [previewNewBilling, setPreviewNewBilling] = useState(false);
-  // When the V2 flag is on, use V2 for teams on new billing or previewing it
-  const useV2 = usageDashboardV2 && (hasNewBilling || previewNewBilling);
+  const useV2 = hasNewBilling || previewNewBilling;
 
   const billingPeriodRange = shownBillingPeriod
     ? { from: shownBillingPeriod.from, to: shownBillingPeriod.to }
@@ -311,73 +307,70 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
         )}
       </div>
 
-      {usageDashboardV2 &&
-        !hasNewBilling &&
-        !isBusinessPlanType &&
-        subscription && (
-          <Callout variant="hint">
-            <div className="flex w-full items-center justify-between gap-4">
-              <span>
-                Your Convex subscription pricing is changing{" "}
-                {subscription.newBillingStartDate
-                  ? `on ${new Date(subscription.newBillingStartDate + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}`
-                  : "in May 2026"}
-                .
-                <div className="mt-1 flex gap-3">
-                  <Link
-                    href="https://convex.dev/pricing"
-                    target="_blank"
-                    className="text-util-accent hover:underline dark:text-white"
-                  >
-                    Go to pricing page
-                  </Link>
-                  <Link
-                    href="https://news.convex.dev/enterprise-launch/"
-                    target="_blank"
-                    className="text-util-accent hover:underline dark:text-white"
-                  >
-                    View blog post
-                  </Link>
-                </div>
-              </span>
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- custom toggle switch */}
-              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-                <span>Preview new usage metrics</span>
-                {/* eslint-disable-next-line react/forbid-elements -- custom toggle switch, not a standard button */}
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={previewNewBilling}
-                  aria-label="Preview new usage metrics"
-                  onClick={() => {
-                    setPreviewNewBilling((prev) => !prev);
-                    if (section) {
-                      void router.push(summaryHref, undefined, {
-                        shallow: true,
-                      });
-                    }
-                  }}
-                  className={cn(
-                    "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-                    "focus-visible:outline-2 focus-visible:outline-border-selected",
-                    previewNewBilling
-                      ? "bg-util-accent"
-                      : "bg-neutral-4 dark:bg-neutral-7",
-                  )}
+      {!hasNewBilling && !isBusinessPlanType && subscription && (
+        <Callout variant="hint">
+          <div className="flex w-full items-center justify-between gap-4">
+            <span>
+              Your Convex subscription pricing is changing{" "}
+              {subscription.newBillingStartDate
+                ? `on ${new Date(subscription.newBillingStartDate + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}`
+                : "in May 2026"}
+              .
+              <div className="mt-1 flex gap-3">
+                <Link
+                  href="https://convex.dev/pricing"
+                  target="_blank"
+                  className="text-util-accent hover:underline dark:text-white"
                 >
-                  <span
-                    className={cn(
-                      "inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform",
-                      previewNewBilling
-                        ? "translate-x-[18px]"
-                        : "translate-x-[3px]",
-                    )}
-                  />
-                </button>
-              </label>
-            </div>
-          </Callout>
-        )}
+                  Go to pricing page
+                </Link>
+                <Link
+                  href="https://news.convex.dev/enterprise-launch/"
+                  target="_blank"
+                  className="text-util-accent hover:underline dark:text-white"
+                >
+                  View blog post
+                </Link>
+              </div>
+            </span>
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- custom toggle switch */}
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
+              <span>Preview new usage metrics</span>
+              {/* eslint-disable-next-line react/forbid-elements -- custom toggle switch, not a standard button */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={previewNewBilling}
+                aria-label="Preview new usage metrics"
+                onClick={() => {
+                  setPreviewNewBilling((prev) => !prev);
+                  if (section) {
+                    void router.push(summaryHref, undefined, {
+                      shallow: true,
+                    });
+                  }
+                }}
+                className={cn(
+                  "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-border-selected",
+                  previewNewBilling
+                    ? "bg-util-accent"
+                    : "bg-neutral-4 dark:bg-neutral-7",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform",
+                    previewNewBilling
+                      ? "translate-x-[18px]"
+                      : "translate-x-[3px]",
+                  )}
+                />
+              </button>
+            </label>
+          </div>
+        </Callout>
+      )}
 
       {currentBillingPeriod !== undefined && shownBillingPeriod !== null && (
         <>

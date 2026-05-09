@@ -1437,9 +1437,8 @@ export function WorkOSConfigurationForm() {
   const deployment = useCurrentDeployment();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const workosData = workOSOperations.useDeploymentWorkOSEnvironment(
-    deployment?.name,
-  );
+  const { data: workosData, error: workosError } =
+    workOSOperations.useDeploymentWorkOSEnvironment(deployment?.name);
   const teamHealthData = workOSOperations.useWorkOSTeamHealth(
     team?.id?.toString(),
   );
@@ -1455,6 +1454,21 @@ export function WorkOSConfigurationForm() {
     team && project && deployment
       ? `${deploymentsURI}/settings/environment-variables`
       : undefined;
+
+  if (workosError) {
+    const { message } = getErrorInfo(workosError);
+    return (
+      <div className="flex flex-col gap-4">
+        <Callout variant="error">
+          <p className="text-xs">
+            {message ||
+              "Failed to load WorkOS configuration. Please try again."}
+          </p>
+        </Callout>
+        <ModalFooter />
+      </div>
+    );
+  }
 
   if (!workosData || !workosEnvVars) {
     return (

@@ -50,7 +50,10 @@ use common::{
         AuthInfo,
     },
     bootstrap_model::{
-        components::handles::FunctionHandle,
+        components::{
+            definition::EnvVarValidator,
+            handles::FunctionHandle,
+        },
         index::{
             database_index::IndexedFields,
             index_validation_error,
@@ -65,6 +68,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentDefinitionPath,
         ComponentId,
         ComponentPath,
@@ -92,6 +96,7 @@ use common::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         ENABLE_INDEX_BACKFILL,
         ENV_VAR_LIMIT,
+        ENV_VAR_TOTAL_SIZE_LIMIT,
         MAX_JOBS_CANCEL_BATCH,
         MAX_USER_MODULES,
     },
@@ -124,6 +129,7 @@ use common::{
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
+        env_var_total_size,
         AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
@@ -216,6 +222,7 @@ use model::{
         AirbyteImportModel,
         AIRBYTE_PRIMARY_KEY_INDEX_DESCRIPTOR,
     },
+    audit_log_config::AuditLogConfigModel,
     auth::AuthInfoModel,
     backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
@@ -335,6 +342,7 @@ use storage::{
     Upload,
 };
 use sync_types::{
+    identifier::Identifier,
     types::SerializedArgs,
     AuthenticationToken,
     CanonicalizedModulePath,
@@ -539,6 +547,31 @@ pub struct FunctionError {
 pub enum EnvVarChange {
     Unset(EnvVarName),
     Set(EnvironmentVariable),
+}
+
+pub(crate) fn validate_env_var_values(
+    env_vars: &BTreeMap<EnvVarName, EnvVarValue>,
+    declarations: &BTreeMap<Identifier, EnvVarValidator>,
+) -> anyhow::Result<()> {
+    for (name, value) in env_vars {
+        let name_str = name.as_ref();
+        if let Ok(identifier) = name_str.parse::<Identifier>()
+            && let Some(env_var_validator) = declarations.get(&identifier)
+        {
+            env_var_validator
+                .check_provided_value(value.as_ref())
+                .map_err(|e| {
+                    ErrorMetadata::bad_request(
+                        "InvalidEnvironmentVariable",
+                        format!(
+                            "Environment variable {name_str} does not match its declared \
+                             validator: {e}"
+                        ),
+                    )
+                })?;
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -759,7 +792,17 @@ impl<RT: Runtime> Application<RT> {
         } else {
             false
         };
-        let audit_log_client = AuditLogClient::new(log_manager_client.clone(), is_dev_deployment);
+        let firehose_stream_name = AuditLogConfigModel::new(&mut tx)
+            .get()
+            .await?
+            .and_then(|c| c.firehose_stream_name.clone());
+        let audit_log_client = AuditLogClient::new(
+            log_manager_client.clone(),
+            is_dev_deployment,
+            firehose_stream_name,
+            &deployment.name,
+        )
+        .await?;
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
@@ -1621,6 +1664,48 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
         changes: Vec<EnvVarChange>,
     ) -> anyhow::Result<Vec<DeploymentAuditLogEvent>> {
+        let app_def = BootstrapComponentsModel::new(tx)
+            .load_definition_metadata(ComponentDefinitionId::Root)
+            .await?;
+
+        // Check which env vars are being deleted against required env vars.
+        let unset_names: Vec<_> = changes
+            .iter()
+            .filter_map(|c| match c {
+                EnvVarChange::Unset(name) => Some(name.to_string()),
+                EnvVarChange::Set(_) => None,
+            })
+            .collect();
+        if !unset_names.is_empty() {
+            let required_names = app_def.required_env_var_names();
+            let blocked: Vec<_> = unset_names
+                .iter()
+                .filter(|name| required_names.contains(name))
+                .cloned()
+                .collect();
+            if !blocked.is_empty() {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "RequiredEnvironmentVariable",
+                    format!(
+                        "Cannot delete required environment variables: {}. These are declared as \
+                         required in the app definition.",
+                        blocked.join(", ")
+                    )
+                ));
+            }
+        }
+
+        let set_vars: BTreeMap<EnvVarName, EnvVarValue> = changes
+            .iter()
+            .filter_map(|c| match c {
+                EnvVarChange::Set(env_var) => {
+                    Some((env_var.name().clone(), env_var.value().clone()))
+                },
+                EnvVarChange::Unset(_) => None,
+            })
+            .collect();
+        validate_env_var_values(&set_vars, &app_def.env_vars)?;
+
         let mut audit_events = vec![];
 
         let mut model = EnvironmentVariablesModel::new(tx);
@@ -1651,6 +1736,13 @@ impl<RT: Runtime> Application<RT> {
         let all_env_vars = model.get_all().await?;
 
         anyhow::ensure!(all_env_vars.len() <= *ENV_VAR_LIMIT, env_var_limit_met(),);
+        let total_size = env_var_total_size(&all_env_vars);
+        if total_size > *ENV_VAR_TOTAL_SIZE_LIMIT {
+            tracing::info!(
+                "Environment variable total size {total_size} exceeds limit {}",
+                *ENV_VAR_TOTAL_SIZE_LIMIT,
+            );
+        }
 
         Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await?;
 
@@ -1667,6 +1759,27 @@ impl<RT: Runtime> Application<RT> {
             environment_variables.len() + all_env_vars.len() <= *ENV_VAR_LIMIT,
             env_var_limit_met(),
         );
+
+        let app_def = BootstrapComponentsModel::new(tx)
+            .load_definition_metadata(ComponentDefinitionId::Root)
+            .await?;
+        let new_vars: BTreeMap<EnvVarName, EnvVarValue> = environment_variables
+            .iter()
+            .map(|ev| (ev.name().clone(), ev.value().clone()))
+            .collect();
+        validate_env_var_values(&new_vars, &app_def.env_vars)?;
+
+        let mut all_env_vars_with_new = all_env_vars;
+        for ev in &environment_variables {
+            all_env_vars_with_new.insert(ev.name().clone(), ev.value().clone());
+        }
+        let total_size = env_var_total_size(&all_env_vars_with_new);
+        if total_size > *ENV_VAR_TOTAL_SIZE_LIMIT {
+            tracing::info!(
+                "Environment variable total size {total_size} exceeds limit {}",
+                *ENV_VAR_TOTAL_SIZE_LIMIT,
+            );
+        }
         for environment_variable in environment_variables.clone() {
             self.create_one_environment_variable(tx, environment_variable)
                 .await?;

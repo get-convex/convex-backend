@@ -15,10 +15,6 @@ use common::{
         MAX_USER_SIZE,
     },
     execution_context::ExecutionContext,
-    knobs::{
-        TRANSACTION_MAX_NUM_SCHEDULED,
-        TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
-    },
     maybe_val,
     query::{
         Expression,
@@ -174,26 +170,27 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     fn check_scheduling_limits(&mut self, args: &ConvexArray) -> anyhow::Result<()> {
         let size = args.size();
+        let max_scheduled = self.tx.transaction_limits().functions_scheduled;
+        let max_scheduled_bytes = self.tx.transaction_limits().scheduled_function_args_bytes;
         // Limit how much you can schedule from a single transaction.
         anyhow::ensure!(
-            self.tx.scheduled_size.num_writes < *TRANSACTION_MAX_NUM_SCHEDULED,
+            self.tx.scheduled_size.num_writes < max_scheduled,
             ErrorMetadata::bad_request(
                 "TooManyFunctionsScheduled",
                 format!(
                     "Too many functions scheduled by this mutation (limit: {})",
-                    *TRANSACTION_MAX_NUM_SCHEDULED,
+                    max_scheduled,
                 )
             )
         );
         anyhow::ensure!(
-            self.tx.scheduled_size.size + size
-                <= *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
+            self.tx.scheduled_size.size + size <= max_scheduled_bytes,
             ErrorMetadata::bad_request(
                 "ScheduledFunctionsArgumentsTooLarge",
                 format!(
                     "Too large total size of the arguments of scheduled functions from this \
                      mutation (limit: {} bytes)",
-                    *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
+                    max_scheduled_bytes,
                 )
             ),
         );

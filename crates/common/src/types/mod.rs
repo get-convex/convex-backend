@@ -66,6 +66,8 @@ pub use environment_variables::{
     env_var_limit_met,
     env_var_name_forbidden,
     env_var_name_not_unique,
+    env_var_total_size,
+    env_var_total_size_limit_met,
     EnvVarName,
     EnvVarValue,
     EnvironmentVariable,
@@ -118,6 +120,7 @@ tuple_struct_u64!(MemberId);
 tuple_struct_u64!(TeamId);
 tuple_struct_u64!(DeploymentId);
 tuple_struct_u64!(ProjectId);
+tuple_struct_u64!(CustomRoleId);
 tuple_struct_string!(ConvexOrigin);
 tuple_struct_string!(ConvexSite);
 

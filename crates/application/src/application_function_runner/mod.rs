@@ -235,7 +235,7 @@ use crate::{
 mod http_routing;
 mod metrics;
 
-static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_secs(1200));
+static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_secs(600));
 
 /// Wrapper for [IsolateClient]s and [FunctionRunner]s that determines where to
 /// route requests.
@@ -764,9 +764,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 context.clone(),
             )
             .await;
-        let vars = AuditLogVars::from_context(context, &self.runtime);
+        let vars = AuditLogVars::from_context(context, &self.runtime)?;
         self.audit_log_client
-            .send_logs(outcome.audit_log_lines.resolve_bodies(&vars)?);
+            .send_logs(outcome.audit_log_lines.resolve_bodies(&vars)?)
+            .await?;
 
         Ok((result, log_lines))
     }
@@ -1134,9 +1135,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
 
-        let vars = AuditLogVars::from_context(context, &self.runtime);
+        let vars = AuditLogVars::from_context(context, &self.runtime)?;
         self.audit_log_client
-            .send_logs(mutation_outcome.audit_log_lines.resolve_bodies(&vars)?);
+            .send_logs(mutation_outcome.audit_log_lines.resolve_bodies(&vars)?)
+            .await?;
 
         let component = path.component;
 

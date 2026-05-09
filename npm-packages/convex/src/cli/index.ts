@@ -26,7 +26,6 @@ import { data } from "./data.js";
 import { format } from "util";
 import { functionSpec } from "./functionSpec.js";
 import { insights } from "./insights.js";
-import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
 import { deployment } from "./deployment.js";
 import { aiFiles } from "./aiFiles.js";
@@ -161,7 +160,6 @@ async function main() {
     .addCommand(integration, { hidden: true })
     .addCommand(functionSpec)
     .addCommand(insights)
-    .addCommand(disableLocalDeployments)
     .addCommand(mcp)
     .addCommand(aiFiles)
     .helpCommand("help <command>", "Show help for given <command>")
@@ -183,6 +181,12 @@ async function main() {
   } finally {
     await Sentry.close();
   }
+  // When stdout is a pipe, Node buffers writes and `process.exit()` does not
+  // wait for them to flush — drain first so piped output isn't truncated.
+  await Promise.all([
+    new Promise<void>((resolve) => process.stdout.write("", () => resolve())),
+    new Promise<void>((resolve) => process.stderr.write("", () => resolve())),
+  ]);
   process.exit();
 }
 void main();

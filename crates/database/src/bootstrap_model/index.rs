@@ -915,6 +915,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             index_by_id,
             IndexedFields::by_id(),
             Interval::all(),
+            &self.tx.limits,
         )?;
         Ok(())
     }

@@ -24,16 +24,14 @@ export function Integrations({
   integrations,
   workosData,
   onAddedIntegration,
-  showPostHogIntegrations = false,
 }: {
   team: ReturnType<DeploymentInfo["useCurrentTeam"]>;
   entitlements: ReturnType<DeploymentInfo["useTeamEntitlements"]>;
   integrations: Doc<"_log_sinks">[];
   workosData: ReturnType<
     DeploymentInfo["workOSOperations"]["useDeploymentWorkOSEnvironment"]
-  >;
+  >["data"];
   onAddedIntegration?: (kind: string) => void;
-  showPostHogIntegrations?: boolean;
 }) {
   const {
     useCurrentDeployment,
@@ -58,15 +56,15 @@ export function Integrations({
     integrations.map((integration) => [integration.config.type, integration]),
   );
 
-  const logIntegrations: LogIntegration[] = LOG_INTEGRATIONS.filter(
-    (kind) => showPostHogIntegrations || kind !== "postHogLogs",
-  ).map((integrationKind) => {
-    const existing = configuredIntegrationsMap[integrationKind];
-    return {
-      kind: integrationKind,
-      existing: existing ?? null,
-    } as LogIntegration;
-  });
+  const logIntegrations: LogIntegration[] = LOG_INTEGRATIONS.map(
+    (integrationKind) => {
+      const existing = configuredIntegrationsMap[integrationKind];
+      return {
+        kind: integrationKind,
+        existing: existing ?? null,
+      } as LogIntegration;
+    },
+  );
 
   const authIntegrations: AuthIntegration[] = workosIntegrationEnabled
     ? [
@@ -79,9 +77,7 @@ export function Integrations({
     : [];
 
   const exceptionReportingIntegrations: ExceptionReportingIntegration[] =
-    EXC_INTEGRATIONS.filter(
-      (kind) => showPostHogIntegrations || kind !== "postHogErrorTracking",
-    ).map((kind) => {
+    EXC_INTEGRATIONS.map((kind) => {
       const existing = configuredIntegrationsMap[kind];
       return {
         kind,

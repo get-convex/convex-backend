@@ -59,10 +59,7 @@ export function HealthView({
     lag,
     running,
     queued,
-  } = useConcurrencyStatus(
-    canViewMetrics,
-    showSubscriptionInvalidations ? 4 : 3,
-  );
+  } = useConcurrencyStatus(canViewMetrics, 4);
 
   if (!canViewMetrics) {
     return (
@@ -114,8 +111,8 @@ export function HealthView({
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <FunctionCalls />
-                  <FailureRate showHeatmaps={showHeatmaps} />
-                  <CacheHitRate showHeatmaps={showHeatmaps} />
+                  <FailureRate />
+                  <CacheHitRate />
                 </div>
               </DisclosureSection>
 
@@ -145,9 +142,7 @@ export function HealthView({
                       kind="functionConcurrency"
                     />
                   </HealthCard>
-                  {showSubscriptionInvalidations && (
-                    <SubscriptionInvalidations />
-                  )}
+                  <SubscriptionInvalidations />
                 </div>
               </DisclosureSection>
             </div>

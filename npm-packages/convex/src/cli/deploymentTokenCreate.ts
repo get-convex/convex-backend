@@ -7,6 +7,7 @@ import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { changedEnvVarFile } from "./lib/envvars.js";
 import {
+  CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME,
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   ENV_VAR_FILE_PATH,
   typedPlatformClient,
@@ -40,7 +41,9 @@ export const deploymentTokenCreate = new Command("create")
         printedMessage: `Creating a deploy key currently requires being logged in with a personal access token. ${
           process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME]
             ? `Unset ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}`
-            : `Run ${chalkStderr.bold("npx convex login")}`
+            : process.env[CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME]
+              ? `Unset ${CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME}`
+              : `Run ${chalkStderr.bold("npx convex login")}`
         } and try again.`,
       });
     }

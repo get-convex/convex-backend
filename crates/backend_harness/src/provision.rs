@@ -27,7 +27,10 @@ use clap::ValueEnum;
 use cmd_util::env::env_config;
 use futures::FutureExt;
 use health_check::wait_for_http_health;
-use keybroker::DEV_SECRET;
+use keybroker::{
+    DEV_INSTANCE_NAME,
+    DEV_SECRET,
+};
 use log_interleaver::LogInterleaver;
 use serde::Deserialize;
 use tokio::process::{
@@ -527,6 +530,10 @@ async fn provision(
                     .arg("--site-proxy-port")
                     .arg("8001")
                     .arg("--disable-beacon")
+                    .arg("--instance-name")
+                    .arg(DEV_INSTANCE_NAME)
+                    .arg("--instance-secret")
+                    .arg(DEV_SECRET)
                     .env("CONVEX_RELEASE_VERSION_DEV", "0.0.0-backendharness")
                     .kill_on_drop(true),
             )?;
