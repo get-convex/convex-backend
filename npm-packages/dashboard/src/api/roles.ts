@@ -134,7 +134,6 @@ export function useCreateCustomRole(teamId?: number) {
     mutatePathParams: {
       team_id: teamId ?? 0,
     },
-    successToast: "Custom role created.",
     toastOnError: false,
   });
 }
@@ -149,7 +148,6 @@ export function useUpdateCustomRole(teamId?: number) {
     mutatePathParams: {
       team_id: teamId ?? 0,
     },
-    successToast: "Custom role updated.",
     toastOnError: false,
   });
 }
