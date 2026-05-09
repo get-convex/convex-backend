@@ -1076,13 +1076,13 @@ where
                     .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
                     .map(|ci| ci.0.ip().to_string())
             });
-        let ip = ip.and_then(|s| ClientIp::try_from(s).ok());
+        let ip = ip.map(ClientIp::from);
         let user_agent = parts
             .headers
             .get(http::header::USER_AGENT)
             .and_then(|h| h.to_str().ok())
             .map(|s| s.to_owned());
-        let user_agent = user_agent.and_then(|s| ClientUserAgent::try_from(s).ok());
+        let user_agent = user_agent.map(ClientUserAgent::from);
         Ok(ExtractRequestMetadata(RequestMetadata { ip, user_agent }))
     }
 }

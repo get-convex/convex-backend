@@ -11,17 +11,17 @@ type BackendState = Infer<typeof backendState>;
 export const deploymentState = queryPrivateSystem(noPermissionRequired)({
   args: {},
   handler: async function ({ db }): Promise<{ state: OldBackendState }> {
-    const { state } = (await db.query("_backend_state").first())!;
-    return { state: toOldBackendStateLossy(state) };
+    const row = (await db.query("_backend_state").first())!;
+    return { state: toOldBackendStateLossy(row) };
   },
 });
 
-function toOldBackendStateLossy(state: BackendState): OldBackendState {
+function toOldBackendStateLossy(row: BackendState): OldBackendState {
   // TODO(nicolas) Remove this once the migration has run
-  if (typeof state === "string") return state;
+  if ("state" in row) return row.state;
 
-  if (state.system === "disabled") return "disabled";
-  if (state.system === "suspended") return "suspended";
-  if (state.user === "paused") return "paused";
+  if (row.system === "disabled") return "disabled";
+  if (row.system === "suspended") return "suspended";
+  if (row.user === "paused") return "paused";
   return "running";
 }

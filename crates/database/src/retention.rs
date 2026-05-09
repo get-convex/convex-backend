@@ -65,9 +65,7 @@ use common::{
         INDEX_RETENTION_DELETE_PARALLEL,
         MAX_RETENTION_DELAY_SECONDS,
         RETENTION_CHECKPOINT_PERIOD_SECS,
-        RETENTION_DELETES_ENABLED,
         RETENTION_DELETE_BATCH,
-        RETENTION_DOCUMENT_DELETES_ENABLED,
     },
     persistence::{
         new_static_repeatable_recent,
@@ -767,7 +765,7 @@ impl LeaderRetentionWorkers {
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
-        if !*RETENTION_DELETES_ENABLED || *min_snapshot_ts == Timestamp::MIN {
+        if *min_snapshot_ts == Timestamp::MIN {
             return Ok((cursor, 0));
         }
         // The number of rows we delete in persistence.
@@ -925,7 +923,7 @@ impl LeaderRetentionWorkers {
         cursor: RepeatableTimestamp,
         document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
-        if !*RETENTION_DOCUMENT_DELETES_ENABLED || *min_snapshot_ts == Timestamp::MIN {
+        if *min_snapshot_ts == Timestamp::MIN {
             return Ok((cursor, 0));
         }
         // The number of rows we delete in persistence.

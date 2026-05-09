@@ -1,6 +1,16 @@
 import { header } from "./common.js";
+import { EnvVarMeta, generateEnvInterface } from "./server.js";
 
-export function componentServerTS(isRoot: boolean): string {
+export function componentServerTS(
+  isRoot: boolean,
+  // - undefined: not yet known (initial codegen). Emits an untyped `env` stub.
+  // - non-empty array: emit typed `Env` interface and typed `env` export.
+  // - empty array: no env vars declared. Omit `env` from generated code.
+  envVars: EnvVarMeta[] | undefined,
+): string {
+  const hasEnv = !!envVars && envVars.length > 0;
+  const envInterface = hasEnv ? generateEnvInterface(envVars!) : "";
+
   const result = `
   ${header(
     "Generated utilities for implementing server-side Convex query and mutation functions.",
@@ -28,6 +38,7 @@ export function componentServerTS(isRoot: boolean): string {
     ${isRoot ? "componentsGeneric," : ""}
   } from "convex/server";
   import type { DataModel } from "./dataModel.js";
+  ${envInterface}
 
   /**
    * Define a query in this Convex app's public API.
@@ -102,6 +113,7 @@ export function componentServerTS(isRoot: boolean): string {
    * @returns The wrapped function. Import this function from \`convex/http.js\` and route it to hook it up.
    */
   export const httpAction: HttpActionBuilder = httpActionGeneric;
+  ${hasEnv ? "export const env: Env = process.env as unknown as Env;" : envVars === undefined ? "export const env: Record<string, string | undefined> = process.env as unknown as Record<string, string | undefined>;" : ""}
 
   /**
    * A set of services for use within Convex query functions.

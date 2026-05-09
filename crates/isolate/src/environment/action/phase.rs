@@ -1,12 +1,14 @@
 use std::{
     collections::BTreeMap,
     mem,
+    str::FromStr,
     sync::Arc,
     time::Duration,
 };
 
 use anyhow::Context;
 use common::{
+    bootstrap_model::components::EnvBinding,
     components::{
         ComponentId,
         Reference,
@@ -94,6 +96,14 @@ pub struct ActionPhase<RT: Runtime> {
     preloaded: ActionPreloaded<RT>,
 }
 
+/// Populated for non-root components, pairing the component's env bindings
+/// with a snapshot of the root-app env vars (only fetched when any binding is
+/// `EnvVar`, since actions don't need reactive read deps).
+struct ComponentEnvCtx {
+    env: BTreeMap<Identifier, EnvBinding>,
+    parent_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+}
+
 enum ActionPreloaded<RT: Runtime> {
     Created {
         tx: Transaction<RT>,
@@ -108,6 +118,7 @@ enum ActionPreloaded<RT: Runtime> {
         modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<FullModuleSource>)>,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
+        component_env: Option<ComponentEnvCtx>,
         rng: Option<ChaCha12Rng>,
         import_time_unix_timestamp: Option<UnixTimestamp>,
         performance_time_origin: Option<PerformanceTimeOrigin>,
@@ -268,6 +279,31 @@ impl<RT: Runtime> ActionPhase<RT> {
             }
         };
 
+        let component_env = if self.component.is_root() {
+            None
+        } else {
+            let env = timeout
+                .with_release_permit(
+                    PauseReason::LoadComponentArgs,
+                    BootstrapComponentsModel::new(&mut tx).load_component_env(component_id),
+                )
+                .await?;
+            let parent_env_vars = if env.values().any(|b| matches!(b, EnvBinding::EnvVar(_))) {
+                timeout
+                    .with_release_permit(
+                        PauseReason::LoadEnvironmentVariables,
+                        EnvironmentVariablesModel::new(&mut tx).get_all(),
+                    )
+                    .await?
+            } else {
+                BTreeMap::new()
+            };
+            Some(ComponentEnvCtx {
+                env,
+                parent_env_vars,
+            })
+        };
+
         let component_arguments = if self.component.is_root() {
             None
         } else {
@@ -286,6 +322,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             modules,
             env_vars,
             component_arguments,
+            component_env,
             rng,
             import_time_unix_timestamp,
             performance_time_origin: None,
@@ -351,9 +388,27 @@ impl<RT: Runtime> ActionPhase<RT> {
         &mut self,
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
-        let ActionPreloaded::Ready { ref env_vars, .. } = self.preloaded else {
+        let ActionPreloaded::Ready {
+            ref env_vars,
+            ref component_env,
+            ..
+        } = self.preloaded
+        else {
             anyhow::bail!("Phase not initialized");
         };
+        if let Some(component_env) = component_env
+            && let Ok(identifier) = Identifier::from_str(name.as_ref())
+            && let Some(binding) = component_env.env.get(&identifier)
+        {
+            match binding {
+                EnvBinding::Value(s) => {
+                    return Ok(Some(s.parse()?));
+                },
+                EnvBinding::EnvVar(parent_name) => {
+                    return Ok(component_env.parent_env_vars.get(parent_name).cloned());
+                },
+            }
+        }
         Ok(env_vars.get(&name).cloned())
     }
 

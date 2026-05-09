@@ -66,9 +66,6 @@ export function cloneWithSentinels(body: AuditLogBody): {
   return result;
 }
 
-/**
- * @internal
- */
 export const audit = async (body: AuditLogBody): Promise<void> => {
   await performAsyncSyscall("1.0/auditLog", {
     body: cloneWithSentinels(body),

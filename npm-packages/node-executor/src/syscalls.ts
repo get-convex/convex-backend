@@ -668,7 +668,12 @@ export class SyscallsImpl {
       version: z.string(),
     });
     const operationName = "audit log";
-    const args = this.validateArgs(rawArgs, auditLogSchema, operationName);
+    const args = this.validateArgs(
+      rawArgs,
+      auditLogSchema,
+      operationName,
+      false,
+    );
     return this.actionCallback({
       version: args.version,
       body: { body: args.body },

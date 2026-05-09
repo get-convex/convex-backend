@@ -2,7 +2,10 @@ import { DotsVerticalIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Menu, MenuItem } from "@ui/Menu";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { useDeleteLogStream } from "@common/lib/integrationsApi";
+import {
+  useDeleteLogStream,
+  useUpdateLogStream,
+} from "@common/lib/integrationsApi";
 import { toast } from "@common/lib/utils";
 import { useState } from "react";
 import {
@@ -20,9 +23,14 @@ export function IntegrationOverflowMenu({
   onConfigure: () => void;
 }) {
   const deleteLogStream = useDeleteLogStream();
+  const updateLogStream = useUpdateLogStream();
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const logStreamId = integration.existing?._id;
   const existingIntegration = integration.existing;
+  const webhookConfig =
+    integration.kind === "webhook"
+      ? (integration.existing?.config ?? null)
+      : null;
 
   return existingIntegration && logStreamId ? (
     <>
@@ -57,6 +65,20 @@ export function IntegrationOverflowMenu({
         <MenuItem href={configToUrl(existingIntegration.config)}>
           Go to {integrationName(existingIntegration.config.type)}
         </MenuItem>
+        {webhookConfig && (
+          <MenuItem
+            action={async () => {
+              await updateLogStream(logStreamId, {
+                logStreamType: "webhook",
+                url: webhookConfig.url,
+                format: webhookConfig.format,
+              });
+              toast("success", "Refreshed webhook connection");
+            }}
+          >
+            Refresh connection
+          </MenuItem>
+        )}
         <MenuItem
           action={() => {
             setShowDeleteConfirmation(true);

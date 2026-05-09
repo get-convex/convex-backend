@@ -19,11 +19,7 @@ import { calcBuckets } from "@common/lib/charts/buckets";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 
-export function PerformanceGraphs({
-  showSubscriptionInvalidations = false,
-}: {
-  showSubscriptionInvalidations?: boolean;
-} = {}) {
+export function PerformanceGraphs() {
   const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
   const canViewMetrics = useIsOperationAllowed("ViewMetrics");
   const currentOpenFunction = useCurrentOpenFunction();
@@ -212,14 +208,13 @@ export function PerformanceGraphs({
           syncId="fnMetrics"
         />
       )}
-      {showSubscriptionInvalidations &&
-        currentOpenFunction.udfType === "Mutation" && (
-          <SubscriptionInvalidationsGraph
-            udfIdentifier={file.displayName}
-            componentPath={file.componentPath ?? undefined}
-            udfType={file.udfType}
-          />
-        )}
+      {currentOpenFunction.udfType === "Mutation" && (
+        <SubscriptionInvalidationsGraph
+          udfIdentifier={file.displayName}
+          componentPath={file.componentPath ?? undefined}
+          udfType={file.udfType}
+        />
+      )}
     </div>
   );
 }

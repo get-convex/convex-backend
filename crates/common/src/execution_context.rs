@@ -41,16 +41,10 @@ impl ClientIp {
     }
 }
 
-impl TryFrom<String> for ClientIp {
-    type Error = anyhow::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        anyhow::ensure!(
-            value.len() <= Self::MAX_LENGTH,
-            "Client IP exceeds max length of {} bytes",
-            Self::MAX_LENGTH
-        );
-        Ok(Self(value))
+impl From<String> for ClientIp {
+    fn from(mut value: String) -> Self {
+        value.truncate(value.floor_char_boundary(Self::MAX_LENGTH));
+        Self(value)
     }
 }
 
@@ -60,7 +54,7 @@ impl TryFrom<String> for ClientIp {
 pub struct ClientUserAgent(String);
 
 impl ClientUserAgent {
-    pub const MAX_LENGTH: usize = 1024;
+    pub const MAX_LENGTH: usize = 512;
 
     pub fn as_str(&self) -> &str {
         &self.0
@@ -71,16 +65,10 @@ impl ClientUserAgent {
     }
 }
 
-impl TryFrom<String> for ClientUserAgent {
-    type Error = anyhow::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        anyhow::ensure!(
-            value.len() <= Self::MAX_LENGTH,
-            "Client user-agent exceeds max length of {} bytes",
-            Self::MAX_LENGTH
-        );
-        Ok(Self(value))
+impl From<String> for ClientUserAgent {
+    fn from(mut value: String) -> Self {
+        value.truncate(value.floor_char_boundary(Self::MAX_LENGTH));
+        Self(value)
     }
 }
 
@@ -334,11 +322,8 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
             parent_scheduled_job: parent_document_id.map(|id| (parent_component_id, id)),
             is_root: value.is_root.unwrap_or_default(),
             request_metadata: RequestMetadata {
-                ip: value.client_ip.map(ClientIp::try_from).transpose()?,
-                user_agent: value
-                    .client_user_agent
-                    .map(ClientUserAgent::try_from)
-                    .transpose()?,
+                ip: value.client_ip.map(ClientIp::from),
+                user_agent: value.client_user_agent.map(ClientUserAgent::from),
             },
         })
     }

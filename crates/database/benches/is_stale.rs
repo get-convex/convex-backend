@@ -46,6 +46,7 @@ use database::{
         WriteSource,
     },
     ReadSet,
+    TransactionLimits,
     TransactionReadSet,
 };
 use maplit::btreemap;
@@ -117,7 +118,12 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
         start: StartIncluded(start_key.into()),
         end: End::Excluded(end_key.into()),
     };
-    reads.record_indexed_directly(index_name, vec![field_path].try_into()?, target_interval)?;
+    reads.record_indexed_directly(
+        index_name,
+        vec![field_path].try_into()?,
+        target_interval,
+        &TransactionLimits::default(),
+    )?;
     let read_set = reads.into_read_set();
 
     Ok((log_writer, read_set))
@@ -346,6 +352,7 @@ fn bench_is_stale_no_conflict(c: &mut Criterion) {
                     index_name,
                     vec![field_path].try_into().unwrap(),
                     Interval::empty(),
+                    &TransactionLimits::default(),
                 )
                 .unwrap();
             let read_set = reads.into_read_set();

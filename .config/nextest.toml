@@ -3,6 +3,8 @@ path = "junit.xml"
 
 [profile.ci]
 fail-fast = false
+status-level = "fail"
+final-status-level = "fail"
 failure-output = "immediate-final"
 
 [[profile.ci.overrides]]

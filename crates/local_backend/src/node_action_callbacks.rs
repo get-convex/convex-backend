@@ -136,7 +136,7 @@ pub async fn internal_query_post(
     let value_format = Some(ValueFormat::ConvexEncodedJSON);
     let response = match udf_return.result {
         Ok(value) => UdfResponse::Success {
-            value: export_value(value.unpack()?, value_format, client_version)?,
+            value: export_value(value, value_format, client_version)?,
             log_lines: udf_return.log_lines,
         },
         Err(error) => {
@@ -192,7 +192,7 @@ pub async fn internal_mutation_post(
     let value_format = Some(ValueFormat::ConvexEncodedJSON);
     let response = match udf_result {
         Ok(write_return) => UdfResponse::Success {
-            value: export_value(write_return.value.unpack()?, value_format, client_version)?,
+            value: export_value(write_return.value, value_format, client_version)?,
             log_lines: write_return.log_lines,
         },
         Err(write_error) => UdfResponse::nested_error(
@@ -249,7 +249,7 @@ pub async fn internal_action_post(
     let value_format = Some(ValueFormat::ConvexEncodedJSON);
     let response = match udf_result {
         Ok(action_return) => UdfResponse::Success {
-            value: export_value(action_return.value.unpack()?, value_format, client_version)?,
+            value: export_value(action_return.value, value_format, client_version)?,
             log_lines: action_return.log_lines,
         },
         Err(action_error) => UdfResponse::nested_error(
@@ -720,26 +720,18 @@ impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
         let client_ip: Option<ClientIp> = parts
             .headers
             .get("Convex-Request-Client-Ip")
-            .map(|v| {
-                ClientIp::try_from(
-                    v.to_str()
-                        .context("Request client IP must be a string")?
-                        .to_owned(),
-                )
-            })
-            .transpose()?;
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Request client IP must be a string")?
+            .map(|s| ClientIp::from(s.to_owned()));
 
         let client_user_agent: Option<ClientUserAgent> = parts
             .headers
             .get("Convex-Request-Client-User-Agent")
-            .map(|v| {
-                ClientUserAgent::try_from(
-                    v.to_str()
-                        .context("Request User-Agent must be a string")?
-                        .to_owned(),
-                )
-            })
-            .transpose()?;
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Request User-Agent must be a string")?
+            .map(|s| ClientUserAgent::from(s.to_owned()));
 
         Ok(Self(ExecutionContext::new_from_parts(
             request_id,

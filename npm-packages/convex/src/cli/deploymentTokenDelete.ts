@@ -6,6 +6,7 @@ import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import {
+  CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME,
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   typedPlatformClient,
 } from "./lib/utils/utils.js";
@@ -34,7 +35,14 @@ export const deploymentTokenDelete = new Command("delete")
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `Deleting a deploy key requires being logged in with a personal access token. ${auth === null ? "Run " : `Unset ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} and run `}${chalkStderr.bold("npx convex login")} and try again.`,
+        printedMessage: `Deleting a deploy key requires being logged in with a personal access token. ${
+          auth === null
+            ? "Run "
+            : process.env[CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME] &&
+                !process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME]
+              ? `Unset ${CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME} and run `
+              : `Unset ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} and run `
+        }${chalkStderr.bold("npx convex login")} and try again.`,
       });
     }
 

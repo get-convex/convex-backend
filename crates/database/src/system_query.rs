@@ -278,6 +278,7 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
             request.index_name,
             self.index.fields.clone(),
             page_range,
+            &self.tx.limits,
         )?;
         for (_, doc, _) in &page {
             // NOTE: since this is a system read, we don't bother tracking usage;
@@ -292,6 +293,7 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
                 doc.size(),
                 &self.tx.usage_tracker,
                 &self.tx.virtual_system_mapping,
+                &self.tx.limits,
             )?;
         }
 

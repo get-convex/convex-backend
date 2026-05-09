@@ -236,6 +236,28 @@ pub static FUNCTION_LIMIT_WARNING_RATIO: LazyLock<f64> = LazyLock::new(|| {
     env_config("FUNCTION_LIMIT_WARNING_RATIO", 0.8) // 80%
 });
 
+/// Maximum size in bytes of a single audit log line's serialized JSON body.
+pub static AUDIT_LOG_MAX_LINE_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("AUDIT_LOG_MAX_LINE_SIZE_BYTES", 100_000) // 100 KB
+});
+
+/// Maximum total size in bytes of all audit log lines emitted in a single
+/// function execution, including audit logs from nested function calls.
+pub static AUDIT_LOG_MAX_TOTAL_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("AUDIT_LOG_MAX_TOTAL_SIZE_BYTES", 4_000_000) // 4 MB
+});
+
+/// Maximum number of audit log lines that can be emitted in a single function
+/// execution, including audit logs from nested function calls.
+pub static AUDIT_LOG_MAX_LINES: LazyLock<usize> =
+    LazyLock::new(|| env_config("AUDIT_LOG_MAX_LINES", 500));
+
+/// Maximum heap size in bytes that audit log lines accumulated during a single
+/// function execution may occupy.
+pub static AUDIT_LOG_MAX_HEAP_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("AUDIT_LOG_MAX_HEAP_SIZE_BYTES", 4_000_000) // 4 MB
+});
+
 /// We might generate a number of system documents for each UDF write. For
 /// example, creating 4000 user documents in new tables, might result in adding
 /// an additional 8000 system documents. If we hit this error, this is a system
@@ -472,14 +494,6 @@ pub static DOCUMENT_RETENTION_DELETE_CHUNK: LazyLock<NonZeroU32> = LazyLock::new
 /// Batch size of index entries to delete between checkpoints.
 pub static RETENTION_DELETE_BATCH: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_DELETE_BATCH", 10000));
-
-/// Whether retention deletes are enabled.
-pub static RETENTION_DELETES_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("RETENTION_DELETES_ENABLED", true));
-
-/// Whether retention document deletes are enabled.
-pub static RETENTION_DOCUMENT_DELETES_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("RETENTION_DOCUMENT_DELETES_ENABLED", true));
 
 /// Time in between batches of deletes for document retention. This value is
 /// also used to jitter document retention on startup to avoid a thundering
@@ -1623,15 +1637,26 @@ pub static HTTP_CACHE_SIZE: LazyLock<u64> =
     LazyLock::new(|| env_config("HTTP_CACHE_SIZE", 16 * 1024 * 1024));
 
 /// Maximum number of environment variables that can be stored.
-pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 1000));
+pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 256));
 
 /// Maximum total size in bytes of all environment variables (names + values).
 pub static ENV_VAR_TOTAL_SIZE_LIMIT: LazyLock<usize> =
-    LazyLock::new(|| env_config("ENV_VAR_TOTAL_SIZE_LIMIT", 500 * 1024)); // 500 KiB
+    LazyLock::new(|| env_config("ENV_VAR_TOTAL_SIZE_LIMIT", 512 * 1024));
 
 /// If set, disable the /metrics endpoint
 pub static DISABLE_METRICS_ENDPOINT: LazyLock<bool> =
     LazyLock::new(|| env_config("DISABLE_METRICS_ENDPOINT", false));
+
+/// When using the S3 storage provider with expiring AWS credentials, the
+/// duration before credential expiration that the AWS client should refresh
+/// those credentials.
+///
+/// Note that the AWS SDK automatically jitters the refresh so the final
+/// validity can actually be as little as half this value.
+///
+/// This ensures that presigned URLs (e.g. for node executor) stay valid.
+pub static AWS_S3_MIN_IDENTITY_VALIDITY: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_S3_MIN_IDENTITY_VALIDITY_SECS", 1230)));
 
 /// If set, skip stripping PII from errors before they are reported. Useful for
 /// local debugging where the operator wants to see the original error contents.

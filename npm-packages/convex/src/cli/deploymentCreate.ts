@@ -40,6 +40,8 @@ import {
   LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./lib/localDeployment/utils.js";
 import { bigBrainStart } from "./lib/localDeployment/bigBrain.js";
+import { importDefaultEnvVars } from "./lib/localDeployment/localDeployment.js";
+import { localDeploymentUrl } from "./lib/localDeployment/run.js";
 
 const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 
@@ -70,7 +72,10 @@ export const deploymentCreate = new Command("create")
     "--expiration <value>",
     'When the deployment expires (e.g. "none", "in 7 days", "2026-04-01T00:00:00Z", or a UNIX timestamp in seconds or milliseconds)',
   )
+  .addOption(new Option("--expiry <value>").hideHelp())
+  .addOption(new Option("--expires <value>").hideHelp())
   .action(async (refParam, options) => {
+    const expiration = options.expiration ?? options.expiry ?? options.expires;
     const ctx = await oneoffContext({
       url: undefined,
       adminKey: undefined,
@@ -86,13 +91,7 @@ export const deploymentCreate = new Command("create")
     // Handle `deployment create local`
     if (refParam !== undefined) {
       if (refParam === "local") {
-        const cloudOnlyFlags = [
-          "type",
-          "region",
-          "class",
-          "default",
-          "expiration",
-        ] as const;
+        const cloudOnlyFlags = ["type", "region", "class", "default"] as const;
         for (const flag of cloudOnlyFlags) {
           if (options[flag]) {
             return await ctx.crash({
@@ -101,6 +100,13 @@ export const deploymentCreate = new Command("create")
               printedMessage: `--${flag} cannot be used when creating a local deployment`,
             });
           }
+        }
+        if (expiration !== undefined) {
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `--expiration cannot be used when creating a local deployment`,
+          });
         }
         await createLocalDeployment(
           ctx,
@@ -111,7 +117,7 @@ export const deploymentCreate = new Command("create")
       }
     }
 
-    const expiresAt = await resolveExpiresAtOrCrash(ctx, options.expiration);
+    const expiresAt = await resolveExpiresAtOrCrash(ctx, expiration);
 
     const {
       ref,
@@ -212,7 +218,7 @@ export const deploymentCreate = new Command("create")
     }
   });
 
-async function createLocalDeployment(
+export async function createLocalDeployment(
   ctx: Context,
   currentDeployment: DeploymentSelection,
   select: boolean,
@@ -254,6 +260,14 @@ async function createLocalDeployment(
   });
 
   logFinishedStep("Created local deployment.");
+
+  await importDefaultEnvVars(ctx, {
+    teamSlug,
+    projectSlug,
+    deploymentName,
+    deploymentUrl: localDeploymentUrl(cloudPort),
+    adminKey,
+  });
 
   if (select) {
     const selection: DeploymentSelection = {

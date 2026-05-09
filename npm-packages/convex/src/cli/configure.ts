@@ -43,7 +43,6 @@ import {
   promptString,
   promptYesNo,
 } from "./lib/utils/prompts.js";
-import { readGlobalConfig } from "./lib/utils/globalConfig.js";
 import { attemptSetupAiFiles } from "./lib/aiFiles/index.js";
 import {
   DeploymentSelection,
@@ -71,9 +70,9 @@ type ChosenConfiguration =
 type ConfigureCmdOptions = {
   prod: boolean;
   localOptions: {
-    ports?: {
-      cloud: number;
-      site: number;
+    ports: {
+      cloud: number | undefined;
+      site: number | undefined;
     };
     backendVersion?: string | undefined;
     dashboardVersion?: string | undefined;
@@ -175,19 +174,9 @@ export async function _deploymentCredentialsOrConfigure(
     } | null;
   }
 > {
-  const config = readGlobalConfig(ctx);
-  const globallyForceCloud = !!config?.optOutOfLocalDevDeploymentsUntilBetaOver;
-  if (globallyForceCloud && cmdOptions.local) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage:
-        "Can't specify --local when local deployments are disabled on this machine. Run `npx convex disable-local-deployments --undo-global` to allow use of --local.",
-    });
-  }
-
   switch (deploymentSelection.kind) {
     case "existingDeployment":
+      await assertLocalOptionsAreDefault(ctx, cmdOptions.localOptions);
       return {
         url: deploymentSelection.deploymentToActOn.url,
         adminKey: deploymentSelection.deploymentToActOn.adminKey,
@@ -205,9 +194,6 @@ export async function _deploymentCredentialsOrConfigure(
         ctx,
         chosenConfiguration,
         deploymentSelection.selectionWithinProject,
-        {
-          globallyForceCloud,
-        },
         cmdOptions,
       );
     }
@@ -222,7 +208,6 @@ export async function _deploymentCredentialsOrConfigure(
         chosenConfiguration,
         deploymentSelection,
         cmdOptions,
-        globallyForceCloud,
       });
     }
     case "anonymous": {
@@ -244,9 +229,6 @@ export async function _deploymentCredentialsOrConfigure(
             ctx,
             chosenConfiguration,
             deploymentSelection.selectionWithinProject,
-            {
-              globallyForceCloud,
-            },
             cmdOptions,
           );
         }
@@ -300,9 +282,6 @@ export async function _deploymentCredentialsOrConfigure(
         ctx,
         chosenConfiguration,
         deploymentSelection.selectionWithinProject,
-        {
-          globallyForceCloud,
-        },
         cmdOptions,
       );
     }
@@ -315,14 +294,12 @@ async function handleDeploymentWithinProject(
     chosenConfiguration,
     deploymentSelection,
     cmdOptions,
-    globallyForceCloud,
   }: {
     chosenConfiguration: ChosenConfiguration;
     deploymentSelection: DeploymentSelection & {
       kind: "deploymentWithinProject";
     };
     cmdOptions: ConfigureCmdOptions;
-    globallyForceCloud: boolean;
   },
 ) {
   const hasAuth = ctx.bigBrainAuth() !== null;
@@ -343,9 +320,6 @@ async function handleDeploymentWithinProject(
       ctx,
       chosenConfiguration,
       deploymentSelection.selectionWithinProject,
-      {
-        globallyForceCloud,
-      },
       cmdOptions,
     );
     return result;
@@ -361,9 +335,6 @@ async function handleDeploymentWithinProject(
       ctx,
       chosenConfiguration,
       deploymentSelection.selectionWithinProject,
-      {
-        globallyForceCloud,
-      },
       cmdOptions,
     );
     return result;
@@ -394,6 +365,7 @@ async function handleDeploymentWithinProject(
       deploymentFields: selectedDeployment.deploymentFields,
     };
   }
+  await assertLocalOptionsAreDefault(ctx, cmdOptions.localOptions);
   return {
     url: selectedDeployment.url,
     adminKey: selectedDeployment.adminKey,
@@ -405,9 +377,6 @@ async function handleChooseProject(
   ctx: Context,
   chosenConfiguration: ChosenConfiguration,
   selectionWithinProject: DeploymentSelectionWithinProject,
-  args: {
-    globallyForceCloud: boolean;
-  },
   cmdOptions: ConfigureCmdOptions,
 ): Promise<
   DeploymentCredentials & {
@@ -429,12 +398,15 @@ async function handleChooseProject(
     team: cmdOptions.team,
     project: cmdOptions.project,
     devDeployment: cmdOptions.devDeployment,
-    local: args.globallyForceCloud ? false : cmdOptions.local,
-    cloud: args.globallyForceCloud ? true : cmdOptions.cloud,
+    local: cmdOptions.local,
+    cloud: cmdOptions.cloud,
   });
-  // TODO complain about any non-default cmdOptions.localOptions here
-  // because we're ignoring them if this isn't a local development.
-
+  if (
+    selectionWithinProject.kind === "prod" ||
+    project.devDeployment !== "local"
+  ) {
+    await assertLocalOptionsAreDefault(ctx, cmdOptions.localOptions);
+  }
   const deploymentOptions: DeploymentOptions =
     selectionWithinProject.kind === "prod"
       ? { kind: "prod" }
@@ -695,12 +667,10 @@ type DeploymentOptions =
   | { kind: "dev" }
   | {
       kind: "local";
-      ports?:
-        | {
-            cloud: number;
-            site: number;
-          }
-        | undefined;
+      ports: {
+        cloud: number | undefined;
+        site: number | undefined;
+      };
       backendVersion?: string | undefined;
       forceUpgrade: boolean;
     };
@@ -789,4 +759,55 @@ export async function updateEnvAndConfigForDeploymentSelection(
     changedDeploymentEnvVar,
     functionsPath: functionsDir(configPath, projectConfig),
   });
+}
+
+async function assertLocalOptionsAreDefault(
+  ctx: Context,
+  localOptions: ConfigureCmdOptions["localOptions"],
+) {
+  if (localOptions.ports.cloud !== undefined) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`--local-cloud-port` can only be used when developing with a local deployment. " +
+        "Use `npx convex deployment select local` to use a local deployment.",
+    });
+  }
+  if (localOptions.ports.site !== undefined) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`--local-site-port` can only be used when developing with a local deployment. " +
+        "Use `npx convex deployment select local` to use a local deployment.",
+    });
+  }
+  if (localOptions.backendVersion !== undefined) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`--local-backend-version` can only be used when developing with a local deployment. " +
+        "Use `npx convex deployment select local` to use a local deployment.",
+    });
+  }
+  if (localOptions.dashboardVersion !== undefined) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`--local-dashboard-version` can only be used when developing with a local deployment. " +
+        "Use `npx convex deployment select local` to use a local deployment.",
+    });
+  }
+  if (localOptions.forceUpgrade === true) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`--local-force-upgrade` can only be used when developing with a local deployment. " +
+        "Use `npx convex deployment select local` to use a local deployment.",
+    });
+  }
 }
