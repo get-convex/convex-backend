@@ -330,6 +330,14 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     };
                     Some(schema_id.into())
                 } else {
+                    // Properly populate the index diff when there is no schema in the new push. We
+                    // treat this as no indexes being defined
+                    if !skip_index_diff {
+                        let index_diff = IndexModel::new(self.tx)
+                            .get_index_diff(namespace, &BTreeMap::new())
+                            .await?;
+                        index_diffs.insert(path.clone(), index_diff.into());
+                    }
                     None
                 };
                 schema_ids.insert(path.clone(), schema_id);
