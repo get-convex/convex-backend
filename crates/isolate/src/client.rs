@@ -840,23 +840,38 @@ impl<RT: Runtime> IsolateClient<RT> {
                 .all(|m| m.environment == ModuleEnvironment::Isolate),
             "Can only evaluate Isolate modules"
         );
-        let (tx, rx) = oneshot::channel();
-        let request = RequestType::EvaluateAppDefinitions {
-            app_definition,
-            component_definitions,
-            dependency_graph,
-            user_environment_variables,
-            system_env_vars,
-            response: tx,
-        };
-        self.send_request(Request::new(
-            instance_name,
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        match IsolateClient::<RT>::receive_response(rx).await? {
-            Ok(outcome) => Ok(outcome),
-            Err(e) => Err(recapture_stacktrace(e).await),
+        let mut backoff = Backoff::new(Duration::from_millis(500), Duration::from_secs(2));
+        let mut attempt = 1;
+        const MAX_ATTEMPTS: u32 = 3;
+        loop {
+            let (tx, rx) = oneshot::channel();
+            let request = RequestType::EvaluateAppDefinitions {
+                app_definition: app_definition.clone(),
+                component_definitions: component_definitions.clone(),
+                dependency_graph: dependency_graph.clone(),
+                user_environment_variables: user_environment_variables.clone(),
+                system_env_vars: system_env_vars.clone(),
+                response: tx,
+            };
+            self.send_request(Request::new(
+                instance_name.clone(),
+                request,
+                EncodedSpan::from_parent(),
+            ))?;
+            match IsolateClient::<RT>::receive_response(rx).await? {
+                Ok(outcome) => return Ok(outcome),
+                Err(e)
+                    if attempt < MAX_ATTEMPTS
+                        && (e.is_rejected_before_execution() || e.is_overloaded()) =>
+                {
+                    tracing::warn!("Retrying evaluate_app_definitions after system error: {e:?}");
+                    let wait = backoff.fail(&mut self.rt.rng());
+                    self.rt.wait(wait).await;
+                    attempt += 1;
+                    continue;
+                },
+                Err(e) => return Err(recapture_stacktrace(e).await),
+            }
         }
     }
 
@@ -870,23 +885,40 @@ impl<RT: Runtime> IsolateClient<RT> {
         name: ComponentName,
         instance_name: String,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
-        let (tx, rx) = oneshot::channel();
-        let request = RequestType::EvaluateComponentInitializer {
-            evaluated_definitions,
-            path,
-            definition,
-            args,
-            name,
-            response: tx,
-        };
-        self.send_request(Request::new(
-            instance_name,
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        match IsolateClient::<RT>::receive_response(rx).await? {
-            Ok(outcome) => Ok(outcome),
-            Err(e) => Err(recapture_stacktrace(e).await),
+        let mut backoff = Backoff::new(Duration::from_millis(500), Duration::from_secs(2));
+        let mut attempt = 1;
+        const MAX_ATTEMPTS: u32 = 3;
+        loop {
+            let (tx, rx) = oneshot::channel();
+            let request = RequestType::EvaluateComponentInitializer {
+                evaluated_definitions: evaluated_definitions.clone(),
+                path: path.clone(),
+                definition: definition.clone(),
+                args: args.clone(),
+                name: name.clone(),
+                response: tx,
+            };
+            self.send_request(Request::new(
+                instance_name.clone(),
+                request,
+                EncodedSpan::from_parent(),
+            ))?;
+            match IsolateClient::<RT>::receive_response(rx).await? {
+                Ok(outcome) => return Ok(outcome),
+                Err(e)
+                    if attempt < MAX_ATTEMPTS
+                        && (e.is_rejected_before_execution() || e.is_overloaded()) =>
+                {
+                    tracing::warn!(
+                        "Retrying evaluate_component_initializer after system error: {e:?}"
+                    );
+                    let wait = backoff.fail(&mut self.rt.rng());
+                    self.rt.wait(wait).await;
+                    attempt += 1;
+                    continue;
+                },
+                Err(e) => return Err(recapture_stacktrace(e).await),
+            }
         }
     }
 
@@ -899,22 +931,37 @@ impl<RT: Runtime> IsolateClient<RT> {
         unix_timestamp: UnixTimestamp,
         instance_name: String,
     ) -> anyhow::Result<DatabaseSchema> {
-        let (tx, rx) = oneshot::channel();
-        let request = RequestType::EvaluateSchema {
-            schema_bundle,
-            source_map,
-            rng_seed,
-            unix_timestamp,
-            response: tx,
-        };
-        self.send_request(Request::new(
-            instance_name,
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        match IsolateClient::<RT>::receive_response(rx).await? {
-            Ok(outcome) => Ok(outcome),
-            Err(e) => Err(recapture_stacktrace(e).await),
+        let mut backoff = Backoff::new(Duration::from_millis(500), Duration::from_secs(2));
+        let mut attempt = 1;
+        const MAX_ATTEMPTS: u32 = 3;
+        loop {
+            let (tx, rx) = oneshot::channel();
+            let request = RequestType::EvaluateSchema {
+                schema_bundle: schema_bundle.clone(),
+                source_map: source_map.clone(),
+                rng_seed,
+                unix_timestamp,
+                response: tx,
+            };
+            self.send_request(Request::new(
+                instance_name.clone(),
+                request,
+                EncodedSpan::from_parent(),
+            ))?;
+            match IsolateClient::<RT>::receive_response(rx).await? {
+                Ok(outcome) => return Ok(outcome),
+                Err(e)
+                    if attempt < MAX_ATTEMPTS
+                        && (e.is_rejected_before_execution() || e.is_overloaded()) =>
+                {
+                    tracing::warn!("Retrying evaluate_schema after system error: {e:?}");
+                    let wait = backoff.fail(&mut self.rt.rng());
+                    self.rt.wait(wait).await;
+                    attempt += 1;
+                    continue;
+                },
+                Err(e) => return Err(recapture_stacktrace(e).await),
+            }
         }
     }
 
@@ -927,45 +974,58 @@ impl<RT: Runtime> IsolateClient<RT> {
         explanation: &str,
         instance_name: String,
     ) -> anyhow::Result<AuthConfig> {
-        let (tx, rx) = oneshot::channel();
-        let request = RequestType::EvaluateAuthConfig {
-            auth_config_bundle,
-            source_map,
-            environment_variables,
-            response: tx,
+        let mut backoff = Backoff::new(Duration::from_millis(500), Duration::from_secs(2));
+        let mut attempt = 1;
+        const MAX_ATTEMPTS: u32 = 3;
+        let result = loop {
+            let (tx, rx) = oneshot::channel();
+            let request = RequestType::EvaluateAuthConfig {
+                auth_config_bundle: auth_config_bundle.clone(),
+                source_map: source_map.clone(),
+                environment_variables: environment_variables.clone(),
+                response: tx,
+            };
+            self.send_request(Request::new(
+                instance_name.clone(),
+                request,
+                EncodedSpan::from_parent(),
+            ))?;
+            match IsolateClient::<RT>::receive_response(rx).await? {
+                Ok(outcome) => return Ok(outcome),
+                Err(e)
+                    if attempt < MAX_ATTEMPTS
+                        && (e.is_rejected_before_execution() || e.is_overloaded()) =>
+                {
+                    tracing::warn!("Retrying evaluate_auth_config after system error: {e:?}");
+                    let wait = backoff.fail(&mut self.rt.rng());
+                    self.rt.wait(wait).await;
+                    attempt += 1;
+                    continue;
+                },
+                Err(e) => break e,
+            }
         };
-        self.send_request(Request::new(
-            instance_name,
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        let result = IsolateClient::<RT>::receive_response(rx).await?;
-        match result {
-            Ok(outcome) => Ok(outcome),
-            Err(e) => {
-                let is_env_var_error = e
-                    .to_string()
-                    .starts_with("Uncaught Error: Environment variable");
-                let err = recapture_stacktrace(e).await;
-                if err.is_rejected_before_execution() {
-                    return Err(err);
-                }
-                let error = err.to_string();
-                if is_env_var_error {
-                    // Reformatting the underlying message to be nicer
-                    // here. Since we lost the underlying ErrorMetadata into the JSError,
-                    // we do some string matching instead. CX-4531
-                    Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-                        "AuthConfigMissingEnvironmentVariable",
-                        error.trim_start_matches("Uncaught Error: ").to_string(),
-                    )))
-                } else {
-                    Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-                        "InvalidAuthConfig",
-                        format!("{explanation}: {error}"),
-                    )))
-                }
-            },
+        let is_env_var_error = result
+            .to_string()
+            .starts_with("Uncaught Error: Environment variable");
+        let err = recapture_stacktrace(result).await;
+        if err.is_rejected_before_execution() {
+            return Err(err);
+        }
+        let error = err.to_string();
+        if is_env_var_error {
+            // Reformatting the underlying message to be nicer
+            // here. Since we lost the underlying ErrorMetadata into the JSError,
+            // we do some string matching instead. CX-4531
+            Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                "AuthConfigMissingEnvironmentVariable",
+                error.trim_start_matches("Uncaught Error: ").to_string(),
+            )))
+        } else {
+            Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidAuthConfig",
+                format!("{explanation}: {error}"),
+            )))
         }
     }
 
