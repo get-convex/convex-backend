@@ -10,7 +10,11 @@ import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TextInput } from "@ui/TextInput";
 import { Menu, MenuItem } from "@ui/Menu";
-import { PlusIcon, DotsVerticalIcon } from "@radix-ui/react-icons";
+import {
+  PlusIcon,
+  DotsVerticalIcon,
+  CheckCircledIcon,
+} from "@radix-ui/react-icons";
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
@@ -282,12 +286,14 @@ const statementsSchema = {
 
 function CustomRoleForm({
   teamId,
+  teamSlug,
   existingRole,
   templateId,
   onClose,
   onSaved,
 }: {
   teamId: number;
+  teamSlug: string;
   existingRole?: CustomRoleResponse;
   templateId?: string;
   onClose: () => void;
@@ -312,6 +318,7 @@ function CustomRoleForm({
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
   const [hasSchemaError, setHasSchemaError] = useState(false);
+  const [savedRoleName, setSavedRoleName] = useState<string>();
   // Tracks the id of a role created in this form instance so that a fast
   // second save after Create still routes through update, even if the SWR
   // cache for `list_custom_roles` hasn't yet repopulated `existingRole`.
@@ -358,6 +365,7 @@ function CustomRoleForm({
   const handleSubmit = async () => {
     setError(undefined);
     setNameError(undefined);
+    setSavedRoleName(undefined);
 
     if (!name.trim()) {
       setNameError("Name is required.");
@@ -391,22 +399,25 @@ function CustomRoleForm({
 
     setIsSubmitting(true);
     try {
+      const trimmedName = name.trim();
       if (savedRoleId !== undefined) {
         await updateCustomRole({
           id: savedRoleId,
-          name: name.trim(),
+          name: trimmedName,
           description: description.trim() || null,
           statements: parsedStatements,
         });
+        setSavedRoleName(trimmedName);
         onSaved(savedRoleId);
       } else {
         const created = await createCustomRole({
-          name: name.trim(),
+          name: trimmedName,
           description: description.trim() || null,
           statements: parsedStatements,
         });
         if (created) {
           setCreatedRoleId(created.id);
+          setSavedRoleName(trimmedName);
           onSaved(created.id);
         }
       }
@@ -418,8 +429,8 @@ function CustomRoleForm({
   };
 
   return (
-    <Sheet>
-      <div className="flex flex-col gap-4">
+    <Sheet className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <TextInput
           id="role-name"
           label="Name"
@@ -427,6 +438,7 @@ function CustomRoleForm({
           onChange={(e) => {
             setName(e.target.value);
             setNameError(undefined);
+            setSavedRoleName(undefined);
           }}
           placeholder="e.g. Viewer"
           error={nameError}
@@ -442,21 +454,27 @@ function CustomRoleForm({
             id="role-description"
             className="min-h-[60px] w-full rounded border bg-background-secondary px-3 py-2 text-sm text-content-primary"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setSavedRoleName(undefined);
+            }}
             placeholder="Optional description for this role"
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-1">
           <div className="text-left text-sm text-content-primary">
             Statements
           </div>
-          <div className="h-[60vh] min-h-96 overflow-hidden rounded border">
+          <div className="min-h-48 flex-1 overflow-hidden rounded border">
             <Editor
               path={STATEMENTS_EDITOR_PATH}
               value={statementsText}
               language="json"
               theme={prefersDark ? "vs-dark" : "light"}
-              onChange={(v) => setStatementsText(v ?? "")}
+              onChange={(v) => {
+                setStatementsText(v ?? "");
+                setSavedRoleName(undefined);
+              }}
               beforeMount={handleEditorBeforeMount}
               onMount={handleEditorMount}
               options={{
@@ -467,26 +485,46 @@ function CustomRoleForm({
             />
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2">
-          {error && (
-            <p className="mr-auto text-sm text-content-errorSecondary">
-              {error}
-            </p>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex w-full items-center justify-end gap-2">
+            {error && (
+              <p className="mr-auto text-sm text-content-errorSecondary">
+                {error}
+              </p>
+            )}
+            <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || hasSchemaError}
+              tip={
+                hasSchemaError
+                  ? "Resolve the highlighted schema errors first."
+                  : undefined
+              }
+            >
+              {savedRoleId !== undefined ? "Save" : "Create"}
+            </Button>
+          </div>
+          {savedRoleName && (
+            <div className="flex items-center gap-1 text-sm">
+              <CheckCircledIcon className="shrink-0 text-content-success" />
+              <p>
+                Saved “{savedRoleName}”. Assign this role to a team member on
+                the{" "}
+                <Link
+                  href={{
+                    pathname: "/t/[team]/settings/members",
+                    query: { team: teamSlug },
+                  }}
+                >
+                  Team Settings → Members page
+                </Link>
+                .
+              </p>
+            </div>
           )}
-          <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || hasSchemaError}
-            tip={
-              hasSchemaError
-                ? "Resolve the highlighted schema errors first."
-                : undefined
-            }
-          >
-            {savedRoleId !== undefined ? "Save" : "Create"}
-          </Button>
         </div>
       </div>
     </Sheet>
@@ -647,7 +685,7 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
     : (editingRole?.name ?? (editingRoleId ? "Edit" : undefined));
 
   return (
-    <div className="-mx-6 flex flex-col">
+    <div className="-mx-6 flex min-h-0 flex-1 flex-col">
       <div className="sticky top-0 z-10 -mt-6 flex items-center gap-2 bg-background-primary p-6">
         {showForm ? (
           <Link href={listHref}>
@@ -665,10 +703,10 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
           </>
         )}
       </div>
-      <div className="relative flex overflow-x-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-x-hidden">
         <div
           className={cn(
-            "flex w-full gap-6 transition-transform duration-500 motion-reduce:transition-none",
+            "flex min-h-0 w-full flex-1 gap-6 transition-transform duration-500 motion-reduce:transition-none",
             showForm ? "-translate-x-[calc(100%+1.5rem)]" : "translate-x-0",
           )}
         >
@@ -768,6 +806,7 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
                 <CustomRoleForm
                   key="custom-role-form"
                   teamId={team.id}
+                  teamSlug={team.slug}
                   existingRole={editingRole}
                   templateId={newRoleTemplateId}
                   onClose={goToList}

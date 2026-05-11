@@ -47,6 +47,7 @@ use serde::{
 };
 use serde_json::json;
 use storage::StorageExt;
+use thousands::Separable;
 use tokio_util::io::StreamReader;
 use usage_tracking::{
     FunctionUsageTracker,
@@ -120,8 +121,9 @@ where
                      so far",
                 );
                 update_progress(format!(
-                    "Backing up _storage{in_component_str}: {num_storage_entries} / \
-                     {storage_total_entries} entries (metadata)"
+                    "Backing up _storage{in_component_str}: {} / {} entries (metadata)",
+                    num_storage_entries.separate_with_commas(),
+                    storage_total_entries.separate_with_commas(),
                 ))
                 .await?;
                 last_log_time = Instant::now();
@@ -224,8 +226,9 @@ where
                 "Export _storage files in progress: {num_files} files downloaded so far",
             );
             update_progress(format!(
-                "Backing up _storage{in_component_str}: {num_files} / {storage_total_entries} \
-                 files (downloading)"
+                "Backing up _storage{in_component_str}: {} / {} files (downloading)",
+                num_files.separate_with_commas(),
+                storage_total_entries.separate_with_commas(),
             ))
             .await?;
             last_log_time = Instant::now();

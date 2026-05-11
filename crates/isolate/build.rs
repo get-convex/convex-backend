@@ -37,10 +37,10 @@ const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
 const COMPONENT_TESTS_DIR: &str = "../../npm-packages/tests/component-tests";
 /// Exceptions to the rule that all directories in `component-tests` are
 /// components.
-const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: [&str; 3] = [".rush", "node_modules", "projects"];
+const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: &[&str] = &[".rush", "node_modules", "projects"];
 /// Directory where test projects that use components live.
 const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/tests/component-tests/projects";
-const COMPONENT_TESTS_PROJECTS: [&str; 11] = [
+const COMPONENT_TESTS_PROJECTS: &[&str] = &[
     "basic",
     "with-schema",
     "schema_with_index",
@@ -54,7 +54,7 @@ const COMPONENT_TESTS_PROJECTS: [&str; 11] = [
     "env_vars",
 ];
 /// Components in `component-tests` directory that are used in projects.
-const COMPONENTS: [&str; 6] = [
+const COMPONENTS: &[&str] = &[
     "component",
     "componentWithEnv",
     "envVars",

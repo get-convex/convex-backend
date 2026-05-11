@@ -1,14 +1,12 @@
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
 import { Link } from "@ui/Link";
-import { Menu, MenuItem } from "@ui/Menu";
 import { Modal } from "@ui/Modal";
 import { Tooltip } from "@ui/Tooltip";
-import { Cross2Icon, PlusIcon } from "@radix-ui/react-icons";
-import { useMemo, useState } from "react";
-import sortBy from "lodash/sortBy";
+import { useState } from "react";
 import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
 import type { TeamMember, TeamResponse } from "generatedApi";
+import { CustomRolesSelector } from "./CustomRolesSelector";
 
 type RoleChoice = "admin" | "developer" | "custom";
 
@@ -49,30 +47,6 @@ export function EditTeamRoleDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [didAttemptSave, setDidAttemptSave] = useState(false);
 
-  const sortedCustomRoles = useMemo(
-    () => sortBy(customRoles, (r) => r.name.toLowerCase()),
-    [customRoles],
-  );
-  const customRoleNameById = useMemo(
-    () => new Map(sortedCustomRoles.map((r) => [r.id, r.name] as const)),
-    [sortedCustomRoles],
-  );
-  const selectedSet = useMemo(
-    () => new Set(selectedCustomRoleIds),
-    [selectedCustomRoleIds],
-  );
-  const selectedSorted = useMemo(
-    () =>
-      sortBy(selectedCustomRoleIds, (id) =>
-        (customRoleNameById.get(id) ?? "").toLowerCase(),
-      ),
-    [selectedCustomRoleIds, customRoleNameById],
-  );
-  const unselectedRoles = useMemo(
-    () => sortedCustomRoles.filter((r) => !selectedSet.has(r.id)),
-    [sortedCustomRoles, selectedSet],
-  );
-
   const roleOptions = [
     { label: "Admin", value: "admin" as const, disabled: false },
     { label: "Developer", value: "developer" as const, disabled: false },
@@ -95,12 +69,7 @@ export function EditTeamRoleDialog({
   const customSelectionEmpty =
     choice === "custom" && selectedCustomRoleIds.length === 0;
   const noCustomRolesAvailable =
-    choice === "custom" && sortedCustomRoles.length === 0;
-
-  const removeCustomRole = (id: number) =>
-    setSelectedCustomRoleIds((ids) => ids.filter((x) => x !== id));
-  const addCustomRole = (id: number) =>
-    setSelectedCustomRoleIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    choice === "custom" && customRoles.length === 0;
 
   return (
     <Modal
@@ -164,7 +133,6 @@ export function EditTeamRoleDialog({
 
         {choice === "custom" && (
           <div className="flex flex-col gap-1">
-            <span className="text-sm text-content-primary">Custom roles</span>
             <p className="mb-2 text-xs text-content-secondary">
               Custom roles let you assign granular permissions to team members.
               Manage them in{" "}
@@ -176,59 +144,11 @@ export function EditTeamRoleDialog({
               </Link>
               .
             </p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {selectedSorted.map((id) => {
-                const name = customRoleNameById.get(id) ?? `Role #${id}`;
-                return (
-                  <Button
-                    key={id}
-                    variant="unstyled"
-                    aria-label={`Remove custom role ${name}`}
-                    tip="Remove custom role"
-                    onClick={() => removeCustomRole(id)}
-                    className="flex cursor-pointer items-center gap-1 rounded-sm border px-1.5 py-1 text-xs text-content-primary shadow-xs transition-colors hover:border-content-error hover:bg-background-error hover:text-content-error hover:shadow-none"
-                  >
-                    <span className="max-w-[12rem] truncate">{name}</span>
-                    <Cross2Icon className="h-3 w-3 shrink-0" />
-                  </Button>
-                );
-              })}
-              {unselectedRoles.length === 0 ? (
-                <Button
-                  variant="neutral"
-                  size="xs"
-                  icon={<PlusIcon />}
-                  aria-label="Add custom role"
-                  tip={
-                    noCustomRolesAvailable
-                      ? "No custom roles exist for this team yet."
-                      : "All custom roles are already added."
-                  }
-                  disabled
-                />
-              ) : (
-                <Menu
-                  placement="bottom-start"
-                  buttonProps={{
-                    variant: "neutral",
-                    size: "xs",
-                    icon: <PlusIcon />,
-                    "aria-label": "Add custom role",
-                  }}
-                >
-                  {unselectedRoles.map((r) => (
-                    <MenuItem key={r.id} action={() => addCustomRole(r.id)}>
-                      {r.name}
-                    </MenuItem>
-                  ))}
-                </Menu>
-              )}
-            </div>
-            {noCustomRolesAvailable && (
-              <span className="text-xs text-content-secondary">
-                No custom roles exist for this team yet.
-              </span>
-            )}
+            <CustomRolesSelector
+              availableRoles={customRoles}
+              selectedIds={selectedCustomRoleIds}
+              onChange={setSelectedCustomRoleIds}
+            />
             {didAttemptSave &&
               customSelectionEmpty &&
               !noCustomRolesAvailable && (
