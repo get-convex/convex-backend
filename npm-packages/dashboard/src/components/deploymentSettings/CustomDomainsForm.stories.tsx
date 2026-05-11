@@ -1,4 +1,4 @@
-import { fn, mocked } from "storybook/test";
+import { fn, mocked, userEvent, within } from "storybook/test";
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import {
   useCreateVanityDomain,
@@ -6,7 +6,7 @@ import {
 } from "api/vanityDomains";
 import { useDeployments } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";
-import { CustomDomainsForm } from "components/deploymentSettings/CustomDomains";
+import { CustomDomainsForm } from "./CustomDomains";
 
 const deploymentName = "festive-capybara-729";
 
@@ -67,5 +67,24 @@ export const Default: Story = {
       isLoading: false,
     });
     mocked(useHasProjectAdminPermissions).mockReturnValue(true);
+  },
+};
+
+export const WithValidationError: Story = {
+  beforeEach() {
+    mocked(useCreateVanityDomain).mockReturnValue(fn());
+    mocked(useDeleteVanityDomain).mockReturnValue(fn());
+    mocked(useDeployments).mockReturnValue({
+      deployments: [],
+      isLoading: false,
+    });
+    mocked(useHasProjectAdminPermissions).mockReturnValue(true);
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(
+      canvas.getByPlaceholderText("Custom domain URL"),
+      "asdf",
+    );
   },
 };
