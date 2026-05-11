@@ -1,6 +1,8 @@
 pub use common::types::{
     BackendState,
     OldBackendState,
+    SystemStopState,
+    UserStopState,
 };
 use serde::{
     Deserialize,
@@ -9,28 +11,19 @@ use serde::{
 use value::codegen_convex_serialization;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum PersistedBackendState {
-    Old(OldBackendState),
-    New(BackendState),
-}
+pub struct PersistedBackendState(pub BackendState);
 
 #[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SerializedBackendState {
-    Old { state: String },
-    New { system: String, user: String },
+pub struct SerializedBackendState {
+    system: String,
+    user: String,
 }
 
 impl From<PersistedBackendState> for SerializedBackendState {
     fn from(state: PersistedBackendState) -> Self {
-        match state {
-            PersistedBackendState::Old(state) => Self::Old {
-                state: state.to_string(),
-            },
-            PersistedBackendState::New(state) => Self::New {
-                system: state.system.to_string(),
-                user: state.user.to_string(),
-            },
+        Self {
+            system: state.0.system.to_string(),
+            user: state.0.user.to_string(),
         }
     }
 }
@@ -39,22 +32,10 @@ impl TryFrom<SerializedBackendState> for PersistedBackendState {
     type Error = anyhow::Error;
 
     fn try_from(object: SerializedBackendState) -> anyhow::Result<Self> {
-        Ok(match object {
-            SerializedBackendState::Old { state } => Self::Old(state.parse()?),
-            SerializedBackendState::New { system, user } => Self::New(BackendState {
-                system: system.parse()?,
-                user: user.parse()?,
-            }),
-        })
-    }
-}
-
-impl PersistedBackendState {
-    pub fn to_old_lossy(&self) -> OldBackendState {
-        match self {
-            PersistedBackendState::Old(old_backend_state) => *old_backend_state,
-            PersistedBackendState::New(backend_state) => backend_state.to_old_lossy(),
-        }
+        Ok(Self(BackendState {
+            system: object.system.parse()?,
+            user: object.user.parse()?,
+        }))
     }
 }
 
