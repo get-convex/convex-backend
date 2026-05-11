@@ -3432,6 +3432,7 @@ dependencies = [
  "shape_inference",
  "storage",
  "storage_zip_reader",
+ "thousands",
  "tokio",
  "tokio-stream",
  "tokio-util",
