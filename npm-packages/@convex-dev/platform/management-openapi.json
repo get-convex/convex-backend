@@ -2905,7 +2905,9 @@
       "PlatformCreateProjectResponse": {
         "type": "object",
         "required": [
-          "projectId"
+          "projectId",
+          "id",
+          "slug"
         ],
         "properties": {
           "deploymentName": {
@@ -2922,8 +2924,16 @@
             ],
             "description": "Deployment cloud URL, where this deployment lives. Only present when a\ndeployment was requested."
           },
-          "projectId": {
+          "id": {
             "$ref": "#/components/schemas/ProjectId"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId",
+            "description": "Deprecated alias for `id`, kept for backwards compatibility."
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug",
+            "description": "The shortened version of the project name used in Convex Dashboard URLs."
           }
         }
       },
