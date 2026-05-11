@@ -100,6 +100,8 @@ export type ComponentDefinition<
    *
    * Takes a component definition and an optional name.
    *
+   * The `env` option is internal and may change in subsequent releases.
+   *
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
@@ -119,6 +121,8 @@ export type ComponentDefinition<
    * References to this component's declared env vars. Pass one of these in
    * `app.use(child, { env: { ... } })` to bind a child's env var by
    * reference to this component's env var.
+   *
+   * @internal
    */
   env: EnvRefFromDefinition<Env>;
 
@@ -264,6 +268,8 @@ export type AppDefinition<Env extends EnvDefinition = EnvDefinition> = {
    *
    * Takes a component definition and an optional name.
    *
+   * The `env` option is internal and may change in subsequent releases.
+   *
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
@@ -276,6 +282,8 @@ export type AppDefinition<Env extends EnvDefinition = EnvDefinition> = {
    * References to this app's declared env vars. Pass one of these in
    * `app.use(child, { env: { ... } })` to bind a child's env var by
    * reference to this app's env var.
+   *
+   * @internal
    */
   env: EnvRefFromDefinition<Env>;
 
@@ -635,6 +643,18 @@ type RuntimeAppDefinition = Omit<AppDefinition<any>, "__env"> &
 /**
  * Define a component, a piece of a Convex deployment with namespaced resources.
  *
+ * @param name Name must be alphanumeric plus underscores. Typically these are
+ * lowercase with underscores like `"onboarding_flow_tracker"`.
+ *
+ * This is a feature of components, which are in beta.
+ * This API is unstable and may change in subsequent releases.
+ */
+export function defineComponent<Exports extends ComponentExports = any>(
+  name: string,
+): ComponentDefinition<Exports>;
+/**
+ * Define a component, a piece of a Convex deployment with namespaced resources.
+ *
  * Optionally define typed environment variables that will be available via
  * the `env` export from `_generated/server` in all Convex functions within
  * this component. Values are passed by the parent via
@@ -645,7 +665,18 @@ type RuntimeAppDefinition = Omit<AppDefinition<any>, "__env"> &
  *
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
+ *
+ * @internal
  */
+export function defineComponent<
+  Exports extends ComponentExports = any,
+  const Env extends EnvDefinition = {},
+>(
+  name: string,
+  options?: {
+    env?: Env;
+  },
+): ComponentDefinition<Exports, Env>;
 export function defineComponent<
   Exports extends ComponentExports = any,
   const Env extends EnvDefinition = {},
@@ -689,6 +720,13 @@ export function defineComponent<
 /**
  * Attach components, reuseable pieces of a Convex deployment, to this Convex app.
  *
+ * This is a feature of components, which are in beta.
+ * This API is unstable and may change in subsequent releases.
+ */
+export function defineApp(options?: { httpPrefix?: string }): AppDefinition;
+/**
+ * Attach components, reuseable pieces of a Convex deployment, to this Convex app.
+ *
  * Optionally define typed environment variables that will be available via
  * the `env` export from `_generated/server` in all Convex functions.
  *
@@ -708,7 +746,13 @@ export function defineComponent<
  *
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
+ *
+ * @internal
  */
+export function defineApp<Env extends EnvDefinition = EnvDefinition>(options?: {
+  httpPrefix?: string;
+  env?: Env;
+}): AppDefinition<Env>;
 export function defineApp<Env extends EnvDefinition = EnvDefinition>(options?: {
   httpPrefix?: string;
   env?: Env;
