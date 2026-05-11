@@ -88,6 +88,7 @@ export const ACTIONS_BY_CATEGORY: Record<
     "deployment:integrations:write",
     "deployment:customDomain:create",
     "deployment:customDomain:delete",
+    "deployment:customDomain:view",
     "deployment:insights:view",
     "deployment:backups:create",
     "deployment:backups:import",
@@ -117,6 +118,7 @@ export const ACTIONS_BY_CATEGORY: Record<
     "member:cancelInvitation",
     "member:remove",
     "member:updateRole",
+    "member:view",
   ],
   teamToken: [
     "team:token:create",

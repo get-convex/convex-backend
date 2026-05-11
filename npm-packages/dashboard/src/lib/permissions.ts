@@ -68,7 +68,7 @@ export type ConcreteSegment =
       deploymentType: string;
       creator: number | null;
     }
-  | { kind: "member"; memberId: number }
+  | { kind: "member" }
   | {
       kind: "token";
       tokenKind: "team" | "project" | "deployment";
@@ -273,6 +273,7 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "deployment:integrations:write": "deployment",
   "deployment:customDomain:create": "deployment",
   "deployment:customDomain:delete": "deployment",
+  "deployment:customDomain:view": "deployment",
   "deployment:insights:view": "deployment",
   "deployment:backups:create": "deployment",
   "deployment:backups:import": "deployment",
@@ -301,6 +302,7 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "member:cancelInvitation": "member",
   "member:remove": "member",
   "member:updateRole": "member",
+  "member:view": "member",
   // Custom Role
   "customRole:view": "customRole",
   // Token

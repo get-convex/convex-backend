@@ -2528,7 +2528,7 @@
               "null"
             ],
             "items": {
-              "$ref": "#/components/schemas/CustomRoleId"
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
             "description": "The custom roles attached to this invitation. Present iff `role` is\n`custom`."
           },
@@ -3602,10 +3602,12 @@
           "deployment:integrations:write",
           "deployment:customDomain:create",
           "deployment:customDomain:delete",
+          "deployment:customDomain:view",
           "member:invite",
           "member:cancelInvitation",
           "member:remove",
           "member:updateRole",
+          "member:view",
           "billing:paymentMethod:update",
           "billing:contact:update",
           "billing:address:update",
