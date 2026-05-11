@@ -17,6 +17,7 @@ import classNames from "classnames";
 import startCase from "lodash/startCase";
 import { MemberProjectRolesModal } from "./MemberProjectRolesModal";
 import { EditTeamRoleDialog } from "./EditTeamRoleDialog";
+import { RoleDisplay } from "./RoleDisplay";
 
 type TeamMemberListItemProps = {
   team: TeamResponse;
@@ -126,7 +127,7 @@ export function TeamMemberListItem({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <RoleDisplay member={member} />
+        <RoleDisplay role={member.role} customRoles={member.customRoles} />
         <Menu
           placement="bottom-end"
           buttonProps={{
@@ -215,33 +216,6 @@ export function TeamMemberListItem({
           />
         )}
       </div>
-    </div>
-  );
-}
-
-function RoleDisplay({ member }: { member: TeamMember }) {
-  if (member.role !== "custom") {
-    return (
-      <div className="text-sm text-content-primary">
-        {startCase(member.role)}
-      </div>
-    );
-  }
-  const memberCustomRoles = member.customRoles ?? [];
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      {memberCustomRoles.length === 0 ? (
-        <div className="text-sm text-content-primary">Custom</div>
-      ) : (
-        memberCustomRoles.map(({ id, name }) => (
-          <span
-            key={id}
-            className="rounded-sm border px-1.5 py-1 text-xs text-content-primary"
-          >
-            {name}
-          </span>
-        ))
-      )}
     </div>
   );
 }
