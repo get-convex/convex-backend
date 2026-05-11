@@ -12,6 +12,7 @@ use std::{
 
 use anyhow::Context;
 use biscuit::JWT;
+use chrono::DateTime;
 pub use common::types::SystemKey;
 use common::{
     components::ComponentId,
@@ -896,6 +897,9 @@ impl KeyBroker {
         }
         anyhow::ensure!(issued_s != 0, "Proto missing issued_s");
         let identity = identity.context("Proto missing identity")?;
+
+        let issued = DateTime::from_timestamp(issued_s as i64, 0);
+        tracing::info!("Admin key accepted from {identity:?} at {issued:?} for {instance_name}");
 
         Ok(match identity {
             AdminIdentityProto::MemberId(member_id) => Identity::InstanceAdmin(AdminIdentity {
