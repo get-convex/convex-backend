@@ -1114,7 +1114,11 @@ export interface components {
             /** @description Deployment cloud URL, where this deployment lives. Only present when a
              *     deployment was requested. */
             deploymentUrl?: string | null;
+            id: components["schemas"]["ProjectId"];
+            /** @description Deprecated alias for `id`, kept for backwards compatibility. */
             projectId: components["schemas"]["ProjectId"];
+            /** @description The shortened version of the project name used in Convex Dashboard URLs. */
+            slug: components["schemas"]["ProjectSlug"];
         };
         PlatformCreateTeamArgs: {
             defaultRegion: components["schemas"]["RegionName"];
