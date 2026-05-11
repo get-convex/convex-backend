@@ -72,12 +72,12 @@ export const screenshots = [
     "light": {
       "filename": "components_health_cache_hit_rate_light.webp",
       "width": 832,
-      "height": 556
+      "height": 564
     },
     "dark": {
       "filename": "components_health_cache_hit_rate_dark.webp",
       "width": 832,
-      "height": 556
+      "height": 564
     }
   },
   {
