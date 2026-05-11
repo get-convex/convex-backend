@@ -67,6 +67,7 @@ use storage::{
     Upload,
     UploadExt,
 };
+use thousands::Separable;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use usage_tracking::FunctionUsageTracker;
@@ -297,8 +298,9 @@ where
                  bytes written so far",
             );
             update_progress(format!(
-                "Backing up {table_name}{in_component_str}: {num_documents} / {table_total_docs} \
-                 documents"
+                "Backing up {table_name}{in_component_str}: {} / {} documents",
+                num_documents.separate_with_commas(),
+                table_total_docs.separate_with_commas(),
             ))
             .await?;
             last_log_time = Instant::now();
