@@ -34,15 +34,12 @@ export function useShowUpdateBillingAddressBanner() {
   // Hide the banner from members who can't view or update billing details —
   // there's nothing actionable for them on the linked Billing page. Built-in
   // `admin` and `developer` always pass; `custom` members must have a role
-  // granting `viewBillingDetails`.
+  // granting `billing:view`.
   const canViewBillingDetails =
     myRoles !== undefined &&
     (myRoles.role !== "custom" ||
-      evaluateRoles(
-        myRoles.customRoles,
-        "viewBillingDetails",
-        BILLING_RESOURCE,
-      ) === "allowed");
+      evaluateRoles(myRoles.customRoles, "billing:view", BILLING_RESOURCE) ===
+        "allowed");
   if (!canViewBillingDetails) {
     return false;
   }

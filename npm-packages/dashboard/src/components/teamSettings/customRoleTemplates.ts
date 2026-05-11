@@ -14,46 +14,46 @@ export type CustomRoleTemplate = {
 };
 
 // Lifecycle and class-changing actions stay admin-only — notably
-// `updateDeploymentType`, which would let an editor reclassify a
+// `deployment:updateType`, which would let an editor reclassify a
 // non-production deployment as production.
 const VIEW_DEPLOYMENT_ACTIONS: RoleStatementAction[] = [
-  "viewInsights",
-  "viewDeploymentIntegrations",
-  "viewEnvironmentVariables",
-  "viewLogs",
-  "viewMetrics",
-  "viewAuditLog",
-  "viewData",
+  "deployment:insights:view",
+  "deployment:integrations:view",
+  "deployment:env:view",
+  "deployment:logs:view",
+  "deployment:metrics:view",
+  "deployment:auditLog:view",
+  "deployment:data:view",
 ];
 
 const EDIT_DEPLOYMENT_ACTIONS: RoleStatementAction[] = [
-  "createDeployment",
-  "viewInsights",
-  "viewDeploymentIntegrations",
-  "writeDeploymentIntegrations",
-  "viewEnvironmentVariables",
-  "writeEnvironmentVariables",
-  "viewLogs",
-  "viewMetrics",
-  "viewAuditLog",
-  "viewData",
-  "writeData",
-  "deploy",
-  "pauseDeployment",
-  "unpauseDeployment",
-  "actAsUser",
-  "runInternalQueries",
-  "runInternalMutations",
-  "runInternalActions",
-  "runTestQuery",
-  "createCustomDomain",
-  "deleteCustomDomain",
-  "createBackups",
-  "importBackups",
-  "configurePeriodicBackups",
-  "disablePeriodicBackups",
-  "deleteBackups",
-  "downloadBackups",
+  "deployment:create",
+  "deployment:insights:view",
+  "deployment:integrations:view",
+  "deployment:integrations:write",
+  "deployment:env:view",
+  "deployment:env:write",
+  "deployment:logs:view",
+  "deployment:metrics:view",
+  "deployment:auditLog:view",
+  "deployment:data:view",
+  "deployment:data:write",
+  "deployment:deploy",
+  "deployment:pause",
+  "deployment:unpause",
+  "deployment:functions:actAsUser",
+  "deployment:functions:runInternalQueries",
+  "deployment:functions:runInternalMutations",
+  "deployment:functions:runInternalActions",
+  "deployment:functions:runTestQuery",
+  "deployment:customDomain:create",
+  "deployment:customDomain:delete",
+  "deployment:backups:create",
+  "deployment:backups:import",
+  "deployment:backups:configurePeriodic",
+  "deployment:backups:disablePeriodic",
+  "deployment:backups:delete",
+  "deployment:backups:download",
 ];
 
 export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
@@ -73,7 +73,7 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
       {
         effect: "allow",
         resource: "team:*",
-        actions: ["viewUsage"],
+        actions: ["team:usage:view"],
       },
     ],
   },
@@ -89,7 +89,7 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
       {
         effect: "allow",
         resource: "team:*",
-        actions: ["updateTeam", "viewUsage", "viewTeamAuditLog"],
+        actions: ["team:update", "team:usage:view", "team:auditLog:view"],
       },
       {
         effect: "allow",
@@ -166,7 +166,7 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
       {
         effect: "allow",
         resource: "project:*",
-        actions: ["viewProjects"],
+        actions: ["project:view"],
       },
       {
         effect: "allow",
@@ -192,7 +192,7 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
       {
         effect: "allow",
         resource: "project:*",
-        actions: ["viewProjects", "updateProject", "createProject"],
+        actions: ["project:view", "project:update", "project:create"],
       },
       {
         effect: "allow",
