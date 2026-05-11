@@ -2037,7 +2037,6 @@ export interface components {
             team: components["schemas"]["TeamSlug"];
         };
         CreateProjectResponse: {
-            adminKey?: null | components["schemas"]["AdminKey"];
             deploymentName?: string | null;
             /** Format: int64 */
             deploymentsRemaining?: number | null;

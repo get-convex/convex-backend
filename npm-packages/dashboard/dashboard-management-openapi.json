@@ -4067,16 +4067,6 @@
           "projectsRemaining"
         ],
         "properties": {
-          "adminKey": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/AdminKey"
-              }
-            ]
-          },
           "deploymentName": {
             "type": [
               "string",
