@@ -6050,7 +6050,6 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "strum",
  "thiserror 2.0.17",
  "tracing",
  "value",
