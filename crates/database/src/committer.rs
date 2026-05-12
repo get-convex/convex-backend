@@ -424,6 +424,10 @@ impl<RT: Runtime> Committer<RT> {
                                 span_commit_id = None;
                             }
                         },
+                            let span = Span::noop();
+                            self.bump_max_repeatable_ts(result, commit_id, &span);
+                            commit_id += 1;
+                        },
                         Some(CommitterMessage::FinishTextAndVectorBootstrap {
                             bootstrapped_indexes,
                             bootstrap_ts,
