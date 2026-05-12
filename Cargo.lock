@@ -1301,6 +1301,7 @@ dependencies = [
  "big_brain_private_api_types",
  "clap",
  "cmd_util",
+ "common",
  "crossbeam-channel",
  "ctrlc",
  "dotenvy",
