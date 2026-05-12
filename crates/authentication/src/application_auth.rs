@@ -44,7 +44,7 @@ impl ApplicationAuth {
                     "The provided admin key was invalid for this instance",
                 ));
             match &result {
-                Ok(Identity::InstanceAdmin(_)) => {
+                Ok(Identity::DeploymentAdmin(_)) => {
                     log_deploy_key_use(DeployKeyType::Legacy);
                 },
                 Ok(Identity::System(_)) => {

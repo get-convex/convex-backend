@@ -234,7 +234,7 @@ pub async fn check_admin_key(
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let admin = match &identity {
-        keybroker::Identity::InstanceAdmin(admin) | keybroker::Identity::ActingUser(admin, _) => {
+        keybroker::Identity::DeploymentAdmin(admin) | keybroker::Identity::ActingUser(admin, _) => {
             admin
         },
         _ => {

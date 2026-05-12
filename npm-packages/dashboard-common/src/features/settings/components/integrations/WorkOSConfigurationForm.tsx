@@ -539,7 +539,7 @@ function WorkOSTeamSection({
                 </li>
                 <li>Create an AuthKit environment for your deployment above</li>
                 <li>
-                  Add an <code>authKit</code> section to your project's
+                  Add an <code>authKit</code> section to your project's{" "}
                   <Link
                     href="https://docs.convex.dev/auth/authkit/auto-provision"
                     target="_blank"
@@ -555,13 +555,15 @@ function WorkOSTeamSection({
                 </li>
               </ol>
             </div>
-            <Button
-              size="xs"
-              variant="neutral"
-              onClick={() => setShowSuccessMessage(false)}
-            >
-              Dismiss
-            </Button>
+            <div>
+              <Button
+                size="xs"
+                variant="neutral"
+                onClick={() => setShowSuccessMessage(false)}
+              >
+                Dismiss
+              </Button>
+            </div>
           </div>
         </Callout>
       )}

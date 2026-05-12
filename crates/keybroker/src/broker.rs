@@ -137,7 +137,7 @@ pub struct KeyBroker {
 // the variant without representation authentication.
 #[derive(Clone, Debug)]
 pub enum Identity {
-    InstanceAdmin(AdminIdentity),
+    DeploymentAdmin(AdminIdentity),
     System(SystemIdentity),
     User(UserIdentity),
     // ActingUser keeps track of the ID of the admin acting as a user,
@@ -157,7 +157,7 @@ impl From<Identity> for AuthenticationToken {
             Identity::ActingUser(identity, user) => {
                 AuthenticationToken::Admin(identity.key, Some(user))
             },
-            Identity::InstanceAdmin(identity) => AuthenticationToken::Admin(identity.key, None),
+            Identity::DeploymentAdmin(identity) => AuthenticationToken::Admin(identity.key, None),
             _ => AuthenticationToken::None,
         }
     }
@@ -166,7 +166,7 @@ impl From<Identity> for AuthenticationToken {
 impl From<Identity> for pb::convex_identity::UncheckedIdentity {
     fn from(i: Identity) -> Self {
         let identity = match i {
-            Identity::InstanceAdmin(admin_identity) => {
+            Identity::DeploymentAdmin(admin_identity) => {
                 UncheckedIdentityProto::AdminIdentity(admin_identity.into())
             },
             Identity::System(_) => UncheckedIdentityProto::System(()),
@@ -197,7 +197,7 @@ impl Identity {
             .identity
             .ok_or_else(|| anyhow::anyhow!("Missing nested identity"))?;
         match identity {
-            UncheckedIdentityProto::AdminIdentity(admin_identity) => Ok(Identity::InstanceAdmin(
+            UncheckedIdentityProto::AdminIdentity(admin_identity) => Ok(Identity::DeploymentAdmin(
                 AdminIdentity::from_proto_unchecked(admin_identity)?,
             )),
             UncheckedIdentityProto::System(()) => Ok(Identity::System(SystemIdentity)),
@@ -229,7 +229,7 @@ impl Identity {
 impl From<Identity> for InertIdentity {
     fn from(i: Identity) -> Self {
         match i {
-            Identity::InstanceAdmin(i) => InertIdentity::InstanceAdmin(i.instance_name),
+            Identity::DeploymentAdmin(i) => InertIdentity::DeploymentAdmin(i.deployment_name),
             Identity::System(_) => InertIdentity::System,
             Identity::Unknown(_) => InertIdentity::Unknown,
             Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
@@ -248,7 +248,7 @@ impl From<Identity> for InertIdentity {
 impl PartialEq for Identity {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::InstanceAdmin(l), Self::InstanceAdmin(r)) => l == r,
+            (Self::DeploymentAdmin(l), Self::DeploymentAdmin(r)) => l == r,
             (Self::System(..), Self::System(..)) => true,
             (Self::User(l), Self::User(r)) => {
                 l.attributes.token_identifier == r.attributes.token_identifier
@@ -258,7 +258,7 @@ impl PartialEq for Identity {
                 Self::ActingUser(l_admin_identity, l_attributes),
                 Self::ActingUser(r_admin_identity, r_attributes),
             ) => l_admin_identity == r_admin_identity && l_attributes == r_attributes,
-            (Self::InstanceAdmin(_), _)
+            (Self::DeploymentAdmin(_), _)
             | (Self::System(_), _)
             | (Self::User(_), _)
             | (Self::Unknown(_), _)
@@ -272,7 +272,7 @@ impl Eq for Identity {}
 impl Identity {
     pub fn cache_key(&self) -> IdentityCacheKey {
         match self.clone() {
-            Identity::InstanceAdmin(i) => IdentityCacheKey::InstanceAdmin(i.instance_name),
+            Identity::DeploymentAdmin(i) => IdentityCacheKey::DeploymentAdmin(i.deployment_name),
             Identity::System(_) => IdentityCacheKey::System,
             Identity::Unknown(error_message) => {
                 IdentityCacheKey::Unknown(error_message.map(|e| e.to_string()))
@@ -299,7 +299,7 @@ impl Identity {
     }
 
     pub fn is_admin(&self) -> bool {
-        matches!(self, Identity::InstanceAdmin(..))
+        matches!(self, Identity::DeploymentAdmin(..))
     }
 
     pub fn is_acting_as_user(&self) -> bool {
@@ -311,9 +311,9 @@ impl Identity {
     }
 
     /// Returns the admin's [`MemberId`] if this is an
-    /// [`Identity::InstanceAdmin`] with a member principal
+    /// [`Identity::DeploymentAdmin`] with a member principal
     pub fn member_id(&self) -> Option<MemberId> {
-        if let Identity::InstanceAdmin(AdminIdentity { principal, .. }) = self {
+        if let Identity::DeploymentAdmin(AdminIdentity { principal, .. }) = self {
             return if let AdminIdentityPrincipal::Member(member_id) = principal {
                 Some(*member_id)
             } else {
@@ -324,14 +324,18 @@ impl Identity {
     }
 
     pub fn instance_admin_principal(&self) -> Option<AdminIdentityPrincipal> {
-        if let Identity::InstanceAdmin(AdminIdentity { principal, .. }) = self {
+        if let Identity::DeploymentAdmin(AdminIdentity { principal, .. }) = self {
             return Some(principal.clone());
         }
         None
     }
 
     pub fn instance_name(&self) -> Option<String> {
-        if let Identity::InstanceAdmin(AdminIdentity { instance_name, .. }) = self {
+        if let Identity::DeploymentAdmin(AdminIdentity {
+            deployment_name: instance_name,
+            ..
+        }) = self
+        {
             return Some(instance_name.to_string());
         }
         None
@@ -350,7 +354,7 @@ impl Identity {
     pub fn require_operation(&self, operation: DeploymentOp) -> anyhow::Result<()> {
         let admin_identity = match self {
             Identity::System(_) => return Ok(()),
-            Identity::InstanceAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
                 admin_identity
             },
             Identity::User(_) | Identity::Unknown(_) => {
@@ -609,7 +613,7 @@ pub enum AdminIdentityPrincipal {
 // instance.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct AdminIdentity {
-    instance_name: String,
+    deployment_name: String,
     principal: AdminIdentityPrincipal,
     key: String,
     // is_read_only being true implies that this identity should not be able to write data.
@@ -624,7 +628,7 @@ pub struct AdminIdentity {
 impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
     fn from(
         AdminIdentity {
-            instance_name,
+            deployment_name: instance_name,
             principal,
             key,
             is_read_only,
@@ -676,7 +680,7 @@ impl AdminIdentity {
             })
             .collect();
         Ok(Self {
-            instance_name,
+            deployment_name: instance_name,
             principal,
             key,
             is_read_only,
@@ -685,14 +689,14 @@ impl AdminIdentity {
     }
 
     pub fn new_for_access_token(
-        instance_name: String,
+        deployment_name: String,
         principal: AdminIdentityPrincipal,
         access_token: String,
         is_read_only: bool,
         allowed_ops: Vec<DeploymentOp>,
     ) -> Self {
         Self {
-            instance_name,
+            deployment_name,
             principal,
             key: access_token,
             is_read_only,
@@ -728,7 +732,7 @@ impl fmt::Debug for AdminIdentity {
         write!(
             f,
             "{}/{:?}/{}/{:?}",
-            self.instance_name,
+            self.deployment_name,
             self.principal,
             self.key,
             self.allowed_ops()
@@ -908,8 +912,8 @@ impl KeyBroker {
         tracing::info!("Admin key accepted from {identity:?} at {issued:?} for {instance_name}");
 
         Ok(match identity {
-            AdminIdentityProto::MemberId(member_id) => Identity::InstanceAdmin(AdminIdentity {
-                instance_name: self.instance_name.clone(),
+            AdminIdentityProto::MemberId(member_id) => Identity::DeploymentAdmin(AdminIdentity {
+                deployment_name: self.instance_name.clone(),
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
                 is_read_only,

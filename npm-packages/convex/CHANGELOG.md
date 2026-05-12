@@ -11,6 +11,8 @@
 - Supports using `import "server-only"` to mark files as server-only.
 - Removes the `npx convex disable-local-deployments` command.
 - Fixes an issue where stdout/stderr would be truncated after exit in the CLI.
+- Updated `usePaginatedQuery_experimental` overload that has an object-based API similar
+  to `useQuery_experimental`.
 
 ## 1.37.0
 

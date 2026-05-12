@@ -47,7 +47,6 @@ pub struct TableMetadata {
     pub name: TableName,
     pub number: TableNumber,
     pub state: TableState,
-    // TODO(lee) allow any TableNamespace once they are supported in tests.
     pub namespace: TableNamespace,
 }
 

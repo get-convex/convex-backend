@@ -22,6 +22,9 @@ use common::{
 use errors::ErrorMetadata;
 use log_streaming::LogManagerClient;
 use model::audit_log_config::validate_audit_log_firehose_stream_name;
+use usage_tracking::FunctionUsageTracker;
+
+const FIREHOSE_ROUND_INCREMENTS_BYTES: u64 = 5000;
 
 /// AuditLogClient implementation that forwards audit logs to log streams.
 #[derive(Clone)]
@@ -82,7 +85,11 @@ impl AuditLogClient {
     }
 
     #[fastrace::trace]
-    pub async fn send_logs(&self, logs: ResolvedAuditLogLines) -> anyhow::Result<()> {
+    pub async fn send_logs(
+        &self,
+        logs: ResolvedAuditLogLines,
+        usage_tracker: &FunctionUsageTracker,
+    ) -> anyhow::Result<()> {
         let Some(firehose_client) = &self.firehose_client else {
             if self.include_in_log_streams() {
                 self.send_to_log_streams(logs);
@@ -91,10 +98,22 @@ impl AuditLogClient {
         };
 
         let records = logs.to_json_strings()?;
+        let egress = calculate_audit_log_egress(&records);
         firehose_client.send(records).await?;
+        usage_tracker.track_audit_log_egress(egress);
 
         Ok(())
     }
+}
+
+fn calculate_audit_log_egress(records: &Vec<String>) -> u64 {
+    records
+        .iter()
+        .map(|record| {
+            (record.len() as u64).div_ceil(FIREHOSE_ROUND_INCREMENTS_BYTES)
+                * FIREHOSE_ROUND_INCREMENTS_BYTES
+        })
+        .sum()
 }
 
 pub struct AuditLogFirehoseClient {

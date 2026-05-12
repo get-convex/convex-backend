@@ -1,5 +1,4 @@
 import { Button } from "@ui/Button";
-import { toast } from "@common/lib/utils";
 import { Checkbox } from "@ui/Checkbox";
 import { Modal } from "@ui/Modal";
 import { TextInput } from "@ui/TextInput";
@@ -293,7 +292,6 @@ export function GenerateDeployKeyWithNameButton({
                     expiresAt ?? undefined,
                   );
                   if (!result.ok) {
-                    toast("error", "Error generating deploy key");
                     return;
                   }
                   setCreatedKey(result.adminKey);
@@ -495,7 +493,6 @@ export function GenerateDeployKeyButton({
               if (deployKey === null) {
                 const result = await getAdminKey();
                 if (!result.ok) {
-                  toast("error", "Error generating deploy key");
                   return;
                 }
                 setDeployKey(result.adminKey);
