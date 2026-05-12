@@ -129,7 +129,7 @@ use indexing::{
         NoInMemoryIndexes,
         TimestampedIndexCache,
     },
-    index_cache::SharedIndexCache,
+    index_cache::IndexCache,
     index_registry::IndexRegistry,
 };
 use itertools::Itertools;
@@ -291,7 +291,7 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
-    shared_index_cache: Option<SharedIndexCache>,
+    shared_index_cache: Option<(String, IndexCache)>,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     invalidation_callback: InvalidationMetricCallback,
@@ -325,7 +325,7 @@ pub struct DatabaseSnapshot<RT: Runtime> {
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
     pub persistence_snapshot: PersistenceSnapshot,
-    shared_index_cache: Option<SharedIndexCache>,
+    shared_index_cache: Option<(String, IndexCache)>,
 
     // To read lots of data at the snapshot, sometimes you need
     // to look at current data and walk backwards.
@@ -956,7 +956,8 @@ impl<RT: Runtime> Database<RT> {
         searcher: Arc<dyn Searcher>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
-        shared_index_cache: Option<SharedIndexCache>,
+        mut shared_index_cache: IndexCache,
+        deployment_name: String,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
@@ -1017,6 +1018,8 @@ impl<RT: Runtime> Database<RT> {
 
         let persistence_reader = persistence.reader();
         let (log_owner, log_reader, log_writer) = new_write_log(*ts);
+        shared_index_cache
+            .set_write_log_reader(deployment_name.clone(), Arc::new(log_reader.clone()));
         let invalidation_callback = InvalidationMetricCallback::new();
         let subscriptions =
             SubscriptionsWorker::start(log_owner, runtime.clone(), invalidation_callback.clone());
@@ -1028,6 +1031,8 @@ impl<RT: Runtime> Database<RT> {
             retention_manager.clone(),
             shutdown,
             virtual_system_mapping.clone(),
+            shared_index_cache.clone(),
+            deployment_name.clone(),
         );
         let table_mapping_snapshot_cache =
             AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");
@@ -1048,7 +1053,7 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
-            shared_index_cache,
+            shared_index_cache: Some((deployment_name, shared_index_cache)),
             virtual_system_mapping,
             bootstrap_metadata,
             invalidation_callback,
@@ -1107,6 +1112,9 @@ impl<RT: Runtime> Database<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
+        if let Some((deployment_name, cache)) = &self.shared_index_cache {
+            cache.remove_deployment(deployment_name.clone());
+        }
         self.retention_workers.shutdown().await?;
         tracing::info!("Database shutdown");
         Ok(())

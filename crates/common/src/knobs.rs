@@ -1658,3 +1658,8 @@ pub static AWS_S3_MIN_IDENTITY_VALIDITY: LazyLock<Duration> =
 /// local debugging where the operator wants to see the original error contents.
 pub static SHOW_PII_IN_ERRORS: LazyLock<bool> =
     LazyLock::new(|| env_config("SHOW_PII_IN_ERRORS", false));
+
+/// Maximum size in bytes of the SharedIndexCache
+/// Default 512 MiB
+pub static INDEX_CACHE_SIZE: LazyLock<u64> =
+    LazyLock::new(|| env_config("INDEX_CACHE_SIZE", 512 * 1024 * 1024));

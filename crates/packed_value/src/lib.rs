@@ -36,6 +36,7 @@ pub use self::buffer::{
 };
 use self::flexbuilder::FlexBuilder;
 
+#[derive(PartialEq, Eq)]
 pub struct PackedValue<B: Buffer>
 where
     B::BufferString: Clone,

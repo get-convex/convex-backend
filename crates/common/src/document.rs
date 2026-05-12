@@ -766,7 +766,7 @@ impl DeveloperDocument {
 /// Two packed values, the actual document value and the document ID. The
 /// document ID will contain more information that the `_id` field of the value
 /// when we are using ID strings.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PackedDocument {
     value: PackedValue<ByteBuffer>,
     id: ResolvedDocumentId,
