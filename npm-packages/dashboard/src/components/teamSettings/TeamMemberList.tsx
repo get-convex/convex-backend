@@ -168,7 +168,6 @@ export function TeamMemberList({
                   hasAdminPermissions={hasAdminPermissions}
                   onCreateInvite={onCreateInvite}
                   onCancelInvite={onCancelInvite}
-                  customRoles={customRoles}
                 />
               ))
             )}

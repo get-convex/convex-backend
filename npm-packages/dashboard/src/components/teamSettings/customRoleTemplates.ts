@@ -75,6 +75,11 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
         resource: "team:*",
         actions: ["team:usage:view"],
       },
+      {
+        effect: "allow",
+        resource: "member:*",
+        actions: ["member:view"],
+      },
     ],
   },
   {
@@ -129,6 +134,11 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
     statements: [
       {
         effect: "allow",
+        resource: "member:*",
+        actions: ["member:view"],
+      },
+      {
+        effect: "allow",
         resource: "project:*",
         actions: ACTIONS_BY_CATEGORY.project,
       },
@@ -165,6 +175,11 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
     statements: [
       {
         effect: "allow",
+        resource: "member:*",
+        actions: ["member:view"],
+      },
+      {
+        effect: "allow",
         resource: "project:*",
         actions: ["project:view"],
       },
@@ -189,6 +204,11 @@ export const CUSTOM_ROLE_TEMPLATES: CustomRoleTemplate[] = [
     defaultRoleDescription:
       "View and edit all projects, deploy to non-production deployments. No access to production deployments.",
     statements: [
+      {
+        effect: "allow",
+        resource: "member:*",
+        actions: ["member:view"],
+      },
       {
         effect: "allow",
         resource: "project:*",

@@ -2,19 +2,16 @@ use axum::{
     extract::FromRef,
     response::IntoResponse,
 };
-use common::{
-    http::{
-        extract::MtState,
-        HttpResponseError,
-    },
-    types::{
-        SystemStopState,
-        UserStopState,
-    },
+use common::http::{
+    extract::MtState,
+    HttpResponseError,
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
-use model::backend_state::BackendStateModel;
+use model::backend_state::{
+    types::OldBackendState,
+    BackendStateModel,
+};
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
@@ -53,7 +50,7 @@ pub async fn pause_deployment(
         .get_backend_state()
         .await?
         .into_value();
-    if current_state.system != SystemStopState::None {
+    if current_state == OldBackendState::Disabled || current_state == OldBackendState::Suspended {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "PauseDeploymentFailed",
             "Deployment is currently disabled or suspended by Convex and cannot be paused."
@@ -62,7 +59,7 @@ pub async fn pause_deployment(
     }
 
     st.application
-        .set_user_stop_state(identity, UserStopState::Paused)
+        .change_deployment_state(identity, OldBackendState::Paused)
         .await?;
 
     Ok(StatusCode::OK)
@@ -96,14 +93,7 @@ pub async fn unpause_deployment(
         .get_backend_state()
         .await?
         .into_value();
-    if current_state.system != SystemStopState::None {
-        return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-            "UnpauseDeploymentFailed",
-            "Deployment is currently disabled or suspended by Convex and cannot be unpaused."
-        ))
-        .into());
-    }
-    if current_state.user != UserStopState::Paused {
+    if current_state != OldBackendState::Paused {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "UnpauseDeploymentFailed",
             "Deployment is not currently paused."
@@ -112,7 +102,7 @@ pub async fn unpause_deployment(
     }
 
     st.application
-        .set_user_stop_state(identity, UserStopState::None)
+        .change_deployment_state(identity, OldBackendState::Running)
         .await?;
 
     Ok(StatusCode::OK)

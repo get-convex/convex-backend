@@ -26,14 +26,13 @@ use value::{
 pub mod migr_119;
 pub mod migr_121;
 pub mod migr_124;
-pub mod migr_125;
 
 pub type DatabaseVersion = i64;
 // The version for the format of the database. We support all previous
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 125; // nicolas
+pub const DATABASE_VERSION: DatabaseVersion = 124; // reece
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -94,14 +93,6 @@ impl<RT: Runtime> MigrationExecutor<RT> {
                 migr_124::run_migration(&mut tx).await?;
                 self.db
                     .commit_with_write_source(tx, "migration_124")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            125 => {
-                let mut tx = self.db.begin_system().await?;
-                migr_125::run_migration(&mut tx).await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_125")
                     .await?;
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
