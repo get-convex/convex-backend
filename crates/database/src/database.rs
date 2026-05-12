@@ -45,7 +45,6 @@ use common::{
     document::{
         CreationTime,
         DocumentUpdate,
-        InternalId,
         PackedDocument,
         ParseDocument,
         ParsedDocument,
@@ -2310,16 +2309,11 @@ impl<RT: Runtime> Database<RT> {
             ),
             PageResult::TableDone(table_iterator) => match tablet_ids.get(1) {
                 Some(&next_tablet_id) => {
-                    // TODO(lee) just use DeveloperDocumentId::min() once we no longer
-                    // need to be rollback-safe.
-                    let next_table_number = table_mapping.tablet_number(next_tablet_id)?;
                     let next_by_id = *by_id_indexes.get(&next_tablet_id).ok_or_else(|| {
                         anyhow::anyhow!("by_id index for {next_tablet_id:?} missing")
                     })?;
-                    let next_cursor = ResolvedDocumentId::new(
-                        next_tablet_id,
-                        DeveloperDocumentId::new(next_table_number, InternalId::MIN),
-                    );
+                    let next_cursor =
+                        ResolvedDocumentId::new(next_tablet_id, DeveloperDocumentId::MIN);
                     let next_document_stream = table_iterator
                         .into_stream_documents_in_table(
                             next_tablet_id,
