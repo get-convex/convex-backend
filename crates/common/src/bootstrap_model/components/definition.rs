@@ -175,6 +175,7 @@ pub enum ComponentArgument {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EnvBinding {
     Value(
+        String,
     ),
     EnvVar(EnvVarName),
 }

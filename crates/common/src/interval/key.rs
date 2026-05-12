@@ -7,7 +7,7 @@ use value::heap_size::HeapSize;
 
 use crate::index::IndexKeyBytes;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct BinaryKey {
     key: Vec<u8>,
 }

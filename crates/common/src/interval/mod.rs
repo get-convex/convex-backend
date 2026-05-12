@@ -37,7 +37,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Interval {
     pub start: StartIncluded,
     pub end: End,

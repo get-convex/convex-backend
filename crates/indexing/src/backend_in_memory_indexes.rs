@@ -24,6 +24,7 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use common::errors::report_error;
 use common::{
     bootstrap_model::index::{
         database_index::DatabaseIndexState,
@@ -94,7 +95,7 @@ use value::{
 };
 
 use crate::{
-    index_cache::SharedIndexCache,
+    index_cache::IndexCache,
     index_registry::IndexRegistry,
     metrics::{
         index_page_timer,
@@ -119,12 +120,14 @@ pub trait InMemoryIndexes: Send + Sync {
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>>;
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexEntry {
     pub key: IndexKeyBytes,
     pub ts: Timestamp,
     pub value: PackedDocument,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexPage {
     pub entries: Vec<IndexEntry>,
     pub cursor: CursorPosition,
@@ -217,6 +220,64 @@ impl dyn IndexReader {
             }
             (_, interval) = interval.split(page.cursor, order);
         }
+    }
+}
+
+struct IndexCacheReader {
+    reader: Arc<dyn IndexReader>,
+    index_cache: IndexCache,
+    deployment_name: String,
+    index_registry: ReadOnly<IndexRegistry>,
+}
+
+#[async_trait]
+impl IndexReader for IndexCacheReader {
+    async fn index_page(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        max_results: usize,
+    ) -> anyhow::Result<IndexPage> {
+        let index_page = self
+            .reader
+            .index_page(index_id, tablet_id, interval, order, max_results)
+            .await?;
+        let maybe_page = self.index_cache.get(
+            self.deployment_name.clone(),
+            index_id,
+            interval.clone(),
+            self.reader.timestamp(),
+            order,
+            max_results,
+        );
+        if let Some(cached_page) = maybe_page
+            && cached_page != index_page
+        {
+            self.index_cache.invalidate(
+                self.deployment_name.clone(),
+                index_id,
+                interval.clone(),
+                order,
+                max_results,
+            );
+            self.index_cache.populate(
+                self.deployment_name.clone(),
+                index_id,
+                interval.clone(),
+                self.reader.timestamp(),
+                order,
+                max_results,
+                index_page.clone(),
+                &self.index_registry,
+            );
+        }
+        Ok(index_page)
+    }
+
+    fn timestamp(&self) -> RepeatableTimestamp {
+        self.reader.timestamp()
     }
 }
 
@@ -608,8 +669,6 @@ pub struct DatabaseIndexSnapshot {
 
     reader: Arc<dyn IndexReader>,
 
-    #[allow(dead_code)]
-    shared_index_cache: Option<SharedIndexCache>,
     // Cache results reads from the snapshot. The snapshot is immutable and thus
     // we don't have to do any invalidation.
     cache: DatabaseIndexSnapshotCache,
@@ -638,18 +697,27 @@ impl DatabaseIndexSnapshot {
         in_memory_indexes: Arc<dyn InMemoryIndexes>,
         table_mapping: TableMapping,
         reader: Arc<dyn IndexReader>,
-        shared_index_cache: Option<SharedIndexCache>,
+        shared_index_cache: Option<(String, IndexCache)>,
         cache: Option<TimestampedIndexCache>,
     ) -> Self {
         let cache = cache
             .map(|c| c.cache)
             .unwrap_or(DatabaseIndexSnapshotCache::new());
+        let reader = if let Some((deployment, index_cache)) = shared_index_cache {
+            Arc::new(IndexCacheReader {
+                reader,
+                index_cache,
+                deployment_name: deployment,
+                index_registry: ReadOnly::new(index_registry.clone()),
+            })
+        } else {
+            reader
+        };
         Self {
             index_registry: ReadOnly::new(index_registry),
             in_memory_indexes,
             table_mapping: ReadOnly::new(table_mapping),
             reader,
-            shared_index_cache,
             cache,
         }
     }
@@ -987,8 +1055,6 @@ impl DatabaseIndexSnapshot {
             };
             return Ok((results, cursor));
         }
-
-        // Fall back to persistence reader.
         let index_page = self
             .reader
             .index_page(index_id, tablet_id, interval, order, max_size)

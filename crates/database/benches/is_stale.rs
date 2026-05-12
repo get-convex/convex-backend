@@ -105,6 +105,7 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
             Timestamp::must((1001 + i) as i32),
             document_keys.into(),
             WriteSource::system("bench"),
+            || {},
         );
     }
 
@@ -239,6 +240,7 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
             Timestamp::must((1001 + i) as i32),
             document_keys.into(),
             WriteSource::system("bench"),
+            || {},
         );
     }
 

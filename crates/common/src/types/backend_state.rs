@@ -8,6 +8,7 @@ use serde::{
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
+// TODO(nicolas) remove once /change_deployment_state_system is removed
 /// Represents the different states a backend can be in.
 pub enum OldBackendState {
     /// Disabled - will not serve any requests. Set when exceeds the allowed
@@ -23,15 +24,6 @@ pub enum OldBackendState {
     Suspended,
 }
 
-impl OldBackendState {
-    pub fn is_stopped(&self) -> bool {
-        matches!(
-            self,
-            OldBackendState::Disabled | OldBackendState::Paused | OldBackendState::Suspended
-        )
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BackendState {
     pub system: SystemStopState,
@@ -39,7 +31,10 @@ pub struct BackendState {
 }
 
 /// Indicates whether the backend has been stopped for a system-initiated reason
-#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::EnumString, strum::Display)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Serialize, Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum SystemStopState {
     None,
@@ -62,29 +57,14 @@ pub enum UserStopState {
 }
 
 impl BackendState {
+    // TODO(nicolas) Remove once consistency-check is updated to stop using
+    // /get_deployment_state
     pub fn to_old_lossy(self) -> OldBackendState {
         match (self.system, self.user) {
             (SystemStopState::Disabled, _) => OldBackendState::Disabled,
             (SystemStopState::Suspended, _) => OldBackendState::Suspended,
             (SystemStopState::None, UserStopState::Paused) => OldBackendState::Paused,
             (SystemStopState::None, UserStopState::None) => OldBackendState::Running,
-        }
-    }
-}
-
-impl OldBackendState {
-    pub fn user_state(&self) -> UserStopState {
-        match self {
-            OldBackendState::Paused => UserStopState::Paused,
-            _ => UserStopState::None,
-        }
-    }
-
-    pub fn system_state(&self) -> SystemStopState {
-        match self {
-            OldBackendState::Disabled => SystemStopState::Disabled,
-            OldBackendState::Suspended => SystemStopState::Suspended,
-            _ => SystemStopState::None,
         }
     }
 }

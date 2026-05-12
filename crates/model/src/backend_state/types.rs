@@ -2,6 +2,10 @@ pub use common::types::{
     BackendState,
     OldBackendState,
 };
+use common::types::{
+    SystemStopState,
+    UserStopState,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -54,6 +58,30 @@ impl PersistedBackendState {
         match self {
             PersistedBackendState::Old(old_backend_state) => *old_backend_state,
             PersistedBackendState::New(backend_state) => backend_state.to_old_lossy(),
+        }
+    }
+
+    pub fn to_new(&self) -> BackendState {
+        match self {
+            PersistedBackendState::Old(old_backend_state) => match old_backend_state {
+                OldBackendState::Disabled => BackendState {
+                    system: SystemStopState::Disabled,
+                    user: UserStopState::None,
+                },
+                OldBackendState::Paused => BackendState {
+                    system: SystemStopState::None,
+                    user: UserStopState::Paused,
+                },
+                OldBackendState::Running => BackendState {
+                    system: SystemStopState::None,
+                    user: UserStopState::None,
+                },
+                OldBackendState::Suspended => BackendState {
+                    system: SystemStopState::Suspended,
+                    user: UserStopState::None,
+                },
+            },
+            PersistedBackendState::New(backend_state) => *backend_state,
         }
     }
 }

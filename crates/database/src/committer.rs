@@ -90,7 +90,10 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use indexing::index_registry::IndexRegistry;
+use indexing::{
+    index_cache::IndexCache,
+    index_registry::IndexRegistry,
+};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
@@ -198,6 +201,9 @@ pub struct Committer<RT: Runtime> {
     virtual_system_mapping: VirtualSystemMapping,
 
     user_documents_size_gauge: Subgauge,
+
+    shared_index_cache: IndexCache,
+    deployment_name: String,
 }
 
 impl<RT: Runtime> Committer<RT> {
@@ -209,6 +215,8 @@ impl<RT: Runtime> Committer<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
+        shared_index_cache: IndexCache,
+        deployment_name: String,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new();
@@ -225,6 +233,8 @@ impl<RT: Runtime> Committer<RT> {
             retention_validator: retention_validator.clone(),
             virtual_system_mapping,
             user_documents_size_gauge: user_documents_size_subgauge(),
+            shared_index_cache,
+            deployment_name,
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -699,6 +709,7 @@ impl<RT: Runtime> Committer<RT> {
                 new_max_repeatable,
                 OrderedIndexKeyWrites::empty(),
                 "publish_max_repeatable_ts".into(),
+                || {},
             );
         }
         Ok(())
@@ -884,7 +895,21 @@ impl<RT: Runtime> Committer<RT> {
         metrics::write_log_commit_bytes(write_bytes as usize);
 
         let timer = metrics::write_log_append_timer();
-        self.log.append(commit_ts, writes, write_source);
+        let db_writes = writes.database.clone();
+        let index_registry = &new_snapshot.index_registry;
+        let apply_writes_callback = || {
+            self.shared_index_cache.apply_writes(
+                self.deployment_name.clone(),
+                &db_writes,
+                &|index_name| {
+                    index_registry
+                        .get_enabled(index_name)
+                        .map(|index| index.id())
+                },
+            )
+        };
+        self.log
+            .append(commit_ts, writes, write_source, apply_writes_callback);
         drop(timer);
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {

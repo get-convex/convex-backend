@@ -62,6 +62,7 @@ csf = "0.1.11"
 cstr = "0.2.11"
 csv-async = "1.2"
 ctrlc = "3.4"
+dashmap = "6"
 data-url = "0.3.1"
 database = { path = "crates/database" }
 db_connection = { path = "crates/db_connection" }
