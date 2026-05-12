@@ -725,10 +725,17 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
               </Callout>
             )}
             <Sheet>
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between gap-4">
                 <p className="text-sm text-content-primary">
                   Custom roles let you define fine-grained permissions for your
-                  team members.
+                  team members.{" "}
+                  <Link
+                    href="https://docs.convex.dev/team-management/custom-roles"
+                    target="_blank"
+                  >
+                    Learn more about custom roles
+                  </Link>
+                  .
                 </p>
                 <Menu
                   placement="bottom-end"
