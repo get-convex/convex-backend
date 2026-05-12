@@ -1,60 +1,33 @@
-use common::{
-    runtime::Runtime,
-    types::{
-        SystemStopState,
-        UserStopState,
-    },
-};
+use common::runtime::Runtime;
 use keybroker::Identity;
 use model::{
-    backend_state::BackendStateModel,
+    backend_state::{
+        types::OldBackendState,
+        BackendStateModel,
+    },
     deployment_audit_log::types::DeploymentAuditLogEvent,
 };
 
 use crate::Application;
 
 impl<RT: Runtime> Application<RT> {
-    pub async fn set_user_stop_state(
+    pub async fn change_deployment_state(
         &self,
         identity: Identity,
-        new_user_state: UserStopState,
+        new_state: OldBackendState,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity).await?;
         let mut model = BackendStateModel::new(&mut tx);
-        if model.set_user_stop_state(new_user_state).await?.is_none() {
-            return Ok(());
-        }
-        let deployment_audit_log_event = match new_user_state {
-            UserStopState::Paused => DeploymentAuditLogEvent::PauseDeployment,
-            UserStopState::None => DeploymentAuditLogEvent::UnpauseDeployment,
+        let old_state = model.get_backend_state().await?.into_value();
+        model.toggle_backend_state(new_state).await?;
+        let deployment_audit_log_event = DeploymentAuditLogEvent::ChangeDeploymentState {
+            old_state,
+            new_state,
         };
         self.commit_with_audit_log_events(
             tx,
             vec![deployment_audit_log_event],
-            "set_user_stop_state",
-        )
-        .await?;
-        Ok(())
-    }
-
-    pub async fn set_system_stop_state(
-        &self,
-        identity: Identity,
-        new_system_state: SystemStopState,
-    ) -> anyhow::Result<()> {
-        let mut tx = self.begin(identity).await?;
-        let mut model = BackendStateModel::new(&mut tx);
-        let Some(old_state) = model.set_system_stop_state(new_system_state).await? else {
-            return Ok(());
-        };
-        let deployment_audit_log_event = DeploymentAuditLogEvent::ChangeSystemStopState {
-            old_state: old_state.system,
-            new_state: new_system_state,
-        };
-        self.commit_with_audit_log_events(
-            tx,
-            vec![deployment_audit_log_event],
-            "set_system_stop_state",
+            "change_deployment_state",
         )
         .await?;
         Ok(())

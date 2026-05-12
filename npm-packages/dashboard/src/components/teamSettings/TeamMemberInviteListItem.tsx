@@ -5,8 +5,6 @@ import {
   CreateInvitationArgs,
   InvitationResponse,
 } from "generatedApi";
-import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
-import { useMemo } from "react";
 import { RoleDisplay } from "./RoleDisplay";
 
 type TeamMemberInviteListItemProps = {
@@ -14,11 +12,6 @@ type TeamMemberInviteListItemProps = {
   hasAdminPermissions: boolean;
   onCreateInvite: (body: CreateInvitationArgs) => void;
   onCancelInvite: (body: CancelInvitationArgs) => void;
-  /**
-   * Custom roles defined for the team. Used to resolve the ids attached to
-   * a `custom`-role invite into display names. Defaults to empty.
-   */
-  customRoles?: CustomRoleResponse[];
 };
 
 export function TeamMemberInviteListItem({
@@ -26,30 +19,18 @@ export function TeamMemberInviteListItem({
   hasAdminPermissions,
   onCreateInvite,
   onCancelInvite,
-  customRoles = [],
 }: TeamMemberInviteListItemProps) {
   const onResend = () => {
     if (invite.role === "custom") {
       onCreateInvite({
         email: invite.email,
         role: "custom",
-        customRoles: invite.customRoles ?? [],
+        customRoles: (invite.customRoles ?? []).map((r) => r.id),
       });
     } else {
       onCreateInvite({ email: invite.email, role: invite.role });
     }
   };
-  // The InvitationResponse only carries custom-role ids; resolve them to
-  // {id, name} pairs so RoleDisplay can render the same chips it does for
-  // existing team members.
-  const resolvedCustomRoles = useMemo(() => {
-    if (invite.role !== "custom") return undefined;
-    const nameById = new Map(customRoles.map((r) => [r.id, r.name] as const));
-    return (invite.customRoles ?? []).map((id) => ({
-      id,
-      name: nameById.get(id) ?? `Role #${id}`,
-    }));
-  }, [invite.role, invite.customRoles, customRoles]);
   const noPermissionTip = !hasAdminPermissions
     ? "You do not have permission to manage invitations"
     : undefined;
@@ -64,7 +45,7 @@ export function TeamMemberInviteListItem({
             Invitation expired
           </span>
         )}
-        <RoleDisplay role={invite.role} customRoles={resolvedCustomRoles} />
+        <RoleDisplay role={invite.role} customRoles={invite.customRoles} />
         <Menu
           placement="bottom-end"
           buttonProps={{
