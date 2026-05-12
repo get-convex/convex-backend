@@ -543,27 +543,18 @@ impl CachedInterval {
         // Since writes to this interval invalidate the cache entry, the entries
         // are always from the original populate snapshot, valid at any ts >=
         // begin_ts. The cursor is also from the original page.
-        let entries = match self.order {
-            Order::Asc => self
-                .entries
-                .iter()
-                .map(|(key, (entry_ts, value))| IndexEntry {
-                    key: key.clone(),
-                    ts: *entry_ts,
-                    value: value.clone(),
-                })
-                .collect(),
-            Order::Desc => self
-                .entries
-                .iter()
-                .rev()
-                .map(|(key, (entry_ts, value))| IndexEntry {
-                    key: key.clone(),
-                    ts: *entry_ts,
-                    value: value.clone(),
-                })
-                .collect(),
-        };
+        let entries = self
+            .order
+            .apply(
+                self.entries
+                    .iter()
+                    .map(|(key, (entry_ts, value))| IndexEntry {
+                        key: key.clone(),
+                        ts: *entry_ts,
+                        value: value.clone(),
+                    }),
+            )
+            .collect();
         Some(IndexPage {
             entries,
             cursor: self.cursor.clone(),
