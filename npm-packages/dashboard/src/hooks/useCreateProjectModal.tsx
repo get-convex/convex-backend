@@ -6,7 +6,8 @@ import { Loading } from "@ui/Loading";
 import { ReactElement, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { TeamResponse, CreateProjectResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
+import type { PlatformCreateProjectResponse } from "@convex-dev/platform/managementApi";
 import { useCurrentTeam } from "api/teams";
 import { useCreateProject } from "api/projects";
 import { cn } from "@ui/cn";
@@ -36,7 +37,7 @@ export function useCreateProjectModal(): [
             onClose={() => setModalOpen(false)}
             team={selectedTeam}
             onSuccess={(project) => {
-              const projectUrl = `/t/${selectedTeam.slug}/${project.projectSlug}/development`;
+              const projectUrl = `/t/${selectedTeam.slug}/${project.slug}/development`;
               window.location.href = projectUrl;
             }}
           />
@@ -73,7 +74,7 @@ export function CreateProjectForm({
   onClose(): void;
   team: TeamResponse;
   showLabel?: boolean;
-  onSuccess: (project: CreateProjectResponse) => void;
+  onSuccess: (project: PlatformCreateProjectResponse) => void;
 }) {
   const createProject = useCreateProject(team.id);
   const { capture } = usePostHog();
@@ -87,7 +88,6 @@ export function CreateProjectForm({
     onSubmit: async (values: { projectName: string }) => {
       const project = await createProject({
         ...values,
-        team: team.slug,
         deploymentType: null,
       });
       capture("created_project");

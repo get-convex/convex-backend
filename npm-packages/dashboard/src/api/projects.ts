@@ -7,8 +7,15 @@ import { useProjectsPageSize } from "hooks/useProjectsPageSize";
 import { createInfiniteHook } from "swr-openapi";
 import { useAuthHeader } from "hooks/fetching";
 import flatMap from "lodash/flatMap";
+import type { PlatformCreateProjectArgs } from "@convex-dev/platform/managementApi";
 import { useCurrentTeam } from "./teams";
-import { useBBMutation, useBBQuery, client } from "./api";
+import {
+  useBBMutation,
+  useBBQuery,
+  client,
+  useManagementApiMutation,
+  useMutate,
+} from "./api";
 
 const useInfinite = createInfiniteHook(client, "big-brain");
 
@@ -187,15 +194,31 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
 }
 
 export function useCreateProject(teamId?: number) {
-  return useBBMutation({
-    path: "/create_project",
-    pathParams: undefined,
-    mutateKey: "/teams/{team_id}/projects",
-    mutatePathParams: {
-      team_id: teamId?.toString() || "",
-    },
+  const teamIdNum = teamId ?? 0;
+  const teamIdStr = teamId?.toString() || "";
+  const create = useManagementApiMutation({
+    path: "/teams/{team_id}/create_project",
+    pathParams: { team_id: teamIdNum },
+    mutateKey: "/teams/{team_id}/list_projects",
+    mutatePathParams: { team_id: teamIdNum },
     googleAnalyticsEvent: "create_project_dash",
   });
+  // usePaginatedProjects / useInfiniteProjects / useProjectBySlug still read
+  // from the big-brain projects list, which lives on a different SWR cache
+  // namespace than the platform mutation, so invalidate it explicitly.
+  const mutateBB = useMutate();
+  return useCallback(
+    async (args: PlatformCreateProjectArgs) => {
+      const result = await create(args);
+      await mutateBB([
+        "/teams/{team_id}/projects",
+        { params: { path: { team_id: teamIdStr } } },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+      return result;
+    },
+    [create, mutateBB, teamIdStr],
+  );
 }
 
 export function useUpdateProject(projectId: number) {
