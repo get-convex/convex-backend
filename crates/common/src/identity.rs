@@ -28,7 +28,7 @@ use crate::types::{
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum InertIdentity {
     /// Admin for an instance.
-    InstanceAdmin(String),
+    DeploymentAdmin(String),
     /// System admin.
     System,
     /// Unknown.
@@ -52,7 +52,7 @@ impl InertIdentity {
     pub fn tag(&self) -> StaticMetricLabel {
         let type_str = match self {
             InertIdentity::System => "system",
-            InertIdentity::InstanceAdmin(_) => "instance_admin",
+            InertIdentity::DeploymentAdmin(_) => "instance_admin",
             InertIdentity::Unknown => "unknown",
             InertIdentity::User(_) => "user",
             InertIdentity::MemberActingUser(..) => "member_acting_user",
@@ -65,7 +65,7 @@ impl InertIdentity {
 impl HeapSize for InertIdentity {
     fn heap_size(&self) -> usize {
         match self {
-            InertIdentity::InstanceAdmin(s) => s.heap_size(),
+            InertIdentity::DeploymentAdmin(s) => s.heap_size(),
             InertIdentity::System => 0,
             InertIdentity::Unknown => 0,
             InertIdentity::User(u) => u.0.heap_size(),
@@ -81,8 +81,8 @@ impl HeapSize for InertIdentity {
 // identifies users by their UserIdentifier for simplicity in serialization.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum IdentityCacheKey {
-    /// Admin for an instance.
-    InstanceAdmin(String),
+    /// Admin for a deployment.
+    DeploymentAdmin(String),
     /// System admin.
     System,
     /// Unknown.
@@ -93,7 +93,7 @@ pub enum IdentityCacheKey {
 impl HeapSize for IdentityCacheKey {
     fn heap_size(&self) -> usize {
         match self {
-            IdentityCacheKey::InstanceAdmin(s) => s.heap_size(),
+            IdentityCacheKey::DeploymentAdmin(s) => s.heap_size(),
             IdentityCacheKey::System => 0,
             IdentityCacheKey::Unknown(s) => s.heap_size(),
             IdentityCacheKey::User(u) => u.heap_size(),
@@ -113,7 +113,7 @@ impl FromStr for InertIdentity {
         }
         let mut parts = s.splitn(2, ':');
         match (parts.next(), parts.next()) {
-            (Some("admin"), Some(s)) => Ok(InertIdentity::InstanceAdmin(s.to_string())),
+            (Some("admin"), Some(s)) => Ok(InertIdentity::DeploymentAdmin(s.to_string())),
             (Some("user"), Some(s)) => Ok(InertIdentity::User(UserIdentifier(s.to_string()))),
             (Some("impersonated_user"), Some(admin_id_and_user_id))
             | (Some("member_acting_as_user"), Some(admin_id_and_user_id)) => {
@@ -145,7 +145,7 @@ impl FromStr for InertIdentity {
 impl Display for InertIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            InertIdentity::InstanceAdmin(s) => write!(f, "admin:{s}"),
+            InertIdentity::DeploymentAdmin(s) => write!(f, "admin:{s}"),
             InertIdentity::System => write!(f, "system"),
             InertIdentity::Unknown => write!(f, "unknown"),
             InertIdentity::User(id) => write!(f, "user:{}", id.deref()),

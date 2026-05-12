@@ -3014,7 +3014,7 @@ impl<RT: Runtime> Application<RT> {
                 match acting_as {
                     Some(acting_user) => {
                         // Act as the given user
-                        let Identity::InstanceAdmin(i) = admin_identity else {
+                        let Identity::DeploymentAdmin(i) = admin_identity else {
                             anyhow::bail!(
                                 "Admin identity returned from check_admin_key was not an admin."
                             );
