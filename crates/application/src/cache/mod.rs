@@ -491,6 +491,13 @@ impl<RT: Runtime> CacheManager<RT> {
             }
 
             // Step 5: Log some stuff and return.
+            let vars = AuditLogVars::from_context(context.clone(), &self.rt)?;
+            self.audit_log_client
+                .send_logs(
+                    cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?,
+                    &usage_tracker,
+                )
+                .await?;
             log_success(num_attempts);
             let usage_stats = usage_tracker.clone().gather_user_stats();
             let database_bandwidth_bytes = usage_stats.database_egress.values().sum();
@@ -509,12 +516,6 @@ impl<RT: Runtime> CacheManager<RT> {
                     context.clone(),
                 )
                 .await;
-
-            let vars = AuditLogVars::from_context(context, &self.rt)?;
-            self.audit_log_client
-                .send_logs(cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?)
-                .await?;
-
             let result = QueryReturn {
                 result: cache_result.outcome.result.clone(),
                 log_lines: cache_result.outcome.log_lines.clone(),

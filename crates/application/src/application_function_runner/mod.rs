@@ -749,6 +749,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             FunctionOutcome::Query(o) => o,
             _ => anyhow::bail!("Received non-query outcome for query"),
         };
+
+        let vars = AuditLogVars::from_context(context.clone(), &self.runtime)?;
+        self.audit_log_client
+            .send_logs(
+                outcome.audit_log_lines.resolve_bodies(&vars)?,
+                &tx.usage_tracker,
+            )
+            .await?;
+
         let stats = tx.take_stats();
 
         let result = outcome.result.clone();
@@ -764,11 +773,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 context.clone(),
             )
             .await;
-        let vars = AuditLogVars::from_context(context, &self.runtime)?;
-        self.audit_log_client
-            .send_logs(outcome.audit_log_lines.resolve_bodies(&vars)?)
-            .await?;
-
         Ok((result, log_lines))
     }
 
@@ -1137,7 +1141,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let vars = AuditLogVars::from_context(context, &self.runtime)?;
         self.audit_log_client
-            .send_logs(mutation_outcome.audit_log_lines.resolve_bodies(&vars)?)
+            .send_logs(
+                mutation_outcome.audit_log_lines.resolve_bodies(&vars)?,
+                &tx.usage_tracker,
+            )
             .await?;
 
         let component = path.component;
