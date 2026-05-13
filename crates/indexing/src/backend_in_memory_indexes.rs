@@ -120,6 +120,11 @@ pub trait InMemoryIndexes: Send + Sync {
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>>;
 }
 
+/// N.B. It is unsound to compare only on key but to use ts and value fields for
+/// equality, but we want to be able to get map-like functionality out of
+/// OrdSet<IndexEntry> (hence implementing Ord only comparing keys) and we want
+/// to be able to compare the contents in tests (which is why we derive
+/// PartialEq and Eq).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexEntry {
     pub key: IndexKeyBytes,
@@ -127,9 +132,21 @@ pub struct IndexEntry {
     pub value: PackedDocument,
 }
 
+impl Ord for IndexEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+impl PartialOrd for IndexEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexPage {
-    pub entries: Vec<IndexEntry>,
+    pub entries: Vec<Arc<IndexEntry>>,
     pub cursor: CursorPosition,
 }
 #[async_trait]
@@ -172,11 +189,11 @@ impl IndexReader for PersistenceSnapshot {
             let mut entries = vec![];
             while let Some(result) = stream.next().await {
                 let (key, LatestDocument { ts, value, .. }) = result?;
-                entries.push(IndexEntry {
+                entries.push(Arc::new(IndexEntry {
                     key,
                     ts,
                     value: PackedDocument::pack(&value),
-                });
+                }));
                 if entries.len() >= max_results {
                     let cursor = CursorPosition::After(entries.last().unwrap().key.clone());
                     return Ok(IndexPage { entries, cursor });
@@ -216,7 +233,7 @@ impl dyn IndexReader {
                 .index_page(index_id, tablet_id, &interval, order, page_size)
                 .await?;
             for entry in page.entries {
-                yield entry;
+                yield Arc::unwrap_or_clone(entry);
             }
             (_, interval) = interval.split(page.cursor, order);
         }
@@ -1001,8 +1018,9 @@ impl DatabaseIndexSnapshot {
                         )
                         .await?;
                     for entry in index_page.entries {
-                        cache_miss_results.push((entry.ts, entry.value.clone()));
-                        results.push((entry.key, entry.ts, LazyDocument::Packed(entry.value)));
+                        let IndexEntry { key, ts, value } = Arc::unwrap_or_clone(entry);
+                        cache_miss_results.push((ts, value.clone()));
+                        results.push((key, ts, LazyDocument::Packed(value)));
                     }
                 },
             }
@@ -1062,7 +1080,10 @@ impl DatabaseIndexSnapshot {
         let results = index_page
             .entries
             .into_iter()
-            .map(|IndexEntry { key, ts, value }| (key, ts, LazyDocument::Packed(value)))
+            .map(|entry| {
+                let IndexEntry { key, ts, value } = Arc::unwrap_or_clone(entry);
+                (key, ts, LazyDocument::Packed(value))
+            })
             .collect();
         Ok((results, index_page.cursor))
     }

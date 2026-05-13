@@ -8,9 +8,7 @@ use std::{
 };
 
 use common::{
-    document::PackedDocument,
     document_index_keys::DatabaseIndexWrite,
-    index::IndexKeyBytes,
     interval::Interval,
     query::{
         CursorPosition,
@@ -27,7 +25,7 @@ use common::{
 use dashmap::DashMap;
 use imbl::{
     HashMap,
-    OrdMap,
+    OrdSet,
     Vector,
 };
 use interval_map::IntervalMap;
@@ -308,12 +306,11 @@ impl IndexCache {
             return;
         }
         let mut total_size = 0;
-        let entries = index_page
+        let entries: OrdSet<Arc<IndexEntry>> = index_page
             .entries
             .into_iter()
-            .map(|IndexEntry { key, ts, value }| {
-                total_size += value.size() as u64;
-                (key, (ts, value))
+            .inspect(|entry| {
+                total_size += entry.value.size() as u64;
             })
             .collect();
         let Some(index) = index_registry.enabled_index_by_index_id(&index_id) else {
@@ -525,7 +522,7 @@ pub struct CachedInterval {
     /// Whether this interval is ready to serve reads (it has been validated by
     /// reading the write log up to the latest timestamp)
     is_ready: bool,
-    entries: OrdMap<IndexKeyBytes, (Timestamp, PackedDocument)>,
+    entries: OrdSet<Arc<IndexEntry>>,
     order: Order,
     cursor: CursorPosition,
     total_size: u64,
@@ -543,18 +540,7 @@ impl CachedInterval {
         // Since writes to this interval invalidate the cache entry, the entries
         // are always from the original populate snapshot, valid at any ts >=
         // begin_ts. The cursor is also from the original page.
-        let entries = self
-            .order
-            .apply(
-                self.entries
-                    .iter()
-                    .map(|(key, (entry_ts, value))| IndexEntry {
-                        key: key.clone(),
-                        ts: *entry_ts,
-                        value: value.clone(),
-                    }),
-            )
-            .collect();
+        let entries = self.order.apply(self.entries.iter().cloned()).collect();
         Some(IndexPage {
             entries,
             cursor: self.cursor.clone(),
