@@ -1,5 +1,6 @@
 use std::{
     collections::{
+        hash_map::Entry,
         BTreeMap,
         HashMap as StdHashMap,
         HashSet,
@@ -77,7 +78,13 @@ struct CacheKey {
 struct IndexIntervalsInner {
     map: IntervalMap,
     id_to_params: StdHashMap<SubscriberId, (Interval, Order, usize)>,
-    params_to_id: StdHashMap<(Interval, Order, usize), SubscriberId>,
+    /// Maps each registered (interval, order, max_size) to its (SubscriberId,
+    /// refcount). Each call to `insert` increments the refcount; each call to
+    /// `remove` decrements it. The entry is only removed from the IntervalMap
+    /// when the refcount reaches zero
+    /// Refcounting is necessary to prevent the lazy eviction listener
+    /// from unregistering an interval that a concurrent populate re-registered.
+    params_to_id: StdHashMap<(Interval, Order, usize), (SubscriberId, usize)>,
     next_id: SubscriberId,
 }
 
@@ -100,13 +107,16 @@ impl IndexIntervals {
         }
     }
 
-    /// Inserts an (interval, order, max_size) triple. Idempotent.
+    /// Increments the refcount for an (interval, order, max_size) triple,
+    /// inserting it into the IntervalMap if this is the first registration.
     fn insert(&self, interval: Interval, order: Order, max_size: usize) {
         let mut inner = self.inner.lock();
-        if inner
-            .params_to_id
-            .contains_key(&(interval.clone(), order, max_size))
+        if let Some((_, refcount)) =
+            inner
+                .params_to_id
+                .get_mut(&(interval.clone(), order, max_size))
         {
+            *refcount += 1;
             return;
         }
         let id = inner.next_id;
@@ -118,18 +128,29 @@ impl IndexIntervals {
         inner
             .id_to_params
             .insert(id, (interval.clone(), order, max_size));
-        inner.params_to_id.insert((interval, order, max_size), id);
+        inner
+            .params_to_id
+            .insert((interval, order, max_size), (id, 1));
     }
 
-    /// Removes an (interval, order, max_size) triple. No-op if not present.
+    /// Decrements the refcount for an (interval, order, max_size) triple,
+    /// removing it from the IntervalMap when the refcount reaches zero.
+    /// No-op if not present.
     fn remove(&self, interval: &Interval, order: Order, max_size: usize) {
         let mut inner = self.inner.lock();
-        if let Some(id) = inner
-            .params_to_id
-            .remove(&(interval.clone(), order, max_size))
+        if let Entry::Occupied(mut e) =
+            inner
+                .params_to_id
+                .entry((interval.clone(), order, max_size))
         {
-            inner.id_to_params.remove(&id);
-            inner.map.remove(id);
+            let (id, refcount) = e.get_mut();
+            *refcount -= 1;
+            if *refcount == 0 {
+                let id = *id;
+                e.remove();
+                inner.id_to_params.remove(&id);
+                inner.map.remove(id);
+            }
         }
     }
 
@@ -196,8 +217,9 @@ impl IndexCache {
             })
             .max_capacity(max_weight)
             .eviction_listener(move |key: Arc<CacheKey>, _val, cause| {
-                // Only remove intervals from IndexIntervals when they are
-                // evicted from the moka cache (not replaced in place).
+                // Skip in-place replacements for marking the cache entry as ready.
+                // The interval registration is unchanged in that case and the refcount
+                // shouldn't be decremented.
                 if cause == RemovalCause::Replaced {
                     return;
                 }
@@ -347,9 +369,9 @@ impl IndexCache {
             .unwrap()
             .iter_writes_after(index.name(), *ts)
         else {
-            // Remove the cache entry and interval since the ts was out of retention.
+            // Remove the cache entry. The eviction listener will remove from
+            // index_to_intervals
             self.cache.remove(&key);
-            intervals.remove(&interval, order, max_size);
             timer.add_label(StaticMetricLabel::new("result", "out_of_retention"));
             return;
         };
@@ -369,8 +391,9 @@ impl IndexCache {
                     "IndexCache::populate rejected by write"
                 );
                 timer.add_label(StaticMetricLabel::new("result", "invalid"));
+                // Remove the cache entry. The eviction listener will remove from
+                // index_to_intervals
                 self.cache.remove(&key);
-                intervals.remove(&interval, order, max_size);
                 return;
             }
         }
