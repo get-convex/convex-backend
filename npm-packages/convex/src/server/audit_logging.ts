@@ -31,9 +31,7 @@ function validateKey(key: string) {
 function cloneValue(value: AuditLogValue): JsonValue {
   if (typeof value === "symbol") {
     if (!(value in varNames)) {
-      throw new Error(
-        `Unknown audit var symbol: ${String(value)}. Use one of log.var.requestId, log.var.ip, log.var.userAgent, or log.var.now.`,
-      );
+      throw new Error(`Unknown audit var symbol: ${String(value)}.`);
     }
     return { $var: varNames[value] };
   }
