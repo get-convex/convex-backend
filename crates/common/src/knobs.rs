@@ -1096,13 +1096,9 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 });
 
 /// Name of the service to discover for when connecting to Ticketmaster (e.g.
-/// ticketmaster-default, ticketmaster-staging, etc.)
-pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
-    env_config(
-        "TICKETMASTER_CLUSTER_NAME",
-        String::from("ticketmaster-default"),
-    )
-});
+/// ticketmaster, ticketmaster-staging, etc.)
+pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
+    LazyLock::new(|| env_config("TICKETMASTER_CLUSTER_NAME", String::from("ticketmaster")));
 
 /// Percentage of index read traffic (0-100) that funrun sends to conductor
 /// via the IndexRangeAtTs RPC instead of reading from persistence directly.
