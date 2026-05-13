@@ -26,8 +26,11 @@ import {
   useCreateCustomRole,
   useUpdateCustomRole,
   useDeleteCustomRole,
+  useHasCustomRolePermission,
   useIsCurrentMemberTeamAdmin,
 } from "api/roles";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
 import { editorOptions } from "@common/elements/ObjectEditor/ObjectEditor";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
@@ -660,6 +663,29 @@ function CustomRoleListItem({
 }
 
 export function CustomRoles({ team }: { team: TeamResponse }) {
+  const canViewCustomRoles = useHasCustomRolePermission(
+    team.id,
+    "customRole:view",
+    CUSTOM_ROLE_RESOURCE,
+    true,
+  );
+
+  if (canViewCustomRoles === false) {
+    return (
+      <>
+        <h2>Custom Roles</h2>
+        <NoPermissionMessage
+          message="You do not have permission to view custom roles."
+          missingPermission="customRole:view"
+        />
+      </>
+    );
+  }
+
+  return <CustomRolesContent team={team} />;
+}
+
+function CustomRolesContent({ team }: { team: TeamResponse }) {
   const router = useRouter();
   const entitlements = useTeamEntitlements(team.id);
   const entitlementsLoaded = entitlements !== undefined;

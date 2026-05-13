@@ -34,15 +34,23 @@ export type ProjectSelector =
   | { kind: "id"; id: number }
   | { kind: "slug"; slug: string };
 
+// Right-hand side of `creator=` on a deployment or token selector. Mirrors
+// `CreatorMatcher` in `crates_private/big_brain_lib/src/roles/types.rs` —
+// `creator=self` resolves to the evaluating actor's member id at match
+// time, so a single rule can grant "things I created".
+export type CreatorMatcher =
+  | { kind: "self" }
+  | { kind: "member"; memberId: number };
+
 export type DeploymentSelector =
   | { kind: "any" }
   | { kind: "id"; id: number }
   | { kind: "type"; deploymentType: string }
-  | { kind: "creator"; memberId: number };
+  | { kind: "creator"; matcher: CreatorMatcher };
 
 export type TokenSelector =
   | { kind: "any" }
-  | { kind: "creator"; memberId: number };
+  | { kind: "creator"; matcher: CreatorMatcher };
 
 export type ResourceSegment =
   | { kind: "team" }
@@ -114,6 +122,15 @@ function parseProjectSelector(s: string): ProjectSelector {
   throw new Error(`Invalid selector for project resource: ${s}`);
 }
 
+function parseCreatorMatcher(value: string): CreatorMatcher {
+  if (value === "self") return { kind: "self" };
+  const memberId = Number(value);
+  if (!Number.isFinite(memberId)) {
+    throw new Error(`Invalid creator value: ${value} (expected self or id)`);
+  }
+  return { kind: "member", memberId };
+}
+
 function parseDeploymentSelector(s: string): DeploymentSelector {
   if (s === "*") return { kind: "any" };
   if (s.startsWith("id=")) {
@@ -126,11 +143,7 @@ function parseDeploymentSelector(s: string): DeploymentSelector {
   if (s.startsWith("type="))
     return { kind: "type", deploymentType: s.slice(5) };
   if (s.startsWith("creator=")) {
-    const memberId = Number(s.slice(8));
-    if (!Number.isFinite(memberId)) {
-      throw new Error(`Invalid creator ID: ${s.slice(8)}`);
-    }
-    return { kind: "creator", memberId };
+    return { kind: "creator", matcher: parseCreatorMatcher(s.slice(8)) };
   }
   throw new Error(`Invalid selector for deployment resource: ${s}`);
 }
@@ -138,11 +151,7 @@ function parseDeploymentSelector(s: string): DeploymentSelector {
 function parseTokenSelector(s: string): TokenSelector {
   if (s === "*") return { kind: "any" };
   if (s.startsWith("creator=")) {
-    const memberId = Number(s.slice(8));
-    if (!Number.isFinite(memberId)) {
-      throw new Error(`Invalid creator ID: ${s.slice(8)}`);
-    }
-    return { kind: "creator", memberId };
+    return { kind: "creator", matcher: parseCreatorMatcher(s.slice(8)) };
   }
   throw new Error(`Invalid selector for token resource: ${s}`);
 }
@@ -213,7 +222,6 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   // Team
   "team:update": "team",
   "team:delete": "team",
-  "team:applyReferralCode": "team",
   "team:auditLog:view": "team",
   "team:usage:view": "team",
   // Billing
@@ -341,9 +349,21 @@ function projectSelectorMatches(
   }
 }
 
+// `creator=self` only matches when the caller passed an actor id, so a
+// rule that only grants "things I created" denies if we can't identify
+// the actor. Returning `undefined` here makes the caller skip the
+// equality check entirely.
+function resolveCreatorMatcher(
+  matcher: CreatorMatcher,
+  actor: number | undefined,
+): number | undefined {
+  return matcher.kind === "self" ? actor : matcher.memberId;
+}
+
 function deploymentSelectorMatches(
   selector: DeploymentSelector,
   segment: { id: number; deploymentType: string; creator: number | null },
+  actor: number | undefined,
 ): boolean {
   switch (selector.kind) {
     case "any":
@@ -352,8 +372,11 @@ function deploymentSelectorMatches(
       return segment.id === selector.id;
     case "type":
       return segment.deploymentType === selector.deploymentType;
-    case "creator":
-      return segment.creator === selector.memberId;
+    case "creator": {
+      const resolved = resolveCreatorMatcher(selector.matcher, actor);
+      if (resolved === undefined) return false;
+      return segment.creator === resolved;
+    }
     default: {
       const _exhaustive: never = selector;
       return _exhaustive;
@@ -364,12 +387,16 @@ function deploymentSelectorMatches(
 function tokenSelectorMatches(
   selector: TokenSelector,
   segment: { creator: number | null },
+  actor: number | undefined,
 ): boolean {
   switch (selector.kind) {
     case "any":
       return true;
-    case "creator":
-      return segment.creator === selector.memberId;
+    case "creator": {
+      const resolved = resolveCreatorMatcher(selector.matcher, actor);
+      if (resolved === undefined) return false;
+      return segment.creator === resolved;
+    }
     default: {
       const _exhaustive: never = selector;
       return _exhaustive;
@@ -380,6 +407,7 @@ function tokenSelectorMatches(
 function segmentMatches(
   spec: ResourceSegment,
   concrete: ConcreteSegment,
+  actor: number | undefined,
 ): boolean {
   if (spec.kind !== concrete.kind) return false;
   switch (spec.kind) {
@@ -388,10 +416,14 @@ function segmentMatches(
       return spec.selectors.some((s) => projectSelectorMatches(s, concrete));
     case "deployment":
       if (concrete.kind !== "deployment") return false;
-      return spec.selectors.some((s) => deploymentSelectorMatches(s, concrete));
+      return spec.selectors.some((s) =>
+        deploymentSelectorMatches(s, concrete, actor),
+      );
     case "token":
       if (concrete.kind !== "token") return false;
-      return spec.selectors.some((s) => tokenSelectorMatches(s, concrete));
+      return spec.selectors.some((s) =>
+        tokenSelectorMatches(s, concrete, actor),
+      );
     default:
       return true;
   }
@@ -400,10 +432,11 @@ function segmentMatches(
 function specifierMatches(
   spec: ResourceSpecifier,
   concrete: ConcreteResource,
+  actor: number | undefined,
 ): boolean {
   if (spec.segments.length !== concrete.segments.length) return false;
   return spec.segments.every((seg, i) =>
-    segmentMatches(seg, concrete.segments[i]),
+    segmentMatches(seg, concrete.segments[i], actor),
   );
 }
 
@@ -426,11 +459,17 @@ function actionMatches(
  *   2. A matching `Deny` short-circuits to Denied.
  *   3. Otherwise, a matching `Allow` produces Allowed.
  *   4. Default Denied.
+ *
+ * `actor` is the evaluating member's id; it resolves `creator=self`
+ * selectors against the resource. Pass `undefined` only when the caller
+ * has no profile available — those `self` selectors will then never
+ * match, which fails closed.
  */
 export function evaluateStatements(
   statements: readonly RoleStatement[],
   action: RoleStatementAction,
   resource: ConcreteResource,
+  actor?: number,
 ): AccessDecision {
   const leaf = resource.segments[resource.segments.length - 1];
   if (!leaf || leaf.kind !== actionResourceKind(action)) {
@@ -448,7 +487,7 @@ export function evaluateStatements(
       // prevent these from being persisted in the first place.
       continue;
     }
-    if (!specifierMatches(spec, resource)) continue;
+    if (!specifierMatches(spec, resource, actor)) continue;
     if (statement.effect === "deny") return "denied";
     anyAllow = true;
   }
@@ -465,9 +504,12 @@ export function evaluateRoles(
   roles: readonly { statements: readonly RoleStatement[] }[],
   action: RoleStatementAction,
   resource: ConcreteResource,
+  actor?: number,
 ): AccessDecision {
   for (const role of roles) {
-    if (evaluateStatements(role.statements, action, resource) === "allowed") {
+    if (
+      evaluateStatements(role.statements, action, resource, actor) === "allowed"
+    ) {
       return "allowed";
     }
   }
@@ -495,3 +537,26 @@ export const MEMBER_RESOURCE: ConcreteResource = {
 export const CUSTOM_ROLE_RESOURCE: ConcreteResource = {
   segments: [{ kind: "customRole" }],
 };
+
+export const TEAM_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "team" }],
+};
+
+export const SSO_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "sso" }],
+};
+
+export const OAUTH_APPLICATION_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "oauthApplication" }],
+};
+
+// Team-scoped tokens carry a creator selector so a role like
+// "team tokens you created" still matches. Callers gating "can I create
+// my own team token" should pass the current member's id; for view checks
+// over the whole team-token list, leave `creator` null so a role limited
+// to "creator=me" denies.
+export function teamTokenResource(creator: number | null): ConcreteResource {
+  return {
+    segments: [{ kind: "team" }, { kind: "token", tokenKind: "team", creator }],
+  };
+}

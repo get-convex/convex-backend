@@ -19,6 +19,7 @@ import { CloudDisconnectOverlay } from "@common/features/disconnectOverlay/Cloud
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions, useMyCustomRoles } from "api/roles";
+import { useProfile } from "api/profile";
 import {
   actionResourceKind,
   evaluateRoles,
@@ -124,21 +125,26 @@ function useCustomRolePermissionImpl(action: RoleStatementAction): boolean {
   const project = useCurrentProject();
   const deployment = useCurrentDeployment();
   const myRoles = useMyCustomRoles(team?.id);
+  const profile = useProfile();
   // Local deployments aren't subject to custom-role enforcement (they're
   // single-user dev environments), so don't gate UI on them.
   if (deployment?.kind === "local") {
     return true;
   }
-  if (!myRoles) {
-    // While the role list is loading, default to deny so a gated feature
-    // doesn't flicker visible-then-hidden on the first render.
+  if (!myRoles || !profile) {
+    // While the role list or profile is loading, default to deny so a
+    // gated feature doesn't flicker visible-then-hidden on the first
+    // render. The profile is needed so `creator=self` selectors resolve.
     return false;
   }
   const resource = buildResourceForAction(action, project, deployment);
   if (!resource) {
     return false;
   }
-  return evaluateRoles(myRoles.customRoles, action, resource) === "allowed";
+  return (
+    evaluateRoles(myRoles.customRoles, action, resource, profile.id) ===
+    "allowed"
+  );
 }
 
 function DeploymentErrorBoundary({

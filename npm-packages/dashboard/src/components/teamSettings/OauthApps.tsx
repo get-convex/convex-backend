@@ -2,8 +2,14 @@ import React, { useState } from "react";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
-import { useIsCurrentMemberTeamAdmin } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "api/roles";
 import { OauthAppResponse } from "generatedApi";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { OAUTH_APPLICATION_RESOURCE } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import {
   PlusIcon,
   EyeNoneIcon,
@@ -360,11 +366,59 @@ function VerificationRequestForm({
 }
 
 export function OauthApps({ teamId }: { teamId: number }) {
-  const { data: oauthApps, isLoading } = useTeamOauthApps(teamId);
+  const canView = useHasCustomRolePermission(
+    teamId,
+    "oauthApplication:view",
+    OAUTH_APPLICATION_RESOURCE,
+    true,
+  );
   const isAdmin = useIsCurrentMemberTeamAdmin();
+  // OAuth-app mutations are admin-only by default; custom roles need an
+  // explicit grant per action.
+  const canCreateCustom = useHasCustomRolePermission(
+    teamId,
+    "oauthApplication:create",
+    OAUTH_APPLICATION_RESOURCE,
+    false,
+  );
+  const canUpdateCustom = useHasCustomRolePermission(
+    teamId,
+    "oauthApplication:update",
+    OAUTH_APPLICATION_RESOURCE,
+    false,
+  );
+  const canDeleteCustom = useHasCustomRolePermission(
+    teamId,
+    "oauthApplication:delete",
+    OAUTH_APPLICATION_RESOURCE,
+    false,
+  );
+  const canRegenerateSecretCustom = useHasCustomRolePermission(
+    teamId,
+    "oauthApplication:generateClientSecret",
+    OAUTH_APPLICATION_RESOURCE,
+    false,
+  );
+  const canCreate = isAdmin || canCreateCustom === true;
+  const canUpdate = isAdmin || canUpdateCustom === true;
+  const canDelete = isAdmin || canDeleteCustom === true;
+  const canRegenerateSecret = isAdmin || canRegenerateSecretCustom === true;
+
+  const { data: oauthApps, isLoading } = useTeamOauthApps(teamId);
   const registerOauthApp = useRegisterOauthApp(teamId);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [registerError, setRegisterError] = useState("");
+
+  if (canView === false) {
+    return (
+      <Sheet className="max-w-fit">
+        <NoPermissionMessage
+          message="You do not have permission to view OAuth applications."
+          missingPermission="oauthApplication:view"
+        />
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet className="max-w-fit">
@@ -430,10 +484,13 @@ export function OauthApps({ teamId }: { teamId: number }) {
               <Button
                 size="xs"
                 icon={<PlusIcon />}
-                disabled={!isAdmin}
+                disabled={!canCreate}
                 tip={
-                  !isAdmin
-                    ? "Only team admins can create OAuth apps."
+                  !canCreate
+                    ? permissionDeniedTip(
+                        "You do not have permission to create OAuth apps.",
+                        "oauthApplication:create",
+                      )
                     : undefined
                 }
                 onClick={() => setCreateModalOpen(true)}
@@ -446,7 +503,9 @@ export function OauthApps({ teamId }: { teamId: number }) {
                 <OauthAppListItem
                   key={app.clientId}
                   app={app}
-                  isAdmin={isAdmin}
+                  canUpdate={canUpdate}
+                  canDelete={canDelete}
+                  canRegenerateSecret={canRegenerateSecret}
                   oauthAppSchema={OAUTH_APP_SCHEMA}
                   teamId={teamId}
                 />
@@ -494,6 +553,15 @@ export function OauthApps({ teamId }: { teamId: number }) {
               size="sm"
               icon={<PlusIcon />}
               onClick={() => setCreateModalOpen(true)}
+              disabled={!canCreate}
+              tip={
+                !canCreate
+                  ? permissionDeniedTip(
+                      "You do not have permission to create OAuth apps.",
+                      "oauthApplication:create",
+                    )
+                  : undefined
+              }
             >
               Create Your First Application
             </Button>
@@ -506,12 +574,16 @@ export function OauthApps({ teamId }: { teamId: number }) {
 
 function OauthAppListItem({
   app,
-  isAdmin,
+  canUpdate,
+  canDelete,
+  canRegenerateSecret,
   oauthAppSchema,
   teamId,
 }: {
   app: OauthAppResponse;
-  isAdmin: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canRegenerateSecret: boolean;
   oauthAppSchema: any;
   teamId: number;
 }) {
@@ -581,10 +653,13 @@ function OauthAppListItem({
             {!app.verified ? (
               <MenuItem
                 action={() => setVerificationModalOpen(true)}
-                disabled={!isAdmin}
+                disabled={!canUpdate}
                 tip={
-                  !isAdmin
-                    ? "Only team admins can request verification."
+                  !canUpdate
+                    ? permissionDeniedTip(
+                        "You do not have permission to request verification.",
+                        "oauthApplication:update",
+                      )
                     : undefined
                 }
                 tipSide="right"
@@ -594,9 +669,14 @@ function OauthAppListItem({
             ) : null}
             <MenuItem
               action={() => setEditModalOpen(true)}
-              disabled={!isAdmin}
+              disabled={!canUpdate}
               tip={
-                !isAdmin ? "Only team admins can edit OAuth apps." : undefined
+                !canUpdate
+                  ? permissionDeniedTip(
+                      "You do not have permission to edit OAuth apps.",
+                      "oauthApplication:update",
+                    )
+                  : undefined
               }
               tipSide="right"
             >
@@ -604,10 +684,13 @@ function OauthAppListItem({
             </MenuItem>
             <MenuItem
               action={() => setShowRegenerateSecret(true)}
-              disabled={!isAdmin}
+              disabled={!canRegenerateSecret}
               tip={
-                !isAdmin
-                  ? "Only team admins can regenerate the client secret."
+                !canRegenerateSecret
+                  ? permissionDeniedTip(
+                      "You do not have permission to regenerate the client secret.",
+                      "oauthApplication:generateClientSecret",
+                    )
                   : undefined
               }
               tipSide="right"
@@ -617,9 +700,14 @@ function OauthAppListItem({
             <MenuItem
               action={() => setShowDelete(true)}
               variant="danger"
-              disabled={!isAdmin}
+              disabled={!canDelete}
               tip={
-                !isAdmin ? "Only team admins can delete OAuth apps." : undefined
+                !canDelete
+                  ? permissionDeniedTip(
+                      "You do not have permission to delete OAuth apps.",
+                      "oauthApplication:delete",
+                    )
+                  : undefined
               }
               tipSide="right"
             >

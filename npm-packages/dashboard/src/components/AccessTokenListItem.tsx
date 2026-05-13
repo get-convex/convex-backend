@@ -9,6 +9,15 @@ import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useEffect, useState } from "react";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { usePostHog } from "hooks/usePostHog";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
+
+const DELETE_ACTION_BY_KIND: Record<AccessTokenListKind, RoleStatementAction> =
+  {
+    team: "team:token:delete",
+    project: "project:token:delete",
+    deployment: "deployment:token:delete",
+  };
 
 export function AccessTokenListItem({
   token,
@@ -17,6 +26,7 @@ export function AccessTokenListItem({
   kind,
   shouldShow,
   showMemberName = true,
+  canDelete,
 }: {
   token: TeamAccessTokenResponse;
   identifier: string;
@@ -24,6 +34,10 @@ export function AccessTokenListItem({
   kind: AccessTokenListKind;
   shouldShow: boolean;
   showMemberName?: boolean;
+  // `undefined` means the caller hasn't wired a permission check yet —
+  // leave the button enabled rather than silently disabling it. Pass a
+  // boolean to actually gate it.
+  canDelete?: boolean | undefined;
 }) {
   const team = useCurrentTeam();
   const members = useTeamMembers(team?.id);
@@ -98,6 +112,15 @@ export function AccessTokenListItem({
               onClick={() => {
                 setShowDeleteConfirmation(true);
               }}
+              disabled={canDelete === false}
+              tip={
+                canDelete === false
+                  ? permissionDeniedTip(
+                      "You do not have permission to delete this access token.",
+                      DELETE_ACTION_BY_KIND[kind],
+                    )
+                  : undefined
+              }
             >
               Delete
             </Button>

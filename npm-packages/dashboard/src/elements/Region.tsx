@@ -5,6 +5,7 @@ import { cn } from "@ui/cn";
 import { Tooltip } from "@ui/Tooltip";
 import { Link } from "@ui/Link";
 import { Loading } from "@ui/Loading";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 
 export function Region({
   region,
@@ -98,7 +99,10 @@ export function Region({
     return (
       <Tooltip
         className="w-full"
-        tip="You do not have permission to update the region for new deployments."
+        tip={permissionDeniedTip(
+          "You do not have permission to update the region for new deployments.",
+          "team:update",
+        )}
         side="top"
       >
         {content}
