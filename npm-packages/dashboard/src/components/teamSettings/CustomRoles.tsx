@@ -538,26 +538,14 @@ function CustomRoleForm({
             />
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex w-full items-center justify-end gap-2">
-            {error && (
-              <p className="mr-auto text-sm text-content-errorSecondary">
-                {error}
-              </p>
-            )}
-            <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSave}
-              tip={saveBlockedReason}
-            >
-              {savedRoleId !== undefined ? "Save" : "Create"}
-            </Button>
-          </div>
-          {savedRoleName && (
-            <div className="flex items-center gap-1 text-sm">
+        <div className="flex w-full items-center justify-end gap-2">
+          {error && (
+            <p className="mr-auto text-sm text-content-errorSecondary">
+              {error}
+            </p>
+          )}
+          {!error && savedRoleName && (
+            <div className="mr-auto flex items-center gap-1 text-sm">
               <CheckCircledIcon className="shrink-0 text-content-success" />
               <p>
                 Saved “{savedRoleName}”. Assign this role to a team member on
@@ -574,6 +562,16 @@ function CustomRoleForm({
               </p>
             </div>
           )}
+          <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!canSave}
+            tip={saveBlockedReason}
+          >
+            {savedRoleId !== undefined ? "Save" : "Create"}
+          </Button>
         </div>
       </div>
     </Sheet>
