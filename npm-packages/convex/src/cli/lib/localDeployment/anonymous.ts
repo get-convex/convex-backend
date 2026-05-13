@@ -423,6 +423,7 @@ export async function handleLinkToProject(
   args: {
     deploymentName: string;
     teamSlug: string;
+    teamId: number;
     projectSlug: string | null;
   },
 ): Promise<{
@@ -456,7 +457,7 @@ export async function handleLinkToProject(
     projectSlug = args.projectSlug;
   } else {
     const { projectSlug: newProjectSlug } = await createProject(ctx, {
-      teamSlug: args.teamSlug,
+      teamId: args.teamId,
       projectName,
       deploymentToProvision: null,
     });

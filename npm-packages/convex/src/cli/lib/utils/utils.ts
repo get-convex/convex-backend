@@ -25,6 +25,7 @@ import {
 } from "../localDeployment/bigBrain.js";
 import type {
   paths as CliManagementPaths,
+  RegionName,
   TeamResponse,
 } from "../../generatedApi.js";
 import createClient from "openapi-fetch";
@@ -469,7 +470,7 @@ export async function selectRegion(
   ctx: Context,
   teamId: number,
   deploymentType: CloudDeploymentType,
-): Promise<string> {
+): Promise<RegionName> {
   const regionsResponse = (
     await typedPlatformClient(ctx).GET(
       "/teams/{team_id}/list_deployment_regions",
