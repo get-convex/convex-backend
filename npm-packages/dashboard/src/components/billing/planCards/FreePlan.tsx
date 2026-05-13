@@ -5,19 +5,23 @@ import { Checkbox } from "@ui/Checkbox";
 import { useState } from "react";
 import { Link } from "@ui/Link";
 import { useCancelSubscription } from "api/billing";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "api/roles";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";
+import { BILLING_RESOURCE } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { PlanCard } from "./PlanCard";
 
 export function FreePlan({
   subscription,
-  hasAdminPermissions,
   team,
   isLoading = false,
 }: {
   subscription?: OrbSubscriptionResponse;
-  hasAdminPermissions: boolean;
   team: TeamResponse;
   isLoading?: boolean;
 }) {
@@ -25,6 +29,14 @@ export function FreePlan({
     useState(false);
   const [acceptedConsequences, setAcceptedConsequences] = useState(false);
   const cancelSubscription = useCancelSubscription(team.id);
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const canCancelCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:subscription:changePlan",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canCancel = isTeamAdmin || canCancelCustom;
   return (
     <>
       <PlanCard
@@ -54,13 +66,16 @@ export function FreePlan({
             <Button
               disabled={
                 isLoading ||
-                !hasAdminPermissions ||
+                canCancel !== true ||
                 team.managedBy === "vercel" ||
                 subscription.plan.planType === "CONVEX_BUSINESS"
               }
               tip={
-                !hasAdminPermissions
-                  ? "You do not have permission to modify the team subscription."
+                canCancel === false
+                  ? permissionDeniedTip(
+                      "You do not have permission to modify the team subscription.",
+                      "billing:subscription:changePlan",
+                    )
                   : team.managedBy === "vercel"
                     ? `You can manage your subscription in ${startCase(team.managedBy)}.`
                     : subscription.plan.planType === "CONVEX_BUSINESS"

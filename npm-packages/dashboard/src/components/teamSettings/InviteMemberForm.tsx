@@ -9,7 +9,9 @@ import { useFormik } from "formik";
 import { useCreateInvite } from "api/invitations";
 import { useTeamOrbSubscription } from "api/billing";
 import { useTeamEntitlements } from "api/teams";
-import { useListCustomRoles } from "api/roles";
+import { useHasCustomRolePermission, useListCustomRoles } from "api/roles";
+import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { TeamResponse, TeamMember } from "generatedApi";
 import * as Yup from "yup";
@@ -21,19 +23,29 @@ type RoleChoice = "admin" | "developer" | "custom";
 export type InviteMemberFormProps = {
   team: TeamResponse;
   members: TeamMember[];
-  hasAdminPermissions: boolean;
+  // `undefined` while the permission check is loading; the form renders
+  // disabled until it resolves.
+  canInvite: boolean | undefined;
 };
 
 export function InviteMemberForm({
   team,
   members,
-  hasAdminPermissions,
+  canInvite,
 }: InviteMemberFormProps) {
+  const inviteAllowed = canInvite === true;
   const { subscription } = useTeamOrbSubscription(team.id);
   const entitlements = useTeamEntitlements(team.id);
   const { customRoles: customRolesFlag } = useLaunchDarkly();
   const customRolesEnabled = entitlements?.customRolesEnabled ?? false;
-  const customRolesAvailable = customRolesFlag && customRolesEnabled;
+  const canViewCustomRoles = useHasCustomRolePermission(
+    team.id,
+    "customRole:view",
+    CUSTOM_ROLE_RESOURCE,
+    true,
+  );
+  const customRolesAvailable =
+    customRolesFlag && customRolesEnabled && canViewCustomRoles === true;
   const { data: customRolesData } = useListCustomRoles(
     customRolesAvailable ? team.id : undefined,
   );
@@ -64,7 +76,7 @@ export function InviteMemberForm({
     },
     validationSchema: InviteSchema,
     onSubmit: async (values) => {
-      if (!hasAdminPermissions) {
+      if (!inviteAllowed) {
         return;
       }
       const validation = await formState.validateForm();
@@ -94,6 +106,11 @@ export function InviteMemberForm({
     },
   });
 
+  const customDisabledReason = !customRolesEnabled
+    ? "Custom roles are not enabled for this team."
+    : canViewCustomRoles === false
+      ? "You do not have permission to view custom roles."
+      : undefined;
   const roleOptions = [
     { label: "Admin", value: "admin" as const, disabled: false },
     { label: "Developer", value: "developer" as const, disabled: false },
@@ -102,7 +119,7 @@ export function InviteMemberForm({
           {
             label: "Custom",
             value: "custom" as const,
-            disabled: !customRolesEnabled,
+            disabled: customDisabledReason !== undefined,
           },
         ]
       : []),
@@ -121,8 +138,11 @@ export function InviteMemberForm({
         <div className="mb-4 flex w-full grow flex-wrap items-start gap-4 sm:flex-nowrap">
           <Tooltip
             tip={
-              !hasAdminPermissions
-                ? "You do not have permission to invite team members"
+              !inviteAllowed
+                ? permissionDeniedTip(
+                    "You do not have permission to invite team members.",
+                    "member:invite",
+                  )
                 : undefined
             }
             className="w-full"
@@ -139,10 +159,10 @@ export function InviteMemberForm({
               onBlur={formState.handleBlur}
               id="inviteEmail"
               aria-label="Email"
-              disabled={!hasAdminPermissions}
+              disabled={!inviteAllowed}
             />
           </Tooltip>
-          {hasAdminPermissions && (
+          {inviteAllowed && (
             // Combobox renders Label + content as siblings of this wrapper
             // (HeadlessCombobox is a Fragment), so the inner gap controls
             // the label-to-input spacing. Use `gap-1` to match TextInput.
@@ -176,11 +196,8 @@ export function InviteMemberForm({
                   }
                 }}
                 Option={({ label, disabled }) =>
-                  disabled ? (
-                    <Tooltip
-                      tip="Custom roles are not enabled for this team."
-                      side="left"
-                    >
+                  disabled && customDisabledReason ? (
+                    <Tooltip tip={customDisabledReason} side="left">
                       <span>{label}</span>
                     </Tooltip>
                   ) : (
@@ -191,7 +208,7 @@ export function InviteMemberForm({
             </div>
           )}
         </div>
-        {hasAdminPermissions && formState.values.role === "custom" && (
+        {inviteAllowed && formState.values.role === "custom" && (
           <div className="mb-4 flex flex-col gap-1">
             <CustomRolesSelector
               availableRoles={availableCustomRoles}
@@ -221,11 +238,20 @@ export function InviteMemberForm({
           )}
           <Button
             disabled={
+              !inviteAllowed ||
               !formState.dirty ||
               formState.isSubmitting ||
               !formState.isValid ||
               customSelectionEmpty ||
               noCustomRolesAvailable
+            }
+            tip={
+              !inviteAllowed
+                ? permissionDeniedTip(
+                    "You do not have permission to invite team members.",
+                    "member:invite",
+                  )
+                : undefined
             }
             type="submit"
             aria-label="submit"

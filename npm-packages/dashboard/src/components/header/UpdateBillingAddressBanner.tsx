@@ -1,13 +1,9 @@
 import classNames from "classnames";
 import { useCurrentTeam } from "api/teams";
 import { useTeamOrbSubscription } from "api/billing";
-import { useMyCustomRoles } from "api/roles";
 import { Link } from "@ui/Link";
-import { evaluateRoles, type ConcreteResource } from "lib/permissions";
-
-const BILLING_RESOURCE: ConcreteResource = {
-  segments: [{ kind: "billing" }],
-};
+import { useHasCustomRolePermission } from "api/roles";
+import { BILLING_RESOURCE } from "lib/permissions";
 
 export function UpdateBillingAddressBanner() {
   const team = useCurrentTeam();
@@ -29,18 +25,16 @@ export function UpdateBillingAddressBanner() {
 
 export function useShowUpdateBillingAddressBanner() {
   const team = useCurrentTeam();
-  const orbSubscription = useTeamOrbSubscription(team?.id).subscription;
-  const myRoles = useMyCustomRoles(team?.id);
-  // Hide the banner from members who can't view or update billing details —
-  // there's nothing actionable for them on the linked Billing page. Built-in
-  // `admin` and `developer` always pass; `custom` members must have a role
-  // granting `billing:view`.
-  const canViewBillingDetails =
-    myRoles !== undefined &&
-    (myRoles.role !== "custom" ||
-      evaluateRoles(myRoles.customRoles, "billing:view", BILLING_RESOURCE) ===
-        "allowed");
-  if (!canViewBillingDetails) {
+  const { subscription: orbSubscription } = useTeamOrbSubscription(team?.id);
+  // Hide the banner from members who can't view billing details — there's
+  // nothing actionable for them on the linked Billing page.
+  const canViewBillingDetails = useHasCustomRolePermission(
+    team?.id,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
+  if (canViewBillingDetails !== true) {
     return false;
   }
   // Team billing is managed by Vercel

@@ -5,18 +5,22 @@ import {
   CreateInvitationArgs,
   InvitationResponse,
 } from "generatedApi";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { RoleDisplay } from "./RoleDisplay";
 
 type TeamMemberInviteListItemProps = {
   invite: InvitationResponse;
-  hasAdminPermissions: boolean;
+  // Both gates may be `undefined` while permissions are loading.
+  canInvite: boolean | undefined;
+  canCancelInvite: boolean | undefined;
   onCreateInvite: (body: CreateInvitationArgs) => void;
   onCancelInvite: (body: CancelInvitationArgs) => void;
 };
 
 export function TeamMemberInviteListItem({
   invite,
-  hasAdminPermissions,
+  canInvite,
+  canCancelInvite,
   onCreateInvite,
   onCancelInvite,
 }: TeamMemberInviteListItemProps) {
@@ -31,8 +35,19 @@ export function TeamMemberInviteListItem({
       onCreateInvite({ email: invite.email, role: invite.role });
     }
   };
-  const noPermissionTip = !hasAdminPermissions
-    ? "You do not have permission to manage invitations"
+  const resendDisabled = canInvite !== true;
+  const cancelDisabled = canCancelInvite !== true;
+  const resendTip = resendDisabled
+    ? permissionDeniedTip(
+        "You do not have permission to resend invitations.",
+        "member:invite",
+      )
+    : undefined;
+  const cancelTip = cancelDisabled
+    ? permissionDeniedTip(
+        "You do not have permission to revoke invitations.",
+        "member:cancelInvitation",
+      )
     : undefined;
   return (
     <div className="flex items-center justify-between gap-4 border-b py-2 last:border-b-0">
@@ -56,8 +71,8 @@ export function TeamMemberInviteListItem({
           }}
         >
           <MenuItem
-            disabled={!hasAdminPermissions}
-            tip={noPermissionTip}
+            disabled={resendDisabled}
+            tip={resendTip}
             tipSide="left"
             action={onResend}
           >
@@ -65,8 +80,8 @@ export function TeamMemberInviteListItem({
           </MenuItem>
           <MenuItem
             variant="danger"
-            disabled={!hasAdminPermissions}
-            tip={noPermissionTip}
+            disabled={cancelDisabled}
+            tip={cancelTip}
             tipSide="left"
             action={() => onCancelInvite({ email: invite.email })}
           >

@@ -473,3 +473,25 @@ export function evaluateRoles(
   }
   return "denied";
 }
+
+// --- Result type and shared resource constants -------------------------
+
+// Discriminated union returned by gated read hooks. Forcing callers to
+// pattern-match on `status` to reach `data` makes "I forgot to handle the
+// no-permission case" a compile error rather than a runtime surprise.
+export type Permissioned<T> =
+  | { status: "loading" }
+  | { status: "denied"; deniedAction: RoleStatementAction }
+  | { status: "ok"; data: T };
+
+export const BILLING_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "billing" }],
+};
+
+export const MEMBER_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "member" }],
+};
+
+export const CUSTOM_ROLE_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "customRole" }],
+};

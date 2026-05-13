@@ -5,13 +5,18 @@ import createClient, {
   FetchResponse,
 } from "openapi-fetch";
 import { PathsWithMethod } from "openapi-typescript-helpers";
-import { createMutateHook, createQueryHook } from "swr-openapi";
+import {
+  createInfiniteHook,
+  createMutateHook,
+  createQueryHook,
+  TypesForGetRequest,
+} from "swr-openapi";
 import isMatch from "lodash/isMatch";
 import { fireGoogleAnalyticsEvent } from "elements/GoogleAnalytics";
 import { toast } from "@common/lib/utils";
 import type { paths as BigBrainPaths } from "generatedApi";
 import type { paths as ManagementApiPaths } from "@convex-dev/platform/managementApi";
-import { SWRConfiguration, mutate as globalMutate } from "swr";
+import { SWRConfiguration, SWRResponse, mutate as globalMutate } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCallback, useEffect } from "react";
@@ -39,6 +44,8 @@ const fetchErrorMessages = [
 const useQuery = createQueryHook(client, "big-brain");
 
 export const useMutate = createMutateHook(client, "big-brain", isMatch);
+
+export const useBBInfiniteQuery = createInfiniteHook(client, "big-brain");
 
 // Management API hooks
 const useManagementQuery = createQueryHook(
@@ -200,7 +207,10 @@ export function useBBQuery<QueryPath extends Path<"get">>({
   pathParams: BigBrainPaths[QueryPath]["get"]["parameters"]["path"];
   queryParams?: BigBrainPaths[QueryPath]["get"]["parameters"]["query"];
   swrOptions?: Omit<SWRConfiguration, "onError">;
-}) {
+}): SWRResponse<
+  TypesForGetRequest<BigBrainPaths, QueryPath>["Data"],
+  TypesForGetRequest<BigBrainPaths, QueryPath>["Error"]
+> {
   const router = useRouter();
   const [ssoLoginRequired, setSSOLoginRequired] = useSSOLoginRequired();
   const { headers, accessToken } = useApiHeaders();

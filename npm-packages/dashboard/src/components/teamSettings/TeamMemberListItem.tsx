@@ -7,7 +7,7 @@ import type {
 } from "generatedApi";
 import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
 import { useRouter } from "next/router";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Menu, MenuItem } from "@ui/Menu";
 import { Callout } from "@ui/Callout";
@@ -15,6 +15,7 @@ import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { useMount } from "react-use";
 import classNames from "classnames";
 import startCase from "lodash/startCase";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { MemberProjectRolesModal } from "./MemberProjectRolesModal";
 import { EditTeamRoleDialog } from "./EditTeamRoleDialog";
 import { RoleDisplay } from "./RoleDisplay";
@@ -35,7 +36,9 @@ type TeamMemberListItemProps = {
   }) => Promise<unknown>;
   onRemoveMember: (body: { memberId: number }) => Promise<Response>;
   onUpdateProjectRoles: (body: UpdateProjectRolesArgs) => Promise<undefined>;
-  hasAdminPermissions: boolean;
+  // Action-specific gates; `undefined` while permissions are loading.
+  canUpdateRole: boolean | undefined;
+  canRemoveMember: boolean | undefined;
   projectRoles: ProjectMemberRoleResponse[];
 };
 export function TeamMemberListItem({
@@ -50,7 +53,8 @@ export function TeamMemberListItem({
   onChangeRole,
   onUpdateProjectRoles,
   onRemoveMember,
-  hasAdminPermissions,
+  canUpdateRole,
+  canRemoveMember,
   projectRoles,
 }: TeamMemberListItemProps) {
   const router = useRouter();
@@ -59,8 +63,10 @@ export function TeamMemberListItem({
     0;
   const isMemberMe = member.id === myProfile?.id;
 
+  // Members can always remove themselves (leave the team) regardless of the
+  // `member:remove` gate, as long as they're not the last admin.
   const canManageMember =
-    (hasAdminPermissions || isMemberMe) && !isMemberTheLastAdmin;
+    (canRemoveMember === true || isMemberMe) && !isMemberTheLastAdmin;
 
   const isHighlighted = window.location.hash === `#${member.id}`;
 
@@ -71,16 +77,18 @@ export function TeamMemberListItem({
     }
   });
 
-  let removeMemberDisabledReason: string | undefined;
+  let removeMemberDisabledReason: ReactNode | undefined;
   if (isMemberTheLastAdmin) {
     removeMemberDisabledReason =
       "You cannot remove the last admin from this team. Contact us for help at support@convex.dev";
   } else if (!canManageMember) {
-    removeMemberDisabledReason =
-      "You do not have permission to remove members from this team.";
+    removeMemberDisabledReason = permissionDeniedTip(
+      "You do not have permission to remove members from this team.",
+      "member:remove",
+    );
   }
 
-  let updateRoleDisabledReason: string | undefined;
+  let updateRoleDisabledReason: ReactNode | undefined;
   if (!canChangeRole) {
     updateRoleDisabledReason =
       "You cannot change your own team role. Ask another admin to do it for you.";
@@ -88,9 +96,11 @@ export function TeamMemberListItem({
     updateRoleDisabledReason = `This team is managed by ${startCase(team.managedBy)}. You may manage team roles in ${startCase(team.managedBy)}.`;
   } else if (isMemberTheLastAdmin) {
     updateRoleDisabledReason = "You cannot change the role of the last admin.";
-  } else if (!hasAdminPermissions) {
-    updateRoleDisabledReason =
-      "You do not have permission to change member roles.";
+  } else if (canUpdateRole !== true) {
+    updateRoleDisabledReason = permissionDeniedTip(
+      "You do not have permission to change member roles.",
+      "member:updateRole",
+    );
   }
   const canEditTeamRole = updateRoleDisabledReason === undefined;
 

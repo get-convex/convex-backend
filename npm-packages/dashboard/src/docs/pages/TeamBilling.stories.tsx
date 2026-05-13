@@ -13,8 +13,8 @@ const meta = {
   },
   beforeEach: () => {
     mocked(useGetCurrentSpend).mockReturnValue({
-      totalCents: 1250,
-      isLoading: false,
+      status: "ok",
+      data: { totalCents: 1250 },
     });
     mocked(useCreateSetupIntent).mockReturnValue(async () => ({
       clientSecret: "test_secret",

@@ -6,11 +6,13 @@ import { TextInput } from "@ui/TextInput";
 import { useState } from "react";
 import {
   useUpdateTeamMemberRole,
+  useHasCustomRolePermission,
   useIsCurrentMemberTeamAdmin,
   useListCustomRoles,
   useProjectRoles,
   useUpdateProjectRoles,
 } from "api/roles";
+import { MEMBER_RESOURCE } from "lib/permissions";
 import { useRemoveTeamMember, useTeamEntitlements } from "api/teams";
 import { useProfile } from "api/profile";
 import { useCancelInvite, useCreateInvite } from "api/invitations";
@@ -53,7 +55,37 @@ export function TeamMemberList({
   const onCreateInvite = useCreateInvite(team.id);
   const onCancelInvite = useCancelInvite(team.id);
 
-  const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
+  // All member-management actions are admin-only by default; custom roles
+  // need an explicit grant per-action.
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const canUpdateRoleCustom = useHasCustomRolePermission(
+    team.id,
+    "member:updateRole",
+    MEMBER_RESOURCE,
+    false,
+  );
+  const canRemoveMemberCustom = useHasCustomRolePermission(
+    team.id,
+    "member:remove",
+    MEMBER_RESOURCE,
+    false,
+  );
+  const canInviteCustom = useHasCustomRolePermission(
+    team.id,
+    "member:invite",
+    MEMBER_RESOURCE,
+    false,
+  );
+  const canCancelInviteCustom = useHasCustomRolePermission(
+    team.id,
+    "member:cancelInvitation",
+    MEMBER_RESOURCE,
+    false,
+  );
+  const canUpdateRole = isTeamAdmin || canUpdateRoleCustom;
+  const canRemoveMember = isTeamAdmin || canRemoveMemberCustom;
+  const canInvite = isTeamAdmin || canInviteCustom;
+  const canCancelInvite = isTeamAdmin || canCancelInviteCustom;
 
   const entitlements = useTeamEntitlements(team.id);
   const { customRoles: customRolesFlag } = useLaunchDarkly();
@@ -98,7 +130,8 @@ export function TeamMemberList({
                   customRolesVisible={customRolesFlag}
                   onChangeRole={onChangeRole}
                   onRemoveMember={onRemoveMember}
-                  hasAdminPermissions={hasAdminPermissions}
+                  canUpdateRole={canUpdateRole}
+                  canRemoveMember={canRemoveMember}
                   projectRoles={projectRoles?.filter(
                     (role) => role.memberId === me.id,
                   )}
@@ -127,7 +160,8 @@ export function TeamMemberList({
                     customRolesVisible={customRolesFlag}
                     onChangeRole={onChangeRole}
                     onRemoveMember={onRemoveMember}
-                    hasAdminPermissions={hasAdminPermissions}
+                    canUpdateRole={canUpdateRole}
+                    canRemoveMember={canRemoveMember}
                     projectRoles={projectRoles?.filter(
                       (role) => role.memberId === member.id,
                     )}
@@ -165,7 +199,8 @@ export function TeamMemberList({
                 <TeamMemberInviteListItem
                   key={`invite${idx}`}
                   invite={invite}
-                  hasAdminPermissions={hasAdminPermissions}
+                  canInvite={canInvite}
+                  canCancelInvite={canCancelInvite}
                   onCreateInvite={onCreateInvite}
                   onCancelInvite={onCancelInvite}
                 />
