@@ -23,8 +23,10 @@ export function FailedPaymentBanner() {
 
 export function useShowFailedPaymentBanner() {
   const team = useCurrentTeam();
-  const { hasFailedPayment } = useHasFailedPayment(
+  // For members without `billing:view`, `status === "denied"` and the banner
+  // stays hidden — they can't act on the linked payment-method page anyway.
+  const result = useHasFailedPayment(
     team?.managedBy === "vercel" ? undefined : team?.id,
   );
-  return hasFailedPayment;
+  return result.status === "ok" && result.data.hasFailedPayment;
 }

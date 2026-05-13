@@ -4,20 +4,17 @@ import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { PaginatedProjectsResponse, operations } from "generatedApi";
 import { useDebounce } from "react-use";
 import { useProjectsPageSize } from "hooks/useProjectsPageSize";
-import { createInfiniteHook } from "swr-openapi";
 import { useAuthHeader } from "hooks/fetching";
 import flatMap from "lodash/flatMap";
 import type { PlatformCreateProjectArgs } from "@convex-dev/platform/managementApi";
 import { useCurrentTeam } from "./teams";
 import {
+  useBBInfiniteQuery,
   useBBMutation,
   useBBQuery,
-  client,
   useManagementApiMutation,
   useMutate,
 } from "./api";
-
-const useInfinite = createInfiniteHook(client, "big-brain");
 
 export function useCurrentProject() {
   const team = useCurrentTeam();
@@ -119,7 +116,7 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
     [searchQuery],
   );
 
-  const { data, isLoading, size, setSize } = useInfinite(
+  const { data, isLoading, size, setSize } = useBBInfiniteQuery(
     "/teams/{team_id}/projects",
     (
       pageIndex: number,

@@ -360,7 +360,7 @@ function EntryAction({
       return (
         <span>
           changed the subscription plan from{" "}
-          <span className="font-semibold">{metadata.previous?.plan}</span>·to{" "}
+          <span className="font-semibold">{metadata.previous?.plan}</span> to{" "}
           <span className="font-semibold">{metadata.current?.plan}</span>
         </span>
       );

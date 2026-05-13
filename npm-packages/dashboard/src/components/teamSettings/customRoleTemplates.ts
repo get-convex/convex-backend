@@ -17,6 +17,7 @@ export type CustomRoleTemplate = {
 // `deployment:updateType`, which would let an editor reclassify a
 // non-production deployment as production.
 const VIEW_DEPLOYMENT_ACTIONS: RoleStatementAction[] = [
+  "deployment:view",
   "deployment:insights:view",
   "deployment:integrations:view",
   "deployment:env:view",
@@ -24,10 +25,17 @@ const VIEW_DEPLOYMENT_ACTIONS: RoleStatementAction[] = [
   "deployment:metrics:view",
   "deployment:auditLog:view",
   "deployment:data:view",
+  "deployment:customDomain:view",
+  "deployment:backups:view",
 ];
 
 const EDIT_DEPLOYMENT_ACTIONS: RoleStatementAction[] = [
   "deployment:create",
+  "deployment:view",
+  "deployment:updateReference",
+  "deployment:updateDashboardEditConfirmation",
+  "deployment:updateExpiresAt",
+  "deployment:updateSendLogsToClient",
   "deployment:insights:view",
   "deployment:integrations:view",
   "deployment:integrations:write",
@@ -46,8 +54,10 @@ const EDIT_DEPLOYMENT_ACTIONS: RoleStatementAction[] = [
   "deployment:functions:runInternalMutations",
   "deployment:functions:runInternalActions",
   "deployment:functions:runTestQuery",
+  "deployment:customDomain:view",
   "deployment:customDomain:create",
   "deployment:customDomain:delete",
+  "deployment:backups:view",
   "deployment:backups:create",
   "deployment:backups:import",
   "deployment:backups:configurePeriodic",

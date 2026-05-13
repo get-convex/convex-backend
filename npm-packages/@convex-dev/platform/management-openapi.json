@@ -3641,7 +3641,6 @@
           "deployment:backups:disablePeriodic",
           "deployment:backups:delete",
           "deployment:backups:view",
-          "team:applyReferralCode",
           "sso:enable",
           "sso:disable",
           "sso:update",

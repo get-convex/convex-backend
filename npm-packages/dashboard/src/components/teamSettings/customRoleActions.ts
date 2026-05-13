@@ -22,13 +22,10 @@ export const ACTIONS_BY_CATEGORY: Record<
   ActionCategory,
   RoleStatementAction[]
 > = {
-  team: [
-    "team:update",
-    "team:delete",
-    "team:applyReferralCode",
-    "team:auditLog:view",
-    "team:usage:view",
-  ],
+  // `team:applyReferralCode` intentionally omitted: redemption is a one-time
+  // team-lifecycle event that we want to keep gated to built-in team admins,
+  // not delegable via custom roles.
+  team: ["team:update", "team:delete", "team:auditLog:view", "team:usage:view"],
   billing: [
     "billing:paymentMethod:update",
     "billing:contact:update",
