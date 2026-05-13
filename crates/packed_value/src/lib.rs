@@ -27,7 +27,6 @@ use value::{
 mod buffer;
 mod debug;
 mod flexbuilder;
-mod json;
 mod walk;
 
 pub use self::buffer::{

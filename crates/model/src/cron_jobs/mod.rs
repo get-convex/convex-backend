@@ -66,16 +66,11 @@ pub static CRON_JOBS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("_cron_jobs is not a valid system table name")
 });
 
-// Used to find next jobs to execute for crons.
-pub static DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS: LazyLock<SystemIndex<CronJobsTable>> =
-    LazyLock::new(|| SystemIndex::new("by_next_ts", [&CRON_JOBS_NEXT_TS_FIELD]).unwrap());
 // Used to find cron job by name
 pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<SystemIndex<CronJobsTable>> =
     LazyLock::new(|| SystemIndex::new("by_name", [&CRON_JOBS_NAME_FIELD]).unwrap());
 static CRON_JOBS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
-static CRON_JOBS_NEXT_TS_FIELD: LazyLock<FieldPath> =
-    LazyLock::new(|| "nextTs".parse().expect("invalid nextTs field"));
 
 pub static CRON_JOB_LOGS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_cron_job_logs"
@@ -122,10 +117,7 @@ impl SystemTable for CronJobsTable {
     }
 
     fn indexes() -> Vec<SystemIndex<Self>> {
-        vec![
-            DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
-            CRON_JOBS_INDEX_BY_NAME.clone(),
-        ]
+        vec![CRON_JOBS_INDEX_BY_NAME.clone()]
     }
 }
 

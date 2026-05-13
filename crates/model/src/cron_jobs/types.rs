@@ -487,12 +487,9 @@ pub enum CronJobState {
     // Yet to be attempted.
     Pending,
     // Started but not completed yet. Used to make actions execute at most once.
-    //
-    // TODO: remove `None` case for cron jobs that started before we started
-    // recording execution id.
     InProgress {
-        request_id: Option<RequestId>,
-        execution_id: Option<ExecutionId>,
+        request_id: RequestId,
+        execution_id: ExecutionId,
     },
 }
 
