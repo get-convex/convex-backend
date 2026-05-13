@@ -74,6 +74,8 @@ export function BackupListItem({
 
   const targetDeploymentId =
     targetDeployment.kind === "cloud" ? targetDeployment.id : null;
+  const restoreBlockedByDedicated =
+    targetDeployment.kind === "cloud" && targetDeployment.class.startsWith("d");
 
   const previousState = useRef(backup.state);
   useEffect(() => {
@@ -235,19 +237,22 @@ export function BackupListItem({
                     backup.state !== "complete" ||
                     someRestoreInProgress ||
                     someBackupInProgress ||
-                    !canPerformActions
+                    !canPerformActions ||
+                    restoreBlockedByDedicated
                   }
                   tipSide="left"
                   tip={
-                    backup.state !== "complete"
-                      ? backupStateDescription
-                      : someRestoreInProgress
-                        ? "Another backup is being restored at the moment."
-                        : someBackupInProgress
-                          ? "Please wait for the ongoing backup to be completed before restoring from a backup."
-                          : !canPerformActions
-                            ? "You do not have permission to restore backups in production."
-                            : undefined
+                    restoreBlockedByDedicated
+                      ? `Restores into ${targetDeployment.kind === "cloud" ? targetDeployment.class.toUpperCase() : "dedicated"} deployments must use a physical backup. Contact the Convex team to restore from a physical backup.`
+                      : backup.state !== "complete"
+                        ? backupStateDescription
+                        : someRestoreInProgress
+                          ? "Another backup is being restored at the moment."
+                          : someBackupInProgress
+                            ? "Please wait for the ongoing backup to be completed before restoring from a backup."
+                            : !canPerformActions
+                              ? "You do not have permission to restore backups in production."
+                              : undefined
                   }
                 >
                   Restore

@@ -26,7 +26,7 @@ import { Link } from "@ui/Link";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useHasProjectAdminPermissions } from "api/roles";
-import { ChevronDownIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { Combobox } from "@ui/Combobox";
 import { BackupList } from "./BackupList";
 import { BackupRestoreStatus } from "./BackupRestoreStatus";
@@ -53,25 +53,8 @@ export function Backups({
   const canPerformActions =
     deployment.deploymentType !== "prod" || hasAdminPermissions;
 
-  if (deployment.kind === "cloud" && deployment.class.startsWith("d")) {
-    return (
-      <div className="flex h-full flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h3 className="min-w-fit">Backup & Restore</h3>
-        </div>
-        <Callout className="max-w-prose">
-          <span>
-            Backups for {deployment.class.toUpperCase()} deployments are
-            produced every 24 hours and retained for 7 days. Contact the Convex
-            team to restore from a backup{" "}
-            <Link href="https://docs.convex.dev/database/backup-restore">
-              Learn more about backups
-            </Link>
-          </span>
-        </Callout>
-      </div>
-    );
-  }
+  const isDedicated =
+    deployment.kind === "cloud" && deployment.class.startsWith("d");
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -85,6 +68,15 @@ export function Backups({
           </Link>
         </span>
       </div>
+      {isDedicated && <PhysicalBackupsSection deployment={deployment} />}
+      {isDedicated && (
+        <h4 className="flex min-w-fit items-center gap-1.5">
+          Zip backups
+          <Tooltip tip="Restoring a zip backup into a dedicated deployment isn't supported. Contact the Convex team to restore from a physical backup.">
+            <InfoCircledIcon className="size-4 text-content-secondary" />
+          </Tooltip>
+        </h4>
+      )}
       <div className="scrollbar flex grow flex-col gap-4 overflow-auto pt-1 pl-1 xl:flex-row xl:overflow-hidden">
         <Sheet className="flex h-fit w-full shrink-0 flex-col items-start gap-6 xl:w-60 xl:items-center">
           {periodicBackupsEnabled ? (
@@ -163,6 +155,31 @@ export function Backups({
           </Sheet>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PhysicalBackupsSection({
+  deployment,
+}: {
+  deployment: PlatformDeploymentResponse;
+}) {
+  if (deployment.kind !== "cloud") return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <h4 className="min-w-fit">Physical backups</h4>
+      <Callout className="max-w-prose">
+        <span>
+          {deployment.class.toUpperCase()} deployments include physical backups.
+          Physical backups are faster and cheaper due to the ability to rely on
+          dedicated database hardware. They are produced every 24 hours and are
+          retained for 7 days. To restore from a physical backup, contact the
+          Convex team.{" "}
+          <Link href="https://docs.convex.dev/database/backup-restore">
+            Learn more about backups
+          </Link>
+        </span>
+      </Callout>
     </div>
   );
 }

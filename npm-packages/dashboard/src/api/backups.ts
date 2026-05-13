@@ -36,14 +36,14 @@ export function useListCloudBackups(
   return data as BackupResponse[] | undefined;
 }
 
-// Returns null if backups are unavailable (non-cloud or dedicated deployments),
+// Returns null if backups are unavailable (non-cloud deployments),
 // undefined while loading, or the backup list when loaded.
 export function useListCloudBackupsIfAvailable(
   deployment: PlatformDeploymentResponse | undefined,
 ): BackupResponse[] | null | undefined {
   const deploymentId = !deployment
     ? undefined
-    : deployment.kind === "cloud" && !deployment.class.startsWith("d")
+    : deployment.kind === "cloud"
       ? deployment.id
       : null;
   return useListCloudBackups(deploymentId);

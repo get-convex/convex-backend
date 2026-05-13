@@ -9,7 +9,6 @@ import { EmptySection } from "@common/elements/EmptySection";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { BackupListItem, progressMessageForBackup } from "./BackupListItem";
-import { Callout } from "@ui/Callout";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 import { useLatestRestore } from "./BackupRestoreStatus";
 
@@ -53,28 +52,19 @@ export function BackupList({
           targetDeployment={targetDeployment}
         />
       </div>
-      {selectedDeployment.kind === "cloud" &&
-      selectedDeployment.class.startsWith("d") ? (
-        <Callout className="m-4 max-w-prose">
-          Backups for {selectedDeployment.class.toUpperCase()} deployments are
-          produced every 24 hours and retained for 7 days. Contact the Convex
-          team to restore from a backup.
-        </Callout>
-      ) : (
-        <div className="scrollbar grow overflow-auto">
-          {!backups ? (
-            <Loading />
-          ) : (
-            <BackupListForDeployment
-              backups={backups}
-              targetDeployment={targetDeployment}
-              restoringBackupId={restoringBackupId}
-              canPerformActions={canPerformActions}
-              maxCloudBackups={maxCloudBackups}
-            />
-          )}
-        </div>
-      )}
+      <div className="scrollbar grow overflow-auto">
+        {!backups ? (
+          <Loading />
+        ) : (
+          <BackupListForDeployment
+            backups={backups}
+            targetDeployment={targetDeployment}
+            restoringBackupId={restoringBackupId}
+            canPerformActions={canPerformActions}
+            maxCloudBackups={maxCloudBackups}
+          />
+        )}
+      </div>
     </div>
   );
 }
