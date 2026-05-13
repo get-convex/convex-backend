@@ -57,10 +57,6 @@ use model::{
     virtual_system_mapping,
 };
 use serde_json::json;
-use shape_inference::{
-    export_context::GeneratedSchema,
-    ProdConfig,
-};
 use storage::{
     ChannelWriter,
     Storage,
@@ -312,11 +308,7 @@ where
 
     table_upload.complete().await?;
     zip_snapshot_upload
-        .write_legacy_generated_schema(
-            path_prefix,
-            &table_name,
-            GeneratedSchema::<ProdConfig>::Uniform,
-        )
+        .write_legacy_generated_schema(path_prefix, &table_name)
         .await?;
     Ok(())
 }
