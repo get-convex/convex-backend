@@ -82,6 +82,7 @@ export {
   type MutationOptions,
   type ConvexReactClientOptions,
   type OptionalRestArgsOrSkip,
+  type UseQueryResult,
   ConvexReactClient,
   useConvex,
   ConvexProvider,
@@ -91,8 +92,6 @@ export {
   useAction,
   useConvexConnectionState,
 } from "./client.js";
-/** @internal */
-export type { UseQueryResult } from "./client.js";
 /** @internal */
 export { convexQueryOptions } from "../browser/query_options.js";
 export type { QueryOptions } from "../browser/query_options.js";
