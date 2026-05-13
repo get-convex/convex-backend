@@ -71,7 +71,10 @@ use value::{
     TableName,
 };
 
-use crate::snapshot_import::import_error::ImportError;
+use crate::snapshot_import::{
+    import_error::ImportError,
+    metrics::log_snapshot_import_found_legacy_generated_schema,
+};
 
 pub type ImportDocumentStream = BoxStream<'static, anyhow::Result<JsonValue>>;
 pub type ImportStorageFileStream =
@@ -439,6 +442,7 @@ async fn parse_generated_schema<T: ShapeConfig>(
     if inferred_type_json.as_str() == Some("uniform") {
         return Ok(GeneratedSchema::Uniform);
     }
+    log_snapshot_import_found_legacy_generated_schema();
     let inferred_type = Shape::from_str(inferred_type_json.as_str().with_context(|| {
         ImportError::InvalidConvexValue(
             lineno,
