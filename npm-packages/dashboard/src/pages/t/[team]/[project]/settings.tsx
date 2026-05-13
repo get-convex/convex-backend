@@ -590,13 +590,22 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
                     name,
                     ...(expiresAt !== undefined && { expiresAt }),
                   });
-                  if (!result) return { ok: false as const };
+                  if (!result)
+                    return {
+                      ok: false as const,
+                      error: "Failed to create preview deploy key.",
+                    };
                   return {
                     ok: true as const,
                     adminKey: result.previewDeployKey,
                   };
-                } catch {
-                  return { ok: false as const };
+                } catch (e) {
+                  return {
+                    ok: false as const,
+                    error:
+                      (e as { message?: string })?.message ??
+                      "Failed to create preview deploy key.",
+                  };
                 }
               },
             }}

@@ -7,7 +7,7 @@ import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { Callout } from "@ui/Callout";
 import { SegmentedControl } from "@ui/SegmentedControl";
 import { useState } from "react";
-import { PlusIcon } from "@radix-ui/react-icons";
+import { ExclamationTriangleIcon, PlusIcon } from "@radix-ui/react-icons";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import { usePostHog } from "hooks/usePostHog";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
@@ -215,7 +215,7 @@ export type GenerateDeployKeyWithNameButtonProps = {
     name: string,
     allowedOperations: string[] | undefined,
     expiresAt: number | undefined,
-  ) => Promise<{ ok: true; adminKey: string } | { ok: false }>;
+  ) => Promise<{ ok: true; adminKey: string } | { ok: false; error: string }>;
   deploymentType: DeploymentTypeType;
   showCustomPermissions?: boolean;
 };
@@ -234,6 +234,7 @@ export function GenerateDeployKeyWithNameButton({
   const [selectedOps, setSelectedOps] = useState<Set<string>>(() => new Set());
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
+  const [error, setError] = useState<string | null>(null);
   const { capture } = usePostHog();
   const { scopedDeployKeys } = useLaunchDarkly();
 
@@ -244,6 +245,7 @@ export function GenerateDeployKeyWithNameButton({
     setPermissionMode("deploy");
     setSelectedOps(new Set());
     setExpiration(null);
+    setError(null);
   };
 
   return (
@@ -278,6 +280,7 @@ export function GenerateDeployKeyWithNameButton({
               onSubmit={async (e) => {
                 e.preventDefault();
                 setIsLoading(true);
+                setError(null);
                 try {
                   const allowedOperations =
                     scopedDeployKeys && showCustomPermissions
@@ -292,6 +295,7 @@ export function GenerateDeployKeyWithNameButton({
                     expiresAt ?? undefined,
                   );
                   if (!result.ok) {
+                    setError(result.error);
                     return;
                   }
                   setCreatedKey(result.adminKey);
@@ -404,6 +408,12 @@ export function GenerateDeployKeyWithNameButton({
                     </>
                   )}
                 </div>
+              )}
+              {error !== null && (
+                <Callout variant="error" className="text-xs break-words">
+                  <ExclamationTriangleIcon className="mt-0.5 mr-1 min-w-4" />
+                  {error}
+                </Callout>
               )}
               <div className="flex items-center justify-end gap-2">
                 {scopedDeployKeys &&
