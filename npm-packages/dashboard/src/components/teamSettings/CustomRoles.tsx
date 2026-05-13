@@ -114,10 +114,14 @@ const actionsForCategory = (category: ActionCategory) => ({
 // Tokens nest directly under their owning resource: `team:*:token:*`,
 // `project:*:token:*`, or `project:*:deployment:*:token:*`.
 const SELECTOR_VAL = "[^,:]+";
+// `creator=` accepts the literal `self` (resolves to the evaluating actor)
+// or a numeric member id. Tighter than `SELECTOR_VAL` so typos like
+// `creator=me` get flagged in the editor instead of failing on save.
+const CREATOR_VAL = "(self|[0-9]+)";
 const projectSel = `(\\*|id=${SELECTOR_VAL}|slug=${SELECTOR_VAL})`;
-const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${SELECTOR_VAL}|creator=${SELECTOR_VAL})`;
+const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${SELECTOR_VAL}|creator=${CREATOR_VAL})`;
 const memberSel = `(\\*|id=${SELECTOR_VAL})`;
-const tokenSel = `(\\*|creator=${SELECTOR_VAL})`;
+const tokenSel = `(\\*|creator=${CREATOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
 const tokenTail = `:token:${csv(tokenSel)}`;
 const projectTail = `(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail})?|:defaultEnvironmentVariable:\\*)`;
