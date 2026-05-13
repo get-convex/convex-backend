@@ -1,4 +1,6 @@
+import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
+import { type ConcreteResource, evaluateRoles } from "lib/permissions";
 import {
   useBBMutation,
   useBBQuery,
@@ -94,7 +96,7 @@ export function useUpdateProjectRoles(teamId?: number) {
   });
 }
 
-export function useMyCustomRoles(teamId?: number) {
+export function useMyCustomRoles(teamId: number | undefined) {
   const profile = useProfile();
   const members = useTeamMembers(teamId);
   const myRole = members?.find((m) => m.id === profile?.id)?.role;
@@ -102,17 +104,66 @@ export function useMyCustomRoles(teamId?: number) {
   // evaluate, so skip the network round-trip and synthesize the response
   // shape callers expect.
   const skipFetch = myRole !== undefined && myRole !== "custom";
+  // Empty path params pause the underlying query in `useBBQuery`, so we use
+  // them to skip the fetch when there's nothing to look up (no `teamId`, or
+  // we already know the member's built-in role).
   const { data } = useBBQuery({
     path: `/teams/{team_id}/list_my_custom_roles`,
     pathParams: {
-      // Empty path params pause the query in `useBBQuery`.
-      team_id: skipFetch ? "" : teamId?.toString() || "",
+      team_id: teamId === undefined || skipFetch ? "" : teamId.toString(),
     },
   });
+  if (teamId === undefined) return undefined;
   if (skipFetch) {
     return { role: myRole, customRoles: [] };
   }
   return data;
+}
+
+/**
+ * Returns whether the current member is allowed to perform `action` on
+ * `resource` for the given team. `undefined` while the role list is loading;
+ * otherwise the result of `evaluateRoles` for custom-role members, or
+ * `nonCustomRoleResult` for any built-in (admin/developer) member.
+ *
+ * Built-in admin/developer members have no custom-role statements
+ * (`useMyCustomRoles` returns `customRoles: []` for them), so this must
+ * short-circuit on `role !== "custom"` — evaluating against an empty
+ * statement list would always deny.
+ *
+ * `nonCustomRoleResult` controls how built-in members are treated. Pick
+ * based on the action's semantics:
+ *
+ * - `true` for read/view gates (any built-in member can see the data).
+ * - `false` for mutation gates where the built-in role permission is
+ *   checked separately at the call site (e.g. combined with
+ *   `useIsCurrentMemberTeamAdmin()`):
+ *
+ *     const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+ *     const canCustom = useHasCustomRolePermission(
+ *       teamId,
+ *       "billing:subscription:changePlan",
+ *       BILLING_RESOURCE,
+ *       false,
+ *     );
+ *     const canChangePlan = isTeamAdmin || canCustom === true;
+ *
+ * `teamId`, `action`, and `resource` may all be `undefined`; in that case
+ * the hook returns `undefined` without consulting the role list. This lets
+ * callers thread a permission gate through optional config (e.g.
+ * `useBBQuery`'s `permission` argument) without conditional hook calls.
+ */
+export function useHasCustomRolePermission(
+  teamId: number | undefined,
+  action: RoleStatementAction | undefined,
+  resource: ConcreteResource | undefined,
+  nonCustomRoleResult: boolean,
+): boolean | undefined {
+  const myRoles = useMyCustomRoles(teamId);
+  if (action === undefined || resource === undefined) return undefined;
+  if (myRoles === undefined) return undefined;
+  if (myRoles.role !== "custom") return nonCustomRoleResult;
+  return evaluateRoles(myRoles.customRoles, action, resource) === "allowed";
 }
 
 export function useListCustomRoles(teamId?: number) {

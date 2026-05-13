@@ -220,11 +220,8 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "billing:paymentMethod:update": "billing",
   "billing:contact:update": "billing",
   "billing:address:update": "billing",
-  "billing:subscription:create": "billing",
-  "billing:subscription:resume": "billing",
-  "billing:subscription:cancel": "billing",
   "billing:subscription:changePlan": "billing",
-  "billing:spendingLimit:set": "billing",
+  "billing:spendingLimit:update": "billing",
   "billing:view": "billing",
   "billing:invoices:view": "billing",
   // OAuth Applications
@@ -476,3 +473,25 @@ export function evaluateRoles(
   }
   return "denied";
 }
+
+// --- Result type and shared resource constants -------------------------
+
+// Discriminated union returned by gated read hooks. Forcing callers to
+// pattern-match on `status` to reach `data` makes "I forgot to handle the
+// no-permission case" a compile error rather than a runtime surprise.
+export type Permissioned<T> =
+  | { status: "loading" }
+  | { status: "denied"; deniedAction: RoleStatementAction }
+  | { status: "ok"; data: T };
+
+export const BILLING_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "billing" }],
+};
+
+export const MEMBER_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "member" }],
+};
+
+export const CUSTOM_ROLE_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "customRole" }],
+};

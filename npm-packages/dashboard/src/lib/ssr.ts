@@ -112,6 +112,7 @@ const getProps: GetServerSideProps<{
       }
     }
 
+    // Note that the response only includes data for the first MAX_PROJECTS_PER_PAGE projects
     const {
       teams,
       projects,
@@ -185,7 +186,7 @@ const getProps: GetServerSideProps<{
     const initialDeployments = Object.fromEntries(
       projects.map(({ id: projectId }) => [
         `/projects/${projectId}/list_deployments`,
-        deploymentsByProject[projectId] ?? null,
+        deploymentsByProject[projectId] ?? [],
       ]),
     );
 

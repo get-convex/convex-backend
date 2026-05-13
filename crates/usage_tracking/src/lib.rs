@@ -593,6 +593,13 @@ impl UsageCounter {
                 egress,
             });
         }
+
+        usage_metrics.push(UsageEvent::AuditLogBandwidth {
+            id: execution_id.to_string(),
+            component_path: global_component_path.clone(),
+            udf_id: udf_id.clone(),
+            egress: stats.audit_log_egress,
+        });
     }
 }
 
@@ -969,6 +976,11 @@ impl FunctionUsageTracker {
         *state.fetch_egress.entry(url).or_default() += egress;
     }
 
+    pub fn track_audit_log_egress(&self, egress: u64) {
+        let mut state = self.state.lock();
+        state.audit_log_egress += egress;
+    }
+
     /// Configure this tracker to skip v1 database ingress tracking.
     /// Used for streaming imports which should only track v2 ingress.
     pub fn without_v1_database_ingress(self) -> Self {
@@ -1084,6 +1096,7 @@ pub struct FunctionUsageStats {
     pub text_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), TextIndexQueryUsage>,
     pub vector_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), VectorIndexQueryUsage>,
     pub fetch_egress: BTreeMap<String, u64>,
+    pub audit_log_egress: u64,
 
     /// If true, skip tracking v1 database ingress.
     /// Used for streaming imports which should only track v2 ingress.
@@ -1139,6 +1152,7 @@ impl FunctionUsageStats {
             vector_query_usage,
             fetch_egress,
             skip_v1_database_ingress: _,
+            audit_log_egress,
         }: Self,
     ) {
         for (key, function_count) in storage_calls {
@@ -1192,6 +1206,7 @@ impl FunctionUsageStats {
         for (key, egress) in fetch_egress {
             *self.fetch_egress.entry(key.clone()).or_default() += egress;
         }
+        self.audit_log_egress += audit_log_egress;
     }
 }
 
@@ -1387,6 +1402,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             fetch_egress: to_by_url_count(stats.fetch_egress.into_iter()),
             virtual_table_ingress: to_by_tag_count(stats.virtual_table_ingress.into_iter()),
             virtual_table_egress: to_by_tag_count(stats.virtual_table_egress.into_iter()),
+            audit_log_egress: stats.audit_log_egress,
         }
     }
 }
@@ -1414,6 +1430,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let fetch_egress = from_by_url_count(stats.fetch_egress)?.collect();
         let virtual_table_ingress = from_by_tag_count(stats.virtual_table_ingress)?.collect();
         let virtual_table_egress = from_by_tag_count(stats.virtual_table_egress)?.collect();
+        let audit_log_egress = stats.audit_log_egress;
 
         Ok(FunctionUsageStats {
             storage_calls,
@@ -1434,6 +1451,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             vector_ingress_v2,
             fetch_egress,
             skip_v1_database_ingress: false,
+            audit_log_egress,
         })
     }
 }

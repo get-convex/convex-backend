@@ -6,6 +6,8 @@ import { Tooltip } from "@ui/Tooltip";
 import { useState } from "react";
 import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
 import type { TeamMember, TeamResponse } from "generatedApi";
+import { useHasCustomRolePermission } from "api/roles";
+import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import { CustomRolesSelector } from "./CustomRolesSelector";
 
 type RoleChoice = "admin" | "developer" | "custom";
@@ -47,6 +49,17 @@ export function EditTeamRoleDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [didAttemptSave, setDidAttemptSave] = useState(false);
 
+  const canViewCustomRoles = useHasCustomRolePermission(
+    team.id,
+    "customRole:view",
+    CUSTOM_ROLE_RESOURCE,
+    true,
+  );
+  const customDisabledReason = !customRolesEnabled
+    ? "Custom roles are not enabled for this team."
+    : canViewCustomRoles === false
+      ? "You do not have permission to view custom roles."
+      : undefined;
   const roleOptions = [
     { label: "Admin", value: "admin" as const, disabled: false },
     { label: "Developer", value: "developer" as const, disabled: false },
@@ -55,7 +68,7 @@ export function EditTeamRoleDialog({
           {
             label: "Custom",
             value: "custom" as const,
-            disabled: !customRolesEnabled,
+            disabled: customDisabledReason !== undefined,
           },
         ]
       : []),
@@ -117,11 +130,8 @@ export function EditTeamRoleDialog({
             }}
             disableSearch
             Option={({ label, disabled }) =>
-              disabled ? (
-                <Tooltip
-                  tip="Custom roles are not enabled for this team."
-                  side="left"
-                >
+              disabled && customDisabledReason ? (
+                <Tooltip tip={customDisabledReason} side="left">
                   <span>{label}</span>
                 </Tooltip>
               ) : (

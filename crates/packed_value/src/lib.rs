@@ -27,7 +27,6 @@ use value::{
 mod buffer;
 mod debug;
 mod flexbuilder;
-mod json;
 mod walk;
 
 pub use self::buffer::{
@@ -36,6 +35,7 @@ pub use self::buffer::{
 };
 use self::flexbuilder::FlexBuilder;
 
+#[derive(PartialEq, Eq)]
 pub struct PackedValue<B: Buffer>
 where
     B::BufferString: Clone,

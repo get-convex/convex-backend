@@ -120,6 +120,32 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/PauseDeployment#Running",
+    "light": {
+      "filename": "components_pause_deployment_running_light.webp",
+      "width": 1408,
+      "height": 524
+    },
+    "dark": {
+      "filename": "components_pause_deployment_running_dark.webp",
+      "width": 1408,
+      "height": 524
+    }
+  },
+  {
+    "storyTitle": "docs/components/PauseDeployment#Paused",
+    "light": {
+      "filename": "components_pause_deployment_paused_light.webp",
+      "width": 1408,
+      "height": 524
+    },
+    "dark": {
+      "filename": "components_pause_deployment_paused_dark.webp",
+      "width": 1408,
+      "height": 524
+    }
+  },
+  {
     "storyTitle": "docs/components/ProjectCard",
     "light": {
       "filename": "components_project_card_light.webp",

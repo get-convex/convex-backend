@@ -1214,3 +1214,12 @@ register_convex_histogram!(
 pub fn log_write_throughput(bytes: u64) {
     log_distribution(&WRITE_THROUGHPUT_BYTES, bytes as f64);
 }
+
+register_convex_histogram!(
+    WRITE_LOG_ITER_WRITES_AFTER_SECONDS,
+    "Time to execute WriteLogReader::iter_writes_after in seconds",
+    &STATUS_LABEL,
+);
+pub fn write_log_iter_writes_timer() -> StatusTimer {
+    StatusTimer::new(&WRITE_LOG_ITER_WRITES_AFTER_SECONDS)
+}

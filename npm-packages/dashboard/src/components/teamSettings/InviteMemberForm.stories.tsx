@@ -38,6 +38,6 @@ export const Primary: Story = {
       referredBy: null,
     },
     members,
-    hasAdminPermissions: true,
+    canInvite: true,
   },
 };

@@ -4,7 +4,11 @@ import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
 import { useTeamMembers } from "api/teams";
 import { useListPlans, useTeamOrbSubscription } from "api/billing";
-import { useIsCurrentMemberTeamAdmin } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "api/roles";
+import { BILLING_RESOURCE } from "lib/permissions";
 import { TeamSettingsLayout } from "layouts/TeamSettingsLayout";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { Link } from "@ui/Link";
@@ -32,6 +36,16 @@ function Billing({ team }: { team: TeamResponse }) {
 
   const members = useTeamMembers(team.id);
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
+  // Mirror the gate `OrbSelfServePlan` uses on the Upgrade button — otherwise
+  // a custom-role member with `billing:subscription:changePlan` can click
+  // Upgrade and watch the page do nothing because `showUpgrade` stays false.
+  const canChangePlanCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:subscription:changePlan",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canChangePlan = hasAdminPermissions || canChangePlanCustom === true;
   const myProfile = useProfile();
   const orbPlans = useListPlans(team.id);
   const selectedPlan = orbPlans.plans?.find((p) =>
@@ -45,7 +59,7 @@ function Billing({ team }: { team: TeamResponse }) {
     : selectedPlan?.name;
 
   const showUpgrade =
-    selectedPlan && orbSub?.plan.id !== selectedPlan.id && hasAdminPermissions;
+    selectedPlan && orbSub?.plan.id !== selectedPlan.id && canChangePlan;
 
   return (
     <div className="-mx-6 flex grow flex-col">
@@ -107,11 +121,7 @@ function Billing({ team }: { team: TeamResponse }) {
                 <div className="flex w-full min-w-[20rem] flex-col gap-4">
                   <Sheet className="flex flex-col gap-4 text-sm">
                     <h3>Plans</h3>
-                    <Plans
-                      team={team}
-                      hasAdminPermissions={hasAdminPermissions}
-                      subscription={orbSub || undefined}
-                    />
+                    <Plans team={team} subscription={orbSub || undefined} />
                     <div className="text-center text-content-secondary">
                       Compare all plan features on the{" "}
                       <Link

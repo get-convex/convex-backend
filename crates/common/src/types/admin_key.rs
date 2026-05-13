@@ -98,20 +98,20 @@ impl SystemKey {
 impl From<AdminKey> for AdminKeyParts {
     fn from(value: AdminKey) -> Self {
         split_admin_key(&value.0)
-            .map(|(instance_name, encrypted_part)| {
-                let (deployment_type_prefix, instance_name) = instance_name
+            .map(|(deployment_name, encrypted_part)| {
+                let (deployment_type_prefix, deployment_name) = deployment_name
                     .split_once(':')
                     .map(|(deployment_type_prefix, name)| (Some(deployment_type_prefix), name))
-                    .unwrap_or((None, instance_name));
+                    .unwrap_or((None, deployment_name));
                 AdminKeyParts {
                     deployment_type_prefix: deployment_type_prefix.map(|d| d.to_string()),
-                    instance_name: Some(instance_name.to_string()),
+                    deployment_name: Some(deployment_name.to_string()),
                     encrypted_part: encrypted_part.to_string(),
                 }
             })
             .unwrap_or(AdminKeyParts {
                 deployment_type_prefix: None,
-                instance_name: None,
+                deployment_name: None,
                 encrypted_part: value.0.to_string(),
             })
     }
@@ -122,7 +122,7 @@ impl TryFrom<AdminKeyParts> for AdminKey {
 
     fn try_from(value: AdminKeyParts) -> Result<Self, Self::Error> {
         let encrypted_part = value.encrypted_part;
-        let key = match (value.deployment_type_prefix, value.instance_name) {
+        let key = match (value.deployment_type_prefix, value.deployment_name) {
             (None, None) => encrypted_part,
             (None, Some(instance_identifier)) => format!("{instance_identifier}|{encrypted_part}"),
             (Some(_), None) => anyhow::bail!("Invalid admin key parts"),
@@ -137,7 +137,7 @@ impl TryFrom<AdminKeyParts> for AdminKey {
 /// The different parts of 'prod:happy-animal-123|restofkey'
 pub struct AdminKeyParts {
     pub deployment_type_prefix: Option<String>,
-    pub instance_name: Option<String>,
+    pub deployment_name: Option<String>,
     // N.B.: for a device token, this is not actually encrypted - it's just an encoded UUID
     pub encrypted_part: String,
 }
@@ -148,8 +148,8 @@ pub fn split_admin_key(admin_key: &str) -> Option<(&str, &str)> {
     admin_key.split_once('|')
 }
 
-pub fn format_admin_key(instance_name: &str, encrypted_part: &str) -> String {
-    format!("{instance_name}|{encrypted_part}")
+pub fn format_admin_key(deployment_name: &str, encrypted_part: &str) -> String {
+    format!("{deployment_name}|{encrypted_part}")
 }
 
 pub fn remove_type_prefix_from_admin_key(admin_key: &str) -> String {
@@ -160,9 +160,9 @@ pub fn remove_type_prefix_from_admin_key(admin_key: &str) -> String {
 // for user's visibility to the admin key's instance name.
 // CLI also adds this prefix to CONVEX_DEPLOYMENT env var.
 // This method strips the prefix.
-pub fn remove_type_prefix_from_instance_name(instance_name: &str) -> &str {
-    instance_name
+pub fn remove_type_prefix_from_deployment_name(deployment_name: &str) -> &str {
+    deployment_name
         .split_once(':')
         .map(|(_, name)| name)
-        .unwrap_or(instance_name)
+        .unwrap_or(deployment_name)
 }

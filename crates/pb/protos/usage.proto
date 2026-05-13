@@ -23,6 +23,7 @@ message FunctionUsageStats {
   repeated CounterWithUrl fetch_egress = 15;
   repeated CounterWithTag virtual_table_ingress = 19;
   repeated CounterWithTag virtual_table_egress = 20;
+  uint64 audit_log_egress = 21;
 }
 
 message CounterWithTag {

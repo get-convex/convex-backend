@@ -300,8 +300,7 @@ impl ErrorMetadata {
         msg: impl Into<Cow<'static, str>>,
     ) -> Self {
         Self {
-            // TODO: change error code after a push cycle
-            code: ErrorCode::Overloaded,
+            code: ErrorCode::FeatureTemporarilyUnavailable,
             short_msg: short_msg.into(),
             msg: msg.into(),
             source: None,

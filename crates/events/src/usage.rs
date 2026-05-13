@@ -183,6 +183,12 @@ pub enum UsageEvent {
         bytes_searched: u64,
         dimensions: u64,
     },
+    AuditLogBandwidth {
+        id: String,
+        component_path: Option<String>,
+        udf_id: String,
+        egress: u64,
+    },
 
     // Current* events record the current storage state as of a time, they're not incremental
     // deltas. So a new Current* value should replace the previous value. If a tables Vec is

@@ -7,7 +7,7 @@ import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useChangeDeploymentState } from "../lib/api";
+import { usePauseDeployment, useUnpauseDeployment } from "../lib/api";
 
 // TODO insert link to docs here
 const RESUME_EXPLANATION: string[] = [
@@ -47,18 +47,18 @@ export function PauseDeployment({
     (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
     (paused ? canUnpauseOp : canPauseOp);
 
-  const changeDeploymentState = useChangeDeploymentState();
+  const pauseDeployment = usePauseDeployment();
+  const unpauseDeployment = useUnpauseDeployment();
   useEffect(() => {
     if (deploymentState) {
       setPaused(deploymentState.state === "paused");
     }
   }, [deploymentState]);
   async function toggle() {
-    const nextState = paused ? "running" : "paused";
-    await changeDeploymentState(nextState);
-
-    // Only fire the callback when we pause a running deployment.
-    if (!paused && nextState === "paused") {
+    if (paused) {
+      await unpauseDeployment();
+    } else {
+      await pauseDeployment();
       onPausedDeployment?.();
     }
   }
