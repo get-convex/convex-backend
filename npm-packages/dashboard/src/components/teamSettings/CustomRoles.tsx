@@ -15,7 +15,7 @@ import {
   DotsVerticalIcon,
   CheckCircledIcon,
 } from "@radix-ui/react-icons";
-import { useState } from "react";
+import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import { cn } from "@ui/cn";
@@ -344,7 +344,18 @@ function CustomRoleForm({
     });
   };
 
+  const handleSubmitRef = useRef<() => void>(() => {});
+
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
+    editorInstance.addAction({
+      id: "saveCustomRole",
+      label: "Save custom role",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run() {
+        handleSubmitRef.current();
+      },
+    });
+
     const model = editorInstance.getModel();
     if (!model) return;
     const updateMarkers = () => {
@@ -428,6 +439,22 @@ function CustomRoleForm({
     }
   };
 
+  useEffect(() => {
+    handleSubmitRef.current = () => {
+      if (isSubmitting || hasSchemaError) return;
+      void handleSubmit();
+    };
+  });
+
+  const handleCmdEnter = (
+    e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSubmitRef.current();
+    }
+  };
+
   return (
     <Sheet className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -440,6 +467,7 @@ function CustomRoleForm({
             setNameError(undefined);
             setSavedRoleName(undefined);
           }}
+          onKeyDown={handleCmdEnter}
           placeholder="e.g. Viewer"
           error={nameError}
         />
@@ -458,6 +486,7 @@ function CustomRoleForm({
               setDescription(e.target.value);
               setSavedRoleName(undefined);
             }}
+            onKeyDown={handleCmdEnter}
             placeholder="Optional description for this role"
           />
         </div>
