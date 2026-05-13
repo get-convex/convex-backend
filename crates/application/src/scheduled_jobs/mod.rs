@@ -139,14 +139,14 @@ pub struct ScheduledJobRunner {
 impl ScheduledJobRunner {
     pub fn start<RT: Runtime>(
         rt: RT,
-        instance_name: String,
+        deployment_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         let executor_fut = ScheduledJobExecutor::run(
             rt.clone(),
-            instance_name,
+            deployment_name,
             database.clone(),
             runner,
             function_log,
@@ -171,7 +171,7 @@ impl ScheduledJobRunner {
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
-    instance_name: String,
+    deployment_name: String,
     running_job_ids: HashSet<ResolvedDocumentId>,
     /// Some if there's at least one pending job. May be in the past!
     next_job_ready_time: Option<Timestamp>,
@@ -200,7 +200,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
     pub async fn run(
         rt: RT,
-        instance_name: String,
+        deployment_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -214,7 +214,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 runner,
                 function_log,
             },
-            instance_name,
+            deployment_name,
             running_job_ids: HashSet::new(),
             next_job_ready_time: None,
             job_finished_tx,
@@ -277,7 +277,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             // Great! we have enough remaining concurrency and our backend is running, start
             // new job(s) if we can and update our next ready time.
             let root = get_sampled_span(
-                &self.instance_name,
+                &self.deployment_name,
                 "scheduler/query_and_start_jobs",
                 &mut self.context.rt.rng(),
             );
@@ -408,7 +408,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let tx = self.job_finished_tx.clone();
 
             let root = get_sampled_span(
-                &self.instance_name,
+                &self.deployment_name,
                 "scheduler/execute_job",
                 &mut self.context.rt.rng(),
             );

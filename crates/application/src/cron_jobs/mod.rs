@@ -113,7 +113,7 @@ pub struct CronJobExecutor<RT: Runtime> {
 #[derive(Clone)]
 pub struct CronJobContext<RT: Runtime> {
     rt: RT,
-    instance_name: String,
+    deployment_name: String,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
@@ -122,7 +122,7 @@ pub struct CronJobContext<RT: Runtime> {
 impl<RT: Runtime> CronJobExecutor<RT> {
     pub async fn run(
         rt: RT,
-        instance_name: String,
+        deployment_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -132,7 +132,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut executor = Self {
             context: CronJobContext {
                 rt,
-                instance_name,
+                deployment_name,
                 database,
                 runner,
                 function_log,
@@ -262,7 +262,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         loop {
             let mutation_retry_count = function_backoff.failures() as usize;
             let root = get_sampled_span(
-                &self.instance_name,
+                &self.deployment_name,
                 "crons/run_function",
                 &mut self.rt.rng(),
             )

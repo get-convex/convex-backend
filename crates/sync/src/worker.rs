@@ -545,7 +545,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     None => RequestId::new(),
                 };
                 let root = get_sampled_span(
-                    &self.host.instance_name,
+                    &self.host.deployment_name,
                     "sync-worker/mutation",
                     &mut self.rt.rng(),
                 )
@@ -654,7 +654,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     None => RequestId::new(),
                 };
                 let root = get_sampled_span(
-                    &self.host.instance_name,
+                    &self.host.deployment_name,
                     "sync-worker/action",
                     &mut self.rt.rng(),
                 )
@@ -789,7 +789,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>> + use<RT>> {
         let root = get_sampled_span(
-            &self.host.instance_name,
+            &self.host.deployment_name,
             "sync-worker/update-queries",
             &mut self.rt.rng(),
         )
@@ -888,7 +888,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         let wait = backoff.fail(&mut rt.rng());
                         let err_msg = format!(
                             "Failed to update queries for deployment {}. Retrying in {} ms.",
-                            host.instance_name,
+                            host.deployment_name,
                             wait.as_millis()
                         );
                         tracing::error!(err_msg);
@@ -1010,7 +1010,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                         let err_msg = format!(
                                             "Failed to run query for deployment {}. Retrying in \
                                              {} ms.",
-                                            host.instance_name,
+                                            host.deployment_name,
                                             wait.as_millis()
                                         );
                                         tracing::error!(err_msg);

@@ -622,12 +622,12 @@ impl<RT: Runtime> Application<RT> {
         runtime: RT,
         database: &Database<RT>,
         storage_tag_initializer: StorageTagInitializer,
-        instance_name: String,
+        deployment_name: String,
     ) -> anyhow::Result<ApplicationStorage> {
         let storage_type = {
             let mut tx = database.begin_system().await?;
             let storage_type = DatabaseGlobalsModel::new(&mut tx)
-                .initialize_storage_tag(storage_tag_initializer, instance_name)
+                .initialize_storage_tag(storage_tag_initializer, deployment_name)
                 .await?;
             database
                 .commit_with_write_source(tx, "init_storage")
@@ -692,7 +692,7 @@ impl<RT: Runtime> Application<RT> {
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
-        let instance_name = deployment.name.clone();
+        let deployment_name = deployment.name.clone();
         let deployment_region = deployment.region.clone();
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -710,7 +710,7 @@ impl<RT: Runtime> Application<RT> {
                 persistence.clone(),
                 database.retention_validator(),
                 database.clone(),
-                instance_name.clone(),
+                deployment_name.clone(),
                 UsageCounter::new(usage_event_logger.clone()),
             );
             index_worker = Arc::new(Mutex::new(Some(
@@ -772,7 +772,7 @@ impl<RT: Runtime> Application<RT> {
             runtime.clone(),
             database.clone(),
             fetch_client.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
             deployment_region.as_ref().map(|r| r.to_string()),
             log_streaming_allowed,
             usage_counter.clone(),
@@ -827,7 +827,7 @@ impl<RT: Runtime> Application<RT> {
 
         let scheduled_job_runner = ScheduledJobRunner::start(
             runtime.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
             database.clone(),
             runner.clone(),
             function_log.clone(),
@@ -835,7 +835,7 @@ impl<RT: Runtime> Application<RT> {
 
         let cron_job_executor_fut = CronJobExecutor::run(
             runtime.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
             database.clone(),
             runner.clone(),
             function_log.clone(),
@@ -851,7 +851,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage.files_storage.clone(),
             export_provider,
             usage_counter.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(Some(
             runtime.spawn("export_worker", export_worker),
@@ -883,7 +883,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             usage_event_logger.clone(),
             Arc::new(log_manager_client.clone()),
-            instance_name.clone(),
+            deployment_name.clone(),
         );
 
         let workers = WorkerHandles {
@@ -966,7 +966,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.now_ts_for_reads()
     }
 
-    pub fn instance_name(&self) -> String {
+    pub fn deployment_name(&self) -> String {
         self.deployment.name.clone()
     }
 

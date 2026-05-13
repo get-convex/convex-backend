@@ -41,7 +41,7 @@ pub use actions::{
 pub use admin_key::{
     format_admin_key,
     remove_type_prefix_from_admin_key,
-    remove_type_prefix_from_instance_name,
+    remove_type_prefix_from_deployment_name,
     split_admin_key,
     AdminKey,
     AdminKeyParts,

@@ -99,7 +99,7 @@ pub struct ExportComponents<RT: Runtime> {
     pub database: DatabaseSnapshot<RT>,
     pub exports_storage: Arc<dyn Storage>,
     pub file_storage: Arc<dyn Storage>,
-    pub instance_name: String,
+    pub deployment_name: String,
 }
 
 /// Uploads an export to exports_storage at the returned `ObjectKey`.
@@ -114,7 +114,7 @@ where
     F: Fn(String) -> Fut + Send + Copy,
     Fut: Future<Output = anyhow::Result<()>> + Send,
 {
-    let timer = export_timer(&components.instance_name);
+    let timer = export_timer(&components.deployment_name);
     let exports_storage = &components.exports_storage;
     update_progress("Beginning backup".to_string()).await?;
     let (tables, component_ids_to_paths, by_id_indexes, system_tables, storage_table_counts) = {
@@ -354,7 +354,7 @@ where
 
         update_progress(format!("Backing up _tables{in_component_str}")).await?;
         let root = get_sampled_span(
-            &components.instance_name,
+            &components.deployment_name,
             "export_worker/write_table",
             &mut components.runtime.rng(),
         )
@@ -387,7 +387,7 @@ where
             .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
 
         let root = get_sampled_span(
-            &components.instance_name,
+            &components.deployment_name,
             "export_worker/write_table",
             &mut components.runtime.rng(),
         )
@@ -428,7 +428,7 @@ where
             update_progress(format!("Backing up _storage{in_component_str}")).await?;
 
             let root = get_sampled_span(
-                &components.instance_name,
+                &components.deployment_name,
                 "export_worker/write_table",
                 &mut components.runtime.rng(),
             )
