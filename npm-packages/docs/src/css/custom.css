@@ -957,7 +957,8 @@ html[data-theme="dark"] .convex-menu-header {
 }
 
 .convex-sidebar-cli .menu__list li:first-child .menu__link:after,
-.convex-sidebar-cli .menu__list li:nth-child(2) .menu__link:after {
+.convex-sidebar-cli .menu__list li:nth-child(2) .menu__link:after,
+.convex-sidebar-beta-badge > .menu__link:after {
   font-weight: 400;
   font-size: 0.6em;
   margin-left: 1em;
@@ -966,6 +967,11 @@ html[data-theme="dark"] .convex-menu-header {
   border: solid 1px gray;
   padding: 2px 8px;
   float: right;
+}
+
+.convex-sidebar-beta-badge > .menu__link--active:after {
+  /* shift left to compensate for text to the left being bold */
+  margin-left: 0.7em;
 }
 
 .convex-sidebar-cli .menu__list li:first-child .menu__link--active:after {
@@ -1012,6 +1018,10 @@ html[data-theme="dark"] .convex-menu-header {
 
 .convex-sidebar-cli {
   --convex-icon: url("../../static/img/sidebar-icons/keyboard.svg");
+}
+
+.convex-sidebar-team-management {
+  --convex-icon: url(heroicons/24/outline/user-group.svg);
 }
 
 .convex-sidebar-convex-api {
