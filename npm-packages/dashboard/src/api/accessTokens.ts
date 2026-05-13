@@ -51,6 +51,7 @@ export function useCreateDeployKey(deploymentName: string) {
       deployment_name: deploymentName,
     },
     successToast: "Deploy key created.",
+    toastOnError: false,
   });
 }
 
@@ -90,6 +91,7 @@ export function useCreatePreviewDeployKey(projectId: number) {
       project_id: projectId,
     },
     successToast: "Preview deploy key created.",
+    toastOnError: false,
   });
 }
 

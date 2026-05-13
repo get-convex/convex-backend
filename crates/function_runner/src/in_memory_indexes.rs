@@ -121,7 +121,7 @@ fn make_transaction<RT: Runtime>(
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct IndexCacheKey {
-    instance_name: String,
+    deployment_name: String,
     index_id: InternalId,
     last_modified: Timestamp,
 }
@@ -243,7 +243,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .backend_last_modified
             .get(&index_id)
             .map(|ts| IndexCacheKey {
-                instance_name: self.instance_name.clone(),
+                deployment_name: self.deployment_name.clone(),
                 index_id,
                 last_modified: *ts,
             })
@@ -281,7 +281,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
     ) -> anyhow::Result<(Timestamp, TableRegistry)> {
         #[derive(Hash, PartialEq, Eq, Debug, Clone)]
         struct Key {
-            instance_name: String,
+            deployment_name: String,
             tables_last_modified: Timestamp,
         }
         impl LruKey for Key {
@@ -298,7 +298,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .cache
             .get(
                 Key {
-                    instance_name: self.instance_name.clone(),
+                    deployment_name: self.deployment_name.clone(),
                     tables_last_modified,
                 },
                 async move {
@@ -333,7 +333,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
     ) -> anyhow::Result<(Timestamp, IndexRegistry)> {
         #[derive(Hash, PartialEq, Eq, Debug, Clone)]
         struct Key {
-            instance_name: String,
+            deployment_name: String,
             last_modified: Timestamp,
         }
         impl LruKey for Key {
@@ -351,7 +351,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .cache
             .get(
                 Key {
-                    instance_name: self.instance_name.clone(),
+                    deployment_name: self.deployment_name.clone(),
                     // We use the max of the two timestamps as our cache key
                     // because it's "as if" `load_unpacked_index` is reading at
                     // that timestamp.
@@ -382,7 +382,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
     ) -> anyhow::Result<(Timestamp, ComponentRegistry)> {
         #[derive(Hash, PartialEq, Eq, Debug, Clone)]
         struct Key {
-            instance_name: String,
+            deployment_name: String,
             last_modified: Timestamp,
         }
         impl LruKey for Key {
@@ -406,7 +406,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .cache
             .get(
                 Key {
-                    instance_name: self.instance_name.clone(),
+                    deployment_name: self.deployment_name.clone(),
                     last_modified: table_registry
                         .0
                         .max(index_registry.0)
@@ -441,7 +441,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
     ) -> anyhow::Result<(Timestamp, SchemaRegistry)> {
         #[derive(Hash, PartialEq, Eq, Debug, Clone)]
         struct Key {
-            instance_name: String,
+            deployment_name: String,
             last_modified: Timestamp,
         }
         impl LruKey for Key {
@@ -482,7 +482,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .cache
             .get(
                 Key {
-                    instance_name: self.instance_name.clone(),
+                    deployment_name: self.deployment_name.clone(),
                     last_modified: last_modified_ts,
                 },
                 async move {
@@ -554,7 +554,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         identity: Identity,
         existing_writes: FunctionWrites,
         index_reader: Arc<dyn IndexReader>,
-        instance_name: String,
+        deployment_name: String,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         bootstrap_metadata: BootstrapMetadata,
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
@@ -574,7 +574,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
 
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {
             cache: self.cache.clone(),
-            instance_name,
+            deployment_name,
             backend_last_modified: in_memory_index_last_modified,
             index_reader: index_reader.clone(),
         };
@@ -615,7 +615,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
 /// transaction.
 pub(crate) struct FunctionRunnerInMemoryIndexes<RT: Runtime> {
     pub(crate) cache: MultiTypeAsyncLru<RT>,
-    pub(crate) instance_name: String,
+    pub(crate) deployment_name: String,
     /// The last modified timestamp for each index at the beginning of the
     /// Transaction (i.e. as of `index_reader.timestamp()`).
     pub(crate) backend_last_modified: BTreeMap<IndexId, Timestamp>,

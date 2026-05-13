@@ -33,7 +33,7 @@ use common::{
     },
     types::{
         format_admin_key,
-        remove_type_prefix_from_instance_name,
+        remove_type_prefix_from_deployment_name,
         split_admin_key,
         ActionCallbackToken,
         AdminKey,
@@ -120,7 +120,7 @@ const MAX_TS_DELAY: Duration = Duration::from_secs(15);
 
 #[derive(Clone)]
 pub struct KeyBroker {
-    instance_name: String,
+    deployment_name: String,
     deployment_secret: DeploymentSecret,
     encryptor: LegacyEncryptor,
     admin_key_encryptor: RandomEncryptor,
@@ -762,7 +762,7 @@ pub fn cursor_parse_error() -> ErrorMetadata {
 impl KeyBroker {
     pub fn new(instance_name: &str, deployment_secret: DeploymentSecret) -> anyhow::Result<Self> {
         Ok(Self {
-            instance_name: instance_name.to_owned(),
+            deployment_name: instance_name.to_owned(),
             deployment_secret,
             encryptor: LegacyEncryptor::new(deployment_secret)?,
             admin_key_encryptor: RandomEncryptor::derive_from_secret(
@@ -793,24 +793,24 @@ impl KeyBroker {
     }
 
     pub fn dev() -> Self {
-        Self::new(
-            crate::DEV_INSTANCE_NAME,
-            DeploymentSecret::try_from(crate::DEV_SECRET).unwrap(),
-        )
-        .unwrap()
+        Self::new(crate::DEV_INSTANCE_NAME, DeploymentSecret::random()).unwrap()
     }
 
     pub fn local_dev(instance_name: &str) -> Self {
+        // Must match `LOCAL_BACKEND_INSTANCE_SECRET` in the CLI
+        // (npm-packages/convex/src/cli/lib/localDeployment/utils.ts), since admin
+        // keys issued here are sent to backends launched by the CLI with that secret.
+        const LOCAL_DEV_SECRET: &str = include_str!("../dev/secret.txt");
         Self::new(
             instance_name,
-            DeploymentSecret::try_from(crate::DEV_SECRET).unwrap(),
+            DeploymentSecret::try_from(LOCAL_DEV_SECRET).unwrap(),
         )
         .unwrap()
     }
 
     pub fn function_runner_keybroker(&self) -> FunctionRunnerKeyBroker {
         FunctionRunnerKeyBroker {
-            instance_name: self.instance_name.clone(),
+            instance_name: self.deployment_name.clone(),
             cursor_encryptor: self.cursor_encryptor.clone(),
             store_file_encryptor: self.store_file_encryptor.clone(),
         }
@@ -858,7 +858,7 @@ impl KeyBroker {
             is_read_only,
         };
         format_admin_key(
-            &self.instance_name,
+            &self.deployment_name,
             &self
                 .admin_key_encryptor
                 .encrypt_proto(ADMIN_KEY_VERSION, &proto),
@@ -880,7 +880,7 @@ impl KeyBroker {
 
     pub fn check_admin_key(&self, key: &str) -> anyhow::Result<Identity> {
         let (instance_name, encrypted_part) = split_admin_key(key)
-            .map(|(name, key)| (Some(remove_type_prefix_from_instance_name(name)), key))
+            .map(|(name, key)| (Some(remove_type_prefix_from_deployment_name(name)), key))
             .unwrap_or((None, key));
         let AdminKeyProto {
             instance_name: instance_name_from_encrypted_part,
@@ -900,7 +900,7 @@ impl KeyBroker {
             .or(instance_name_from_encrypted_part.as_deref())
             .context("Invalid admin key format")?;
 
-        if instance_name != self.instance_name {
+        if instance_name != self.deployment_name {
             return Err(anyhow::anyhow!(
                 "Key is for invalid instance {instance_name}",
             ));
@@ -913,7 +913,7 @@ impl KeyBroker {
 
         Ok(match identity {
             AdminIdentityProto::MemberId(member_id) => Identity::DeploymentAdmin(AdminIdentity {
-                deployment_name: self.instance_name.clone(),
+                deployment_name: self.deployment_name.clone(),
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
                 is_read_only,
@@ -942,7 +942,7 @@ impl KeyBroker {
                 "Couldn't decode the StoreFileAuthorization token",
             ))?;
 
-        if instance_name != self.instance_name {
+        if instance_name != self.deployment_name {
             anyhow::bail!(ErrorMetadata::unauthenticated(
                 "InvalidStorageToken",
                 "Storage token is for invalid instance {instance_name}"
@@ -989,7 +989,7 @@ impl KeyBroker {
     ) -> SerializedQueryJournal {
         let query_journal_version = persistence_version.index_key_version(QUERY_JOURNAL_VERSION);
         let cursor = match &journal.end_cursor {
-            Some(cursor) => Some(cursor_to_proto(&self.instance_name, cursor)),
+            Some(cursor) => Some(cursor_to_proto(&self.deployment_name, cursor)),
             None => return None,
         };
         let proto = InstanceQueryJournalProto { end_cursor: cursor };
@@ -1013,7 +1013,7 @@ impl KeyBroker {
                     .decrypt_proto(query_journal_version, &journal)
                     .with_context(cursor_parse_error)?;
                 let end_cursor = match proto.end_cursor {
-                    Some(cursor) => Some(proto_to_cursor(&self.instance_name, cursor)?),
+                    Some(cursor) => Some(proto_to_cursor(&self.deployment_name, cursor)?),
                     None => None,
                 };
                 Ok(QueryJournal { end_cursor })
@@ -1132,7 +1132,7 @@ impl FunctionRunnerKeyBroker {
             self.store_file_encryptor.encrypt_proto(
                 STORE_FILE_AUTHZ_VERSION,
                 &StorageTokenProto {
-                    instance_name: self.instance_name.clone(),
+                    instance_name: self.deployment_name.clone(),
                     issued_s: issued.as_secs(),
                     authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
                     component_id: component_str,
@@ -1143,7 +1143,7 @@ impl FunctionRunnerKeyBroker {
 
     /// Serializes and encrypts the provided Cursor for sending to clients.
     pub fn encrypt_cursor(&self, cursor: &Cursor) -> SerializedCursor {
-        let proto = cursor_to_proto(&self.instance_name, cursor);
+        let proto = cursor_to_proto(&self.deployment_name, cursor);
         self.cursor_encryptor.encrypt_proto(CURSOR_VERSION, &proto)
     }
 
@@ -1154,6 +1154,6 @@ impl FunctionRunnerKeyBroker {
             .cursor_encryptor
             .decrypt_proto(CURSOR_VERSION, &cursor)
             .with_context(cursor_parse_error)?;
-        proto_to_cursor(&self.instance_name, proto)
+        proto_to_cursor(&self.deployment_name, proto)
     }
 }

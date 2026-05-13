@@ -74,10 +74,19 @@ export function DeployKeysForDeployment() {
                   allowedOperations,
                   ...(expiresAt !== undefined && { expiresAt }),
                 });
-                if (!result) return { ok: false as const };
+                if (!result)
+                  return {
+                    ok: false as const,
+                    error: "Failed to create deploy key.",
+                  };
                 return { ok: true as const, adminKey: result.deployKey };
-              } catch {
-                return { ok: false as const };
+              } catch (e) {
+                return {
+                  ok: false as const,
+                  error:
+                    (e as { message?: string })?.message ??
+                    "Failed to create deploy key.",
+                };
               }
             },
             disabledReason,

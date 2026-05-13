@@ -1080,6 +1080,15 @@ pub static FUNRUN_MAX_ISOLATE_WORKERS: LazyLock<usize> =
 pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("FUNRUN_CLUSTER_NAME", String::from("funrun-default")));
 
+/// Name of the service to discover for when connecting to the Funruns using
+/// Ticketmaster (e.g. ticketed-funrun-default, ticketed-funrun-staging, etc.)
+pub static TICKETED_FUNRUN_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
+    env_config(
+        "TICKETED_FUNRUN_CLUSTER_NAME",
+        String::from("ticketed-funrun-default"),
+    )
+});
+
 /// Name of the service to discover for when connecting to Searchlight. (e.g.
 /// searchlight-default, searchlight-staging, etc.)
 // cluster is created.
@@ -1091,13 +1100,9 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 });
 
 /// Name of the service to discover for when connecting to Ticketmaster (e.g.
-/// ticketmaster-default, ticketmaster-staging, etc.)
-pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
-    env_config(
-        "TICKETMASTER_CLUSTER_NAME",
-        String::from("ticketmaster-default"),
-    )
-});
+/// ticketmaster, ticketmaster-staging, etc.)
+pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
+    LazyLock::new(|| env_config("TICKETMASTER_CLUSTER_NAME", String::from("ticketmaster")));
 
 /// Percentage of index read traffic (0-100) that funrun sends to conductor
 /// via the IndexRangeAtTs RPC instead of reading from persistence directly.

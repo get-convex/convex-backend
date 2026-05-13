@@ -1327,8 +1327,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let timer = function_total_timer(module.environment, UdfType::Action);
         let completion_result = match module.environment {
             ModuleEnvironment::Isolate => {
-                // TODO: This is the only use case of clone. We should get rid of clone,
-                // when we deprecate that codepath.
                 let outcome_future = self
                     .isolate_functions
                     .execute_action(tx, path_and_args, log_line_sender, context.clone())
