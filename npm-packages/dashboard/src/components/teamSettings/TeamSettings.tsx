@@ -6,11 +6,16 @@ import {
 } from "api/teams";
 import { usePaginatedProjects } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
-import { useIsCurrentMemberTeamAdmin } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "api/roles";
 import { TeamResponse } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { TEAM_RESOURCE } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useCallback, useState } from "react";
 import startCase from "lodash/startCase";
 import { OpenInVercel } from "components/OpenInVercel";
@@ -18,7 +23,23 @@ import { TeamForm } from "./TeamForm";
 
 export function TeamSettings({ team }: { team: TeamResponse }) {
   const updateTeam = useUpdateTeam(team.id);
-  const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  // `team:update`/`team:delete` are admin-only by default; custom roles need
+  // explicit grants.
+  const canUpdateCustom = useHasCustomRolePermission(
+    team.id,
+    "team:update",
+    TEAM_RESOURCE,
+    false,
+  );
+  const canDeleteCustom = useHasCustomRolePermission(
+    team.id,
+    "team:delete",
+    TEAM_RESOURCE,
+    false,
+  );
+  const canUpdate = isTeamAdmin || canUpdateCustom === true;
+  const canDelete = isTeamAdmin || canDeleteCustom === true;
   const { teams } = useTeams();
   const teamMembers = useTeamMembers(team.id);
   const firstPageOfProjects = usePaginatedProjects(team.id, {});
@@ -38,11 +59,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
   return (
     <>
       <h2>Team Settings</h2>
-      <TeamForm
-        team={team}
-        onUpdateTeam={updateTeam}
-        hasAdminPermissions={hasAdminPermissions}
-      />
+      <TeamForm team={team} onUpdateTeam={updateTeam} canUpdate={canUpdate} />
       <Sheet>
         <h3 className="mb-4">Delete Team</h3>
         <p className="mb-4">
@@ -78,7 +95,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
             disabled={
               // TODO: what to do about team lifecycle and Expo?
               !!team.managedBy ||
-              !hasAdminPermissions ||
+              !canDelete ||
               !teams ||
               teams.length === 1 ||
               !teamMembers ||
@@ -87,8 +104,11 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
               hasProjects
             }
             tip={
-              !hasAdminPermissions
-                ? "You do not have permission to delete this team."
+              !canDelete
+                ? permissionDeniedTip(
+                    "You do not have permission to delete this team.",
+                    "team:delete",
+                  )
                 : teams && teams.length === 1
                   ? "You cannot delete your last team."
                   : teamMembers && teamMembers.length > 1

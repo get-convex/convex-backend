@@ -5,7 +5,10 @@ import { Checkbox } from "@ui/Checkbox";
 import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { useIsCurrentMemberTeamAdmin } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "api/roles";
 import {
   useTeamEntitlements,
   useGetSSO,
@@ -14,6 +17,9 @@ import {
   useGenerateSSOConfigurationLink,
   useUpdateSSO,
 } from "api/teams";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { SSO_RESOURCE } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useEffect, useMemo, useState } from "react";
 import { Tooltip } from "@ui/Tooltip";
 import {
@@ -29,7 +35,53 @@ import { OpenInVercel } from "components/OpenInVercel";
 import startCase from "lodash/startCase";
 
 export function TeamSSO({ team }: { team: TeamResponse }) {
-  const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
+  const canViewSSO = useHasCustomRolePermission(
+    team.id,
+    "sso:view",
+    SSO_RESOURCE,
+    true,
+  );
+
+  if (canViewSSO === false) {
+    return (
+      <>
+        <h2>Single Sign-On (SSO)</h2>
+        <NoPermissionMessage
+          message="You do not have permission to view SSO settings."
+          missingPermission="sso:view"
+        />
+      </>
+    );
+  }
+
+  return <TeamSSOContents team={team} />;
+}
+
+function TeamSSOContents({ team }: { team: TeamResponse }) {
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  // SSO mutations are admin-only by default; custom roles need an explicit
+  // grant for each lifecycle action.
+  const canEnableCustom = useHasCustomRolePermission(
+    team.id,
+    "sso:enable",
+    SSO_RESOURCE,
+    false,
+  );
+  const canDisableCustom = useHasCustomRolePermission(
+    team.id,
+    "sso:disable",
+    SSO_RESOURCE,
+    false,
+  );
+  const canUpdateCustom = useHasCustomRolePermission(
+    team.id,
+    "sso:update",
+    SSO_RESOURCE,
+    false,
+  );
+  const canEnable = isTeamAdmin || canEnableCustom === true;
+  const canDisable = isTeamAdmin || canDisableCustom === true;
+  const canUpdate = isTeamAdmin || canUpdateCustom === true;
   const entitlements = useTeamEntitlements(team.id);
   const { data: ssoOrganization, isLoading: isSSOLoading } = useGetSSO(team.id);
   const enableSSO = useEnableSSO(team.id);
@@ -97,8 +149,10 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
     (d) => d.state === "verified" || d.state === "legacyVerified",
   );
 
-  const baseSettingDisabled =
-    isSubmitting || !hasAdminPermissions || !ssoEnabled;
+  // The Enable SSO checkbox toggles enable vs. disable depending on state, so
+  // pick the right granular permission for whichever transition it would do.
+  const canToggleEnableState = isSSOConfigured ? canDisable : canEnable;
+  const baseSettingDisabled = isSubmitting || !canUpdate || !ssoEnabled;
   const requireSsoLoginDisabled = baseSettingDisabled;
 
   const handleSaveSettings = async () => {
@@ -159,8 +213,13 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
             <div className="flex flex-col">
               <Tooltip
                 tip={
-                  !hasAdminPermissions
-                    ? "You do not have permission to change SSO settings."
+                  !canToggleEnableState
+                    ? permissionDeniedTip(
+                        `You do not have permission to ${
+                          isSSOConfigured ? "disable" : "enable"
+                        } SSO.`,
+                        isSSOConfigured ? "sso:disable" : "sso:enable",
+                      )
                     : !ssoEnabled
                       ? "SSO is not available on your plan."
                       : undefined
@@ -170,7 +229,7 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                   <Checkbox
                     checked={isSSOConfigured}
                     disabled={
-                      isSubmitting || !hasAdminPermissions || !ssoEnabled
+                      isSubmitting || !canToggleEnableState || !ssoEnabled
                     }
                     onChange={async () => {
                       if (isSSOConfigured) {
@@ -308,14 +367,19 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                         }}
                         disabled={
                           isSubmitting ||
-                          !hasAdminPermissions ||
+                          !canUpdate ||
                           !hasVerifiedDomain ||
                           isGeneratingAnyLink
                         }
                         tooltip={
-                          !hasVerifiedDomain
-                            ? "You must verify at least one domain before managing the SSO configuration."
-                            : undefined
+                          !canUpdate
+                            ? permissionDeniedTip(
+                                "You do not have permission to update SSO configuration.",
+                                "sso:update",
+                              )
+                            : !hasVerifiedDomain
+                              ? "You must verify at least one domain before managing the SSO configuration."
+                              : undefined
                         }
                       />
                       <ManageDomainsButton
@@ -334,9 +398,15 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                           }
                         }}
                         disabled={
-                          isSubmitting ||
-                          !hasAdminPermissions ||
-                          isGeneratingAnyLink
+                          isSubmitting || !canUpdate || isGeneratingAnyLink
+                        }
+                        tooltip={
+                          !canUpdate
+                            ? permissionDeniedTip(
+                                "You do not have permission to update SSO configuration.",
+                                "sso:update",
+                              )
+                            : undefined
                         }
                       />
                       <CertificateRenewalButton
@@ -356,14 +426,19 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                         }}
                         disabled={
                           isSubmitting ||
-                          !hasAdminPermissions ||
+                          !canUpdate ||
                           !hasVerifiedDomain ||
                           isGeneratingAnyLink
                         }
                         tooltip={
-                          !hasVerifiedDomain
-                            ? "You must verify at least one domain before managing the SSO configuration."
-                            : undefined
+                          !canUpdate
+                            ? permissionDeniedTip(
+                                "You do not have permission to update SSO configuration.",
+                                "sso:update",
+                              )
+                            : !hasVerifiedDomain
+                              ? "You must verify at least one domain before managing the SSO configuration."
+                              : undefined
                         }
                       />
                     </div>
@@ -373,8 +448,11 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                     </h4>
                     <Tooltip
                       tip={
-                        !hasAdminPermissions
-                          ? "You do not have permission to change SSO settings."
+                        !canUpdate
+                          ? permissionDeniedTip(
+                              "You do not have permission to change SSO settings.",
+                              "sso:update",
+                            )
                           : !ssoEnabled
                             ? "SSO is not available on your plan."
                             : undefined
@@ -512,10 +590,12 @@ function ManageDomainsButton({
   onClick,
   disabled,
   loading,
+  tooltip,
 }: {
   onClick: () => Promise<void>;
   disabled: boolean;
   loading: boolean;
+  tooltip?: React.ReactNode;
 }) {
   return (
     <Button
@@ -525,6 +605,7 @@ function ManageDomainsButton({
       loading={loading}
       onClick={onClick}
       disabled={disabled}
+      tip={tooltip}
       icon={<ExternalLinkIcon />}
     >
       Manage domains
@@ -541,7 +622,7 @@ function ManageSSOConfigurationButton({
   onClick: () => Promise<void>;
   disabled: boolean;
   loading: boolean;
-  tooltip?: string;
+  tooltip?: React.ReactNode;
 }) {
   return (
     <Button
@@ -568,7 +649,7 @@ function CertificateRenewalButton({
   onClick: () => Promise<void>;
   disabled: boolean;
   loading: boolean;
-  tooltip?: string;
+  tooltip?: React.ReactNode;
 }) {
   return (
     <Button

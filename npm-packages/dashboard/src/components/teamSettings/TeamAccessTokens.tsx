@@ -7,18 +7,23 @@ import { PlusIcon } from "@radix-ui/react-icons";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import React, { useState } from "react";
 import { CreateTokenDialog } from "components/teamSettings/CreateTokenDialog";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useCurrentTeam } from "api/teams";
 import { Link } from "@ui/Link";
 
 export function TeamAccessTokens({
   accessTokens,
   onCreateToken,
+  canCreate,
+  canDelete,
 }: {
   accessTokens: TeamAccessTokenResponse[] | undefined;
   onCreateToken: (args: {
     tokenName: string;
     expiresAt?: number;
   }) => Promise<void>;
+  canCreate: boolean | undefined;
+  canDelete: boolean | undefined;
 }) {
   const team = useCurrentTeam();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -34,7 +39,19 @@ export function TeamAccessTokens({
             </Link>
             .
           </p>
-          <Button onClick={() => setShowCreateDialog(true)} icon={<PlusIcon />}>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            icon={<PlusIcon />}
+            disabled={!canCreate}
+            tip={
+              canCreate === false
+                ? permissionDeniedTip(
+                    "You do not have permission to create team access tokens.",
+                    "team:token:create",
+                  )
+                : undefined
+            }
+          >
             Create Token
           </Button>
         </div>
@@ -94,6 +111,7 @@ export function TeamAccessTokens({
                     identifier={team.id.toString()}
                     shouldShow={false}
                     showMemberName={false}
+                    canDelete={canDelete}
                   />
                 ))
             ) : (

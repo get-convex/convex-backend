@@ -112,6 +112,7 @@ export function useMyCustomRoles(teamId: number | undefined) {
     pathParams: {
       team_id: teamId === undefined || skipFetch ? "" : teamId.toString(),
     },
+    swrOptions: { refreshInterval: 5000, revalidateOnFocus: true },
   });
   if (teamId === undefined) return undefined;
   if (skipFetch) {
@@ -160,10 +161,17 @@ export function useHasCustomRolePermission(
   nonCustomRoleResult: boolean,
 ): boolean | undefined {
   const myRoles = useMyCustomRoles(teamId);
+  const profile = useProfile();
   if (action === undefined || resource === undefined) return undefined;
   if (myRoles === undefined) return undefined;
   if (myRoles.role !== "custom") return nonCustomRoleResult;
-  return evaluateRoles(myRoles.customRoles, action, resource) === "allowed";
+  // Wait for the profile so `creator=self` selectors can resolve; without
+  // it those rules would silently deny and a gated UI would flicker.
+  if (profile === undefined) return undefined;
+  return (
+    evaluateRoles(myRoles.customRoles, action, resource, profile.id) ===
+    "allowed"
+  );
 }
 
 export function useListCustomRoles(teamId?: number) {
