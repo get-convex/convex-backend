@@ -15,7 +15,7 @@ import {
   DotsVerticalIcon,
   CheckCircledIcon,
 } from "@radix-ui/react-icons";
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import { cn } from "@ui/cn";
@@ -334,10 +334,43 @@ function CustomRoleForm({
   const createCustomRole = useCreateCustomRole(teamId);
   const updateCustomRole = useUpdateCustomRole(teamId);
 
+  // Synchronous validation, derived from `statementsText`. `hasSchemaError`
+  // reflects Monaco markers, which update asynchronously after typing — a
+  // quick Save before markers settle would otherwise slip past every gate and
+  // only fail inside `handleSubmit`. Keep this in sync with the checks there.
+  const statementsValidationError = useMemo<string | undefined>(() => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(statementsText);
+    } catch {
+      return "Statements must be valid JSON.";
+    }
+    if (!Array.isArray(parsed)) {
+      return "Statements must be a JSON array.";
+    }
+    if (parsed.length === 0) {
+      return "A custom role must have at least one statement.";
+    }
+    return undefined;
+  }, [statementsText]);
+  const saveBlockedReason = statementsValidationError
+    ? statementsValidationError
+    : hasSchemaError
+      ? "Resolve the highlighted schema errors first."
+      : undefined;
+  const canSave = !isSubmitting && saveBlockedReason === undefined;
+
   const handleEditorBeforeMount: BeforeMount = (monaco) => {
     monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
       validate: true,
       allowComments: false,
+      // Monaco defaults schema-validation and trailing-comma findings to
+      // Warning severity, but we treat them as hard errors: the marker check
+      // below only blocks saving on severity-Error markers, and `JSON.parse`
+      // rejects trailing commas anyway.
+      schemaValidation: "error",
+      trailingCommas: "error",
+      comments: "error",
       schemas: [
         {
           uri: STATEMENTS_EDITOR_PATH,
@@ -387,30 +420,14 @@ function CustomRoleForm({
       return;
     }
 
-    if (hasSchemaError) {
-      setError(
-        "Fix the highlighted schema errors in statements before saving.",
-      );
+    if (saveBlockedReason !== undefined) {
+      setError(saveBlockedReason);
       return;
     }
 
-    let parsedStatements: RoleStatement[];
-    try {
-      const raw = JSON.parse(statementsText);
-      if (!Array.isArray(raw)) {
-        setError("Statements must be a JSON array.");
-        return;
-      }
-      parsedStatements = raw as RoleStatement[];
-    } catch {
-      setError("Statements must be valid JSON.");
-      return;
-    }
-
-    if (parsedStatements.length === 0) {
-      setError("A custom role must have at least one statement.");
-      return;
-    }
+    // `saveBlockedReason` already gated parseability, array shape, and
+    // non-emptiness, so this parse can't throw and the cast is safe.
+    const parsedStatements = JSON.parse(statementsText) as RoleStatement[];
 
     setIsSubmitting(true);
     try {
@@ -445,7 +462,7 @@ function CustomRoleForm({
 
   useEffect(() => {
     handleSubmitRef.current = () => {
-      if (isSubmitting || hasSchemaError) return;
+      if (!canSave) return;
       void handleSubmit();
     };
   });
@@ -530,12 +547,8 @@ function CustomRoleForm({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || hasSchemaError}
-              tip={
-                hasSchemaError
-                  ? "Resolve the highlighted schema errors first."
-                  : undefined
-              }
+              disabled={!canSave}
+              tip={saveBlockedReason}
             >
               {savedRoleId !== undefined ? "Save" : "Create"}
             </Button>
