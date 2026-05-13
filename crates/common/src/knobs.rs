@@ -1076,6 +1076,15 @@ pub static FUNRUN_SCHEDULER_MAX_PERCENT_PER_CLIENT: LazyLock<usize> =
 pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("FUNRUN_CLUSTER_NAME", String::from("funrun-default")));
 
+/// Name of the service to discover for when connecting to the Funruns using
+/// Ticketmaster (e.g. ticketed-funrun-default, ticketed-funrun-staging, etc.)
+pub static TICKETED_FUNRUN_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
+    env_config(
+        "TICKETED_FUNRUN_CLUSTER_NAME",
+        String::from("ticketed-funrun-default"),
+    )
+});
+
 /// Name of the service to discover for when connecting to Searchlight. (e.g.
 /// searchlight-default, searchlight-staging, etc.)
 // cluster is created.
