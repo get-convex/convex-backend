@@ -215,3 +215,10 @@ regardless of their team role.
 | Action                                                                                                   | Description                             | Team Admin | Team Developer | Project Admin |
 | -------------------------------------------------------------------------------------------------------- | --------------------------------------- | :--------: | :------------: | :-----------: |
 | `deployment:token:create`, `deployment:token:update`, `deployment:token:delete`, `deployment:token:view` | Manage deployment-scoped access tokens. |     ✓      |  ✓ _non-prod_  |       ✓       |
+
+Deploy keys and preview deploy keys are service tokens. Once issued, they carry
+their own permissions independent of the creator's current role: if a team
+member has already created a deploy key or preview deploy key, that key
+continues to work with its original permissions even if the member's team role
+or custom role later changes. To revoke a key's access, delete the key from the
+deployment or project settings page.
