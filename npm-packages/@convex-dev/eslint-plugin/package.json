@@ -23,7 +23,7 @@
     "@typescript-eslint/utils": "~8.58.0"
   },
   "peerDependencies": {
-    "convex": "^1.38.0"
+    "convex": "^1.39.0"
   },
   "devDependencies": {
     "@eslint/js": "~9.39.0",
