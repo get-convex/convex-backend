@@ -1132,7 +1132,7 @@ impl FunctionRunnerKeyBroker {
             self.store_file_encryptor.encrypt_proto(
                 STORE_FILE_AUTHZ_VERSION,
                 &StorageTokenProto {
-                    instance_name: self.deployment_name.clone(),
+                    instance_name: self.instance_name.clone(),
                     issued_s: issued.as_secs(),
                     authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
                     component_id: component_str,
@@ -1143,7 +1143,7 @@ impl FunctionRunnerKeyBroker {
 
     /// Serializes and encrypts the provided Cursor for sending to clients.
     pub fn encrypt_cursor(&self, cursor: &Cursor) -> SerializedCursor {
-        let proto = cursor_to_proto(&self.deployment_name, cursor);
+        let proto = cursor_to_proto(&self.instance_name, cursor);
         self.cursor_encryptor.encrypt_proto(CURSOR_VERSION, &proto)
     }
 
@@ -1154,6 +1154,6 @@ impl FunctionRunnerKeyBroker {
             .cursor_encryptor
             .decrypt_proto(CURSOR_VERSION, &cursor)
             .with_context(cursor_parse_error)?;
-        proto_to_cursor(&self.deployment_name, proto)
+        proto_to_cursor(&self.instance_name, proto)
     }
 }
