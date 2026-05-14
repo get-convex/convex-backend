@@ -7,14 +7,6 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
  * `udfs.getSchemas`, etc.). Mirrors the server-side `ViewData` gate plus
  * the custom-role `deployment:data:view` permission, with a project
  * admin override.
- *
- * Use this to skip `useQuery(udf, ...)` calls when the member is denied
- * — otherwise the query throws and the error escapes the React tree via
- * the next WebSocket transition (uncatchable by an ErrorBoundary).
- *
- * Returns `true` while the role list is loading so the query fires
- * eagerly; a server-side reject is still possible if the role hasn't
- * propagated to the deployment yet.
  */
 export function useCanViewDeploymentData(): boolean {
   const {

@@ -13,6 +13,7 @@ import {
 } from "@common/features/data/components/DataSidebar";
 import { ShowSchema } from "@common/features/data/components/ShowSchema";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
 import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
@@ -32,8 +33,9 @@ export function DataView({
   onTableCreated?: () => void;
   onDocumentsAdded?: (count: number) => void;
 }) {
-  const { useCurrentDeployment, useIsOperationAllowed, ErrorBoundary } =
-    useContext(DeploymentInfoContext);
+  const { useCurrentDeployment, ErrorBoundary } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment() ?? {
     id: undefined,
     kind: undefined,
@@ -44,7 +46,7 @@ export function DataView({
   const router = useRouter();
   const tableMetadata = useTableMetadataAndUpdateURL();
 
-  const canViewData = useIsOperationAllowed("ViewData");
+  const canViewData = useCanViewDeploymentData();
 
   const componentId = useNents().selectedNent?.id;
   const schemas = useQuery(
