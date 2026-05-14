@@ -214,6 +214,13 @@ manage non-prod deployments via team membership, but production deployments
 require Team Admin or Project Admin). Any action that changes those bindings is
 a privilege escalation:
 
+- **`project:update`** lets the holder rename a project's slug. Custom-role
+  resource specifiers that match by `slug=<project-slug>` are evaluated against
+  the project's current slug, so renaming a project can move it into or out of
+  an `allow` or `deny` rule. A holder could rename a project to match a more
+  permissive `allow` selector, or away from a `deny` selector, to gain access
+  the role would otherwise withhold. Selectors that use `id=<project-id>` are
+  not affected, since project IDs are immutable.
 - **`deployment:updateType`** lets the holder change a deployment's type. A
   holder who can manage non-prod deployments could create one, then promote it
   to `type=prod`, or downgrade an existing prod deployment to a less protected
