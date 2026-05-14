@@ -278,6 +278,7 @@ const statementsSchema = {
       if: { type: "array" },
       then: {
         minItems: 1,
+        uniqueItems: true,
         items: { type: "string" },
       },
       else: { const: "*" },
@@ -353,6 +354,22 @@ function CustomRoleForm({
     }
     if (parsed.length === 0) {
       return "A custom role must have at least one statement.";
+    }
+    for (const stmt of parsed) {
+      if (
+        stmt !== null &&
+        typeof stmt === "object" &&
+        Array.isArray((stmt as { actions?: unknown }).actions)
+      ) {
+        const actions = (stmt as { actions: unknown[] }).actions;
+        const seen = new Set<unknown>();
+        for (const a of actions) {
+          if (seen.has(a)) {
+            return `Duplicate action ${JSON.stringify(a)} in a statement.`;
+          }
+          seen.add(a);
+        }
+      }
     }
     return undefined;
   }, [statementsText]);
