@@ -559,10 +559,10 @@ async function selectNewProject(
         }
       : null;
 
-  let projectSlug, teamSlug;
+  let projectSlug;
   try {
-    ({ projectSlug, teamSlug } = await createProject(ctx, {
-      teamSlug: selectedTeam.slug,
+    ({ projectSlug } = await createProject(ctx, {
+      teamId: selectedTeam.id,
       projectName,
       deploymentToProvision,
     }));
@@ -570,6 +570,7 @@ async function selectNewProject(
     logFailure("Unable to create project.");
     return await logAndHandleFetchError(ctx, err);
   }
+  const teamSlug = selectedTeam.slug;
   const teamMessage = didChooseBetweenTeams
     ? " in team " + chalkStderr.bold(teamSlug)
     : "";

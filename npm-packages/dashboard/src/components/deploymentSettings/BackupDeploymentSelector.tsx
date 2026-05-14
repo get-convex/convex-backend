@@ -38,6 +38,38 @@ export function BackupDeploymentSelector({
   team: TeamResponse;
   targetDeployment: PlatformDeploymentResponse;
 }) {
+  // Restoring zip backups into dedicated deployments isn't supported, so the
+  // cross-deployment "Restore from" dropdown is hidden — backups are always
+  // scoped to the current deployment.
+  const isDedicated =
+    targetDeployment.kind === "cloud" && targetDeployment.class.startsWith("d");
+
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-2 p-4">
+      <h4 className="text-content-primary">Existing Backups</h4>
+      {!isDedicated && (
+        <RestoreFromDropdown
+          selectedDeployment={selectedDeployment}
+          onChange={onChange}
+          team={team}
+          targetDeployment={targetDeployment}
+        />
+      )}
+    </div>
+  );
+}
+
+function RestoreFromDropdown({
+  selectedDeployment,
+  onChange,
+  team,
+  targetDeployment,
+}: {
+  selectedDeployment: PlatformDeploymentResponse;
+  onChange: (newDeployment: PlatformDeploymentResponse) => void;
+  team: TeamResponse;
+  targetDeployment: PlatformDeploymentResponse;
+}) {
   const {
     projects,
     isLoading: isLoadingProjects,
@@ -126,300 +158,290 @@ export function BackupDeploymentSelector({
   });
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-between gap-2 p-4">
-      <h4 className="text-content-primary">Existing Backups</h4>
-      {/* Listbox is used here to provide popovers with out-of-the-box keyboard navigation. */}
-      <div className="relative">
-        <Listbox
-          // `multiple` is used here to prevent Headless from closing the popover
-          // when a value is selected at the first level (project).
-          multiple={currentPage === "projects"}
-          value={
-            currentPage === "projects"
-              ? [selectedProjectId]
-              : selectedDeployment.kind === "cloud"
-                ? selectedDeployment.id
-                : undefined
+    /* Listbox is used here to provide popovers with out-of-the-box keyboard navigation. */
+    <div className="relative">
+      <Listbox
+        // `multiple` is used here to prevent Headless from closing the popover
+        // when a value is selected at the first level (project).
+        multiple={currentPage === "projects"}
+        value={
+          currentPage === "projects"
+            ? [selectedProjectId]
+            : selectedDeployment.kind === "cloud"
+              ? selectedDeployment.id
+              : undefined
+        }
+        onChange={(eventValue) => {
+          if (Array.isArray(eventValue)) {
+            // Selected a project
+
+            const projectId =
+              // When the one-valued array changes, its new value will either
+              // be [oldValue, selectedValue] or [] (when oldValue was selected)
+              eventValue.at(eventValue.length - 1) ?? selectedProjectId;
+
+            setSelectedProjectId(projectId);
+            setCurrentPage("deployments");
+          } else {
+            // Selected a deployment
+
+            const deploymentId = eventValue;
+            onChange(
+              selectedProjectDeployments!.find((d) => d.id === deploymentId)!,
+            );
           }
-          onChange={(eventValue) => {
-            if (Array.isArray(eventValue)) {
-              // Selected a project
-
-              const projectId =
-                // When the one-valued array changes, its new value will either
-                // be [oldValue, selectedValue] or [] (when oldValue was selected)
-                eventValue.at(eventValue.length - 1) ?? selectedProjectId;
-
-              setSelectedProjectId(projectId);
-              setCurrentPage("deployments");
-            } else {
-              // Selected a deployment
-
-              const deploymentId = eventValue;
-              onChange(
-                selectedProjectDeployments!.find((d) => d.id === deploymentId)!,
-              );
-            }
-          }}
-        >
-          {({ open }) => (
-            <>
-              <ListboxButton
-                as={Button}
-                ref={(el) =>
-                  setReferenceElement(el as HTMLButtonElement | null)
-                }
-                variant="unstyled"
-                className={cn(
-                  "group relative flex items-center gap-1",
-                  "truncate rounded-sm text-left text-content-primary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
-                  "border bg-background-secondary px-3 py-2 text-sm focus:border-border-selected focus:outline-hidden",
-                  "hover:bg-background-tertiary",
-                  open && "border-border-selected",
-                  "cursor-pointer",
-                  open && "bg-background-tertiary",
-                )}
-              >
-                <span className="font-semibold">Restore from:</span>
-                {selectedDeployment.kind === "cloud" &&
-                targetDeployment.kind === "cloud" &&
-                selectedDeployment.id === targetDeployment.id ? (
-                  "Current Deployment"
-                ) : (
-                  <FullDeploymentName deployment={selectedDeployment} />
-                )}
-                <span className="pointer-events-none flex items-center">
-                  <CaretSortIcon
-                    className={cn("text-content-primary", "ml-auto h-5 w-5")}
-                    aria-hidden="true"
-                  />
-                </span>
-              </ListboxButton>
-              {open &&
-                createPortal(
-                  <Transition
-                    leave="transition ease-in duration-100"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                  >
-                    <ListboxOptions
-                      ref={(el) =>
-                        setPopperElement(el as HTMLDivElement | null)
+        }}
+      >
+        {({ open }) => (
+          <>
+            <ListboxButton
+              as={Button}
+              ref={(el) => setReferenceElement(el as HTMLButtonElement | null)}
+              variant="unstyled"
+              className={cn(
+                "group relative flex items-center gap-1",
+                "truncate rounded-sm text-left text-content-primary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
+                "border bg-background-secondary px-3 py-2 text-sm focus:border-border-selected focus:outline-hidden",
+                "hover:bg-background-tertiary",
+                open && "border-border-selected",
+                "cursor-pointer",
+                open && "bg-background-tertiary",
+              )}
+            >
+              <span className="font-semibold">Restore from:</span>
+              {selectedDeployment.kind === "cloud" &&
+              targetDeployment.kind === "cloud" &&
+              selectedDeployment.id === targetDeployment.id ? (
+                "Current Deployment"
+              ) : (
+                <FullDeploymentName deployment={selectedDeployment} />
+              )}
+              <span className="pointer-events-none flex items-center">
+                <CaretSortIcon
+                  className={cn("text-content-primary", "ml-auto h-5 w-5")}
+                  aria-hidden="true"
+                />
+              </span>
+            </ListboxButton>
+            {open &&
+              createPortal(
+                <Transition
+                  leave="transition ease-in duration-100"
+                  leaveFrom="opacity-100"
+                  leaveTo="opacity-0"
+                >
+                  <ListboxOptions
+                    ref={(el) => setPopperElement(el as HTMLDivElement | null)}
+                    {...attributes.popper}
+                    className="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-sm border bg-background-secondary shadow-sm transition-[max-height] focus:outline-hidden"
+                    onKeyDown={(e) => {
+                      switch (e.key) {
+                        case "ArrowLeft":
+                          goBack();
+                          break;
+                        case "ArrowRight":
+                          e.key = "Enter"; // Will be handled by Headless UI as a current item selection
+                          break;
+                        default:
                       }
-                      {...attributes.popper}
-                      className="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-sm border bg-background-secondary shadow-sm transition-[max-height] focus:outline-hidden"
-                      onKeyDown={(e) => {
-                        switch (e.key) {
-                          case "ArrowLeft":
-                            goBack();
-                            break;
-                          case "ArrowRight":
-                            e.key = "Enter"; // Will be handled by Headless UI as a current item selection
-                            break;
-                          default:
-                        }
-                      }}
-                      style={{
-                        ...styles.popper,
-                        maxHeight: `${heightRem}rem`,
-                      }}
+                    }}
+                    style={{
+                      ...styles.popper,
+                      maxHeight: `${heightRem}rem`,
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-full transition-transform duration-200 motion-reduce:transition-none",
+                        currentPage === "deployments" && "-translate-x-full",
+                      )}
                     >
+                      {/* Projects */}
                       <div
-                        className={cn(
-                          "flex h-full transition-transform duration-200 motion-reduce:transition-none",
-                          currentPage === "deployments" && "-translate-x-full",
-                        )}
+                        // There are two pages, whose elements stay in the DOM even
+                        // when they are not active (because there's a transition
+                        // between the two).
+                        // We disable all interactions (screen readers, find
+                        // in page, events…) on pages that are not currently visible
+                        // @ts-expect-error https://github.com/facebook/react/issues/17157
+                        inert={currentPage !== "projects" ? "inert" : undefined}
+                        className="w-64 shrink-0"
+                        style={{ height: `${heightRem}rem` }}
                       >
-                        {/* Projects */}
-                        <div
-                          // There are two pages, whose elements stay in the DOM even
-                          // when they are not active (because there's a transition
-                          // between the two).
-                          // We disable all interactions (screen readers, find
-                          // in page, events…) on pages that are not currently visible
-                          // @ts-expect-error https://github.com/facebook/react/issues/17157
-                          inert={
-                            currentPage !== "projects" ? "inert" : undefined
-                          }
-                          className="w-64 shrink-0"
-                          style={{ height: `${heightRem}rem` }}
-                        >
-                          <div className="flex h-full flex-col">
-                            <header className="flex min-h-12 items-center border-b">
-                              <span className="flex-1 truncate px-2 text-center font-semibold text-nowrap">
-                                {team.name}
-                              </span>
-                            </header>
+                        <div className="flex h-full flex-col">
+                          <header className="flex min-h-12 items-center border-b">
+                            <span className="flex-1 truncate px-2 text-center font-semibold text-nowrap">
+                              {team.name}
+                            </span>
+                          </header>
 
-                            <div
-                              className="grow overflow-x-hidden overflow-y-auto"
-                              onScroll={handleProjectsScroll}
-                            >
-                              <ul className="p-0.5">
-                                {currentProject && (
-                                  <ListboxOption
-                                    key={currentProject.id}
-                                    value={currentProject.id}
-                                    className={({ focus, selected }) =>
-                                      cn(
-                                        "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                        focus && "bg-background-tertiary",
-                                        selected && "bg-background-tertiary/60",
-                                      )
-                                    }
-                                    disabled={currentPage !== "projects"}
-                                  >
-                                    <span className="w-full truncate">
-                                      {currentProject.name}
-                                    </span>
-                                    <Tooltip
-                                      tip="This project"
-                                      side="right"
-                                      className="ml-auto"
-                                    >
-                                      <SewingPinFilledIcon className="min-h-[1rem] min-w-[1rem]" />
-                                    </Tooltip>
-                                  </ListboxOption>
-                                )}
-                                {paginatedProjects.map((project) => (
-                                  <ListboxOption
-                                    key={project.id}
-                                    value={project.id}
-                                    className={({ focus, selected }) =>
-                                      cn(
-                                        "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                        focus && "bg-background-tertiary",
-                                        selected && "bg-background-tertiary/60",
-                                      )
-                                    }
-                                    disabled={currentPage !== "projects"}
-                                  >
-                                    <span className="w-full truncate">
-                                      {project.name}
-                                    </span>
-                                  </ListboxOption>
-                                ))}
-                                <div aria-label="Loading more projects">
-                                  {showLoadingRows &&
-                                    Array.from(
-                                      { length: LOADING_ROW_COUNT },
-                                      (_, i) => (
-                                        <div
-                                          key={`loading-${i}`}
-                                          className="p-2 text-sm"
-                                        >
-                                          <Loading className="h-[1lh]" />
-                                        </div>
-                                      ),
-                                    )}
-                                </div>
-                              </ul>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Deployments */}
-                        <div
-                          // @ts-expect-error https://github.com/facebook/react/issues/17157
-                          inert={
-                            currentPage !== "deployments" ? "inert" : undefined
-                          }
-                          className="w-64 shrink-0"
-                          style={{ height: `${heightRem}rem` }}
-                        >
-                          <div className="flex h-full flex-col">
-                            <header className="flex min-h-12 w-full items-center border-b">
-                              <Button
-                                variant="unstyled"
-                                className="flex h-full w-10 shrink-0 items-center justify-center rounded-sm text-content-secondary transition-colors hover:text-content-primary focus:outline-hidden"
-                                onClick={() => goBack()}
-                                tip="Back to projects"
-                              >
-                                <ChevronLeftIcon className="size-5" />
-                              </Button>
-
-                              {selectedProject ? (
-                                <span className="mr-10 w-full truncate text-center font-semibold text-nowrap">
-                                  {selectedProject.name}
-                                </span>
-                              ) : (
-                                <div className="mr-10 flex w-full justify-center">
-                                  <span className="h-6 w-36">
-                                    <Loading />
+                          <div
+                            className="grow overflow-x-hidden overflow-y-auto"
+                            onScroll={handleProjectsScroll}
+                          >
+                            <ul className="p-0.5">
+                              {currentProject && (
+                                <ListboxOption
+                                  key={currentProject.id}
+                                  value={currentProject.id}
+                                  className={({ focus, selected }) =>
+                                    cn(
+                                      "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
+                                      focus && "bg-background-tertiary",
+                                      selected && "bg-background-tertiary/60",
+                                    )
+                                  }
+                                  disabled={currentPage !== "projects"}
+                                >
+                                  <span className="w-full truncate">
+                                    {currentProject.name}
                                   </span>
-                                </div>
+                                  <Tooltip
+                                    tip="This project"
+                                    side="right"
+                                    className="ml-auto"
+                                  >
+                                    <SewingPinFilledIcon className="min-h-[1rem] min-w-[1rem]" />
+                                  </Tooltip>
+                                </ListboxOption>
                               )}
-                            </header>
-
-                            <div className="grow overflow-x-hidden overflow-y-auto">
-                              {selectedProjectDeployments === undefined ? (
-                                <Loading />
-                              ) : selectedProjectDeployments.length === 0 ? (
-                                <div className="p-4 text-content-tertiary">
-                                  This project has no cloud deployments.
-                                </div>
-                              ) : (
-                                <div className="p-0.5">
-                                  {selectedProjectDeployments.map(
-                                    (deployment) => {
-                                      const isRegionDifferent =
-                                        targetDeployment.kind === "cloud" &&
-                                        deployment.region !==
-                                          targetDeployment.region;
-                                      return (
-                                        <Tooltip
-                                          className="w-full"
-                                          key={deployment.id}
-                                          tip={
-                                            isRegionDifferent ? (
-                                              "Use the CLI to restore a backup from a deployment in a different region."
-                                            ) : (
-                                              <code>{deployment.name}</code>
-                                            )
-                                          }
-                                          side="right"
-                                        >
-                                          <ListboxOption
-                                            value={deployment.id}
-                                            className={({ focus, selected }) =>
-                                              cn(
-                                                "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                                focus &&
-                                                  "bg-background-tertiary",
-                                                selected &&
-                                                  "bg-background-tertiary/60",
-                                              )
-                                            }
-                                            disabled={
-                                              currentPage !== "deployments" ||
-                                              isRegionDifferent
-                                            }
-                                          >
-                                            <span className="w-full truncate">
-                                              <FullDeploymentName
-                                                deployment={deployment}
-                                                showProjectName={false}
-                                              />
-                                            </span>
-                                          </ListboxOption>
-                                        </Tooltip>
-                                      );
-                                    },
+                              {paginatedProjects.map((project) => (
+                                <ListboxOption
+                                  key={project.id}
+                                  value={project.id}
+                                  className={({ focus, selected }) =>
+                                    cn(
+                                      "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
+                                      focus && "bg-background-tertiary",
+                                      selected && "bg-background-tertiary/60",
+                                    )
+                                  }
+                                  disabled={currentPage !== "projects"}
+                                >
+                                  <span className="w-full truncate">
+                                    {project.name}
+                                  </span>
+                                </ListboxOption>
+                              ))}
+                              <div aria-label="Loading more projects">
+                                {showLoadingRows &&
+                                  Array.from(
+                                    { length: LOADING_ROW_COUNT },
+                                    (_, i) => (
+                                      <div
+                                        key={`loading-${i}`}
+                                        className="p-2 text-sm"
+                                      >
+                                        <Loading className="h-[1lh]" />
+                                      </div>
+                                    ),
                                   )}
-                                </div>
-                              )}
-                            </div>
+                              </div>
+                            </ul>
                           </div>
                         </div>
                       </div>
-                    </ListboxOptions>
-                  </Transition>,
-                  document.body,
-                )}
-            </>
-          )}
-        </Listbox>
-      </div>
+
+                      {/* Deployments */}
+                      <div
+                        // @ts-expect-error https://github.com/facebook/react/issues/17157
+                        inert={
+                          currentPage !== "deployments" ? "inert" : undefined
+                        }
+                        className="w-64 shrink-0"
+                        style={{ height: `${heightRem}rem` }}
+                      >
+                        <div className="flex h-full flex-col">
+                          <header className="flex min-h-12 w-full items-center border-b">
+                            <Button
+                              variant="unstyled"
+                              className="flex h-full w-10 shrink-0 items-center justify-center rounded-sm text-content-secondary transition-colors hover:text-content-primary focus:outline-hidden"
+                              onClick={() => goBack()}
+                              tip="Back to projects"
+                            >
+                              <ChevronLeftIcon className="size-5" />
+                            </Button>
+
+                            {selectedProject ? (
+                              <span className="mr-10 w-full truncate text-center font-semibold text-nowrap">
+                                {selectedProject.name}
+                              </span>
+                            ) : (
+                              <div className="mr-10 flex w-full justify-center">
+                                <span className="h-6 w-36">
+                                  <Loading />
+                                </span>
+                              </div>
+                            )}
+                          </header>
+
+                          <div className="grow overflow-x-hidden overflow-y-auto">
+                            {selectedProjectDeployments === undefined ? (
+                              <Loading />
+                            ) : selectedProjectDeployments.length === 0 ? (
+                              <div className="p-4 text-content-tertiary">
+                                This project has no cloud deployments.
+                              </div>
+                            ) : (
+                              <div className="p-0.5">
+                                {selectedProjectDeployments.map(
+                                  (deployment) => {
+                                    const isRegionDifferent =
+                                      targetDeployment.kind === "cloud" &&
+                                      deployment.region !==
+                                        targetDeployment.region;
+                                    return (
+                                      <Tooltip
+                                        className="w-full"
+                                        key={deployment.id}
+                                        tip={
+                                          isRegionDifferent ? (
+                                            "Use the CLI to restore a backup from a deployment in a different region."
+                                          ) : (
+                                            <code>{deployment.name}</code>
+                                          )
+                                        }
+                                        side="right"
+                                      >
+                                        <ListboxOption
+                                          value={deployment.id}
+                                          className={({ focus, selected }) =>
+                                            cn(
+                                              "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
+                                              focus && "bg-background-tertiary",
+                                              selected &&
+                                                "bg-background-tertiary/60",
+                                            )
+                                          }
+                                          disabled={
+                                            currentPage !== "deployments" ||
+                                            isRegionDifferent
+                                          }
+                                        >
+                                          <span className="w-full truncate">
+                                            <FullDeploymentName
+                                              deployment={deployment}
+                                              showProjectName={false}
+                                            />
+                                          </span>
+                                        </ListboxOption>
+                                      </Tooltip>
+                                    );
+                                  },
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </ListboxOptions>
+                </Transition>,
+                document.body,
+              )}
+          </>
+        )}
+      </Listbox>
     </div>
   );
 }

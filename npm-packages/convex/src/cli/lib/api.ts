@@ -25,6 +25,7 @@ import {
 } from "./deploymentSelector.js";
 import { loadProjectLocalConfig } from "./localDeployment/filePaths.js";
 import { chalkStderr } from "chalk";
+import { RegionName } from "../generatedApi.js";
 export type DeploymentName = string;
 export type CloudDeploymentType = "prod" | "dev" | "preview" | "custom";
 export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
@@ -45,36 +46,35 @@ type AdminKey = string;
 export async function createProject(
   ctx: Context,
   {
-    teamSlug: selectedTeamSlug,
+    teamId,
     projectName,
     deploymentToProvision,
   }: {
-    teamSlug: string;
+    teamId: number;
     projectName: string;
     deploymentToProvision: {
       deploymentType: "prod" | "dev";
-      region: string | null;
+      region: RegionName | null;
     } | null;
   },
 ): Promise<{
   projectSlug: string;
-  teamSlug: string;
 }> {
-  const provisioningArgs = {
-    team: selectedTeamSlug,
-    projectName,
-    ...deploymentToProvision,
-  };
-  const data = await bigBrainAPI({
-    ctx,
-    method: "POST",
-    path: "create_project",
-    data: provisioningArgs,
-  });
-  const { projectSlug, teamSlug } = data;
-  if (projectSlug === undefined || teamSlug === undefined) {
+  const response = await typedPlatformClient(ctx).POST(
+    "/teams/{team_id}/create_project",
+    {
+      params: { path: { team_id: teamId } },
+      body: {
+        projectName,
+        deploymentType: deploymentToProvision?.deploymentType ?? null,
+        deploymentRegion: deploymentToProvision?.region ?? null,
+      },
+    },
+  );
+  const projectSlug = response.data?.slug;
+  if (projectSlug === undefined) {
     const error =
-      "Unexpected response during provisioning: " + JSON.stringify(data);
+      "Unexpected response during provisioning: " + JSON.stringify(response);
     return await ctx.crash({
       exitCode: 1,
       errorType: "transient",
@@ -84,7 +84,6 @@ export async function createProject(
   }
   return {
     projectSlug,
-    teamSlug,
   };
 }
 
