@@ -173,6 +173,13 @@ impl IndexIntervals {
         self.inner.lock().params_to_id.is_empty()
     }
 
+    fn contains(&self, interval: &Interval, order: Order, max_size: usize) -> bool {
+        self.inner
+            .lock()
+            .params_to_id
+            .contains_key(&(interval.clone(), order, max_size))
+    }
+
     /// Returns all (interval, order, max_size) triples whose interval contains
     /// `old` or `new`. Results are deduplicated.
     fn query_keys(
@@ -359,19 +366,12 @@ impl IndexCache {
         };
         self.cache.insert(key.clone(), cached_interval);
 
-        // Clone the Arc-backed IndexIntervals (releasing the DashMap shard lock)
-        // before calling moka to avoid lock-order issues.
-        let intervals = {
-            let deployment_intervals = self
-                .index_to_intervals
-                .entry(deployment_name.clone())
-                .or_default();
-            deployment_intervals
-                .entry(index_id)
-                .or_insert_with(IndexIntervals::new)
-                .clone()
-        };
-        intervals.insert(interval.clone(), order, max_size);
+        self.index_to_intervals
+            .entry(deployment_name.clone())
+            .or_default()
+            .entry(index_id)
+            .or_insert_with(IndexIntervals::new)
+            .insert(interval.clone(), order, max_size);
 
         let Ok(writes) = self
             .write_log_readers
@@ -411,10 +411,25 @@ impl IndexCache {
         // Phase 2 of 2PC: mark the cache entry as ready to serve reads if it's still
         // there. If it is missing, it was evicted by a concurrent call to
         // `apply_writes`.
+        let index_to_intervals = self.index_to_intervals.clone();
         self.cache.entry(key).and_compute_with(|maybe_entry| {
             if let Some(entry) = maybe_entry
                 && entry.value().begin_ts == ts
             {
+                let interval_is_recorded = index_to_intervals
+                    .get(&deployment_name)
+                    .and_then(|d| d.get(&index_id).map(|iv| iv.value().clone()))
+                    .map(|iv| iv.contains(&interval, order, max_size))
+                    .unwrap_or(false);
+                if !interval_is_recorded {
+                    tracing::error!(
+                        "IndexCache invariant violated: marking entry ready but interval not \
+                         registered in index_to_intervals (deployment={deployment_name}, \
+                         index_id={index_id:?})"
+                    );
+                    timer.add_label(StaticMetricLabel::new("result", "invalid"));
+                    return Op::Remove;
+                }
                 let mut value = entry.into_value();
                 value.is_ready = true;
                 timer.add_label(StaticMetricLabel::new("result", "populated"));
