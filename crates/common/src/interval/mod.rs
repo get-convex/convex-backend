@@ -20,6 +20,8 @@ use std::ops::{
     RangeBounds,
 };
 
+use value::heap_size::HeapSize;
+
 pub use self::{
     bounds::{
         End,
@@ -41,6 +43,12 @@ use crate::{
 pub struct Interval {
     pub start: StartIncluded,
     pub end: End,
+}
+
+impl HeapSize for Interval {
+    fn heap_size(&self) -> usize {
+        self.start.heap_size() + self.end.heap_size()
+    }
 }
 
 impl Interval {

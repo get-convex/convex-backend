@@ -36,7 +36,10 @@ use moka::{
     ops::compute::Op,
 };
 use parking_lot::Mutex;
-use value::heap_size::WithHeapSize;
+use value::heap_size::{
+    HeapSize,
+    WithHeapSize,
+};
 
 use crate::{
     backend_in_memory_indexes::{
@@ -73,6 +76,12 @@ struct CacheKey {
     interval: Interval,
     order: Order,
     max_size: usize,
+}
+
+impl CacheKey {
+    fn size(&self) -> usize {
+        std::mem::size_of::<Self>() + self.deployment_name.heap_size() + self.interval.heap_size()
+    }
 }
 
 struct IndexIntervalsInner {
@@ -211,9 +220,10 @@ impl IndexCache {
             Arc::new(DashMap::new());
         let index_to_intervals_clone = index_to_intervals.clone();
         let cache = moka::sync::Cache::builder()
-            .weigher(|_key: &CacheKey, value: &CachedInterval| -> u32 {
-                // Add one so empty intervals get evicted
-                (value.total_size.min(u32::MAX as u64) as u32).saturating_add(1)
+            .weigher(|key: &CacheKey, value: &CachedInterval| -> u32 {
+                // Multiply key size by 2 because we also store it in index_to_intervals. This
+                // is an underestimate.
+                2 * key.size() as u32 + value.size() as u32
             })
             .max_capacity(max_weight)
             .eviction_listener(move |key: Arc<CacheKey>, _val, cause| {
@@ -327,12 +337,12 @@ impl IndexCache {
             timer.add_label(StaticMetricLabel::new("result", "already_exists"));
             return;
         }
-        let mut total_size = 0;
+        let mut entries_size = 0;
         let entries: OrdSet<Arc<IndexEntry>> = index_page
             .entries
             .into_iter()
             .inspect(|entry| {
-                total_size += entry.value.size() as u64;
+                entries_size += std::mem::size_of::<IndexEntry>() + entry.heap_size();
             })
             .collect();
         let Some(index) = index_registry.enabled_index_by_index_id(&index_id) else {
@@ -344,7 +354,7 @@ impl IndexCache {
             entries,
             order,
             cursor: index_page.cursor,
-            total_size,
+            entries_size,
             begin_ts: ts,
         };
         self.cache.insert(key.clone(), cached_interval);
@@ -548,7 +558,7 @@ pub struct CachedInterval {
     entries: OrdSet<Arc<IndexEntry>>,
     order: Order,
     cursor: CursorPosition,
-    total_size: u64,
+    entries_size: usize,
     begin_ts: RepeatableTimestamp,
 }
 
@@ -568,5 +578,9 @@ impl CachedInterval {
             entries,
             cursor: self.cursor.clone(),
         })
+    }
+
+    fn size(&self) -> usize {
+        std::mem::size_of::<Self>() + self.entries_size + self.cursor.heap_size()
     }
 }
