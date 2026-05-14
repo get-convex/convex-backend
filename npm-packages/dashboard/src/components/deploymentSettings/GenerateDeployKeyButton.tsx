@@ -17,10 +17,12 @@ import {
   TokenExpirationValue,
   resolveExpirationTime,
 } from "components/TokenExpirationSelector";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 
 export type DeployKeyGenerationDisabledReason =
   | "CannotManageDeployment"
-  | "LocalDeployment";
+  | "LocalDeployment"
+  | "NoPermissionForPreview";
 
 type OperationGroup = {
   label: string;
@@ -446,11 +448,9 @@ export function GenerateDeployKeyWithNameButton({
       <Button
         disabled={disabledReason !== null}
         tip={
-          disabledReason === "CannotManageDeployment"
-            ? "You do not have permission to generate a deploy key for this deployment."
-            : disabledReason === "LocalDeployment"
-              ? "You cannot generate deploy keys for a local deployment."
-              : undefined
+          disabledReason === null
+            ? undefined
+            : DEPLOY_KEY_GENERATION_DISABLED_REASONS[disabledReason]
         }
         onClick={() => setIsOpen(true)}
         icon={<PlusIcon />}
@@ -522,11 +522,23 @@ export function GenerateDeployKeyButton({
   );
 }
 
-const DEPLOY_KEY_GENERATION_DISABLED_REASONS = {
-  CannotManageDeployment:
+// Map of disabled-reason → tooltip body. Permission-driven reasons use
+// `permissionDeniedTip` so custom-role members see the specific missing
+// action surfaced inline.
+const DEPLOY_KEY_GENERATION_DISABLED_REASONS: Record<
+  DeployKeyGenerationDisabledReason,
+  React.ReactNode
+> = {
+  CannotManageDeployment: permissionDeniedTip(
     "You do not have permission to generate a deploy key for this deployment.",
+    "deployment:token:create",
+  ),
   LocalDeployment: "You cannot generate deploy keys for a local deployment.",
-} as const;
+  NoPermissionForPreview: permissionDeniedTip(
+    "You do not have permission to generate preview deploy keys for this project.",
+    "project:token:create",
+  ),
+};
 
 function getGenerateButtonText(_deploymentType: DeploymentTypeType) {
   return "Create Deploy Key";

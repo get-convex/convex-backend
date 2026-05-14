@@ -1,5 +1,6 @@
 import { DeleteProjectModal } from "components/projects/modals/DeleteProjectModal";
 import { PageContent } from "@common/elements/PageContent";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
@@ -13,7 +14,13 @@ import {
   useProjectAppAccessTokens,
   useDeleteAppAccessTokenByName,
 } from "api/accessTokens";
-import { useHasProjectAdminPermissions } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { useProfile } from "api/profile";
+import { projectResource, projectTokenResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
@@ -245,7 +252,45 @@ function ProjectSettings() {
   const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
   const router = useRouter();
 
-  const projectAppAccessTokens = useProjectAppAccessTokens(project?.id);
+  // Custom-role gates: project admins (and team admins via
+  // `hasAdminPermissions`) keep full access, custom-role members opt in via
+  // explicit grants. The non-custom-role result is `false` because the
+  // built-in role check happens via `hasAdminPermissions` above.
+  const projResource = project ? projectResource(project) : undefined;
+  const canUpdateProjectCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:update",
+    projResource,
+    false,
+  );
+  const canEditProject = hasAdminPermissions || canUpdateProjectCustom === true;
+  // `/projects/{id}/app_access_tokens` is gated server-side on
+  // `project:token:view`; skip the fetch when the member can't view (whole
+  // list, so token-creator selector is null) and surface a clear message.
+  const canViewAppTokenCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:token:view",
+    project ? projectTokenResource(project, null) : undefined,
+    true,
+  );
+  const canViewAuthorizedApps =
+    hasAdminPermissions || canViewAppTokenCustom === true;
+  // Gate the NoPermissionMessage on explicit denial so the section
+  // doesn't flicker into "no permission" while role data resolves.
+  const isAuthorizedAppsDenied =
+    !hasAdminPermissions && canViewAppTokenCustom === false;
+  const canDeleteAppTokenCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:token:delete",
+    project ? projectTokenResource(project, null) : undefined,
+    false,
+  );
+  const canRevokeAuthorizedApp =
+    hasAdminPermissions || canDeleteAppTokenCustom === true;
+
+  const projectAppAccessTokens = useProjectAppAccessTokens(
+    canViewAuthorizedApps ? project?.id : undefined,
+  );
   const deleteAppAccessTokenByName = useDeleteAppAccessTokenByName({
     projectId: project?.id,
   });
@@ -363,7 +408,15 @@ function ProjectSettings() {
                     <ProjectForm
                       team={team}
                       project={project}
-                      hasAdminPermissions={hasAdminPermissions}
+                      hasAdminPermissions={canEditProject}
+                      permissionDeniedTip={
+                        canEditProject
+                          ? undefined
+                          : permissionDeniedTip(
+                              "You do not have permission to update this project.",
+                              "project:update",
+                            )
+                      }
                     />
                   </div>
                 ) : (
@@ -408,13 +461,33 @@ function ProjectSettings() {
                 )}
                 {project && (
                   <div id={SECTION_IDS.authorizedApps}>
-                    <AuthorizedApplications
-                      accessTokens={projectAppAccessTokens}
-                      explainer={authorizedAppsExplainer}
-                      onRevoke={async (token) => {
-                        await deleteAppAccessTokenByName({ name: token.name });
-                      }}
-                    />
+                    {isAuthorizedAppsDenied ? (
+                      <Sheet>
+                        <h3 className="mb-2">Authorized Applications</h3>
+                        <NoPermissionMessage
+                          message="You do not have permission to view authorized applications for this project."
+                          missingPermission="project:token:view"
+                        />
+                      </Sheet>
+                    ) : (
+                      <AuthorizedApplications
+                        accessTokens={projectAppAccessTokens}
+                        explainer={authorizedAppsExplainer}
+                        onRevoke={async (token) => {
+                          await deleteAppAccessTokenByName({
+                            name: token.name,
+                          });
+                        }}
+                        revokeDisabledReason={
+                          canRevokeAuthorizedApp
+                            ? undefined
+                            : permissionDeniedTip(
+                                "You do not have permission to revoke authorized applications.",
+                                "project:token:delete",
+                              )
+                        }
+                      />
+                    )}
                   </div>
                 )}
                 <div id={SECTION_IDS.envVars}>
@@ -466,6 +539,13 @@ function DeleteProject() {
   const project = useCurrentProject();
 
   const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
+  const canDeleteCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:delete",
+    project ? projectResource(project) : undefined,
+    false,
+  );
+  const canDelete = hasAdminPermissions || canDeleteCustom === true;
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   return (
@@ -480,10 +560,13 @@ function DeleteProject() {
           variant="danger"
           onClick={() => setShowDeleteModal(!showDeleteModal)}
           icon={<TrashIcon />}
-          disabled={!hasAdminPermissions}
+          disabled={!canDelete}
           tip={
-            !hasAdminPermissions
-              ? "You do not have permission to delete this project."
+            !canDelete
+              ? permissionDeniedTip(
+                  "You do not have permission to delete this project.",
+                  "project:delete",
+                )
               : undefined
           }
         >
@@ -541,8 +624,40 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   const createPreviewDeployKey = useCreatePreviewDeployKey(project.id);
   const deletePreviewDeployKey = useDeletePreviewDeployKey(project.id);
   const team = useCurrentTeam();
+  const profile = useProfile();
+  const hasAdminPermissions = useHasProjectAdminPermissions(project.id);
 
-  const previewDeployKeys = usePreviewDeployKeys(project.id);
+  // Listing preview deploy keys requires `project:token:view`; whole-list
+  // checks scope the token resource to `creator=null` (no `creator=self`
+  // role would let you see other members' tokens).
+  const canViewCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:token:view",
+    projectTokenResource(project, null),
+    true,
+  );
+  const canView = hasAdminPermissions || canViewCustom === true;
+  // Only render the NoPermissionMessage on explicit denial so the section
+  // doesn't flash for everyone while role data is still resolving.
+  const isViewDenied = !hasAdminPermissions && canViewCustom === false;
+
+  // Project-scoped token creation: a role like `token:creator=me` should
+  // still let the member generate their own preview deploy keys, so scope
+  // the create-resource to the current member id.
+  const canCreateCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:token:create",
+    projectTokenResource(project, profile?.id ?? null),
+    false,
+  );
+  const canCreate = hasAdminPermissions || canCreateCustom === true;
+  const disabledReason: "NoPermissionForPreview" | null = !canCreate
+    ? "NoPermissionForPreview"
+    : null;
+
+  const previewDeployKeys = usePreviewDeployKeys(
+    canView ? project.id : undefined,
+  );
 
   const deployKeyDescription = (
     <p className="mb-2 max-w-prose text-sm text-content-primary">
@@ -567,6 +682,18 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
     </p>
   );
 
+  if (isViewDenied) {
+    return (
+      <Sheet className="flex flex-col gap-4">
+        <h3>Preview Deploy Keys</h3>
+        <NoPermissionMessage
+          message="You do not have permission to view preview deploy keys for this project."
+          missingPermission="project:token:view"
+        />
+      </Sheet>
+    );
+  }
+
   return (
     <Sheet className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -575,10 +702,10 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
             deploymentType="preview"
             onDelete={deletePreviewDeployKey}
             deployKeys={previewDeployKeys}
-            disabledReason={null}
+            disabledReason={disabledReason}
             buttonProps={{
               deploymentType: "preview",
-              disabledReason: null,
+              disabledReason,
               showCustomPermissions: false,
               getAdminKey: async (
                 name: string,

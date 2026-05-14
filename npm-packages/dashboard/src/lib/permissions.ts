@@ -561,6 +561,49 @@ export function teamTokenResource(creator: number | null): ConcreteResource {
   };
 }
 
+// Project-scoped resource: a single project segment carrying id and slug
+// so roles can match on either selector form.
+export function projectResource(project: {
+  id: number;
+  slug: string;
+}): ConcreteResource {
+  return {
+    segments: [{ kind: "project", id: project.id, slug: project.slug }],
+  };
+}
+
+// Project-scoped default environment variable resource. Lives at
+// `project:<sel>:defaultEnvironmentVariable:*` on the wire, so the
+// concrete resource must carry the project segment too.
+export function defaultEnvironmentVariableResource(project: {
+  id: number;
+  slug: string;
+}): ConcreteResource {
+  return {
+    segments: [
+      { kind: "project", id: project.id, slug: project.slug },
+      { kind: "defaultEnvironmentVariable" },
+    ],
+  };
+}
+
+// Project-scoped tokens live at `project:<sel>:token:<sel>`, so the
+// concrete resource carries the project segment plus a token segment with
+// a creator selector. Pass the current member's id when gating "can I
+// create my own preview deploy key"; pass null for whole-list view checks
+// so a role limited to `creator=me` denies.
+export function projectTokenResource(
+  project: { id: number; slug: string },
+  tokenCreator: number | null,
+): ConcreteResource {
+  return {
+    segments: [
+      ...projectResource(project).segments,
+      { kind: "token", tokenKind: "project", creator: tokenCreator },
+    ],
+  };
+}
+
 // Deployment-scoped resource: project + deployment segments. The
 // deployment segment carries the creator id so a role like
 // "deployments you created" still matches.
