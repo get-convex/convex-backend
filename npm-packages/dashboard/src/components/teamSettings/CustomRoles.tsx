@@ -405,12 +405,43 @@ function CustomRoleForm({
       );
     };
     updateMarkers();
-    const disposable = monaco.editor.onDidChangeMarkers((uris) => {
+    const markersDisposable = monaco.editor.onDidChangeMarkers((uris) => {
       if (uris.some((u) => u.toString() === model.uri.toString())) {
         updateMarkers();
       }
     });
-    editorInstance.onDidDispose(() => disposable.dispose());
+
+    const denyDecorations = editorInstance.createDecorationsCollection();
+    const updateDenyDecorations = () => {
+      const matches = model.findMatches(
+        '"deny"',
+        false,
+        false,
+        true,
+        null,
+        false,
+      );
+      denyDecorations.set(
+        matches.map((match) => ({
+          range: new monaco.Range(
+            match.range.startLineNumber,
+            match.range.startColumn + 1,
+            match.range.endLineNumber,
+            match.range.endColumn - 1,
+          ),
+          options: { inlineClassName: "customRoleDenyHighlight" },
+        })),
+      );
+    };
+    updateDenyDecorations();
+    const contentDisposable = model.onDidChangeContent(() => {
+      updateDenyDecorations();
+    });
+
+    editorInstance.onDidDispose(() => {
+      markersDisposable.dispose();
+      contentDisposable.dispose();
+    });
   };
 
   const handleSubmit = async () => {
