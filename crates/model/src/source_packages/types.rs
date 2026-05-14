@@ -62,25 +62,12 @@ impl From<NodeVersion> for String {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-/// Contains the metadata for a source package. Multiple [`SourcePackage`]
-/// documents may be referenced in the modules table. [`ModuleMetadata`] that
-/// reference old versions of [`SourcePackage`] are able to be read at all
-/// subsequent versions of [`SourcePackage`].
 pub struct SourcePackage {
     pub storage_key: ObjectKey,
     pub sha256: Sha256Digest,
     pub external_deps_package_id: Option<ExternalDepsPackageId>,
     pub package_size: PackageSize,
     pub node_version: Option<NodeVersion>,
-}
-
-impl SourcePackage {
-    pub fn metadata_matches(&self, other: &SourcePackage) -> bool {
-        // We explicitly do not compare the sha256 because it also includes creation
-        // time in the hash
-        self.node_version == other.node_version
-            && self.external_deps_package_id == other.external_deps_package_id
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
