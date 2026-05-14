@@ -25,11 +25,25 @@ pub struct ModuleMetadata {
     /// Path stored as a "path" field.
     pub path: CanonicalizedModulePath,
 
+    /// The source package ID of the module. For any active source_package_id it
+    /// is safe to read from that package or any subsequent package because we
+    /// will update the reference if there is a diff
     pub source_package_id: SourcePackageId,
     pub environment: ModuleEnvironment,
     pub analyze_result: Option<AnalyzedModule>,
     // This is a hash of source + source_map.
     pub sha256: Sha256Digest,
+}
+
+impl ModuleMetadata {
+    // Returns true if the module's contents match the other module's contents. The
+    // source_package_id may have changed, so we ignore it.
+    pub fn matches_module_contents(&self, other: &ModuleMetadata) -> bool {
+        self.path == other.path
+            && self.analyze_result == other.analyze_result
+            && self.environment == other.environment
+            && self.sha256 == other.sha256
+    }
 }
 
 #[derive(Serialize, Deserialize)]

@@ -84,7 +84,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
     }
 
     pub async fn get_latest(&mut self) -> anyhow::Result<Option<ParsedDocument<SourcePackage>>> {
-        let mut source_package_ids = vec![];
+        let mut latest_source_pkg: Option<ParsedDocument<SourcePackage>> = None;
 
         // TODO(lee) pass component down, instead of deriving it from the tablet.
         let component = match self.namespace {
@@ -96,19 +96,16 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             .get_all_metadata(component)
             .await?
         {
-            source_package_ids.push(module.source_package_id);
+            let src_package = self.get(module.source_package_id).await?;
+            if let Some(latest) = &latest_source_pkg {
+                if src_package.creation_time() > latest.creation_time() {
+                    latest_source_pkg = Some(src_package);
+                }
+            } else {
+                latest_source_pkg = Some(src_package);
+            }
         }
 
-        // If there are no modules - then return None
-        let Some(source_package_id) = source_package_ids.pop() else {
-            return Ok(None);
-        };
-
-        // They should all match
-        anyhow::ensure!(source_package_ids
-            .into_iter()
-            .all(|id| &id == &source_package_id));
-
-        Ok(Some(self.get(source_package_id).await?))
+        Ok(latest_source_pkg)
     }
 }
