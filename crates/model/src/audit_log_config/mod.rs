@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use common::{
     document::ParsedDocument,
     runtime::Runtime,
@@ -25,11 +23,7 @@ use crate::{
 pub mod types;
 use types::AuditLogConfig;
 
-pub static AUDIT_LOG_CONFIG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_audit_log_config"
-        .parse()
-        .expect("Invalid built-in _audit_log_config table")
-});
+pub static AUDIT_LOG_CONFIG_TABLE: TableName = TableName::const_new("_audit_log_config");
 
 pub struct AuditLogConfigTable;
 impl SystemTable for AuditLogConfigTable {

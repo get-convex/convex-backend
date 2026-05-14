@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use anyhow::Context;
 use common::{
     document::{
@@ -34,11 +32,7 @@ use crate::{
 
 pub mod types;
 
-pub static AWS_LAMBDA_VERSIONS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_aws_lambda_versions"
-        .parse()
-        .expect("invalid built-in aws_lambda_versions table")
-});
+pub static AWS_LAMBDA_VERSIONS_TABLE: TableName = TableName::const_new("_aws_lambda_versions");
 
 pub struct AwsLambdaVersionsTable;
 impl SystemTable for AwsLambdaVersionsTable {

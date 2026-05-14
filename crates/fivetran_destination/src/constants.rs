@@ -75,8 +75,8 @@ pub static FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS: LazyLock<IndexedFields> 
         .expect("Invalid IndexedFields")
     });
 
-pub static FIVETRAN_SYNCED_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("_fivetran_by_synced").unwrap());
+pub static FIVETRAN_SYNCED_INDEX_DESCRIPTOR: IndexDescriptor =
+    IndexDescriptor::const_new("_fivetran_by_synced");
 
-pub static FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("_fivetran_by_primary_key").unwrap());
+pub static FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR: IndexDescriptor =
+    IndexDescriptor::const_new("_fivetran_by_primary_key");

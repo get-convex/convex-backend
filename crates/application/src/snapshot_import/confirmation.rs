@@ -78,7 +78,7 @@ async fn messages_to_confirm_replace<RT: Runtime>(
         let component_table = (component_path, table_name);
         while let Some(exported_value) = objects.try_next().await? {
             lineno += 1;
-            if component_table.1 == *TABLES_TABLE {
+            if component_table.1 == TABLES_TABLE {
                 let exported_object = exported_value
                     .as_object()
                     .with_context(|| ImportError::NotAnObject(lineno))?;
@@ -131,8 +131,8 @@ async fn messages_to_confirm_replace<RT: Runtime>(
             .component_registry
             .component_path_to_ids(component_path, &mut TransactionReadSet::new())?
             .map(|(_, component_id)| {
-                let table_name = if table_name == &*FILE_STORAGE_VIRTUAL_TABLE {
-                    &*FILE_STORAGE_TABLE
+                let table_name = if table_name == &FILE_STORAGE_VIRTUAL_TABLE {
+                    &FILE_STORAGE_TABLE
                 } else {
                     table_name
                 };
@@ -165,7 +165,7 @@ async fn messages_to_confirm_replace<RT: Runtime>(
                 },
             );
         }
-        if table_name == &*FILE_STORAGE_VIRTUAL_TABLE {
+        if table_name == &FILE_STORAGE_VIRTUAL_TABLE {
             let to_delete = match mode {
                 ImportMode::Replace | ImportMode::ReplaceAll => {
                     // Overwriting nonempty file storage.

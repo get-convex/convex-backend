@@ -150,7 +150,7 @@ where
                 .unwrap_or_default();
             let path = format!(
                 "{path_prefix}{}/{}{extension_guess}",
-                *FILE_STORAGE_VIRTUAL_TABLE,
+                FILE_STORAGE_VIRTUAL_TABLE,
                 virtual_storage_id.encode()
             );
             let file_stream = components

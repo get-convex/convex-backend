@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use anyhow::Context;
 use common::{
     components::ComponentId,
@@ -32,11 +30,7 @@ use crate::{
 pub mod types;
 pub mod upload_download;
 
-pub static SOURCE_PACKAGES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_source_packages"
-        .parse()
-        .expect("invalid built-in source_packages table")
-});
+pub static SOURCE_PACKAGES_TABLE: TableName = TableName::const_new("_source_packages");
 
 pub struct SourcePackagesTable;
 impl SystemTable for SourcePackagesTable {

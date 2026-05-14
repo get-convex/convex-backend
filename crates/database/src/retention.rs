@@ -1044,8 +1044,8 @@ impl LeaderRetentionWorkers {
         parts
     }
 
-    /// Partitions documents into RETENTION_DELETE_PARALLEL parts where each
-    /// document id only exists in one part
+    /// Partitions documents into DOCUMENT_RETENTION_DELETE_PARALLEL parts where
+    /// each document id only exists in one part
     fn partition_document_chunk(
         to_partition: Vec<(Timestamp, (Timestamp, InternalDocumentId))>,
     ) -> Vec<Vec<(Timestamp, (Timestamp, InternalDocumentId))>> {

@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use common::{
     self,
     document::ParsedDocument,
@@ -20,11 +18,7 @@ use value::{
 pub mod types;
 use types::LogSinksRow;
 
-pub static LOG_SINKS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_log_sinks"
-        .parse()
-        .expect("Invalid built-in _log_sinks table")
-});
+pub static LOG_SINKS_TABLE: TableName = TableName::const_new("_log_sinks");
 
 pub struct LogSinksTable;
 impl SystemTable for LogSinksTable {

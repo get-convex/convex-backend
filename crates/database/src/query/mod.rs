@@ -304,7 +304,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
             QuerySource::FullTableScan(ref full_table_scan) => {
                 let table_name = full_table_scan.table_name.clone();
                 anyhow::ensure!(
-                    &table_name != &*INDEX_TABLE,
+                    &table_name != &INDEX_TABLE,
                     "`_index` can't be queried via .collect() since it doesn't have \
                      by_creation_time index. Please query via by_id index."
                 );

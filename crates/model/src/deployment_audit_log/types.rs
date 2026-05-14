@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
     str::FromStr,
-    sync::LazyLock,
 };
 
 use common::{
@@ -63,11 +62,7 @@ use crate::{
     },
 };
 
-pub static DEPLOYMENT_AUDIT_LOG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_deployment_audit_log"
-        .parse()
-        .expect("Invalid deployment audit log table")
-});
+pub static DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AuditLogIndexDiff {

@@ -80,17 +80,9 @@ pub mod args;
 pub mod types;
 pub mod virtual_table;
 
-pub static SCHEDULED_JOBS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_scheduled_jobs"
-        .parse()
-        .expect("_scheduled_jobs is not a valid system table name")
-});
+pub static SCHEDULED_JOBS_TABLE: TableName = TableName::const_new("_scheduled_jobs");
 
-pub static SCHEDULED_JOBS_VIRTUAL_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_scheduled_functions"
-        .parse()
-        .expect("_scheduled_functions is not a valid virtual table name")
-});
+pub static SCHEDULED_JOBS_VIRTUAL_TABLE: TableName = TableName::const_new("_scheduled_functions");
 
 static SCHEDULED_JOBS_INDEX_BY_ID: LazyLock<IndexName> =
     LazyLock::new(|| GenericIndexName::by_id(SCHEDULED_JOBS_TABLE.clone()));

@@ -1,8 +1,5 @@
 use std::{
-    fmt::{
-        self,
-        Display,
-    },
+    fmt::Display,
     ops::Deref,
     str::FromStr,
 };
@@ -31,11 +28,37 @@ pub const IDENTIFIER_REQUIREMENTS: &str =
 /// [^3]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_START%3A%5D&g=&i=>
 /// [^4]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_CONTINUE%3A%5D&g=&i=>
 pub fn check_valid_identifier(s: &str) -> anyhow::Result<()> {
-    check_valid_identifier_inner(s, |e| anyhow::anyhow!(e.to_string()))
+    if is_valid_identifier(s) {
+        Ok(())
+    } else {
+        check_valid_identifier_slow(s)
+    }
 }
 
-pub fn is_valid_identifier(s: &str) -> bool {
-    check_valid_identifier_inner(s, |_| ()).is_ok()
+pub const fn is_valid_identifier(s: &str) -> bool {
+    if s.len() > MAX_IDENTIFIER_LEN {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    match bytes.first() {
+        Some(c) if c.is_ascii_alphabetic() => (),
+        Some(b'_') => (),
+        _ => return false,
+    }
+    let mut has_non_underscore = false;
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_alphanumeric() {
+            has_non_underscore = true;
+        } else if bytes[i] != b'_' {
+            return false;
+        }
+        i += 1;
+    }
+    if !has_non_underscore {
+        return false;
+    }
+    true
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -80,41 +103,37 @@ impl Deref for Identifier {
     }
 }
 
-fn check_valid_identifier_inner<E>(
-    s: &str,
-    error: impl FnOnce(fmt::Arguments<'_>) -> E,
-) -> Result<(), E> {
+#[cold]
+fn check_valid_identifier_slow(s: &str) -> anyhow::Result<()> {
     let mut chars = s.chars();
     match chars.next() {
         Some(c) if c.is_ascii_alphabetic() => (),
         Some('_') => (),
         Some(c) => {
-            return Err(error(format_args!(
+            anyhow::bail!(
                 "Invalid first character {c:?} in {s}: Identifiers must start with an alphabetic \
                  character or underscore"
-            )))
+            )
         },
-        None => return Err(error(format_args!("Identifier cannot be empty"))),
+        None => anyhow::bail!("Identifier cannot be empty"),
     };
     for c in chars {
         if !c.is_ascii_alphanumeric() && c != '_' {
-            return Err(error(format_args!(
+            anyhow::bail!(
                 "Identifier {s} has invalid character {c:?}: Identifiers can only contain \
                  alphanumeric characters or underscores"
-            )));
+            );
         }
     }
     if s.len() > MAX_IDENTIFIER_LEN {
-        return Err(error(format_args!(
+        anyhow::bail!(
             "Identifier is too long ({} > maximum {})",
             s.len(),
             MAX_IDENTIFIER_LEN
-        )));
+        );
     }
     if s.chars().all(|c| c == '_') {
-        return Err(error(format_args!(
-            "Identifier {s} cannot have exclusively underscores"
-        )));
+        anyhow::bail!("Identifier {s} cannot have exclusively underscores");
     }
     Ok(())
 }

@@ -36,11 +36,7 @@ use crate::{
 
 pub mod types;
 
-pub static INDEX_BACKFILLS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_index_backfills"
-        .parse()
-        .expect("Invalid built-in index_backfills table")
-});
+pub static INDEX_BACKFILLS_TABLE: TableName = TableName::const_new("_index_backfills");
 
 pub static INDEX_BACKFILLS_BY_INDEX_ID: LazyLock<SystemIndex<IndexBackfillTable>> =
     LazyLock::new(|| {

@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::LazyLock,
-};
+use std::collections::BTreeMap;
 
 use anyhow::Context;
 use common::{
@@ -44,11 +41,7 @@ pub mod types;
 
 const NUM_EXTERNAL_DEPS_CACHE_ENTRIES: usize = 10;
 
-pub static EXTERNAL_PACKAGES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_external_deps_packages"
-        .parse()
-        .expect("invalid built-in _external_packages table")
-});
+pub static EXTERNAL_PACKAGES_TABLE: TableName = TableName::const_new("_external_deps_packages");
 
 pub struct ExternalPackagesTable;
 impl SystemTable for ExternalPackagesTable {

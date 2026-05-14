@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use database::system_tables::{
     SystemIndex,
     SystemTable,
@@ -10,11 +8,7 @@ pub mod types;
 
 use types::PersistedBackendState;
 
-pub static BACKEND_STATE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_backend_state"
-        .parse()
-        .expect("Invalid built-in backend_state table")
-});
+pub static BACKEND_STATE_TABLE: TableName = TableName::const_new("_backend_state");
 
 pub struct BackendStateTable;
 impl SystemTable for BackendStateTable {

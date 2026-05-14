@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use anyhow::Context;
 use common::{
     components::ComponentPath,
@@ -48,11 +46,7 @@ use crate::{
 
 pub mod types;
 
-pub static SNAPSHOT_IMPORTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_snapshot_imports"
-        .parse()
-        .expect("Invalid built-in snapshot imports table")
-});
+pub static SNAPSHOT_IMPORTS_TABLE: TableName = TableName::const_new("_snapshot_imports");
 
 pub struct SnapshotImportsTable;
 impl SystemTable for SnapshotImportsTable {
