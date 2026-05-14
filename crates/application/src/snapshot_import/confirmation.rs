@@ -96,7 +96,7 @@ async fn messages_to_confirm_replace<RT: Runtime>(
                     .or_default();
             }
             if !tables_missing_id_field.contains(&component_table)
-                && exported_value.get(&**ID_FIELD).is_none()
+                && exported_value.get(&*ID_FIELD).is_none()
             {
                 tables_missing_id_field.insert(component_table.clone());
             }

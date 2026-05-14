@@ -153,29 +153,34 @@ pub fn check_valid_field_name(s: &str) -> anyhow::Result<()> {
     check_valid_field_name_slow(s)
 }
 
-pub fn is_valid_field_name(s: &str) -> bool {
-    if s.starts_with('$') {
+pub const fn is_valid_field_name(s: &str) -> bool {
+    if let [b'$', ..] = s.as_bytes() {
         return false;
     }
     if s.len() > MAX_FIELD_NAME_LENGTH {
         return false;
     }
-    // Ideally this should use slice::as_chunks, but MSRV is 1.85 and that method is
-    // only in 1.88
-    let mut chunks = s.as_bytes().chunks_exact(16);
-    for chunk in &mut chunks {
-        let chunk = <[u8; 16]>::try_from(chunk).unwrap();
-        // this strange construction convinces LLVM to vectorize the check
-        if chunk.map(|c| !c.is_ascii() || c.is_ascii_control()) != [false; 16] {
+    let mut bytes = s.as_bytes();
+    // LLVM is able to vectorize this
+    while let Some((chunk, rest)) = bytes.split_first_chunk::<16>() {
+        bytes = rest;
+        let mut j = 0;
+        let mut bad = false;
+        while j < 16 {
+            let c = chunk[j];
+            bad |= !c.is_ascii() || c.is_ascii_control();
+            j += 1;
+        }
+        if bad {
             return false;
         }
     }
-    if chunks
-        .remainder()
-        .iter()
-        .any(|c| !c.is_ascii() || c.is_ascii_control())
-    {
-        return false;
+    while let Some((&c, rest)) = bytes.split_first() {
+        bytes = rest;
+        // `|` generates better code than `||` when used directly in an `if` condition
+        if !c.is_ascii() | c.is_ascii_control() {
+            return false;
+        }
     }
     true
 }

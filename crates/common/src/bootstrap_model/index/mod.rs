@@ -30,8 +30,7 @@ use crate::{
 /// Table name for Index data.
 pub static INDEX_TABLE: TableName = TableName::const_new("_index");
 /// Field for an indexed table's name in `IndexMetadata`.
-pub static TABLE_ID_FIELD_NAME: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "table_id".parse().expect("Invalid built-in field"));
+pub const TABLE_ID_FIELD_NAME: IdentifierFieldName = IdentifierFieldName::const_new("table_id");
 pub static TABLE_ID_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| FieldPath::new(vec![TABLE_ID_FIELD_NAME.clone()]).unwrap());
 

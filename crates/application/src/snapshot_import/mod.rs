@@ -1416,7 +1416,7 @@ async fn insert_import_objects<RT: Runtime>(
     }
     let object_ids: Vec<_> = objects_to_insert
         .iter()
-        .filter_map(|object| object.get(&**ID_FIELD))
+        .filter_map(|object| object.get(&*ID_FIELD))
         .collect();
     let object_ids_dedup: BTreeSet<_> = object_ids.iter().collect();
     if object_ids_dedup.len() < object_ids.len() {
@@ -1658,7 +1658,7 @@ async fn table_number_for_import(
 ) -> Option<TableNumber> {
     let first_object = Pin::new(objects).peek().await?.as_ref().ok()?;
     let object = first_object.as_object()?;
-    let first_id = object.get(&**ID_FIELD)?;
+    let first_id = object.get(&*ID_FIELD)?;
     let JsonValue::String(id) = first_id else {
         return None;
     };

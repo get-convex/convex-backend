@@ -76,7 +76,7 @@ use crate::{
 
 /// The database automatically inserts the assigned document ID as an "_id"
 /// field.
-pub static ID_FIELD: LazyLock<IdentifierFieldName> = LazyLock::new(|| "_id".parse().unwrap());
+pub const ID_FIELD: IdentifierFieldName = IdentifierFieldName::const_new("_id");
 
 pub static ID_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| FieldPath::new(vec![ID_FIELD.clone()]).unwrap());
@@ -84,8 +84,8 @@ pub static ID_FIELD_PATH: LazyLock<FieldPath> =
 /// The database automatically inserts the creation time in each document with
 /// the "_creationTime" field. The timestamp is a Float64 of milliseconds since
 /// the Unix epoch.
-pub static CREATION_TIME_FIELD: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "_creationTime".parse().unwrap());
+pub const CREATION_TIME_FIELD: IdentifierFieldName =
+    IdentifierFieldName::const_new("_creationTime");
 
 pub static CREATION_TIME_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| FieldPath::new(vec![CREATION_TIME_FIELD.clone()]).unwrap());
@@ -470,9 +470,7 @@ impl ResolvedDocument {
             None => violations.push(DocumentValidationError::CreationTimeMissing),
         }
         for (field, _) in self.value.iter() {
-            if field == &(*ID_FIELD).clone().into()
-                || field == &(*CREATION_TIME_FIELD).clone().into()
-            {
+            if field == &ID_FIELD.into() || field == &CREATION_TIME_FIELD.into() {
                 continue;
             }
             if field.is_system() {
