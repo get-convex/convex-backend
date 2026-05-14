@@ -35,6 +35,28 @@ export async function innerEsbuild({
   includeSourcesContent?: boolean;
   splitting?: boolean | undefined;
 }) {
+  const nodeShimsPlugin: esbuild.Plugin = {
+    name: "convex-async-hooks-shim",
+    setup(build) {
+      // "use node" actions have real async_hooks; only shim for the isolate runtime.
+      if (platform !== "browser") return;
+
+      const asyncHooksFilter = /^(node:)?async_hooks$/;
+      build.onResolve({ filter: asyncHooksFilter }, (args) => ({
+        path: args.path,
+        namespace: "async-hooks-shim",
+      }));
+      build.onLoad({ filter: /.*/, namespace: "async-hooks-shim" }, () => ({
+        contents: `
+            export const AsyncLocalStorage = globalThis.AsyncLocalStorage;
+            export const AsyncResource = globalThis.AsyncResource;
+            export default { AsyncLocalStorage, AsyncResource };
+          `,
+        loader: "js",
+      }));
+    },
+  };
+
   const result = await esbuild.build({
     entryPoints,
     bundle: true,
@@ -45,7 +67,7 @@ export async function innerEsbuild({
     outdir: "out",
     outbase: dir,
     conditions: ["convex", "module", ...extraConditions],
-    plugins,
+    plugins: [nodeShimsPlugin, ...plugins],
     write: false,
     sourcemap: generateSourceMaps,
     sourcesContent: includeSourcesContent,
