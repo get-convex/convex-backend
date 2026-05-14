@@ -23,13 +23,34 @@ export function useNents(): {
   setSelectedNent: (nent?: string) => Promise<void>;
 } {
   const { query, push } = useRouter();
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+    useCustomRolePermission,
+  } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  const hasAdminPermissions = useHasProjectAdminPermissions(
+    deployment?.projectId,
+  );
   const canViewData = useIsOperationAllowed("ViewData");
+  // Built-in admin/developer members keep the admin-key gate; custom-role
+  // members need an explicit `deployment:data:view` grant. A project
+  // admin always passes.
+  const canViewDataCustom = useCustomRolePermission(
+    "deployment:data:view",
+    true,
+  );
+  const canView =
+    canViewData && (hasAdminPermissions || canViewDataCustom !== false);
   const allComponentsOrSkipped = useQuery(
     api._system.frontend.components.list,
-    canViewData ? {} : "skip",
+    canView ? {} : "skip",
   );
-  const allComponents = canViewData ? allComponentsOrSkipped : [];
+  const allComponents = useMemo(
+    () => (canView ? allComponentsOrSkipped : []),
+    [canView, allComponentsOrSkipped],
+  );
 
   // Ensure the selected component is in the list of all components
   if (allComponents !== undefined && typeof query.component === "string") {

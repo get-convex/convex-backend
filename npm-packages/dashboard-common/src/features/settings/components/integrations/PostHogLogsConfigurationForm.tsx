@@ -42,7 +42,8 @@ export function PostHogLogsConfigurationForm({
       host: existingConfig?.host ?? "",
       serviceName: existingConfig?.serviceName ?? "",
     },
-    onSubmit: async (values) => {
+    onSubmit: async (values, helpers) => {
+      helpers.setStatus(undefined);
       const args = {
         logStreamType: "postHogLogs" as const,
         apiKey: values.apiKey,
@@ -50,15 +51,21 @@ export function PostHogLogsConfigurationForm({
         serviceName: values.serviceName || null,
       };
 
-      if (isNewIntegration) {
-        await createLogStream(args);
-        onAddedIntegration?.();
-        toast("success", "Created PostHog Logs integration");
-      } else {
-        await updateLogStream(logStreamId, args);
-        toast("success", "Updated PostHog Logs integration");
+      try {
+        if (isNewIntegration) {
+          await createLogStream(args);
+          onAddedIntegration?.();
+          toast("success", "Created PostHog Logs integration");
+        } else {
+          await updateLogStream(logStreamId, args);
+          toast("success", "Updated PostHog Logs integration");
+        }
+        onClose();
+      } catch (e) {
+        helpers.setStatus({
+          error: e instanceof Error ? e.message : "Failed to save integration.",
+        });
       }
-      onClose();
     },
     validationSchema,
   });
@@ -104,12 +111,18 @@ export function PostHogLogsConfigurationForm({
         error={formState.errors.serviceName}
         description="OTLP service name for log attribution. Defaults to your deployment name."
       />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {formState.status?.error && (
+          <p className="text-sm text-content-errorSecondary" role="alert">
+            {formState.status.error}
+          </p>
+        )}
         <Button
           variant="primary"
           type="submit"
           aria-label="save"
-          disabled={!formState.dirty}
+          disabled={!formState.dirty || formState.isSubmitting}
+          loading={formState.isSubmitting}
         >
           Save
         </Button>

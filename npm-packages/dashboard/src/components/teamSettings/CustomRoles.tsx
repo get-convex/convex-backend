@@ -538,28 +538,34 @@ function CustomRoleForm({
             />
           </div>
         </div>
-        <div className="flex w-full items-center justify-end gap-2">
+        <div className="flex w-full items-start justify-end gap-2">
           {error && (
             <p className="mr-auto text-sm text-content-errorSecondary">
               {error}
             </p>
           )}
           {!error && savedRoleName && (
-            <div className="mr-auto flex items-center gap-1 text-sm">
-              <CheckCircledIcon className="shrink-0 text-content-success" />
-              <p>
-                Saved “{savedRoleName}”. Assign this role to a team member on
-                the{" "}
-                <Link
-                  href={{
-                    pathname: "/t/[team]/settings/members",
-                    query: { team: teamSlug },
-                  }}
-                >
-                  Team Settings → Members page
-                </Link>
-                .
-              </p>
+            <div className="mr-auto flex items-start gap-1 text-sm">
+              <CheckCircledIcon className="mt-0.5 shrink-0 text-content-success" />
+              <div className="flex flex-col gap-1">
+                <p>
+                  Saved “{savedRoleName}”. Assign this role to a team member on
+                  the{" "}
+                  <Link
+                    href={{
+                      pathname: "/t/[team]/settings/members",
+                      query: { team: teamSlug },
+                    }}
+                  >
+                    Team Settings → Members page
+                  </Link>
+                  .
+                </p>
+                <p className="text-xs text-content-secondary">
+                  Changes to deployment-level actions may take a few minutes to
+                  propogate to team members.
+                </p>
+              </div>
             </div>
           )}
           <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>

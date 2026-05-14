@@ -6,7 +6,13 @@ import {
   useDeleteDeployKey,
   useDeployKeys,
 } from "api/accessTokens";
-import { useHasProjectAdminPermissions } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { useProfile } from "api/profile";
+import { deploymentTokenResource } from "lib/permissions";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { Link } from "@ui/Link";
 
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
@@ -14,24 +20,109 @@ import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
 export function DeployKeysForDeployment() {
   const project = useCurrentProject();
   const team = useCurrentTeam();
+  const profile = useProfile();
   const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
-
   const deployment = useCurrentDeployment();
   const deploymentType = deployment?.deploymentType ?? "prod";
+  const isProd = deploymentType === "prod";
 
-  const disabledReason =
-    deploymentType === "prod" && !hasAdminPermissions
-      ? "CannotManageProd"
-      : deployment?.kind === "local"
-        ? "LocalDeployment"
-        : null;
+  // Deployment-token resources are scoped under the project+deployment
+  // segments (canonical path `project:*:deployment:*:token:*`).
+  //
+  // Two resource shapes:
+  // - `*-Any` uses creator=null, which means a `creator=me`-restricted
+  //   role *won't* match. We use this for whole-list operations (view,
+  //   delete) since the deploy-keys list shows every member's tokens —
+  //   a role that only grants "view your own" shouldn't let you see
+  //   the full list.
+  // - `*-Own` uses the current member's id, so a `creator=me` role
+  //   *does* match. We use this for create, where the actor becomes
+  //   the token's creator.
+  const tokenResourceAny =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentTokenResource(
+          project,
+          {
+            id: deployment.id,
+            deploymentType: deployment.deploymentType,
+            creator: deployment.creator ?? null,
+          },
+          null,
+        )
+      : undefined;
+  const tokenResourceOwn =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentTokenResource(
+          project,
+          {
+            id: deployment.id,
+            deploymentType: deployment.deploymentType,
+            creator: deployment.creator ?? null,
+          },
+          profile?.id ?? null,
+        )
+      : undefined;
+
+  // Built-in admin/developer members keep the historical prod-only
+  // gate (developers can view/create/delete deploy keys on non-prod;
+  // admins anywhere — prod deploy keys are admin-only because they
+  // grant full prod access). Custom-role members start with no
+  // permissions, so a `deployment:token:*` grant is required on every
+  // deployment type, not just prod.
+  const canViewCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:token:view",
+    tokenResourceAny,
+    !isProd,
+  );
+  const canCreateCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:token:create",
+    tokenResourceOwn,
+    !isProd,
+  );
+  const canDeleteCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:token:delete",
+    tokenResourceAny,
+    !isProd,
+  );
+
+  const canView = hasAdminPermissions || canViewCustom !== false;
+  const canCreate = hasAdminPermissions || canCreateCustom === true;
+  const canDelete = hasAdminPermissions || canDeleteCustom === true;
+  const disabledReason = !canCreate
+    ? "CannotManageDeployment"
+    : deployment?.kind === "local"
+      ? "LocalDeployment"
+      : null;
 
   const createDeployKey = useCreateDeployKey(deployment?.name || "");
   const deleteDeployKey = useDeleteDeployKey(deployment?.name || "");
 
+  // Skip the list query when the member can't view tokens or the
+  // deployment isn't cloud-backed (local deployments don't have a list
+  // endpoint). Don't gate on `disabledReason` — a member who can view
+  // but not create (e.g. a built-in developer on prod) still needs the
+  // list to render their read-only view, otherwise the UI spins
+  // forever waiting on a query that never fires.
   const deployKeys = useDeployKeys(
-    disabledReason === null ? deployment?.name : undefined,
+    canView && deployment?.kind === "cloud" ? deployment?.name : undefined,
   );
+
+  if (canView === false) {
+    return (
+      <div className="w-full">
+        <div className="mb-2 flex w-full items-center justify-between">
+          <h4>Deploy Keys</h4>
+        </div>
+        <NoPermissionMessage
+          message="You do not have permission to view deploy keys in this deployment."
+          missingPermission="deployment:token:view"
+        />
+      </div>
+    );
+  }
 
   const deployKeyDescription = (
     <p className="mb-2 max-w-prose text-content-primary">
@@ -94,6 +185,7 @@ export function DeployKeysForDeployment() {
           description={deployKeyDescription}
           deploymentType={deploymentType}
           onDelete={deleteDeployKey}
+          canDelete={canDelete}
           deployKeys={deployKeys}
           disabledReason={disabledReason}
         />

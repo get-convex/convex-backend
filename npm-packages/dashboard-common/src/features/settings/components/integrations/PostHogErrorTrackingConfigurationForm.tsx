@@ -42,22 +42,29 @@ export function PostHogErrorTrackingConfigurationForm({
       apiKey: existingConfig?.apiKey ?? "",
       host: existingConfig?.host ?? "",
     },
-    onSubmit: async (values) => {
+    onSubmit: async (values, helpers) => {
+      helpers.setStatus(undefined);
       const args = {
         logStreamType: "postHogErrorTracking" as const,
         apiKey: values.apiKey,
         host: values.host || null,
       };
 
-      if (isNewIntegration) {
-        await createLogStream(args);
-        onAddedIntegration?.();
-        toast("success", "Created PostHog Error Tracking integration");
-      } else {
-        await updateLogStream(logStreamId, args);
-        toast("success", "Updated PostHog Error Tracking integration");
+      try {
+        if (isNewIntegration) {
+          await createLogStream(args);
+          onAddedIntegration?.();
+          toast("success", "Created PostHog Error Tracking integration");
+        } else {
+          await updateLogStream(logStreamId, args);
+          toast("success", "Updated PostHog Error Tracking integration");
+        }
+        onClose();
+      } catch (e) {
+        helpers.setStatus({
+          error: e instanceof Error ? e.message : "Failed to save integration.",
+        });
       }
-      onClose();
     },
     validationSchema,
   });
@@ -94,12 +101,18 @@ export function PostHogErrorTrackingConfigurationForm({
         error={formState.errors.host}
         description="PostHog host URL (the endpoint path is added automatically). Defaults to US Cloud. Use https://eu.i.posthog.com for EU Cloud, or your self-hosted URL."
       />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {formState.status?.error && (
+          <p className="text-sm text-content-errorSecondary" role="alert">
+            {formState.status.error}
+          </p>
+        )}
         <Button
           variant="primary"
           type="submit"
           aria-label="save"
-          disabled={!formState.dirty}
+          disabled={!formState.dirty || formState.isSubmitting}
+          loading={formState.isSubmitting}
         >
           Save
         </Button>

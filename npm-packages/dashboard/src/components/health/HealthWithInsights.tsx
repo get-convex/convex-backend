@@ -23,6 +23,11 @@ import { useCurrentDeployment, useDeploymentRegions } from "api/deployments";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useListCloudBackupsIfAvailable } from "api/backups";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import {
@@ -74,9 +79,31 @@ export function HealthWithInsights() {
   const deployment = useCurrentDeployment();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const backups = useListCloudBackupsIfAvailable(deployment);
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
+
+  // Only fetch the backup list when the member can view it — otherwise
+  // the request hangs and the summary's backup section would either spin
+  // forever or block rendering entirely.
+  const isAdmin = useHasProjectAdminPermissions(project?.id);
+  const resource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const canViewBackupsCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:backups:view",
+    resource,
+    true,
+  );
+  const canViewBackups = isAdmin || canViewBackupsCustom !== false;
+  const backups = useListCloudBackupsIfAvailable(
+    canViewBackups ? deployment : undefined,
+  );
 
   // Get the most recent backup for this deployment
   // backups is null when not available (d1024, non-cloud), undefined when loading
@@ -243,6 +270,7 @@ export function HealthWithInsights() {
         teamSlug={team?.slug}
         projectSlug={project?.slug}
         lastBackupTime={lastBackupTime}
+        canViewBackups={canViewBackups}
         teamMembers={teamMembers}
         regions={regions}
       />

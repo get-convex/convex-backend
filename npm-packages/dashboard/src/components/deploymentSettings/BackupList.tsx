@@ -15,12 +15,16 @@ import { useLatestRestore } from "./BackupRestoreStatus";
 export function BackupList({
   targetDeployment,
   team,
-  canPerformActions,
+  canCreate,
+  canImport,
+  canDelete,
   maxCloudBackups,
 }: {
   targetDeployment: PlatformDeploymentResponse; // = deployment the settings page is open for
   team: TeamResponse;
-  canPerformActions: boolean;
+  canCreate: boolean;
+  canImport: boolean;
+  canDelete: boolean;
   maxCloudBackups: number;
 }) {
   const [selectedDeployment, setSelectedDeployment] =
@@ -60,7 +64,9 @@ export function BackupList({
             backups={backups}
             targetDeployment={targetDeployment}
             restoringBackupId={restoringBackupId}
-            canPerformActions={canPerformActions}
+            canCreate={canCreate}
+            canImport={canImport}
+            canDelete={canDelete}
             maxCloudBackups={maxCloudBackups}
           />
         )}
@@ -73,13 +79,17 @@ function BackupListForDeployment({
   backups,
   targetDeployment,
   restoringBackupId,
-  canPerformActions,
+  canCreate,
+  canImport,
+  canDelete,
   maxCloudBackups,
 }: {
   backups: BackupResponse[];
   targetDeployment: PlatformDeploymentResponse;
   restoringBackupId: bigint | null;
-  canPerformActions: boolean;
+  canCreate: boolean;
+  canImport: boolean;
+  canDelete: boolean;
   maxCloudBackups: number;
 }) {
   const existingCloudBackup = useQuery(udfs.latestExport.latestCloudExport);
@@ -126,7 +136,9 @@ function BackupListForDeployment({
           latestBackupInTargetDeployment={latestBackupInTargetDeployment}
           targetDeployment={targetDeployment}
           getZipExportUrl={getZipExportUrl}
-          canPerformActions={canPerformActions}
+          canCreate={canCreate}
+          canImport={canImport}
+          canDelete={canDelete}
           maxCloudBackups={maxCloudBackups}
           progressMessage={progressMessageForBackup(
             backup,

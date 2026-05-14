@@ -579,12 +579,40 @@ export function useFunctionTester({
     onCopiedQueryResult,
   });
 
-  const { useLogDeploymentEvent, useIsOperationAllowed } = useContext(
-    DeploymentInfoContext,
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useLogDeploymentEvent,
+    useIsOperationAllowed,
+    useCustomRolePermission,
+    permissionDeniedTip,
+  } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  const hasAdminPermissions = useHasProjectAdminPermissions(
+    deployment?.projectId,
   );
-  const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
-  const canViewData = useIsOperationAllowed("ViewData");
-  const canActAsUser = useIsOperationAllowed("ActAsUser");
+  const canRunInternalQueriesOp = useIsOperationAllowed("RunInternalQueries");
+  const canViewDataOp = useIsOperationAllowed("ViewData");
+  const canActAsUserOp = useIsOperationAllowed("ActAsUser");
+  const canRunInternalQueriesCustom = useCustomRolePermission(
+    "deployment:functions:runInternalQueries",
+    true,
+  );
+  const canViewDataCustom = useCustomRolePermission(
+    "deployment:data:view",
+    true,
+  );
+  const canActAsUserCustom = useCustomRolePermission(
+    "deployment:functions:actAsUser",
+    true,
+  );
+  const canRunInternalQueries =
+    canRunInternalQueriesOp &&
+    (hasAdminPermissions || canRunInternalQueriesCustom !== false);
+  const canViewData =
+    canViewDataOp && (hasAdminPermissions || canViewDataCustom !== false);
+  const canActAsUser =
+    canActAsUserOp && (hasAdminPermissions || canActAsUserCustom !== false);
 
   const canRunQuery = (() => {
     if (!moduleFunction || moduleFunction.udfType !== "Query") return true;
@@ -607,13 +635,30 @@ export function useFunctionTester({
       />
     );
 
+  // Which custom-role action unblocks this query — surfaced inline so
+  // members see exactly which grant is missing.
+  const missingQueryAction = moduleFunction
+    ? moduleFunction.visibility?.kind === "internal"
+      ? ("deployment:functions:runInternalQueries" as const)
+      : moduleFunction.componentPath
+        ? ("deployment:data:view" as const)
+        : null
+    : null;
   const queryPermissionDenied = moduleFunction &&
     moduleFunction.udfType === "Query" &&
     !canRunQuery && (
-      <div className="flex h-full items-center justify-center p-4">
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
         <p className="text-sm text-content-secondary">
           You do not have permission to run this function in this deployment.
         </p>
+        {missingQueryAction && (
+          <p className="text-xs text-content-tertiary">
+            Missing permission:{" "}
+            <code className="rounded bg-background-tertiary px-1 py-0.5 font-mono">
+              {missingQueryAction}
+            </code>
+          </p>
+        )}
       </div>
     );
   const log = useLogDeploymentEvent();
@@ -661,7 +706,10 @@ export function useFunctionTester({
           <Tooltip
             tip={
               !canActAsUser
-                ? "You do not have permission to act as a user in this deployment."
+                ? permissionDeniedTip(
+                    "You do not have permission to act as a user in this deployment.",
+                    "deployment:functions:actAsUser",
+                  )
                 : undefined
             }
           >

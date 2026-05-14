@@ -11,6 +11,7 @@ import {
 export function DeploymentAccessTokenList({
   deploymentType,
   onDelete,
+  canDelete = true,
   deployKeys,
   disabledReason,
   buttonProps,
@@ -20,6 +21,7 @@ export function DeploymentAccessTokenList({
 }: {
   deploymentType: string;
   onDelete: (args: { id: string }) => Promise<unknown>;
+  canDelete?: boolean;
   deployKeys: PlatformDeployKeyResponse[] | undefined;
   disabledReason: DeployKeyGenerationDisabledReason | null;
   buttonProps: GenerateDeployKeyWithNameButtonProps;
@@ -35,7 +37,12 @@ export function DeploymentAccessTokenList({
         <GenerateDeployKeyWithNameButton {...buttonProps} />
       </div>
       {description}
-      {disabledReason === null && (
+      {/* Local deployments don't have remote deploy keys, so the list
+          isn't applicable there. For any other disabled reason
+          (e.g. the member can view but not create), still render the
+          list — including the empty-state message — so they can see
+          existing keys. */}
+      {disabledReason !== "LocalDeployment" && (
         <LoadingTransition
           loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
         >
@@ -49,6 +56,7 @@ export function DeploymentAccessTokenList({
                       deployKey={deployKey}
                       deploymentType={deploymentType}
                       onDelete={onDelete}
+                      canDelete={canDelete}
                       key={deployKey.name}
                     />
                   ))

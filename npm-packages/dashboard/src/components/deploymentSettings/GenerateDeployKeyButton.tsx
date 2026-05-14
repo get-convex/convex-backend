@@ -19,7 +19,7 @@ import {
 } from "components/TokenExpirationSelector";
 
 export type DeployKeyGenerationDisabledReason =
-  | "CannotManageProd"
+  | "CannotManageDeployment"
   | "LocalDeployment";
 
 type OperationGroup = {
@@ -446,8 +446,8 @@ export function GenerateDeployKeyWithNameButton({
       <Button
         disabled={disabledReason !== null}
         tip={
-          disabledReason === "CannotManageProd"
-            ? "You do not have permission to generate a production deploy key."
+          disabledReason === "CannotManageDeployment"
+            ? "You do not have permission to generate a deploy key for this deployment."
             : disabledReason === "LocalDeployment"
               ? "You cannot generate deploy keys for a local deployment."
               : undefined
@@ -523,8 +523,8 @@ export function GenerateDeployKeyButton({
 }
 
 const DEPLOY_KEY_GENERATION_DISABLED_REASONS = {
-  CannotManageProd:
-    "You do not have permission to generate a production deploy key.",
+  CannotManageDeployment:
+    "You do not have permission to generate a deploy key for this deployment.",
   LocalDeployment: "You cannot generate deploy keys for a local deployment.",
 } as const;
 

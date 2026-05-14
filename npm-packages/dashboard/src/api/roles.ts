@@ -7,6 +7,7 @@ import {
   useManagementApiMutation,
   useManagementApiQuery,
 } from "./api";
+import { useCurrentDeployment } from "./deployments";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
 
@@ -162,6 +163,12 @@ export function useHasCustomRolePermission(
 ): boolean | undefined {
   const myRoles = useMyCustomRoles(teamId);
   const profile = useProfile();
+  const deployment = useCurrentDeployment();
+  if (deployment?.kind === "local" && action?.startsWith("deployment:")) {
+    // Role permissions don't apply to local deployments
+    return true;
+  }
+
   if (action === undefined || resource === undefined) return undefined;
   if (myRoles === undefined) return undefined;
   if (myRoles.role !== "custom") return nonCustomRoleResult;

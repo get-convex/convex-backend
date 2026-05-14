@@ -25,7 +25,12 @@ import {
 import { Link } from "@ui/Link";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
-import { useHasProjectAdminPermissions } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { ChevronDownIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { Combobox } from "@ui/Combobox";
 import { BackupList } from "./BackupList";
@@ -50,8 +55,56 @@ export function Backups({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment.projectId,
   );
-  const canPerformActions =
-    deployment.deploymentType !== "prod" || hasAdminPermissions;
+
+  // Built-in role semantics for write actions: admin can always act,
+  // developer is allowed on non-prod deployments. Custom-role members are
+  // gated per-action by their explicit grants.
+  const builtinAllowed = deployment.deploymentType !== "prod";
+  const resource =
+    project && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const canCreateCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:create",
+    resource,
+    builtinAllowed,
+  );
+  const canImportCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:import",
+    resource,
+    builtinAllowed,
+  );
+  const canConfigurePeriodicCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:configurePeriodic",
+    resource,
+    builtinAllowed,
+  );
+  const canDisablePeriodicCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:disablePeriodic",
+    resource,
+    builtinAllowed,
+  );
+  const canDeleteCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:delete",
+    resource,
+    builtinAllowed,
+  );
+  const canCreate = hasAdminPermissions || canCreateCustom === true;
+  const canImport = hasAdminPermissions || canImportCustom === true;
+  const canConfigurePeriodic =
+    hasAdminPermissions || canConfigurePeriodicCustom === true;
+  const canDisablePeriodic =
+    hasAdminPermissions || canDisablePeriodicCustom === true;
+  const canDelete = hasAdminPermissions || canDeleteCustom === true;
 
   const isDedicated =
     deployment.kind === "cloud" && deployment.class.startsWith("d");
@@ -82,7 +135,8 @@ export function Backups({
           {periodicBackupsEnabled ? (
             <AutomaticBackupSelector
               deployment={deployment}
-              canPerformActions={canPerformActions}
+              canConfigurePeriodic={canConfigurePeriodic}
+              canDisablePeriodic={canDisablePeriodic}
             />
           ) : (
             <Tooltip
@@ -107,7 +161,7 @@ export function Backups({
           <BackupNowButton
             deployment={deployment}
             maxCloudBackups={maxCloudBackups}
-            canPerformActions={canPerformActions}
+            canCreate={canCreate}
           />
           <BackupProCallouts
             team={team}
@@ -149,7 +203,9 @@ export function Backups({
             <BackupList
               team={team}
               targetDeployment={deployment}
-              canPerformActions={canPerformActions}
+              canCreate={canCreate}
+              canImport={canImport}
+              canDelete={canDelete}
               maxCloudBackups={maxCloudBackups}
             />
           </Sheet>
@@ -215,10 +271,12 @@ function BackupProCallouts({
 
 export function AutomaticBackupSelector({
   deployment,
-  canPerformActions,
+  canConfigurePeriodic,
+  canDisablePeriodic,
 }: {
   deployment: PlatformDeploymentResponse;
-  canPerformActions: boolean;
+  canConfigurePeriodic: boolean;
+  canDisablePeriodic: boolean;
 }) {
   const deploymentId = deployment.kind === "cloud" ? deployment.id : undefined;
   const periodicBackup = useGetPeriodicBackupConfig(deploymentId);
@@ -227,11 +285,24 @@ export function AutomaticBackupSelector({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Whether the checkbox can be toggled depends on its current state:
+  // turning automatic backups on requires `configurePeriodic`, turning
+  // them off requires `disablePeriodic`.
+  const canToggleCheckbox = periodicBackup
+    ? canDisablePeriodic
+    : canConfigurePeriodic;
+  const toggleMissingPermission = periodicBackup
+    ? "deployment:backups:disablePeriodic"
+    : "deployment:backups:configurePeriodic";
+
   return (
     <Tooltip
       tip={
-        !canPerformActions
-          ? "You do not have permission to change the backup settings in production."
+        !canToggleCheckbox
+          ? permissionDeniedTip(
+              "You do not have permission to change the automatic backup settings.",
+              toggleMissingPermission,
+            )
           : undefined
       }
     >
@@ -240,7 +311,7 @@ export function AutomaticBackupSelector({
           <Checkbox
             checked={!!periodicBackup}
             disabled={
-              periodicBackup === undefined || isSubmitting || !canPerformActions
+              periodicBackup === undefined || isSubmitting || !canToggleCheckbox
             }
             onChange={async () => {
               setIsSubmitting(true);
@@ -278,7 +349,7 @@ export function AutomaticBackupSelector({
             <BackupScheduleSelector
               cronspec={periodicBackup.cronspec}
               deployment={deployment}
-              disabled={!canPerformActions}
+              disabled={!canConfigurePeriodic}
             />
             <div>
               <TimestampDistance
@@ -293,7 +364,7 @@ export function AutomaticBackupSelector({
             <BackupIncludeStorageSelector
               periodicBackup={periodicBackup}
               deployment={deployment}
-              disabled={!canPerformActions}
+              disabled={!canConfigurePeriodic}
             />
           </>
         )}

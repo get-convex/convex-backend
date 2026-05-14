@@ -17,37 +17,55 @@ export function IntegrationsView({
     useTeamEntitlements,
     useCurrentDeployment,
     useIsOperationAllowed,
+    useCustomRolePermission,
+    useHasProjectAdminPermissions,
     workOSOperations,
   } = useContext(DeploymentInfoContext);
   const team = useCurrentTeam();
   const deployment = useCurrentDeployment();
   const entitlements = useTeamEntitlements(team?.id);
+  const isAdmin = useHasProjectAdminPermissions(deployment?.projectId);
   const canViewIntegrations = useIsOperationAllowed("ViewIntegrations");
+  const canViewIntegrationsCustomRaw = useCustomRolePermission(
+    "deployment:integrations:view",
+    true,
+  );
+  const canViewIntegrationsCustom = isAdmin || canViewIntegrationsCustomRaw;
   const integrations = useQuery(
     udfs.listConfiguredSinks.default,
-    canViewIntegrations ? undefined : "skip",
+    canViewIntegrations && canViewIntegrationsCustom !== false
+      ? undefined
+      : "skip",
   );
   const { data: workosData } = workOSOperations.useDeploymentWorkOSEnvironment(
     deployment?.name,
   );
 
+  const body =
+    canViewIntegrationsCustom === false ? (
+      <NoPermissionMessage
+        message="You do not have permission to view integrations."
+        missingPermission="deployment:integrations:view"
+      />
+    ) : !canViewIntegrations ? (
+      <NoPermissionMessage message="You do not have permission to view integrations in this deployment." />
+    ) : (
+      <LoadingTransition>
+        {team && entitlements && integrations !== undefined && (
+          <Integrations
+            team={team}
+            entitlements={entitlements}
+            integrations={integrations}
+            workosData={workosData}
+            onAddedIntegration={onAddedIntegration}
+          />
+        )}
+      </LoadingTransition>
+    );
+
   return (
     <DeploymentSettingsLayout page="integrations">
-      {!canViewIntegrations ? (
-        <NoPermissionMessage message="You do not have permission to view integrations in this deployment." />
-      ) : (
-        <LoadingTransition>
-          {team && entitlements && integrations !== undefined && (
-            <Integrations
-              team={team}
-              entitlements={entitlements}
-              integrations={integrations}
-              workosData={workosData}
-              onAddedIntegration={onAddedIntegration}
-            />
-          )}
-        </LoadingTransition>
-      )}
+      {body}
     </DeploymentSettingsLayout>
   );
 }

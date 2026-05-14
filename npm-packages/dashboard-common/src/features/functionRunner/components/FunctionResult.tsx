@@ -99,6 +99,8 @@ export function useFunctionResult({
     useCurrentDeployment,
     useHasProjectAdminPermissions,
     useIsOperationAllowed,
+    useCustomRolePermission,
+    permissionDeniedTip,
     useLogDeploymentEvent,
   } = useContext(DeploymentInfoContext);
 
@@ -111,11 +113,49 @@ export function useFunctionResult({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
-  const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
-  const canRunInternalMutations = useIsOperationAllowed("RunInternalMutations");
-  const canRunInternalActions = useIsOperationAllowed("RunInternalActions");
-  const canViewData = useIsOperationAllowed("ViewData");
-  const canWriteData = useIsOperationAllowed("WriteData");
+  // Each run guard ANDs the admin-key op with the custom-role permission.
+  // `nonCustomRoleResult` is `true` so built-in admin/developer members
+  // keep their existing behavior; project admins always bypass.
+  const canRunInternalQueriesOp = useIsOperationAllowed("RunInternalQueries");
+  const canRunInternalMutationsOp = useIsOperationAllowed(
+    "RunInternalMutations",
+  );
+  const canRunInternalActionsOp = useIsOperationAllowed("RunInternalActions");
+  const canViewDataOp = useIsOperationAllowed("ViewData");
+  const canWriteDataOp = useIsOperationAllowed("WriteData");
+  const canRunInternalQueriesCustom = useCustomRolePermission(
+    "deployment:functions:runInternalQueries",
+    true,
+  );
+  const canRunInternalMutationsCustom = useCustomRolePermission(
+    "deployment:functions:runInternalMutations",
+    true,
+  );
+  const canRunInternalActionsCustom = useCustomRolePermission(
+    "deployment:functions:runInternalActions",
+    true,
+  );
+  const canViewDataCustom = useCustomRolePermission(
+    "deployment:data:view",
+    true,
+  );
+  const canWriteDataCustom = useCustomRolePermission(
+    "deployment:data:write",
+    true,
+  );
+  const canRunInternalQueries =
+    canRunInternalQueriesOp &&
+    (hasAdminPermissions || canRunInternalQueriesCustom !== false);
+  const canRunInternalMutations =
+    canRunInternalMutationsOp &&
+    (hasAdminPermissions || canRunInternalMutationsCustom !== false);
+  const canRunInternalActions =
+    canRunInternalActionsOp &&
+    (hasAdminPermissions || canRunInternalActionsCustom !== false);
+  const canViewData =
+    canViewDataOp && (hasAdminPermissions || canViewDataCustom !== false);
+  const canWriteData =
+    canWriteDataOp && (hasAdminPermissions || canWriteDataCustom !== false);
 
   const isInternal = visibility?.kind === "internal";
 
@@ -141,6 +181,25 @@ export function useFunctionResult({
       deployment?.deploymentType !== "prod" ||
       hasAdminPermissions) &&
     canRunOp;
+
+  // The specific role action that would unblock this Run button — used
+  // by the disabled-state tooltip so custom-role members see exactly
+  // which grant is missing. `null` for the cases (top-level public
+  // functions, etc.) where the action isn't a custom-role check.
+  const missingRunAction = (() => {
+    if (isInternal) {
+      if (udfType === "Query") return "deployment:functions:runInternalQueries";
+      if (udfType === "Mutation")
+        return "deployment:functions:runInternalMutations";
+      return "deployment:functions:runInternalActions";
+    }
+    if (isInComponent) {
+      return udfType === "Query"
+        ? "deployment:data:view"
+        : "deployment:data:write";
+    }
+    return null;
+  })();
 
   if (isInvalidUdfType) {
     return { button: null, result: null };
@@ -199,7 +258,12 @@ export function useFunctionResult({
             disabled
               ? "Fix the errors above to continue."
               : !canRunFunction
-                ? "You do not have permission to run this function in this deployment."
+                ? missingRunAction
+                  ? permissionDeniedTip(
+                      "You do not have permission to run this function in this deployment.",
+                      missingRunAction,
+                    )
+                  : "You do not have permission to run this function in this deployment."
                 : !areEditsAuthorized
                   ? // TODO(ENG-10340) Edit this message to use the deployment ref
                     `You are about to run a ${udfType.toLowerCase()} in a ${`${dtype ?? ""} deployment`.trim()}. Unlock edits to continue.`

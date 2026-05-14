@@ -25,6 +25,8 @@ export function DeploymentEnvironmentVariables({
     useCurrentDeployment,
     useHasProjectAdminPermissions,
     useIsOperationAllowed,
+    useCustomRolePermission,
+    permissionDeniedTip,
     projectsURI,
   } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
@@ -33,9 +35,16 @@ export function DeploymentEnvironmentVariables({
   );
   const canViewEnvVars = useIsOperationAllowed("ViewEnvironmentVariables");
   const canWriteEnvVars = useIsOperationAllowed("WriteEnvironmentVariables");
+  // Built-in developers can write env vars on non-prod; admins on any
+  // deployment; custom-role members need an explicit `deployment:env:write`
+  // grant regardless of deployment type (custom roles deny by default).
+  const isProd = deployment?.deploymentType === "prod";
+  const canWriteEnvCustom = useCustomRolePermission(
+    "deployment:env:write",
+    !isProd,
+  );
   const canManageEnvironmentVariables =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteEnvVars;
+    (hasAdminPermissions || canWriteEnvCustom === true) && canWriteEnvVars;
   const environmentVariables: undefined | Array<EnvironmentVariable> = useQuery(
     udfs.listEnvironmentVariables.default,
     canViewEnvVars ? {} : "skip",
@@ -102,6 +111,10 @@ export function DeploymentEnvironmentVariables({
       </p>
       <EnvironmentVariables
         hasAdminPermissions={canManageEnvironmentVariables}
+        disabledTip={permissionDeniedTip(
+          "You do not have permission to manage environment variables.",
+          "deployment:env:write",
+        )}
         environmentVariables={environmentVariables}
         updateEnvironmentVariables={async (
           creations,

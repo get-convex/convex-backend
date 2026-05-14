@@ -135,18 +135,49 @@ export function DeploymentSummary({
   teamSlug,
   projectSlug,
   lastBackupTime,
+  canViewBackups = true,
   teamMembers,
   regions,
 }: {
   deployment: PlatformDeploymentResponse;
   teamSlug: string;
   projectSlug: string;
+  // `undefined` while loading, `null` when backups are unavailable for this
+  // deployment (d1024 / non-cloud) or there's no backup yet, otherwise the
+  // requested time of the latest complete backup.
   lastBackupTime?: number | null;
+  // When false, the backup section is omitted entirely (e.g. the member
+  // lacks `deployment:backups:view`). Defaults to `true`.
+  canViewBackups?: boolean;
   teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
 }) {
-  const { TeamMemberLink } = useContext(DeploymentInfoContext);
-  const lastPushEvent = useQuery(udfs.deploymentEvents.lastPushEvent, {});
+  const {
+    TeamMemberLink,
+    useCustomRolePermission,
+    useHasProjectAdminPermissions,
+  } = useContext(DeploymentInfoContext);
+
+  // Each of the four queries below resolves to a `queryPrivateSystem("ViewData")`
+  // function on the deployment, so they require the `deployment:data:view`
+  // grant. Built-in members always have it; custom-role members only if
+  // their role permits it. Skip the queries when we know the member is
+  // denied — otherwise they'd hang and the whole summary would spin
+  // forever.
+  const isAdmin = useHasProjectAdminPermissions(deployment.projectId);
+  const canViewDataCustom = useCustomRolePermission(
+    "deployment:data:view",
+    true,
+  );
+  // Treat `undefined` (role list still loading) as "may view" so the
+  // queries fire eagerly; if the member turns out to be denied, the
+  // server will reject and the rows render their fallbacks.
+  const canViewData = isAdmin || canViewDataCustom !== false;
+
+  const lastPushEvent = useQuery(
+    udfs.deploymentEvents.lastPushEvent,
+    canViewData ? {} : "skip",
+  );
 
   // Resolve the team member who last deployed from the push event
   const deployer = teamMembers?.find(
@@ -157,9 +188,18 @@ export function DeploymentSummary({
     : undefined;
   const deployerName = deployer?.name || deployer?.email || undefined;
 
-  const convexCloudUrl = useQuery(udfs.convexCloudUrl.default, {});
-  const convexSiteUrl = useQuery(udfs.convexSiteUrl.default, {});
-  const serverVersion = useQuery(udfs.getVersion.default);
+  const convexCloudUrl = useQuery(
+    udfs.convexCloudUrl.default,
+    canViewData ? {} : "skip",
+  );
+  const convexSiteUrl = useQuery(
+    udfs.convexSiteUrl.default,
+    canViewData ? {} : "skip",
+  );
+  const serverVersion = useQuery(
+    udfs.getVersion.default,
+    canViewData ? undefined : "skip",
+  );
   const { hasUpdate, latestVersion } = useLatestConvexVersion(
     serverVersion || undefined,
   );
@@ -173,14 +213,18 @@ export function DeploymentSummary({
         deployment.region
       : undefined;
 
-  // Check if we're still loading critical data
+  // Check if we're still loading critical data. The backup section
+  // loads independently — `lastBackupTime === undefined` only hides that
+  // row (or the whole row, if the member can't view backups) without
+  // blocking the rest of the summary. Queries we deliberately skipped
+  // (no `deployment:data:view`) also return `undefined`, so exclude
+  // them from the loading gate.
   const isLoading =
-    lastPushEvent === undefined ||
-    serverVersion === undefined ||
-    (deployment.kind === "cloud" &&
-      (convexCloudUrl === undefined ||
-        convexSiteUrl === undefined ||
-        lastBackupTime === undefined));
+    canViewData &&
+    (lastPushEvent === undefined ||
+      serverVersion === undefined ||
+      (deployment.kind === "cloud" &&
+        (convexCloudUrl === undefined || convexSiteUrl === undefined)));
 
   if (isLoading) {
     return (
@@ -194,12 +238,14 @@ export function DeploymentSummary({
     );
   }
 
-  const mainPanelRounding =
-    deployment.kind === "cloud"
-      ? // When the Cloud URL panel is present we split rounding between panels.
-        "rounded-l-lg rounded-tr-lg rounded-bl-none lg:flex-1 lg:rounded-tr-none lg:rounded-bl-lg"
-      : // Local backends don't render the Cloud URL panel, so round all corners.
-        "rounded-lg";
+  // The Cloud URL panel only renders when (1) the deployment is cloud
+  // and (2) the member can view data (the URL queries are
+  // ViewData-gated). When the panel is hidden, round all corners of
+  // the main panel.
+  const showUrlPanel = deployment.kind === "cloud" && canViewData;
+  const mainPanelRounding = showUrlPanel
+    ? "rounded-l-lg rounded-tr-lg rounded-bl-none lg:flex-1 lg:rounded-tr-none lg:rounded-bl-lg"
+    : "rounded-lg";
 
   return (
     <Sheet className="flex w-fit flex-col bg-transparent" padding={false}>
@@ -341,40 +387,47 @@ export function DeploymentSummary({
 
           {/* Row 3: Last Deployed + Last Backup */}
           <div className="flex flex-wrap items-center gap-6 gap-y-4">
-            {/* Last Deployed */}
-            <div className="flex items-center gap-2">
-              <Tooltip tip="Last deployment">
-                <RocketIcon
-                  className="size-4 shrink-0 text-content-secondary"
-                  aria-label="Last deployment"
-                />
-              </Tooltip>
-              {!lastPushEvent ? (
-                <span className="text-sm text-content-secondary">
-                  Never deployed
-                </span>
-              ) : (
-                <div className="flex flex-wrap items-center gap-1 text-sm text-content-primary">
-                  <span>Last deployed</span>
-                  <TimestampDistance
-                    date={new Date(lastPushEvent._creationTime)}
-                    className="text-sm text-content-primary"
+            {/* Last Deployed — hidden when the member can't view data
+                since the underlying query is `deployment:data:view`
+                gated and we'd otherwise misreport "Never deployed". */}
+            {canViewData && (
+              <div className="flex items-center gap-2">
+                <Tooltip tip="Last deployment">
+                  <RocketIcon
+                    className="size-4 shrink-0 text-content-secondary"
+                    aria-label="Last deployment"
                   />
-                  {deployerId !== undefined && deployerName && (
-                    <>
-                      <span>by</span>
-                      <TeamMemberLink
-                        memberId={deployerId}
-                        name={deployerName}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+                </Tooltip>
+                {!lastPushEvent ? (
+                  <span className="text-sm text-content-secondary">
+                    Never deployed
+                  </span>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-1 text-sm text-content-primary">
+                    <span>Last deployed</span>
+                    <TimestampDistance
+                      date={new Date(lastPushEvent._creationTime)}
+                      className="text-sm text-content-primary"
+                    />
+                    {deployerId !== undefined && deployerName && (
+                      <>
+                        <span>by</span>
+                        <TeamMemberLink
+                          memberId={deployerId}
+                          name={deployerName}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Last Backup (only for cloud deployments) */}
-            {deployment.kind === "cloud" && (
+            {/* Last Backup (only for cloud deployments the member can
+                view). Loads independently from the rest of the summary —
+                render a small placeholder while the backup list is in
+                flight so the panel doesn't reflow when it resolves. */}
+            {deployment.kind === "cloud" && canViewBackups && (
               <div className="flex items-center gap-2">
                 <Tooltip tip="Last backup">
                   <ArchiveIcon
@@ -383,8 +436,9 @@ export function DeploymentSummary({
                   />
                 </Tooltip>
                 <div className="flex items-center gap-1">
-                  {lastBackupTime === null ? (
-                    deployment.kind === "cloud" &&
+                  {lastBackupTime === undefined ? (
+                    <Spinner className="size-4" />
+                  ) : lastBackupTime === null ? (
                     deployment.class.startsWith("d") ? (
                       <span className="text-sm text-content-primary">
                         Backup every 24 hours
@@ -400,7 +454,7 @@ export function DeploymentSummary({
                         Last backup created{" "}
                       </span>
                       <TimestampDistance
-                        date={new Date(lastBackupTime!)}
+                        date={new Date(lastBackupTime)}
                         className="text-sm text-content-primary"
                       />
                     </>
@@ -447,8 +501,9 @@ export function DeploymentSummary({
           )}
         </div>
 
-        {/* Deployment URLs */}
-        {deployment.kind === "cloud" && (
+        {/* Deployment URLs (cloud only, hidden when the member lacks
+            `deployment:data:view` since the URL queries are gated). */}
+        {showUrlPanel && (
           <div className="flex flex-col justify-center gap-4 rounded-b-lg border-t bg-background-secondary/70 p-2 py-4 lg:rounded-r-lg lg:rounded-bl-none lg:border-t-0 lg:border-l lg:py-3 lg:pl-4">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-content-secondary">

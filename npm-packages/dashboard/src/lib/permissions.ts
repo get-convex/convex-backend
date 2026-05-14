@@ -560,3 +560,52 @@ export function teamTokenResource(creator: number | null): ConcreteResource {
     segments: [{ kind: "team" }, { kind: "token", tokenKind: "team", creator }],
   };
 }
+
+// Deployment-scoped resource: project + deployment segments. The
+// deployment segment carries the creator id so a role like
+// "deployments you created" still matches.
+export function deploymentResource(
+  project: { id: number; slug: string },
+  deployment: {
+    id: number;
+    deploymentType: string;
+    creator: number | null;
+  },
+): ConcreteResource {
+  return {
+    segments: [
+      { kind: "project", id: project.id, slug: project.slug },
+      {
+        kind: "deployment",
+        id: deployment.id,
+        deploymentType: deployment.deploymentType,
+        creator: deployment.creator,
+      },
+    ],
+  };
+}
+
+// Deployment-scoped tokens live at `project:*:deployment:*:token:*`,
+// so the concrete resource must carry the full project + deployment
+// path — a leaf-only `[{ kind: "token", ... }]` would never match a
+// real role statement (segment lengths differ). The token segment
+// carries a creator selector so a role like "deployment tokens you
+// created" still matches: pass the current member's id when gating
+// "can I create my own deploy key"; pass null for whole-list view
+// checks so a role limited to `creator=me` denies.
+export function deploymentTokenResource(
+  project: { id: number; slug: string },
+  deployment: {
+    id: number;
+    deploymentType: string;
+    creator: number | null;
+  },
+  tokenCreator: number | null,
+): ConcreteResource {
+  return {
+    segments: [
+      ...deploymentResource(project, deployment).segments,
+      { kind: "token", tokenKind: "deployment", creator: tokenCreator },
+    ],
+  };
+}
