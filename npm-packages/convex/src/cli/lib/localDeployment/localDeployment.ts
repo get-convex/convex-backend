@@ -2,8 +2,11 @@ import { Context } from "../../../bundler/context.js";
 import {
   logFinishedStep,
   logVerbose,
+  logWarning,
   showSpinner,
+  stopSpinner,
 } from "../../../bundler/log.js";
+import { logAndHandleFetchError, ThrowingFetchError } from "../utils/utils.js";
 import {
   bigBrainPause,
   bigBrainRecordActivity,
@@ -37,7 +40,7 @@ import {
 } from "./utils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
 import { defaultEnvBackend } from "../defaultEnv.js";
-import { deploymentEnvBackend } from "../env.js";
+import { deploymentEnvBackend, EnvVar } from "../env.js";
 import { getProjectDetails } from "../deploymentSelection.js";
 
 export type DeploymentDetails = {
@@ -422,7 +425,19 @@ export async function importDefaultEnvVars(
     teamSlug,
     projectSlug,
   });
-  const defaults = await defaultEnvBackend(ctx, project.id, "dev").list();
+  let defaults: EnvVar[];
+  try {
+    defaults = await defaultEnvBackend(ctx, project.id, "dev").list();
+  } catch (err) {
+    if (err instanceof ThrowingFetchError && err.response.status === 403) {
+      stopSpinner();
+      logWarning(
+        `Skipping default env var import: ${err.serverErrorData?.message ?? err.message}`,
+      );
+      return;
+    }
+    return await logAndHandleFetchError(ctx, err);
+  }
   if (defaults.length === 0) {
     logFinishedStep("No default env vars to import.");
     return;
