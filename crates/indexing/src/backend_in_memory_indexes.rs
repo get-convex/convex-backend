@@ -267,6 +267,7 @@ impl IndexReader for IndexCacheReader {
             .reader
             .index_page(index_id, tablet_id, interval, order, max_results)
             .await?;
+        let interval = Arc::new(interval.clone());
         let maybe_page = self.handle.get(
             index_id,
             interval.clone(),
@@ -281,7 +282,7 @@ impl IndexReader for IndexCacheReader {
                 .invalidate(index_id, interval.clone(), order, max_results);
             self.handle.populate(
                 index_id,
-                interval.clone(),
+                interval,
                 self.reader.timestamp(),
                 order,
                 max_results,
