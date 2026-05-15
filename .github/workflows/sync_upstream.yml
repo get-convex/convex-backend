@@ -59,6 +59,7 @@ jobs:
       - name: Sync enhanced
         env:
           GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TARGET_BRANCH: enhanced
           UPSTREAM_BRANCH: main
         run: ./.github/workflows/scripts/sync-upstream-branch.sh
@@ -92,6 +93,7 @@ jobs:
       - name: Sync release
         env:
           GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TARGET_BRANCH: release
           UPSTREAM_BRANCH: release
         run: ./.github/workflows/scripts/sync-upstream-branch.sh

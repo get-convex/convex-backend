@@ -10,8 +10,14 @@
 #   TARGET_BRANCH        e.g. enhanced
 #   UPSTREAM_BRANCH      e.g. main
 #   GH_TOKEN             token with repo + PR write permissions
+# Optional env:
+#   OPENROUTER_API_KEY   if set, conflicts are first sent to an LLM for
+#                        auto-resolution before falling back to the PR
+#                        path. See scripts/llm-resolve-conflicts.sh.
 
 set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git" 2>/dev/null || true
 git fetch --no-tags origin "${TARGET_BRANCH}" || true
@@ -47,13 +53,53 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
   exit 0
 fi
 
-# Real conflicts remain even after merge drivers ran. Open a PR.
+# Real conflicts remain even after merge drivers ran.
 conflicted_files="$(git diff --name-only --diff-filter=U || true)"
-git merge --abort
 
 if [ -z "${conflicted_files}" ]; then
+  git merge --abort
   echo "Merge failed with no unmerged paths — unexpected state." >&2
   exit 1
+fi
+
+# Attempt LLM auto-resolution if OPENROUTER_API_KEY is set. The merge
+# is left in progress so the script can write resolutions over the
+# conflicted files; on success we stage + commit + push. On failure
+# we `git merge --abort` and fall through to the PR path.
+if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+  echo "Attempting LLM-based conflict resolution..."
+  # shellcheck disable=SC2086
+  if "${script_dir}/llm-resolve-conflicts.sh" ${conflicted_files}; then
+    git add -- ${conflicted_files}
+    # Belt-and-braces: every conflicted path must now be staged-clean.
+    if git diff --name-only --diff-filter=U | grep -q .; then
+      echo "LLM resolution left unmerged paths; falling back to PR." >&2
+      git merge --abort
+    else
+      llm_model_used="${LLM_MODEL:-google/gemini-3.1-pro-preview}"
+      file_list="$(printf '%s\n' "${conflicted_files}" | sed 's|^|- |')"
+      git commit --no-edit -m "Merge remote-tracking branch 'upstream/${UPSTREAM_BRANCH}' into ${TARGET_BRANCH}
+
+LLM-auto-resolved conflicts via ${llm_model_used}:
+${file_list}
+
+Workflow run: ${run_url}"
+      git push origin "HEAD:${TARGET_BRANCH}"
+
+      # Close any stale sync PR — we just merged cleanly.
+      existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
+      if [ -n "${existing_pr}" ]; then
+        gh pr close "${existing_pr}" --comment "Resolved by LLM auto-merge in [run](${run_url})." || true
+      fi
+      exit 0
+    fi
+  else
+    echo "LLM resolution failed; falling back to PR path." >&2
+    git merge --abort
+  fi
+else
+  echo "OPENROUTER_API_KEY not set; skipping LLM resolution."
+  git merge --abort
 fi
 
 # Force-push upstream's current HEAD to the sync branch so the PR diff
