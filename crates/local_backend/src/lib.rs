@@ -163,8 +163,7 @@ pub async fn make_app(
         searcher.clone(),
         preempt_tx.clone(),
         virtual_system_mapping().clone(),
-        IndexCache::new(*INDEX_CACHE_SIZE),
-        "local".to_string(),
+        IndexCache::new(*INDEX_CACHE_SIZE).new_handle(),
         Arc::new(new_rate_limiter(
             runtime.clone(),
             Quota::per_second(*DOCUMENT_RETENTION_RATE_LIMIT),

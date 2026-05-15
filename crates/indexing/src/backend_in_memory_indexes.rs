@@ -96,7 +96,7 @@ use value::{
 };
 
 use crate::{
-    index_cache::IndexCache,
+    index_cache::IndexCacheHandle,
     index_registry::IndexRegistry,
     metrics::{
         index_page_timer,
@@ -249,8 +249,7 @@ impl dyn IndexReader {
 
 struct IndexCacheReader {
     reader: Arc<dyn IndexReader>,
-    index_cache: IndexCache,
-    deployment_name: String,
+    handle: IndexCacheHandle,
     index_registry: ReadOnly<IndexRegistry>,
 }
 
@@ -268,8 +267,7 @@ impl IndexReader for IndexCacheReader {
             .reader
             .index_page(index_id, tablet_id, interval, order, max_results)
             .await?;
-        let maybe_page = self.index_cache.get(
-            self.deployment_name.clone(),
+        let maybe_page = self.handle.get(
             index_id,
             interval.clone(),
             self.reader.timestamp(),
@@ -279,15 +277,9 @@ impl IndexReader for IndexCacheReader {
         if let Some(cached_page) = maybe_page
             && cached_page != index_page
         {
-            self.index_cache.invalidate(
-                self.deployment_name.clone(),
-                index_id,
-                interval.clone(),
-                order,
-                max_results,
-            );
-            self.index_cache.populate(
-                self.deployment_name.clone(),
+            self.handle
+                .invalidate(index_id, interval.clone(), order, max_results);
+            self.handle.populate(
                 index_id,
                 interval.clone(),
                 self.reader.timestamp(),
@@ -721,17 +713,16 @@ impl DatabaseIndexSnapshot {
         in_memory_indexes: Arc<dyn InMemoryIndexes>,
         table_mapping: TableMapping,
         reader: Arc<dyn IndexReader>,
-        shared_index_cache: Option<(String, IndexCache)>,
+        index_cache_handle: Option<IndexCacheHandle>,
         cache: Option<TimestampedIndexCache>,
     ) -> Self {
         let cache = cache
             .map(|c| c.cache)
             .unwrap_or(DatabaseIndexSnapshotCache::new());
-        let reader = if let Some((deployment, index_cache)) = shared_index_cache {
+        let reader = if let Some(handle) = index_cache_handle {
             Arc::new(IndexCacheReader {
                 reader,
-                index_cache,
-                deployment_name: deployment,
+                handle,
                 index_registry: ReadOnly::new(index_registry.clone()),
             })
         } else {
