@@ -152,7 +152,7 @@ pb = { path = "crates/pb" }
 pb_build = { path = "crates/pb_build" }
 pb_extras = { path = "crates/pb_extras" }
 performance_stats = { path = "crates/performance_stats" }
-phf = { version = "0.11.2", features = [ "macros" ] }
+phf = { version = "0.13.0", features = [ "macros" ] }
 pin-project = "1"
 pkcs8 = "0.10.2"
 postgres = { path = "crates/postgres" }
