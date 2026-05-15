@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.39.1
+
+- Fixes package.json `bin` entrypoint bug in 1.39.0.
+
 ## 1.39.0
 
 - Apps and components may now declare typesafe env vars that they require. Both `defineApp`
