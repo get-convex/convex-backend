@@ -352,9 +352,10 @@ function ExportButton({
     const memberById = new Map(members.map((m) => [m.id, m]));
     const enriched = rows.map((e) => {
       const meta = e.metadata as { email?: string };
-      const m = e.memberId !== null && e.memberId !== undefined
-        ? memberById.get(e.memberId)
-        : undefined;
+      const m =
+        e.memberId !== null && e.memberId !== undefined
+          ? memberById.get(e.memberId)
+          : undefined;
       return {
         id: e.id,
         time: new Date(e.creationTime).toISOString(),

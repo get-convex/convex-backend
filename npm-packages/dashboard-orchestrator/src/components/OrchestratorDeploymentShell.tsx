@@ -153,6 +153,9 @@ export function OrchestratorDeploymentShell({
     // every permission. Dashboard-common added per-action gating for
     // custom-roles in upstream — give it a permissive resolver.
     useCustomRolePermission: () => true,
+    // Self-hosted never produces a permission-denied state, so the message
+    // passes through unchanged.
+    permissionDeniedTip: (message: string) => message,
     useIsDeploymentPaused: () => {
       const state = useQuery(udfs.deploymentState.deploymentState);
       return state?.state === "paused";

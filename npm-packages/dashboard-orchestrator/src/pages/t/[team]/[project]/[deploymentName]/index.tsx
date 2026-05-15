@@ -68,11 +68,10 @@ function OrchestratorSummary() {
     port?: number;
   };
   const d = deployment as unknown as AnyDeployment;
-  const baseUrl = d.deploymentUrl ?? (d.port ? `http://127.0.0.1:${d.port}` : null);
+  const baseUrl =
+    d.deploymentUrl ?? (d.port ? `http://127.0.0.1:${d.port}` : null);
   const httpActionsUrl = baseUrl
-    ? baseUrl
-        .replace(/\/?$/, "")
-        .replace(/\.convex\.cloud$/, ".convex.site")
+    ? baseUrl.replace(/\/?$/, "").replace(/\.convex\.cloud$/, ".convex.site")
     : null;
   const port = d.port
     ? String(d.port)

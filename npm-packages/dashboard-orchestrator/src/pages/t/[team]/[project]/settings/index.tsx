@@ -572,7 +572,10 @@ function DeployKeysSection({
         )}
         <ul className="mt-4 divide-y divide-border-transparent">
           {(keys ?? []).map((k) => {
-            const expired = k.expiresAt !== null && k.expiresAt !== undefined && k.expiresAt < Date.now();
+            const expired =
+              k.expiresAt !== null &&
+              k.expiresAt !== undefined &&
+              k.expiresAt < Date.now();
             return (
               <li
                 key={k.id}
