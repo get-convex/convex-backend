@@ -8,7 +8,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function AuthConfig() {
   const authProviders = useQuery(udfs.listAuthProviders.default);
-  const { deploymentsURI } = useContext(DeploymentInfoContext);
+  const { deploymentsURI, isSelfHosted } = useContext(DeploymentInfoContext);
   return (
     <div className="flex flex-col gap-2">
       <Sheet>
@@ -95,13 +95,15 @@ export function AuthConfig() {
           )}
         </div>
       </Sheet>
-      <p className="text-sm text-content-secondary">
-        Looking to create a Deploy Key? You can do so in{" "}
-        <Link href={`${deploymentsURI}/settings`}>
-          General Deployment Settings
-        </Link>
-        .
-      </p>
+      {!isSelfHosted && (
+        <p className="text-sm text-content-secondary">
+          Looking to create a Deploy Key? You can do so in{" "}
+          <Link href={`${deploymentsURI}/settings`}>
+            General Deployment Settings
+          </Link>
+          .
+        </p>
+      )}
     </div>
   );
 }
