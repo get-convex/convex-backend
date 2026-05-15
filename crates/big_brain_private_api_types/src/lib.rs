@@ -70,7 +70,7 @@ impl DeploymentAuthArgs {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct DeploymentAuthProdArgs {
@@ -87,7 +87,7 @@ pub struct DeploymentAuthArgsSimple {
     pub deployment_type: Option<DeploymentType>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentAuthResponse {
     pub deployment_name: String,
@@ -137,7 +137,7 @@ pub enum ProjectSelectionArgs {
     },
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct DeploymentAuthPreviewArgs {
@@ -146,7 +146,7 @@ pub struct DeploymentAuthPreviewArgs {
     pub preview_name: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct DeploymentAuthWithinCurrentProjectArgs {
@@ -155,7 +155,7 @@ pub struct DeploymentAuthWithinCurrentProjectArgs {
     pub selected_deployment_name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamAndProjectForDeploymentResponse {
     pub team: TeamSlug,

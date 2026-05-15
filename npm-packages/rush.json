@@ -636,6 +636,10 @@
       "projectFolder": "dashboard-self-hosted"
     },
     {
+      "packageName": "dashboard-orchestrator",
+      "projectFolder": "dashboard-orchestrator"
+    },
+    {
       "packageName": "@convex-dev/design-system",
       "projectFolder": "@convex-dev/design-system"
     },

@@ -1,0 +1,32 @@
+//! Dashboard private API at `/api/dashboard/...`.
+
+pub(crate) mod access_tokens;
+pub(crate) mod audit_log;
+pub(crate) mod billing_stub;
+pub(crate) mod cloud_backups_stub;
+pub(crate) mod deployments;
+pub(crate) mod env_vars;
+pub(crate) mod integrations_stub;
+pub(crate) mod profile;
+pub(crate) mod projects;
+pub(crate) mod teams;
+pub(crate) mod usage_stub;
+
+use axum::Router;
+
+use crate::state::OrchestratorState;
+
+pub fn router() -> Router<OrchestratorState> {
+    Router::new()
+        .merge(profile::router())
+        .merge(teams::router())
+        .merge(projects::router())
+        .merge(deployments::router())
+        .merge(access_tokens::router())
+        .merge(env_vars::router())
+        .merge(audit_log::router())
+        .merge(billing_stub::router())
+        .merge(cloud_backups_stub::router())
+        .merge(integrations_stub::router())
+        .merge(usage_stub::router())
+}
