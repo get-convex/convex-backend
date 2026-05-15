@@ -81,7 +81,7 @@ pub trait WriteLogIndexReader: Send + Sync {
 struct CacheKey {
     deployment_id: DeploymentId,
     index_id: IndexId,
-    interval: Interval,
+    interval: Arc<Interval>,
     order: Order,
     max_size: usize,
 }
@@ -94,14 +94,14 @@ impl CacheKey {
 
 struct IndexIntervalsInner {
     map: IntervalMap,
-    id_to_params: StdHashMap<SubscriberId, (Interval, Order, usize)>,
+    id_to_params: StdHashMap<SubscriberId, (Arc<Interval>, Order, usize)>,
     /// Maps each registered (interval, order, max_size) to its (SubscriberId,
     /// refcount). Each call to `insert` increments the refcount; each call to
     /// `remove` decrements it. The entry is only removed from the IntervalMap
     /// when the refcount reaches zero
     /// Refcounting is necessary to prevent the lazy eviction listener
     /// from unregistering an interval that a concurrent populate re-registered.
-    params_to_id: StdHashMap<(Interval, Order, usize), (SubscriberId, usize)>,
+    params_to_id: StdHashMap<(Arc<Interval>, Order, usize), (SubscriberId, usize)>,
     next_id: SubscriberId,
 }
 
@@ -126,7 +126,7 @@ impl IndexIntervals {
 
     /// Increments the refcount for an (interval, order, max_size) triple,
     /// inserting it into the IntervalMap if this is the first registration.
-    fn insert(&self, interval: Interval, order: Order, max_size: usize) {
+    fn insert(&self, interval: Arc<Interval>, order: Order, max_size: usize) {
         let mut inner = self.inner.lock();
         if let Some((_, refcount)) =
             inner
@@ -140,7 +140,7 @@ impl IndexIntervals {
         inner.next_id += 1;
         inner
             .map
-            .insert(id, [interval.clone()])
+            .insert(id, [(*interval).clone()])
             .expect("stored more than u32::MAX intervals?");
         inner
             .id_to_params
@@ -153,13 +153,9 @@ impl IndexIntervals {
     /// Decrements the refcount for an (interval, order, max_size) triple,
     /// removing it from the IntervalMap when the refcount reaches zero.
     /// No-op if not present.
-    fn remove(&self, interval: &Interval, order: Order, max_size: usize) {
+    fn remove(&self, interval: Arc<Interval>, order: Order, max_size: usize) {
         let mut inner = self.inner.lock();
-        if let Entry::Occupied(mut e) =
-            inner
-                .params_to_id
-                .entry((interval.clone(), order, max_size))
-        {
+        if let Entry::Occupied(mut e) = inner.params_to_id.entry((interval, order, max_size)) {
             let (id, refcount) = e.get_mut();
             *refcount -= 1;
             if *refcount == 0 {
@@ -171,7 +167,7 @@ impl IndexIntervals {
         }
     }
 
-    fn intervals(&self) -> impl Iterator<Item = (Interval, Order, usize)> + '_ {
+    fn intervals(&self) -> impl Iterator<Item = (Arc<Interval>, Order, usize)> + '_ {
         let map = self.inner.lock().params_to_id.clone();
         map.into_iter()
             .map(|((interval, order, max_size), _id)| (interval, order, max_size))
@@ -181,7 +177,7 @@ impl IndexIntervals {
         self.inner.lock().params_to_id.is_empty()
     }
 
-    fn contains(&self, interval: &Interval, order: Order, max_size: usize) -> bool {
+    fn contains(&self, interval: &Arc<Interval>, order: Order, max_size: usize) -> bool {
         self.inner
             .lock()
             .params_to_id
@@ -194,7 +190,7 @@ impl IndexIntervals {
         &self,
         old: Option<&[u8]>,
         new: Option<&[u8]>,
-    ) -> HashSet<(Interval, Order, usize)> {
+    ) -> HashSet<(Arc<Interval>, Order, usize)> {
         let inner = self.inner.lock();
         let mut ids = HashSet::new();
         for key in old.into_iter().chain(new) {
@@ -253,7 +249,7 @@ impl IndexCache {
                 else {
                     return;
                 };
-                intervals.remove(&key.interval, key.order, key.max_size);
+                intervals.remove(key.interval.clone(), key.order, key.max_size);
                 if let Some(deployment_intervals) = index_to_intervals_clone.get(&key.deployment_id)
                 {
                     deployment_intervals.remove_if(&key.index_id, |_, v| v.is_empty());
@@ -351,7 +347,7 @@ impl IndexCacheHandle {
     pub fn get(
         &self,
         index_id: IndexId,
-        interval: Interval,
+        interval: Arc<Interval>,
         ts: RepeatableTimestamp,
         order: Order,
         max_size: usize,
@@ -398,7 +394,7 @@ impl IndexCacheHandle {
     pub fn populate(
         &self,
         index_id: IndexId,
-        interval: Interval,
+        interval: Arc<Interval>,
         ts: RepeatableTimestamp,
         order: Order,
         max_size: usize,
@@ -527,7 +523,13 @@ impl IndexCacheHandle {
     /// Used when a cached result is found to be incorrect (e.g. it
     /// mismatches persistence) so that subsequent reads do not re-surface
     /// the same error.
-    pub fn invalidate(&self, index_id: IndexId, interval: Interval, order: Order, max_size: usize) {
+    pub fn invalidate(
+        &self,
+        index_id: IndexId,
+        interval: Arc<Interval>,
+        order: Order,
+        max_size: usize,
+    ) {
         let key = CacheKey {
             deployment_id: self.deployment_id,
             index_id,
