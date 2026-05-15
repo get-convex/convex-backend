@@ -5,7 +5,13 @@ use std::{
         HashMap as StdHashMap,
         HashSet,
     },
-    sync::Arc,
+    sync::{
+        atomic::{
+            AtomicU32,
+            Ordering,
+        },
+        Arc,
+    },
 };
 
 use common::{
@@ -25,7 +31,6 @@ use common::{
 };
 use dashmap::DashMap;
 use imbl::{
-    HashMap,
     OrdSet,
     Vector,
 };
@@ -56,6 +61,9 @@ use crate::{
     },
 };
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct DeploymentId(u32);
+
 pub trait WriteLogIndexReader: Send + Sync {
     /// Iterate over writes to an index after the given timestamp.
     fn iter_writes_after(
@@ -71,29 +79,29 @@ pub trait WriteLogIndexReader: Send + Sync {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct CacheKey {
-    deployment_name: String,
+    deployment_id: DeploymentId,
     index_id: IndexId,
-    interval: Interval,
+    interval: Arc<Interval>,
     order: Order,
     max_size: usize,
 }
 
 impl CacheKey {
     fn size(&self) -> usize {
-        std::mem::size_of::<Self>() + self.deployment_name.heap_size() + self.interval.heap_size()
+        std::mem::size_of::<Self>() + self.interval.heap_size()
     }
 }
 
 struct IndexIntervalsInner {
     map: IntervalMap,
-    id_to_params: StdHashMap<SubscriberId, (Interval, Order, usize)>,
+    id_to_params: StdHashMap<SubscriberId, (Arc<Interval>, Order, usize)>,
     /// Maps each registered (interval, order, max_size) to its (SubscriberId,
     /// refcount). Each call to `insert` increments the refcount; each call to
     /// `remove` decrements it. The entry is only removed from the IntervalMap
     /// when the refcount reaches zero
     /// Refcounting is necessary to prevent the lazy eviction listener
     /// from unregistering an interval that a concurrent populate re-registered.
-    params_to_id: StdHashMap<(Interval, Order, usize), (SubscriberId, usize)>,
+    params_to_id: StdHashMap<(Arc<Interval>, Order, usize), (SubscriberId, usize)>,
     next_id: SubscriberId,
 }
 
@@ -118,7 +126,7 @@ impl IndexIntervals {
 
     /// Increments the refcount for an (interval, order, max_size) triple,
     /// inserting it into the IntervalMap if this is the first registration.
-    fn insert(&self, interval: Interval, order: Order, max_size: usize) {
+    fn insert(&self, interval: Arc<Interval>, order: Order, max_size: usize) {
         let mut inner = self.inner.lock();
         if let Some((_, refcount)) =
             inner
@@ -132,7 +140,7 @@ impl IndexIntervals {
         inner.next_id += 1;
         inner
             .map
-            .insert(id, [interval.clone()])
+            .insert(id, [(*interval).clone()])
             .expect("stored more than u32::MAX intervals?");
         inner
             .id_to_params
@@ -145,13 +153,9 @@ impl IndexIntervals {
     /// Decrements the refcount for an (interval, order, max_size) triple,
     /// removing it from the IntervalMap when the refcount reaches zero.
     /// No-op if not present.
-    fn remove(&self, interval: &Interval, order: Order, max_size: usize) {
+    fn remove(&self, interval: Arc<Interval>, order: Order, max_size: usize) {
         let mut inner = self.inner.lock();
-        if let Entry::Occupied(mut e) =
-            inner
-                .params_to_id
-                .entry((interval.clone(), order, max_size))
-        {
+        if let Entry::Occupied(mut e) = inner.params_to_id.entry((interval, order, max_size)) {
             let (id, refcount) = e.get_mut();
             *refcount -= 1;
             if *refcount == 0 {
@@ -163,7 +167,7 @@ impl IndexIntervals {
         }
     }
 
-    fn intervals(&self) -> impl Iterator<Item = (Interval, Order, usize)> + '_ {
+    fn intervals(&self) -> impl Iterator<Item = (Arc<Interval>, Order, usize)> + '_ {
         let map = self.inner.lock().params_to_id.clone();
         map.into_iter()
             .map(|((interval, order, max_size), _id)| (interval, order, max_size))
@@ -173,7 +177,7 @@ impl IndexIntervals {
         self.inner.lock().params_to_id.is_empty()
     }
 
-    fn contains(&self, interval: &Interval, order: Order, max_size: usize) -> bool {
+    fn contains(&self, interval: &Arc<Interval>, order: Order, max_size: usize) -> bool {
         self.inner
             .lock()
             .params_to_id
@@ -186,7 +190,7 @@ impl IndexIntervals {
         &self,
         old: Option<&[u8]>,
         new: Option<&[u8]>,
-    ) -> HashSet<(Interval, Order, usize)> {
+    ) -> HashSet<(Arc<Interval>, Order, usize)> {
         let inner = self.inner.lock();
         let mut ids = HashSet::new();
         for key in old.into_iter().chain(new) {
@@ -204,10 +208,6 @@ impl IndexIntervals {
 #[derive(Clone)]
 pub struct IndexCache {
     cache: moka::sync::Cache<CacheKey, CachedInterval>,
-    /// Map of deployment names to write log readers. Write log readers are used
-    /// to validate cache entries by reading the write log up to the latest
-    /// timestamp during populate.
-    write_log_readers: HashMap<String, Arc<dyn WriteLogIndexReader>>,
     /// Nested map of deployments to indexes to (interval, order, max_size)
     /// triples tracked in the cache. May include intervals that are no
     /// longer tracked because they were evicted by moka, but no interval
@@ -218,12 +218,13 @@ pub struct IndexCache {
     /// dashmap lock (cache -> index_to_intervals). We always
     /// clone IndexIntervals (releasing the DashMap shard
     /// lock) before acquiring the moka cache lock to avoid deadlocks.
-    index_to_intervals: Arc<DashMap<String, DashMap<IndexId, IndexIntervals>>>,
+    index_to_intervals: Arc<DashMap<DeploymentId, DashMap<IndexId, IndexIntervals>>>,
+    next_deployment_id: Arc<AtomicU32>,
 }
 
 impl IndexCache {
     pub fn new(max_weight: u64) -> Self {
-        let index_to_intervals: Arc<DashMap<String, DashMap<IndexId, IndexIntervals>>> =
+        let index_to_intervals: Arc<DashMap<DeploymentId, DashMap<IndexId, IndexIntervals>>> =
             Arc::new(DashMap::new());
         let index_to_intervals_clone = index_to_intervals.clone();
         let cache = moka::sync::Cache::builder()
@@ -243,40 +244,110 @@ impl IndexCache {
                 // Clone IndexIntervals to release the DashMap shard lock
                 // before acquiring IndexIntervals::inner.
                 let Some(intervals) = index_to_intervals_clone
-                    .get(&key.deployment_name)
+                    .get(&key.deployment_id)
                     .and_then(|d| d.get(&key.index_id).map(|r| r.value().clone()))
                 else {
                     return;
                 };
-                intervals.remove(&key.interval, key.order, key.max_size);
-                if let Some(deployment_intervals) =
-                    index_to_intervals_clone.get(&key.deployment_name)
+                intervals.remove(key.interval.clone(), key.order, key.max_size);
+                if let Some(deployment_intervals) = index_to_intervals_clone.get(&key.deployment_id)
                 {
                     deployment_intervals.remove_if(&key.index_id, |_, v| v.is_empty());
                 }
-                index_to_intervals_clone.remove_if(&key.deployment_name, |_, v| v.is_empty());
+                index_to_intervals_clone.remove_if(&key.deployment_id, |_, v| v.is_empty());
             })
             .build();
         Self {
             cache,
-            write_log_readers: HashMap::new(),
             index_to_intervals,
+            next_deployment_id: Arc::new(AtomicU32::new(0)),
         }
     }
 
-    pub fn set_write_log_reader(
-        &mut self,
-        deployment_name: String,
-        reader: Arc<dyn WriteLogIndexReader>,
-    ) {
-        self.write_log_readers.insert(deployment_name, reader);
+    pub fn new_handle(&self) -> IndexCacheHandle {
+        let id = self.next_deployment_id.fetch_add(1, Ordering::SeqCst);
+        assert_ne!(id, u32::MAX, "DeploymentId overflow");
+        IndexCacheHandle {
+            deployment_id: DeploymentId(id),
+            cache: self.clone(),
+            write_log_reader: None,
+        }
+    }
+
+    pub fn remove_deployment(&self, deployment_id: DeploymentId) {
+        if let Some((_id, deployment_intervals)) = self.index_to_intervals.remove(&deployment_id) {
+            // Clone to release the DashMap lock before removing entries from the cache.
+            let entries: Vec<(IndexId, IndexIntervals)> = deployment_intervals
+                .iter()
+                .map(|i| (*i.key(), i.value().clone()))
+                .collect();
+
+            for (index_id, intervals) in entries {
+                for (interval, order, max_size) in intervals.intervals() {
+                    self.cache.remove(&CacheKey {
+                        deployment_id,
+                        index_id,
+                        interval,
+                        order,
+                        max_size,
+                    });
+                }
+            }
+        }
+        log_index_cache_size(self.cache.weighted_size());
+    }
+
+    /// Invalidate a cache entry if the write falls within its tracked interval.
+    fn apply_write_to_cache(&self, key: &CacheKey, write: &DatabaseIndexWrite) {
+        let old_in_interval = write
+            .update
+            .old
+            .as_ref()
+            .is_some_and(|k| key.interval.contains(k));
+        let new_in_interval = write
+            .update
+            .new
+            .as_ref()
+            .is_some_and(|k| key.interval.contains(k));
+        if !old_in_interval && !new_in_interval {
+            return;
+        }
+        if self.cache.remove(key).is_some() {
+            tracing::debug!(
+                deployment_id = ?key.deployment_id,
+                "IndexCache::apply_write_to_cache invalidated entry"
+            );
+            log_index_cache_invalidation();
+        }
+    }
+}
+
+/// A handle to [`IndexCache`] scoped to a single deployment.
+///
+/// Owns the per-deployment `DeploymentId` and delegates all cache operations
+/// to the shared underlying `IndexCache` using that ID.
+#[derive(Clone)]
+pub struct IndexCacheHandle {
+    pub deployment_id: DeploymentId,
+    cache: IndexCache,
+    /// Write log reader is used to validate cache entries by reading the write
+    /// log up to the latest timestamp during populate.
+    write_log_reader: Option<Arc<dyn WriteLogIndexReader>>,
+}
+
+impl IndexCacheHandle {
+    pub fn set_write_log_reader(&mut self, reader: Arc<dyn WriteLogIndexReader>) {
+        self.write_log_reader = Some(reader);
+    }
+
+    pub fn remove_deployment(&self) {
+        self.cache.remove_deployment(self.deployment_id);
     }
 
     pub fn get(
         &self,
-        deployment_name: String,
         index_id: IndexId,
-        interval: Interval,
+        interval: Arc<Interval>,
         ts: RepeatableTimestamp,
         order: Order,
         max_size: usize,
@@ -284,8 +355,9 @@ impl IndexCache {
         let mut timer = index_cache_get_timer();
         let result = self
             .cache
+            .cache
             .get(&CacheKey {
-                deployment_name,
+                deployment_id: self.deployment_id,
                 index_id,
                 interval,
                 order,
@@ -321,18 +393,18 @@ impl IndexCache {
     /// Phase 2: Mark the entry as ready.
     pub fn populate(
         &self,
-        deployment_name: String,
         index_id: IndexId,
-        interval: Interval,
+        interval: Arc<Interval>,
         ts: RepeatableTimestamp,
         order: Order,
         max_size: usize,
         index_page: IndexPage,
         index_registry: &IndexRegistry,
     ) {
+        let deployment_id = self.deployment_id;
         let mut timer = index_cache_populate_timer();
         let key = CacheKey {
-            deployment_name: deployment_name.clone(),
+            deployment_id,
             index_id,
             interval: interval.clone(),
             order,
@@ -340,7 +412,7 @@ impl IndexCache {
         };
         // Only insert if there's no existing entry — a prior entry with an earlier
         // begin_ts can serve a wider range of reads.
-        if self.cache.contains_key(&key) {
+        if self.cache.cache.contains_key(&key) {
             timer.add_label(StaticMetricLabel::new("result", "already_exists"));
             return;
         }
@@ -364,24 +436,25 @@ impl IndexCache {
             entries_size,
             begin_ts: ts,
         };
-        self.cache.insert(key.clone(), cached_interval);
+        self.cache.cache.insert(key.clone(), cached_interval);
 
-        self.index_to_intervals
-            .entry(deployment_name.clone())
+        self.cache
+            .index_to_intervals
+            .entry(deployment_id)
             .or_default()
             .entry(index_id)
             .or_insert_with(IndexIntervals::new)
             .insert(interval.clone(), order, max_size);
 
         let Ok(writes) = self
-            .write_log_readers
-            .get(&deployment_name)
+            .write_log_reader
+            .as_ref()
             .unwrap()
             .iter_writes_after(index.name(), *ts)
         else {
             // Remove the cache entry. The eviction listener will remove from
             // index_to_intervals
-            self.cache.remove(&key);
+            self.cache.cache.remove(&key);
             timer.add_label(StaticMetricLabel::new("result", "out_of_retention"));
             return;
         };
@@ -397,13 +470,13 @@ impl IndexCache {
                 };
             if writes.any(conflicts) {
                 tracing::debug!(
-                    deployment = deployment_name,
+                    deployment_id = ?deployment_id,
                     "IndexCache::populate rejected by write"
                 );
                 timer.add_label(StaticMetricLabel::new("result", "invalid"));
                 // Remove the cache entry. The eviction listener will remove from
                 // index_to_intervals
-                self.cache.remove(&key);
+                self.cache.cache.remove(&key);
                 return;
             }
         }
@@ -411,20 +484,20 @@ impl IndexCache {
         // Phase 2 of 2PC: mark the cache entry as ready to serve reads if it's still
         // there. If it is missing, it was evicted by a concurrent call to
         // `apply_writes`.
-        let index_to_intervals = self.index_to_intervals.clone();
-        self.cache.entry(key).and_compute_with(|maybe_entry| {
+        let index_to_intervals = self.cache.index_to_intervals.clone();
+        self.cache.cache.entry(key).and_compute_with(|maybe_entry| {
             if let Some(entry) = maybe_entry
                 && entry.value().begin_ts == ts
             {
                 let interval_is_recorded = index_to_intervals
-                    .get(&deployment_name)
+                    .get(&deployment_id)
                     .and_then(|d| d.get(&index_id).map(|iv| iv.value().clone()))
                     .map(|iv| iv.contains(&interval, order, max_size))
                     .unwrap_or(false);
                 if !interval_is_recorded {
                     tracing::error!(
                         "IndexCache invariant violated: marking entry ready but interval not \
-                         registered in index_to_intervals (deployment={deployment_name}, \
+                         registered in index_to_intervals (deployment_id={deployment_id:?}, \
                          index_id={index_id:?})"
                     );
                     timer.add_label(StaticMetricLabel::new("result", "invalid"));
@@ -434,7 +507,7 @@ impl IndexCache {
                 value.is_ready = true;
                 timer.add_label(StaticMetricLabel::new("result", "populated"));
                 tracing::debug!(
-                    deployment = deployment_name,
+                    deployment_id = ?deployment_id,
                     "IndexCache::populate inserted entry"
                 );
                 Op::Put(value)
@@ -443,34 +516,7 @@ impl IndexCache {
                 Op::Nop
             }
         });
-        log_index_cache_size(self.cache.weighted_size());
-    }
-
-    pub fn remove_deployment(&self, deployment_name: String) {
-        if let Some(deployment_intervals) = self
-            .index_to_intervals
-            .get(&deployment_name)
-            .map(|r| r.value().clone())
-        {
-            // Clone to release the DashMap lock before removing entries from the cache.
-            let entries: Vec<(IndexId, IndexIntervals)> = deployment_intervals
-                .iter()
-                .map(|i| (*i.key(), i.value().clone()))
-                .collect();
-
-            for (index_id, intervals) in entries {
-                for (interval, order, max_size) in intervals.intervals() {
-                    self.cache.remove(&CacheKey {
-                        deployment_name: deployment_name.clone(),
-                        index_id,
-                        interval,
-                        order,
-                        max_size,
-                    });
-                }
-            }
-        }
-        log_index_cache_size(self.cache.weighted_size());
+        log_index_cache_size(self.cache.cache.weighted_size());
     }
 
     /// TODO: Remove when IndexCache is stable.
@@ -479,21 +525,20 @@ impl IndexCache {
     /// the same error.
     pub fn invalidate(
         &self,
-        deployment_name: String,
         index_id: IndexId,
-        interval: Interval,
+        interval: Arc<Interval>,
         order: Order,
         max_size: usize,
     ) {
         let key = CacheKey {
-            deployment_name,
+            deployment_id: self.deployment_id,
             index_id,
             interval,
             order,
             max_size,
         };
-        self.cache.remove(&key);
-        log_index_cache_size(self.cache.weighted_size());
+        self.cache.cache.remove(&key);
+        log_index_cache_size(self.cache.cache.weighted_size());
     }
 
     /// Apply index updates and new document value to the cache, invalidating
@@ -501,11 +546,11 @@ impl IndexCache {
     /// in the write buffer.
     pub fn apply_writes(
         &self,
-        deployment_name: String,
         writes_by_index: &BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>>,
         index_name_to_id: &dyn Fn(&TabletIndexName) -> Option<IndexId>,
     ) {
         let _timer = cache_apply_writes_timer();
+        let deployment_id = self.deployment_id;
         for (index_name, writes) in writes_by_index {
             let Some(index_id) = (index_name_to_id)(index_name) else {
                 continue;
@@ -514,8 +559,9 @@ impl IndexCache {
             // lock) before iterating writes so apply_write_to_cache can acquire
             // the same DashMap entry without deadlocking.
             let Some(intervals) = self
+                .cache
                 .index_to_intervals
-                .get(&deployment_name)
+                .get(&deployment_id)
                 .and_then(|d| d.get(&index_id).map(|r| r.value().clone()))
             else {
                 continue;
@@ -527,41 +573,17 @@ impl IndexCache {
                 );
                 for (interval, order, max_size) in matching {
                     let key = CacheKey {
-                        deployment_name: deployment_name.clone(),
+                        deployment_id,
                         index_id,
                         interval,
                         order,
                         max_size,
                     };
-                    self.apply_write_to_cache(&key, write);
+                    self.cache.apply_write_to_cache(&key, write);
                 }
             }
         }
-        log_index_cache_size(self.cache.weighted_size());
-    }
-
-    /// Invalidate a cache entry if the write falls within its tracked interval.
-    fn apply_write_to_cache(&self, key: &CacheKey, write: &DatabaseIndexWrite) {
-        let old_in_interval = write
-            .update
-            .old
-            .as_ref()
-            .is_some_and(|k| key.interval.contains(k));
-        let new_in_interval = write
-            .update
-            .new
-            .as_ref()
-            .is_some_and(|k| key.interval.contains(k));
-        if !old_in_interval && !new_in_interval {
-            return;
-        }
-        if self.cache.remove(key).is_some() {
-            tracing::debug!(
-                deployment = key.deployment_name,
-                "IndexCache::apply_write_to_cache invalidated entry"
-            );
-            log_index_cache_invalidation();
-        }
+        log_index_cache_size(self.cache.cache.weighted_size());
     }
 }
 

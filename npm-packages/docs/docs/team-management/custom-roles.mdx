@@ -255,3 +255,432 @@ Treat custom role definitions as visible to the members of the team that hold
 them, and avoid encoding sensitive information in role names or descriptions.
 For example, if you'd prefer to not disclose a project's slug in the deny rule
 of a custom role definition, use that project's ID instead.
+
+## JSON Schema
+
+The following [JSON Schema](https://json-schema.org/) represents the shape of
+valid Custom Roles.
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Custom Role Statements",
+  "type": "array",
+  "items": { "$ref": "#/definitions/statement" },
+  "definitions": {
+    "statement": {
+      "type": "object",
+      "required": ["effect", "actions", "resource"],
+      "additionalProperties": false,
+      "properties": {
+        "effect": { "enum": ["allow", "deny"] },
+        "actions": { "$ref": "#/definitions/actionPattern" },
+        "resource": { "$ref": "#/definitions/resourceSpecifier" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^team:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "team:update",
+                      "team:delete",
+                      "team:auditLog:view",
+                      "team:usage:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^project:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "project:create",
+                      "project:transfer",
+                      "project:receive",
+                      "project:update",
+                      "project:delete",
+                      "project:view",
+                      "project:updateMemberRole"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": {
+              "resource": { "pattern": "^project:[^:]+:deployment:[^:]+$" }
+            }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "deployment:create",
+                      "deployment:receive",
+                      "deployment:transfer",
+                      "deployment:delete",
+                      "deployment:view",
+                      "deployment:updateReference",
+                      "deployment:updateDashboardEditConfirmation",
+                      "deployment:updateExpiresAt",
+                      "deployment:updateSendLogsToClient",
+                      "deployment:updateClass",
+                      "deployment:updateIsDefault",
+                      "deployment:updateType",
+                      "deployment:integrations:view",
+                      "deployment:integrations:write",
+                      "deployment:customDomain:create",
+                      "deployment:customDomain:delete",
+                      "deployment:customDomain:view",
+                      "deployment:insights:view",
+                      "deployment:backups:create",
+                      "deployment:backups:import",
+                      "deployment:backups:configurePeriodic",
+                      "deployment:backups:disablePeriodic",
+                      "deployment:backups:delete",
+                      "deployment:backups:view",
+                      "deployment:backups:download",
+                      "deployment:deploy",
+                      "deployment:pause",
+                      "deployment:unpause",
+                      "deployment:env:view",
+                      "deployment:env:write",
+                      "deployment:logs:view",
+                      "deployment:metrics:view",
+                      "deployment:auditLog:view",
+                      "deployment:data:view",
+                      "deployment:data:write",
+                      "deployment:functions:actAsUser",
+                      "deployment:functions:runInternalQueries",
+                      "deployment:functions:runInternalMutations",
+                      "deployment:functions:runInternalActions",
+                      "deployment:functions:runTestQuery"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^member:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "member:invite",
+                      "member:cancelInvitation",
+                      "member:remove",
+                      "member:updateRole",
+                      "member:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": {
+              "resource": { "pattern": "^team:[^:]+:token:[^:]+$" }
+            }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "team:token:create",
+                      "team:token:update",
+                      "team:token:delete",
+                      "team:token:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": {
+              "resource": { "pattern": "^project:[^:]+:token:[^:]+$" }
+            }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "project:token:create",
+                      "project:token:update",
+                      "project:token:delete",
+                      "project:token:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": {
+              "resource": {
+                "pattern": "^project:[^:]+:deployment:[^:]+:token:[^:]+$"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "deployment:token:create",
+                      "deployment:token:update",
+                      "deployment:token:delete",
+                      "deployment:token:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^customRole:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": { "type": "string", "enum": ["customRole:view"] }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^billing:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "billing:paymentMethod:update",
+                      "billing:contact:update",
+                      "billing:address:update",
+                      "billing:subscription:changePlan",
+                      "billing:spendingLimit:update",
+                      "billing:view",
+                      "billing:invoices:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": {
+              "resource": { "pattern": "^oauthApplication:[^:]+$" }
+            }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "oauthApplication:create",
+                      "oauthApplication:update",
+                      "oauthApplication:delete",
+                      "oauthApplication:view",
+                      "oauthApplication:generateClientSecret"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^sso:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "sso:enable",
+                      "sso:disable",
+                      "sso:update",
+                      "sso:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": { "resource": { "pattern": "^integration:[^:]+$" } }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "integration:view",
+                      "integration:create",
+                      "integration:update",
+                      "integration:delete",
+                      "team:auditLog:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["resource"],
+            "properties": {
+              "resource": {
+                "pattern": "^project:[^:]+:defaultEnvironmentVariable:[^:]+$"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "actions": {
+                "if": { "type": "array" },
+                "then": {
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "defaultEnvironmentVariable:create",
+                      "defaultEnvironmentVariable:update",
+                      "defaultEnvironmentVariable:delete",
+                      "defaultEnvironmentVariable:view"
+                    ]
+                  }
+                },
+                "else": { "const": "*" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "actionPattern": {
+      "if": { "type": "array" },
+      "then": { "minItems": 1, "items": { "type": "string" } },
+      "else": { "const": "*" }
+    },
+    "resourceSpecifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(team:\\*(:token:(\\*|creator=(self|[0-9]+))(,(\\*|creator=(self|[0-9]+)))*)?|project:(\\*|id=[^,:]+|slug=[^,:]+)(,(\\*|id=[^,:]+|slug=[^,:]+))*(:token:(\\*|creator=(self|[0-9]+))(,(\\*|creator=(self|[0-9]+)))*|:deployment:(\\*|id=[^,:]+|type=[^,:]+|creator=(self|[0-9]+))(,(\\*|id=[^,:]+|type=[^,:]+|creator=(self|[0-9]+)))*(:token:(\\*|creator=(self|[0-9]+))(,(\\*|creator=(self|[0-9]+)))*)?|:defaultEnvironmentVariable:\\*)?|member:(\\*|id=[^,:]+)(,(\\*|id=[^,:]+))*|customRole:\\*|billing:\\*|oauthApplication:\\*|sso:\\*|integration:\\*)$"
+    }
+  }
+}
+```
