@@ -39,6 +39,7 @@ import {
   CUSTOM_ROLE_TEMPLATES,
   CUSTOM_ROLE_TEMPLATES_BY_ID,
 } from "./customRoleTemplates";
+import { registerCustomRoleCompletions } from "./customRoleCompletions";
 
 const BLANK_STATEMENT: RoleStatement = {
   effect: "allow",
@@ -109,7 +110,16 @@ const actionsForCategory = (category: ActionCategory) => ({
   if: { type: "array" },
   then: {
     minItems: 1,
-    items: { type: "string", enum: ACTIONS_BY_CATEGORY[category] },
+    // Validating via `pattern` rather than `enum` so the diagnostic stays
+    // compact. Monaco's enum error inlines the full list of allowed values
+    // ("value `foo` is not allowed. Allowed values: …"), which is unreadable
+    // for action lists with 60+ entries — IntelliSense already surfaces the
+    // valid options, so a short message + the per-action docs there is enough.
+    items: {
+      type: "string",
+      pattern: `^(${ACTIONS_BY_CATEGORY[category].join("|")})$`,
+      patternErrorMessage: "Not a valid action for this resource.",
+    },
   },
   else: { const: "*" },
 });
@@ -121,8 +131,12 @@ const SELECTOR_VAL = "[^,:]+";
 // or a numeric member id. Tighter than `SELECTOR_VAL` so typos like
 // `creator=me` get flagged in the editor instead of failing on save.
 const CREATOR_VAL = "(self|[0-9]+)";
+// Mirror the backend `DeploymentType` enum (camelCase serde) — `type=` only
+// accepts one of these four values, so typos like `type=production` get
+// flagged in the editor instead of failing on save.
+const DEPLOYMENT_TYPE_VAL = "(dev|prod|preview|custom)";
 const projectSel = `(\\*|id=${SELECTOR_VAL}|slug=${SELECTOR_VAL})`;
-const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${SELECTOR_VAL}|creator=${CREATOR_VAL})`;
+const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${DEPLOYMENT_TYPE_VAL}|creator=${CREATOR_VAL})`;
 const memberSel = `(\\*|id=${SELECTOR_VAL})`;
 const tokenSel = `(\\*|creator=${CREATOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
@@ -335,6 +349,30 @@ function CustomRoleForm({
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
+  // A dedicated DOM node attached to `<body>` that hosts Monaco's overflow
+  // widgets (suggest popup, hover, parameter hints). The form's slide-in
+  // animation puts the editor inside a CSS `transform` subtree, which
+  // establishes a new containing block for `position: fixed` — so
+  // `fixedOverflowWidgets` alone still clips the popup. Attaching widgets to a
+  // body-level node sidesteps the transformed ancestor entirely. We render the
+  // editor only after the node exists so Monaco picks it up at construction.
+  const [overflowWidgetsNode, setOverflowWidgetsNode] =
+    useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = document.createElement("div");
+    // `monaco-editor` class makes Monaco's widget CSS apply inside this node.
+    el.className = "monaco-editor";
+    el.style.position = "absolute";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.zIndex = "1000";
+    document.body.appendChild(el);
+    setOverflowWidgetsNode(el);
+    return () => {
+      el.remove();
+    };
+  }, []);
+
   const createCustomRole = useCreateCustomRole(teamId);
   const updateCustomRole = useUpdateCustomRole(teamId);
 
@@ -399,6 +437,16 @@ function CustomRoleForm({
         },
       ],
     });
+    // Turn off the JSON service's built-in completions so they don't duplicate
+    // the richer items from `registerCustomRoleCompletions` (the schema-driven
+    // ones surface plain enum values with no docs and a different item-kind
+    // badge). Validation/hovers/etc. live on `setDiagnosticsOptions` above and
+    // aren't affected. The dashboard's other Monaco editors use JavaScript, so
+    // this global setting only impacts the statements editor.
+    monaco.languages.json.jsonDefaults.setModeConfiguration({
+      ...monaco.languages.json.jsonDefaults.modeConfiguration,
+      completionItems: false,
+    });
   };
 
   const handleSubmitRef = useRef<() => void>(() => {});
@@ -415,6 +463,11 @@ function CustomRoleForm({
 
     const model = editorInstance.getModel();
     if (!model) return;
+
+    const completionsDisposable = registerCustomRoleCompletions(
+      monaco,
+      model.uri.toString(),
+    );
     const updateMarkers = () => {
       const markers = monaco.editor.getModelMarkers({ resource: model.uri });
       setHasSchemaError(
@@ -458,6 +511,7 @@ function CustomRoleForm({
     editorInstance.onDidDispose(() => {
       markersDisposable.dispose();
       contentDisposable.dispose();
+      completionsDisposable.dispose();
     });
   };
 
@@ -567,23 +621,46 @@ function CustomRoleForm({
             Statements
           </div>
           <div className="min-h-48 flex-1 overflow-hidden rounded border">
-            <Editor
-              path={STATEMENTS_EDITOR_PATH}
-              value={statementsText}
-              language="json"
-              theme={prefersDark ? "vs-dark" : "light"}
-              onChange={(v) => {
-                setStatementsText(v ?? "");
-                setSavedRoleName(undefined);
-              }}
-              beforeMount={handleEditorBeforeMount}
-              onMount={handleEditorMount}
-              options={{
-                ...editorOptions,
-                scrollBeyondLastLine: false,
-                padding: { top: 8, bottom: 8 },
-              }}
-            />
+            {overflowWidgetsNode && (
+              <Editor
+                path={STATEMENTS_EDITOR_PATH}
+                value={statementsText}
+                language="json"
+                theme={prefersDark ? "vs-dark" : "light"}
+                onChange={(v) => {
+                  setStatementsText(v ?? "");
+                  setSavedRoleName(undefined);
+                }}
+                beforeMount={handleEditorBeforeMount}
+                onMount={handleEditorMount}
+                options={{
+                  ...editorOptions,
+                  scrollBeyondLastLine: false,
+                  padding: { top: 8, bottom: 8 },
+                  // Shared `editorOptions` disables IntelliSense; re-enable it
+                  // for this editor so the schema + custom completion provider
+                  // can surface action/resource/effect suggestions.
+                  quickSuggestions: {
+                    other: true,
+                    comments: false,
+                    strings: true,
+                  },
+                  suggestOnTriggerCharacters: true,
+                  snippetSuggestions: "inline",
+                  tabCompletion: "on",
+                  // Render suggestion/hover popups in a fixed-position container
+                  // outside the editor DOM so they aren't clipped. The form's
+                  // slide-in animation puts the editor inside a `transform`
+                  // ancestor, which establishes a new containing block for
+                  // `position: fixed` — so `fixedOverflowWidgets` alone isn't
+                  // enough. We additionally attach widgets to a portal'd div on
+                  // `document.body` (`overflowWidgetsRef` below).
+                  fixedOverflowWidgets: true,
+                  overflowWidgetsDomNode: overflowWidgetsNode,
+                  suggest: { preview: true, showWords: false },
+                }}
+              />
+            )}
           </div>
         </div>
         <div className="flex w-full items-start justify-end gap-2">
