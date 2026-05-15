@@ -545,10 +545,29 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
 
     async fn delete_index_entries(
         &self,
-        expired_entries: Vec<IndexEntry>,
+        mut expired_entries: Vec<IndexEntry>,
     ) -> anyhow::Result<usize> {
         let multitenant = self.multitenant;
         let instance_name = mysql_async::Value::from(&self.instance_name.raw);
+        expired_entries.sort_unstable_by(|a, b| {
+            Ord::cmp(
+                &(a.index_id, &a.key_prefix, &a.key_sha256),
+                &(b.index_id, &b.key_prefix, &b.key_sha256),
+            )
+        });
+        // We implicitly delete all timestamps less than `ts`, so just keep the
+        // highest `ts` for each index key.
+        expired_entries.dedup_by(|a, b| {
+            if (a.index_id, &a.key_prefix, &a.key_sha256)
+                == (b.index_id, &b.key_prefix, &b.key_sha256)
+            {
+                // N.B.: returning `true` to dedup_by deletes `a`, so update `b`.
+                b.ts = b.ts.max(a.ts);
+                true
+            } else {
+                false
+            }
+        });
         self.lease
             .transact(async move |tx| {
                 let mut deleted_count = 0;
@@ -573,10 +592,22 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
 
     async fn delete(
         &self,
-        documents: Vec<(Timestamp, InternalDocumentId)>,
+        mut documents: Vec<(Timestamp, InternalDocumentId)>,
     ) -> anyhow::Result<usize> {
         let multitenant = self.multitenant;
         let instance_name = mysql_async::Value::from(&self.instance_name.raw);
+        documents.sort_unstable_by_key(|d| d.1);
+        // We implicitly delete all timestamps less than `d.0`, so just keep the
+        // highest timestamp for each document id.
+        documents.dedup_by(|a, b| {
+            if a.1 == b.1 {
+                // N.B.: returning `true` to dedup_by deletes `a`, so update `b`.
+                b.0 = b.0.max(a.0);
+                true
+            } else {
+                false
+            }
+        });
         self.lease
             .transact(async move |tx| {
                 let mut deleted_count = 0;
