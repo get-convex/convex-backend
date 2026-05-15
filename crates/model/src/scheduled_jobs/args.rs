@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use common::virtual_system_mapping::AssociatedVirtualTable;
 use database::system_tables::{
     SystemIndex,
@@ -12,11 +10,7 @@ use crate::scheduled_jobs::{
     SCHEDULED_JOBS_VIRTUAL_TABLE,
 };
 
-pub static SCHEDULED_JOBS_ARGS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_scheduled_job_args"
-        .parse()
-        .expect("_scheduled_job_args is not a valid system table name")
-});
+pub static SCHEDULED_JOBS_ARGS_TABLE: TableName = TableName::const_new("_scheduled_job_args");
 
 pub struct ScheduledJobArgsTable;
 

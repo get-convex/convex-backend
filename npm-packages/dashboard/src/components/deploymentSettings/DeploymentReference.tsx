@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from "react";
+import { ReactNode, useCallback, useId, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Button } from "@ui/Button";
@@ -65,10 +65,12 @@ export function DeploymentReference({
   value,
   onUpdate,
   canManage,
+  disabledTip,
 }: {
   value: string;
   onUpdate: (reference: string) => Promise<void>;
   canManage: boolean;
+  disabledTip?: ReactNode;
 }) {
   const textFieldId = useId();
 
@@ -129,7 +131,8 @@ export function DeploymentReference({
               tip={
                 canManage
                   ? undefined
-                  : "Only team admins can edit the deployment reference"
+                  : (disabledTip ??
+                    "You do not have permission to edit the deployment reference.")
               }
               icon={<Pencil1Icon />}
               aria-label="Edit deployment reference"

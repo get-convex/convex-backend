@@ -49,8 +49,7 @@ use crate::{
 
 pub mod types;
 
-pub static EXPORTS_TABLE: LazyLock<TableName> =
-    LazyLock::new(|| "_exports".parse().expect("Invalid built-in exports table"));
+pub static EXPORTS_TABLE: TableName = TableName::const_new("_exports");
 
 pub static EXPORTS_BY_STATE_AND_TS_INDEX: LazyLock<SystemIndex<ExportsTable>> =
     LazyLock::new(|| {

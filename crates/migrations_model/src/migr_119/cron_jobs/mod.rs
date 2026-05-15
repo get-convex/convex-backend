@@ -41,11 +41,7 @@ use crate::migr_119::cron_jobs::types::{
 
 pub mod types;
 
-pub static CRON_JOBS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_cron_jobs"
-        .parse()
-        .expect("_cron_jobs is not a valid system table name")
-});
+pub static CRON_JOBS_TABLE: TableName = TableName::const_new("_cron_jobs");
 
 // Used to find next jobs to execute for crons.
 #[allow(dead_code)] // TODO: remove
@@ -63,11 +59,7 @@ static CRON_JOBS_NEXT_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "nextTs".parse().expect("invalid nextTs field"));
 
 #[allow(dead_code)] // TODO: remove
-pub static CRON_JOB_LOGS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_cron_job_logs"
-        .parse()
-        .expect("_cron_job_logs is not a valid system table name")
-});
+pub static CRON_JOB_LOGS_TABLE: TableName = TableName::const_new("_cron_job_logs");
 
 #[allow(dead_code)] // TODO: remove
 pub static CRON_JOB_LOGS_INDEX_BY_NAME_TS: LazyLock<SystemIndex<CronJobLogsTable>> =
@@ -85,11 +77,7 @@ pub static CRON_JOB_LOGS_NAME_FIELD: LazyLock<FieldPath> =
 static CRON_JOB_LOGS_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "ts".parse().expect("invalid ts field"));
 
-pub static CRON_NEXT_RUN_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_cron_next_run"
-        .parse()
-        .expect("_cron_next_run is not a valid system table name")
-});
+pub static CRON_NEXT_RUN_TABLE: TableName = TableName::const_new("_cron_next_run");
 
 pub static CRON_NEXT_RUN_INDEX_BY_NEXT_TS: LazyLock<SystemIndex<CronNextRunTable>> =
     LazyLock::new(|| SystemIndex::new("by_next_ts", [&CRON_NEXT_RUN_NEXT_TS_FIELD]).unwrap());

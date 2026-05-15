@@ -152,7 +152,7 @@ where
             .collect();
         let storage_table_counts: BTreeMap<TableNamespace, u64> = system_tables
             .iter()
-            .filter(|((_, name), _)| *name == *FILE_STORAGE_TABLE)
+            .filter(|((_, name), _)| *name == FILE_STORAGE_TABLE)
             .map(|((ns, _), id)| (*ns, table_summaries.tablet_summary(id).num_values()))
             .collect();
         (

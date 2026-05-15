@@ -69,41 +69,48 @@ export function AxiomConfigurationForm({
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
       ingestUrl: existingConfig?.ingestUrl ?? "https://api.axiom.co",
     },
-    onSubmit: async (values) => {
+    onSubmit: async (values, helpers) => {
+      helpers.setStatus(undefined);
       const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
 
-      if (isNewIntegration || isUpgradingToV2) {
-        // If upgrading from v1 to v2, delete the old log stream first
-        if (isUpgradingToV2 && logStreamId) {
-          await deleteLogStream(logStreamId);
+      try {
+        if (isNewIntegration || isUpgradingToV2) {
+          // If upgrading from v1 to v2, delete the old log stream first
+          if (isUpgradingToV2 && logStreamId) {
+            await deleteLogStream(logStreamId);
+          }
+          // Create new integration (either truly new, or upgrading v1 to v2)
+          await createLogStream({
+            logStreamType: "axiom",
+            datasetName: values.datasetName,
+            apiKey: values.apiKey,
+            attributes: values.attributes,
+            ingestUrl: values.ingestUrl,
+          });
+          onAddedIntegration?.();
+          toast(
+            "success",
+            isUpgradingToV2
+              ? "Updated Axiom integration"
+              : "Created Axiom integration",
+          );
+        } else {
+          // Update existing integration without changing version
+          await updateLogStream(logStreamId, {
+            logStreamType: "axiom",
+            datasetName: values.datasetName,
+            apiKey: values.apiKey,
+            attributes: values.attributes,
+            ingestUrl: values.ingestUrl,
+          });
+          toast("success", "Updated Axiom integration");
         }
-        // Create new integration (either truly new, or upgrading v1 to v2)
-        await createLogStream({
-          logStreamType: "axiom",
-          datasetName: values.datasetName,
-          apiKey: values.apiKey,
-          attributes: values.attributes,
-          ingestUrl: values.ingestUrl,
+        onClose();
+      } catch (e) {
+        helpers.setStatus({
+          error: e instanceof Error ? e.message : "Failed to save integration.",
         });
-        onAddedIntegration?.();
-        toast(
-          "success",
-          isUpgradingToV2
-            ? "Updated Axiom integration"
-            : "Created Axiom integration",
-        );
-      } else {
-        // Update existing integration without changing version
-        await updateLogStream(logStreamId, {
-          logStreamType: "axiom",
-          datasetName: values.datasetName,
-          apiKey: values.apiKey,
-          attributes: values.attributes,
-          ingestUrl: values.ingestUrl,
-        });
-        toast("success", "Updated Axiom integration");
       }
-      onClose();
     },
     validationSchema: axiomValidationSchema,
   });
@@ -252,12 +259,18 @@ export function AxiomConfigurationForm({
           )}
         />
       </FormikProvider>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {formState.status?.error && (
+          <p className="text-sm text-content-errorSecondary" role="alert">
+            {formState.status.error}
+          </p>
+        )}
         <Button
           variant="primary"
           type="submit"
           aria-label="save"
-          disabled={!formState.dirty}
+          disabled={!formState.dirty || formState.isSubmitting}
+          loading={formState.isSubmitting}
         >
           Save
         </Button>

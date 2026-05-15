@@ -1428,7 +1428,7 @@ pub fn table_dependency_sort_key(
                     });
                 match table_metadata.state {
                     TableState::Active => {
-                        if &table_metadata.name == &*TABLES_TABLE {
+                        if &table_metadata.name == &TABLES_TABLE {
                             // In bootstrapping, create _tables table first.
                             2
                         } else {

@@ -1941,8 +1941,7 @@
     "/teams/{team_id}/create_custom_role": {
       "post": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "Create a custom role",
         "description": "Creates a new custom role for the team with the specified name,\ndescription, and permission statements.",
@@ -1996,8 +1995,7 @@
     "/teams/{team_id}/list_custom_roles": {
       "get": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "List custom roles",
         "description": "Lists all custom roles for the team with cursor-based pagination.",
@@ -2060,8 +2058,7 @@
     "/teams/{team_id}/update_custom_role": {
       "post": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "Update a custom role",
         "description": "Updates an existing custom role's name, description, and permission\nstatements.",
@@ -2115,8 +2112,7 @@
     "/teams/{team_id}/delete_custom_role": {
       "post": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "Delete a custom role",
         "description": "Deletes a custom role from the team. Fails with `CustomRoleInUse` if\nthe role is still attached to any team members; reassign those members\n(e.g. via `update_team_member_role`) before retrying.",

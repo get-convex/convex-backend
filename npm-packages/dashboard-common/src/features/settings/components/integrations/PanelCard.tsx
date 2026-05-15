@@ -39,6 +39,11 @@ export type PanelCardProps = {
   unavailableReason: IntegrationUnavailableReason | null;
   teamSlug?: string;
   onAddedIntegration?: (kind: string) => void;
+  /** When true, disable the configure/delete/+ actions and surface
+   *  `writeDisabledTip` on them. The card itself is still rendered so
+   *  members without write access can see what's available. */
+  writeDisabled?: boolean;
+  writeDisabledTip?: React.ReactNode;
 };
 
 function ProBadge({ teamSlug }: { teamSlug?: string }) {
@@ -65,6 +70,8 @@ export function PanelCard({
   unavailableReason,
   teamSlug,
   onAddedIntegration,
+  writeDisabled = false,
+  writeDisabledTip,
 }: PanelCardProps) {
   const classes = classNames(
     "py-3 px-4",
@@ -95,6 +102,8 @@ export function PanelCard({
             <WorkOSIntegrationOverflowMenu
               integration={integration}
               onConfigure={() => setIsModalOpen(true)}
+              disabled={writeDisabled}
+              disabledTip={writeDisabledTip}
             />
           </div>
         </div>
@@ -146,6 +155,8 @@ export function PanelCard({
               <IntegrationOverflowMenu
                 integration={integration}
                 onConfigure={() => setIsModalOpen(true)}
+                disabled={writeDisabled}
+                disabledTip={writeDisabledTip}
               />
             )}
           </div>

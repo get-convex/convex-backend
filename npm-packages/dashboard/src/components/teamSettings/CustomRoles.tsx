@@ -278,6 +278,7 @@ const statementsSchema = {
       if: { type: "array" },
       then: {
         minItems: 1,
+        uniqueItems: true,
         items: { type: "string" },
       },
       else: { const: "*" },
@@ -354,6 +355,22 @@ function CustomRoleForm({
     if (parsed.length === 0) {
       return "A custom role must have at least one statement.";
     }
+    for (const stmt of parsed) {
+      if (
+        stmt !== null &&
+        typeof stmt === "object" &&
+        Array.isArray((stmt as { actions?: unknown }).actions)
+      ) {
+        const actions = (stmt as { actions: unknown[] }).actions;
+        const seen = new Set<unknown>();
+        for (const a of actions) {
+          if (seen.has(a)) {
+            return `Duplicate action ${JSON.stringify(a)} in a statement.`;
+          }
+          seen.add(a);
+        }
+      }
+    }
     return undefined;
   }, [statementsText]);
   const saveBlockedReason = statementsValidationError
@@ -405,12 +422,43 @@ function CustomRoleForm({
       );
     };
     updateMarkers();
-    const disposable = monaco.editor.onDidChangeMarkers((uris) => {
+    const markersDisposable = monaco.editor.onDidChangeMarkers((uris) => {
       if (uris.some((u) => u.toString() === model.uri.toString())) {
         updateMarkers();
       }
     });
-    editorInstance.onDidDispose(() => disposable.dispose());
+
+    const denyDecorations = editorInstance.createDecorationsCollection();
+    const updateDenyDecorations = () => {
+      const matches = model.findMatches(
+        '"deny"',
+        false,
+        false,
+        true,
+        null,
+        false,
+      );
+      denyDecorations.set(
+        matches.map((match) => ({
+          range: new monaco.Range(
+            match.range.startLineNumber,
+            match.range.startColumn + 1,
+            match.range.endLineNumber,
+            match.range.endColumn - 1,
+          ),
+          options: { inlineClassName: "customRoleDenyHighlight" },
+        })),
+      );
+    };
+    updateDenyDecorations();
+    const contentDisposable = model.onDidChangeContent(() => {
+      updateDenyDecorations();
+    });
+
+    editorInstance.onDidDispose(() => {
+      markersDisposable.dispose();
+      contentDisposable.dispose();
+    });
   };
 
   const handleSubmit = async () => {
@@ -538,28 +586,34 @@ function CustomRoleForm({
             />
           </div>
         </div>
-        <div className="flex w-full items-center justify-end gap-2">
+        <div className="flex w-full items-start justify-end gap-2">
           {error && (
             <p className="mr-auto text-sm text-content-errorSecondary">
               {error}
             </p>
           )}
           {!error && savedRoleName && (
-            <div className="mr-auto flex items-center gap-1 text-sm">
-              <CheckCircledIcon className="shrink-0 text-content-success" />
-              <p>
-                Saved “{savedRoleName}”. Assign this role to a team member on
-                the{" "}
-                <Link
-                  href={{
-                    pathname: "/t/[team]/settings/members",
-                    query: { team: teamSlug },
-                  }}
-                >
-                  Team Settings → Members page
-                </Link>
-                .
-              </p>
+            <div className="mr-auto flex items-start gap-1 text-sm">
+              <CheckCircledIcon className="mt-0.5 shrink-0 text-content-success" />
+              <div className="flex flex-col gap-1">
+                <p>
+                  Saved “{savedRoleName}”. Assign this role to a team member on
+                  the{" "}
+                  <Link
+                    href={{
+                      pathname: "/t/[team]/settings/members",
+                      query: { team: teamSlug },
+                    }}
+                  >
+                    Team Settings → Members page
+                  </Link>
+                  .
+                </p>
+                <p className="text-xs text-content-secondary">
+                  Changes to deployment-level actions may take a few minutes to
+                  propogate to team members.
+                </p>
+              </div>
             </div>
           )}
           <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>

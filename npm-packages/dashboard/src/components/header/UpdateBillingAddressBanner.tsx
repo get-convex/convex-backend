@@ -2,8 +2,7 @@ import classNames from "classnames";
 import { useCurrentTeam } from "api/teams";
 import { useTeamOrbSubscription } from "api/billing";
 import { Link } from "@ui/Link";
-import { useHasCustomRolePermission } from "api/roles";
-import { BILLING_RESOURCE } from "lib/permissions";
+import { useIsCurrentMemberTeamAdmin } from "api/roles";
 
 export function UpdateBillingAddressBanner() {
   const team = useCurrentTeam();
@@ -26,15 +25,10 @@ export function UpdateBillingAddressBanner() {
 export function useShowUpdateBillingAddressBanner() {
   const team = useCurrentTeam();
   const { subscription: orbSubscription } = useTeamOrbSubscription(team?.id);
-  // Hide the banner from members who can't view billing details — there's
-  // nothing actionable for them on the linked Billing page.
-  const canViewBillingDetails = useHasCustomRolePermission(
-    team?.id,
-    "billing:view",
-    BILLING_RESOURCE,
-    true,
-  );
-  if (canViewBillingDetails !== true) {
+  // Only team admins can update the billing address, so the banner is not
+  // actionable for anyone else.
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  if (!isTeamAdmin) {
     return false;
   }
   // Team billing is managed by Vercel

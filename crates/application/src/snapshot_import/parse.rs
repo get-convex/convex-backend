@@ -228,8 +228,8 @@ pub async fn parse_import_file(
                     parse_documents_jsonl_table_name(&entry.name, &base_component_path)?
                 {
                     if table_name.is_system()
-                        && table_name != *TABLES_TABLE
-                        && table_name != *FILE_STORAGE_VIRTUAL_TABLE
+                        && table_name != TABLES_TABLE
+                        && table_name != FILE_STORAGE_VIRTUAL_TABLE
                     {
                         tracing::info!("Skipping system table entry {}", entry.name);
                         continue;

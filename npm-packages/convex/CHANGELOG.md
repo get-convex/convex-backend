@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.39.0
+
+- Apps and components may now declare typesafe env vars that they require. Both `defineApp`
+  and `defineComponent` now accept an `env` object with string keys and validator values.
+  Declared environment variables must be present and match the validators before deployment.
+- Allow `--local-*` options to `npx convex dev` to be used whenever using a local deployment.
+- The `AsyncLocalStorage` and `AsyncResource` APIs from `node:async_hooks` are now available
+  in the standard Convex runtime.
+
 ## 1.38.0
 
 - Adds `ctx.meta.getRequestMetadata()` to access request metadata in mutations and actions:

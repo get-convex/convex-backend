@@ -123,11 +123,7 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
     }
 }
 
-pub static INDEX_WORKER_METADATA_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_index_worker_metadata"
-        .parse()
-        .expect("_index_worker_metadata is an invalid table name")
-});
+pub static INDEX_WORKER_METADATA_TABLE: TableName = TableName::const_new("_index_worker_metadata");
 
 static INDEX_DOC_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "index_id".parse().expect("Invalid built-in field"));

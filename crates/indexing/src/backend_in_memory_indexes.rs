@@ -88,6 +88,7 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
+    heap_size::HeapSize,
     ResolvedDocumentId,
     TableMapping,
     TableName,
@@ -141,6 +142,12 @@ impl Ord for IndexEntry {
 impl PartialOrd for IndexEntry {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl HeapSize for IndexEntry {
+    fn heap_size(&self) -> usize {
+        self.key.heap_size() + self.value.heap_size()
     }
 }
 

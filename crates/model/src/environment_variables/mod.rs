@@ -55,11 +55,7 @@ use crate::{
 
 pub mod types;
 
-pub static ENVIRONMENT_VARIABLES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_environment_variables"
-        .parse()
-        .expect("Invalid built-in environment variables table")
-});
+pub static ENVIRONMENT_VARIABLES_TABLE: TableName = TableName::const_new("_environment_variables");
 
 pub static ENVIRONMENT_VARIABLES_INDEX_BY_NAME: LazyLock<SystemIndex<EnvironmentVariablesTable>> =
     LazyLock::new(|| SystemIndex::new("by_name", [&NAME_FIELD]).unwrap());

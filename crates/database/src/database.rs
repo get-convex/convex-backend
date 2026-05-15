@@ -1415,7 +1415,7 @@ impl<RT: Runtime> Database<RT> {
 
             // Create the `by_creation_time` index for all tables except "_index", which can
             // only have the "by_id" index.
-            if table_name != &*INDEX_TABLE {
+            if table_name != &INDEX_TABLE {
                 let index_id = id_generator.generate_resolved(index_table_id);
                 let metadata = IndexMetadata::new_enabled(
                     GenericIndexName::by_creation_time(table_id.tablet_id),

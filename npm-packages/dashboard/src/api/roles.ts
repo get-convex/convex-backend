@@ -1,5 +1,5 @@
 import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
-import { useCurrentTeam, useTeamMembers } from "api/teams";
+import { useCurrentTeam } from "api/teams";
 import { type ConcreteResource, evaluateRoles } from "lib/permissions";
 import {
   useBBMutation,
@@ -7,15 +7,14 @@ import {
   useManagementApiMutation,
   useManagementApiQuery,
 } from "./api";
+import { useCurrentDeployment } from "./deployments";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
 
 export function useIsCurrentMemberTeamAdmin(): boolean {
   const team = useCurrentTeam();
-  const profile = useProfile();
-  const members = useTeamMembers(team?.id);
-  const member = members?.find((m) => m.id === profile?.id);
-  return member?.role === "admin";
+  const myRoles = useMyCustomRoles(team?.id);
+  return myRoles?.role === "admin";
 }
 
 export function useHasProjectAdminPermissions(projectId?: number): boolean {
@@ -60,13 +59,13 @@ export function useHasProjectAdminPermissionsForProject(): (
 
 export function useProjectRoles() {
   const team = useCurrentTeam();
+  const teamId = team?.id;
   const { data, isLoading } = useBBQuery({
     path: `/teams/{team_id}/get_project_roles`,
     pathParams: {
-      team_id: team?.id.toString() || "",
+      team_id: teamId !== undefined ? teamId.toString() : "",
     },
   });
-
   return { isLoading, projectRoles: data };
 }
 
@@ -97,27 +96,14 @@ export function useUpdateProjectRoles(teamId?: number) {
 }
 
 export function useMyCustomRoles(teamId: number | undefined) {
-  const profile = useProfile();
-  const members = useTeamMembers(teamId);
-  const myRole = members?.find((m) => m.id === profile?.id)?.role;
-  // Built-in admin/developer members have no custom-role statements to
-  // evaluate, so skip the network round-trip and synthesize the response
-  // shape callers expect.
-  const skipFetch = myRole !== undefined && myRole !== "custom";
-  // Empty path params pause the underlying query in `useBBQuery`, so we use
-  // them to skip the fetch when there's nothing to look up (no `teamId`, or
-  // we already know the member's built-in role).
   const { data } = useBBQuery({
     path: `/teams/{team_id}/list_my_custom_roles`,
     pathParams: {
-      team_id: teamId === undefined || skipFetch ? "" : teamId.toString(),
+      team_id: teamId === undefined ? "" : teamId.toString(),
     },
     swrOptions: { refreshInterval: 5000, revalidateOnFocus: true },
   });
   if (teamId === undefined) return undefined;
-  if (skipFetch) {
-    return { role: myRole, customRoles: [] };
-  }
   return data;
 }
 
@@ -162,6 +148,12 @@ export function useHasCustomRolePermission(
 ): boolean | undefined {
   const myRoles = useMyCustomRoles(teamId);
   const profile = useProfile();
+  const deployment = useCurrentDeployment();
+  if (deployment?.kind === "local" && action?.startsWith("deployment:")) {
+    // Role permissions don't apply to local deployments
+    return true;
+  }
+
   if (action === undefined || resource === undefined) return undefined;
   if (myRoles === undefined) return undefined;
   if (myRoles.role !== "custom") return nonCustomRoleResult;

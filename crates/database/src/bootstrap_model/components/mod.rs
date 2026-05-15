@@ -57,11 +57,7 @@ use crate::{
     COMPONENT_DEFINITIONS_TABLE,
 };
 
-pub static COMPONENTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_components"
-        .parse()
-        .expect("Invalid built-in _components table")
-});
+pub static COMPONENTS_TABLE: TableName = TableName::const_new("_components");
 
 pub static COMPONENTS_BY_PARENT_INDEX: LazyLock<SystemIndex<ComponentsTable>> =
     LazyLock::new(|| SystemIndex::new("by_parent_and_name", [&PARENT_FIELD, &NAME_FIELD]).unwrap());

@@ -15,6 +15,11 @@ import { usePostHog } from "hooks/usePostHog";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useListCloudBackupsIfAvailable } from "api/backups";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
 import { useMemo, useRef } from "react";
 
 export { getServerSideProps } from "lib/ssr";
@@ -51,9 +56,30 @@ function DeploymentURLAndDeployKey() {
 
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const backups = useListCloudBackupsIfAvailable(deployment);
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
+
+  // Only fetch backups when the member can view them; otherwise the
+  // backup section is omitted from the summary entirely.
+  const isAdmin = useHasProjectAdminPermissions(project?.id);
+  const resource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const canViewBackupsCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:backups:view",
+    resource,
+    true,
+  );
+  const canViewBackups = isAdmin || canViewBackupsCustom !== false;
+  const backups = useListCloudBackupsIfAvailable(
+    canViewBackups ? deployment : undefined,
+  );
 
   // backups is null when not available (d1024, non-cloud), undefined when loading
   const lastBackupTime = useMemo(() => {
@@ -73,6 +99,7 @@ function DeploymentURLAndDeployKey() {
           teamSlug={team.slug}
           projectSlug={project.slug}
           lastBackupTime={lastBackupTime}
+          canViewBackups={canViewBackups}
           teamMembers={teamMembers}
           regions={regions}
         />

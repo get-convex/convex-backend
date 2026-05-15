@@ -16,6 +16,7 @@ import {
 } from "@common/features/functionRunner/lib/functionRunner";
 import { GlobalFunctionTester } from "@common/features/functionRunner/components/FunctionTester";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
 
 export function FunctionRunnerWrapper({
   isVertical,
@@ -32,7 +33,11 @@ export function FunctionRunnerWrapper({
   onRanCustomQuery?: () => void;
   onCopiedQueryResult?: () => void;
 }) {
-  const deploymentState = useQuery(udfs.deploymentState.deploymentState);
+  const canViewData = useCanViewDeploymentData();
+  const deploymentState = useQuery(
+    udfs.deploymentState.deploymentState,
+    canViewData ? {} : "skip",
+  );
   const router = useRouter();
   const { query } = router;
   const previousQuery = usePrevious(query);

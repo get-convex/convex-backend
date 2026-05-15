@@ -8,6 +8,7 @@ import { useProfile } from "api/profile";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useCurrentDeployment } from "api/deployments";
+import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
 
 export const useGlobalLDContext = createGlobalState<
   LDMultiKindContext | undefined
@@ -69,10 +70,14 @@ export const useLDContext = () => {
 
 export const useLDContextWithDeployment = () => {
   const ctx = useLDContext();
-  const serverVersion = useQuery(udfs.getVersion.default);
+  const canViewData = useCanViewDeploymentData();
+  const serverVersion = useQuery(
+    udfs.getVersion.default,
+    canViewData ? undefined : "skip",
+  );
   const deployment = useCurrentDeployment();
 
-  if (!ctx || serverVersion === undefined || !deployment) {
+  if (!ctx || (canViewData && serverVersion === undefined) || !deployment) {
     return undefined;
   }
 
@@ -81,7 +86,7 @@ export const useLDContextWithDeployment = () => {
     key: deployment.name,
     type: deployment.deploymentType,
     createTime: deployment.createTime,
-    serverVersion,
+    serverVersion: serverVersion ?? null,
     // Same as serverVersion, but renaming to npmPackageVersion.
     // Keeping both here for now to avoid breaking changes to existing
     // flag configs.

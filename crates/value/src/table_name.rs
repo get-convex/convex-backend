@@ -7,11 +7,13 @@ use std::{
     str::FromStr,
 };
 
+use compact_str::CompactString;
 use derive_more::{
     Display,
     FromStr,
 };
 use serde::Serialize;
+use sync_types::identifier::is_valid_identifier;
 
 #[cfg(doc)]
 use crate::ResolvedDocumentId;
@@ -35,14 +37,27 @@ pub const METADATA_PREFIX: &str = "_";
 /// [`ResolvedDocumentId`]. Eventually we'll want a layer of indirection here to
 /// allow users to rename their tables.
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, derive_more::Display)]
-pub struct TableName(String);
+pub struct TableName(CompactString);
+
+impl TableName {
+    /// Creates a TableName from a string literal, panicking if invalid. This
+    /// should only be used in a const context.
+    ///
+    /// Use [TableName::from_str] for runtime input.
+    pub const fn const_new(s: &'static str) -> Self {
+        if !is_valid_identifier(s) {
+            panic!("Invalid TableName");
+        }
+        TableName(CompactString::const_new(s))
+    }
+}
 
 impl FromStr for TableName {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         check_valid_identifier(s)?;
-        Ok(Self(s.to_owned()))
+        Ok(Self(s.into()))
     }
 }
 
@@ -62,7 +77,7 @@ impl Deref for TableName {
 
 impl From<TableName> for String {
     fn from(t: TableName) -> Self {
-        t.0
+        t.0.into()
     }
 }
 
