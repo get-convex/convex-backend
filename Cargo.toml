@@ -50,7 +50,7 @@ clusters = { path = "crates/clusters" }
 cmd_util = { path = "crates/cmd_util" }
 colored = "3"
 common = { path = "crates/common" }
-compact_str = "0.9.0"
+compact_str = { version = "0.9.0", features = [ "serde" ] }
 const-oid = "0.9.6"
 const_format = { version = "0.2.34", features = [ "fmt" ] }
 convex = { path = "crates/convex" }

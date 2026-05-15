@@ -83,6 +83,13 @@ body {
   display: none;
 }
 
+.monaco-editor .customRoleDenyHighlight {
+  background-color: var(--color-background-errorSecondary);
+  color: var(--color-content-error) !important;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
 .monaco-editor,
 .margin,
 .monaco-scrollable-element {

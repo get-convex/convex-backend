@@ -32,6 +32,8 @@ export function PauseDeployment({
     useCurrentDeployment,
     useHasProjectAdminPermissions,
     useIsOperationAllowed,
+    useCustomRolePermission,
+    permissionDeniedTip,
   } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const deploymentType = deployment?.deploymentType ?? "prod";
@@ -43,9 +45,22 @@ export function PauseDeployment({
   );
   const canPauseOp = useIsOperationAllowed("PauseDeployment");
   const canUnpauseOp = useIsOperationAllowed("UnpauseDeployment");
-  const canPauseOrResume =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    (paused ? canUnpauseOp : canPauseOp);
+  // Built-in admin/developer members keep the historical "prod-only"
+  // gate (admins can always pause; developers can pause non-prod).
+  // Custom-role members start with no permissions, so the
+  // `deployment:pause`/`unpause` grant is required on *every* deployment
+  // type — not just prod. Encoding that into `nonCustomRoleResult`
+  // collapses both rules into one check below.
+  const isProd = deployment?.deploymentType === "prod";
+  const canPauseCustom = useCustomRolePermission("deployment:pause", !isProd);
+  const canUnpauseCustom = useCustomRolePermission(
+    "deployment:unpause",
+    !isProd,
+  );
+  const canManage =
+    hasAdminPermissions ||
+    (paused ? canUnpauseCustom === true : canPauseCustom === true);
+  const canPauseOrResume = canManage && (paused ? canUnpauseOp : canPauseOp);
 
   const pauseDeployment = usePauseDeployment();
   const unpauseDeployment = useUnpauseDeployment();
@@ -123,7 +138,10 @@ export function PauseDeployment({
               disabled={!canPauseOrResume}
               tip={
                 !canPauseOrResume
-                  ? "You do not have permission to pause or resume this deployment."
+                  ? permissionDeniedTip(
+                      `You do not have permission to ${changeVerb(paused).toLowerCase()} this deployment.`,
+                      paused ? "deployment:unpause" : "deployment:pause",
+                    )
                   : ""
               }
             >

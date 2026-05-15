@@ -13,8 +13,8 @@ use common::{
 use crate::api_types::FivetranFieldName;
 
 /// The name of the field used in Convex tables to store the Fivetran metadata.
-pub static METADATA_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "fivetran".parse().unwrap());
+pub const METADATA_CONVEX_FIELD_NAME: IdentifierFieldName =
+    IdentifierFieldName::const_new("fivetran");
 
 pub static SYNCED_FIVETRAN_FIELD_NAME: LazyLock<FivetranFieldName> =
     LazyLock::new(|| "_fivetran_synced".parse().unwrap());
@@ -23,14 +23,12 @@ pub static SOFT_DELETE_FIVETRAN_FIELD_NAME: LazyLock<FivetranFieldName> =
 pub static ID_FIVETRAN_FIELD_NAME: LazyLock<FivetranFieldName> =
     LazyLock::new(|| "_fivetran_id".parse().unwrap());
 
-pub static SYNCED_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "synced".parse().unwrap());
-pub static SOFT_DELETE_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "deleted".parse().unwrap());
-pub static ID_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "id".parse().unwrap());
-pub static UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
-    LazyLock::new(|| "columns".parse().unwrap());
+pub const SYNCED_CONVEX_FIELD_NAME: IdentifierFieldName = IdentifierFieldName::const_new("synced");
+pub const SOFT_DELETE_CONVEX_FIELD_NAME: IdentifierFieldName =
+    IdentifierFieldName::const_new("deleted");
+pub const ID_CONVEX_FIELD_NAME: IdentifierFieldName = IdentifierFieldName::const_new("id");
+pub const UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME: IdentifierFieldName =
+    IdentifierFieldName::const_new("columns");
 
 pub static SOFT_DELETE_FIELD_PATH: LazyLock<FieldPath> = LazyLock::new(|| {
     FieldPath::new(vec![
@@ -75,8 +73,8 @@ pub static FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS: LazyLock<IndexedFields> 
         .expect("Invalid IndexedFields")
     });
 
-pub static FIVETRAN_SYNCED_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("_fivetran_by_synced").unwrap());
+pub static FIVETRAN_SYNCED_INDEX_DESCRIPTOR: IndexDescriptor =
+    IndexDescriptor::const_new("_fivetran_by_synced");
 
-pub static FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("_fivetran_by_primary_key").unwrap());
+pub static FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR: IndexDescriptor =
+    IndexDescriptor::const_new("_fivetran_by_primary_key");

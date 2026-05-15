@@ -29,11 +29,8 @@ use crate::{
     Transaction,
 };
 
-pub static SCHEMA_VALIDATION_PROGRESS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_schema_validation_progress"
-        .parse()
-        .expect("Invalid built-in _schema_validation_progress table")
-});
+pub static SCHEMA_VALIDATION_PROGRESS_TABLE: TableName =
+    TableName::const_new("_schema_validation_progress");
 
 pub static SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID: LazyLock<
     SystemIndex<SchemaValidationProgressTable>,

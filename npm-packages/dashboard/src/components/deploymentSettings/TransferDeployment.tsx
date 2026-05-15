@@ -7,14 +7,20 @@ import { Combobox, MAX_DISPLAYED_OPTIONS } from "@ui/Combobox";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useTransferDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
-import { usePaginatedProjects } from "api/projects";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { usePaginatedProjects, useCurrentProject } from "api/projects";
 import { useCurrentTeam } from "api/teams";
+import { deploymentResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 
 export function TransferDeployment() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const team = useCurrentTeam();
+  const project = useCurrentProject();
   const router = useRouter();
 
   const isProd = deployment?.deploymentType === "prod";
@@ -22,6 +28,25 @@ export function TransferDeployment() {
 
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
+  );
+  const resource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  // Built-in developers can transfer non-prod deployments; admins can
+  // transfer anything; custom-role members need an explicit
+  // `deployment:transfer` grant on the source regardless of deployment
+  // type (custom roles deny by default). The destination project is
+  // still admin-gated server-side.
+  const canTransferCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:transfer",
+    resource,
+    !isProd,
   );
 
   const [filter, setFilter] = useState("");
@@ -76,8 +101,7 @@ export function TransferDeployment() {
     (p) => p.id === destinationProjectId,
   );
 
-  // Prod deployments require project admin on both source and destination
-  const canTransfer = isProd ? hasAdminPermissions : true;
+  const canTransfer = hasAdminPermissions || canTransferCustom === true;
 
   if (!deployment || isLocal) {
     return null;
@@ -106,10 +130,12 @@ export function TransferDeployment() {
             !!paginatedProjects?.isLoading && debouncedFilter === filter
           }
           buttonProps={{
-            tip:
-              !canTransfer && isProd
-                ? "You must be a project admin to transfer production deployments."
-                : undefined,
+            tip: !canTransfer
+              ? permissionDeniedTip(
+                  "You do not have permission to transfer this deployment.",
+                  "deployment:transfer",
+                )
+              : undefined,
           }}
           options={projectOptions}
           selectedOption={destinationProjectId}
@@ -135,8 +161,11 @@ export function TransferDeployment() {
         variant="primary"
         disabled={!destinationProjectId || !canTransfer}
         tip={
-          !canTransfer && isProd
-            ? "You must be a project admin to transfer production deployments."
+          !canTransfer
+            ? permissionDeniedTip(
+                "You do not have permission to transfer this deployment.",
+                "deployment:transfer",
+              )
             : !destinationProjectId
               ? "Select a project to transfer this deployment to."
               : undefined

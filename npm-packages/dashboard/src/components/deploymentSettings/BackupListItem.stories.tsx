@@ -53,7 +53,9 @@ const meta = {
       requestedTime: +oneWeekAgo,
     },
     targetDeployment,
-    canPerformActions: true,
+    canCreate: true,
+    canImport: true,
+    canDelete: true,
     getZipExportUrl: () => "",
     maxCloudBackups: 2,
     progressMessage: null,
@@ -120,7 +122,9 @@ export const OtherBackupBeingRestored: Story = {
 
 export const MissingAdminRights: Story = {
   args: {
-    canPerformActions: false,
+    canCreate: false,
+    canImport: false,
+    canDelete: false,
   },
 };
 

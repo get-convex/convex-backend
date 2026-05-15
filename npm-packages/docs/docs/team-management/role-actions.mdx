@@ -52,6 +52,16 @@ Resource leaf: `team:*`.
 | `team:auditLog:view` | View the team's audit log.     |     ✓      |       ✓        |
 | `team:usage:view`    | View the team's usage page.    |     ✓      |       ✓        |
 
+<Admonition type="info">
+
+Both `team:auditLog:view` and `team:usage:view` reveal the existence of every
+project on the team. The audit log contains entries that reference projects and
+deployments across the whole team, and the usage page breaks down consumption
+per project. Grant these actions only to members who should know what projects
+the team has, even if they cannot otherwise access those projects.
+
+</Admonition>
+
 ## Billing
 
 Resource leaf: `billing:*`.

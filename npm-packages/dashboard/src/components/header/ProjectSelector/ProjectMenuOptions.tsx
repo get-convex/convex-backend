@@ -2,6 +2,7 @@ import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 import { useCurrentProject, useInfiniteProjects } from "api/projects";
+import { useHasCustomRolePermission } from "api/roles";
 import { useState, useMemo, useRef } from "react";
 import { TeamResponse, ProjectDetails } from "generatedApi";
 import classNames from "classnames";
@@ -10,6 +11,7 @@ import { useDeploymentUris } from "hooks/useDeploymentUris";
 import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
 import { OpenInVercel } from "components/OpenInVercel";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import startCase from "lodash/startCase";
 
 const PROJECT_SELECTOR_ITEM_SIZE = 44;
@@ -139,28 +141,60 @@ export function ProjectMenuOptions({
         </div>
       )}
 
-      <div className="flex w-full gap-2 p-2">
-        <Button
-          inline
-          onClick={() => {
-            onCreateProjectClick(team);
-            close();
-          }}
-          icon={<PlusIcon aria-hidden="true" />}
-          className="grow"
-          size="sm"
-          disabled={team.managedBy === "vercel"}
-          tip={
-            team.managedBy === "vercel"
-              ? `This team is managed by ${startCase(team.managedBy)}. You can create new projects through the ${startCase(team.managedBy)} dashboard.`
-              : ""
-          }
-        >
-          Create Project
-        </Button>
-        <OpenInVercel team={team} />
-      </div>
+      <ProjectMenuFooter
+        team={team}
+        onCreateProjectClick={onCreateProjectClick}
+        close={close}
+      />
     </>
+  );
+}
+
+function ProjectMenuFooter({
+  team,
+  onCreateProjectClick,
+  close,
+}: {
+  team: TeamResponse;
+  onCreateProjectClick: (team: TeamResponse) => void;
+  close: () => void;
+}) {
+  // Built-in admin/developer members can always create projects; custom-role
+  // members need an explicit `project:create` grant.
+  const canCreateCustom = useHasCustomRolePermission(
+    team.id,
+    "project:create",
+    { segments: [{ kind: "project", id: 0, slug: "" }] },
+    true,
+  );
+  const canCreate = canCreateCustom !== false;
+  return (
+    <div className="flex w-full gap-2 p-2">
+      <Button
+        inline
+        onClick={() => {
+          onCreateProjectClick(team);
+          close();
+        }}
+        icon={<PlusIcon aria-hidden="true" />}
+        className="grow"
+        size="sm"
+        disabled={team.managedBy === "vercel" || !canCreate}
+        tip={
+          team.managedBy === "vercel"
+            ? `This team is managed by ${startCase(team.managedBy)}. You can create new projects through the ${startCase(team.managedBy)} dashboard.`
+            : !canCreate
+              ? permissionDeniedTip(
+                  "You do not have permission to create projects in this team.",
+                  "project:create",
+                )
+              : ""
+        }
+      >
+        Create Project
+      </Button>
+      <OpenInVercel team={team} />
+    </div>
   );
 }
 

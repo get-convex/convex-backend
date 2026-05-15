@@ -5,7 +5,11 @@ import {
 } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
-import { useIsCurrentMemberTeamAdmin } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
@@ -17,6 +21,7 @@ import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
 import { THIRTY_MINUTES_MS, toDateTimeLocalValue } from "@common/lib/format";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { DeploymentReference } from "./DeploymentReference";
 
 type TriStateValue = boolean | null;
@@ -155,7 +160,39 @@ export function DeploymentAdvancedSettings() {
   const project = useCurrentProject();
   const team = useCurrentTeam();
   const entitlements = useTeamEntitlements(team?.id);
-  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const isAdmin = useHasProjectAdminPermissions(project?.id);
+  const resource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const canUpdateReferenceCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:updateReference",
+    resource,
+    false,
+  );
+  const canUpdateSendLogsCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:updateSendLogsToClient",
+    resource,
+    false,
+  );
+  const canUpdateEditConfirmCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:updateDashboardEditConfirmation",
+    resource,
+    false,
+  );
+  const canUpdateExpiresAtCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:updateExpiresAt",
+    resource,
+    false,
+  );
   const modifySettings = useModifyDeploymentSettings({
     deploymentName: deployment?.name,
     projectId: project?.id,
@@ -164,14 +201,21 @@ export function DeploymentAdvancedSettings() {
   if (deployment === undefined) return null;
   if (deployment.kind === "local") return null;
 
-  const disabled = !isTeamAdmin;
+  const canUpdateReference = isAdmin || canUpdateReferenceCustom === true;
+  const canUpdateSendLogs = isAdmin || canUpdateSendLogsCustom === true;
+  const canUpdateEditConfirm = isAdmin || canUpdateEditConfirmCustom === true;
+  const canUpdateExpiresAt = isAdmin || canUpdateExpiresAtCustom === true;
   const deploymentType = deployment.deploymentType;
 
   return (
     <>
       <DeploymentReference
         value={deployment.reference}
-        canManage={isTeamAdmin}
+        canManage={canUpdateReference}
+        disabledTip={permissionDeniedTip(
+          "You do not have permission to edit the deployment reference.",
+          "deployment:updateReference",
+        )}
         onUpdate={(reference) => modifySettings({ reference })}
       />
       <TriStateSettingSheet
@@ -198,7 +242,11 @@ export function DeploymentAdvancedSettings() {
           return null;
         }}
         fieldName="sendLogsToClient"
-        disabled={disabled}
+        disabled={!canUpdateSendLogs}
+        disabledTip={permissionDeniedTip(
+          "You do not have permission to change this setting.",
+          "deployment:updateSendLogsToClient",
+        )}
         onSave={modifySettings}
       />
       <TriStateSettingSheet
@@ -222,7 +270,11 @@ export function DeploymentAdvancedSettings() {
           return null;
         }}
         fieldName="dashboardEditConfirmation"
-        disabled={disabled}
+        disabled={!canUpdateEditConfirm}
+        disabledTip={permissionDeniedTip(
+          "You do not have permission to change this setting.",
+          "deployment:updateDashboardEditConfirmation",
+        )}
         onSave={modifySettings}
       />
       <DeploymentExpirySheet
@@ -230,8 +282,11 @@ export function DeploymentAdvancedSettings() {
         deploymentType={deploymentType}
         previewRetentionDays={entitlements?.previewDeploymentRetentionDays}
         disabled={
-          !isTeamAdmin
-            ? "Only team admins can edit deployment expiry."
+          !canUpdateExpiresAt
+            ? permissionDeniedTip(
+                "You do not have permission to edit deployment expiry.",
+                "deployment:updateExpiresAt",
+              )
             : deploymentType === "prod"
               ? "Production deployments cannot be set to expire."
               : undefined
@@ -252,6 +307,7 @@ function TriStateSettingSheet({
   getWarning,
   fieldName,
   disabled,
+  disabledTip,
   onSave,
 }: {
   title: string;
@@ -263,6 +319,7 @@ function TriStateSettingSheet({
   getWarning: (value: TriStateValue, defaultValue: boolean) => string | null;
   fieldName: "sendLogsToClient" | "dashboardEditConfirmation";
   disabled: boolean;
+  disabledTip?: React.ReactNode;
   onSave: SaveFn;
 }) {
   const [value, setValue] = useState<TriStateValue>(initialValue);
@@ -305,14 +362,19 @@ function TriStateSettingSheet({
       <h4 className="mb-2">{title}</h4>
       <p className="mb-4 text-xs text-content-secondary">{description}</p>
       <div className="flex flex-col gap-3">
-        <TriStateRadioGroup
-          name={fieldName}
-          value={value}
-          onChange={handleChange}
-          defaultForType={defaultForType}
-          defaultTooltip={defaultTooltip}
-          disabled={disabled || isSaving}
-        />
+        <Tooltip
+          tip={disabled && disabledTip ? disabledTip : undefined}
+          className="w-fit"
+        >
+          <TriStateRadioGroup
+            name={fieldName}
+            value={value}
+            onChange={handleChange}
+            defaultForType={defaultForType}
+            defaultTooltip={defaultTooltip}
+            disabled={disabled || isSaving}
+          />
+        </Tooltip>
         {warningText && (
           <div className="flex w-fit items-center gap-2 rounded-lg border bg-background-warning px-3 py-2 text-sm text-content-warning">
             <ExclamationTriangleIcon className="size-4 shrink-0" />
@@ -366,7 +428,7 @@ export function DeploymentExpirySheet({
   expiresAt: number | null;
   deploymentType: DeploymentType;
   previewRetentionDays: number | undefined;
-  disabled?: string;
+  disabled?: React.ReactNode;
   onSave: SaveFn;
 }) {
   const [hasExpiry, setHasExpiry] = useState(initialExpiresAt !== null);

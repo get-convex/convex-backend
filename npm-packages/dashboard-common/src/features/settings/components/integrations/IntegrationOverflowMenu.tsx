@@ -7,7 +7,7 @@ import {
   useUpdateLogStream,
 } from "@common/lib/integrationsApi";
 import { toast } from "@common/lib/utils";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import {
   LogIntegration,
   ExceptionReportingIntegration,
@@ -18,9 +18,13 @@ import {
 export function IntegrationOverflowMenu({
   integration,
   onConfigure,
+  disabled = false,
+  disabledTip,
 }: {
   integration: LogIntegration | ExceptionReportingIntegration;
   onConfigure: () => void;
+  disabled?: boolean;
+  disabledTip?: ReactNode;
 }) {
   const deleteLogStream = useDeleteLogStream();
   const updateLogStream = useUpdateLogStream();
@@ -61,7 +65,14 @@ export function IntegrationOverflowMenu({
           variant: "neutral",
         }}
       >
-        <MenuItem action={onConfigure}>Configure</MenuItem>
+        <MenuItem
+          action={onConfigure}
+          disabled={disabled}
+          tip={disabled ? disabledTip : undefined}
+          tipSide="left"
+        >
+          Configure
+        </MenuItem>
         <MenuItem href={configToUrl(existingIntegration.config)}>
           Go to {integrationName(existingIntegration.config.type)}
         </MenuItem>
@@ -75,6 +86,9 @@ export function IntegrationOverflowMenu({
               });
               toast("success", "Refreshed webhook connection");
             }}
+            disabled={disabled}
+            tip={disabled ? disabledTip : undefined}
+            tipSide="left"
           >
             Refresh connection
           </MenuItem>
@@ -84,6 +98,9 @@ export function IntegrationOverflowMenu({
             setShowDeleteConfirmation(true);
           }}
           variant="danger"
+          disabled={disabled}
+          tip={disabled ? disabledTip : undefined}
+          tipSide="left"
         >
           Delete
         </MenuItem>
@@ -94,9 +111,10 @@ export function IntegrationOverflowMenu({
       size="xs"
       icon={<PlusIcon />}
       variant="neutral"
-      tip="Configure Integration"
+      tip={disabled ? disabledTip : "Configure Integration"}
       tipSide="right"
       onClick={onConfigure}
+      disabled={disabled}
       data-testid="configure-integration"
     />
   );

@@ -22,6 +22,12 @@ export function DeploymentSettingsLayout({
   const sidebar = <SettingsSidebar selectedPage={page} />;
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const isWide = width > 700;
+  // Catch errors thrown by the page contents *inside* the layout so the
+  // settings sidebar stays mounted — without this the outer
+  // ErrorBoundary in `_app.tsx` replaces the whole settings page and
+  // navigation between settings sub-pages breaks. We key by `page` so
+  // navigating to a different sub-page resets the boundary.
+  const { ErrorBoundary } = useContext(DeploymentInfoContext);
 
   return (
     <PageContent>
@@ -46,7 +52,7 @@ export function DeploymentSettingsLayout({
           {isWide && sidebar}
           <div className="scrollbar flex w-full min-w-[22rem] grow overflow-auto">
             <div className="flex h-fit grow flex-col gap-6 p-6 sm:max-w-[65rem]">
-              {children}
+              <ErrorBoundary key={page}>{children}</ErrorBoundary>
             </div>
           </div>
         </div>

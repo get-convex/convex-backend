@@ -24,6 +24,8 @@ import { useReferralState } from "api/referrals";
 import { ProjectDetails, TeamResponse } from "generatedApi";
 import { ReferralsBanner } from "components/referral/ReferralsBanner";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
+import { useHasCustomRolePermission } from "api/roles";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import Head from "next/head";
 import { useState, useEffect } from "react";
@@ -222,6 +224,15 @@ function DeploymentsView({
 
 function ProjectActions({ team }: { team: TeamResponse }) {
   const [createProjectModal, showCreateProjectModal] = useCreateProjectModal();
+  // Built-in admin/developer members can always create projects; custom-role
+  // members need an explicit `project:create` grant.
+  const canCreateCustom = useHasCustomRolePermission(
+    team.id,
+    "project:create",
+    { segments: [{ kind: "project", id: 0, slug: "" }] },
+    true,
+  );
+  const canCreate = canCreateCustom !== false;
   return (
     <div className="ml-auto flex items-center gap-2">
       {!team.managedBy && (
@@ -230,6 +241,15 @@ function ProjectActions({ team }: { team: TeamResponse }) {
           variant="neutral"
           size="sm"
           icon={<PlusIcon />}
+          disabled={!canCreate}
+          tip={
+            !canCreate
+              ? permissionDeniedTip(
+                  "You do not have permission to create projects in this team.",
+                  "project:create",
+                )
+              : undefined
+          }
         >
           Create Project
         </Button>

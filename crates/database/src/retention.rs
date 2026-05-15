@@ -789,9 +789,16 @@ impl LeaderRetentionWorkers {
                 delete_chunk.len()
             );
             total_expired_entries += delete_chunk.len();
-            let results = try_join_all(Self::partition_chunk(delete_chunk).into_iter().map(
-                |delete_chunk| Self::delete_chunk(delete_chunk, persistence.clone(), *new_cursor),
-            ))
+            let results = try_join_all(
+                Self::partition_chunk(
+                    delete_chunk,
+                    INDEX_RETENTION_DELETE_CHUNK.div_ceil(*INDEX_RETENTION_DELETE_PARALLEL),
+                )
+                .into_iter()
+                .map(|delete_chunk| {
+                    Self::delete_chunk(delete_chunk, persistence.clone(), *new_cursor)
+                }),
+            )
             .await?;
             let (chunk_new_cursors, deleted_rows): (Vec<_>, Vec<_>) = results.into_iter().unzip();
             // We have successfully deleted all of delete_chunk, so update
@@ -1026,26 +1033,39 @@ impl LeaderRetentionWorkers {
             .map(|timestamp| (timestamp, total_expired_entries))
     }
 
-    /// Partitions IndexEntry into INDEX_RETENTION_DELETE_PARALLEL parts where
-    /// each index key only exists in one part.
+    /// Partitions `IndexEntry`s into parts of size `target_len`.
+    ///
+    /// Additionally guarantees that each index key exists in only one part,
+    /// since `Persistence::delete_index_entries` assumes that it's called
+    /// monotonically for each index key (it deletes _all_ prior timestamps of
+    /// the provided entries). In this case the parts can be longer than the
+    /// target length.
     fn partition_chunk(
-        to_partition: Vec<(Timestamp, IndexEntry)>,
+        mut to_partition: Vec<(Timestamp, IndexEntry)>,
+        target_len: usize,
     ) -> Vec<Vec<(Timestamp, IndexEntry)>> {
-        let mut parts = Vec::new();
-        for _ in 0..*INDEX_RETENTION_DELETE_PARALLEL {
-            parts.push(vec![]);
-        }
-        for entry in to_partition {
-            let mut hash = DefaultHasher::new();
-            entry.1.key_sha256.hash(&mut hash);
-            let i = (hash.finish() as usize) % *INDEX_RETENTION_DELETE_PARALLEL;
-            parts[i].push(entry);
+        // Group by primary key so that nearby entries land in the same part.
+        to_partition.sort_unstable_by(|a, b| {
+            Ord::cmp(
+                &(&a.1.index_id, &a.1.key_prefix, &a.1.key_sha256, &a.1.ts),
+                &(&b.1.index_id, &b.1.key_prefix, &b.1.key_sha256, &b.1.ts),
+            )
+        });
+        let mut parts = vec![vec![]];
+        for chunk in to_partition.chunk_by(|a, b| {
+            (&a.1.index_id, &a.1.key_prefix, &a.1.key_sha256)
+                == (&b.1.index_id, &b.1.key_prefix, &b.1.key_sha256)
+        }) {
+            if parts.last().unwrap().len() >= target_len {
+                parts.push(vec![]);
+            }
+            parts.last_mut().unwrap().extend_from_slice(chunk);
         }
         parts
     }
 
-    /// Partitions documents into RETENTION_DELETE_PARALLEL parts where each
-    /// document id only exists in one part
+    /// Partitions documents into DOCUMENT_RETENTION_DELETE_PARALLEL parts where
+    /// each document id only exists in one part
     fn partition_document_chunk(
         to_partition: Vec<(Timestamp, (Timestamp, InternalDocumentId))>,
     ) -> Vec<Vec<(Timestamp, (Timestamp, InternalDocumentId))>> {

@@ -52,6 +52,7 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
+const_format = { workspace = true }
 convex_macro = { workspace = true }
 csv-async = { workspace = true }
 database = { workspace = true }

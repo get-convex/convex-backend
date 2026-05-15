@@ -16,7 +16,7 @@ export type CardProps = {
     action: () => void;
     destructive?: boolean;
     disabled?: boolean;
-    tip?: string;
+    tip?: ReactNode;
   }[];
   // Will be rendered as sibling to Card content
   overlayed?: ReactNode;

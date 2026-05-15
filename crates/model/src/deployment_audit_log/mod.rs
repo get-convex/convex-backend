@@ -27,11 +27,7 @@ use crate::{
     SystemTable,
 };
 
-pub static DEPLOYMENT_AUDIT_LOG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_deployment_audit_log"
-        .parse()
-        .expect("Invalid deployment audit log table")
-});
+pub static DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
 
 pub static ACTION_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "action".parse().expect("invalid action field"));

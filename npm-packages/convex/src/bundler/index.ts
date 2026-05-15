@@ -116,7 +116,8 @@ async function doEsbuild({
         relPath.indexOf("(disabled):") !== -1 ||
         relPath.startsWith("wasm-binary:") ||
         relPath.startsWith("wasm-stub:") ||
-        relPath.startsWith("server-only-stub:")
+        relPath.startsWith("server-only-stub:") ||
+        relPath.startsWith("async-hooks-shim:")
       ) {
         continue;
       }

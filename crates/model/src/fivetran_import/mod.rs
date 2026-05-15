@@ -155,7 +155,7 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
             .map(|index| index.into_value())
             .find(|index: &DeveloperIndexMetadata| {
                 index.name.table() == table_name
-                    && *index.name.descriptor() == *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR
+                    && *index.name.descriptor() == FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR
                     && index.is_database_index()
             })
             .ok_or_else(|| {
@@ -231,7 +231,7 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
             .map(|index| index.into_value())
             .find(|index| {
                 *index.name.table() == *table_name
-                    && *index.name.descriptor() == *FIVETRAN_SYNCED_INDEX_DESCRIPTOR
+                    && *index.name.descriptor() == FIVETRAN_SYNCED_INDEX_DESCRIPTOR
             })
             .ok_or_else(|| {
                 ErrorMetadata::bad_request(

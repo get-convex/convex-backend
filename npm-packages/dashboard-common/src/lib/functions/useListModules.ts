@@ -18,13 +18,34 @@ export function useListModules(): Map<string, Module> | undefined {
 export function useListModulesAllNents():
   | Map<ComponentId | null, Map<string, Module>>
   | undefined {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+    useCustomRolePermission,
+  } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  const hasAdminPermissions = useHasProjectAdminPermissions(
+    deployment?.projectId,
+  );
   const canViewData = useIsOperationAllowed("ViewData");
+  // Built-in admin/developer members keep the admin-key gate; custom-role
+  // members need an explicit `deployment:data:view` grant. A project
+  // admin always passes.
+  const canViewDataCustom = useCustomRolePermission(
+    "deployment:data:view",
+    true,
+  );
+  const canView =
+    canViewData && (hasAdminPermissions || canViewDataCustom !== false);
   const rawModulesOrSkipped = useQuery(
     udfs.modules.listForAllComponents,
-    canViewData ? {} : "skip",
+    canView ? {} : "skip",
   );
-  const rawModules = canViewData ? rawModulesOrSkipped : [];
+  const rawModules = useMemo(
+    () => (canView ? rawModulesOrSkipped : []),
+    [canView, rawModulesOrSkipped],
+  );
 
   const allModules: Map<ComponentId | null, Map<string, Module>> | undefined =
     useMemo(() => {

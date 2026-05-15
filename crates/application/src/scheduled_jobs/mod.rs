@@ -446,7 +446,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let namespaces: Vec<_> = tx
             .table_mapping()
             .iter()
-            .filter(|(_, _, _, name)| **name == *SCHEDULED_JOBS_TABLE)
+            .filter(|(_, _, _, name)| **name == SCHEDULED_JOBS_TABLE)
             .map(|(_, namespace, ..)| namespace)
             .collect();
         let index_query = Query::index_range(IndexRange {

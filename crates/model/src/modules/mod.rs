@@ -73,8 +73,7 @@ pub mod types;
 pub mod user_error;
 
 /// Table name for user modules.
-pub static MODULES_TABLE: LazyLock<TableName> =
-    LazyLock::new(|| "_modules".parse().expect("Invalid built-in module table"));
+pub static MODULES_TABLE: TableName = TableName::const_new("_modules");
 
 /// Field for a module's path in `ModuleMetadata`.
 static PATH_FIELD: LazyLock<FieldPath> =

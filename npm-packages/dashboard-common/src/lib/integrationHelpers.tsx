@@ -308,7 +308,7 @@ export type IntegrationUnavailableReason =
 export const UNAVAILABLE_TOOLTIP_TEXT = {
   MissingEntitlement: "This integration requires the Pro plan.",
   CannotManageProd:
-    "You cannot manage integrations in a production deployment.",
+    "You do not have permission to manage integrations in this deployment.",
   LocalDeployment: "You cannot manage integrations in a local deployment.",
 };
 

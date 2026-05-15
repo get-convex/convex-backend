@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    sync::LazyLock,
-};
+use std::collections::BTreeSet;
 
 use common::{
     auth::AuthInfo,
@@ -35,8 +32,7 @@ use crate::{
 
 pub mod types;
 
-pub static AUTH_TABLE: LazyLock<TableName> =
-    LazyLock::new(|| "_auth".parse().expect("Invalid built-in auth table"));
+pub static AUTH_TABLE: TableName = TableName::const_new("_auth");
 
 pub struct AuthTable;
 impl SystemTable for AuthTable {

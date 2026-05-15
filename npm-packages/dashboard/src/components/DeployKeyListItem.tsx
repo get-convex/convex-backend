@@ -9,6 +9,7 @@ import { PlatformDeployKeyResponse } from "@convex-dev/platform/managementApi";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useState } from "react";
 import { TeamMemberLink } from "elements/TeamMemberLink";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { usePostHog } from "hooks/usePostHog";
 import {
   OPERATION_GROUPS,
@@ -19,10 +20,12 @@ export function DeployKeyListItem({
   deployKey,
   deploymentType,
   onDelete,
+  canDelete = true,
 }: {
   deployKey: PlatformDeployKeyResponse;
   deploymentType: string;
   onDelete: (args: { id: string }) => Promise<unknown>;
+  canDelete?: boolean;
 }) {
   const team = useCurrentTeam();
   const members = useTeamMembers(team?.id);
@@ -104,6 +107,16 @@ export function DeployKeyListItem({
             <MenuItem
               variant="danger"
               action={() => setShowDeleteConfirmation(true)}
+              disabled={!canDelete}
+              tip={
+                canDelete
+                  ? undefined
+                  : permissionDeniedTip(
+                      "You do not have permission to delete this deploy key.",
+                      "deployment:token:delete",
+                    )
+              }
+              tipSide="right"
             >
               Delete
             </MenuItem>

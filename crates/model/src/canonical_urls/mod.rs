@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::LazyLock,
-};
+use std::collections::BTreeMap;
 
 use common::{
     document::{
@@ -29,11 +26,7 @@ use crate::SystemTable;
 
 pub mod types;
 
-pub static CANONICAL_URLS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_canonical_urls"
-        .parse()
-        .expect("Invalid built-in table name")
-});
+pub static CANONICAL_URLS_TABLE: TableName = TableName::const_new("_canonical_urls");
 
 pub struct CanonicalUrlsTable;
 
