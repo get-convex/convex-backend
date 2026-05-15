@@ -21,6 +21,7 @@ env:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: sync-upstream
@@ -50,30 +51,17 @@ jobs:
         run: |
           git config user.name "convex-upstream-sync[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Drives the `merge=theirs` attribute declared in .gitattributes —
+          # for generated/lock files we always want upstream's version.
+          git config merge.theirs.name "always take theirs"
+          git config merge.theirs.driver "cp -f %B %A"
 
       - name: Sync enhanced
-        run: |
-          set -euo pipefail
-          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
-          git fetch --no-tags origin enhanced || true
-          git fetch --no-tags upstream main
-
-          if git show-ref --verify --quiet refs/remotes/origin/enhanced; then
-            git checkout -B enhanced origin/enhanced
-          else
-            git checkout -B enhanced upstream/main
-          fi
-
-          before="$(git rev-parse HEAD)"
-          git merge --no-edit upstream/main
-          after="$(git rev-parse HEAD)"
-
-          if [ "$before" = "$after" ]; then
-            echo "enhanced is already up to date with upstream/main"
-            exit 0
-          fi
-
-          git push origin HEAD:enhanced
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
+          TARGET_BRANCH: enhanced
+          UPSTREAM_BRANCH: main
+        run: ./.github/workflows/scripts/sync-upstream-branch.sh
 
   sync_release:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_release }}
@@ -98,27 +86,12 @@ jobs:
         run: |
           git config user.name "convex-upstream-sync[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config merge.theirs.name "always take theirs"
+          git config merge.theirs.driver "cp -f %B %A"
 
       - name: Sync release
-        run: |
-          set -euo pipefail
-          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
-          git fetch --no-tags origin release || true
-          git fetch --no-tags upstream release
-
-          if git show-ref --verify --quiet refs/remotes/origin/release; then
-            git checkout -B release origin/release
-            before="$(git rev-parse HEAD)"
-            git merge --no-edit upstream/release
-            after="$(git rev-parse HEAD)"
-
-            if [ "$before" = "$after" ]; then
-              echo "release is already up to date"
-              exit 0
-            fi
-          else
-            echo "origin/release missing; bootstrapping from upstream/release"
-            git checkout -B release upstream/release
-          fi
-
-          git push origin HEAD:release
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
+          TARGET_BRANCH: release
+          UPSTREAM_BRANCH: release
+        run: ./.github/workflows/scripts/sync-upstream-branch.sh
