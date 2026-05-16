@@ -45,6 +45,8 @@ import {
   useSubmitSpendingLimits,
 } from "./SpendingLimits";
 
+const DEFAULT_INVOICES_LIMIT = 10;
+
 export function SubscriptionOverview({
   team,
   hasAdminPermissions,
@@ -57,7 +59,10 @@ export function SubscriptionOverview({
   const isLoading = subscription === undefined;
   const resumeSubscription = useResumeSubscription(team.id);
   const [isResuming, setIsResuming] = useState(false);
-  const invoicesResult = useListInvoices(team.id);
+  const [invoicesLimit, setInvoicesLimit] = useState<number>(
+    DEFAULT_INVOICES_LIMIT,
+  );
+  const invoicesResult = useListInvoices(team.id, invoicesLimit);
   // `billing:view` gates the billing-detail forms (contact / address /
   // payment method); the surrounding "Current plan" section is readable by
   // all team members.
@@ -82,7 +87,11 @@ export function SubscriptionOverview({
     return <Loading className="h-60 w-full" fullHeight={false} />;
   }
   const invoices =
-    invoicesResult.status === "ok" ? invoicesResult.data : undefined;
+    invoicesResult.status === "ok" ? invoicesResult.data.invoices : undefined;
+  const invoicesHasMore =
+    invoicesResult.status === "ok" ? invoicesResult.data.hasMore : false;
+  const invoicesIsRefreshing =
+    invoicesResult.status === "ok" ? invoicesResult.data.isRefreshing : false;
   const nextInvoiceDate = invoices?.find(
     (i) => i.status === "draft",
   )?.invoiceDate;
@@ -209,7 +218,15 @@ export function SubscriptionOverview({
       {team.managedBy !== "vercel" &&
         invoices &&
         (invoices.length > 0 || subscription) && (
-          <Invoices invoices={invoices} />
+          <Invoices
+            invoices={invoices}
+            onShowMore={
+              invoicesHasMore
+                ? () => setInvoicesLimit(invoicesLimit + 10)
+                : undefined
+            }
+            isLoadingMore={invoicesIsRefreshing}
+          />
         )}
     </>
   );
