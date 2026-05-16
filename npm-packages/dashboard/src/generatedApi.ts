@@ -4624,7 +4624,9 @@ export interface operations {
     };
     list_invoices: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+            };
             header?: never;
             path: {
                 team_id: string;
