@@ -903,7 +903,11 @@ impl KeyBroker {
         let identity = identity.context("Proto missing identity")?;
 
         let issued = DateTime::from_timestamp(issued_s as i64, 0);
-        tracing::info!("Admin key accepted from {identity:?} at {issued:?} for {instance_name}");
+        if identity != AdminIdentityProto::System(()) {
+            tracing::info!(
+                "Admin key accepted from {identity:?} at {issued:?} for {instance_name}"
+            );
+        }
 
         Ok(match identity {
             AdminIdentityProto::MemberId(member_id) => Identity::DeploymentAdmin(AdminIdentity {
