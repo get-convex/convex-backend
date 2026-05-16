@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { InvoiceResponse } from "generatedApi";
 import { BILLING_RESOURCE, Permissioned } from "lib/permissions";
 import { useHasCustomRolePermission } from "./roles";
@@ -158,7 +159,12 @@ export function useHasFailedPayment(
 
 export function useListInvoices(
   teamId?: number,
-): Permissioned<InvoiceResponse[]> {
+  limit?: number,
+): Permissioned<{
+  invoices: InvoiceResponse[];
+  hasMore: boolean;
+  isRefreshing: boolean;
+}> {
   const canView = useHasCustomRolePermission(
     teamId,
     "billing:invoices:view",
@@ -170,20 +176,36 @@ export function useListInvoices(
     pathParams: {
       team_id: canView === true ? (teamId?.toString() ?? "") : "",
     },
+    queryParams: { limit },
     swrOptions: { refreshInterval: 1000 * 60 },
   });
+  // Hold onto the last successful response so callers can keep rendering
+  // the existing list while a refetch (e.g. raising `limit`) is in flight.
+  const lastDataRef = useRef<typeof data>(undefined);
+  if (data !== undefined) lastDataRef.current = data;
+  const effectiveData = data ?? lastDataRef.current;
+
   if (canView === undefined) return { status: "loading" };
   if (canView === false) {
     return { status: "denied", deniedAction: "billing:invoices:view" };
   }
-  if (isLoading) return { status: "loading" };
+  if (isLoading && effectiveData === undefined) return { status: "loading" };
   return {
     status: "ok",
     // Don't show test invoices from before we launched Orb billing.
-    data:
-      data?.invoices.filter(
-        (invoice) => new Date(invoice.invoiceDate) >= new Date("2024-04-29"),
-      ) ?? [],
+    data: {
+      invoices:
+        effectiveData?.invoices.filter(
+          (invoice) => new Date(invoice.invoiceDate) >= new Date("2024-04-29"),
+        ) ?? [],
+      hasMore:
+        limit !== undefined &&
+        effectiveData !== undefined &&
+        effectiveData.invoices.length >= limit,
+      // True when we're displaying previous data while a fetch for the
+      // current `limit` is still in flight.
+      isRefreshing: isLoading && effectiveData !== undefined,
+    },
   };
 }
 
