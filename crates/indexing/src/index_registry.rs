@@ -135,7 +135,7 @@ impl IndexRegistry {
         }
 
         let meta_index = meta_index
-            .ok_or_else(|| anyhow::anyhow!("Missing `by_id` index for {}", *INDEX_TABLE))?;
+            .ok_or_else(|| anyhow::anyhow!("Missing `by_id` index for {}", INDEX_TABLE))?;
 
         // First insert the `_index` table scan index.
         index.insert(Index::new(meta_index));

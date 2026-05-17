@@ -73,16 +73,8 @@ pub mod virtual_table;
 
 pub type BatchKey = usize;
 
-pub static FILE_STORAGE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_file_storage"
-        .parse()
-        .expect("invalid built-in file storage table")
-});
-pub static FILE_STORAGE_VIRTUAL_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_storage"
-        .parse()
-        .expect("_storage is not a valid virtual table name")
-});
+pub static FILE_STORAGE_TABLE: TableName = TableName::const_new("_file_storage");
+pub static FILE_STORAGE_VIRTUAL_TABLE: TableName = TableName::const_new("_storage");
 
 pub static FILE_STORAGE_INDEX_BY_ID: LazyLock<IndexName> =
     LazyLock::new(|| GenericIndexName::by_id(FILE_STORAGE_TABLE.clone()));
@@ -277,7 +269,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                         ),
                     ))?;
                 anyhow::ensure!(
-                    table_name == *FILE_STORAGE_VIRTUAL_TABLE,
+                    table_name == FILE_STORAGE_VIRTUAL_TABLE,
                     ErrorMetadata::bad_request(
                         "InvalidArgument",
                         format!(
@@ -346,7 +338,7 @@ pub async fn get_total_file_storage_size<RT: Runtime>(
         let tablet_id_to_by_id_index: BTreeMap<_, _> = table_mapping
             .iter()
             .filter(|(tablet_id, _, _, table_name)| {
-                **table_name == *FILE_STORAGE_TABLE && table_mapping.is_active(*tablet_id)
+                **table_name == FILE_STORAGE_TABLE && table_mapping.is_active(*tablet_id)
             })
             .map(|(tablet_id, ..)| {
                 anyhow::Ok((

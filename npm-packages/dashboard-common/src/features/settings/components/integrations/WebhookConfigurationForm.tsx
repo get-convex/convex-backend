@@ -106,23 +106,30 @@ export function WebhookConfigurationForm({
       url: existingIntegration?.url ?? "",
       format: existingIntegration?.format ?? "jsonl",
     },
-    onSubmit: async (values) => {
-      if (isNewIntegration) {
-        await createLogStream({
-          logStreamType: "webhook",
-          url: values.url,
-          format: values.format,
+    onSubmit: async (values, helpers) => {
+      helpers.setStatus(undefined);
+      try {
+        if (isNewIntegration) {
+          await createLogStream({
+            logStreamType: "webhook",
+            url: values.url,
+            format: values.format,
+          });
+          onAddedIntegration?.();
+          toast("success", "Created webhook integration");
+          setShowSecretRevealScreen(true);
+        } else {
+          await updateLogStream(logStreamId, {
+            logStreamType: "webhook",
+            ...values,
+          });
+          toast("success", "Updated webhook integration");
+          onClose();
+        }
+      } catch (e) {
+        helpers.setStatus({
+          error: e instanceof Error ? e.message : "Failed to save integration.",
         });
-        onAddedIntegration?.();
-        toast("success", "Created webhook integration");
-        setShowSecretRevealScreen(true);
-      } else {
-        await updateLogStream(logStreamId, {
-          logStreamType: "webhook",
-          ...values,
-        });
-        toast("success", "Updated webhook integration");
-        onClose();
       }
     },
     validationSchema: webhookValidationSchema,
@@ -185,13 +192,20 @@ export function WebhookConfigurationForm({
           </div>
         </>
       )}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {formState.status?.error && (
+          <p className="text-sm text-content-errorSecondary" role="alert">
+            {formState.status.error}
+          </p>
+        )}
         <Button
           variant="primary"
           type="submit"
           aria-label="save"
-          disabled={!formState.dirty || isHmacSecretLoading}
-          loading={isHmacSecretLoading}
+          disabled={
+            !formState.dirty || isHmacSecretLoading || formState.isSubmitting
+          }
+          loading={isHmacSecretLoading || formState.isSubmitting}
         >
           Save
         </Button>

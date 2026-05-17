@@ -35,7 +35,7 @@ jobs:
 
       - name: Install just
         uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2
-          with:
+        with:
           tool: just
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

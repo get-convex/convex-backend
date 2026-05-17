@@ -76,6 +76,7 @@ use common::{
     errors::JsError,
     identity::InertIdentity,
     knobs::{
+        AUDIT_LOG_MAX_HEAP_SIZE_BYTES,
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
@@ -964,9 +965,17 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok(result)
     }
 
-    pub fn emit_audit_log_line(&mut self, audit_log_line: AuditLogLine) {
-        // TODO(ENG-10618): enforce size limits on audit logs
+    pub fn emit_audit_log_line(&mut self, audit_log_line: AuditLogLine) -> anyhow::Result<()> {
+        let max_heap = *AUDIT_LOG_MAX_HEAP_SIZE_BYTES;
+        anyhow::ensure!(
+            self.audit_log_lines.heap_size() + audit_log_line.heap_size() <= max_heap,
+            ErrorMetadata::bad_request(
+                "AuditLogsExceedLimits",
+                "Audit logs exceed function execution limits",
+            )
+        );
         self.audit_log_lines.push(audit_log_line);
+        Ok(())
     }
 
     pub fn emit_log_line(&mut self, log_line: LogLine) {

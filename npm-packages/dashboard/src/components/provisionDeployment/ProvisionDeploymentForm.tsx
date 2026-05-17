@@ -23,9 +23,7 @@ import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import createGlobe from "cobe";
 import { SignalIcon } from "@heroicons/react/24/outline";
 import { GlobeIcon } from "@radix-ui/react-icons";
-import { useIsomorphicLayoutEffect } from "react-use";
 import { Region, sortRegions } from "elements/Region";
-import { ProvisioningLoading } from "./ProvisioningLoading";
 import { EUPricingWarning } from "elements/EUPricingWarning";
 
 const REGION_COORDINATES: Record<RegionName, [number, number]> = {
@@ -47,7 +45,6 @@ export function ProvisionDeploymentForm({
   const provisionDeployment = useProvisionDeployment(projectId);
   const updateTeam = useUpdateTeam(team?.id ?? 0, /* toast */ false);
   const isAdmin = useIsCurrentMemberTeamAdmin();
-  const defaultRegion = team?.defaultRegion;
 
   const { data: regionsData } = useManagementApiQuery({
     path: "/teams/{team_id}/list_deployment_regions",
@@ -70,42 +67,6 @@ export function ProvisionDeploymentForm({
     },
     [updateTeam, provisionDeployment, deploymentType, router, projectURI],
   );
-
-  // Auto-provision with default region if set.
-  const wasCalled = useRef(false);
-  // Using useIsomorphicLayoutEffect instead of useEffect
-  // to avoid a weird bug where the effect would run twice
-  // when the page is accessed from a Next.js <Link />
-  useIsomorphicLayoutEffect(() => {
-    if (defaultRegion === undefined) {
-      return;
-    }
-
-    // Avoid running the effect twice in React strict mode
-    if (wasCalled.current) {
-      return;
-    }
-    wasCalled.current = true;
-
-    if (defaultRegion === null) {
-      // We show the form in this case
-      return;
-    }
-
-    void handleCreate(defaultRegion, /* setAsDefault */ false);
-  }, [
-    defaultRegion,
-    deploymentType,
-    projectURI,
-    provisionDeployment,
-    router,
-    handleCreate,
-  ]);
-
-  // If there's a default region, show loading UI instead of the form.
-  if (defaultRegion) {
-    return <ProvisioningLoading deploymentType={deploymentType} />;
-  }
 
   return (
     <ProvisionDeploymentFormInner

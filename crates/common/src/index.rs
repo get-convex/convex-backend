@@ -7,6 +7,7 @@ use derive_more::Deref;
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    sha256::Sha256,
     ConvexValue,
     InternalId,
     Size,
@@ -53,6 +54,26 @@ pub struct IndexEntry {
 
     pub key_suffix: Option<Vec<u8>>,
     pub deleted: bool,
+}
+
+impl IndexEntry {
+    pub fn from_index_key(
+        index_key: IndexKeyBytes,
+        index_id: InternalId,
+        ts: Timestamp,
+        deleted: bool,
+    ) -> Self {
+        let key_sha256 = Sha256::hash(&index_key);
+        let key = SplitKey::new(index_key.0);
+        IndexEntry {
+            index_id,
+            key_prefix: key.prefix,
+            key_suffix: key.suffix,
+            key_sha256: key_sha256.to_vec(),
+            ts,
+            deleted,
+        }
+    }
 }
 
 /// An encoded IndexKey, with the same ordering.

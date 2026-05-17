@@ -12,6 +12,7 @@ use std::{
 
 use anyhow::Context;
 use biscuit::JWT;
+use chrono::DateTime;
 pub use common::types::SystemKey;
 use common::{
     components::ComponentId,
@@ -32,7 +33,7 @@ use common::{
     },
     types::{
         format_admin_key,
-        remove_type_prefix_from_instance_name,
+        remove_type_prefix_from_deployment_name,
         split_admin_key,
         ActionCallbackToken,
         AdminKey,
@@ -119,7 +120,7 @@ const MAX_TS_DELAY: Duration = Duration::from_secs(15);
 
 #[derive(Clone)]
 pub struct KeyBroker {
-    instance_name: String,
+    deployment_name: String,
     encryptor: LegacyEncryptor,
     admin_key_encryptor: RandomEncryptor,
     action_callback_encryptor: RandomEncryptor,
@@ -135,7 +136,7 @@ pub struct KeyBroker {
 // the variant without representation authentication.
 #[derive(Clone, Debug)]
 pub enum Identity {
-    InstanceAdmin(AdminIdentity),
+    DeploymentAdmin(AdminIdentity),
     System(SystemIdentity),
     User(UserIdentity),
     // ActingUser keeps track of the ID of the admin acting as a user,
@@ -155,7 +156,7 @@ impl From<Identity> for AuthenticationToken {
             Identity::ActingUser(identity, user) => {
                 AuthenticationToken::Admin(identity.key, Some(user))
             },
-            Identity::InstanceAdmin(identity) => AuthenticationToken::Admin(identity.key, None),
+            Identity::DeploymentAdmin(identity) => AuthenticationToken::Admin(identity.key, None),
             _ => AuthenticationToken::None,
         }
     }
@@ -164,7 +165,7 @@ impl From<Identity> for AuthenticationToken {
 impl From<Identity> for pb::convex_identity::UncheckedIdentity {
     fn from(i: Identity) -> Self {
         let identity = match i {
-            Identity::InstanceAdmin(admin_identity) => {
+            Identity::DeploymentAdmin(admin_identity) => {
                 UncheckedIdentityProto::AdminIdentity(admin_identity.into())
             },
             Identity::System(_) => UncheckedIdentityProto::System(()),
@@ -195,7 +196,7 @@ impl Identity {
             .identity
             .ok_or_else(|| anyhow::anyhow!("Missing nested identity"))?;
         match identity {
-            UncheckedIdentityProto::AdminIdentity(admin_identity) => Ok(Identity::InstanceAdmin(
+            UncheckedIdentityProto::AdminIdentity(admin_identity) => Ok(Identity::DeploymentAdmin(
                 AdminIdentity::from_proto_unchecked(admin_identity)?,
             )),
             UncheckedIdentityProto::System(()) => Ok(Identity::System(SystemIdentity)),
@@ -227,7 +228,7 @@ impl Identity {
 impl From<Identity> for InertIdentity {
     fn from(i: Identity) -> Self {
         match i {
-            Identity::InstanceAdmin(i) => InertIdentity::InstanceAdmin(i.instance_name),
+            Identity::DeploymentAdmin(i) => InertIdentity::DeploymentAdmin(i.deployment_name),
             Identity::System(_) => InertIdentity::System,
             Identity::Unknown(_) => InertIdentity::Unknown,
             Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
@@ -246,7 +247,7 @@ impl From<Identity> for InertIdentity {
 impl PartialEq for Identity {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::InstanceAdmin(l), Self::InstanceAdmin(r)) => l == r,
+            (Self::DeploymentAdmin(l), Self::DeploymentAdmin(r)) => l == r,
             (Self::System(..), Self::System(..)) => true,
             (Self::User(l), Self::User(r)) => {
                 l.attributes.token_identifier == r.attributes.token_identifier
@@ -256,7 +257,7 @@ impl PartialEq for Identity {
                 Self::ActingUser(l_admin_identity, l_attributes),
                 Self::ActingUser(r_admin_identity, r_attributes),
             ) => l_admin_identity == r_admin_identity && l_attributes == r_attributes,
-            (Self::InstanceAdmin(_), _)
+            (Self::DeploymentAdmin(_), _)
             | (Self::System(_), _)
             | (Self::User(_), _)
             | (Self::Unknown(_), _)
@@ -270,7 +271,7 @@ impl Eq for Identity {}
 impl Identity {
     pub fn cache_key(&self) -> IdentityCacheKey {
         match self.clone() {
-            Identity::InstanceAdmin(i) => IdentityCacheKey::InstanceAdmin(i.instance_name),
+            Identity::DeploymentAdmin(i) => IdentityCacheKey::DeploymentAdmin(i.deployment_name),
             Identity::System(_) => IdentityCacheKey::System,
             Identity::Unknown(error_message) => {
                 IdentityCacheKey::Unknown(error_message.map(|e| e.to_string()))
@@ -297,7 +298,7 @@ impl Identity {
     }
 
     pub fn is_admin(&self) -> bool {
-        matches!(self, Identity::InstanceAdmin(..))
+        matches!(self, Identity::DeploymentAdmin(..))
     }
 
     pub fn is_acting_as_user(&self) -> bool {
@@ -309,9 +310,9 @@ impl Identity {
     }
 
     /// Returns the admin's [`MemberId`] if this is an
-    /// [`Identity::InstanceAdmin`] with a member principal
+    /// [`Identity::DeploymentAdmin`] with a member principal
     pub fn member_id(&self) -> Option<MemberId> {
-        if let Identity::InstanceAdmin(AdminIdentity { principal, .. }) = self {
+        if let Identity::DeploymentAdmin(AdminIdentity { principal, .. }) = self {
             return if let AdminIdentityPrincipal::Member(member_id) = principal {
                 Some(*member_id)
             } else {
@@ -322,14 +323,18 @@ impl Identity {
     }
 
     pub fn instance_admin_principal(&self) -> Option<AdminIdentityPrincipal> {
-        if let Identity::InstanceAdmin(AdminIdentity { principal, .. }) = self {
+        if let Identity::DeploymentAdmin(AdminIdentity { principal, .. }) = self {
             return Some(principal.clone());
         }
         None
     }
 
     pub fn instance_name(&self) -> Option<String> {
-        if let Identity::InstanceAdmin(AdminIdentity { instance_name, .. }) = self {
+        if let Identity::DeploymentAdmin(AdminIdentity {
+            deployment_name: instance_name,
+            ..
+        }) = self
+        {
             return Some(instance_name.to_string());
         }
         None
@@ -348,7 +353,7 @@ impl Identity {
     pub fn require_operation(&self, operation: DeploymentOp) -> anyhow::Result<()> {
         let admin_identity = match self {
             Identity::System(_) => return Ok(()),
-            Identity::InstanceAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
                 admin_identity
             },
             Identity::User(_) | Identity::Unknown(_) => {
@@ -607,7 +612,7 @@ pub enum AdminIdentityPrincipal {
 // instance.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct AdminIdentity {
-    instance_name: String,
+    deployment_name: String,
     principal: AdminIdentityPrincipal,
     key: String,
     // is_read_only being true implies that this identity should not be able to write data.
@@ -622,7 +627,7 @@ pub struct AdminIdentity {
 impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
     fn from(
         AdminIdentity {
-            instance_name,
+            deployment_name: instance_name,
             principal,
             key,
             is_read_only,
@@ -674,7 +679,7 @@ impl AdminIdentity {
             })
             .collect();
         Ok(Self {
-            instance_name,
+            deployment_name: instance_name,
             principal,
             key,
             is_read_only,
@@ -683,14 +688,14 @@ impl AdminIdentity {
     }
 
     pub fn new_for_access_token(
-        instance_name: String,
+        deployment_name: String,
         principal: AdminIdentityPrincipal,
         access_token: String,
         is_read_only: bool,
         allowed_ops: Vec<DeploymentOp>,
     ) -> Self {
         Self {
-            instance_name,
+            deployment_name,
             principal,
             key: access_token,
             is_read_only,
@@ -725,8 +730,11 @@ impl fmt::Debug for AdminIdentity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}/{:?}/{}",
-            self.instance_name, self.principal, self.key
+            "{}/{:?}/{}/{:?}",
+            self.deployment_name,
+            self.principal,
+            self.key,
+            self.allowed_ops()
         )
     }
 }
@@ -753,7 +761,7 @@ pub fn cursor_parse_error() -> ErrorMetadata {
 impl KeyBroker {
     pub fn new(instance_name: &str, deployment_secret: DeploymentSecret) -> anyhow::Result<Self> {
         Ok(Self {
-            instance_name: instance_name.to_owned(),
+            deployment_name: instance_name.to_owned(),
             encryptor: LegacyEncryptor::new(deployment_secret)?,
             admin_key_encryptor: RandomEncryptor::derive_from_secret(
                 &deployment_secret,
@@ -779,24 +787,24 @@ impl KeyBroker {
     }
 
     pub fn dev() -> Self {
-        Self::new(
-            crate::DEV_INSTANCE_NAME,
-            DeploymentSecret::try_from(crate::DEV_SECRET).unwrap(),
-        )
-        .unwrap()
+        Self::new(crate::DEV_INSTANCE_NAME, DeploymentSecret::random()).unwrap()
     }
 
     pub fn local_dev(instance_name: &str) -> Self {
+        // Must match `LOCAL_BACKEND_INSTANCE_SECRET` in the CLI
+        // (npm-packages/convex/src/cli/lib/localDeployment/utils.ts), since admin
+        // keys issued here are sent to backends launched by the CLI with that secret.
+        const LOCAL_DEV_SECRET: &str = include_str!("../dev/secret.txt");
         Self::new(
             instance_name,
-            DeploymentSecret::try_from(crate::DEV_SECRET).unwrap(),
+            DeploymentSecret::try_from(LOCAL_DEV_SECRET).unwrap(),
         )
         .unwrap()
     }
 
     pub fn function_runner_keybroker(&self) -> FunctionRunnerKeyBroker {
         FunctionRunnerKeyBroker {
-            instance_name: self.instance_name.clone(),
+            instance_name: self.deployment_name.clone(),
             cursor_encryptor: self.cursor_encryptor.clone(),
             store_file_encryptor: self.store_file_encryptor.clone(),
         }
@@ -844,7 +852,7 @@ impl KeyBroker {
             is_read_only,
         };
         format_admin_key(
-            &self.instance_name,
+            &self.deployment_name,
             &self
                 .admin_key_encryptor
                 .encrypt_proto(ADMIN_KEY_VERSION, &proto),
@@ -866,7 +874,7 @@ impl KeyBroker {
 
     pub fn check_admin_key(&self, key: &str) -> anyhow::Result<Identity> {
         let (instance_name, encrypted_part) = split_admin_key(key)
-            .map(|(name, key)| (Some(remove_type_prefix_from_instance_name(name)), key))
+            .map(|(name, key)| (Some(remove_type_prefix_from_deployment_name(name)), key))
             .unwrap_or((None, key));
         let AdminKeyProto {
             instance_name: instance_name_from_encrypted_part,
@@ -886,7 +894,7 @@ impl KeyBroker {
             .or(instance_name_from_encrypted_part.as_deref())
             .context("Invalid admin key format")?;
 
-        if instance_name != self.instance_name {
+        if instance_name != self.deployment_name {
             return Err(anyhow::anyhow!(
                 "Key is for invalid instance {instance_name}",
             ));
@@ -894,9 +902,16 @@ impl KeyBroker {
         anyhow::ensure!(issued_s != 0, "Proto missing issued_s");
         let identity = identity.context("Proto missing identity")?;
 
+        let issued = DateTime::from_timestamp(issued_s as i64, 0);
+        if identity != AdminIdentityProto::System(()) {
+            tracing::info!(
+                "Admin key accepted from {identity:?} at {issued:?} for {instance_name}"
+            );
+        }
+
         Ok(match identity {
-            AdminIdentityProto::MemberId(member_id) => Identity::InstanceAdmin(AdminIdentity {
-                instance_name: self.instance_name.clone(),
+            AdminIdentityProto::MemberId(member_id) => Identity::DeploymentAdmin(AdminIdentity {
+                deployment_name: self.deployment_name.clone(),
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
                 is_read_only,
@@ -925,7 +940,7 @@ impl KeyBroker {
                 "Couldn't decode the StoreFileAuthorization token",
             ))?;
 
-        if instance_name != self.instance_name {
+        if instance_name != self.deployment_name {
             anyhow::bail!(ErrorMetadata::unauthenticated(
                 "InvalidStorageToken",
                 "Storage token is for invalid instance {instance_name}"
@@ -972,7 +987,7 @@ impl KeyBroker {
     ) -> SerializedQueryJournal {
         let query_journal_version = persistence_version.index_key_version(QUERY_JOURNAL_VERSION);
         let cursor = match &journal.end_cursor {
-            Some(cursor) => Some(cursor_to_proto(&self.instance_name, cursor)),
+            Some(cursor) => Some(cursor_to_proto(&self.deployment_name, cursor)),
             None => return None,
         };
         let proto = InstanceQueryJournalProto { end_cursor: cursor };
@@ -996,7 +1011,7 @@ impl KeyBroker {
                     .decrypt_proto(query_journal_version, &journal)
                     .with_context(cursor_parse_error)?;
                 let end_cursor = match proto.end_cursor {
-                    Some(cursor) => Some(proto_to_cursor(&self.instance_name, cursor)?),
+                    Some(cursor) => Some(proto_to_cursor(&self.deployment_name, cursor)?),
                     None => None,
                 };
                 Ok(QueryJournal { end_cursor })

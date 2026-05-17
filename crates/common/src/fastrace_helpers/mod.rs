@@ -50,12 +50,12 @@ impl EncodedSpan {
 
 /// Given an instance name returns a span with the sample percentage specified
 /// in `knobs.rs`
-pub fn get_sampled_span<R: Rng>(instance_name: &str, name: &str, rng: &mut R) -> Span {
-    let sample_ratio = get_sampling_ratio(instance_name, name);
+pub fn get_sampled_span<R: Rng>(deployment_name: &str, name: &str, rng: &mut R) -> Span {
+    let sample_ratio = get_sampling_ratio(deployment_name, name);
     let should_sample = rng.random_bool(sample_ratio);
     match should_sample {
         true => Span::root(name.to_owned(), SpanContext::random())
-            .with_property(|| ("dev.convex.instance_name", instance_name.to_owned())),
+            .with_property(|| ("dev.convex.instance_name", deployment_name.to_owned())),
         false => Span::noop(),
     }
 }
@@ -64,19 +64,19 @@ pub fn get_sampled_span<R: Rng>(instance_name: &str, name: &str, rng: &mut R) ->
 /// same decision each time this function is called with the same `key`.
 pub fn get_keyed_sampled_span<K: Hash + std::fmt::Debug>(
     key: K,
-    instance_name: &str,
+    deployment_name: &str,
     name: &str,
     span_ctx: SpanContext,
 ) -> Span {
     let mut hasher = FnvHasher::default();
     key.hash(&mut hasher);
     let hash = hasher.finish() as u32;
-    let sample_ratio = get_sampling_ratio(instance_name, name);
+    let sample_ratio = get_sampling_ratio(deployment_name, name);
     let threshold = ((u32::MAX as f64) * sample_ratio) as u32;
     if hash < threshold {
         tracing::info!("Sampling span for {key:?}: {name}");
         Span::root(name.to_owned(), span_ctx)
-            .with_property(|| ("dev.convex.instance_name", instance_name.to_owned()))
+            .with_property(|| ("dev.convex.instance_name", deployment_name.to_owned()))
     } else {
         tracing::info!("Not sampling span for {key:?}: {name}");
         Span::noop()
@@ -90,15 +90,15 @@ pub fn set_sampling_config(config: SamplingConfig) {
     *SAMPLING_CONFIG_FROM_LOADER.lock() = Some(config);
 }
 
-fn get_sampling_ratio(instance_name: &str, name: &str) -> f64 {
+fn get_sampling_ratio(deployment_name: &str, name: &str) -> f64 {
     if SAMPLING_CONFIG_FROM_LOADER.lock().is_some() {
         SAMPLING_CONFIG_FROM_LOADER
             .lock()
             .as_ref()
             .unwrap()
-            .sample_ratio(instance_name, name)
+            .sample_ratio(deployment_name, name)
     } else {
-        REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(instance_name, name)
+        REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(deployment_name, name)
     }
 }
 
@@ -120,12 +120,12 @@ impl PartialEq for SamplingConfig {
 }
 
 impl SamplingConfig {
-    fn sample_ratio(&self, instance_name: &str, name: &str) -> f64 {
+    fn sample_ratio(&self, deployment_name: &str, name: &str) -> f64 {
         self.by_regex
             .iter()
-            .find_map(|(rule_instance_name, name_regex, sample_ratio)| {
-                if let Some(rule_instance_name) = rule_instance_name
-                    && rule_instance_name != instance_name
+            .find_map(|(rule_deployment_name, name_regex, sample_ratio)| {
+                if let Some(rule_instance_name) = rule_deployment_name
+                    && rule_instance_name != deployment_name
                 {
                     return None;
                 }
@@ -180,12 +180,12 @@ impl TryFrom<SamplingConfigJson> for SamplingConfig {
     fn try_from(json: SamplingConfigJson) -> anyhow::Result<Self> {
         let mut by_regex = Vec::new();
         if let Some(instance_overrides) = json.instance_overrides {
-            for (instance_name, route_overrides) in instance_overrides.iter() {
+            for (deployment_name, route_overrides) in instance_overrides.iter() {
                 for route_override in route_overrides {
                     by_regex.push((
-                        Some(instance_name.to_owned()),
+                        Some(deployment_name.to_owned()),
                         Regex::new(&route_override.route_regexp).context("Invalid route regexp")?,
-                        validate_fraction(route_override.fraction, instance_name)?,
+                        validate_fraction(route_override.fraction, deployment_name)?,
                     ));
                 }
             }
@@ -222,7 +222,7 @@ impl FromStr for SamplingConfig {
         for token in s.split(',') {
             let parts: Vec<_> = token.split(':').map(|s| s.trim()).collect();
             anyhow::ensure!(parts.len() <= 2, "Too many parts {}", token);
-            let (instance_name, token2) = if parts.len() == 2 {
+            let (deployment_name, token2) = if parts.len() == 2 {
                 let instance_name = Some(parts[0].to_owned());
                 (instance_name, parts[1])
             } else {
@@ -239,7 +239,7 @@ impl FromStr for SamplingConfig {
                 let rate: f64 = parts[0].parse().context("Failed to parse sampling rate")?;
                 (DOT_STAR.clone(), rate)
             };
-            by_regex.push((instance_name, name_regex, rate));
+            by_regex.push((deployment_name, name_regex, rate));
         }
         Ok(SamplingConfig { by_regex })
     }

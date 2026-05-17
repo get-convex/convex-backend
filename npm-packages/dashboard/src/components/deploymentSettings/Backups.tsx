@@ -25,8 +25,13 @@ import {
 import { Link } from "@ui/Link";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
-import { useHasProjectAdminPermissions } from "api/roles";
-import { ChevronDownIcon } from "@radix-ui/react-icons";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import { ChevronDownIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { Combobox } from "@ui/Combobox";
 import { BackupList } from "./BackupList";
 import { BackupRestoreStatus } from "./BackupRestoreStatus";
@@ -50,28 +55,59 @@ export function Backups({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment.projectId,
   );
-  const canPerformActions =
-    deployment.deploymentType !== "prod" || hasAdminPermissions;
 
-  if (deployment.kind === "cloud" && deployment.class.startsWith("d")) {
-    return (
-      <div className="flex h-full flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h3 className="min-w-fit">Backup & Restore</h3>
-        </div>
-        <Callout className="max-w-prose">
-          <span>
-            Backups for {deployment.class.toUpperCase()} deployments are
-            produced every 24 hours and retained for 7 days. Contact the Convex
-            team to restore from a backup{" "}
-            <Link href="https://docs.convex.dev/database/backup-restore">
-              Learn more about backups
-            </Link>
-          </span>
-        </Callout>
-      </div>
-    );
-  }
+  // Built-in role semantics for write actions: admin can always act,
+  // developer is allowed on non-prod deployments. Custom-role members are
+  // gated per-action by their explicit grants.
+  const builtinAllowed = deployment.deploymentType !== "prod";
+  const resource =
+    project && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const canCreateCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:create",
+    resource,
+    builtinAllowed,
+  );
+  const canImportCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:import",
+    resource,
+    builtinAllowed,
+  );
+  const canConfigurePeriodicCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:configurePeriodic",
+    resource,
+    builtinAllowed,
+  );
+  const canDisablePeriodicCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:disablePeriodic",
+    resource,
+    builtinAllowed,
+  );
+  const canDeleteCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:backups:delete",
+    resource,
+    builtinAllowed,
+  );
+  const canCreate = hasAdminPermissions || canCreateCustom === true;
+  const canImport = hasAdminPermissions || canImportCustom === true;
+  const canConfigurePeriodic =
+    hasAdminPermissions || canConfigurePeriodicCustom === true;
+  const canDisablePeriodic =
+    hasAdminPermissions || canDisablePeriodicCustom === true;
+  const canDelete = hasAdminPermissions || canDeleteCustom === true;
+
+  const isDedicated =
+    deployment.kind === "cloud" && deployment.class.startsWith("d");
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -85,12 +121,22 @@ export function Backups({
           </Link>
         </span>
       </div>
+      {isDedicated && <PhysicalBackupsSection deployment={deployment} />}
+      {isDedicated && (
+        <h4 className="flex min-w-fit items-center gap-1.5">
+          Zip backups
+          <Tooltip tip="Restoring a zip backup into a dedicated deployment isn't supported. Contact the Convex team to restore from a physical backup.">
+            <InfoCircledIcon className="size-4 text-content-secondary" />
+          </Tooltip>
+        </h4>
+      )}
       <div className="scrollbar flex grow flex-col gap-4 overflow-auto pt-1 pl-1 xl:flex-row xl:overflow-hidden">
         <Sheet className="flex h-fit w-full shrink-0 flex-col items-start gap-6 xl:w-60 xl:items-center">
           {periodicBackupsEnabled ? (
             <AutomaticBackupSelector
               deployment={deployment}
-              canPerformActions={canPerformActions}
+              canConfigurePeriodic={canConfigurePeriodic}
+              canDisablePeriodic={canDisablePeriodic}
             />
           ) : (
             <Tooltip
@@ -115,7 +161,7 @@ export function Backups({
           <BackupNowButton
             deployment={deployment}
             maxCloudBackups={maxCloudBackups}
-            canPerformActions={canPerformActions}
+            canCreate={canCreate}
           />
           <BackupProCallouts
             team={team}
@@ -157,12 +203,39 @@ export function Backups({
             <BackupList
               team={team}
               targetDeployment={deployment}
-              canPerformActions={canPerformActions}
+              canCreate={canCreate}
+              canImport={canImport}
+              canDelete={canDelete}
               maxCloudBackups={maxCloudBackups}
             />
           </Sheet>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PhysicalBackupsSection({
+  deployment,
+}: {
+  deployment: PlatformDeploymentResponse;
+}) {
+  if (deployment.kind !== "cloud") return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <h4 className="min-w-fit">Physical backups</h4>
+      <Callout className="max-w-prose">
+        <span>
+          {deployment.class.toUpperCase()} deployments include physical backups.
+          Physical backups are faster and cheaper due to the ability to rely on
+          dedicated database hardware. They are produced every 24 hours and are
+          retained for 7 days. To restore from a physical backup, contact the
+          Convex team.{" "}
+          <Link href="https://docs.convex.dev/database/backup-restore">
+            Learn more about backups
+          </Link>
+        </span>
+      </Callout>
     </div>
   );
 }
@@ -182,14 +255,14 @@ function BackupProCallouts({
         <LocalDevCallout
           className="mt-6 flex-col"
           tipText="Tip: Run this to enable automatic backups locally:"
-          command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement periodic_backups_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+          command={`just big-brain-tool-dev entitlement grant --team-entitlement periodic_backups_enabled --team-id ${team?.id} --reason "local" true --for-real`}
         />
       )}
       {maxCloudBackups <= 2 && (
         <LocalDevCallout
           className="mt-6 flex-col"
           tipText="Tip: Run this to increase the backup limit locally:"
-          command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement max_cloud_backups --team-id ${team?.id} --reason "local" 50 --for-real`}
+          command={`just big-brain-tool-dev entitlement grant --team-entitlement max_cloud_backups --team-id ${team?.id} --reason "local" 50 --for-real`}
         />
       )}
     </>
@@ -198,10 +271,12 @@ function BackupProCallouts({
 
 export function AutomaticBackupSelector({
   deployment,
-  canPerformActions,
+  canConfigurePeriodic,
+  canDisablePeriodic,
 }: {
   deployment: PlatformDeploymentResponse;
-  canPerformActions: boolean;
+  canConfigurePeriodic: boolean;
+  canDisablePeriodic: boolean;
 }) {
   const deploymentId = deployment.kind === "cloud" ? deployment.id : undefined;
   const periodicBackup = useGetPeriodicBackupConfig(deploymentId);
@@ -210,11 +285,24 @@ export function AutomaticBackupSelector({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Whether the checkbox can be toggled depends on its current state:
+  // turning automatic backups on requires `configurePeriodic`, turning
+  // them off requires `disablePeriodic`.
+  const canToggleCheckbox = periodicBackup
+    ? canDisablePeriodic
+    : canConfigurePeriodic;
+  const toggleMissingPermission = periodicBackup
+    ? "deployment:backups:disablePeriodic"
+    : "deployment:backups:configurePeriodic";
+
   return (
     <Tooltip
       tip={
-        !canPerformActions
-          ? "You do not have permission to change the backup settings in production."
+        !canToggleCheckbox
+          ? permissionDeniedTip(
+              "You do not have permission to change the automatic backup settings.",
+              toggleMissingPermission,
+            )
           : undefined
       }
     >
@@ -223,7 +311,7 @@ export function AutomaticBackupSelector({
           <Checkbox
             checked={!!periodicBackup}
             disabled={
-              periodicBackup === undefined || isSubmitting || !canPerformActions
+              periodicBackup === undefined || isSubmitting || !canToggleCheckbox
             }
             onChange={async () => {
               setIsSubmitting(true);
@@ -261,7 +349,7 @@ export function AutomaticBackupSelector({
             <BackupScheduleSelector
               cronspec={periodicBackup.cronspec}
               deployment={deployment}
-              disabled={!canPerformActions}
+              disabled={!canConfigurePeriodic}
             />
             <div>
               <TimestampDistance
@@ -276,7 +364,7 @@ export function AutomaticBackupSelector({
             <BackupIncludeStorageSelector
               periodicBackup={periodicBackup}
               deployment={deployment}
-              disabled={!canPerformActions}
+              disabled={!canConfigurePeriodic}
             />
           </>
         )}

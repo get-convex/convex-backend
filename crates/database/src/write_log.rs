@@ -3,6 +3,7 @@ use std::{
         BTreeMap,
         VecDeque,
     },
+    ops::Bound,
     sync::Arc,
 };
 
@@ -44,6 +45,7 @@ use imbl::{
 };
 use indexing::{
     backend_in_memory_indexes::TimestampedIndexCache,
+    index_cache::WriteLogIndexReader,
     index_registry::IndexRegistry,
 };
 use parking_lot::Mutex;
@@ -59,7 +61,10 @@ use value::{
 
 use crate::{
     database::ConflictingReadWithWriteSource,
-    metrics,
+    metrics::{
+        self,
+        write_log_iter_writes_timer,
+    },
     reads::ReadSet,
     Snapshot,
     Token,
@@ -450,6 +455,19 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
     > {
         self.0.iter()
     }
+
+    fn iter_since(
+        &self,
+        index: &TabletIndexName,
+        ts: Timestamp,
+    ) -> Option<impl Iterator<Item = (&Timestamp, &(WithHeapSize<Vector<T>>, WriteSource))> + '_>
+    {
+        Some(
+            self.0
+                .get(index)?
+                .range((Bound::Excluded(ts), Bound::Unbounded)),
+        )
+    }
 }
 
 /// WriteLog holds recent commits that have been written to persistence and
@@ -748,6 +766,32 @@ impl LogReader {
     }
 }
 
+impl WriteLogIndexReader for LogReader {
+    fn iter_writes_after(
+        &self,
+        index_name: TabletIndexName,
+        ts: Timestamp,
+    ) -> anyhow::Result<
+        Option<
+            Box<dyn Iterator<Item = (Timestamp, WithHeapSize<Vector<DatabaseIndexWrite>>)> + '_>,
+        >,
+    > {
+        let timer = write_log_iter_writes_timer();
+        let guard = self.inner.lock();
+        if ts < guard.log.purged_ts {
+            anyhow::bail!("Timestamp is out of retention window");
+        }
+        let Some(writes_by_ts) = guard.log.by_database_index.iter_since(&index_name, ts) else {
+            return Ok(None);
+        };
+        let results: Vec<_> = writes_by_ts
+            .map(|(&ts, (writes, _source))| (ts, writes.clone()))
+            .collect();
+        timer.finish();
+        Ok(Some(Box::new(results.into_iter())))
+    }
+}
+
 /// LogWriter can append to the log.
 pub struct LogWriter {
     inner: Arc<Mutex<WriteLogManager>>,
@@ -756,13 +800,20 @@ pub struct LogWriter {
 impl LogWriter {
     // N.B.: `writes` is `OrderedWrites` because that's what the committer
     // already has, but the write log doesn't actually care about the ordering.
+    //
+    // N.B. log.append must be called before apply_writes to prevent a cache
+    // interval from getting populated and checking the write log does not have any
+    // overlapping writes in `IndexCache::populate` before the write is appended,
+    // thereby missing a write.
     pub fn append(
         &mut self,
         ts: Timestamp,
         writes: OrderedIndexKeyWrites,
         write_source: WriteSource,
+        apply_writes_callback: impl FnOnce(),
     ) {
         block_in_place(|| self.inner.lock().append(ts, writes, write_source));
+        apply_writes_callback();
     }
 
     pub fn is_stale(

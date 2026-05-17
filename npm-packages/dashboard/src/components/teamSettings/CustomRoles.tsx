@@ -2,7 +2,6 @@ import { TeamResponse } from "generatedApi";
 import {
   CustomRoleResponse,
   RoleStatement,
-  RoleStatementAction,
 } from "@convex-dev/platform/managementApi";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
@@ -11,8 +10,12 @@ import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TextInput } from "@ui/TextInput";
 import { Menu, MenuItem } from "@ui/Menu";
-import { PlusIcon, DotsVerticalIcon } from "@radix-ui/react-icons";
-import { useState } from "react";
+import {
+  PlusIcon,
+  DotsVerticalIcon,
+  CheckCircledIcon,
+} from "@radix-ui/react-icons";
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import { cn } from "@ui/cn";
@@ -23,15 +26,73 @@ import {
   useCreateCustomRole,
   useUpdateCustomRole,
   useDeleteCustomRole,
+  useHasCustomRolePermission,
   useIsCurrentMemberTeamAdmin,
 } from "api/roles";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
 import { editorOptions } from "@common/elements/ObjectEditor/ObjectEditor";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
+import { ActionCategory, ACTIONS_BY_CATEGORY } from "./customRoleActions";
+import {
+  CUSTOM_ROLE_TEMPLATES,
+  CUSTOM_ROLE_TEMPLATES_BY_ID,
+} from "./customRoleTemplates";
+import { registerCustomRoleCompletions } from "./customRoleCompletions";
 
-const EMPTY_STATEMENTS = "[\n  \n]";
+const BLANK_STATEMENT: RoleStatement = {
+  effect: "allow",
+  resource: "",
+  actions: [],
+};
 
 const STATEMENTS_EDITOR_PATH = "custom-role-statements.json";
+
+const STATEMENTS_PRINT_WIDTH = 160;
+const STATEMENTS_INDENT = "  ";
+
+function formatStatements(value: unknown): string {
+  return formatCompact(value, "");
+}
+
+function inlineFormat(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(inlineFormat).join(", ")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return "{}";
+    return `{ ${entries
+      .map(([k, v]) => `${JSON.stringify(k)}: ${inlineFormat(v)}`)
+      .join(", ")} }`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+function formatCompact(value: unknown, currentIndent: string): string {
+  const inline = inlineFormat(value);
+  if (currentIndent.length + inline.length <= STATEMENTS_PRINT_WIDTH) {
+    return inline;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "[]";
+    const childIndent = currentIndent + STATEMENTS_INDENT;
+    const items = value.map((v) => childIndent + formatCompact(v, childIndent));
+    return `[\n${items.join(",\n")}\n${currentIndent}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return "{}";
+    const childIndent = currentIndent + STATEMENTS_INDENT;
+    const items = entries.map(
+      ([k, v]) =>
+        `${childIndent}${JSON.stringify(k)}: ${formatCompact(v, childIndent)}`,
+    );
+    return `{\n${items.join(",\n")}\n${currentIndent}}`;
+  }
+  return inline;
+}
 
 function errorMessage(e: unknown, fallback: string): string {
   if (
@@ -45,161 +106,39 @@ function errorMessage(e: unknown, fallback: string): string {
   return fallback;
 }
 
-// Categories below match the (leaf, parent) pairs the server's
-// `RoleStatement::validate` enforces in
-// crates_private/big_brain_lib/src/roles/types.rs. Token actions split by
-// owner so e.g. `team:*:token:*` only allows team-token actions. The server
-// enforces this pairing too — this duplication just gives inline editor
-// feedback.
-type ActionCategory =
-  | "team"
-  | "project"
-  | "deployment"
-  | "member"
-  | "teamToken"
-  | "projectToken"
-  | "deploymentToken"
-  | "customRole"
-  | "billing"
-  | "oauthApplication"
-  | "sso"
-  | "integration"
-  | "defaultEnvironmentVariable";
-
-const ACTIONS_BY_CATEGORY: Record<ActionCategory, RoleStatementAction[]> = {
-  team: [
-    "updateTeam",
-    "deleteTeam",
-    "applyReferralCode",
-    "viewTeamAuditLog",
-    "viewUsage",
-  ],
-  billing: [
-    "updatePaymentMethod",
-    "updateBillingContact",
-    "updateBillingAddress",
-    "createSubscription",
-    "resumeSubscription",
-    "cancelSubscription",
-    "changeSubscriptionPlan",
-    "setSpendingLimit",
-    "viewBillingDetails",
-    "viewInvoices",
-  ],
-  oauthApplication: [
-    "createOAuthApplication",
-    "updateOAuthApplication",
-    "deleteOAuthApplication",
-    "viewOAuthApplications",
-    "generateOAuthClientSecret",
-  ],
-  sso: ["enableSSO", "disableSSO", "updateSSO", "viewSSO"],
-  integration: [
-    "viewTeamIntegrations",
-    "createTeamIntegrations",
-    "updateTeamIntegrations",
-    "deleteTeamIntegrations",
-    "viewTeamAuditLog",
-  ],
-  project: [
-    "createProject",
-    "transferProject",
-    "receiveProject",
-    "updateProject",
-    "deleteProject",
-    "viewProjects",
-    "updateMemberProjectRole",
-  ],
-  defaultEnvironmentVariable: [
-    "createProjectEnvironmentVariable",
-    "updateProjectEnvironmentVariable",
-    "deleteProjectEnvironmentVariable",
-    "viewProjectEnvironmentVariables",
-  ],
-  deployment: [
-    "createDeployment",
-    "receiveDeployment",
-    "transferDeployment",
-    "deleteDeployment",
-    "updateDeploymentReference",
-    "updateDeploymentDashboardEditConfirmation",
-    "updateDeploymentExpiresAt",
-    "updateDeploymentSendLogsToClient",
-    "updateDeploymentClass",
-    "updateDeploymentIsDefault",
-    "updateDeploymentType",
-    "viewDeploymentIntegrations",
-    "writeDeploymentIntegrations",
-    "createCustomDomain",
-    "deleteCustomDomain",
-    "viewInsights",
-    "startManualCloudBackup",
-    "restoreFromCloudBackup",
-    "configurePeriodicBackup",
-    "disablePeriodicBackup",
-    "deleteCloudBackup",
-    "downloadCloudBackups",
-    "deploy",
-    "pauseDeployment",
-    "unpauseDeployment",
-    "viewEnvironmentVariables",
-    "writeEnvironmentVariables",
-    "viewLogs",
-    "viewMetrics",
-    "viewAuditLog",
-    "viewData",
-    "writeData",
-    "actAsUser",
-    "runInternalQueries",
-    "runInternalMutations",
-    "runInternalActions",
-    "runTestQuery",
-  ],
-  member: [
-    "inviteMember",
-    "cancelMemberInvitation",
-    "removeMember",
-    "updateMemberRole",
-  ],
-  teamToken: [
-    "createTeamAccessToken",
-    "updateTeamAccessToken",
-    "deleteTeamAccessToken",
-    "viewTeamAccessTokens",
-  ],
-  projectToken: [
-    "createProjectAccessToken",
-    "updateProjectAccessToken",
-    "deleteProjectAccessToken",
-    "viewProjectAccessTokens",
-  ],
-  deploymentToken: [
-    "createDeploymentAccessToken",
-    "updateDeploymentAccessToken",
-    "deleteDeploymentAccessToken",
-    "viewDeploymentAccessTokens",
-  ],
-  customRole: ["viewCustomRoles"],
-};
-
 const actionsForCategory = (category: ActionCategory) => ({
   if: { type: "array" },
   then: {
     minItems: 1,
-    items: { type: "string", enum: ACTIONS_BY_CATEGORY[category] },
+    // Validating via `pattern` rather than `enum` so the diagnostic stays
+    // compact. Monaco's enum error inlines the full list of allowed values
+    // ("value `foo` is not allowed. Allowed values: …"), which is unreadable
+    // for action lists with 60+ entries — IntelliSense already surfaces the
+    // valid options, so a short message + the per-action docs there is enough.
+    items: {
+      type: "string",
+      pattern: `^(${ACTIONS_BY_CATEGORY[category].join("|")})$`,
+      patternErrorMessage: "Not a valid action for this resource.",
+    },
   },
   else: { const: "*" },
 });
 
-// Mirrors ResourceSpecifier::FromStr in
-// crates_private/big_brain_lib/src/roles/parse.rs. Tokens nest directly under
-// their owning resource: `team:*:token:*`, `project:*:token:*`, or
-// `project:*:deployment:*:token:*`.
+// Tokens nest directly under their owning resource: `team:*:token:*`,
+// `project:*:token:*`, or `project:*:deployment:*:token:*`.
 const SELECTOR_VAL = "[^,:]+";
+// `creator=` accepts the literal `self` (resolves to the evaluating actor)
+// or a numeric member id. Tighter than `SELECTOR_VAL` so typos like
+// `creator=me` get flagged in the editor instead of failing on save.
+const CREATOR_VAL = "(self|[0-9]+)";
+// Mirror the backend `DeploymentType` enum (camelCase serde) — `type=` only
+// accepts one of these four values, so typos like `type=production` get
+// flagged in the editor instead of failing on save.
+const DEPLOYMENT_TYPE_VAL = "(dev|prod|preview|custom)";
 const projectSel = `(\\*|id=${SELECTOR_VAL}|slug=${SELECTOR_VAL})`;
-const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${SELECTOR_VAL}|creator=${SELECTOR_VAL})`;
+const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${DEPLOYMENT_TYPE_VAL}|creator=${CREATOR_VAL})`;
 const memberSel = `(\\*|id=${SELECTOR_VAL})`;
-const tokenSel = `(\\*|creator=${SELECTOR_VAL})`;
+const tokenSel = `(\\*|creator=${CREATOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
 const tokenTail = `:token:${csv(tokenSel)}`;
 const projectTail = `(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail})?|:defaultEnvironmentVariable:\\*)`;
@@ -353,6 +292,7 @@ const statementsSchema = {
       if: { type: "array" },
       then: {
         minItems: 1,
+        uniqueItems: true,
         items: { type: "string" },
       },
       else: { const: "*" },
@@ -368,28 +308,39 @@ const statementsSchema = {
 
 function CustomRoleForm({
   teamId,
+  teamSlug,
   existingRole,
+  templateId,
   onClose,
   onSaved,
 }: {
   teamId: number;
+  teamSlug: string;
   existingRole?: CustomRoleResponse;
+  templateId?: string;
   onClose: () => void;
   onSaved: (roleId: number) => void;
 }) {
-  const [name, setName] = useState(existingRole?.name ?? "");
+  const template =
+    !existingRole && templateId
+      ? CUSTOM_ROLE_TEMPLATES_BY_ID[templateId]
+      : undefined;
+  const [name, setName] = useState(
+    existingRole?.name ?? template?.defaultName ?? "",
+  );
   const [description, setDescription] = useState(
-    existingRole?.description ?? "",
+    existingRole?.description ?? template?.defaultRoleDescription ?? "",
   );
-  const [statementsText, setStatementsText] = useState(
-    existingRole
-      ? JSON.stringify(existingRole.statements, null, 2)
-      : EMPTY_STATEMENTS,
-  );
+  const [statementsText, setStatementsText] = useState(() => {
+    const initial = existingRole?.statements ??
+      template?.statements ?? [BLANK_STATEMENT];
+    return formatStatements(initial);
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const [nameError, setNameError] = useState<string>();
   const [hasSchemaError, setHasSchemaError] = useState(false);
+  const [savedRoleName, setSavedRoleName] = useState<string>();
   // Tracks the id of a role created in this form instance so that a fast
   // second save after Create still routes through update, even if the SWR
   // cache for `list_custom_roles` hasn't yet repopulated `existingRole`.
@@ -398,13 +349,86 @@ function CustomRoleForm({
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
+  // A dedicated DOM node attached to `<body>` that hosts Monaco's overflow
+  // widgets (suggest popup, hover, parameter hints). The form's slide-in
+  // animation puts the editor inside a CSS `transform` subtree, which
+  // establishes a new containing block for `position: fixed` — so
+  // `fixedOverflowWidgets` alone still clips the popup. Attaching widgets to a
+  // body-level node sidesteps the transformed ancestor entirely. We render the
+  // editor only after the node exists so Monaco picks it up at construction.
+  const [overflowWidgetsNode, setOverflowWidgetsNode] =
+    useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = document.createElement("div");
+    // `monaco-editor` class makes Monaco's widget CSS apply inside this node.
+    el.className = "monaco-editor";
+    el.style.position = "absolute";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.zIndex = "1000";
+    document.body.appendChild(el);
+    setOverflowWidgetsNode(el);
+    return () => {
+      el.remove();
+    };
+  }, []);
+
   const createCustomRole = useCreateCustomRole(teamId);
   const updateCustomRole = useUpdateCustomRole(teamId);
+
+  // Synchronous validation, derived from `statementsText`. `hasSchemaError`
+  // reflects Monaco markers, which update asynchronously after typing — a
+  // quick Save before markers settle would otherwise slip past every gate and
+  // only fail inside `handleSubmit`. Keep this in sync with the checks there.
+  const statementsValidationError = useMemo<string | undefined>(() => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(statementsText);
+    } catch {
+      return "Statements must be valid JSON.";
+    }
+    if (!Array.isArray(parsed)) {
+      return "Statements must be a JSON array.";
+    }
+    if (parsed.length === 0) {
+      return "A custom role must have at least one statement.";
+    }
+    for (const stmt of parsed) {
+      if (
+        stmt !== null &&
+        typeof stmt === "object" &&
+        Array.isArray((stmt as { actions?: unknown }).actions)
+      ) {
+        const actions = (stmt as { actions: unknown[] }).actions;
+        const seen = new Set<unknown>();
+        for (const a of actions) {
+          if (seen.has(a)) {
+            return `Duplicate action ${JSON.stringify(a)} in a statement.`;
+          }
+          seen.add(a);
+        }
+      }
+    }
+    return undefined;
+  }, [statementsText]);
+  const saveBlockedReason = statementsValidationError
+    ? statementsValidationError
+    : hasSchemaError
+      ? "Resolve the highlighted schema errors first."
+      : undefined;
+  const canSave = !isSubmitting && saveBlockedReason === undefined;
 
   const handleEditorBeforeMount: BeforeMount = (monaco) => {
     monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
       validate: true,
       allowComments: false,
+      // Monaco defaults schema-validation and trailing-comma findings to
+      // Warning severity, but we treat them as hard errors: the marker check
+      // below only blocks saving on severity-Error markers, and `JSON.parse`
+      // rejects trailing commas anyway.
+      schemaValidation: "error",
+      trailingCommas: "error",
+      comments: "error",
       schemas: [
         {
           uri: STATEMENTS_EDITOR_PATH,
@@ -413,11 +437,37 @@ function CustomRoleForm({
         },
       ],
     });
+    // Turn off the JSON service's built-in completions so they don't duplicate
+    // the richer items from `registerCustomRoleCompletions` (the schema-driven
+    // ones surface plain enum values with no docs and a different item-kind
+    // badge). Validation/hovers/etc. live on `setDiagnosticsOptions` above and
+    // aren't affected. The dashboard's other Monaco editors use JavaScript, so
+    // this global setting only impacts the statements editor.
+    monaco.languages.json.jsonDefaults.setModeConfiguration({
+      ...monaco.languages.json.jsonDefaults.modeConfiguration,
+      completionItems: false,
+    });
   };
 
+  const handleSubmitRef = useRef<() => void>(() => {});
+
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
+    editorInstance.addAction({
+      id: "saveCustomRole",
+      label: "Save custom role",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run() {
+        handleSubmitRef.current();
+      },
+    });
+
     const model = editorInstance.getModel();
     if (!model) return;
+
+    const completionsDisposable = registerCustomRoleCompletions(
+      monaco,
+      model.uri.toString(),
+    );
     const updateMarkers = () => {
       const markers = monaco.editor.getModelMarkers({ resource: model.uri });
       setHasSchemaError(
@@ -425,66 +475,86 @@ function CustomRoleForm({
       );
     };
     updateMarkers();
-    const disposable = monaco.editor.onDidChangeMarkers((uris) => {
+    const markersDisposable = monaco.editor.onDidChangeMarkers((uris) => {
       if (uris.some((u) => u.toString() === model.uri.toString())) {
         updateMarkers();
       }
     });
-    editorInstance.onDidDispose(() => disposable.dispose());
+
+    const denyDecorations = editorInstance.createDecorationsCollection();
+    const updateDenyDecorations = () => {
+      const matches = model.findMatches(
+        '"deny"',
+        false,
+        false,
+        true,
+        null,
+        false,
+      );
+      denyDecorations.set(
+        matches.map((match) => ({
+          range: new monaco.Range(
+            match.range.startLineNumber,
+            match.range.startColumn + 1,
+            match.range.endLineNumber,
+            match.range.endColumn - 1,
+          ),
+          options: { inlineClassName: "customRoleDenyHighlight" },
+        })),
+      );
+    };
+    updateDenyDecorations();
+    const contentDisposable = model.onDidChangeContent(() => {
+      updateDenyDecorations();
+    });
+
+    editorInstance.onDidDispose(() => {
+      markersDisposable.dispose();
+      contentDisposable.dispose();
+      completionsDisposable.dispose();
+    });
   };
 
   const handleSubmit = async () => {
     setError(undefined);
     setNameError(undefined);
+    setSavedRoleName(undefined);
 
     if (!name.trim()) {
       setNameError("Name is required.");
       return;
     }
 
-    if (hasSchemaError) {
-      setError(
-        "Fix the highlighted schema errors in statements before saving.",
-      );
+    if (saveBlockedReason !== undefined) {
+      setError(saveBlockedReason);
       return;
     }
 
-    let parsedStatements: RoleStatement[];
-    try {
-      const raw = JSON.parse(statementsText);
-      if (!Array.isArray(raw)) {
-        setError("Statements must be a JSON array.");
-        return;
-      }
-      parsedStatements = raw as RoleStatement[];
-    } catch {
-      setError("Statements must be valid JSON.");
-      return;
-    }
-
-    if (parsedStatements.length === 0) {
-      setError("A custom role must have at least one statement.");
-      return;
-    }
+    // `saveBlockedReason` already gated parseability, array shape, and
+    // non-emptiness, so this parse can't throw and the cast is safe.
+    const parsedStatements = JSON.parse(statementsText) as RoleStatement[];
 
     setIsSubmitting(true);
     try {
+      const trimmedName = name.trim();
       if (savedRoleId !== undefined) {
         await updateCustomRole({
           id: savedRoleId,
-          name: name.trim(),
+          name: trimmedName,
           description: description.trim() || null,
           statements: parsedStatements,
         });
+        setSavedRoleName(trimmedName);
         onSaved(savedRoleId);
       } else {
         const created = await createCustomRole({
-          name: name.trim(),
+          name: trimmedName,
           description: description.trim() || null,
           statements: parsedStatements,
         });
         if (created) {
           setCreatedRoleId(created.id);
+          setSavedRoleName(trimmedName);
           onSaved(created.id);
         }
       }
@@ -495,9 +565,25 @@ function CustomRoleForm({
     }
   };
 
+  useEffect(() => {
+    handleSubmitRef.current = () => {
+      if (!canSave) return;
+      void handleSubmit();
+    };
+  });
+
+  const handleCmdEnter = (
+    e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSubmitRef.current();
+    }
+  };
+
   return (
-    <Sheet>
-      <div className="flex flex-col gap-4">
+    <Sheet className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <TextInput
           id="role-name"
           label="Name"
@@ -505,7 +591,9 @@ function CustomRoleForm({
           onChange={(e) => {
             setName(e.target.value);
             setNameError(undefined);
+            setSavedRoleName(undefined);
           }}
+          onKeyDown={handleCmdEnter}
           placeholder="e.g. Viewer"
           error={nameError}
         />
@@ -520,46 +608,98 @@ function CustomRoleForm({
             id="role-description"
             className="min-h-[60px] w-full rounded border bg-background-secondary px-3 py-2 text-sm text-content-primary"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setSavedRoleName(undefined);
+            }}
+            onKeyDown={handleCmdEnter}
             placeholder="Optional description for this role"
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-1">
           <div className="text-left text-sm text-content-primary">
             Statements
           </div>
-          <div className="h-[60vh] min-h-96 overflow-hidden rounded border">
-            <Editor
-              path={STATEMENTS_EDITOR_PATH}
-              value={statementsText}
-              language="json"
-              theme={prefersDark ? "vs-dark" : "light"}
-              onChange={(v) => setStatementsText(v ?? "")}
-              beforeMount={handleEditorBeforeMount}
-              onMount={handleEditorMount}
-              options={{
-                ...editorOptions,
-                scrollBeyondLastLine: false,
-                padding: { top: 8, bottom: 8 },
-              }}
-            />
+          <div className="min-h-48 flex-1 overflow-hidden rounded border">
+            {overflowWidgetsNode && (
+              <Editor
+                path={STATEMENTS_EDITOR_PATH}
+                value={statementsText}
+                language="json"
+                theme={prefersDark ? "vs-dark" : "light"}
+                onChange={(v) => {
+                  setStatementsText(v ?? "");
+                  setSavedRoleName(undefined);
+                }}
+                beforeMount={handleEditorBeforeMount}
+                onMount={handleEditorMount}
+                options={{
+                  ...editorOptions,
+                  scrollBeyondLastLine: false,
+                  padding: { top: 8, bottom: 8 },
+                  // Shared `editorOptions` disables IntelliSense; re-enable it
+                  // for this editor so the schema + custom completion provider
+                  // can surface action/resource/effect suggestions.
+                  quickSuggestions: {
+                    other: true,
+                    comments: false,
+                    strings: true,
+                  },
+                  suggestOnTriggerCharacters: true,
+                  snippetSuggestions: "inline",
+                  tabCompletion: "on",
+                  // Render suggestion/hover popups in a fixed-position container
+                  // outside the editor DOM so they aren't clipped. The form's
+                  // slide-in animation puts the editor inside a `transform`
+                  // ancestor, which establishes a new containing block for
+                  // `position: fixed` — so `fixedOverflowWidgets` alone isn't
+                  // enough. We additionally attach widgets to a portal'd div on
+                  // `document.body` (`overflowWidgetsRef` below).
+                  fixedOverflowWidgets: true,
+                  overflowWidgetsDomNode: overflowWidgetsNode,
+                  suggest: { preview: true, showWords: false },
+                }}
+              />
+            )}
           </div>
         </div>
-        {error && (
-          <p className="text-sm text-content-errorSecondary">{error}</p>
-        )}
-        <div className="flex justify-end gap-2">
+        <div className="flex w-full items-start justify-end gap-2">
+          {error && (
+            <p className="mr-auto text-sm text-content-errorSecondary">
+              {error}
+            </p>
+          )}
+          {!error && savedRoleName && (
+            <div className="mr-auto flex items-start gap-1 text-sm">
+              <CheckCircledIcon className="mt-0.5 shrink-0 text-content-success" />
+              <div className="flex flex-col gap-1">
+                <p>
+                  Saved “{savedRoleName}”. Assign this role to a team member on
+                  the{" "}
+                  <Link
+                    href={{
+                      pathname: "/t/[team]/settings/members",
+                      query: { team: teamSlug },
+                    }}
+                  >
+                    Team Settings → Members page
+                  </Link>
+                  .
+                </p>
+                <p className="text-xs text-content-secondary">
+                  Changes to deployment-level actions may take a few minutes to
+                  propogate to team members.
+                </p>
+              </div>
+            </div>
+          )}
           <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || hasSchemaError}
-            tip={
-              hasSchemaError
-                ? "Resolve the highlighted schema errors first."
-                : undefined
-            }
+            disabled={!canSave}
+            tip={saveBlockedReason}
           >
             {savedRoleId !== undefined ? "Save" : "Create"}
           </Button>
@@ -652,6 +792,29 @@ function CustomRoleListItem({
 }
 
 export function CustomRoles({ team }: { team: TeamResponse }) {
+  const canViewCustomRoles = useHasCustomRolePermission(
+    team.id,
+    "customRole:view",
+    CUSTOM_ROLE_RESOURCE,
+    true,
+  );
+
+  if (canViewCustomRoles === false) {
+    return (
+      <>
+        <h2>Custom Roles</h2>
+        <NoPermissionMessage
+          message="You do not have permission to view custom roles."
+          missingPermission="customRole:view"
+        />
+      </>
+    );
+  }
+
+  return <CustomRolesContent team={team} />;
+}
+
+function CustomRolesContent({ team }: { team: TeamResponse }) {
   const router = useRouter();
   const entitlements = useTeamEntitlements(team.id);
   const entitlementsLoaded = entitlements !== undefined;
@@ -677,6 +840,10 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
     ? roles?.find((r) => r.id.toString() === editingRoleId)
     : undefined;
   const isNewRole = router.query.new === "1";
+  const newRoleTemplateId =
+    typeof router.query.template === "string"
+      ? router.query.template
+      : undefined;
   const showForm = canManage && (isNewRole || editingRoleId !== undefined);
 
   const listHref = {
@@ -688,11 +855,15 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
     void router.push(listHref, undefined, { shallow: true });
   };
 
-  const goToNew = () => {
+  const goToNew = (templateId?: string) => {
     void router.push(
       {
         pathname: "/t/[team]/settings/custom-roles",
-        query: { team: team.slug, new: "1" },
+        query: {
+          team: team.slug,
+          new: "1",
+          ...(templateId ? { template: templateId } : {}),
+        },
       },
       undefined,
       { shallow: true },
@@ -715,7 +886,7 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
     : (editingRole?.name ?? (editingRoleId ? "Edit" : undefined));
 
   return (
-    <div className="-mx-6 flex flex-col">
+    <div className="-mx-6 flex min-h-0 flex-1 flex-col">
       <div className="sticky top-0 z-10 -mt-6 flex items-center gap-2 bg-background-primary p-6">
         {showForm ? (
           <Link href={listHref}>
@@ -733,10 +904,10 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
           </>
         )}
       </div>
-      <div className="relative flex overflow-x-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-x-hidden">
         <div
           className={cn(
-            "flex w-full gap-6 transition-transform duration-500 motion-reduce:transition-none",
+            "flex min-h-0 w-full flex-1 gap-6 transition-transform duration-500 motion-reduce:transition-none",
             showForm ? "-translate-x-[calc(100%+1.5rem)]" : "translate-x-0",
           )}
         >
@@ -755,19 +926,50 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
               </Callout>
             )}
             <Sheet>
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between gap-4">
                 <p className="text-sm text-content-primary">
                   Custom roles let you define fine-grained permissions for your
-                  team members.
+                  team members.{" "}
+                  <Link
+                    href="https://docs.convex.dev/team-management/custom-roles"
+                    target="_blank"
+                  >
+                    Learn more about custom roles
+                  </Link>
+                  .
                 </p>
-                <Button
-                  onClick={goToNew}
-                  icon={<PlusIcon />}
-                  disabled={!canManage}
-                  tip={disabledReason}
+                <Menu
+                  placement="bottom-end"
+                  buttonProps={{
+                    icon: <PlusIcon />,
+                    disabled: !canManage,
+                    tip: disabledReason,
+                    children: "Create Role",
+                  }}
                 >
-                  Create Role
-                </Button>
+                  {[
+                    <div
+                      key="__header__"
+                      className="mx-3 pb-1 text-xs text-content-secondary select-none"
+                    >
+                      Role Template
+                    </div>,
+                    ...CUSTOM_ROLE_TEMPLATES.map((t) => (
+                      <MenuItem
+                        key={t.id}
+                        action={() => goToNew(t.id)}
+                        tip={t.description}
+                        tipSide="left"
+                      >
+                        {t.label}
+                      </MenuItem>
+                    )),
+                    <hr key="__divider__" className="mx-3 my-1 border-t" />,
+                    <MenuItem key="__blank__" action={() => goToNew()}>
+                      Start without a template
+                    </MenuItem>,
+                  ]}
+                </Menu>
               </div>
               {roles === undefined ? (
                 <Loading fullHeight={false} className="h-14 w-full" />
@@ -812,7 +1014,9 @@ export function CustomRoles({ team }: { team: TeamResponse }) {
                 <CustomRoleForm
                   key="custom-role-form"
                   teamId={team.id}
+                  teamSlug={team.slug}
                   existingRole={editingRole}
+                  templateId={newRoleTemplateId}
                   onClose={goToList}
                   onSaved={goToEdit}
                 />

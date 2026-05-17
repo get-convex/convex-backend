@@ -348,6 +348,7 @@ export function Combobox<T>({
                                     label={option.label}
                                     value={option.value}
                                     inButton={false}
+                                    disabled={option.disabled}
                                   />
                                 ) : (
                                   option.label

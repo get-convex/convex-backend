@@ -992,6 +992,35 @@
         }
       }
     },
+    "/teams/{team_id}/list_my_custom_roles": {
+      "get": {
+        "tags": [
+          "Custom Roles",
+          "alpha"
+        ],
+        "operationId": "list my custom roles",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMyCustomRolesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/deployments/{deployment_id}/request_cloud_backup": {
       "post": {
         "operationId": "request_cloud_backup",
@@ -1838,6 +1867,19 @@
             "in": "path",
             "description": "",
             "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64",
+              "minimum": 0
+            }
           }
         ],
         "responses": {
@@ -3967,11 +4009,22 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "Custom roles to attach when `role` is `custom`. Required and non-empty\nin that case, and forbidden otherwise."
+          },
           "email": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "$ref": "#/components/schemas/Role",
+            "description": "Role to assign when the invitation is accepted.\nPass `custom` together with a non-empty `customRoles` list to invite a\nmember into a custom role; `admin` and `developer` must be sent without\n`customRoles`."
           }
         }
       },
@@ -4027,16 +4080,6 @@
           "projectsRemaining"
         ],
         "properties": {
-          "adminKey": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/AdminKey"
-              }
-            ]
-          },
           "deploymentName": {
             "type": [
               "string",
@@ -4143,6 +4186,53 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "CustomRoleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "teamId",
+          "name",
+          "statements",
+          "createTime"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/CustomRoleId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatement"
+            }
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
       },
       "DeleteAccessTokenArgs": {
         "type": "object",
@@ -5018,6 +5108,16 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
+            },
+            "description": "The custom roles attached to this invitation. Present iff `role` is\n`custom`."
+          },
           "email": {
             "type": "string"
           },
@@ -5136,6 +5236,25 @@
             "items": {
               "$ref": "#/components/schemas/EnvVariableConfigJson"
             }
+          }
+        }
+      },
+      "ListMyCustomRolesResponse": {
+        "type": "object",
+        "required": [
+          "role",
+          "customRoles"
+        ],
+        "properties": {
+          "customRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleResponse"
+            }
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The team member's built-in role. When `custom`, `customRoles` lists\nthe role definitions whose statements determine what the member can\ndo; for `admin`/`developer` it is empty."
           }
         }
       },
@@ -6139,6 +6258,154 @@
           "custom"
         ]
       },
+      "RoleStatement": {
+        "type": "object",
+        "description": "A single permission rule within a custom role.",
+        "required": [
+          "effect",
+          "actions",
+          "resource"
+        ],
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/RoleStatementActions"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/RoleStatementEffect"
+          },
+          "resource": {
+            "type": "string",
+            "description": "Resource path like `project:*`, `project:slug=my-app`, or\n`project:*:deployment:type=prod`.",
+            "example": "project:*"
+          }
+        }
+      },
+      "RoleStatementAction": {
+        "type": "string",
+        "description": "An action that can be allowed or denied by a custom role statement.",
+        "enum": [
+          "team:update",
+          "team:delete",
+          "project:create",
+          "project:transfer",
+          "project:receive",
+          "project:update",
+          "project:delete",
+          "project:view",
+          "project:updateMemberRole",
+          "defaultEnvironmentVariable:create",
+          "defaultEnvironmentVariable:update",
+          "defaultEnvironmentVariable:delete",
+          "defaultEnvironmentVariable:view",
+          "deployment:create",
+          "deployment:transfer",
+          "deployment:receive",
+          "deployment:updateReference",
+          "deployment:updateDashboardEditConfirmation",
+          "deployment:updateExpiresAt",
+          "deployment:updateSendLogsToClient",
+          "deployment:updateClass",
+          "deployment:updateIsDefault",
+          "deployment:updateType",
+          "deployment:delete",
+          "deployment:view",
+          "deployment:integrations:view",
+          "deployment:integrations:write",
+          "deployment:customDomain:create",
+          "deployment:customDomain:delete",
+          "deployment:customDomain:view",
+          "member:invite",
+          "member:cancelInvitation",
+          "member:remove",
+          "member:updateRole",
+          "member:view",
+          "billing:paymentMethod:update",
+          "billing:contact:update",
+          "billing:address:update",
+          "billing:subscription:changePlan",
+          "billing:spendingLimit:update",
+          "billing:view",
+          "billing:invoices:view",
+          "team:auditLog:view",
+          "team:token:create",
+          "team:token:update",
+          "team:token:delete",
+          "team:token:view",
+          "project:token:create",
+          "project:token:update",
+          "project:token:delete",
+          "project:token:view",
+          "deployment:token:create",
+          "deployment:token:update",
+          "deployment:token:delete",
+          "deployment:token:view",
+          "oauthApplication:create",
+          "oauthApplication:update",
+          "oauthApplication:delete",
+          "oauthApplication:view",
+          "oauthApplication:generateClientSecret",
+          "team:usage:view",
+          "deployment:insights:view",
+          "deployment:backups:create",
+          "deployment:backups:import",
+          "deployment:backups:configurePeriodic",
+          "deployment:backups:disablePeriodic",
+          "deployment:backups:delete",
+          "deployment:backups:view",
+          "sso:enable",
+          "sso:disable",
+          "sso:update",
+          "sso:view",
+          "customRole:view",
+          "integration:view",
+          "integration:create",
+          "integration:update",
+          "integration:delete",
+          "deployment:deploy",
+          "deployment:env:view",
+          "deployment:env:write",
+          "deployment:pause",
+          "deployment:unpause",
+          "deployment:logs:view",
+          "deployment:metrics:view",
+          "deployment:data:view",
+          "deployment:data:write",
+          "deployment:backups:download",
+          "deployment:functions:actAsUser",
+          "deployment:functions:runInternalQueries",
+          "deployment:functions:runInternalMutations",
+          "deployment:functions:runInternalActions",
+          "deployment:functions:runTestQuery",
+          "deployment:auditLog:view"
+        ]
+      },
+      "RoleStatementActions": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RoleStatementWildcardAction"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatementAction"
+            }
+          }
+        ]
+      },
+      "RoleStatementEffect": {
+        "type": "string",
+        "description": "Whether a rule grants or revokes access.",
+        "enum": [
+          "allow",
+          "deny"
+        ]
+      },
+      "RoleStatementWildcardAction": {
+        "type": "string",
+        "enum": [
+          "*"
+        ]
+      },
       "SSODomainState": {
         "type": "string",
         "enum": [
@@ -6463,7 +6730,7 @@
             "items": {
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
-            "description": "The custom roles attached to this team member, with their display\nnames denormalized so consumers can render the role list without\na separate `list_custom_roles` lookup. `Some` iff `role` is\n`custom`."
+            "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
           },
           "email": {
             "type": "string",
@@ -6489,15 +6756,15 @@
         "type": "object",
         "description": "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
         "required": [
-          "roleId",
+          "id",
           "name"
         ],
         "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CustomRoleId"
+          },
           "name": {
             "type": "string"
-          },
-          "roleId": {
-            "$ref": "#/components/schemas/CustomRoleId"
           }
         }
       },

@@ -44,11 +44,7 @@ use crate::{
 
 /// Table name for the sync protocol requests.
 /// This is used to make session requests idempotent
-pub static SESSION_REQUESTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_session_requests"
-        .parse()
-        .expect("Invalid built-in session metadata table")
-});
+pub static SESSION_REQUESTS_TABLE: TableName = TableName::const_new("_session_requests");
 
 static SESSION_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "sessionId".parse().expect("Invalid built-in field"));

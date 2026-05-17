@@ -9,7 +9,7 @@ use value::heap_size::HeapSize;
 
 use super::key::BinaryKey;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct StartIncluded(pub BinaryKey);
 
 impl Borrow<[u8]> for StartIncluded {
@@ -32,7 +32,7 @@ impl HeapSize for StartIncluded {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum End {
     Excluded(BinaryKey),
     Unbounded,

@@ -14,6 +14,10 @@ import {
 } from "@headlessui/react";
 import { Tab } from "@ui/Tab";
 import { useRouter } from "next/router";
+import { useHasCustomRolePermission } from "api/roles";
+import { useProfile } from "api/profile";
+import { teamTokenResource } from "lib/permissions";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 
 export function ApplicationsLayout({ team }: { team: TeamResponse }) {
   const router = useRouter();
@@ -21,7 +25,21 @@ export function ApplicationsLayout({ team }: { team: TeamResponse }) {
   const isOauthApps = router.pathname.endsWith("/oauth-apps");
   const selectedIndex = isOauthApps ? 1 : 0;
 
-  const teamAccessTokens = useTeamAppAccessTokens(team.id);
+  // `/teams/{team_id}/app_access_tokens` server-checks
+  // `team:token:view` on `team:*:token:creator=<self>` (only the
+  // requester's own app authorizations are returned). Without the
+  // grant the request would hang and the tab would spin forever, so
+  // skip the query and show a no-permission message instead.
+  const profile = useProfile();
+  const canViewOwnTeamTokens = useHasCustomRolePermission(
+    team.id,
+    "team:token:view",
+    teamTokenResource(profile?.id ?? null),
+    true,
+  );
+  const teamAccessTokens = useTeamAppAccessTokens(
+    canViewOwnTeamTokens === false ? undefined : team.id,
+  );
   const deleteTeamAccessToken = useDeleteAppAccessTokenByName({
     teamId: team.id,
   });
@@ -93,13 +111,20 @@ export function ApplicationsLayout({ team }: { team: TeamResponse }) {
             className="focus-visible:outline-none"
             tabIndex={-1}
           >
-            <AuthorizedApplications
-              accessTokens={teamAccessTokens}
-              explainer={explainer}
-              onRevoke={async (token: AppAccessTokenResponse) => {
-                await deleteTeamAccessToken({ name: token.name });
-              }}
-            />
+            {canViewOwnTeamTokens === false ? (
+              <NoPermissionMessage
+                message="You do not have permission to view authorized applications."
+                missingPermission="team:token:view"
+              />
+            ) : (
+              <AuthorizedApplications
+                accessTokens={teamAccessTokens}
+                explainer={explainer}
+                onRevoke={async (token: AppAccessTokenResponse) => {
+                  await deleteTeamAccessToken({ name: token.name });
+                }}
+              />
+            )}
           </HeadlessTabPanel>
           <HeadlessTabPanel
             className="focus-visible:outline-none"

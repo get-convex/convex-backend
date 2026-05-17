@@ -25,9 +25,14 @@ use big_brain_private_api_types::{
 };
 use clap::ValueEnum;
 use cmd_util::env::env_config;
+use common::types::MemberId;
 use futures::FutureExt;
 use health_check::wait_for_http_health;
-use keybroker::DEV_SECRET;
+use keybroker::{
+    DeploymentSecret,
+    KeyBroker,
+    DEV_INSTANCE_NAME,
+};
 use log_interleaver::LogInterleaver;
 use serde::Deserialize;
 use tokio::process::{
@@ -56,7 +61,6 @@ const USHER_PORT: u16 = 8002;
 static USHER_INSTANCE_URL: LazyLock<String> =
     LazyLock::new(|| format!("http://carnitas.local.convex.cloud:{USHER_PORT}"));
 
-const ADMIN_KEY: &str = include_str!("../../../crates/keybroker/dev/admin_key.txt");
 const LOCAL_LOG_SINK_FILENAME: &str = "log_sink.jsonl";
 
 #[cfg(unix)]
@@ -381,6 +385,10 @@ async fn provision(
     package_dir: &Path,
     metric_label: StaticMetricLabel,
 ) -> anyhow::Result<Provision> {
+    let local_secret = DeploymentSecret::random();
+    let local_admin_key = KeyBroker::new(DEV_INSTANCE_NAME, local_secret)?
+        .issue_admin_key(MemberId(0))
+        .as_string();
     let (admin_key, handle, deployment_url) = match backend_provisioner {
         BackendProvisioner::Production | BackendProvisioner::LocalBigBrain => {
             let provision_host_credentials = backend_provisioner
@@ -456,7 +464,7 @@ async fn provision(
                 .arg("--convex-site-base")
                 .arg(format!("http://local.convex.site:{USHER_PORT}"))
                 .arg("--instance")
-                .arg(format!("carnitas={DEV_SECRET}"))
+                .arg(format!("carnitas={local_secret}"))
                 .env("UDF_USE_FUNRUN", udf_use_funrun.to_string())
                 .env("CONVEX_RELEASE_VERSION_DEV", "0.0.0-backendharness");
             if udf_use_funrun {
@@ -487,7 +495,7 @@ async fn provision(
             .context("Timed out waiting for backend startup. Might have a second one running?")?;
 
             (
-                ADMIN_KEY.to_string(),
+                local_admin_key.clone(),
                 ProvisionHandle::LocalConductor {
                     _conductor_handle: conductor_handle,
                     _usher_handle: usher_handle,
@@ -527,6 +535,10 @@ async fn provision(
                     .arg("--site-proxy-port")
                     .arg("8001")
                     .arg("--disable-beacon")
+                    .arg("--instance-name")
+                    .arg(DEV_INSTANCE_NAME)
+                    .arg("--instance-secret")
+                    .arg(local_secret.to_string())
                     .env("CONVEX_RELEASE_VERSION_DEV", "0.0.0-backendharness")
                     .kill_on_drop(true),
             )?;
@@ -546,7 +558,7 @@ async fn provision(
             .context("Timed out waiting for backend startup. Might have a second one running?")?;
 
             (
-                ADMIN_KEY.to_string(),
+                local_admin_key.clone(),
                 ProvisionHandle::LocalBackend {
                     _backend_handle: backend_handle,
                     _usher_handle: None,
@@ -578,7 +590,7 @@ async fn provision(
                 .env("SITE_PROXY_PORT", "8001")
                 .env("CONVEX_RELEASE_VERSION_DEV", "0.0.0-backendharness")
                 .env("INSTANCE_NAME", "carnitas")
-                .env("INSTANCE_SECRET", DEV_SECRET)
+                .env("INSTANCE_SECRET", local_secret.to_string())
                 .kill_on_drop(true);
             let tempdir_handle = tempfile::tempdir()?;
             let backend_handle =
@@ -599,7 +611,7 @@ async fn provision(
             .context("Timed out waiting for backend startup. Might have a second one running?")?;
 
             (
-                ADMIN_KEY.to_string(),
+                local_admin_key.clone(),
                 ProvisionHandle::LocalBackend {
                     _backend_handle: backend_handle,
                     _usher_handle: None,
@@ -613,7 +625,7 @@ async fn provision(
 
     match provision_request {
         ProvisionRequest::ExistingProject { .. } | ProvisionRequest::NewProject => {
-            deploy(logs, package_dir, metric_label, &handle).await?;
+            deploy(logs, package_dir, metric_label, &handle, &admin_key).await?;
         },
         ProvisionRequest::Preview { .. } => (),
     };
@@ -742,6 +754,7 @@ async fn deploy(
     package_dir: &Path,
     metric_label: StaticMetricLabel,
     provision_handle: &ProvisionHandle,
+    admin_key: &str,
 ) -> anyhow::Result<()> {
     tracing::info!("{package_dir:?}: npx convex deploy");
     // Retry with exponential backoff because there's a race condition where traefik
@@ -768,7 +781,7 @@ async fn deploy(
                 .arg("--yes")
                 .env("CONVEX_PROVISION_HOST", provision_host)
                 .env("CONVEX_OVERRIDE_ACCESS_TOKEN", access_token),
-            // Only pass the ADMIN_KEY in directly with local backend to bypass dependency on
+            // Only pass the admin key in directly with local backend to bypass dependency on
             // big-brain
             ProvisionHandle::LocalBackend { .. } | ProvisionHandle::LocalConductor { .. } => {
                 let url = provision_handle
@@ -784,7 +797,7 @@ async fn deploy(
                     .arg("--codegen")
                     .arg("enable")
                     .arg("--admin-key")
-                    .arg(ADMIN_KEY)
+                    .arg(admin_key)
                     .arg("--url")
                     .arg(url)
             },

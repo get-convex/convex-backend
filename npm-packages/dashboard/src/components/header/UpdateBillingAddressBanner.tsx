@@ -2,6 +2,7 @@ import classNames from "classnames";
 import { useCurrentTeam } from "api/teams";
 import { useTeamOrbSubscription } from "api/billing";
 import { Link } from "@ui/Link";
+import { useIsCurrentMemberTeamAdmin } from "api/roles";
 
 export function UpdateBillingAddressBanner() {
   const team = useCurrentTeam();
@@ -23,7 +24,13 @@ export function UpdateBillingAddressBanner() {
 
 export function useShowUpdateBillingAddressBanner() {
   const team = useCurrentTeam();
-  const orbSubscription = useTeamOrbSubscription(team?.id).subscription;
+  const { subscription: orbSubscription } = useTeamOrbSubscription(team?.id);
+  // Only team admins can update the billing address, so the banner is not
+  // actionable for anyone else.
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  if (!isTeamAdmin) {
+    return false;
+  }
   // Team billing is managed by Vercel
   if (team?.managedBy === "vercel") {
     return false;

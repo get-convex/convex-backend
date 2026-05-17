@@ -90,7 +90,10 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use indexing::index_registry::IndexRegistry;
+use indexing::{
+    index_cache::IndexCacheHandle,
+    index_registry::IndexRegistry,
+};
 use itertools::Itertools;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
@@ -198,6 +201,8 @@ pub struct Committer<RT: Runtime> {
     virtual_system_mapping: VirtualSystemMapping,
 
     user_documents_size_gauge: Subgauge,
+
+    index_cache_handle: IndexCacheHandle,
 }
 
 impl<RT: Runtime> Committer<RT> {
@@ -209,6 +214,7 @@ impl<RT: Runtime> Committer<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
+        index_cache_handle: IndexCacheHandle,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new();
@@ -225,6 +231,7 @@ impl<RT: Runtime> Committer<RT> {
             retention_validator: retention_validator.clone(),
             virtual_system_mapping,
             user_documents_size_gauge: user_documents_size_subgauge(),
+            index_cache_handle,
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -699,6 +706,7 @@ impl<RT: Runtime> Committer<RT> {
                 new_max_repeatable,
                 OrderedIndexKeyWrites::empty(),
                 "publish_max_repeatable_ts".into(),
+                || {},
             );
         }
         Ok(())
@@ -884,7 +892,18 @@ impl<RT: Runtime> Committer<RT> {
         metrics::write_log_commit_bytes(write_bytes as usize);
 
         let timer = metrics::write_log_append_timer();
-        self.log.append(commit_ts, writes, write_source);
+        let db_writes = writes.database.clone();
+        let index_registry = &new_snapshot.index_registry;
+        let apply_writes_callback = || {
+            self.index_cache_handle
+                .apply_writes(&db_writes, &|index_name| {
+                    index_registry
+                        .get_enabled(index_name)
+                        .map(|index| index.id())
+                })
+        };
+        self.log
+            .append(commit_ts, writes, write_source, apply_writes_callback);
         drop(timer);
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
@@ -1403,7 +1422,7 @@ pub fn table_dependency_sort_key(
                     });
                 match table_metadata.state {
                     TableState::Active => {
-                        if &table_metadata.name == &*TABLES_TABLE {
+                        if &table_metadata.name == &TABLES_TABLE {
                             // In bootstrapping, create _tables table first.
                             2
                         } else {

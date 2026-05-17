@@ -21,6 +21,10 @@ use common::{
 };
 use errors::ErrorMetadata;
 use log_streaming::LogManagerClient;
+use model::audit_log_config::validate_audit_log_firehose_stream_name;
+use usage_tracking::FunctionUsageTracker;
+
+const FIREHOSE_ROUND_INCREMENTS_BYTES: u64 = 5000;
 
 /// AuditLogClient implementation that forwards audit logs to log streams.
 #[derive(Clone)]
@@ -39,14 +43,7 @@ impl AuditLogClient {
     ) -> anyhow::Result<Self> {
         let is_dev_deployment = Arc::new(AtomicBool::new(is_dev_deployment));
         let firehose_client = if let Some(firehose_name) = firehose_stream_name {
-            let prefix = format!("customer-audit-logs-{deployment_name}");
-            anyhow::ensure!(
-                firehose_name.starts_with(&prefix),
-                format!(
-                    "Expected audit log firehose stream name to start with \"{prefix}\" but got \
-                     {firehose_name}"
-                )
-            );
+            validate_audit_log_firehose_stream_name(&firehose_name, deployment_name)?;
             Some(Arc::new(AuditLogFirehoseClient::new(firehose_name).await?))
         } else {
             None
@@ -88,7 +85,11 @@ impl AuditLogClient {
     }
 
     #[fastrace::trace]
-    pub async fn send_logs(&self, logs: ResolvedAuditLogLines) -> anyhow::Result<()> {
+    pub async fn send_logs(
+        &self,
+        logs: ResolvedAuditLogLines,
+        usage_tracker: &FunctionUsageTracker,
+    ) -> anyhow::Result<()> {
         let Some(firehose_client) = &self.firehose_client else {
             if self.include_in_log_streams() {
                 self.send_to_log_streams(logs);
@@ -96,16 +97,23 @@ impl AuditLogClient {
             return Ok(());
         };
 
-        let records = logs
-            .logs
-            .into_iter()
-            .map(|l| serde_json::to_string(&l.into_value()))
-            .collect::<Result<Vec<String>, _>>()?;
-
+        let records = logs.to_json_strings()?;
+        let egress = calculate_audit_log_egress(&records);
         firehose_client.send(records).await?;
+        usage_tracker.track_audit_log_egress(egress);
 
         Ok(())
     }
+}
+
+fn calculate_audit_log_egress(records: &Vec<String>) -> u64 {
+    records
+        .iter()
+        .map(|record| {
+            (record.len() as u64).div_ceil(FIREHOSE_ROUND_INCREMENTS_BYTES)
+                * FIREHOSE_ROUND_INCREMENTS_BYTES
+        })
+        .sum()
 }
 
 pub struct AuditLogFirehoseClient {
@@ -123,6 +131,10 @@ impl AuditLogFirehoseClient {
     }
 
     async fn send(&self, records: Vec<String>) -> anyhow::Result<()> {
+        if records.is_empty() {
+            return Ok(());
+        }
+
         let records = records
             .into_iter()
             .map(|record| {

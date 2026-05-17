@@ -12,6 +12,8 @@ use compact_str::CompactString;
 use sync_types::identifier::{
     check_valid_field_name,
     check_valid_identifier,
+    is_valid_field_name,
+    is_valid_identifier,
 };
 
 use crate::{
@@ -23,6 +25,19 @@ use crate::{
 /// Field names within an object type.
 #[derive(Hash, Eq, Ord, PartialEq, PartialOrd, Clone, derive_more::Display)]
 pub struct FieldName(CompactString);
+
+impl FieldName {
+    /// Creates an FieldName from a string literal, panicking if invalid. This
+    /// should only be used in a const context.
+    ///
+    /// Use [FieldName::from_str] for runtime input.
+    pub const fn const_new(s: &'static str) -> Self {
+        if !is_valid_field_name(s) {
+            panic!("FieldName is not a valid field name");
+        }
+        FieldName(CompactString::const_new(s))
+    }
+}
 
 impl Namespace for FieldName {
     fn is_system(&self) -> bool {
@@ -102,6 +117,22 @@ pub enum FieldType {
 /// Field names within an object that are also valid identifiers.
 #[derive(Hash, Eq, Ord, PartialEq, PartialOrd, Clone, Debug, derive_more::Display)]
 pub struct IdentifierFieldName(CompactString);
+
+impl IdentifierFieldName {
+    /// Creates an IdentifierFieldName from a string literal, panicking if
+    /// invalid. This should only be used in a const context.
+    ///
+    /// Use [IdentifierFieldName::from_str] for runtime input.
+    pub const fn const_new(s: &'static str) -> Self {
+        if !is_valid_field_name(s) {
+            panic!("IdentifierFieldName is not a valid field name");
+        }
+        if !is_valid_identifier(s) {
+            panic!("IdentifierFieldName is not a valid identifier");
+        }
+        IdentifierFieldName(CompactString::const_new(s))
+    }
+}
 
 impl HeapSize for IdentifierFieldName {
     fn heap_size(&self) -> usize {

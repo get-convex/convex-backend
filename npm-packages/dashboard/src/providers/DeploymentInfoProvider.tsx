@@ -18,7 +18,12 @@ import { LocalDeploymentDisconnectOverlay } from "@common/features/disconnectOve
 import { CloudDisconnectOverlay } from "@common/features/disconnectOverlay/CloudDisconnectOverlay";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
+import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
 import { useCurrentUsageBanner } from "components/header/UsageBanner";
 import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { CloudImport } from "elements/BackupIdentifier";
@@ -48,6 +53,7 @@ import {
   useProvisionProjectWorkOSEnvironment,
   useDeleteProjectWorkOSEnvironment,
 } from "api/workos";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { useConvexStatus } from "hooks/useConvexStatus";
 import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
@@ -56,6 +62,33 @@ import { deploymentAuth } from "lib/deploymentAuth";
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+// Wrapper that gates UI on the current member's custom-role grants
+// for the deployment implied by the current page context. The
+// underlying `useHasCustomRolePermission` already short-circuits to
+// `true` for `deployment:*` actions on local deployments.
+function useCustomRolePermissionImpl(
+  action: RoleStatementAction,
+  nonCustomRoleResult: boolean,
+): boolean | undefined {
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const deployment = useCurrentDeployment();
+  const resource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  return useHasCustomRolePermission(
+    team?.id,
+    action,
+    resource,
+    nonCustomRoleResult,
+  );
+}
 
 function DeploymentErrorBoundary({
   children,
@@ -176,6 +209,8 @@ export function DeploymentInfoProvider({
         useTeamMembers,
         useTeamEntitlements,
         useHasProjectAdminPermissions,
+        useCustomRolePermission: useCustomRolePermissionImpl,
+        permissionDeniedTip,
         useIsOperationAllowed: () => true,
         useProjectEnvironmentVariables,
         useIsDeploymentPaused,

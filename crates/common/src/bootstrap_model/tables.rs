@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use serde::{
     Deserialize,
     Serialize,
@@ -10,16 +8,9 @@ use value::{
     TableNumber,
 };
 
-use crate::types::{
-    FieldName,
-    TableName,
-};
+use crate::types::TableName;
 
-pub static TABLES_TABLE: LazyLock<TableName> =
-    LazyLock::new(|| "_tables".parse().expect("Invalid built-in tables table"));
-
-pub static NAME_FIELD: LazyLock<FieldName> =
-    LazyLock::new(|| "name".parse().expect("Invalid name field"));
+pub static TABLES_TABLE: TableName = TableName::const_new("_tables");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TableState {
@@ -47,7 +38,6 @@ pub struct TableMetadata {
     pub name: TableName,
     pub number: TableNumber,
     pub state: TableState,
-    // TODO(lee) allow any TableNamespace once they are supported in tests.
     pub namespace: TableNamespace,
 }
 

@@ -8,6 +8,13 @@ import {
   useGetSpendingLimits,
 } from "api/billing";
 import { Loading } from "@ui/Loading";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "api/roles";
+import { BILLING_RESOURCE } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { Button } from "@ui/Button";
 import { formatDate } from "@common/lib/format";
 import { Sheet } from "@ui/Sheet";
@@ -38,6 +45,8 @@ import {
   useSubmitSpendingLimits,
 } from "./SpendingLimits";
 
+const DEFAULT_INVOICES_LIMIT = 10;
+
 export function SubscriptionOverview({
   team,
   hasAdminPermissions,
@@ -50,11 +59,39 @@ export function SubscriptionOverview({
   const isLoading = subscription === undefined;
   const resumeSubscription = useResumeSubscription(team.id);
   const [isResuming, setIsResuming] = useState(false);
-  const { invoices, isLoading: isLoadingInvoices } = useListInvoices(team.id);
+  const [invoicesLimit, setInvoicesLimit] = useState<number>(
+    DEFAULT_INVOICES_LIMIT,
+  );
+  const invoicesResult = useListInvoices(team.id, invoicesLimit);
+  // `billing:view` gates the billing-detail forms (contact / address /
+  // payment method); the surrounding "Current plan" section is readable by
+  // all team members.
+  const canViewBillingDetails = useHasCustomRolePermission(
+    team.id,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
+  // Built-in admin is always allowed to change plans; custom roles need an
+  // explicit `billing:subscription:changePlan` grant.
+  const canResumeSubscriptionCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:subscription:changePlan",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canResumeSubscription =
+    hasAdminPermissions || canResumeSubscriptionCustom;
 
-  if (isLoading || isLoadingInvoices) {
+  if (isLoading || invoicesResult.status === "loading") {
     return <Loading className="h-60 w-full" fullHeight={false} />;
   }
+  const invoices =
+    invoicesResult.status === "ok" ? invoicesResult.data.invoices : undefined;
+  const invoicesHasMore =
+    invoicesResult.status === "ok" ? invoicesResult.data.hasMore : false;
+  const invoicesIsRefreshing =
+    invoicesResult.status === "ok" ? invoicesResult.data.isRefreshing : false;
   const nextInvoiceDate = invoices?.find(
     (i) => i.status === "draft",
   )?.invoiceDate;
@@ -81,11 +118,14 @@ export function SubscriptionOverview({
                 </span>
               </div>
               <Button
-                disabled={!hasAdminPermissions || isResuming}
+                disabled={canResumeSubscription !== true || isResuming}
                 className="w-fit"
                 tip={
-                  !hasAdminPermissions &&
-                  "You do not have permission to modify the team subscription."
+                  canResumeSubscription === false &&
+                  permissionDeniedTip(
+                    "You do not have permission to modify the team subscription.",
+                    "billing:subscription:changePlan",
+                  )
                 }
                 loading={isResuming}
                 onClick={async () => {
@@ -114,35 +154,79 @@ export function SubscriptionOverview({
             team={team}
             hasAdminPermissions={hasAdminPermissions}
           />
-          {team.managedBy !== "vercel" && subscription.billingContact && (
+          {team.managedBy !== "vercel" &&
+            canViewBillingDetails === true &&
+            subscription.billingContact && (
+              <>
+                <hr />
+                <BillingContactForm
+                  billingContact={subscription.billingContact}
+                  team={team}
+                />
+                <hr />
+                <BillingAddressForm
+                  subscription={subscription}
+                  billingContact={subscription.billingContact}
+                  team={team}
+                />
+                <hr />
+                <PaymentMethodForm subscription={subscription} team={team} />
+              </>
+            )}
+          {team.managedBy !== "vercel" && canViewBillingDetails === false && (
             <>
               <hr />
-              <BillingContactForm
-                billingContact={subscription.billingContact}
-                team={team}
-                hasAdminPermissions={hasAdminPermissions}
-              />
+              <div className="flex flex-col gap-4">
+                <h4>Billing Contact</h4>
+                <NoPermissionMessage
+                  message="You do not have permission to view the billing contact for this team."
+                  missingPermission="billing:view"
+                />
+              </div>
               <hr />
-              <BillingAddressForm
-                subscription={subscription}
-                billingContact={subscription.billingContact}
-                team={team}
-                hasAdminPermissions={hasAdminPermissions}
-              />
+              <div className="flex flex-col gap-4">
+                <h4>Billing Address</h4>
+                <NoPermissionMessage
+                  message="You do not have permission to view the billing address for this team."
+                  missingPermission="billing:view"
+                />
+              </div>
               <hr />
-              <PaymentMethodForm
-                subscription={subscription}
-                team={team}
-                hasAdminPermissions={hasAdminPermissions}
-              />
+              <div className="flex flex-col gap-4">
+                <h4>Payment Method</h4>
+                <NoPermissionMessage
+                  message="You do not have permission to view the payment method for this team."
+                  missingPermission="billing:view"
+                />
+              </div>
             </>
           )}
+        </Sheet>
+      )}
+      {team.managedBy !== "vercel" && invoicesResult.status === "denied" && (
+        <Sheet className="flex w-full flex-col gap-4">
+          <h3>Invoices</h3>
+          <span className="text-sm">
+            Preview or download your upcoming and past invoices.
+          </span>
+          <NoPermissionMessage
+            message="You do not have permission to view invoices for this team."
+            missingPermission={invoicesResult.deniedAction}
+          />
         </Sheet>
       )}
       {team.managedBy !== "vercel" &&
         invoices &&
         (invoices.length > 0 || subscription) && (
-          <Invoices invoices={invoices} />
+          <Invoices
+            invoices={invoices}
+            onShowMore={
+              invoicesHasMore
+                ? () => setInvoicesLimit(invoicesLimit + 10)
+                : undefined
+            }
+            isLoadingMore={invoicesIsRefreshing}
+          />
         )}
     </>
   );
@@ -158,10 +242,21 @@ function SpendingLimitsSectionContainer({
   hasAdminPermissions: boolean;
 }) {
   const submitSpendingLimits = useSubmitSpendingLimits(team);
+  const canSetSpendingLimitCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:spendingLimit:update",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canSetSpendingLimit = hasAdminPermissions || canSetSpendingLimitCustom;
 
-  const { totalCents } = useGetCurrentSpend(
+  const currentSpendResult = useGetCurrentSpend(
     hasAdminPermissions ? team.id : null,
   );
+  const totalCents =
+    currentSpendResult.status === "ok"
+      ? currentSpendResult.data.totalCents
+      : undefined;
   const currentSpend = useMemo(() => {
     if (
       totalCents === undefined ||
@@ -176,13 +271,28 @@ function SpendingLimitsSectionContainer({
     };
   }, [totalCents, subscription.nextBillingPeriodStart]);
 
-  const { spendingLimits } = useGetSpendingLimits(team.id);
+  const spendingLimitsResult = useGetSpendingLimits(team.id);
+  if (spendingLimitsResult.status === "denied") {
+    return (
+      <div className="flex flex-col gap-4">
+        <h4>Usage Spending Limits</h4>
+        <NoPermissionMessage
+          message="You do not have permission to view spending limits for this team."
+          missingPermission={spendingLimitsResult.deniedAction}
+        />
+      </div>
+    );
+  }
+  const spendingLimits =
+    spendingLimitsResult.status === "ok"
+      ? spendingLimitsResult.data
+      : undefined;
 
   return (
     <SpendingLimitsSection
       currentSpendLimit={spendingLimits}
       currentSpend={currentSpend}
-      hasAdminPermissions={hasAdminPermissions}
+      hasAdminPermissions={canSetSpendingLimit === true}
       onSubmit={submitSpendingLimits}
     />
   );
@@ -258,7 +368,10 @@ export function SpendingLimitsSection({
             disabled={!hasAdminPermissions}
             tip={
               !hasAdminPermissions &&
-              "You do not have permission to change your spending limits"
+              permissionDeniedTip(
+                "You do not have permission to change your spending limits.",
+                "billing:spendingLimit:update",
+              )
             }
           >
             {currentSpendLimit === null
@@ -321,14 +434,20 @@ function CostLabel({
 function BillingContactForm({
   billingContact,
   team,
-  hasAdminPermissions,
 }: {
   billingContact: BillingContactResponse;
   team: TeamResponse;
-  hasAdminPermissions: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const updateBillingContact = useUpdateBillingContact(team.id);
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const canUpdateCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:contact:update",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canUpdate = isTeamAdmin || canUpdateCustom;
   const formState = useFormik<BillingContactResponse>({
     initialValues: {
       name: billingContact.name,
@@ -358,10 +477,13 @@ function BillingContactForm({
             className="w-fit"
             onClick={() => setShowForm(true)}
             variant="neutral"
-            disabled={!hasAdminPermissions}
+            disabled={canUpdate !== true}
             tip={
-              !hasAdminPermissions &&
-              "You do not have permission to update the billing contact"
+              canUpdate === false &&
+              permissionDeniedTip(
+                "You do not have permission to update the billing contact.",
+                "billing:contact:update",
+              )
             }
           >
             Change billing contact
@@ -377,17 +499,20 @@ function BillingContactForm({
         >
           <BillingContactInputs
             formState={formState}
-            disabled={!hasAdminPermissions}
+            disabled={canUpdate !== true}
           />
           <div className="mt-4 flex gap-2">
             <Button
               type="submit"
               disabled={
-                !formState.dirty || !formState.isValid || !hasAdminPermissions
+                !formState.dirty || !formState.isValid || canUpdate !== true
               }
               tip={
-                !hasAdminPermissions &&
-                "You do not have permission to update the billing contact"
+                canUpdate === false &&
+                permissionDeniedTip(
+                  "You do not have permission to update the billing contact.",
+                  "billing:contact:update",
+                )
               }
               loading={formState.isSubmitting}
             >
@@ -414,12 +539,10 @@ function BillingAddressForm({
   team,
   subscription,
   billingContact,
-  hasAdminPermissions,
 }: {
   team: TeamResponse;
   subscription: OrbSubscriptionResponse;
   billingContact: BillingContactResponse;
-  hasAdminPermissions: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -428,6 +551,14 @@ function BillingAddressForm({
       ref.current?.scrollIntoView();
     }
   });
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const canUpdateCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:address:update",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canUpdate = isTeamAdmin || canUpdateCustom;
 
   const updateBillingAddress = useUpdateBillingAddress(team.id);
   const formState = useFormik<{ billingAddress?: Address }>({
@@ -453,7 +584,7 @@ function BillingAddressForm({
   );
   const { stripePromise, options } = useStripeAddressSetup(
     team,
-    hasAdminPermissions,
+    canUpdate === true,
   );
 
   return (
@@ -492,11 +623,14 @@ function BillingAddressForm({
           <Button
             className="w-fit"
             onClick={() => setShowForm(true)}
-            disabled={!hasAdminPermissions}
+            disabled={canUpdate !== true}
             variant="neutral"
             tip={
-              !hasAdminPermissions &&
-              "You do not have permission to update the billing address"
+              canUpdate === false &&
+              permissionDeniedTip(
+                "You do not have permission to update the billing address.",
+                "billing:address:update",
+              )
             }
           >
             {subscription.billingAddress
@@ -512,7 +646,7 @@ function BillingAddressForm({
             formState.handleSubmit();
           }}
         >
-          {hasAdminPermissions ? (
+          {canUpdate === true ? (
             options.clientSecret ? (
               <Elements stripe={stripePromise} options={options}>
                 <BillingAddressInputs
@@ -555,11 +689,14 @@ function BillingAddressForm({
               disabled={
                 !formState.dirty ||
                 !formState.values.billingAddress ||
-                !hasAdminPermissions
+                canUpdate !== true
               }
               tip={
-                !hasAdminPermissions &&
-                "You do not have permission to update the billing address"
+                canUpdate === false &&
+                permissionDeniedTip(
+                  "You do not have permission to update the billing address.",
+                  "billing:address:update",
+                )
               }
               loading={formState.isSubmitting}
             >
@@ -585,16 +722,22 @@ function BillingAddressForm({
 function PaymentMethodForm({
   team,
   subscription,
-  hasAdminPermissions,
 }: {
   team: TeamResponse;
   subscription: OrbSubscriptionResponse;
-  hasAdminPermissions: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const onSave = useCallback(() => {
     setShowForm(false);
   }, []);
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const canUpdateCustom = useHasCustomRolePermission(
+    team.id,
+    "billing:paymentMethod:update",
+    BILLING_RESOURCE,
+    false,
+  );
+  const canUpdate = isTeamAdmin || canUpdateCustom;
 
   const ref = useRef<HTMLDivElement>(null);
   useMount(() => {
@@ -629,11 +772,14 @@ function PaymentMethodForm({
           ref={ref}
           className="w-fit"
           onClick={() => setShowForm(true)}
-          disabled={!hasAdminPermissions}
+          disabled={canUpdate !== true}
           variant="neutral"
           tip={
-            !hasAdminPermissions &&
-            "You do not have permission to update the payment method"
+            canUpdate === false &&
+            permissionDeniedTip(
+              "You do not have permission to update the payment method.",
+              "billing:paymentMethod:update",
+            )
           }
         >
           {subscription.paymentMethod

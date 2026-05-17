@@ -449,7 +449,7 @@ impl FivetranTableSchema {
             else {
                 return false;
             };
-            **field_name != *METADATA_CONVEX_FIELD_NAME
+            **field_name != METADATA_CONVEX_FIELD_NAME
                 && !self.columns.contains_key(&fivetran_field_name)
         }) {
             return Err(TableSchemaError::FieldMissingInSource(
@@ -810,7 +810,7 @@ fn user_columns(table_def: &TableDefinition, validator: &ObjectValidator) -> Vec
     validator
         .0
         .iter()
-        .filter(|(field_name, _)| **field_name != *METADATA_CONVEX_FIELD_NAME)
+        .filter(|(field_name, _)| **field_name != METADATA_CONVEX_FIELD_NAME)
         .flat_map(|(field_name, field_validator)| {
             let fivetran_data_type = recognize_fivetran_type(field_validator.validator()).ok();
             if fivetran_data_type.is_none() {

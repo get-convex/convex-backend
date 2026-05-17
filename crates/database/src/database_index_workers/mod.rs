@@ -117,7 +117,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
-        instance_name: String,
+        deployment_name: String,
         usage_tracking: UsageCounter,
     ) -> impl Future<Output = ()> + Send {
         let reader = persistence.reader();
@@ -147,7 +147,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         async move {
             loop {
                 let root = get_sampled_span(
-                    &instance_name,
+                    &deployment_name,
                     "database_index_worker/run",
                     &mut worker.runtime.rng(),
                 );

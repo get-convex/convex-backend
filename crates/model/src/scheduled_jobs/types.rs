@@ -239,12 +239,9 @@ pub enum ScheduledJobState {
     Pending,
     /// Job has started running but is not completed yet. This state only
     /// applies to actions, and is used to make actions execute at most once.
-    ///
-    /// TODO: remove `None` case for scheduled jobs that started before we
-    /// started recording execution id.
     InProgress {
-        request_id: Option<RequestId>,
-        execution_id: Option<ExecutionId>,
+        request_id: RequestId,
+        execution_id: ExecutionId,
     },
 
     /// Completion states
@@ -264,8 +261,8 @@ pub enum ScheduledJobState {
 pub enum SerializedScheduledJobState {
     Pending,
     InProgress {
-        request_id: Option<RequestId>,
-        execution_id: Option<ExecutionId>,
+        request_id: RequestId,
+        execution_id: ExecutionId,
     },
     Success,
     Failed {

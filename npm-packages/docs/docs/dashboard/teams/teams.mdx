@@ -6,8 +6,6 @@ description:
   "Manage team settings, members, billing, and access control in Convex"
 ---
 
-import { Screenshot } from "@site/src/components/Screenshot";
-
 In Convex, your projects are organized by team. Teams are used to share access
 to your projects with other people. You may switch between teams or create a new
 team by clicking on the name of your team located on the top of the Convex
@@ -93,6 +91,17 @@ same time on the member settings page. To assign or remove the Project Admin
 role for multiple members at the same time, visit the
 [Project Settings](/dashboard/projects.mdx#project-settings) page instead.
 
+#### Custom Roles
+
+On Convex Business, you can define
+[custom roles](/team-management/custom-roles.mdx) with fine-grained permissions
+that go beyond the built-in Admin and Developer roles. A team member is assigned
+either a built-in role or one or more custom roles. Project Admin access is
+independent and applies on top of either choice.
+
+For the full action list and which built-in roles cover which actions, see
+[Role Actions](/team-management/role-actions.mdx).
+
 ## Billing
 
 Use the [billing page](https://dashboard.convex.dev/team/settings/billing) to
@@ -160,7 +169,7 @@ Configure Single Sign-On (SSO) on the
 [SSO settings page](https://dashboard.convex.dev/team/settings/sso) to allow
 your team members to authenticate through your organization's identity provider.
 
-[Learn more about setting up SSO](/dashboard/teams/sso.md).
+[Learn more about setting up SSO](/team-management/sso.md).
 
 ## Audit Log
 

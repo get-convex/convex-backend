@@ -324,6 +324,10 @@
       "projectFolder": "private-demos/test-data"
     },
     {
+      "packageName": "env-vars-playground",
+      "projectFolder": "private-demos/env-vars-playground"
+    },
+    {
       "packageName": "private-demos-e2e",
       "projectFolder": "private-demos/e2e"
     },
@@ -608,6 +612,10 @@
       "projectFolder": "private-demos/ctx-meta"
     },
     {
+      "packageName": "audit-logging",
+      "projectFolder": "private-demos/audit-logging"
+    },
+    {
       "packageName": "waitlist",
       "projectFolder": "private-demos/waitlist"
     },
@@ -698,6 +706,10 @@
     {
       "packageName": "component-tests-http-no-prefix-mounting",
       "projectFolder": "tests/component-tests/projects/http_no_prefix_mounting"
+    },
+    {
+      "packageName": "component-tests-env-vars",
+      "projectFolder": "tests/component-tests/projects/env_vars"
     },
     {
       "packageName": "scenario-runner",

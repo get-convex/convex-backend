@@ -1,7 +1,7 @@
 {
   "name": "convex",
   "description": "Client for the Convex Cloud",
-  "version": "1.37.0",
+  "version": "1.39.1",
   "author": "Convex, Inc. <no-reply@convex.dev>",
   "homepage": "https://convex.dev",
   "repository": {
@@ -277,7 +277,7 @@
     "@babel/types": "^7.27.1",
     "@clerk/react": "^6.4.3",
     "@commander-js/extra-typings": "^14.0.0",
-    "@convex-dev/platform": "0.1.8",
+    "@convex-dev/platform": "0.1.9",
     "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "~9.39.0",

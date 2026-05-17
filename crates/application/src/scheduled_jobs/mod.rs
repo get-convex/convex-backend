@@ -30,7 +30,6 @@ use common::{
     },
     execution_context::{
         ExecutionContext,
-        ExecutionId,
         RequestContext,
         RequestMetadata,
     },
@@ -139,14 +138,14 @@ pub struct ScheduledJobRunner {
 impl ScheduledJobRunner {
     pub fn start<RT: Runtime>(
         rt: RT,
-        instance_name: String,
+        deployment_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         let executor_fut = ScheduledJobExecutor::run(
             rt.clone(),
-            instance_name,
+            deployment_name,
             database.clone(),
             runner,
             function_log,
@@ -171,7 +170,7 @@ impl ScheduledJobRunner {
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
-    instance_name: String,
+    deployment_name: String,
     running_job_ids: HashSet<ResolvedDocumentId>,
     /// Some if there's at least one pending job. May be in the past!
     next_job_ready_time: Option<Timestamp>,
@@ -200,7 +199,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
     pub async fn run(
         rt: RT,
-        instance_name: String,
+        deployment_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -214,7 +213,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 runner,
                 function_log,
             },
-            instance_name,
+            deployment_name,
             running_job_ids: HashSet::new(),
             next_job_ready_time: None,
             job_finished_tx,
@@ -277,7 +276,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             // Great! we have enough remaining concurrency and our backend is running, start
             // new job(s) if we can and update our next ready time.
             let root = get_sampled_span(
-                &self.instance_name,
+                &self.deployment_name,
                 "scheduler/query_and_start_jobs",
                 &mut self.context.rt.rng(),
             );
@@ -408,7 +407,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let tx = self.job_finished_tx.clone();
 
             let root = get_sampled_span(
-                &self.instance_name,
+                &self.deployment_name,
                 "scheduler/execute_job",
                 &mut self.context.rt.rng(),
             );
@@ -447,7 +446,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let namespaces: Vec<_> = tx
             .table_mapping()
             .iter()
-            .filter(|(_, _, _, name)| **name == *SCHEDULED_JOBS_TABLE)
+            .filter(|(_, _, _, name)| **name == SCHEDULED_JOBS_TABLE)
             .map(|(_, namespace, ..)| namespace)
             .collect();
         let index_query = Query::index_range(IndexRange {
@@ -912,8 +911,8 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Set state to in progress
                 let mut updated_job = metadata.clone();
                 updated_job.state = ScheduledJobState::InProgress {
-                    request_id: Some(context.request_id.clone()),
-                    execution_id: Some(context.execution_id),
+                    request_id: context.request_id.clone(),
+                    execution_id: context.execution_id,
                 };
                 SchedulerModel::new(&mut tx, namespace)
                     .replace(job_id, updated_job.clone())
@@ -975,8 +974,8 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // Restore the request & execution ID of the failed execution.
                 let context = ExecutionContext::new_from_parts(
-                    request_id.clone().unwrap_or_else(RequestId::new),
-                    (*execution_id).unwrap_or_else(ExecutionId::new),
+                    request_id.clone(),
+                    *execution_id,
                     caller.parent_scheduled_job(),
                     caller.is_root(),
                     RequestMetadata::system(),

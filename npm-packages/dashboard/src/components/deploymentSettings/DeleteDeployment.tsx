@@ -12,7 +12,14 @@ import { LoadingTransition } from "@ui/Loading";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useDeleteDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { useCurrentTeam } from "api/teams";
+import { useCurrentProject } from "api/projects";
+import { deploymentResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 
 export function DeleteDeployment() {
   const { useCurrentDeployment, deploymentsURI } = useContext(
@@ -26,9 +33,29 @@ export function DeleteDeployment() {
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const resource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  // Built-in developers can delete non-prod deployments; admins can
+  // delete anything; custom-role members need an explicit
+  // `deployment:delete` grant regardless of deployment type (custom
+  // roles deny by default).
+  const isProd = deploymentType === "prod";
+  const canDeleteCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:delete",
+    resource,
+    !isProd,
+  );
 
-  // Only admin users can delete production deployments
-  const canDelete = deploymentType !== "prod" || hasAdminPermissions;
+  const canDelete = hasAdminPermissions || canDeleteCustom === true;
 
   if (!deployment) {
     return null;
@@ -62,7 +89,10 @@ export function DeleteDeployment() {
             disabled={!canDelete}
             tip={
               !canDelete
-                ? "You do not have permission to delete production deployments."
+                ? permissionDeniedTip(
+                    "You do not have permission to delete this deployment.",
+                    "deployment:delete",
+                  )
                 : ""
             }
           >

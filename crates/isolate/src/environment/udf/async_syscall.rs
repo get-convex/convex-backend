@@ -452,8 +452,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn audit_log(&mut self, body: JsonValue) -> anyhow::Result<()> {
-        self.emit_audit_log_line(AuditLogLine { body });
-        Ok(())
+        self.emit_audit_log_line(AuditLogLine { body })
     }
 
     fn udf_type(&self) -> UdfType {
@@ -717,7 +716,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         self.emit_sub_function_log_lines(path.for_logging(), log_lines);
 
         for audit_log_line in audit_log_lines {
-            self.emit_audit_log_line(audit_log_line);
+            self.emit_audit_log_line(audit_log_line)?;
         }
 
         // TODO: How do we want to propagate stack traces between component calls?

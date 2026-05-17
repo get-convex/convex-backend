@@ -120,18 +120,18 @@ pub struct CacheManager<RT: Runtime> {
     udf_execution: FunctionExecutionLog<RT>,
     audit_log_client: AuditLogClient,
 
-    instance_id: InstanceId,
+    deployment_id: DeploymentId,
     cache: QueryCache,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-struct InstanceId(u32);
-impl InstanceId {
+struct DeploymentId(u32);
+impl DeploymentId {
     fn allocate() -> Self {
-        static NEXT_INSTANCE_ID: AtomicU32 = AtomicU32::new(0);
-        let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::SeqCst);
-        assert_ne!(id, u32::MAX, "instance id overflow");
-        InstanceId(id)
+        static NEXT_DEPLOYMENT_ID: AtomicU32 = AtomicU32::new(0);
+        let id = NEXT_DEPLOYMENT_ID.fetch_add(1, Ordering::SeqCst);
+        assert_ne!(id, u32::MAX, "deployment id overflow");
+        DeploymentId(id)
     }
 }
 
@@ -142,7 +142,7 @@ impl InstanceId {
 /// contains the identity, but `StoredCacheKey` does not.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct RequestedCacheKey {
-    instance: InstanceId,
+    deployment: DeploymentId,
     path: PublicFunctionPath,
     args: SerializedArgs,
     identity: IdentityCacheKey,
@@ -156,7 +156,7 @@ impl RequestedCacheKey {
         vec![
             self.precise_cache_key(),
             StoredCacheKey {
-                instance: self.instance,
+                deployment: self.deployment,
                 path: self.path.clone(),
                 args: self.args.clone(),
                 // Include queries that did not read `ctx.auth`.
@@ -169,7 +169,7 @@ impl RequestedCacheKey {
 
     fn precise_cache_key(&self) -> StoredCacheKey {
         StoredCacheKey {
-            instance: self.instance,
+            deployment: self.deployment,
             path: self.path.clone(),
             args: self.args.clone(),
             identity: Some(self.identity.clone()),
@@ -203,7 +203,7 @@ impl RequestedCacheKey {
             None
         };
         let key = StoredCacheKey {
-            instance: self.instance,
+            deployment: self.deployment,
             path: self.path.clone(),
             args: self.args.clone(),
             identity,
@@ -240,7 +240,7 @@ impl RequestedCacheKey {
 /// A cache key representing a persisted query result.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct StoredCacheKey {
-    instance: InstanceId,
+    deployment: DeploymentId,
     path: PublicFunctionPath,
     args: SerializedArgs,
     // None means that the query did not read `ctx.auth`.
@@ -309,16 +309,16 @@ impl<RT: Runtime> CacheManager<RT> {
         audit_log_client: AuditLogClient,
         cache: QueryCache,
     ) -> Self {
-        // each `CacheManager` (for a different instance) gets its own cache key space
+        // each `CacheManager` (for a different deployment) gets its own cache key space
         // within `Cache`, which has a _global_ size-limit
-        let instance_id = InstanceId::allocate();
+        let deployment_id = DeploymentId::allocate();
         Self {
             rt,
             database,
             function_router,
             udf_execution,
             audit_log_client,
-            instance_id,
+            deployment_id,
             cache,
         }
     }
@@ -381,7 +381,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
         let requested_key = RequestedCacheKey {
-            instance: self.instance_id,
+            deployment: self.deployment_id,
             path,
             args,
             identity: identity_cache_key,
@@ -491,6 +491,13 @@ impl<RT: Runtime> CacheManager<RT> {
             }
 
             // Step 5: Log some stuff and return.
+            let vars = AuditLogVars::from_context(context.clone(), &self.rt)?;
+            self.audit_log_client
+                .send_logs(
+                    cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?,
+                    &usage_tracker,
+                )
+                .await?;
             log_success(num_attempts);
             let usage_stats = usage_tracker.clone().gather_user_stats();
             let database_bandwidth_bytes = usage_stats.database_egress.values().sum();
@@ -509,12 +516,6 @@ impl<RT: Runtime> CacheManager<RT> {
                     context.clone(),
                 )
                 .await;
-
-            let vars = AuditLogVars::from_context(context, &self.rt);
-            self.audit_log_client
-                .send_logs(cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?)
-                .await?;
-
             let result = QueryReturn {
                 result: cache_result.outcome.result.clone(),
                 log_lines: cache_result.outcome.log_lines.clone(),

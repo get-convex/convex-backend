@@ -25,6 +25,7 @@ export function HealthView({
   teamSlug,
   projectSlug,
   lastBackupTime,
+  canViewBackups,
   teamMembers,
   regions,
 }: {
@@ -35,6 +36,7 @@ export function HealthView({
   teamSlug?: string;
   projectSlug?: string;
   lastBackupTime?: number | null;
+  canViewBackups?: boolean;
   teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
 }) {
@@ -72,6 +74,7 @@ export function HealthView({
                     teamSlug={teamSlug}
                     projectSlug={projectSlug}
                     lastBackupTime={lastBackupTime}
+                    canViewBackups={canViewBackups}
                     teamMembers={teamMembers}
                     regions={regions}
                   />

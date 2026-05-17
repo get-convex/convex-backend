@@ -53,12 +53,10 @@ import { attemptSetupAiFiles } from "../aiFiles/index.js";
 export async function handleAnonymousDeployment(
   ctx: Context,
   options: {
-    ports?:
-      | {
-          cloud: number;
-          site: number;
-        }
-      | undefined;
+    ports: {
+      cloud: number | undefined;
+      site: number | undefined;
+    };
     backendVersion?: string | undefined;
     dashboardVersion?: string | undefined;
     forceUpgrade: boolean;
@@ -147,10 +145,11 @@ export async function handleAnonymousDeployment(
     adminKey = data.adminKey;
   }
 
-  const { cloudPort, sitePort } = await chooseLocalBackendPorts(
-    ctx,
-    options.ports,
-  );
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(ctx, {
+    requestedPorts: options.ports,
+    suggestedPorts:
+      deployment.kind === "existing" ? deployment.config.ports : undefined,
+  });
   const onActivity = async (isOffline: boolean, _wasOffline: boolean) => {
     await ensureBackendRunning(ctx, {
       cloudPort,
@@ -424,6 +423,7 @@ export async function handleLinkToProject(
   args: {
     deploymentName: string;
     teamSlug: string;
+    teamId: number;
     projectSlug: string | null;
   },
 ): Promise<{
@@ -457,7 +457,7 @@ export async function handleLinkToProject(
     projectSlug = args.projectSlug;
   } else {
     const { projectSlug: newProjectSlug } = await createProject(ctx, {
-      teamSlug: args.teamSlug,
+      teamId: args.teamId,
       projectName,
       deploymentToProvision: null,
     });

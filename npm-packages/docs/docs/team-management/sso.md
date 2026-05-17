@@ -1,7 +1,7 @@
 ---
 title: "Single Sign-On (SSO)"
 slug: "sso"
-sidebar_position: 5
+sidebar_position: 1
 description: "Set up and manage Single Sign-On (SSO) for your Convex team"
 ---
 

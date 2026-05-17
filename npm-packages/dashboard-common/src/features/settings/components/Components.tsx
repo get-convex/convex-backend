@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { Link } from "@ui/Link";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useDeleteComponent } from "@common/features/settings/lib/api";
@@ -6,8 +6,22 @@ import { Sheet } from "@ui/Sheet";
 import { Nent } from "@common/lib/useNents";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Button } from "@ui/Button";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function Components({ nents }: { nents: Nent[] }) {
+  const {
+    useCurrentDeployment,
+    useCustomRolePermission,
+    useHasProjectAdminPermissions,
+  } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  const isAdmin = useHasProjectAdminPermissions(deployment?.projectId);
+  const canWriteDataCustom = useCustomRolePermission(
+    "deployment:data:write",
+    true,
+  );
+  const canDelete = isAdmin || canWriteDataCustom !== false;
+
   const sortedNents = [...nents]
     .filter((nent) => nent.name !== null)
     .sort((a, b) => {
@@ -41,7 +55,7 @@ export function Components({ nents }: { nents: Nent[] }) {
         ) : (
           <div className="my-4 flex flex-col divide-y">
             {sortedNents.map((nent, i) => (
-              <ComponentListItem key={i} nent={nent} />
+              <ComponentListItem key={i} nent={nent} canDelete={canDelete} />
             ))}
           </div>
         )}
@@ -50,7 +64,13 @@ export function Components({ nents }: { nents: Nent[] }) {
   );
 }
 
-function ComponentListItem({ nent }: { nent: Nent }) {
+function ComponentListItem({
+  nent,
+  canDelete,
+}: {
+  nent: Nent;
+  canDelete: boolean;
+}) {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const deleteComponent = useDeleteComponent();
   return (
@@ -87,8 +107,10 @@ function ComponentListItem({ nent }: { nent: Nent }) {
         inline
         className="ml-auto"
         tip={
-          nent.state === "active" &&
-          "You must unmount your component before it can be deleted."
+          !canDelete
+            ? "You do not have permission to delete components in this deployment."
+            : nent.state === "active" &&
+              "You must unmount your component before it can be deleted."
         }
         tipSide="left"
         onClick={() => {
@@ -96,7 +118,7 @@ function ComponentListItem({ nent }: { nent: Nent }) {
         }}
         variant="danger"
         icon={<TrashIcon />}
-        disabled={nent.state === "active"}
+        disabled={nent.state === "active" || !canDelete}
       >
         Delete
       </Button>

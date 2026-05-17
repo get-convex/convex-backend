@@ -45,7 +45,6 @@ use common::{
     document::{
         CreationTime,
         DocumentUpdate,
-        InternalId,
         PackedDocument,
         ParseDocument,
         ParsedDocument,
@@ -129,7 +128,7 @@ use indexing::{
         NoInMemoryIndexes,
         TimestampedIndexCache,
     },
-    index_cache::SharedIndexCache,
+    index_cache::IndexCacheHandle,
     index_registry::IndexRegistry,
 };
 use itertools::Itertools;
@@ -291,7 +290,7 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
-    shared_index_cache: Option<SharedIndexCache>,
+    index_cache_handle: Option<IndexCacheHandle>,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     invalidation_callback: InvalidationMetricCallback,
@@ -325,7 +324,7 @@ pub struct DatabaseSnapshot<RT: Runtime> {
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
     pub persistence_snapshot: PersistenceSnapshot,
-    shared_index_cache: Option<SharedIndexCache>,
+    index_cache_handle: Option<IndexCacheHandle>,
 
     // To read lots of data at the snapshot, sometimes you need
     // to look at current data and walk backwards.
@@ -798,7 +797,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 vector_indexes: vector,
             },
             persistence_snapshot,
-            shared_index_cache: None,
+            index_cache_handle: None,
 
             persistence_reader: persistence,
             retention_validator,
@@ -899,7 +898,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             Arc::new(NoInMemoryIndexes),
             self.snapshot.table_registry.table_mapping().clone(),
             Arc::new(self.persistence_snapshot.clone()),
-            self.shared_index_cache.clone(),
+            self.index_cache_handle.clone(),
             None,
         );
 
@@ -956,7 +955,7 @@ impl<RT: Runtime> Database<RT> {
         searcher: Arc<dyn Searcher>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
-        shared_index_cache: Option<SharedIndexCache>,
+        mut index_cache_handle: IndexCacheHandle,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
@@ -1017,6 +1016,7 @@ impl<RT: Runtime> Database<RT> {
 
         let persistence_reader = persistence.reader();
         let (log_owner, log_reader, log_writer) = new_write_log(*ts);
+        index_cache_handle.set_write_log_reader(Arc::new(log_reader.clone()));
         let invalidation_callback = InvalidationMetricCallback::new();
         let subscriptions =
             SubscriptionsWorker::start(log_owner, runtime.clone(), invalidation_callback.clone());
@@ -1028,6 +1028,7 @@ impl<RT: Runtime> Database<RT> {
             retention_manager.clone(),
             shutdown,
             virtual_system_mapping.clone(),
+            index_cache_handle.clone(),
         );
         let table_mapping_snapshot_cache =
             AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");
@@ -1048,7 +1049,7 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
-            shared_index_cache,
+            index_cache_handle: Some(index_cache_handle),
             virtual_system_mapping,
             bootstrap_metadata,
             invalidation_callback,
@@ -1107,6 +1108,9 @@ impl<RT: Runtime> Database<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
+        if let Some(handle) = &self.index_cache_handle {
+            handle.remove_deployment();
+        }
         self.retention_workers.shutdown().await?;
         tracing::info!("Database shutdown");
         Ok(())
@@ -1408,7 +1412,7 @@ impl<RT: Runtime> Database<RT> {
 
             // Create the `by_creation_time` index for all tables except "_index", which can
             // only have the "by_id" index.
-            if table_name != &*INDEX_TABLE {
+            if table_name != &INDEX_TABLE {
                 let index_id = id_generator.generate_resolved(index_table_id);
                 let metadata = IndexMetadata::new_enabled(
                     GenericIndexName::by_creation_time(table_id.tablet_id),
@@ -1543,7 +1547,7 @@ impl<RT: Runtime> Database<RT> {
             Arc::new(snapshot.in_memory_indexes),
             snapshot.table_registry.table_mapping().clone(),
             Arc::new(persistence_snapshot),
-            self.shared_index_cache.clone(),
+            self.index_cache_handle.clone(),
             None,
         );
         let (results, cursor) = db_index_snapshot
@@ -1802,7 +1806,7 @@ impl<RT: Runtime> Database<RT> {
                     )
                     .read_snapshot(repeatable_ts)?,
                 ),
-                self.shared_index_cache.clone(),
+                self.index_cache_handle.clone(),
                 index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -1866,7 +1870,7 @@ impl<RT: Runtime> Database<RT> {
             bootstrap_metadata: self.bootstrap_metadata.clone(),
             snapshot,
             persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
-            shared_index_cache: self.shared_index_cache.clone(),
+            index_cache_handle: self.index_cache_handle.clone(),
             persistence_reader: self.reader.clone(),
             retention_validator: self.retention_validator(),
         })
@@ -2302,16 +2306,11 @@ impl<RT: Runtime> Database<RT> {
             ),
             PageResult::TableDone(table_iterator) => match tablet_ids.get(1) {
                 Some(&next_tablet_id) => {
-                    // TODO(lee) just use DeveloperDocumentId::min() once we no longer
-                    // need to be rollback-safe.
-                    let next_table_number = table_mapping.tablet_number(next_tablet_id)?;
                     let next_by_id = *by_id_indexes.get(&next_tablet_id).ok_or_else(|| {
                         anyhow::anyhow!("by_id index for {next_tablet_id:?} missing")
                     })?;
-                    let next_cursor = ResolvedDocumentId::new(
-                        next_tablet_id,
-                        DeveloperDocumentId::new(next_table_number, InternalId::MIN),
-                    );
+                    let next_cursor =
+                        ResolvedDocumentId::new(next_tablet_id, DeveloperDocumentId::MIN);
                     let next_document_stream = table_iterator
                         .into_stream_documents_in_table(
                             next_tablet_id,

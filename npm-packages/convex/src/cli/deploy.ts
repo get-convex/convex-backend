@@ -227,7 +227,7 @@ async function deployToNewPreviewDeployment(
       exitCode: 1,
       errorType: "fatal",
       printedMessage:
-        "`npx convex deploy` to a preview deployment could not determine the preview name. Provide one using `--preview-create`",
+        "`npx convex deploy` to a preview deployment could not determine the preview name. Provide one using `--preview-name`",
     });
   }
 

@@ -1,14 +1,16 @@
-use std::sync::LazyLock;
-
 use common::{
     document::ParsedDocument,
     runtime::Runtime,
+    types::{
+        BackendState,
+        SystemStopState,
+        UserStopState,
+    },
 };
 use database::{
     SystemMetadataModel,
     Transaction,
 };
-use errors::ErrorMetadata;
 use value::{
     TableName,
     TableNamespace,
@@ -21,15 +23,9 @@ use crate::{
 
 pub mod types;
 
-use types::OldBackendState;
-
 use self::types::PersistedBackendState;
 
-pub static BACKEND_STATE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_backend_state"
-        .parse()
-        .expect("Invalid built-in backend_state table")
-});
+pub static BACKEND_STATE_TABLE: TableName = TableName::const_new("_backend_state");
 
 pub struct BackendStateTable;
 impl SystemTable for BackendStateTable {
@@ -54,17 +50,20 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
     }
 
     pub async fn initialize(&mut self) -> anyhow::Result<()> {
-        // Create _backend_state row initialized as running.
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &BACKEND_STATE_TABLE,
-                PersistedBackendState::Old(OldBackendState::Running).try_into()?,
+                PersistedBackendState::New(BackendState {
+                    system: SystemStopState::None,
+                    user: UserStopState::None,
+                })
+                .try_into()?,
             )
             .await?;
         Ok(())
     }
 
-    pub async fn get_backend_state(&mut self) -> anyhow::Result<ParsedDocument<OldBackendState>> {
+    pub async fn get_backend_state(&mut self) -> anyhow::Result<ParsedDocument<BackendState>> {
         let backend_state = self
             .tx
             .query_system(
@@ -74,21 +73,39 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             .unique()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Backend must have a state."))?;
-        (*backend_state).clone().map(|bs| Ok(bs.to_old_lossy()))
+        (*backend_state).clone().map(|bs| Ok(bs.to_new()))
     }
 
-    pub async fn toggle_backend_state(&mut self, new_state: OldBackendState) -> anyhow::Result<()> {
-        let (id, current_state) = self.get_backend_state().await?.into_id_and_value();
-        anyhow::ensure!(
-            current_state != new_state,
-            ErrorMetadata::bad_request(
-                "DeploymentAlreadyInState",
-                format!("Deployment is already {new_state}")
-            )
-        );
+    pub async fn set_user_stop_state(
+        &mut self,
+        new_user_state: UserStopState,
+    ) -> anyhow::Result<Option<BackendState>> {
+        let (id, mut current) = self.get_backend_state().await?.into_id_and_value();
+        if current.user == new_user_state {
+            return Ok(None);
+        }
+        let old = current;
+        current.user = new_user_state;
         SystemMetadataModel::new_global(self.tx)
-            .replace(id, PersistedBackendState::Old(new_state).try_into()?)
+            .replace(id, PersistedBackendState::New(current).try_into()?)
             .await?;
-        Ok(())
+        Ok(Some(old))
     }
+
+    pub async fn set_system_stop_state(
+        &mut self,
+        new_system_state: SystemStopState,
+    ) -> anyhow::Result<Option<BackendState>> {
+        let (id, mut current) = self.get_backend_state().await?.into_id_and_value();
+        if current.system == new_system_state {
+            return Ok(None);
+        }
+        let old = current;
+        current.system = new_system_state;
+        SystemMetadataModel::new_global(self.tx)
+            .replace(id, PersistedBackendState::New(current).try_into()?)
+            .await?;
+        Ok(Some(old))
+    }
+
 }

@@ -1,7 +1,4 @@
-use std::sync::{
-    Arc,
-    LazyLock,
-};
+use std::sync::Arc;
 
 use cmd_util::env::env_config;
 use common::{
@@ -26,11 +23,7 @@ use crate::{
 
 pub mod types;
 
-pub static BACKEND_INFO_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_backend_info"
-        .parse()
-        .expect("Invalid built-in backend_info table")
-});
+pub static BACKEND_INFO_TABLE: TableName = TableName::const_new("_backend_info");
 
 pub struct BackendInfoTable;
 impl SystemTable for BackendInfoTable {

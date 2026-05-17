@@ -40,6 +40,8 @@ import {
   LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./lib/localDeployment/utils.js";
 import { bigBrainStart } from "./lib/localDeployment/bigBrain.js";
+import { importDefaultEnvVars } from "./lib/localDeployment/localDeployment.js";
+import { localDeploymentUrl } from "./lib/localDeployment/run.js";
 
 const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 
@@ -258,6 +260,14 @@ export async function createLocalDeployment(
   });
 
   logFinishedStep("Created local deployment.");
+
+  await importDefaultEnvVars(ctx, {
+    teamSlug,
+    projectSlug,
+    deploymentName,
+    deploymentUrl: localDeploymentUrl(cloudPort),
+    adminKey,
+  });
 
   if (select) {
     const selection: DeploymentSelection = {

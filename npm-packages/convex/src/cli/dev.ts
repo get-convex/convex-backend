@@ -207,42 +207,23 @@ Same format as .env.local or .env files, and overrides them.`,
     }
 
     const localOptions: {
-      ports?: { cloud: number; site: number };
-      backendVersion?: string | undefined;
+      ports: { cloud: number | undefined; site: number | undefined };
+      backendVersion: string | undefined;
       forceUpgrade: boolean;
-    } = { forceUpgrade: false };
-    if (!cmdOptions.local && cmdOptions.devDeployment !== "local") {
-      if (
-        cmdOptions.localCloudPort !== undefined ||
-        cmdOptions.localSitePort !== undefined ||
-        cmdOptions.localBackendVersion !== undefined ||
-        cmdOptions.localForceUpgrade === true
-      ) {
-        return await ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage:
-            "`--local-*` options can only be used with `--configure --dev-deployment local` or `--local`.",
-        });
-      }
-    } else {
-      if (cmdOptions.localCloudPort !== undefined) {
-        if (cmdOptions.localSitePort === undefined) {
-          return await ctx.crash({
-            exitCode: 1,
-            errorType: "fatal",
-            printedMessage:
-              "`--local-cloud-port` requires `--local-site-port` to be set.",
-          });
-        }
-        localOptions["ports"] = {
-          cloud: parseInt(cmdOptions.localCloudPort),
-          site: parseInt(cmdOptions.localSitePort),
-        };
-      }
-      localOptions["backendVersion"] = cmdOptions.localBackendVersion;
-      localOptions["forceUpgrade"] = cmdOptions.localForceUpgrade;
-    }
+    } = {
+      ports: {
+        cloud:
+          cmdOptions.localCloudPort !== undefined
+            ? parseInt(cmdOptions.localCloudPort)
+            : undefined,
+        site:
+          cmdOptions.localSitePort !== undefined
+            ? parseInt(cmdOptions.localSitePort)
+            : undefined,
+      },
+      backendVersion: cmdOptions.localBackendVersion,
+      forceUpgrade: cmdOptions.localForceUpgrade,
+    };
 
     const configure =
       cmdOptions.configure === true ? "ask" : (cmdOptions.configure ?? null);

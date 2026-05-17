@@ -37,6 +37,8 @@ export function Integrations({
     useCurrentDeployment,
     useHasProjectAdminPermissions,
     useIsOperationAllowed,
+    useCustomRolePermission,
+    permissionDeniedTip,
     workosIntegrationEnabled,
   } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
@@ -44,8 +46,17 @@ export function Integrations({
     deployment?.projectId,
   );
   const canWriteIntegrations = useIsOperationAllowed("WriteIntegrations");
+  // Built-in developers can configure integrations on non-prod; admins
+  // on any deployment; custom-role members need an explicit
+  // `deployment:integrations:write` grant regardless of deployment type
+  // (custom roles deny by default).
+  const isProd = deployment?.deploymentType === "prod";
+  const canWriteIntegrationsCustom = useCustomRolePermission(
+    "deployment:integrations:write",
+    !isProd,
+  );
   const cannotManageBecauseProd =
-    (deployment?.deploymentType === "prod" && !hasAdminPermissions) ||
+    !(hasAdminPermissions || canWriteIntegrationsCustom === true) ||
     !canWriteIntegrations;
 
   const logStreamingEntitlementGranted = entitlements?.logStreamingEnabled;
@@ -91,7 +102,7 @@ export function Integrations({
       <LocalDevCallout
         key="log-streaming"
         tipText="Tip: Run this to enable log streaming locally:"
-        command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement log_streaming_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+        command={`just big-brain-tool-dev entitlement grant --team-entitlement log_streaming_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
     );
   }
@@ -101,7 +112,7 @@ export function Integrations({
         key="streaming-export"
         className="flex-col"
         tipText="Tip: Run this to enable streaming export locally:"
-        command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement streaming_export_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+        command={`just big-brain-tool-dev entitlement grant --team-entitlement streaming_export_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
     );
   }
@@ -113,6 +124,15 @@ export function Integrations({
 
   const streamingExportIntegrationUnavailableReason =
     !streamingExportEntitlementGranted ? "MissingEntitlement" : null;
+
+  // The `+`/configure/delete affordances on each PanelCard need to be
+  // disabled for members who can't write integrations; precompute the
+  // tip here so the permissionDeniedTip surface (which renders the
+  // action name for custom-role members) is consistent across cards.
+  const integrationWriteTip = permissionDeniedTip(
+    "You do not have permission to configure integrations on this deployment.",
+    "deployment:integrations:write",
+  );
 
   // Show configured integrations first
   const allIntegrations = [
@@ -154,6 +174,8 @@ export function Integrations({
               unavailableReason={logIntegrationUnvaliableReason}
               teamSlug={team?.slug}
               onAddedIntegration={onAddedIntegration}
+              writeDisabled={cannotManageBecauseProd}
+              writeDisabledTip={integrationWriteTip}
             />
           ))}
           {EXPORT_INTEGRATIONS.map((i) => (
@@ -163,6 +185,8 @@ export function Integrations({
               unavailableReason={streamingExportIntegrationUnavailableReason}
               teamSlug={team?.slug}
               onAddedIntegration={onAddedIntegration}
+              writeDisabled={cannotManageBecauseProd}
+              writeDisabledTip={integrationWriteTip}
             />
           ))}
         </div>

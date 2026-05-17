@@ -317,21 +317,17 @@ async function linkSingleDeployment(
     projectSlug?: string | null;
   },
 ): Promise<{ dashboardUrl: string }> {
-  const teamSlug =
-    options?.teamSlug ??
-    (
-      await validateOrSelectTeam(
-        ctx,
-        undefined,
-        "Choose a team for your deployment:",
-      )
-    ).team.slug;
+  const { team } = await validateOrSelectTeam(
+    ctx,
+    options?.teamSlug,
+    "Choose a team for your deployment:",
+  );
 
   const projectSlug =
     options?.projectSlug ??
     (
       await selectProject(ctx, "ask", {
-        team: teamSlug,
+        team: team.slug,
         devDeployment: "local",
         defaultProjectName: removeAnonymousPrefix(deploymentName),
       })
@@ -339,7 +335,8 @@ async function linkSingleDeployment(
 
   const linkedDeployment = await handleLinkToProject(ctx, {
     deploymentName,
-    teamSlug,
+    teamSlug: team.slug,
+    teamId: team.id,
     projectSlug,
   });
 
@@ -349,7 +346,7 @@ async function linkSingleDeployment(
       {
         url: linkedDeployment.deploymentUrl,
         deploymentName: linkedDeployment.deploymentName,
-        teamSlug,
+        teamSlug: team.slug,
         projectSlug: linkedDeployment.projectSlug,
         deploymentType: "local",
       },

@@ -222,8 +222,7 @@ impl UdfOutcome {
             result,
             syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
             udf_server_version,
-            // TODO(lee): Remove the default once we've pushed all services.
-            observed_identity: observed_identity.unwrap_or(true),
+            observed_identity: observed_identity.context("Missing identity")?,
             memory_in_mb,
             user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
         })

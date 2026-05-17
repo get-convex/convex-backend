@@ -50,11 +50,7 @@ use value::{
 
 use crate::modules::module_versions::AnalyzedModule;
 
-pub static FUNCTION_HANDLES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_function_handles"
-        .parse()
-        .expect("_function_handles is not a valid built-in table name")
-});
+pub static FUNCTION_HANDLES_TABLE: TableName = TableName::const_new("_function_handles");
 
 pub static BY_COMPONENT_PATH_INDEX: LazyLock<SystemIndex<FunctionHandlesTable>> =
     LazyLock::new(|| {

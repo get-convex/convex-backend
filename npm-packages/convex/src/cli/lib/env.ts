@@ -19,6 +19,7 @@ import { formatEnvValueForDotfile } from "./formatEnvValueForDotfile.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   CONVEX_DEPLOYMENT_ENV_VAR_NAME,
+  CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
   CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
 } from "./utils/utils.js";
@@ -230,6 +231,7 @@ async function envSetFromContent(
   const envVarsToSet: [string, string][] = [];
   const managedVars = new Set<string>([
     CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+    CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME,
     CONVEX_DEPLOYMENT_ENV_VAR_NAME,
     CONVEX_SELF_HOSTED_URL_VAR_NAME,
     CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,

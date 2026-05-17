@@ -749,6 +749,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             FunctionOutcome::Query(o) => o,
             _ => anyhow::bail!("Received non-query outcome for query"),
         };
+
+        let vars = AuditLogVars::from_context(context.clone(), &self.runtime)?;
+        self.audit_log_client
+            .send_logs(
+                outcome.audit_log_lines.resolve_bodies(&vars)?,
+                &tx.usage_tracker,
+            )
+            .await?;
+
         let stats = tx.take_stats();
 
         let result = outcome.result.clone();
@@ -764,11 +773,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 context.clone(),
             )
             .await;
-        let vars = AuditLogVars::from_context(context, &self.runtime);
-        self.audit_log_client
-            .send_logs(outcome.audit_log_lines.resolve_bodies(&vars)?)
-            .await?;
-
         Ok((result, log_lines))
     }
 
@@ -1135,9 +1139,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
 
-        let vars = AuditLogVars::from_context(context, &self.runtime);
+        let vars = AuditLogVars::from_context(context, &self.runtime)?;
         self.audit_log_client
-            .send_logs(mutation_outcome.audit_log_lines.resolve_bodies(&vars)?)
+            .send_logs(
+                mutation_outcome.audit_log_lines.resolve_bodies(&vars)?,
+                &tx.usage_tracker,
+            )
             .await?;
 
         let component = path.component;
@@ -1320,8 +1327,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let timer = function_total_timer(module.environment, UdfType::Action);
         let completion_result = match module.environment {
             ModuleEnvironment::Isolate => {
-                // TODO: This is the only use case of clone. We should get rid of clone,
-                // when we deprecate that codepath.
                 let outcome_future = self
                     .isolate_functions
                     .execute_action(tx, path_and_args, log_line_sender, context.clone())

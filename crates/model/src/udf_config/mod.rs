@@ -1,7 +1,4 @@
-use std::sync::{
-    Arc,
-    LazyLock,
-};
+use std::sync::Arc;
 
 use common::{
     document::ParsedDocument,
@@ -26,11 +23,7 @@ use crate::{
     SystemTable,
 };
 
-pub static UDF_CONFIG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_udf_config"
-        .parse()
-        .expect("Invalid built-in UDF config table")
-});
+pub static UDF_CONFIG_TABLE: TableName = TableName::const_new("_udf_config");
 
 pub struct UdfConfigTable;
 impl SystemTable for UdfConfigTable {

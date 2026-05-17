@@ -9,19 +9,22 @@ import { EmptySection } from "@common/elements/EmptySection";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { BackupListItem, progressMessageForBackup } from "./BackupListItem";
-import { Callout } from "@ui/Callout";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 import { useLatestRestore } from "./BackupRestoreStatus";
 
 export function BackupList({
   targetDeployment,
   team,
-  canPerformActions,
+  canCreate,
+  canImport,
+  canDelete,
   maxCloudBackups,
 }: {
   targetDeployment: PlatformDeploymentResponse; // = deployment the settings page is open for
   team: TeamResponse;
-  canPerformActions: boolean;
+  canCreate: boolean;
+  canImport: boolean;
+  canDelete: boolean;
   maxCloudBackups: number;
 }) {
   const [selectedDeployment, setSelectedDeployment] =
@@ -53,28 +56,21 @@ export function BackupList({
           targetDeployment={targetDeployment}
         />
       </div>
-      {selectedDeployment.kind === "cloud" &&
-      selectedDeployment.class.startsWith("d") ? (
-        <Callout className="m-4 max-w-prose">
-          Backups for {selectedDeployment.class.toUpperCase()} deployments are
-          produced every 24 hours and retained for 7 days. Contact the Convex
-          team to restore from a backup.
-        </Callout>
-      ) : (
-        <div className="scrollbar grow overflow-auto">
-          {!backups ? (
-            <Loading />
-          ) : (
-            <BackupListForDeployment
-              backups={backups}
-              targetDeployment={targetDeployment}
-              restoringBackupId={restoringBackupId}
-              canPerformActions={canPerformActions}
-              maxCloudBackups={maxCloudBackups}
-            />
-          )}
-        </div>
-      )}
+      <div className="scrollbar grow overflow-auto">
+        {!backups ? (
+          <Loading />
+        ) : (
+          <BackupListForDeployment
+            backups={backups}
+            targetDeployment={targetDeployment}
+            restoringBackupId={restoringBackupId}
+            canCreate={canCreate}
+            canImport={canImport}
+            canDelete={canDelete}
+            maxCloudBackups={maxCloudBackups}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -83,13 +79,17 @@ function BackupListForDeployment({
   backups,
   targetDeployment,
   restoringBackupId,
-  canPerformActions,
+  canCreate,
+  canImport,
+  canDelete,
   maxCloudBackups,
 }: {
   backups: BackupResponse[];
   targetDeployment: PlatformDeploymentResponse;
   restoringBackupId: bigint | null;
-  canPerformActions: boolean;
+  canCreate: boolean;
+  canImport: boolean;
+  canDelete: boolean;
   maxCloudBackups: number;
 }) {
   const existingCloudBackup = useQuery(udfs.latestExport.latestCloudExport);
@@ -136,7 +136,9 @@ function BackupListForDeployment({
           latestBackupInTargetDeployment={latestBackupInTargetDeployment}
           targetDeployment={targetDeployment}
           getZipExportUrl={getZipExportUrl}
-          canPerformActions={canPerformActions}
+          canCreate={canCreate}
+          canImport={canImport}
+          canDelete={canDelete}
           maxCloudBackups={maxCloudBackups}
           progressMessage={progressMessageForBackup(
             backup,

@@ -4,6 +4,7 @@ use std::{
 };
 
 use common::bootstrap_model::index::database_index::IndexedFields;
+use const_format::formatcp;
 use errors::ErrorMetadata;
 use fivetran_destination::constants::{
     METADATA_CONVEX_FIELD_NAME,
@@ -30,11 +31,8 @@ pub const DUPLICATE_FIELD_LIMIT: usize = 3;
 
 /// Field name for CDC deletes. See Airbyte docs: https://docs.airbyte.com/understanding-airbyte/cdc#syncing
 /// When this field is present, it represents a deleted record.
-static CDC_DELETED_FIELD: LazyLock<FieldName> = LazyLock::new(|| {
-    format!("{IDENTIFIER_PREFIX}ab_cdc_deleted_at")
-        .parse()
-        .unwrap()
-});
+const CDC_DELETED_FIELD: FieldName =
+    FieldName::const_new(formatcp!("{IDENTIFIER_PREFIX}ab_cdc_deleted_at"));
 
 /// Airbyte fields that are related to CDC are prefixed with `_ab_cdc`
 static CDC_PREFIX: LazyLock<String> = LazyLock::new(|| format!("{IDENTIFIER_PREFIX}ab_cdc"));
@@ -110,7 +108,7 @@ impl TryFrom<AirbyteRecordMessage> for AirbyteRecord {
     fn try_from(msg: AirbyteRecordMessage) -> anyhow::Result<AirbyteRecord> {
         let table_name = msg.table_name.parse::<ValidIdentifier<TableName>>()?.0;
         let object: ConvexObject = valid_json(msg.data)?.try_into()?;
-        let deleted = match object.get(&*CDC_DELETED_FIELD) {
+        let deleted = match object.get(&CDC_DELETED_FIELD) {
             Some(ts) => ts != &ConvexValue::Null,
             None => false,
         };

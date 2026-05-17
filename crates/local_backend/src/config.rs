@@ -13,7 +13,6 @@ use keybroker::{
     DeploymentSecret,
     KeyBroker,
     DEV_INSTANCE_NAME,
-    DEV_SECRET,
 };
 use metrics::SERVER_VERSION_STR;
 use model::database_globals::types::StorageTagInitializer;
@@ -199,12 +198,12 @@ impl LocalConfig {
     }
 
     pub fn secret(&self) -> anyhow::Result<DeploymentSecret> {
-        DeploymentSecret::try_from(
-            self.instance_secret
-                .clone()
-                .unwrap_or(DEV_SECRET.to_owned())
-                .as_str(),
-        )
+        let secret = self.instance_secret.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "--instance-secret is required. Generate one with `openssl rand -hex 32`",
+            )
+        })?;
+        DeploymentSecret::try_from(secret)
     }
 
     pub fn storage_tag_initializer(&self) -> StorageTagInitializer {

@@ -2,6 +2,9 @@ import { useBBMutation } from "api/api";
 import { useProfile } from "api/profile";
 import { useCurrentProject } from "api/projects";
 import { useTeams, useCurrentTeam, useTeamMembers } from "api/teams";
+import { useHasCustomRolePermission } from "api/roles";
+import { projectResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { Sheet } from "@ui/Sheet";
 import { Combobox } from "@ui/Combobox";
 import { Button } from "@ui/Button";
@@ -45,10 +48,22 @@ export function TransferProject() {
     destinationTeamMembers?.find((member) => member.id === me?.id)?.role ===
     "admin";
 
+  // Allow custom-role members with `project:transfer` on the origin team
+  // (scoped to this project) to initiate transfers. The destination side
+  // still requires team admin to keep the destination-selector UI simple;
+  // the server enforces the destination permission at request time.
+  const canTransferCustom = useHasCustomRolePermission(
+    originTeam?.id,
+    "project:transfer",
+    project ? projectResource(project) : undefined,
+    false,
+  );
+  const canTransferFromOrigin = isAdminOfOldTeam || canTransferCustom === true;
+
   const loading = destinationTeamId
     ? !originTeamMembers || !destinationTeamMembers
     : false;
-  const canTransfer = isAdminOfOldTeam && isAdminOfNewTeam;
+  const canTransfer = canTransferFromOrigin && isAdminOfNewTeam;
 
   const [showConfirmation, setShowConfirmation] = useState(false);
   const validationError = !destinationTeamId
@@ -56,7 +71,9 @@ export function TransferProject() {
     : teams && teams.length === 1
       ? "You must be a member of another team to transfer a project."
       : !canTransfer
-        ? `You must be an admin of ${originTeam?.name} and ${destinationTeam?.name} to transfer this project to ${destinationTeam?.name}.`
+        ? !canTransferFromOrigin
+          ? `You do not have permission to transfer this project from ${originTeam?.name}.`
+          : `You must be an admin of ${destinationTeam?.name} to transfer this project to ${destinationTeam?.name}.`
         : undefined;
   const router = useRouter();
 
@@ -78,8 +95,12 @@ export function TransferProject() {
               loading,
               tip:
                 validationError ||
-                (!isAdminOfOldTeam &&
-                  "You must be an admin of this team to transfer a project."),
+                (!canTransferFromOrigin
+                  ? permissionDeniedTip(
+                      "You do not have permission to transfer this project.",
+                      "project:transfer",
+                    )
+                  : undefined),
             }}
             options={
               teams
@@ -91,7 +112,7 @@ export function TransferProject() {
             }
             selectedOption={destinationTeamId}
             setSelectedOption={setDestinationTeamId}
-            disabled={!isAdminOfOldTeam || !teams || teams.length === 1}
+            disabled={!canTransferFromOrigin || !teams || teams.length === 1}
           />
           {!loading && validationError && (
             <p

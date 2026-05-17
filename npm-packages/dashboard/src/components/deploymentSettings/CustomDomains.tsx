@@ -19,9 +19,14 @@ import { Sheet } from "@ui/Sheet";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
-import { useHasProjectAdminPermissions } from "api/roles";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
+import { deploymentResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { Link } from "@ui/Link";
 import { useState, useMemo, ReactNode } from "react";
 import {
@@ -87,12 +92,38 @@ export function CustomDomainsForm({
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment.projectId,
   );
-
-  const canPerformActions =
-    deployment.deploymentType !== "prod" || hasAdminPermissions;
-  const hasEditAccess = hasEntitlement && canPerformActions;
-
   const project = useCurrentProject();
+  const resource =
+    project && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  // Built-in admin/developer members keep the historical prod-only
+  // gate (developers can manage non-prod; admins anywhere). Custom-role
+  // members start with no permissions, so the
+  // `deployment:customDomain:create`/`delete` grants are required on
+  // every deployment type — encoding that into `nonCustomRoleResult`
+  // collapses both rules into the admin-or-custom check below.
+  const isProd = deployment.deploymentType === "prod";
+  const canCreateCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:customDomain:create",
+    resource,
+    !isProd,
+  );
+  const canDeleteCustom = useHasCustomRolePermission(
+    team.id,
+    "deployment:customDomain:delete",
+    resource,
+    !isProd,
+  );
+
+  const canCreate = hasAdminPermissions || canCreateCustom === true;
+  const canDelete = hasAdminPermissions || canDeleteCustom === true;
+  const hasEditAccess = hasEntitlement && canCreate;
   const defaultProdDeployment = useDeployments(
     deployment.projectId,
   ).deployments?.find(
@@ -146,13 +177,21 @@ export function CustomDomainsForm({
               <LocalDevCallout
                 className="flex-col"
                 tipText="Tip: Run this to enable custom domains locally:"
-                command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement custom_domains_enabled --team-id ${team.id} --reason "local" true --for-real`}
+                command={`just big-brain-tool-dev entitlement grant --team-entitlement custom_domains_enabled --team-id ${team.id} --reason "local" true --for-real`}
               />
             </>
           )}
 
           <VanityDomainForm
             disabled={!hasEditAccess}
+            disabledTip={
+              !hasEntitlement
+                ? undefined
+                : permissionDeniedTip(
+                    "You do not have permission to add custom domains.",
+                    "deployment:customDomain:create",
+                  )
+            }
             deploymentName={deployment.name}
           />
           {vanityDomains && vanityDomains.length > 0 && (
@@ -182,7 +221,11 @@ export function CustomDomainsForm({
                     <DisplayVanityDomain
                       key={index}
                       vanityDomain={domain}
-                      enabled={hasEditAccess}
+                      enabled={hasEntitlement && canDelete}
+                      deleteDisabledTip={permissionDeniedTip(
+                        "You do not have permission to delete custom domains.",
+                        "deployment:customDomain:delete",
+                      )}
                     />
                   ))}
               </div>
@@ -425,9 +468,11 @@ export function CanonicalUrlCombobox({
 function VanityDomainForm({
   deploymentName,
   disabled,
+  disabledTip,
 }: {
   deploymentName: string;
   disabled?: boolean;
+  disabledTip?: ReactNode;
 }) {
   const createVanityDomain = useCreateVanityDomain(deploymentName);
   const formState = useFormik<PlatformDeleteCustomDomainArgs>({
@@ -465,7 +510,15 @@ function VanityDomainForm({
       }}
     >
       <div className="flex w-full flex-col gap-2 md:flex-row">
-        <div className="flex grow flex-col gap-1">
+        <Tooltip
+          tip={
+            disabled
+              ? (disabledTip ??
+                "You do not have permission to add custom domains.")
+              : undefined
+          }
+          className="flex grow flex-col gap-1"
+        >
           <TextInput
             placeholder="Custom domain URL"
             error={formState.errors.domain}
@@ -475,33 +528,42 @@ function VanityDomainForm({
             labelHidden
             disabled={disabled}
           />
-        </div>
-        <Combobox
-          buttonClasses="w-fit"
-          optionsWidth="full"
-          label="Request Destination"
-          options={[
-            {
-              label: `HTTP Actions (${deploymentName}.convex.site)`,
-              value: "convexSite",
-            },
-            {
-              label: `Convex API (${deploymentName}.convex.cloud)`,
-              value: "convexCloud",
-            },
-          ]}
-          selectedOption={formState.values.requestDestination}
-          setSelectedOption={async (
-            value: "convexSite" | "convexCloud" | null,
-          ) => {
-            if (value === null) {
-              return;
-            }
-            await formState.setFieldValue("requestDestination", value);
-          }}
-          disableSearch
-          disabled={disabled}
-        />
+        </Tooltip>
+        <Tooltip
+          tip={
+            disabled
+              ? (disabledTip ??
+                "You do not have permission to add custom domains.")
+              : undefined
+          }
+        >
+          <Combobox
+            buttonClasses="w-fit"
+            optionsWidth="full"
+            label="Request Destination"
+            options={[
+              {
+                label: `HTTP Actions (${deploymentName}.convex.site)`,
+                value: "convexSite",
+              },
+              {
+                label: `Convex API (${deploymentName}.convex.cloud)`,
+                value: "convexCloud",
+              },
+            ]}
+            selectedOption={formState.values.requestDestination}
+            setSelectedOption={async (
+              value: "convexSite" | "convexCloud" | null,
+            ) => {
+              if (value === null) {
+                return;
+              }
+              await formState.setFieldValue("requestDestination", value);
+            }}
+            disableSearch
+            disabled={disabled}
+          />
+        </Tooltip>
       </div>
       <Button
         className="flex w-fit"
@@ -514,7 +576,8 @@ function VanityDomainForm({
         }
         tip={
           disabled
-            ? "You do not have permission to add custom domains"
+            ? (disabledTip ??
+              "You do not have permission to add custom domains.")
             : undefined
         }
         icon={<PlusIcon />}
@@ -529,9 +592,11 @@ function VanityDomainForm({
 export function DisplayVanityDomain({
   vanityDomain,
   enabled,
+  deleteDisabledTip,
 }: {
   vanityDomain: PlatformCustomDomainResponse;
   enabled: boolean;
+  deleteDisabledTip?: ReactNode;
 }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   return (
@@ -564,7 +629,8 @@ export function DisplayVanityDomain({
           <Button
             tip={
               !enabled
-                ? "You do not have permission to delete custom domains."
+                ? (deleteDisabledTip ??
+                  "You do not have permission to delete custom domains.")
                 : "Delete"
             }
             type="button"

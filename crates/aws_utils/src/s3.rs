@@ -164,7 +164,7 @@ impl S3Client {
     pub async fn recover_s3_files_from_bucket(
         &self,
         bucket: String,
-        instance_name: String,
+        deployment_name: String,
         for_real: bool,
     ) -> anyhow::Result<()> {
         let mut all_delete_markers: Vec<DeleteMarkerEntry> = vec![];
@@ -176,7 +176,7 @@ impl S3Client {
                 .0
                 .list_object_versions()
                 .bucket(bucket.clone())
-                .prefix(instance_name.clone());
+                .prefix(deployment_name.clone());
 
             if let Some(ref marker) = key_marker {
                 req_builder = req_builder.key_marker(marker.clone());
@@ -227,7 +227,7 @@ impl S3Client {
             }
             tracing::info!(
                 "DRY RUN: Would have recovered {num_markers_found} deleted files for instance \
-                 {instance_name}"
+                 {deployment_name}"
             );
         } else {
             // Convert markers to ObjectIdentifiers for batch deletion.
@@ -246,7 +246,7 @@ impl S3Client {
             let stream = futures::stream::iter(identifiers_iter);
             self.delete_s3_files(bucket.clone(), stream).await?;
             tracing::info!(
-                "Recovered {num_markers_found} deleted files for instance {instance_name}"
+                "Recovered {num_markers_found} deleted files for instance {deployment_name}"
             );
         }
 

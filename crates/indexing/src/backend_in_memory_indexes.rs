@@ -24,6 +24,7 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use common::errors::report_error;
 use common::{
     bootstrap_model::index::{
         database_index::DatabaseIndexState,
@@ -87,6 +88,7 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
+    heap_size::HeapSize,
     ResolvedDocumentId,
     TableMapping,
     TableName,
@@ -94,7 +96,7 @@ use value::{
 };
 
 use crate::{
-    index_cache::SharedIndexCache,
+    index_cache::IndexCacheHandle,
     index_registry::IndexRegistry,
     metrics::{
         index_page_timer,
@@ -119,14 +121,39 @@ pub trait InMemoryIndexes: Send + Sync {
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>>;
 }
 
+/// N.B. It is unsound to compare only on key but to use ts and value fields for
+/// equality, but we want to be able to get map-like functionality out of
+/// OrdSet<IndexEntry> (hence implementing Ord only comparing keys) and we want
+/// to be able to compare the contents in tests (which is why we derive
+/// PartialEq and Eq).
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexEntry {
     pub key: IndexKeyBytes,
     pub ts: Timestamp,
     pub value: PackedDocument,
 }
 
+impl Ord for IndexEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
+impl PartialOrd for IndexEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl HeapSize for IndexEntry {
+    fn heap_size(&self) -> usize {
+        self.key.heap_size() + self.value.heap_size()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexPage {
-    pub entries: Vec<IndexEntry>,
+    pub entries: Vec<Arc<IndexEntry>>,
     pub cursor: CursorPosition,
 }
 #[async_trait]
@@ -169,11 +196,11 @@ impl IndexReader for PersistenceSnapshot {
             let mut entries = vec![];
             while let Some(result) = stream.next().await {
                 let (key, LatestDocument { ts, value, .. }) = result?;
-                entries.push(IndexEntry {
+                entries.push(Arc::new(IndexEntry {
                     key,
                     ts,
                     value: PackedDocument::pack(&value),
-                });
+                }));
                 if entries.len() >= max_results {
                     let cursor = CursorPosition::After(entries.last().unwrap().key.clone());
                     return Ok(IndexPage { entries, cursor });
@@ -213,10 +240,61 @@ impl dyn IndexReader {
                 .index_page(index_id, tablet_id, &interval, order, page_size)
                 .await?;
             for entry in page.entries {
-                yield entry;
+                yield Arc::unwrap_or_clone(entry);
             }
             (_, interval) = interval.split(page.cursor, order);
         }
+    }
+}
+
+struct IndexCacheReader {
+    reader: Arc<dyn IndexReader>,
+    handle: IndexCacheHandle,
+    index_registry: ReadOnly<IndexRegistry>,
+}
+
+#[async_trait]
+impl IndexReader for IndexCacheReader {
+    async fn index_page(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        max_results: usize,
+    ) -> anyhow::Result<IndexPage> {
+        let index_page = self
+            .reader
+            .index_page(index_id, tablet_id, interval, order, max_results)
+            .await?;
+        let interval = Arc::new(interval.clone());
+        let maybe_page = self.handle.get(
+            index_id,
+            interval.clone(),
+            self.reader.timestamp(),
+            order,
+            max_results,
+        );
+        if let Some(cached_page) = maybe_page
+            && cached_page != index_page
+        {
+            self.handle
+                .invalidate(index_id, interval.clone(), order, max_results);
+            self.handle.populate(
+                index_id,
+                interval,
+                self.reader.timestamp(),
+                order,
+                max_results,
+                index_page.clone(),
+                &self.index_registry,
+            );
+        }
+        Ok(index_page)
+    }
+
+    fn timestamp(&self) -> RepeatableTimestamp {
+        self.reader.timestamp()
     }
 }
 
@@ -608,8 +686,6 @@ pub struct DatabaseIndexSnapshot {
 
     reader: Arc<dyn IndexReader>,
 
-    #[allow(dead_code)]
-    shared_index_cache: Option<SharedIndexCache>,
     // Cache results reads from the snapshot. The snapshot is immutable and thus
     // we don't have to do any invalidation.
     cache: DatabaseIndexSnapshotCache,
@@ -638,18 +714,26 @@ impl DatabaseIndexSnapshot {
         in_memory_indexes: Arc<dyn InMemoryIndexes>,
         table_mapping: TableMapping,
         reader: Arc<dyn IndexReader>,
-        shared_index_cache: Option<SharedIndexCache>,
+        index_cache_handle: Option<IndexCacheHandle>,
         cache: Option<TimestampedIndexCache>,
     ) -> Self {
         let cache = cache
             .map(|c| c.cache)
             .unwrap_or(DatabaseIndexSnapshotCache::new());
+        let reader = if let Some(handle) = index_cache_handle {
+            Arc::new(IndexCacheReader {
+                reader,
+                handle,
+                index_registry: ReadOnly::new(index_registry.clone()),
+            })
+        } else {
+            reader
+        };
         Self {
             index_registry: ReadOnly::new(index_registry),
             in_memory_indexes,
             table_mapping: ReadOnly::new(table_mapping),
             reader,
-            shared_index_cache,
             cache,
         }
     }
@@ -933,8 +1017,9 @@ impl DatabaseIndexSnapshot {
                         )
                         .await?;
                     for entry in index_page.entries {
-                        cache_miss_results.push((entry.ts, entry.value.clone()));
-                        results.push((entry.key, entry.ts, LazyDocument::Packed(entry.value)));
+                        let IndexEntry { key, ts, value } = Arc::unwrap_or_clone(entry);
+                        cache_miss_results.push((ts, value.clone()));
+                        results.push((key, ts, LazyDocument::Packed(value)));
                     }
                 },
             }
@@ -987,8 +1072,6 @@ impl DatabaseIndexSnapshot {
             };
             return Ok((results, cursor));
         }
-
-        // Fall back to persistence reader.
         let index_page = self
             .reader
             .index_page(index_id, tablet_id, interval, order, max_size)
@@ -996,7 +1079,10 @@ impl DatabaseIndexSnapshot {
         let results = index_page
             .entries
             .into_iter()
-            .map(|IndexEntry { key, ts, value }| (key, ts, LazyDocument::Packed(value)))
+            .map(|entry| {
+                let IndexEntry { key, ts, value } = Arc::unwrap_or_clone(entry);
+                (key, ts, LazyDocument::Packed(value))
+            })
             .collect();
         Ok((results, index_page.cursor))
     }

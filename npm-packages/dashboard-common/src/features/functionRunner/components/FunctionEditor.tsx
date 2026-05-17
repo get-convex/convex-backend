@@ -186,8 +186,32 @@ export function useFunctionEditor(
   setRunHistoryItem: (item: RunHistoryItem) => void,
   onRanCustomQuery?: () => void,
 ) {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
-  const canRunTestQuery = useIsOperationAllowed("RunTestQuery");
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsOperationAllowed,
+    useCustomRolePermission,
+    permissionDeniedTip,
+  } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  const hasAdminPermissions = useHasProjectAdminPermissions(
+    deployment?.projectId,
+  );
+  const canRunTestQueryOp = useIsOperationAllowed("RunTestQuery");
+  const canViewDataOp = useIsOperationAllowed("ViewData");
+  const canRunTestQueryCustom = useCustomRolePermission(
+    "deployment:functions:runTestQuery",
+    true,
+  );
+  const canViewDataCustom = useCustomRolePermission(
+    "deployment:data:view",
+    true,
+  );
+  const canRunTestQuery =
+    canRunTestQueryOp &&
+    (hasAdminPermissions || canRunTestQueryCustom !== false);
+  const canViewData =
+    canViewDataOp && (hasAdminPermissions || canViewDataCustom !== false);
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
@@ -197,9 +221,13 @@ export function useFunctionEditor(
 
   const [code, setCode] = useState<string>();
 
-  const schemas = useQuery(udfs.getSchemas.default, {
-    componentId,
-  });
+  // Skip the schema query when the member can't view data — otherwise the
+  // backend rejects the request and the resulting throw escapes the
+  // ErrorBoundary on the next subscription notify.
+  const schemas = useQuery(
+    udfs.getSchemas.default,
+    canViewData ? { componentId } : "skip",
+  );
   const schema = useMemo(() => {
     if (schemas === undefined) {
       return undefined;
@@ -443,7 +471,10 @@ export function useFunctionEditor(
         disabled={!canRunTestQuery}
         tip={
           !canRunTestQuery
-            ? "You do not have permission to run custom queries in this deployment."
+            ? permissionDeniedTip(
+                "You do not have permission to run custom queries in this deployment.",
+                "deployment:functions:runTestQuery",
+              )
             : undefined
         }
         loading={isInFlight}

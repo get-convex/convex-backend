@@ -51,6 +51,13 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
   updateEnvironmentVariables,
   initialFormValues,
   hasAdminPermissions,
+  disabledTip,
+  canCreate,
+  canEdit,
+  canDelete,
+  disabledTipForCreate,
+  disabledTipForEdit,
+  disabledTipForDelete,
   onEnvironmentVariablesAdded,
   renderDisplayExtra,
   renderEditExtra,
@@ -65,7 +72,21 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
     modifications: { oldEnvVar: T; newEnvVar: T }[],
     deletions: T[],
   ) => Promise<void>;
+  /** Default gate for create/edit/delete; per-action props below override
+   *  it when the underlying actions need distinct grants (e.g. project
+   *  defaults split into `:create` / `:update` / `:delete`). */
   hasAdminPermissions: boolean;
+  /** Overrides the default disabled-button tips when the member can't
+   *  manage env vars. Pass a `permissionDeniedTip(...)` result here to
+   *  surface the missing role action; omit for the project-defaults
+   *  caller (which falls back to a plain string). */
+  disabledTip?: React.ReactNode;
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  disabledTipForCreate?: React.ReactNode;
+  disabledTipForEdit?: React.ReactNode;
+  disabledTipForDelete?: React.ReactNode;
   onEnvironmentVariablesAdded?: (count: number) => void;
   /** Render content below the name when displaying (not editing) */
   renderDisplayExtra?: (props: { envVar: T }) => React.ReactNode;
@@ -198,7 +219,12 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
     >
       <EnvironmentVariablesForm
         environmentVariables={environmentVariables}
-        hasAdminPermissions={hasAdminPermissions}
+        canCreate={canCreate ?? hasAdminPermissions}
+        canEdit={canEdit ?? hasAdminPermissions}
+        canDelete={canDelete ?? hasAdminPermissions}
+        disabledTipForCreate={disabledTipForCreate ?? disabledTip}
+        disabledTipForEdit={disabledTipForEdit ?? disabledTip}
+        disabledTipForDelete={disabledTipForDelete ?? disabledTip}
         renderDisplayExtra={renderDisplayExtra}
         renderEditExtra={renderEditExtra}
         initEnvVar={initEnvVar}
@@ -210,14 +236,24 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
 
 function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
   environmentVariables,
-  hasAdminPermissions,
+  canCreate,
+  canEdit,
+  canDelete,
+  disabledTipForCreate,
+  disabledTipForEdit,
+  disabledTipForDelete,
   renderDisplayExtra,
   renderEditExtra,
   initEnvVar,
   envVarKey,
 }: {
   environmentVariables: Array<T> | undefined;
-  hasAdminPermissions: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  disabledTipForCreate?: React.ReactNode;
+  disabledTipForEdit?: React.ReactNode;
+  disabledTipForDelete?: React.ReactNode;
   renderDisplayExtra?: (props: { envVar: T }) => React.ReactNode;
   renderEditExtra?: (props: { formKey: string; envVar: T }) => React.ReactNode;
   initEnvVar: (envVar: { name: string; value: string }) => T;
@@ -289,7 +325,10 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
               <EnvironmentVariableListItem
                 key={envVarKey ? envVarKey(value) : value.name}
                 environmentVariable={value}
-                hasAdminPermissions={hasAdminPermissions}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                disabledTipForEdit={disabledTipForEdit}
+                disabledTipForDelete={disabledTipForDelete}
                 renderDisplayExtra={renderDisplayExtra}
                 renderEditExtra={renderEditExtra}
               />
@@ -298,7 +337,8 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
 
           <NewEnvVars
             existingEnvVars={environmentVariables}
-            hasAdminPermissions={hasAdminPermissions}
+            canCreate={canCreate}
+            disabledTipForCreate={disabledTipForCreate}
             renderEditExtra={renderEditExtra}
             initEnvVar={initEnvVar}
           />
@@ -391,13 +431,19 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
   environmentVariable,
   onEdit,
   onDelete,
-  hasAdminPermissions,
+  canEdit,
+  canDelete,
+  disabledTipForEdit,
+  disabledTipForDelete,
   renderDisplayExtra,
 }: {
   environmentVariable: T;
   onEdit: () => void;
   onDelete: () => void;
-  hasAdminPermissions: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  disabledTipForEdit?: React.ReactNode;
+  disabledTipForDelete?: React.ReactNode;
   renderDisplayExtra?: (props: { envVar: T }) => React.ReactNode;
 }) {
   const formState = useFormikContext<FormState<T>>();
@@ -441,8 +487,9 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
       <div className="flex h-(--env-var-contents-height) justify-between gap-2">
         <Button
           tip={
-            !hasAdminPermissions
-              ? "You do not have permission to edit environment variables."
+            !canEdit
+              ? (disabledTipForEdit ??
+                "You do not have permission to edit environment variables.")
               : "Edit"
           }
           aria-label="Edit"
@@ -450,7 +497,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           onClick={() => onEdit()}
           variant="neutral"
           icon={<Pencil2Icon />}
-          disabled={formState.isSubmitting || !hasAdminPermissions}
+          disabled={formState.isSubmitting || !canEdit}
         />
         <Button
           tip="Copy Value"
@@ -469,8 +516,9 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
         />
         <Button
           tip={
-            !hasAdminPermissions
-              ? "You do not have permission to delete environment variables."
+            !canDelete
+              ? (disabledTipForDelete ??
+                "You do not have permission to delete environment variables.")
               : "Delete"
           }
           aria-label="Delete"
@@ -478,7 +526,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           onClick={() => onDelete()}
           variant="danger"
           icon={<MinusCircledIcon />}
-          disabled={formState.isSubmitting || !hasAdminPermissions}
+          disabled={formState.isSubmitting || !canDelete}
         />
       </div>
     </div>
@@ -614,12 +662,18 @@ function EnvironmentVariableListItem<
   T extends { name: string; value: string },
 >({
   environmentVariable,
-  hasAdminPermissions,
+  canEdit,
+  canDelete,
+  disabledTipForEdit,
+  disabledTipForDelete,
   renderDisplayExtra,
   renderEditExtra,
 }: {
   environmentVariable: T;
-  hasAdminPermissions: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  disabledTipForEdit?: React.ReactNode;
+  disabledTipForDelete?: React.ReactNode;
   renderDisplayExtra?: (props: { envVar: T }) => React.ReactNode;
   renderEditExtra?: (props: { formKey: string; envVar: T }) => React.ReactNode;
 }) {
@@ -676,7 +730,10 @@ function EnvironmentVariableListItem<
 
   return (
     <DisplayEnvVar
-      hasAdminPermissions={hasAdminPermissions}
+      canEdit={canEdit}
+      canDelete={canDelete}
+      disabledTipForEdit={disabledTipForEdit}
+      disabledTipForDelete={disabledTipForDelete}
       environmentVariable={environmentVariable}
       onEdit={() => {
         void formState.setFieldValue("editedVars", [
@@ -700,12 +757,14 @@ function EnvironmentVariableListItem<
 
 function NewEnvVars<T extends BaseEnvironmentVariable>({
   existingEnvVars,
-  hasAdminPermissions,
+  canCreate,
+  disabledTipForCreate,
   renderEditExtra,
   initEnvVar,
 }: {
   existingEnvVars: Array<T>;
-  hasAdminPermissions: boolean;
+  canCreate: boolean;
+  disabledTipForCreate?: React.ReactNode;
   renderEditExtra?: (props: { formKey: string; envVar: T }) => React.ReactNode;
   initEnvVar: (envVar: { name: string; value: string }) => T;
 }) {
@@ -779,10 +838,11 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
               ]);
             }}
             icon={<PlusCircledIcon />}
-            disabled={!hasAdminPermissions}
+            disabled={!canCreate}
             tip={
-              !hasAdminPermissions
-                ? "You do not have permission to add new environment variables."
+              !canCreate
+                ? (disabledTipForCreate ??
+                  "You do not have permission to add new environment variables.")
                 : undefined
             }
           >

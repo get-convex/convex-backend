@@ -8,6 +8,7 @@ import { RegionName, TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
 import { useDeploymentRegions } from "api/deployments";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { DefaultRegionSelector } from "./DefaultRegionSelector";
 
 export type TeamFormProps = {
@@ -17,7 +18,7 @@ export type TeamFormProps = {
     slug: string;
     defaultRegion: RegionName | null;
   }) => Promise<void>;
-  hasAdminPermissions: boolean;
+  canUpdate: boolean;
 };
 
 const TeamSchema = Yup.object().shape({
@@ -35,11 +36,7 @@ const TeamSchema = Yup.object().shape({
     .required(),
   defaultRegion: Yup.string().nullable(),
 });
-export function TeamForm({
-  team,
-  onUpdateTeam,
-  hasAdminPermissions,
-}: TeamFormProps) {
+export function TeamForm({ team, onUpdateTeam, canUpdate }: TeamFormProps) {
   const { regions } = useDeploymentRegions(team.id);
   const formState = useFormik({
     initialValues: {
@@ -65,9 +62,13 @@ export function TeamForm({
       <form onSubmit={formState.handleSubmit} aria-label="Edit team settings">
         <div className="mb-6 flex flex-col gap-4">
           <Tooltip
+            className="block max-w-[20rem]"
             tip={
-              !hasAdminPermissions
-                ? "You do not have permission to update the team name."
+              !canUpdate
+                ? permissionDeniedTip(
+                    "You do not have permission to update the team name.",
+                    "team:update",
+                  )
                 : undefined
             }
           >
@@ -79,13 +80,17 @@ export function TeamForm({
               value={formState.values.name}
               id="name"
               error={formState.errors.name}
-              disabled={!hasAdminPermissions || team.managedBy === "vercel"}
+              disabled={!canUpdate || team.managedBy === "vercel"}
             />
           </Tooltip>
           <Tooltip
+            className="block max-w-[20rem]"
             tip={
-              !hasAdminPermissions
-                ? "You do not have permission to update the team slug."
+              !canUpdate
+                ? permissionDeniedTip(
+                    "You do not have permission to update the team slug.",
+                    "team:update",
+                  )
                 : undefined
             }
           >
@@ -96,11 +101,11 @@ export function TeamForm({
               onChange={formState.handleChange}
               value={formState.values.slug}
               // We hide the button when the tooltip is visible to avoid nesting buttons
-              Icon={hasAdminPermissions ? CopyIcon : undefined}
+              Icon={canUpdate ? CopyIcon : undefined}
               action={() => copyToClipboard(formState.values.slug)}
               id="slug"
               error={formState.errors.slug}
-              disabled={!hasAdminPermissions}
+              disabled={!canUpdate}
             />
           </Tooltip>
 
@@ -111,7 +116,7 @@ export function TeamForm({
             }
             regions={regions}
             teamSlug={team.slug}
-            disabledDueToPermissions={!hasAdminPermissions}
+            disabledDueToPermissions={!canUpdate}
           />
         </div>
 
@@ -121,7 +126,7 @@ export function TeamForm({
             !formState.dirty ||
             formState.isSubmitting ||
             !formState.isValid ||
-            !hasAdminPermissions
+            !canUpdate
           }
           type="submit"
           aria-label="submit"

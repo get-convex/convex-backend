@@ -720,26 +720,18 @@ impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
         let client_ip: Option<ClientIp> = parts
             .headers
             .get("Convex-Request-Client-Ip")
-            .map(|v| {
-                ClientIp::try_from(
-                    v.to_str()
-                        .context("Request client IP must be a string")?
-                        .to_owned(),
-                )
-            })
-            .transpose()?;
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Request client IP must be a string")?
+            .map(|s| ClientIp::from(s.to_owned()));
 
         let client_user_agent: Option<ClientUserAgent> = parts
             .headers
             .get("Convex-Request-Client-User-Agent")
-            .map(|v| {
-                ClientUserAgent::try_from(
-                    v.to_str()
-                        .context("Request User-Agent must be a string")?
-                        .to_owned(),
-                )
-            })
-            .transpose()?;
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Request User-Agent must be a string")?
+            .map(|s| ClientUserAgent::from(s.to_owned()));
 
         Ok(Self(ExecutionContext::new_from_parts(
             request_id,

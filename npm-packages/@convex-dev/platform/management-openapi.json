@@ -1631,12 +1631,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
           }
         ]
       }
@@ -1715,7 +1709,7 @@
           "Teams"
         ],
         "summary": "Invite a team member",
-        "description": "Invite a member to the given team by email.",
+        "description": "Invite a member to the given team by email. `role` is required and must be\none of `admin`, `developer`, or `custom`. Pass `custom` together with a\nnon-empty `customRoles` list to invite a member into a custom role; for\n`admin` and `developer`, `customRoles` must be omitted.",
         "operationId": "invite team member",
         "parameters": [
           {
@@ -1740,7 +1734,83 @@
             "description": ""
           }
         },
-        "security": []
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/list_pending_invites": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "List pending team invitations",
+        "description": "List the pending invitations for the given team.",
+        "operationId": "list pending team invites",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListInvitationsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/cancel_team_member_invite": {
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "Cancel a pending team invitation",
+        "operationId": "cancel team member invite",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
       }
     },
     "/projects/{project_id}/list_default_environment_variables": {
@@ -1871,8 +1941,7 @@
     "/teams/{team_id}/create_custom_role": {
       "post": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "Create a custom role",
         "description": "Creates a new custom role for the team with the specified name,\ndescription, and permission statements.",
@@ -1926,8 +1995,7 @@
     "/teams/{team_id}/list_custom_roles": {
       "get": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "List custom roles",
         "description": "Lists all custom roles for the team with cursor-based pagination.",
@@ -1990,8 +2058,7 @@
     "/teams/{team_id}/update_custom_role": {
       "post": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "Update a custom role",
         "description": "Updates an existing custom role's name, description, and permission\nstatements.",
@@ -2045,8 +2112,7 @@
     "/teams/{team_id}/delete_custom_role": {
       "post": {
         "tags": [
-          "Custom Roles",
-          "alpha"
+          "Custom Roles"
         ],
         "summary": "Delete a custom role",
         "description": "Deletes a custom role from the team. Fails with `CustomRoleInUse` if\nthe role is still attached to any team members; reassign those members\n(e.g. via `update_team_member_role`) before retrying.",
@@ -2127,12 +2193,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
           }
         ]
       }
@@ -2143,6 +2203,18 @@
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
+      },
+      "CancelInvitationArgs": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CreateCustomRoleArgs": {
         "type": "object",
@@ -2185,11 +2257,22 @@
           "role"
         ],
         "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CustomRoleId"
+            },
+            "description": "Custom roles to attach when `role` is `custom`. Required and non-empty\nin that case, and forbidden otherwise."
+          },
           "email": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "$ref": "#/components/schemas/Role",
+            "description": "Role to assign when the invitation is accepted.\nPass `custom` together with a non-empty `customRoles` list to invite a\nmember into a custom role; `admin` and `developer` must be sent without\n`customRoles`."
           }
         }
       },
@@ -2426,6 +2509,35 @@
       },
       "DeviceName": {
         "type": "string"
+      },
+      "InvitationResponse": {
+        "type": "object",
+        "required": [
+          "email",
+          "expired",
+          "role"
+        ],
+        "properties": {
+          "customRoles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
+            },
+            "description": "The custom roles attached to this invitation. Present iff `role` is\n`custom`."
+          },
+          "email": {
+            "type": "string"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
       },
       "IsDefaultDeployment": {
         "type": "boolean",
@@ -2789,7 +2901,9 @@
       "PlatformCreateProjectResponse": {
         "type": "object",
         "required": [
-          "projectId"
+          "projectId",
+          "id",
+          "slug"
         ],
         "properties": {
           "deploymentName": {
@@ -2806,8 +2920,16 @@
             ],
             "description": "Deployment cloud URL, where this deployment lives. Only present when a\ndeployment was requested."
           },
-          "projectId": {
+          "id": {
             "$ref": "#/components/schemas/ProjectId"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId",
+            "description": "Deprecated alias for `id`, kept for backwards compatibility."
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug",
+            "description": "The shortened version of the project name used in Convex Dashboard URLs."
           }
         }
       },
@@ -3164,6 +3286,20 @@
           }
         }
       },
+      "PlatformListInvitationsResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvitationResponse"
+            }
+          }
+        }
+      },
       "PlatformListPreviewDeployKeysResponse": {
         "type": "object",
         "required": [
@@ -3433,101 +3569,99 @@
         "type": "string",
         "description": "An action that can be allowed or denied by a custom role statement.",
         "enum": [
-          "updateTeam",
-          "deleteTeam",
-          "createProject",
-          "transferProject",
-          "receiveProject",
-          "updateProject",
-          "deleteProject",
-          "viewProjects",
-          "updateMemberProjectRole",
-          "createProjectEnvironmentVariable",
-          "updateProjectEnvironmentVariable",
-          "deleteProjectEnvironmentVariable",
-          "viewProjectEnvironmentVariables",
-          "createDeployment",
-          "transferDeployment",
-          "receiveDeployment",
-          "updateDeploymentReference",
-          "updateDeploymentDashboardEditConfirmation",
-          "updateDeploymentExpiresAt",
-          "updateDeploymentSendLogsToClient",
-          "updateDeploymentClass",
-          "updateDeploymentIsDefault",
-          "updateDeploymentType",
-          "deleteDeployment",
-          "viewDeployments",
-          "viewDeploymentIntegrations",
-          "writeDeploymentIntegrations",
-          "createCustomDomain",
-          "deleteCustomDomain",
-          "inviteMember",
-          "cancelMemberInvitation",
-          "removeMember",
-          "updateMemberRole",
-          "updatePaymentMethod",
-          "updateBillingContact",
-          "updateBillingAddress",
-          "createSubscription",
-          "resumeSubscription",
-          "cancelSubscription",
-          "changeSubscriptionPlan",
-          "setSpendingLimit",
-          "viewBillingDetails",
-          "viewInvoices",
-          "viewTeamAuditLog",
-          "createTeamAccessToken",
-          "updateTeamAccessToken",
-          "deleteTeamAccessToken",
-          "viewTeamAccessTokens",
-          "createProjectAccessToken",
-          "updateProjectAccessToken",
-          "deleteProjectAccessToken",
-          "viewProjectAccessTokens",
-          "createDeploymentAccessToken",
-          "updateDeploymentAccessToken",
-          "deleteDeploymentAccessToken",
-          "viewDeploymentAccessTokens",
-          "createOAuthApplication",
-          "updateOAuthApplication",
-          "deleteOAuthApplication",
-          "viewOAuthApplications",
-          "generateOAuthClientSecret",
-          "viewUsage",
-          "viewInsights",
-          "startManualCloudBackup",
-          "restoreFromCloudBackup",
-          "configurePeriodicBackup",
-          "disablePeriodicBackup",
-          "deleteCloudBackup",
-          "viewCloudBackups",
-          "applyReferralCode",
-          "enableSSO",
-          "disableSSO",
-          "updateSSO",
-          "viewSSO",
-          "viewCustomRoles",
-          "viewTeamIntegrations",
-          "createTeamIntegrations",
-          "updateTeamIntegrations",
-          "deleteTeamIntegrations",
-          "deploy",
-          "viewEnvironmentVariables",
-          "writeEnvironmentVariables",
-          "pauseDeployment",
-          "unpauseDeployment",
-          "viewLogs",
-          "viewMetrics",
-          "viewData",
-          "writeData",
-          "downloadCloudBackups",
-          "actAsUser",
-          "runInternalQueries",
-          "runInternalMutations",
-          "runInternalActions",
-          "runTestQuery",
-          "viewAuditLog"
+          "team:update",
+          "team:delete",
+          "project:create",
+          "project:transfer",
+          "project:receive",
+          "project:update",
+          "project:delete",
+          "project:view",
+          "project:updateMemberRole",
+          "defaultEnvironmentVariable:create",
+          "defaultEnvironmentVariable:update",
+          "defaultEnvironmentVariable:delete",
+          "defaultEnvironmentVariable:view",
+          "deployment:create",
+          "deployment:transfer",
+          "deployment:receive",
+          "deployment:updateReference",
+          "deployment:updateDashboardEditConfirmation",
+          "deployment:updateExpiresAt",
+          "deployment:updateSendLogsToClient",
+          "deployment:updateClass",
+          "deployment:updateIsDefault",
+          "deployment:updateType",
+          "deployment:delete",
+          "deployment:view",
+          "deployment:integrations:view",
+          "deployment:integrations:write",
+          "deployment:customDomain:create",
+          "deployment:customDomain:delete",
+          "deployment:customDomain:view",
+          "member:invite",
+          "member:cancelInvitation",
+          "member:remove",
+          "member:updateRole",
+          "member:view",
+          "billing:paymentMethod:update",
+          "billing:contact:update",
+          "billing:address:update",
+          "billing:subscription:changePlan",
+          "billing:spendingLimit:update",
+          "billing:view",
+          "billing:invoices:view",
+          "team:auditLog:view",
+          "team:token:create",
+          "team:token:update",
+          "team:token:delete",
+          "team:token:view",
+          "project:token:create",
+          "project:token:update",
+          "project:token:delete",
+          "project:token:view",
+          "deployment:token:create",
+          "deployment:token:update",
+          "deployment:token:delete",
+          "deployment:token:view",
+          "oauthApplication:create",
+          "oauthApplication:update",
+          "oauthApplication:delete",
+          "oauthApplication:view",
+          "oauthApplication:generateClientSecret",
+          "team:usage:view",
+          "deployment:insights:view",
+          "deployment:backups:create",
+          "deployment:backups:import",
+          "deployment:backups:configurePeriodic",
+          "deployment:backups:disablePeriodic",
+          "deployment:backups:delete",
+          "deployment:backups:view",
+          "sso:enable",
+          "sso:disable",
+          "sso:update",
+          "sso:view",
+          "customRole:view",
+          "integration:view",
+          "integration:create",
+          "integration:update",
+          "integration:delete",
+          "deployment:deploy",
+          "deployment:env:view",
+          "deployment:env:write",
+          "deployment:pause",
+          "deployment:unpause",
+          "deployment:logs:view",
+          "deployment:metrics:view",
+          "deployment:data:view",
+          "deployment:data:write",
+          "deployment:backups:download",
+          "deployment:functions:actAsUser",
+          "deployment:functions:runInternalQueries",
+          "deployment:functions:runInternalMutations",
+          "deployment:functions:runInternalActions",
+          "deployment:functions:runTestQuery",
+          "deployment:auditLog:view"
         ]
       },
       "RoleStatementActions": {
@@ -3578,7 +3712,7 @@
             "items": {
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
-            "description": "The custom roles attached to this team member, with their display\nnames denormalized so consumers can render the role list without\na separate `list_custom_roles` lookup. `Some` iff `role` is\n`custom`."
+            "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
           },
           "email": {
             "type": "string",
@@ -3604,15 +3738,15 @@
         "type": "object",
         "description": "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
         "required": [
-          "roleId",
+          "id",
           "name"
         ],
         "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CustomRoleId"
+          },
           "name": {
             "type": "string"
-          },
-          "roleId": {
-            "$ref": "#/components/schemas/CustomRoleId"
           }
         }
       },

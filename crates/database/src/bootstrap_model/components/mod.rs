@@ -17,6 +17,7 @@ use common::{
         },
         ComponentMetadata,
         ComponentType,
+        EnvBinding,
     },
     components::{
         CanonicalizedComponentFunctionPath,
@@ -56,11 +57,7 @@ use crate::{
     COMPONENT_DEFINITIONS_TABLE,
 };
 
-pub static COMPONENTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_components"
-        .parse()
-        .expect("Invalid built-in _components table")
-});
+pub static COMPONENTS_TABLE: TableName = TableName::const_new("_components");
 
 pub static COMPONENTS_BY_PARENT_INDEX: LazyLock<SystemIndex<ComponentsTable>> =
     LazyLock::new(|| SystemIndex::new("by_parent_and_name", [&PARENT_FIELD, &NAME_FIELD]).unwrap());
@@ -267,6 +264,32 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(result)
     }
 
+    /// Returns component environment variable bindings.
+    ///
+    /// These will be resolved against the app's actual environment variable
+    /// values at runtime.
+    pub async fn load_component_env(
+        &mut self,
+        id: ComponentId,
+    ) -> anyhow::Result<BTreeMap<Identifier, EnvBinding>> {
+        let component = self
+            .load_component(id)
+            .await?
+            .context(format!(
+                "Component not found for ComponentId {:?}",
+                id.serialize_to_string()
+            ))?
+            .into_value();
+        let env = match component.component_type {
+            ComponentType::App => anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidComponentType",
+                "Can't load component env within the app",
+            )),
+            ComponentType::ChildComponent { env, .. } => env,
+        };
+        Ok(env)
+    }
+
     pub async fn load_definition(
         &mut self,
         id: ComponentDefinitionId,
@@ -309,6 +332,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                         exports: BTreeMap::new(),
                         http_mounts: BTreeMap::new(),
                         http_prefix: None,
+                        env_vars: BTreeMap::new(),
                     })
                 } else {
                     anyhow::bail!(ErrorMetadata::bad_request(

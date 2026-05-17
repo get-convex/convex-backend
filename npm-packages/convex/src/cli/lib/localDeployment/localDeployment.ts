@@ -1,5 +1,12 @@
 import { Context } from "../../../bundler/context.js";
-import { logVerbose } from "../../../bundler/log.js";
+import {
+  logFinishedStep,
+  logVerbose,
+  logWarning,
+  showSpinner,
+  stopSpinner,
+} from "../../../bundler/log.js";
+import { logAndHandleFetchError, ThrowingFetchError } from "../utils/utils.js";
 import {
   bigBrainPause,
   bigBrainRecordActivity,
@@ -19,6 +26,7 @@ import {
   ensureBackendStopped,
   localDeploymentUrl,
   runLocalBackend,
+  withRunningBackend,
 } from "./run.js";
 import { handlePotentialUpgrade } from "./upgrade.js";
 import { OnDeploymentActivityFunc } from "../deployment.js";
@@ -31,6 +39,10 @@ import {
   LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./utils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
+import { defaultEnvBackend } from "../defaultEnv.js";
+import { deploymentEnvBackend, EnvVar } from "../env.js";
+import { getProjectDetails } from "../deploymentSelection.js";
+
 export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
@@ -43,12 +55,10 @@ export async function handleLocalDeployment(
   options: {
     teamSlug: string;
     projectSlug: string;
-    ports?:
-      | {
-          cloud: number;
-          site: number;
-        }
-      | undefined;
+    ports: {
+      cloud: number | undefined;
+      site: number | undefined;
+    };
     backendVersion?: string | undefined;
     forceUpgrade: boolean;
   },
@@ -61,7 +71,8 @@ export async function handleLocalDeployment(
     projectSlug: options.projectSlug,
     teamSlug: options.teamSlug,
   });
-  if (existingDeploymentForProject === null) {
+  const isFirstTime = existingDeploymentForProject === null;
+  if (isFirstTime) {
     printLocalDeploymentWelcomeMessage();
   }
   ctx.registerCleanup(async (_exitCode, err) => {
@@ -93,10 +104,10 @@ export async function handleLocalDeployment(
         }
       : { kind: "version", version: options.backendVersion },
   );
-  const { cloudPort, sitePort } = await chooseLocalBackendPorts(
-    ctx,
-    options.ports,
-  );
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(ctx, {
+    requestedPorts: options.ports,
+    suggestedPorts: existingDeploymentForProject?.config.ports,
+  });
   const { deploymentName, adminKey } = await bigBrainStart(ctx, {
     port: cloudPort,
     projectSlug: options.projectSlug,
@@ -128,6 +139,16 @@ export async function handleLocalDeployment(
     instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
     forceUpgrade: options.forceUpgrade,
   });
+
+  if (isFirstTime) {
+    await importDefaultEnvVars(ctx, {
+      teamSlug: options.teamSlug,
+      projectSlug: options.projectSlug,
+      deploymentName,
+      deploymentUrl: localDeploymentUrl(cloudPort),
+      adminKey,
+    });
+  }
 
   // Periodically report activity to BigBrain every 60 seconds.
   // Uses self-scheduling setTimeout to avoid overlapping requests.
@@ -197,7 +218,7 @@ async function handleOffline(
   options: {
     teamSlug: string;
     projectSlug: string;
-    ports?: { cloud: number; site: number } | undefined;
+    ports: { cloud: number | undefined; site: number | undefined };
   },
 ): Promise<DeploymentDetails> {
   const { deploymentName, config } =
@@ -206,10 +227,11 @@ async function handleOffline(
     kind: "version",
     version: config.backendVersion,
   });
-  const { cloudPort, sitePort } = await chooseLocalBackendPorts(
-    ctx,
-    options.ports,
-  );
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(ctx, {
+    requestedPorts: options.ports,
+    // FIXME: This doesn’t try to reuse the ports already assigned in the config.
+    // Please update this if we ever support offline mode (currently this is dead code).
+  });
   saveDeploymentConfig(ctx, "local", deploymentName, config);
   await runLocalBackend(ctx, {
     binaryPath,
@@ -376,5 +398,71 @@ async function chooseFromExistingLocalDeployments(ctx: Context): Promise<{
       name: d.deploymentName,
       value: d,
     })),
+  });
+}
+
+/** Copies the default dev env vars from big brain the first time the local dev backend is started */
+export async function importDefaultEnvVars(
+  ctx: Context,
+  {
+    teamSlug,
+    projectSlug,
+    deploymentName,
+    deploymentUrl,
+    adminKey,
+  }: {
+    teamSlug: string;
+    projectSlug: string;
+    deploymentName: string;
+    deploymentUrl: string;
+    adminKey: string;
+  },
+) {
+  showSpinner("Importing default env vars...");
+
+  const project = await getProjectDetails(ctx, {
+    kind: "teamAndProjectSlugs",
+    teamSlug,
+    projectSlug,
+  });
+  let defaults: EnvVar[];
+  try {
+    defaults = await defaultEnvBackend(ctx, project.id, "dev").list();
+  } catch (err) {
+    if (err instanceof ThrowingFetchError && err.response.status === 403) {
+      stopSpinner();
+      logWarning(
+        `Skipping default env var import: ${err.serverErrorData?.message ?? err.message}`,
+      );
+      return;
+    }
+    return await logAndHandleFetchError(ctx, err);
+  }
+  if (defaults.length === 0) {
+    logFinishedStep("No default env vars to import.");
+    return;
+  }
+
+  const deployment = {
+    deploymentUrl,
+    deploymentFields: {
+      deploymentName,
+      deploymentType: "local" as const,
+      projectSlug,
+      teamSlug,
+    },
+  };
+
+  await withRunningBackend({
+    ctx,
+    deployment,
+    action: async () => {
+      await deploymentEnvBackend(ctx, { deploymentUrl, adminKey }).update(
+        defaults.map((v) => ({ name: v.name, value: v.value })),
+      );
+      logFinishedStep(
+        `Imported ${defaults.length} environment ${defaults.length === 1 ? "variable" : "variables"} from default environment variables: ${defaults.map((v) => v.name).join(", ")}`,
+      );
+    },
   });
 }

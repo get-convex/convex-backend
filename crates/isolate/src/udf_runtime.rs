@@ -113,6 +113,26 @@ fn create_base_snapshot() -> v8::StartupData {
         global.set(context_scope, convex_key.into(), convex_value.into());
 
         {
+            let extras_binding = context.get_extras_binding_object(context_scope);
+
+            let get_cped_key = strings::getContinuationPreservedEmbedderData
+                .create(context_scope)
+                .unwrap();
+            let get_cped_fn: v8::Local<v8::Value> = extras_binding
+                .get(context_scope, get_cped_key.into())
+                .expect("Missing getContinuationPreservedEmbedderData extras binding");
+            convex_value.set(context_scope, get_cped_key.into(), get_cped_fn);
+
+            let set_cped_key = strings::setContinuationPreservedEmbedderData
+                .create(context_scope)
+                .unwrap();
+            let set_cped_fn: v8::Local<v8::Value> = extras_binding
+                .get(context_scope, set_cped_key.into())
+                .expect("Missing setContinuationPreservedEmbedderData extras binding");
+            convex_value.set(context_scope, set_cped_key.into(), set_cped_fn);
+        }
+
+        {
             let crypto_key_instance = crypto_key
                 .get_function(context_scope)
                 .expect("instantiate CryptoKey");

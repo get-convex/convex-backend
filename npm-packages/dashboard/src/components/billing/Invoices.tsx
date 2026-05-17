@@ -6,7 +6,15 @@ import { InvoiceResponse } from "generatedApi";
 
 const headerClass = "text-left text-xs text-content-secondary font-normal py-2";
 
-export function Invoices({ invoices }: { invoices: InvoiceResponse[] }) {
+export function Invoices({
+  invoices,
+  onShowMore,
+  isLoadingMore = false,
+}: {
+  invoices: InvoiceResponse[];
+  onShowMore?: () => void;
+  isLoadingMore?: boolean;
+}) {
   return (
     <Sheet className="flex w-full flex-col gap-4">
       <h3>Invoices</h3>
@@ -14,7 +22,11 @@ export function Invoices({ invoices }: { invoices: InvoiceResponse[] }) {
         Preview or download your upcoming and past invoices.
       </span>
       {invoices.length > 0 ? (
-        <InvoicesTable invoices={invoices} />
+        <InvoicesTable
+          invoices={invoices}
+          onShowMore={onShowMore}
+          isLoadingMore={isLoadingMore}
+        />
       ) : (
         <div className="my-24 flex flex-col items-center gap-2 text-content-secondary">
           No invoices yet.
@@ -24,7 +36,15 @@ export function Invoices({ invoices }: { invoices: InvoiceResponse[] }) {
   );
 }
 
-function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
+function InvoicesTable({
+  invoices,
+  onShowMore,
+  isLoadingMore,
+}: {
+  invoices: InvoiceResponse[];
+  onShowMore?: () => void;
+  isLoadingMore: boolean;
+}) {
   return (
     <div
       className="scrollbar max-h-[30rem] overflow-y-auto rounded-sm border"
@@ -89,6 +109,19 @@ function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
           ))}
         </tbody>
       </table>
+      {(onShowMore || isLoadingMore) && (
+        <div className="flex justify-center border-t bg-background-secondary p-2">
+          <Button
+            variant="neutral"
+            size="xs"
+            onClick={onShowMore}
+            loading={isLoadingMore}
+            disabled={isLoadingMore}
+          >
+            Show more
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

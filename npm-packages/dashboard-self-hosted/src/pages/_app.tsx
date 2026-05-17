@@ -242,6 +242,8 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   },
   useIsProtectedDeployment: () => false,
   useHasProjectAdminPermissions: () => true,
+  useCustomRolePermission: () => true,
+  permissionDeniedTip: (message: string) => message,
   useIsOperationAllowed: () => true,
   useIsDeploymentPaused: () => {
     const deploymentState = useQuery(udfs.deploymentState.deploymentState);

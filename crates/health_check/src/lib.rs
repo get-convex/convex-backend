@@ -22,7 +22,7 @@ pub async fn health_check(service_url: &Url) -> anyhow::Result<Option<String>> {
 pub async fn wait_for_http_health(
     service_url: &Url,
     expected_version: Option<&str>,
-    expected_instance_name: Option<&str>,
+    expected_deployment_name: Option<&str>,
     num_retries: usize,
     initial_backoff: Duration,
 ) -> anyhow::Result<String> {
@@ -30,7 +30,7 @@ pub async fn wait_for_http_health(
         service_url,
         None,
         expected_version,
-        expected_instance_name,
+        expected_deployment_name,
         "instance_version",
         num_retries,
         initial_backoff,
@@ -71,7 +71,7 @@ async fn wait_for_http_health_inner(
     service_url: &Url,
     service_name: Option<&str>,
     expected_version: Option<&str>,
-    expected_instance_name: Option<&str>,
+    expected_deployment_name: Option<&str>,
     health_check_endpoint: &str,
     num_retries: usize,
     initial_backoff: Duration,
@@ -85,7 +85,7 @@ async fn wait_for_http_health_inner(
     match health_check_with_retries(
         service_url,
         expected_version,
-        expected_instance_name,
+        expected_deployment_name,
         health_check_endpoint,
         num_retries,
         initial_backoff,
@@ -109,7 +109,7 @@ async fn wait_for_http_health_inner(
 async fn health_check_with_retries(
     service_url: &Url,
     expected_version: Option<&str>,
-    expected_instance_name: Option<&str>,
+    expected_deployment_name: Option<&str>,
     health_check_endpoint: &str,
     num_retries: usize,
     initial_backoff: Duration,
@@ -123,8 +123,9 @@ async fn health_check_with_retries(
         }
         match health_check_once(service_url, expected_version, health_check_endpoint).await {
             Ok(version) => {
-                if let Some(expected_instance_name) = expected_instance_name
-                    && let Err(e) = verify_instance_name(service_url, expected_instance_name).await
+                if let Some(expected_deployment_name) = expected_deployment_name
+                    && let Err(e) =
+                        verify_deployment_name(service_url, expected_deployment_name).await
                 {
                     last_error = Some(e);
                     continue;
@@ -168,12 +169,15 @@ async fn health_check_once(
     }
 }
 
-pub async fn verify_instance_name(service_url: &Url, instance_name: &str) -> anyhow::Result<()> {
+pub async fn verify_deployment_name(
+    service_url: &Url,
+    deployment_name: &str,
+) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
     let instance_name_url = service_url.join("instance_name")?;
     let response = client
         .get(instance_name_url)
-        .header("x-convex-instance", instance_name)
+        .header("x-convex-instance", deployment_name)
         .timeout(Duration::from_secs(5))
         .send()
         .await?;
@@ -183,8 +187,8 @@ pub async fn verify_instance_name(service_url: &Url, instance_name: &str) -> any
     );
     let response_instance_name = response.text().await?;
     anyhow::ensure!(
-        response_instance_name == instance_name,
-        "Health checking {service_url}. Expected {instance_name}. Got {response_instance_name}."
+        response_instance_name == deployment_name,
+        "Health checking {service_url}. Expected {deployment_name}. Got {response_instance_name}."
     );
     Ok(())
 }

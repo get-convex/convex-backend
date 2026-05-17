@@ -41,6 +41,7 @@ import {
 } from "api/backups";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupIdentifier } from "elements/BackupIdentifier";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { cn } from "@ui/cn";
 import { getDeploymentLabel } from "elements/DeploymentDisplay";
 import { usePostHog } from "hooks/usePostHog";
@@ -52,7 +53,9 @@ export function BackupListItem({
   someRestoreInProgress,
   latestBackupInTargetDeployment,
   targetDeployment,
-  canPerformActions,
+  canCreate,
+  canImport,
+  canDelete,
   getZipExportUrl,
   maxCloudBackups,
   progressMessage,
@@ -63,7 +66,9 @@ export function BackupListItem({
   someRestoreInProgress: boolean;
   latestBackupInTargetDeployment: BackupResponse | null;
   targetDeployment: PlatformDeploymentResponse;
-  canPerformActions: boolean;
+  canCreate: boolean;
+  canImport: boolean;
+  canDelete: boolean;
   getZipExportUrl: (snapshotId: Id<"_exports">) => string;
   maxCloudBackups: number;
   progressMessage: string | null;
@@ -74,6 +79,8 @@ export function BackupListItem({
 
   const targetDeploymentId =
     targetDeployment.kind === "cloud" ? targetDeployment.id : null;
+  const restoreBlockedByDedicated =
+    targetDeployment.kind === "cloud" && targetDeployment.class.startsWith("d");
 
   const previousState = useRef(backup.state);
   useEffect(() => {
@@ -186,13 +193,16 @@ export function BackupListItem({
                   <MenuItem
                     variant="danger"
                     action={() => setModal("cancel")}
-                    disabled={backup.state !== "inProgress"}
+                    disabled={backup.state !== "inProgress" || !canDelete}
                     tipSide="left"
                     tip={
                       backup.state !== "inProgress"
                         ? "This backup hasn't started yet."
-                        : !canPerformActions
-                          ? "You do not have permission to cancel backups in production."
+                        : !canDelete
+                          ? permissionDeniedTip(
+                              "You do not have permission to cancel backups.",
+                              "deployment:backups:delete",
+                            )
                           : undefined
                     }
                   >
@@ -235,19 +245,25 @@ export function BackupListItem({
                     backup.state !== "complete" ||
                     someRestoreInProgress ||
                     someBackupInProgress ||
-                    !canPerformActions
+                    !canImport ||
+                    restoreBlockedByDedicated
                   }
                   tipSide="left"
                   tip={
-                    backup.state !== "complete"
-                      ? backupStateDescription
-                      : someRestoreInProgress
-                        ? "Another backup is being restored at the moment."
-                        : someBackupInProgress
-                          ? "Please wait for the ongoing backup to be completed before restoring from a backup."
-                          : !canPerformActions
-                            ? "You do not have permission to restore backups in production."
-                            : undefined
+                    restoreBlockedByDedicated
+                      ? `Restores into ${targetDeployment.kind === "cloud" ? targetDeployment.class.toUpperCase() : "dedicated"} deployments must use a physical backup. Contact the Convex team to restore from a physical backup.`
+                      : backup.state !== "complete"
+                        ? backupStateDescription
+                        : someRestoreInProgress
+                          ? "Another backup is being restored at the moment."
+                          : someBackupInProgress
+                            ? "Please wait for the ongoing backup to be completed before restoring from a backup."
+                            : !canImport
+                              ? permissionDeniedTip(
+                                  "You do not have permission to restore backups.",
+                                  "deployment:backups:import",
+                                )
+                              : undefined
                   }
                 >
                   Restore
@@ -258,15 +274,18 @@ export function BackupListItem({
                   disabled={
                     backup.state === "inProgress" ||
                     backup.state === "requested" ||
-                    !canPerformActions
+                    !canDelete
                   }
                   tipSide="left"
                   tip={
                     backup.state === "inProgress" ||
                     backup.state === "requested"
                       ? backupStateDescription
-                      : !canPerformActions
-                        ? "You do not have permission to delete backups in production."
+                      : !canDelete
+                        ? permissionDeniedTip(
+                            "You do not have permission to delete backups.",
+                            "deployment:backups:delete",
+                          )
                         : undefined
                   }
                 >
@@ -295,7 +314,7 @@ export function BackupListItem({
               onContinue={() => setModal("restoreConfirmation")}
               latestBackupInTargetDeployment={latestBackupInTargetDeployment}
               maxCloudBackups={maxCloudBackups}
-              canPerformActions={canPerformActions}
+              canCreate={canCreate}
             />
           ) : (
             <RestoreConfirmation
@@ -325,14 +344,14 @@ function SuggestBackup({
   onContinue,
   latestBackupInTargetDeployment,
   maxCloudBackups,
-  canPerformActions,
+  canCreate,
 }: {
   targetDeployment: PlatformDeploymentResponse;
   onClose: () => void;
   onContinue: () => void;
   latestBackupInTargetDeployment: BackupResponse | null;
   maxCloudBackups: number;
-  canPerformActions: boolean;
+  canCreate: boolean;
 }) {
   return (
     <>
@@ -349,7 +368,7 @@ function SuggestBackup({
         <BackupNowButton
           deployment={targetDeployment}
           maxCloudBackups={maxCloudBackups}
-          canPerformActions={canPerformActions}
+          canCreate={canCreate}
           onBackupRequested={onClose}
         />
         <Button variant="primary" onClick={onContinue}>
@@ -686,12 +705,12 @@ function isInLastFiveMinutes(backup: BackupResponse): boolean {
 export function BackupNowButton({
   deployment,
   maxCloudBackups,
-  canPerformActions,
+  canCreate,
   onBackupRequested,
 }: {
   deployment: PlatformDeploymentResponse;
   maxCloudBackups: number;
-  canPerformActions: boolean;
+  canCreate: boolean;
   onBackupRequested?: () => void;
 }) {
   const backups = useListCloudBackupsIfAvailable(deployment);
@@ -735,7 +754,7 @@ export function BackupNowButton({
         disabled={
           nonFailedBackupsForDeployment === undefined ||
           nonFailedBackupsForDeployment.length >= maxCloudBackups ||
-          !canPerformActions
+          !canCreate
         }
         tip={
           isOngoing
@@ -743,8 +762,11 @@ export function BackupNowButton({
             : nonFailedBackupsForDeployment &&
                 nonFailedBackupsForDeployment.length >= maxCloudBackups
               ? `You can only have up to ${maxCloudBackups} backups on your current plan. Delete some of your existing backups in this deployment to create a new one.`
-              : !canPerformActions
-                ? "You do not have permission to create backups in production."
+              : !canCreate
+                ? permissionDeniedTip(
+                    "You do not have permission to create backups.",
+                    "deployment:backups:create",
+                  )
                 : undefined
         }
       >

@@ -5,6 +5,7 @@
 import { performOp } from "udf-syscall-ffi";
 import { copyBuffer } from "./helpers.js";
 import inspect from "object-inspect";
+import { TransformStream } from "./06_streams.js";
 
 class TextEncoder {
   get encoding() {
@@ -169,7 +170,6 @@ class TextDecoderStream {
           return Promise.reject(err);
         }
       },
-      // @ts-expect-error FIXME
       cancel: (_reason) => {
         try {
           const _ = this.#decoder.decode();

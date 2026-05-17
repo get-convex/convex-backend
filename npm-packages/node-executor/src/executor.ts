@@ -374,10 +374,11 @@ export async function executeInner(
   return await runWithEnvironmentVariables(
     environmentVariables,
     async (envHash) => {
-      setupGlobals(`${modulesDir}/${relPath}`);
-      const module = await import(
-        path.join(modulesDir, `${relPath}?envHash=${envHash}`)
-      );
+      const modulePath = path.join(modulesDir, relPath);
+      setupGlobals(modulePath);
+      const moduleUrl = pathToFileURL(modulePath);
+      moduleUrl.searchParams.set("envHash", envHash);
+      const module = await import(moduleUrl.href);
       const importTimeMs = logDurationMs("importTimeMs", start);
 
       const userFunction = module[name];

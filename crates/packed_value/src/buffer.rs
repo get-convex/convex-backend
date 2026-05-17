@@ -16,7 +16,7 @@ use serde::{
     Serializer,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ByteBuffer {
     inner: Bytes,
 }

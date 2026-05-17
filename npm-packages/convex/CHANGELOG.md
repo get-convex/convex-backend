@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.39.1
+
+- Fixes package.json `bin` entrypoint bug in 1.39.0.
+
+## 1.39.0
+
+- Apps and components may now declare typesafe env vars that they require. Both `defineApp`
+  and `defineComponent` now accept an `env` object with string keys and validator values.
+  Declared environment variables must be present and match the validators before deployment.
+- Allow `--local-cloud-port`, `--local-site-port`, `--local-backend-version` and 
+  `--local-force-upgrade` options to `npx convex dev` to be used whenever using a local deployment.
+- The `AsyncLocalStorage` and `AsyncResource` APIs from `node:async_hooks` are now available
+  in the standard Convex runtime. Note that stored values will not be threaded through calls to
+  `ctx.runQuery`/`ctx.runMutation`/`ctx.runAction`.
+
+## 1.38.0
+
+- Adds `ctx.meta.getRequestMetadata()` to access request metadata in mutations and actions:
+  request ID, client IP, and client User-Agent.
+- Default env vars are now imported when creating a new local deployment.
+- Allows creating new local deployments using `npx convex deployment select local`.
+- Adds support for `--expiry` and `--expires` aliases for `--expiration` in `npx
+  convex deployment create`.
+- Supports using `import "server-only"` to mark files as server-only.
+- Removes the `npx convex disable-local-deployments` command.
+- Fixes an issue where stdout/stderr would be truncated after exit in the CLI.
+- Updated `usePaginatedQuery_experimental` overload that has an object-based API similar
+  to `useQuery_experimental`.
+
 ## 1.37.0
 
 - Adds `useQuery_experimental`, which accepts object-based args and returns an

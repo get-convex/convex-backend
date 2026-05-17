@@ -5,7 +5,9 @@ import { LoadingTransition } from "@ui/Loading";
 import { useCurrentProject } from "api/projects";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import {
+  useHasCustomRolePermission,
   useHasProjectAdminPermissions,
+  useMyCustomRoles,
   useUpdateProjectRoles,
   useCurrentProjectRoles,
 } from "api/roles";
@@ -13,13 +15,46 @@ import { TeamMember } from "generatedApi";
 import { Link } from "@ui/Link";
 import { useState } from "react";
 import sortBy from "lodash/sortBy";
+import { MEMBER_RESOURCE, projectResource } from "lib/permissions";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { ProjectAdminFormModal } from "./ProjectAdminsFormModal";
 
 export function MemberProjectRoles() {
   const team = useCurrentTeam();
   const project = useCurrentProject();
   const projectRoles = useCurrentProjectRoles();
-  const members = useTeamMembers(team?.id);
+
+  const [showProjectAdminsModal, setShowProjectAdminsModal] = useState(false);
+
+  const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
+  const canUpdateMemberRoleCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:updateMemberRole",
+    project ? projectResource(project) : undefined,
+    false,
+  );
+
+  const myRoles = useMyCustomRoles(team?.id);
+  const canViewMembersCustom = useHasCustomRolePermission(
+    team?.id,
+    "member:view",
+    MEMBER_RESOURCE,
+    true,
+  );
+  const isCustomRoleMember = myRoles?.role === "custom";
+  const limitedToOwnRole = isCustomRoleMember && canViewMembersCustom === false;
+  const fetchedMembers = useTeamMembers(
+    limitedToOwnRole ? undefined : team?.id,
+  );
+  const members = limitedToOwnRole ? [] : fetchedMembers;
+
+  // Managing project admins requires both write permission AND the ability
+  // to view members — the form lets you toggle a project-admin badge per
+  // member, which doesn't work if the member list itself is blocked.
+  const canManageProjectAdmins =
+    (hasAdminPermissions || canUpdateMemberRoleCustom === true) &&
+    !limitedToOwnRole;
+
   const membersWithProjectAccess = members
     ?.map((member) => {
       const memberRole = projectRoles?.find(
@@ -35,10 +70,6 @@ export function MemberProjectRoles() {
         member.isProjectAdmin || member.role === "admin",
     );
 
-  const [showProjectAdminsModal, setShowProjectAdminsModal] = useState(false);
-
-  const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
-
   const updateProjectRoles = useUpdateProjectRoles(team?.id);
 
   return (
@@ -47,10 +78,19 @@ export function MemberProjectRoles() {
         <h3>Project Admins</h3>{" "}
         <Button
           className="ml-auto w-fit"
-          disabled={!hasAdminPermissions}
+          disabled={!canManageProjectAdmins}
           tip={
-            !hasAdminPermissions &&
-            "You do not have permission to manage project admins."
+            !canManageProjectAdmins
+              ? limitedToOwnRole
+                ? permissionDeniedTip(
+                    "You need permission to view members to manage project admins.",
+                    "member:view",
+                  )
+                : permissionDeniedTip(
+                    "You do not have permission to manage project admins.",
+                    "project:updateMemberRole",
+                  )
+              : undefined
           }
           onClick={() => setShowProjectAdminsModal(true)}
         >
@@ -132,6 +172,12 @@ export function MemberProjectRoles() {
           </div>
         )}
       </LoadingTransition>
+      {limitedToOwnRole && (
+        <p className="text-xs text-content-secondary">
+          You can only see your own role here because your custom role does not
+          grant the <code className="font-mono">member:view</code> permission.
+        </p>
+      )}
       {showProjectAdminsModal &&
         team &&
         members &&

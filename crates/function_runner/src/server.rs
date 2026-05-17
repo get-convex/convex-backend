@@ -315,7 +315,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         FunctionOutcome,
         FunctionUsageStats,
     )> {
-        let instance_name = deployment.name.clone();
+        let deployment_name = deployment.name.clone();
         let usage_tracker = FunctionUsageTracker::new();
         let mut transaction = self
             .index_cache
@@ -323,7 +323,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 identity.clone(),
                 existing_writes,
                 index_reader,
-                instance_name.clone(),
+                deployment_name.clone(),
                 in_memory_index_last_modified,
                 bootstrap_metadata,
                 table_count_snapshot,
@@ -346,7 +346,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
             default_system_env_vars,
             file_storage,
             module_loader: Arc::new(FunctionRunnerModuleLoader {
-                instance_name: instance_name.clone(),
+                deployment_name: deployment_name.clone(),
                 cache: self.module_cache.clone(),
                 code_cache: self.code_cache.clone(),
                 modules_storage,
@@ -377,7 +377,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                         rng_seed,
                         unix_timestamp,
                         0,
-                        instance_name,
+                        deployment_name,
                         function_started_sender,
                         subfunctions_in_same_isolate,
                     )
@@ -403,7 +403,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                         log_line_sender,
                         context,
                         environment_data,
-                        instance_name,
+                        deployment_name,
                         function_started_sender,
                     )
                     .await?;
@@ -441,7 +441,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                         transaction,
                         context,
                         environment_data,
-                        instance_name,
+                        deployment_name,
                         function_started_sender,
                     )
                     .await?;
@@ -459,7 +459,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         udf_config: UdfConfig,
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-        instance_name: String,
+        deployment_name: String,
         max_user_heap_size: usize,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         anyhow::ensure!(
@@ -474,7 +474,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 udf_config,
                 modules,
                 environment_variables,
-                instance_name,
+                deployment_name,
                 max_user_heap_size,
             )
             .await
@@ -488,7 +488,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
         user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-        instance_name: String,
+        deployment_name: String,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         anyhow::ensure!(
             app_definition.environment == ModuleEnvironment::Isolate,
@@ -508,7 +508,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 dependency_graph,
                 user_environment_variables,
                 system_env_vars,
-                instance_name,
+                deployment_name,
             )
             .await
     }
@@ -521,7 +521,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         definition: ModuleConfig,
         args: BTreeMap<Identifier, Resource>,
         name: ComponentName,
-        instance_name: String,
+        deployment_name: String,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
         self.isolate_client
             .evaluate_component_initializer(
@@ -530,7 +530,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 definition,
                 args,
                 name,
-                instance_name,
+                deployment_name,
             )
             .await
     }
@@ -542,7 +542,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
-        instance_name: String,
+        deployment_name: String,
     ) -> anyhow::Result<DatabaseSchema> {
         self.isolate_client
             .evaluate_schema(
@@ -550,7 +550,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 source_map,
                 rng_seed,
                 unix_timestamp,
-                instance_name,
+                deployment_name,
             )
             .await
     }
@@ -562,7 +562,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         explanation: &str,
-        instance_name: String,
+        deployment_name: String,
     ) -> anyhow::Result<AuthConfig> {
         self.isolate_client
             .evaluate_auth_config(
@@ -570,7 +570,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 source_map,
                 environment_variables,
                 explanation,
-                instance_name,
+                deployment_name,
             )
             .await
     }

@@ -1,4 +1,4 @@
-import { convexToJson } from "../../values/index.js";
+import { PropertyValidators } from "../../values/index.js";
 import { version } from "../../index.js";
 import {
   AnyFunctionReference,
@@ -17,6 +17,16 @@ import {
   setReferencePath,
   toReferencePath,
 } from "./paths.js";
+import type {
+  Validator,
+  VLiteral,
+  VOptional,
+  VString,
+  VUnion,
+} from "../../values/validators.js";
+import type { Infer } from "../../values/validator.js";
+import { isValidator } from "../../values/validator.js";
+import type { Expand } from "../../type_utils.js";
 export { getFunctionAddress } from "./paths.js";
 
 /**
@@ -81,7 +91,10 @@ interface ComponentExports {
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
-export type ComponentDefinition<Exports extends ComponentExports = any> = {
+export type ComponentDefinition<
+  Exports extends ComponentExports = any,
+  Env extends EnvDefinition = {},
+> = {
   /**
    * Install a component with the given definition in this component definition.
    *
@@ -90,12 +103,9 @@ export type ComponentDefinition<Exports extends ComponentExports = any> = {
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  use<Definition extends ComponentDefinition<any>>(
+  use<Definition extends ComponentDefinition<any, any>>(
     definition: Definition,
-    options?: {
-      name?: string;
-      httpPrefix?: string;
-    },
+    options?: UseOptions<Definition>,
   ): InstalledComponent<Definition>;
 
   /**
@@ -104,10 +114,142 @@ export type ComponentDefinition<Exports extends ComponentExports = any> = {
    * @deprecated This is a type-only property, don't use it.
    */
   __exports: Exports;
+
+  /**
+   * References to this component's declared env vars. Pass one of these in
+   * `app.use(child, { env: { ... } })` to bind a child's env var by
+   * reference to this component's env var.
+   */
+  env: EnvRefFromDefinition<Env>;
+
+  /**
+   * Internal type-only property tracking env definition.
+   *
+   * @deprecated This is a type-only property, don't use it.
+   */
+  __env: Env;
 };
 
-type ComponentDefinitionExports<T extends ComponentDefinition<any>> =
+type ComponentDefinitionExports<T extends ComponentDefinition<any, any>> =
   T["__exports"];
+
+type ComponentDefinitionEnv<T extends ComponentDefinition<any, any>> =
+  T["__env"];
+
+/**
+ * Options for installing a component via `app.use()` or `component.use()`.
+ *
+ * If the component declares required env vars, the `env` property is required.
+ */
+type UseOptions<Definition extends ComponentDefinition<any, any>> =
+  keyof ComponentDefinitionEnv<Definition> extends never
+    ? { name?: string; httpPrefix?: string }
+    : {
+        name?: string;
+        httpPrefix?: string;
+        env: UseOptionsEnv<ComponentDefinitionEnv<Definition>>;
+      };
+
+type UseOptionsEnv<E extends EnvDefinition> = Expand<
+  {
+    [K in keyof E as E[K] extends VOptional<any> ? never : K]:
+      | Infer<E[K]>
+      | EnvRef;
+  } & {
+    [K in keyof E as E[K] extends VOptional<any> ? K : never]?:
+      | Infer<E[K]>
+      | EnvRef
+      | undefined;
+  }
+>;
+
+/**
+ * A string-like validator: `v.string()`, a string `v.literal("...")`, or a
+ * `v.union(...)` of those (recursively). Component env vars are serialized
+ * as strings on the wire, so only string-typed validators are allowed.
+ *
+ * @public
+ */
+export type StringLikeValidator =
+  | VString<string, "required">
+  | VLiteral<string, "required">
+  | VUnion<string, Validator<any, "required", any>[], "required">;
+
+/**
+ * A definition of environment variables for the app.
+ *
+ * Maps environment variable names to string-like validators. Use
+ * `v.string()` for a plain string, `v.literal("a")` for an enum value, or
+ * `v.union(v.literal("a"), v.literal("b"))` for an enum. Wrap in
+ * `v.optional(...)` for optional vars.
+ *
+ * @example
+ * ```typescript
+ * import { defineApp } from "convex/server";
+ * import { v } from "convex/values";
+ *
+ * const app = defineApp({
+ *   env: {
+ *     OPENAI_API_KEY: v.string(),
+ *     DEBUG_MODE: v.optional(v.string()),
+ *   },
+ * });
+ * ```
+ *
+ * @public
+ */
+export type EnvDefinition = Record<
+  string,
+  StringLikeValidator | VOptional<StringLikeValidator>
+>;
+
+/**
+ * Compute the typed environment object from an {@link EnvDefinition}.
+ *
+ * Required entries get the validator's inferred string type; optional
+ * entries are `T | undefined`.
+ *
+ * @public
+ */
+export type EnvFromDefinition<E extends EnvDefinition> = Expand<
+  {
+    [K in keyof E as E[K] extends VOptional<any> ? never : K]: Infer<E[K]>;
+  } & {
+    [K in keyof E as E[K] extends VOptional<any> ? K : never]?:
+      | Infer<E[K]>
+      | undefined;
+  }
+>;
+
+/**
+ * A reference to a parent-declared env var, produced by `app.env.<NAME>` or
+ * `component.env.<NAME>`. Pass this in `use(child, { env: { ... } })` to
+ * bind a child's declared env var to the parent's env var by reference
+ * instead of snapshotting its current value.
+ *
+ * @public
+ */
+export type EnvRef<K extends string = string> = { __envVarRef: K };
+
+/**
+ * Compute the typed `env` namespace object from an {@link EnvDefinition}.
+ * Each declared name maps to an {@link EnvRef} for that name.
+ *
+ * @public
+ */
+export type EnvRefFromDefinition<E extends EnvDefinition> = {
+  [K in keyof E & string]: EnvRef<K>;
+};
+
+/**
+ * Extract the typed environment from an {@link AppDefinition}.
+ *
+ * @public
+ */
+export type EnvFromAppDefinition<A> =
+  A extends AppDefinition<infer E>
+    ? EnvFromDefinition<E>
+    : Record<string, never>;
 
 /**
  * An object of this type should be the default export of a
@@ -116,7 +258,7 @@ type ComponentDefinitionExports<T extends ComponentDefinition<any>> =
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
-export type AppDefinition = {
+export type AppDefinition<Env extends EnvDefinition = EnvDefinition> = {
   /**
    * Install a component with the given definition in this component definition.
    *
@@ -125,13 +267,24 @@ export type AppDefinition = {
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  use<Definition extends ComponentDefinition<any>>(
+  use<Definition extends ComponentDefinition<any, any>>(
     definition: Definition,
-    options?: {
-      name?: string;
-      httpPrefix?: string;
-    },
+    options?: UseOptions<Definition>,
   ): InstalledComponent<Definition>;
+
+  /**
+   * References to this app's declared env vars. Pass one of these in
+   * `app.use(child, { env: { ... } })` to bind a child's env var by
+   * reference to this app's env var.
+   */
+  env: EnvRefFromDefinition<Env>;
+
+  /**
+   * Internal type-only property tracking env definition.
+   *
+   * @deprecated This is a type-only property, don't use it.
+   */
+  __env: Env;
 };
 
 interface ExportTree {
@@ -151,17 +304,19 @@ type CommonDefinitionData = {
 };
 
 type ComponentDefinitionData = CommonDefinitionData & {
+  _env: PropertyValidators;
   _name: string;
   _onInitCallbacks: Record<string, (argsStr: string) => string>;
 };
 type AppDefinitionData = CommonDefinitionData & {
   _httpPrefix?: string;
+  _env?: EnvDefinition;
 };
 
 /**
  * Used to refer to an already-installed component.
  */
-class InstalledComponent<Definition extends ComponentDefinition<any>> {
+class InstalledComponent<Definition extends ComponentDefinition<any, any>> {
   /**
    * @internal
    */
@@ -203,12 +358,41 @@ function createExports(name: string, pathParts: string[]): any {
   return new Proxy({}, handler);
 }
 
-function use<Definition extends ComponentDefinition<any>>(
+function createEnvRefs(
+  ownerLabel: string,
+  declared: Record<string, any> | undefined,
+): any {
+  const handler: ProxyHandler<any> = {
+    get(_, prop: string | symbol) {
+      if (typeof prop !== "string") {
+        return undefined;
+      }
+      if (!declared || !Object.prototype.hasOwnProperty.call(declared, prop)) {
+        throw new Error(
+          `Env var "${prop}" is not declared on ${ownerLabel}. Add it to the \`env\` option of ${ownerLabel === "this app" ? "defineApp" : "defineComponent"}.`,
+        );
+      }
+      return { __envVarRef: prop };
+    },
+  };
+  return new Proxy({}, handler);
+}
+
+function isEnvRef(value: unknown): value is EnvRef {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as EnvRef).__envVarRef === "string"
+  );
+}
+
+function use<Definition extends ComponentDefinition<any, any>>(
   this: CommonDefinitionData,
   definition: Definition,
   options?: {
     name?: string;
     httpPrefix?: string;
+    env?: Record<string, any>;
   },
 ): InstalledComponent<Definition> {
   // At runtime an imported component will have this shape.
@@ -233,7 +417,7 @@ function use<Definition extends ComponentDefinition<any>>(
   }
   if (name.length === 0) {
     // "" is used internally as the name for the root component, so
-    // users shouldn’t try to define child components with an empty name.
+    // users shouldn't try to define child components with an empty name.
     throw new Error("Component name cannot be empty.");
   }
 
@@ -246,10 +430,19 @@ function use<Definition extends ComponentDefinition<any>>(
     }
   }
 
+  const envValues: Record<string, any> = {};
+  if (options?.env) {
+    for (const [key, value] of Object.entries(options.env)) {
+      if (value !== undefined) {
+        envValues[key] = value;
+      }
+    }
+  }
+
   this._childComponents.push([
     name,
     importedComponentDefinition,
-    {},
+    envValues,
     httpPrefix,
   ]);
   return new InstalledComponent(definition, name);
@@ -270,11 +463,26 @@ export type ImportedComponentDefinition = {
 };
 
 function exportAppForAnalysis(
-  this: ComponentDefinition<any> & AppDefinitionData,
+  this: ComponentDefinition<any, any> & AppDefinitionData,
 ): AppDefinitionAnalysis {
   const definitionType = { type: "app" as const };
   const childComponents = serializeChildComponents(this._childComponents);
   const httpMounts = buildHttpMounts(this._childComponents);
+  const envVars = this._env
+    ? Object.entries(this._env).map(
+        ([name, validator]) =>
+          [
+            name,
+            {
+              type: "value" as const,
+              value: JSON.stringify(validator.json),
+              ...(validator.isOptional === "optional"
+                ? { optional: true }
+                : {}),
+            },
+          ] as [string, { type: "value"; value: string; optional?: boolean }],
+      )
+    : undefined;
   return {
     definitionType,
     ...(this._httpPrefix !== undefined
@@ -283,6 +491,7 @@ function exportAppForAnalysis(
     childComponents: childComponents as any,
     httpMounts,
     exports: serializeExportTree(this._exportTree),
+    ...(envVars !== undefined ? { envVars } : {}),
   };
 }
 
@@ -323,6 +532,10 @@ function buildHttpMounts(
   return httpMounts;
 }
 
+type SerializedEnvArg =
+  | { type: "value"; value: string }
+  | { type: "envVar"; name: string };
+
 function serializeChildComponents(
   childComponents: [
     string,
@@ -333,19 +546,26 @@ function serializeChildComponents(
 ): {
   name: string;
   path: string;
-  args: [string, { type: "value"; value: string }][] | null;
+  env: [string, SerializedEnvArg][] | null;
 }[] {
   return childComponents.map(([name, definition, p]) => {
     // Note: httpPrefix (4th element) is used separately in buildHttpMounts()
-    let args: [string, { type: "value"; value: string }][] | null = null;
+    let env: [string, SerializedEnvArg][] | null = null;
     if (p !== null) {
-      args = [];
+      env = [];
       for (const [name, value] of Object.entries(p)) {
-        if (value !== undefined) {
-          args.push([
-            name,
-            { type: "value", value: JSON.stringify(convexToJson(value)) },
-          ]);
+        if (value === undefined) {
+          continue;
+        }
+        if (isEnvRef(value)) {
+          env.push([name, { type: "envVar", name: value.__envVarRef }]);
+        } else if (typeof value === "string") {
+          env.push([name, { type: "value", value }]);
+        } else {
+          throw new Error(
+            `Env var "${name}" must be a string or an env var reference. ` +
+              `Received: ${typeof value}`,
+          );
         }
       }
     }
@@ -360,14 +580,28 @@ function serializeChildComponents(
     return {
       name: name!,
       path: path!,
-      args,
+      args: [],
+      env,
     };
   });
 }
 
 function exportComponentForAnalysis(
-  this: ComponentDefinition<any> & ComponentDefinitionData,
+  this: ComponentDefinition<any, any> & ComponentDefinitionData,
 ): ComponentDefinitionAnalysis {
+  const envVars = Object.entries(this._env).map(
+    ([name, validator]) =>
+      [
+        name,
+        {
+          type: "value" as const,
+          value: JSON.stringify((validator as any).json),
+          ...((validator as any).isOptional === "optional"
+            ? { optional: true }
+            : {}),
+        },
+      ] as [string, { type: "value"; value: string; optional?: boolean }],
+  );
   const definitionType: ComponentDefinitionType = {
     type: "childComponent" as const,
     name: this._name,
@@ -381,15 +615,19 @@ function exportComponentForAnalysis(
     childComponents: childComponents as any,
     httpMounts,
     exports: serializeExportTree(this._exportTree),
+    ...(envVars.length > 0 ? { envVars } : {}),
   };
 }
 
 // This is what is actually contained in a ComponentDefinition.
-type RuntimeComponentDefinition = Omit<ComponentDefinition<any>, "__exports"> &
+type RuntimeComponentDefinition = Omit<
+  ComponentDefinition<any, any>,
+  "__exports" | "__env"
+> &
   ComponentDefinitionData & {
     export: () => ComponentDefinitionAnalysis;
   };
-type RuntimeAppDefinition = AppDefinition &
+type RuntimeAppDefinition = Omit<AppDefinition<any>, "__env"> &
   AppDefinitionData & {
     export: () => AppDefinitionAnalysis;
   };
@@ -397,10 +635,10 @@ type RuntimeAppDefinition = AppDefinition &
 /**
  * Define a component, a piece of a Convex deployment with namespaced resources.
  *
- * The default
- * the default export of a module like "cool-component/convex.config.js"
- * is a `@link ComponentDefinition}, but during component definition evaluation
- * this is its type instead.
+ * Optionally define typed environment variables that will be available via
+ * the `env` export from `_generated/server` in all Convex functions within
+ * this component. Values are passed by the parent via
+ * `app.use(component, { env: { ... } })`.
  *
  * @param name Name must be alphanumeric plus underscores. Typically these are
  * lowercase with underscores like `"onboarding_flow_tracker"`.
@@ -408,47 +646,102 @@ type RuntimeAppDefinition = AppDefinition &
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
-export function defineComponent<Exports extends ComponentExports = any>(
+export function defineComponent<
+  Exports extends ComponentExports = any,
+  const Env extends EnvDefinition = {},
+>(
   name: string,
-): ComponentDefinition<Exports> {
+  options?: {
+    env?: Env;
+  },
+): ComponentDefinition<Exports, Env> {
+  const envValidators: PropertyValidators = {};
+  if (options?.env) {
+    for (const [key, decl] of Object.entries(options.env)) {
+      if (decl !== null && decl !== undefined && isValidator(decl)) {
+        envValidators[key] = decl as any;
+      } else {
+        throw new Error(
+          `Environment variable "${key}" must be defined with a validator (e.g. v.string()).`,
+        );
+      }
+    }
+  }
+
   const ret: RuntimeComponentDefinition = {
     _isRoot: false,
     _name: name,
+    _env: envValidators,
     _childComponents: [],
     _exportTree: {},
     _onInitCallbacks: {},
 
+    env: createEnvRefs(`component "${name}"`, options?.env),
+
     export: exportComponentForAnalysis,
     use,
 
-    ...({} as { __exports: any }),
+    ...({} as { __exports: any; __env: any }),
   };
-  return ret as any as ComponentDefinition<Exports>;
+  return ret as any as ComponentDefinition<Exports, Env>;
 }
 
 /**
  * Attach components, reuseable pieces of a Convex deployment, to this Convex app.
  *
+ * Optionally define typed environment variables that will be available via
+ * the `env` export from `_generated/server` in all Convex functions.
+ *
+ * @example
+ * ```typescript
+ * import { defineApp } from "convex/server";
+ * import { v } from "convex/values";
+ *
+ * const app = defineApp({
+ *   env: {
+ *     OPENAI_API_KEY: v.string(),
+ *     DEBUG_MODE: v.optional(v.string()),
+ *   },
+ * });
+ * export default app;
+ * ```
+ *
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
-export function defineApp(options?: { httpPrefix?: string }): AppDefinition {
+export function defineApp<Env extends EnvDefinition = EnvDefinition>(options?: {
+  httpPrefix?: string;
+  env?: Env;
+}): AppDefinition<Env> {
   const httpPrefix = options?.httpPrefix;
   if (httpPrefix !== undefined && !httpPrefix.startsWith("/")) {
     throw new Error(
       `httpPrefix must start with "/". Received: "${httpPrefix}"`,
     );
   }
+  const env = options?.env;
+  if (env !== undefined) {
+    for (const [name, validator] of Object.entries(env)) {
+      if (!isValidator(validator)) {
+        throw new Error(
+          `Environment variable "${name}" must be defined with a validator (e.g. v.string()).`,
+        );
+      }
+    }
+  }
   const ret: RuntimeAppDefinition = {
     _isRoot: true,
     _childComponents: [],
     _exportTree: {},
     ...(httpPrefix !== undefined ? { _httpPrefix: httpPrefix } : {}),
+    ...(env !== undefined ? { _env: env } : {}),
+
+    env: createEnvRefs("this app", env),
 
     export: exportAppForAnalysis,
     use,
   };
-  return ret as AppDefinition;
+  return ret as unknown as AppDefinition<Env>;
 }
 
 type AnyInterfaceType = {

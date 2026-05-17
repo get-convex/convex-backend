@@ -1,10 +1,12 @@
 use std::{
     collections::BTreeMap,
+    str::FromStr,
     sync::Arc,
 };
 
 use anyhow::Context;
 use common::{
+    bootstrap_model::components::EnvBinding,
     components::{
         CanonicalizedComponentModulePath,
         ComponentId,
@@ -53,6 +55,14 @@ use value::{
     ConvexValue,
 };
 
+/// Populated for non-root components only, when any of the component's env
+/// bindings reference a parent env var. Preloads the parent's
+/// `_environment_variables` table so that lookups take a read dep.
+struct ComponentEnvCtx {
+    env: BTreeMap<Identifier, EnvBinding>,
+    parent_env_vars: Option<PreloadedEnvironmentVariables>,
+}
+
 use crate::{
     environment::{
         helpers::Phase,
@@ -99,10 +109,11 @@ enum UdfPreloaded {
         unix_timestamp: Option<UnixTimestamp>,
         observed_time_during_execution: bool,
         observed_identity_during_execution: bool,
-        env_vars: Option<PreloadedEnvironmentVariables>,
+        root_env_vars: Option<PreloadedEnvironmentVariables>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component: ComponentId,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
+        component_env: Option<ComponentEnvCtx>,
     },
 }
 
@@ -139,6 +150,34 @@ impl<RT: Runtime> UdfPhase<RT> {
 
         let component = self.component;
 
+        let component_env = if !component.is_root() {
+            let env = timeout
+                .with_release_permit(
+                    PauseReason::LoadComponentArgs,
+                    BootstrapComponentsModel::new(self.tx_mut()?).load_component_env(component),
+                )
+                .await?;
+            let has_env_var_binding = env.values().any(|b| matches!(b, EnvBinding::EnvVar(_)));
+            let parent_env_vars = if has_env_var_binding {
+                Some(
+                    timeout
+                        .with_release_permit(
+                            PauseReason::LoadEnvironmentVariables,
+                            EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
+                        )
+                        .await?,
+                )
+            } else {
+                None
+            };
+            Some(ComponentEnvCtx {
+                env,
+                parent_env_vars,
+            })
+        } else {
+            None
+        };
+
         let component_args = if !component.is_root() {
             Some(
                 timeout
@@ -165,7 +204,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
         let unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let env_vars = if component.is_root() {
+        let root_env_vars = if component.is_root() {
             Some(
                 timeout
                     .with_release_permit(
@@ -214,10 +253,11 @@ impl<RT: Runtime> UdfPhase<RT> {
             unix_timestamp,
             observed_time_during_execution: false,
             observed_identity_during_execution: false,
-            env_vars,
+            root_env_vars,
             system_env_vars,
             component,
             component_arguments: component_args,
+            component_env,
         };
         Ok(())
     }
@@ -405,8 +445,9 @@ impl<RT: Runtime> UdfPhase<RT> {
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
         let UdfPreloaded::Ready {
-            ref env_vars,
+            ref root_env_vars,
             ref system_env_vars,
+            ref component_env,
             ..
         } = self.preloaded
         else {
@@ -416,9 +457,30 @@ impl<RT: Runtime> UdfPhase<RT> {
             .tx
             .as_mut()
             .context("Transaction missing due to concurrent component call")?;
-        let Some(env_vars) = env_vars else {
-            // Non-root components don't have user env vars, but system env vars
-            // (such as the prefixed CONVEX_SITE_URL) are still accessible.
+        let Some(env_vars) = root_env_vars else {
+            // Non-root components: env vars come from the component's env
+            // (passed via `app.use(c, { env: ... })`), falling back to allowed
+            // system env vars (such as the prefixed CONVEX_SITE_URL).
+            if let Some(component_env) = component_env
+                && let Ok(identifier) = Identifier::from_str(name.as_ref())
+                && let Some(binding) = component_env.env.get(&identifier)
+            {
+                match binding {
+                    EnvBinding::Value(s) => {
+                        return Ok(Some(s.parse()?));
+                    },
+                    EnvBinding::EnvVar(parent_name) => {
+                        let parent_env_vars = component_env
+                            .parent_env_vars
+                            .as_ref()
+                            .context("parent env vars not preloaded")?;
+                        if let Some(var) = parent_env_vars.get(tx, parent_name)? {
+                            return Ok(Some(var));
+                        }
+                        return Ok(None);
+                    },
+                }
+            }
             return Ok(system_env_vars.get(&name).cloned());
         };
         if let Some(var) = env_vars.get(tx, &name)? {

@@ -24,6 +24,11 @@ use crate::{
         ExecutionContext,
         RequestId,
     },
+    knobs::{
+        AUDIT_LOG_MAX_LINES,
+        AUDIT_LOG_MAX_LINE_SIZE_BYTES,
+        AUDIT_LOG_MAX_TOTAL_SIZE_BYTES,
+    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -36,11 +41,32 @@ pub struct AuditLogLines(WithHeapSize<Vec<AuditLogLine>>);
 
 impl AuditLogLines {
     pub fn resolve_bodies(&self, vars: &AuditLogVars) -> anyhow::Result<ResolvedAuditLogLines> {
+        let max_lines = *AUDIT_LOG_MAX_LINES;
+        anyhow::ensure!(
+            self.0.len() <= max_lines,
+            ErrorMetadata::bad_request(
+                "TooManyAuditLogLines",
+                format!("Function execution exceeded the maximum of {max_lines} audit log lines.")
+            )
+        );
         let logs = self
             .0
             .iter()
             .map(|log| log.resolve_body(vars))
             .collect::<anyhow::Result<Vec<ResolvedAuditLogLine>>>()?;
+        let total_max_size: usize = logs.iter().map(|l| l.max_size).sum();
+        let max_total = *AUDIT_LOG_MAX_TOTAL_SIZE_BYTES;
+        anyhow::ensure!(
+            total_max_size <= max_total,
+            ErrorMetadata::bad_request(
+                "AuditLogLinesTooLarge",
+                format!(
+                    "The total maximum possible size of audit log lines from a single function \
+                     execution is {max_total} bytes, but this execution could produce up to \
+                     {total_max_size} bytes."
+                )
+            )
+        );
         let timestamp = vars.now;
         Ok(ResolvedAuditLogLines { logs, timestamp })
     }
@@ -51,21 +77,34 @@ pub struct AuditLogLine {
     pub body: JsonValue,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ResolvedAuditLogLines {
     pub logs: Vec<ResolvedAuditLogLine>,
     /// This timestamp is only used when emitting to log streams
     pub timestamp: UnixTimestamp,
 }
 
+impl ResolvedAuditLogLines {
+    pub fn to_json_strings(self) -> anyhow::Result<Vec<String>> {
+        self.logs
+            .into_iter()
+            .map(|l| serde_json::to_string(&l.into_value()).map_err(anyhow::Error::from))
+            .collect()
+    }
+}
+
 /// A resolved audit log line whose body has all sentinel objects replaced
 /// with concrete values.
-#[derive(Debug, Clone)]
-pub struct ResolvedAuditLogLine(JsonValue);
+#[derive(Clone, Debug)]
+pub struct ResolvedAuditLogLine {
+    body: JsonValue,
+    /// Upper bound on the serialized size of `body`
+    max_size: usize,
+}
 
 impl ResolvedAuditLogLine {
     pub fn into_value(self) -> JsonValue {
-        self.0
+        self.body
     }
 }
 
@@ -78,13 +117,47 @@ pub struct AuditLogVars {
 }
 
 impl AuditLogVars {
-    pub fn from_context(context: ExecutionContext, rt: &impl Runtime) -> Self {
-        AuditLogVars {
+    /// The maximum length (in bytes) of any single audit log var when
+    /// serialized to JSON.
+    // 1026 = 2 * ClientUserAgent::MAX_LENGTH + 2 surrounding JSON quotes. The
+    // worst-case is a User-Agent consisting of 512 characters that need to be
+    // escaped (like " or \)
+    pub const MAX_VAR_LENGTH: usize = 1026;
+
+    pub fn from_context(context: ExecutionContext, rt: &impl Runtime) -> anyhow::Result<Self> {
+        let vars = AuditLogVars {
             ip: context.request_metadata.ip,
             request_id: context.request_id,
             now: rt.unix_timestamp(),
             user_agent: context.request_metadata.user_agent,
+        };
+        vars.check_var_lengths()?;
+        Ok(vars)
+    }
+
+    fn check_var_lengths(&self) -> anyhow::Result<()> {
+        let Self {
+            request_id,
+            ip,
+            user_agent,
+            now,
+        } = self;
+        let serialized = [
+            ("requestId", serde_json::to_string(request_id)?),
+            ("ip", serde_json::to_string(ip)?),
+            ("userAgent", serde_json::to_string(user_agent)?),
+            ("now", serde_json::to_string(&now.as_ms_since_epoch()?)?),
+        ];
+        for (name, s) in serialized {
+            anyhow::ensure!(
+                s.len() <= Self::MAX_VAR_LENGTH,
+                "Audit log var \"{name}\" serialized length {} exceeds max {}. This should be \
+                 impossible.",
+                s.len(),
+                Self::MAX_VAR_LENGTH,
+            );
         }
+        Ok(())
     }
 }
 
@@ -92,9 +165,24 @@ impl AuditLogLine {
     /// Resolve all `{ "$var": "<name>" }` sentinel objects in the body,
     /// returning a [`ResolvedAuditLogLine`] with the substitutions applied.
     pub fn resolve_body(&self, vars: &AuditLogVars) -> anyhow::Result<ResolvedAuditLogLine> {
+        let body_size = serde_json::to_string(&self.body)?.len();
         let mut body = self.body.clone();
-        resolve_vars(&mut body, vars)?;
-        Ok(ResolvedAuditLogLine(body))
+        let num_vars = resolve_vars(&mut body, vars)?;
+        // Slight overcount: each sentinel's serialized size (e.g. `{"$var":"now"}`) is
+        // already counted in `body_size` and again as part of the per-var budget.
+        let max_size = body_size + num_vars * AuditLogVars::MAX_VAR_LENGTH;
+        let max_line = *AUDIT_LOG_MAX_LINE_SIZE_BYTES;
+        anyhow::ensure!(
+            max_size <= max_line,
+            ErrorMetadata::bad_request(
+                "AuditLogLineTooLarge",
+                format!(
+                    "An audit log line may have a maximum possible size of {max_line} bytes, but \
+                     this line could be up to {max_size} bytes."
+                )
+            )
+        );
+        Ok(ResolvedAuditLogLine { body, max_size })
     }
 }
 
@@ -108,13 +196,15 @@ fn as_var_sentinel(value: &JsonValue) -> Option<&str> {
     obj.get("$var")?.as_str()
 }
 
-fn resolve_vars(value: &mut JsonValue, vars: &AuditLogVars) -> anyhow::Result<()> {
+/// Resolve all the vars in the given value and return the total number of vars
+fn resolve_vars(value: &mut JsonValue, vars: &AuditLogVars) -> anyhow::Result<usize> {
     let AuditLogVars {
         request_id,
         ip,
         user_agent,
         now,
     } = vars;
+    let mut num_vars = 0;
     if let Some(var_name) = as_var_sentinel(value) {
         match var_name {
             "requestId" => *value = serde_json::to_value(request_id)?,
@@ -126,22 +216,22 @@ fn resolve_vars(value: &mut JsonValue, vars: &AuditLogVars) -> anyhow::Result<()
                 format!("Unknown audit log variable: \"{var_name}\""),
             )),
         }
-        return Ok(());
+        return Ok(1);
     }
     match value {
         JsonValue::Object(map) => {
             for v in map.values_mut() {
-                resolve_vars(v, vars)?;
+                num_vars += resolve_vars(v, vars)?;
             }
         },
         JsonValue::Array(arr) => {
             for v in arr.iter_mut() {
-                resolve_vars(v, vars)?;
+                num_vars += resolve_vars(v, vars)?;
             }
         },
         _ => {},
     }
-    Ok(())
+    Ok(num_vars)
 }
 
 impl Deref for AuditLogLines {

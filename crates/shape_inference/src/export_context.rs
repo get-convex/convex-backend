@@ -18,15 +18,9 @@ use std::{
 };
 
 use anyhow::Context;
-use itertools::{
-    Either,
-    Itertools,
-};
+use itertools::Itertools;
 use maplit::btreeset;
-use serde_json::{
-    json,
-    Value as JsonValue,
-};
+use serde_json::Value as JsonValue;
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexValue,
@@ -351,27 +345,6 @@ impl ExportContext {
     }
 }
 
-impl From<ExportContext> for JsonValue {
-    fn from(value: ExportContext) -> Self {
-        match value {
-            ExportContext::Infer => json!("infer"),
-            ExportContext::Int64 => json!("int64"),
-            ExportContext::Float64Inf => json!("float64inf"),
-            ExportContext::Bytes => json!("bytes"),
-            ExportContext::Float64NaN { nan_le_bytes } => {
-                json!({"$float64NaN": base64::encode(nan_le_bytes) })
-            },
-            ExportContext::Array(array) => {
-                json!(array.into_iter().map(JsonValue::from).collect_vec())
-            },
-            ExportContext::Object(object) => json!(object
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), JsonValue::from(v)))
-                .collect::<BTreeMap<_, _>>()),
-        }
-    }
-}
-
 impl TryFrom<JsonValue> for ExportContext {
     type Error = anyhow::Error;
 
@@ -464,25 +437,6 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
                 exported_value,
                 &StructuralShape::<T>::new(ShapeEnum::Unknown),
             ),
-        }
-    }
-
-    pub fn serialize(self) -> impl Iterator<Item = JsonValue> {
-        match self {
-            GeneratedSchema::LegacyInferred {
-                inferred_shape,
-                overrides,
-            } => {
-                Either::Left(
-                    iter::once(inferred_shape.to_string().into())
-                        .chain(overrides.into_iter().map(|(override_id, override_export_context)| {
-                            json!({override_id.encode(): JsonValue::from(override_export_context)})
-                        })),
-                )
-            },
-            GeneratedSchema::Uniform => {
-                Either::Right(iter::once("uniform".to_owned().into()))
-            },
         }
     }
 }

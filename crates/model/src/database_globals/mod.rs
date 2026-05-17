@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use common::{
     document::{
         ParseDocument,
@@ -34,8 +32,7 @@ use crate::{
 
 pub mod types;
 
-pub static DATABASE_GLOBALS_TABLE: LazyLock<TableName> =
-    LazyLock::new(|| "_db".parse().expect("invalid built-in db table"));
+pub static DATABASE_GLOBALS_TABLE: TableName = TableName::const_new("_db");
 
 pub struct DatabaseGlobalsTable;
 impl SystemTable for DatabaseGlobalsTable {

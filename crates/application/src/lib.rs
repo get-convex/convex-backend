@@ -50,7 +50,10 @@ use common::{
         AuthInfo,
     },
     bootstrap_model::{
-        components::handles::FunctionHandle,
+        components::{
+            definition::EnvVarValidator,
+            handles::FunctionHandle,
+        },
         index::{
             database_index::IndexedFields,
             index_validation_error,
@@ -65,6 +68,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentDefinitionPath,
         ComponentId,
         ComponentPath,
@@ -334,6 +338,7 @@ use storage::{
     Upload,
 };
 use sync_types::{
+    identifier::Identifier,
     types::SerializedArgs,
     AuthenticationToken,
     CanonicalizedModulePath,
@@ -537,6 +542,31 @@ pub enum EnvVarChange {
     Set(EnvironmentVariable),
 }
 
+pub(crate) fn validate_env_var_values(
+    env_vars: &BTreeMap<EnvVarName, EnvVarValue>,
+    declarations: &BTreeMap<Identifier, EnvVarValidator>,
+) -> anyhow::Result<()> {
+    for (name, value) in env_vars {
+        let name_str = name.as_ref();
+        if let Ok(identifier) = name_str.parse::<Identifier>()
+            && let Some(env_var_validator) = declarations.get(&identifier)
+        {
+            env_var_validator
+                .check_provided_value(value.as_ref())
+                .map_err(|e| {
+                    ErrorMetadata::bad_request(
+                        "InvalidEnvironmentVariable",
+                        format!(
+                            "Environment variable {name_str} does not match its declared \
+                             validator: {e}"
+                        ),
+                    )
+                })?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone)]
 pub struct ApplicationStorage {
     pub files_storage: Arc<dyn Storage>,
@@ -592,12 +622,12 @@ impl<RT: Runtime> Application<RT> {
         runtime: RT,
         database: &Database<RT>,
         storage_tag_initializer: StorageTagInitializer,
-        instance_name: String,
+        deployment_name: String,
     ) -> anyhow::Result<ApplicationStorage> {
         let storage_type = {
             let mut tx = database.begin_system().await?;
             let storage_type = DatabaseGlobalsModel::new(&mut tx)
-                .initialize_storage_tag(storage_tag_initializer, instance_name)
+                .initialize_storage_tag(storage_tag_initializer, deployment_name)
                 .await?;
             database
                 .commit_with_write_source(tx, "init_storage")
@@ -662,7 +692,7 @@ impl<RT: Runtime> Application<RT> {
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
-        let instance_name = deployment.name.clone();
+        let deployment_name = deployment.name.clone();
         let deployment_region = deployment.region.clone();
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -680,7 +710,7 @@ impl<RT: Runtime> Application<RT> {
                 persistence.clone(),
                 database.retention_validator(),
                 database.clone(),
-                instance_name.clone(),
+                deployment_name.clone(),
                 UsageCounter::new(usage_event_logger.clone()),
             );
             index_worker = Arc::new(Mutex::new(Some(
@@ -742,7 +772,7 @@ impl<RT: Runtime> Application<RT> {
             runtime.clone(),
             database.clone(),
             fetch_client.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
             deployment_region.as_ref().map(|r| r.to_string()),
             log_streaming_allowed,
             usage_counter.clone(),
@@ -797,7 +827,7 @@ impl<RT: Runtime> Application<RT> {
 
         let scheduled_job_runner = ScheduledJobRunner::start(
             runtime.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
             database.clone(),
             runner.clone(),
             function_log.clone(),
@@ -805,7 +835,7 @@ impl<RT: Runtime> Application<RT> {
 
         let cron_job_executor_fut = CronJobExecutor::run(
             runtime.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
             database.clone(),
             runner.clone(),
             function_log.clone(),
@@ -821,7 +851,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage.files_storage.clone(),
             export_provider,
             usage_counter.clone(),
-            instance_name.clone(),
+            deployment_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(Some(
             runtime.spawn("export_worker", export_worker),
@@ -853,7 +883,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             usage_event_logger.clone(),
             Arc::new(log_manager_client.clone()),
-            instance_name.clone(),
+            deployment_name.clone(),
         );
 
         let workers = WorkerHandles {
@@ -936,7 +966,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.now_ts_for_reads()
     }
 
-    pub fn instance_name(&self) -> String {
+    pub fn deployment_name(&self) -> String {
         self.deployment.name.clone()
     }
 
@@ -1592,6 +1622,48 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
         changes: Vec<EnvVarChange>,
     ) -> anyhow::Result<Vec<DeploymentAuditLogEvent>> {
+        let app_def = BootstrapComponentsModel::new(tx)
+            .load_definition_metadata(ComponentDefinitionId::Root)
+            .await?;
+
+        // Check which env vars are being deleted against required env vars.
+        let unset_names: Vec<_> = changes
+            .iter()
+            .filter_map(|c| match c {
+                EnvVarChange::Unset(name) => Some(name.to_string()),
+                EnvVarChange::Set(_) => None,
+            })
+            .collect();
+        if !unset_names.is_empty() {
+            let required_names = app_def.required_env_var_names();
+            let blocked: Vec<_> = unset_names
+                .iter()
+                .filter(|name| required_names.contains(name))
+                .cloned()
+                .collect();
+            if !blocked.is_empty() {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "RequiredEnvironmentVariable",
+                    format!(
+                        "Cannot delete required environment variables: {}. These are declared as \
+                         required in the app definition.",
+                        blocked.join(", ")
+                    )
+                ));
+            }
+        }
+
+        let set_vars: BTreeMap<EnvVarName, EnvVarValue> = changes
+            .iter()
+            .filter_map(|c| match c {
+                EnvVarChange::Set(env_var) => {
+                    Some((env_var.name().clone(), env_var.value().clone()))
+                },
+                EnvVarChange::Unset(_) => None,
+            })
+            .collect();
+        validate_env_var_values(&set_vars, &app_def.env_vars)?;
+
         let mut audit_events = vec![];
 
         let mut model = EnvironmentVariablesModel::new(tx);
@@ -1645,6 +1717,16 @@ impl<RT: Runtime> Application<RT> {
             environment_variables.len() + all_env_vars.len() <= *ENV_VAR_LIMIT,
             env_var_limit_met(),
         );
+
+        let app_def = BootstrapComponentsModel::new(tx)
+            .load_definition_metadata(ComponentDefinitionId::Root)
+            .await?;
+        let new_vars: BTreeMap<EnvVarName, EnvVarValue> = environment_variables
+            .iter()
+            .map(|ev| (ev.name().clone(), ev.value().clone()))
+            .collect();
+        validate_env_var_values(&new_vars, &app_def.env_vars)?;
+
         let mut all_env_vars_with_new = all_env_vars;
         for ev in &environment_variables {
             all_env_vars_with_new.insert(ev.name().clone(), ev.value().clone());
@@ -2932,7 +3014,7 @@ impl<RT: Runtime> Application<RT> {
                 match acting_as {
                     Some(acting_user) => {
                         // Act as the given user
-                        let Identity::InstanceAdmin(i) = admin_identity else {
+                        let Identity::DeploymentAdmin(i) = admin_identity else {
                             anyhow::bail!(
                                 "Admin identity returned from check_admin_key was not an admin."
                             );

@@ -3,7 +3,7 @@
 
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +16,16 @@ const parsedUrl = new URL(`http://127.0.0.1:${backendCloudPort}`);
 
 // Path to the locally-built binary
 const binaryPath = path.join(repoRoot, "target/debug/convex-local-backend");
+
+// Dev instance name + secret used for the matching dev admin key.
+const devInstanceName = readFileSync(
+  path.join(repoRoot, "crates/keybroker/dev/instance_name.txt"),
+  "utf8",
+).trim();
+const devInstanceSecret = readFileSync(
+  path.join(repoRoot, "crates/keybroker/dev/secret.txt"),
+  "utf8",
+).trim();
 
 function logToStderr(...args) {
   process.stderr.write(args.join(" ") + "\n");
@@ -105,6 +115,10 @@ async function runWithLocalBackend(command, backendUrl) {
       "--site-proxy-port",
       String(backendSitePort),
       "--disable-beacon",
+      "--instance-name",
+      devInstanceName,
+      "--instance-secret",
+      devInstanceSecret,
     ],
     { env: { CONVEX_TRACE_FILE: "1" } },
   );

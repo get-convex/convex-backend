@@ -40,4 +40,3 @@ pub use self::{
 };
 
 pub const DEV_INSTANCE_NAME: &str = include_str!("../dev/instance_name.txt");
-pub const DEV_SECRET: &str = include_str!("../dev/secret.txt");

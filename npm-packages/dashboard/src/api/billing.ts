@@ -1,5 +1,10 @@
+import { useRef } from "react";
+import type { InvoiceResponse } from "generatedApi";
+import { BILLING_RESOURCE, Permissioned } from "lib/permissions";
+import { useHasCustomRolePermission } from "./roles";
 import { useBBMutation, useBBQuery } from "./api";
 
+// Subscription info is readable by all team members; but some details may not be available depending on whether the member has `billing:view`.
 export function useTeamOrbSubscription(teamId?: number) {
   const {
     data: subscription,
@@ -7,18 +12,12 @@ export function useTeamOrbSubscription(teamId?: number) {
     isLoading,
   } = useBBQuery({
     path: "/teams/{team_id}/get_orb_subscription",
-    pathParams: {
-      team_id: teamId?.toString() || "",
-    },
-    swrOptions: {
-      refreshInterval: 0,
-      keepPreviousData: false,
-    },
+    pathParams: { team_id: teamId?.toString() ?? "" },
+    swrOptions: { refreshInterval: 0, keepPreviousData: false },
   });
   if (error) {
     return { isLoading, subscription: null };
   }
-
   return { isLoading, subscription };
 }
 
@@ -131,109 +130,152 @@ export function useGetCoupon(
   return { coupon: data, isLoading: !!promoCode && isLoading };
 }
 
-export function useHasFailedPayment(teamId?: number) {
-  const { data, error, isLoading } = useBBQuery({
+export function useHasFailedPayment(
+  teamId?: number,
+): Permissioned<{ hasFailedPayment: boolean }> {
+  const canView = useHasCustomRolePermission(
+    teamId,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
+  const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/has_failed_payment",
     pathParams: {
-      team_id: teamId?.toString() || "",
+      team_id: canView === true ? (teamId?.toString() ?? "") : "",
     },
-    swrOptions: {
-      refreshInterval: 1000 * 60,
-    },
+    swrOptions: { refreshInterval: 1000 * 60 },
   });
-
-  if (error) {
-    return { isLoading, hasFailedPayment: false };
+  if (canView === undefined) return { status: "loading" };
+  if (canView === false) {
+    return { status: "denied", deniedAction: "billing:view" };
   }
-
-  return { isLoading, hasFailedPayment: data?.hasFailedPayment ?? false };
+  if (isLoading) return { status: "loading" };
+  return {
+    status: "ok",
+    data: { hasFailedPayment: data?.hasFailedPayment ?? false },
+  };
 }
 
-export function useListInvoices(teamId?: number) {
-  const { data, error, isLoading } = useBBQuery({
+export function useListInvoices(
+  teamId?: number,
+  limit?: number,
+): Permissioned<{
+  invoices: InvoiceResponse[];
+  hasMore: boolean;
+  isRefreshing: boolean;
+}> {
+  const canView = useHasCustomRolePermission(
+    teamId,
+    "billing:invoices:view",
+    BILLING_RESOURCE,
+    true,
+  );
+  const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/list_invoices",
     pathParams: {
-      team_id: teamId?.toString() || "",
+      team_id: canView === true ? (teamId?.toString() ?? "") : "",
     },
-    swrOptions: {
-      refreshInterval: 1000 * 60,
-    },
+    queryParams: { limit },
+    swrOptions: { refreshInterval: 1000 * 60 },
   });
+  // Hold onto the last successful response so callers can keep rendering
+  // the existing list while a refetch (e.g. raising `limit`) is in flight.
+  const lastDataRef = useRef<typeof data>(undefined);
+  if (data !== undefined) lastDataRef.current = data;
+  const effectiveData = data ?? lastDataRef.current;
 
-  if (error) {
-    return {
-      isLoading,
-      invoices: [],
-    };
+  if (canView === undefined) return { status: "loading" };
+  if (canView === false) {
+    return { status: "denied", deniedAction: "billing:invoices:view" };
   }
-
+  if (isLoading && effectiveData === undefined) return { status: "loading" };
   return {
-    invoices: data?.invoices.filter(
-      (invoice) =>
-        // Don't show test invoices from before we launched Orb billing.
-        new Date(invoice.invoiceDate) >= new Date("2024-04-29"),
-    ),
-    isLoading,
+    status: "ok",
+    // Don't show test invoices from before we launched Orb billing.
+    data: {
+      invoices:
+        effectiveData?.invoices.filter(
+          (invoice) => new Date(invoice.invoiceDate) >= new Date("2024-04-29"),
+        ) ?? [],
+      hasMore:
+        limit !== undefined &&
+        effectiveData !== undefined &&
+        effectiveData.invoices.length >= limit,
+      // True when we're displaying previous data while a fetch for the
+      // current `limit` is still in flight.
+      isRefreshing: isLoading && effectiveData !== undefined,
+    },
   };
 }
 
 export function useListPlans(teamId?: number) {
   const { data, error, isLoading } = useBBQuery({
     path: "/teams/{team_id}/list_active_plans",
-    pathParams: {
-      team_id: teamId?.toString() || "",
-    },
-    swrOptions: {
-      refreshInterval: 0,
-    },
+    pathParams: { team_id: teamId?.toString() ?? "" },
+    swrOptions: { refreshInterval: 0 },
   });
-
   if (error) {
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw error;
   }
-
-  return {
-    plans: data?.plans,
-    isLoading,
-  };
+  return { plans: data?.plans, isLoading };
 }
 
-export function useGetCurrentSpend(teamId: number | null) {
+export function useGetCurrentSpend(
+  teamId: number | null,
+): Permissioned<{ totalCents: number | undefined }> {
+  const canView = useHasCustomRolePermission(
+    teamId ?? undefined,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
   const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_current_spend",
-    pathParams: { team_id: teamId?.toString() ?? "" },
-    swrOptions: {
-      refreshInterval: 1000 * 60,
+    pathParams: {
+      team_id: canView === true ? (teamId?.toString() ?? "") : "",
     },
+    swrOptions: { refreshInterval: 1000 * 60 },
   });
-
-  return {
-    totalCents: data?.totalCents,
-    isLoading,
-  };
+  if (canView === undefined) return { status: "loading" };
+  if (canView === false) {
+    return { status: "denied", deniedAction: "billing:view" };
+  }
+  if (isLoading) return { status: "loading" };
+  return { status: "ok", data: { totalCents: data?.totalCents } };
 }
 
-export function useGetSpendingLimits(teamId: number | null): {
-  spendingLimits:
-    | {
-        disableThresholdCents: number | null;
-        state: null | "Running" | "Disabled" | "Warning";
-        warningThresholdCents: number | null;
-      }
-    | undefined;
-  isLoading: boolean;
-} {
+export type SpendingLimits = {
+  disableThresholdCents: number | null;
+  state: null | "Running" | "Disabled" | "Warning";
+  warningThresholdCents: number | null;
+};
+
+export function useGetSpendingLimits(
+  teamId: number | null,
+): Permissioned<SpendingLimits | undefined> {
+  const canView = useHasCustomRolePermission(
+    teamId ?? undefined,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
   const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_spending_limits",
-    pathParams: { team_id: teamId?.toString() ?? "" },
-    swrOptions: {
-      refreshInterval: 1000 * 60,
+    pathParams: {
+      team_id: canView === true ? (teamId?.toString() ?? "") : "",
     },
+    swrOptions: { refreshInterval: 1000 * 60 },
   });
-
+  if (canView === undefined) return { status: "loading" };
+  if (canView === false) {
+    return { status: "denied", deniedAction: "billing:view" };
+  }
+  if (isLoading) return { status: "loading" };
   return {
-    spendingLimits:
+    status: "ok",
+    data:
       data === undefined
         ? undefined
         : {
@@ -243,7 +285,6 @@ export function useGetSpendingLimits(teamId: number | null): {
             disableThresholdCents: data.disableThresholdCents ?? null,
             warningThresholdCents: data.warningThresholdCents ?? null,
           },
-    isLoading,
   };
 }
 

@@ -27,6 +27,11 @@ import { useListVanityDomains } from "api/vanityDomains";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { DeploymentProvider } from "components/projectSettings/CustomDomains";
+import {
+  useHasCustomRolePermission,
+  useHasProjectAdminPermissions,
+} from "api/roles";
+import { deploymentResource } from "lib/permissions";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 
 function DeploymentDomainInfo({
@@ -39,6 +44,23 @@ function DeploymentDomainInfo({
   whoseName: string | null;
 }) {
   const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
+  const resource =
+    project && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const canViewDataCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:data:view",
+    resource,
+    true,
+  );
+  const canViewData = hasAdminPermissions || canViewDataCustom !== false;
   const hasEntitlement = !!useTeamEntitlements(team?.id)?.customDomainsEnabled;
   const domains = useListVanityDomains(
     hasEntitlement ? deployment?.name : undefined,
@@ -46,7 +68,13 @@ function DeploymentDomainInfo({
   const vanityCloudDomains = domains?.filter(
     (d) => d.requestDestination === "convexCloud",
   );
-  const canonicalCloudUrl = useQuery(udfs.convexCloudUrl.default);
+  // Skip the system UDF when the member can't view data; otherwise the
+  // query throws and the error escapes React's error boundary on the
+  // next WebSocket notify (uncatchable in userland).
+  const canonicalCloudUrl = useQuery(
+    udfs.convexCloudUrl.default,
+    canViewData ? undefined : "skip",
+  );
   const vanityDomain =
     vanityCloudDomains?.find((d) => d.domain === canonicalCloudUrl) ||
     vanityCloudDomains?.[0];

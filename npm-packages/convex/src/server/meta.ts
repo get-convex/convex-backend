@@ -106,9 +106,6 @@ export interface QueryMeta {
  * @public
  */
 export interface MutationMeta extends QueryMeta {
-  /**
-   * @internal
-   */
   getRequestMetadata(): Promise<RequestMetadata>;
 }
 
@@ -120,9 +117,5 @@ export interface MutationMeta extends QueryMeta {
 export interface ActionMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
-
-  /**
-   * @internal
-   */
   getRequestMetadata(): Promise<RequestMetadata>;
 }

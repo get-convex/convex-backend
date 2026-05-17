@@ -68,7 +68,7 @@ pub struct ExportWorker<RT: Runtime> {
     pub(super) export_provider: Arc<dyn ExportProvider<RT>>,
     pub(super) backoff: Backoff,
     pub(super) usage_tracking: UsageCounter,
-    pub(super) instance_name: String,
+    pub(super) deployment_name: String,
 }
 
 impl<RT: Runtime> ExportWorker<RT> {
@@ -80,7 +80,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         file_storage: Arc<dyn Storage>,
         export_provider: Arc<dyn ExportProvider<RT>>,
         usage_tracking: UsageCounter,
-        instance_name: String,
+        deployment_name: String,
     ) -> impl Future<Output = ()> + Send {
         let mut worker = Self {
             runtime,
@@ -90,7 +90,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             export_provider,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
             usage_tracking,
-            instance_name,
+            deployment_name,
         };
         async move {
             loop {
@@ -204,7 +204,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             database: database_snapshot,
             exports_storage: self.exports_storage.clone(),
             file_storage: self.file_storage.clone(),
-            instance_name: self.instance_name.clone(),
+            deployment_name: self.deployment_name.clone(),
         };
         async fn modify_export<RT: Runtime>(
             database: &Database<RT>,
@@ -270,7 +270,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     tracing::info!(?token, "Export {id} resuming...");
                     match self
                         .export_provider
-                        .resume_export(self.instance_name.clone(), token, id, &update_progress)
+                        .resume_export(self.deployment_name.clone(), token, id, &update_progress)
                         .await
                     {
                         Ok(Some(result)) => return Ok(result),

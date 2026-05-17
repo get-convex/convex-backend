@@ -236,6 +236,28 @@ pub static FUNCTION_LIMIT_WARNING_RATIO: LazyLock<f64> = LazyLock::new(|| {
     env_config("FUNCTION_LIMIT_WARNING_RATIO", 0.8) // 80%
 });
 
+/// Maximum size in bytes of a single audit log line's serialized JSON body.
+pub static AUDIT_LOG_MAX_LINE_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("AUDIT_LOG_MAX_LINE_SIZE_BYTES", 100_000) // 100 KB
+});
+
+/// Maximum total size in bytes of all audit log lines emitted in a single
+/// function execution, including audit logs from nested function calls.
+pub static AUDIT_LOG_MAX_TOTAL_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("AUDIT_LOG_MAX_TOTAL_SIZE_BYTES", 4_000_000) // 4 MB
+});
+
+/// Maximum number of audit log lines that can be emitted in a single function
+/// execution, including audit logs from nested function calls.
+pub static AUDIT_LOG_MAX_LINES: LazyLock<usize> =
+    LazyLock::new(|| env_config("AUDIT_LOG_MAX_LINES", 500));
+
+/// Maximum heap size in bytes that audit log lines accumulated during a single
+/// function execution may occupy.
+pub static AUDIT_LOG_MAX_HEAP_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("AUDIT_LOG_MAX_HEAP_SIZE_BYTES", 4_000_000) // 4 MB
+});
+
 /// We might generate a number of system documents for each UDF write. For
 /// example, creating 4000 user documents in new tables, might result in adding
 /// an additional 8000 system documents. If we hit this error, this is a system
@@ -1054,6 +1076,15 @@ pub static FUNRUN_SCHEDULER_MAX_PERCENT_PER_CLIENT: LazyLock<usize> =
 pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("FUNRUN_CLUSTER_NAME", String::from("funrun-default")));
 
+/// Name of the service to discover for when connecting to the Funruns using
+/// Ticketmaster (e.g. ticketed-funrun-default, ticketed-funrun-staging, etc.)
+pub static TICKETED_FUNRUN_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
+    env_config(
+        "TICKETED_FUNRUN_CLUSTER_NAME",
+        String::from("ticketed-funrun-default"),
+    )
+});
+
 /// Name of the service to discover for when connecting to Searchlight. (e.g.
 /// searchlight-default, searchlight-staging, etc.)
 // cluster is created.
@@ -1065,13 +1096,9 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 });
 
 /// Name of the service to discover for when connecting to Ticketmaster (e.g.
-/// ticketmaster-default, ticketmaster-staging, etc.)
-pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
-    env_config(
-        "TICKETMASTER_CLUSTER_NAME",
-        String::from("ticketmaster-default"),
-    )
-});
+/// ticketmaster, ticketmaster-staging, etc.)
+pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
+    LazyLock::new(|| env_config("TICKETMASTER_CLUSTER_NAME", String::from("ticketmaster")));
 
 /// Percentage of index read traffic (0-100) that funrun sends to conductor
 /// via the IndexRangeAtTs RPC instead of reading from persistence directly.
@@ -1636,3 +1663,8 @@ pub static AWS_S3_MIN_IDENTITY_VALIDITY: LazyLock<Duration> =
 /// local debugging where the operator wants to see the original error contents.
 pub static SHOW_PII_IN_ERRORS: LazyLock<bool> =
     LazyLock::new(|| env_config("SHOW_PII_IN_ERRORS", false));
+
+/// Maximum size in bytes of the SharedIndexCache
+/// Default 512 MiB
+pub static INDEX_CACHE_SIZE: LazyLock<u64> =
+    LazyLock::new(|| env_config("INDEX_CACHE_SIZE", 512 * 1024 * 1024));

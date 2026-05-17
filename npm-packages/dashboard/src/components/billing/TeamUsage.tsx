@@ -33,7 +33,10 @@ import { TeamResponse } from "generatedApi";
 import { useEffect, useMemo, useState } from "react";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useDeployments } from "api/deployments";
+import { useHasCustomRolePermission } from "api/roles";
 import { useTeamEntitlements } from "api/teams";
+import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { TEAM_RESOURCE } from "lib/permissions";
 import { useProjectById, useProjectBySlug } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import groupBy from "lodash/groupBy";
@@ -152,6 +155,29 @@ export type UsageSectionId =
   | "dataEgress";
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
+  const canViewUsage = useHasCustomRolePermission(
+    team.id,
+    "team:usage:view",
+    TEAM_RESOURCE,
+    true,
+  );
+
+  if (canViewUsage === false) {
+    return (
+      <>
+        <h2>Usage</h2>
+        <NoPermissionMessage
+          message="You do not have permission to view team usage."
+          missingPermission="team:usage:view"
+        />
+      </>
+    );
+  }
+
+  return <TeamUsageContents team={team} />;
+}
+
+function TeamUsageContents({ team }: { team: TeamResponse }) {
   const router = useRouter();
   const { query } = router;
   const project = useProjectBySlug(team.id, query.projectSlug as string);

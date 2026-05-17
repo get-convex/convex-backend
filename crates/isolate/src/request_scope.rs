@@ -438,7 +438,14 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         pump_message_loop(self.scope);
     }
 
+    fn clear_continuation_preserved_embedder_data(&mut self) {
+        let undefined = v8::undefined(self.scope);
+        self.scope
+            .set_continuation_preserved_embedder_data(undefined.into());
+    }
+
     pub(crate) fn take_state(&mut self) -> Option<RequestState<RT, E>> {
+        self.clear_continuation_preserved_embedder_data();
         let context = self.scope.get_current_context();
         context.remove_context_slot(self.scope)
     }

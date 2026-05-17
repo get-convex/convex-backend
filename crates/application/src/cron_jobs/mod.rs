@@ -20,7 +20,6 @@ use common::{
     },
     execution_context::{
         ExecutionContext,
-        ExecutionId,
         RequestContext,
         RequestMetadata,
     },
@@ -113,7 +112,7 @@ pub struct CronJobExecutor<RT: Runtime> {
 #[derive(Clone)]
 pub struct CronJobContext<RT: Runtime> {
     rt: RT,
-    instance_name: String,
+    deployment_name: String,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
@@ -122,7 +121,7 @@ pub struct CronJobContext<RT: Runtime> {
 impl<RT: Runtime> CronJobExecutor<RT> {
     pub async fn run(
         rt: RT,
-        instance_name: String,
+        deployment_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -132,7 +131,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut executor = Self {
             context: CronJobContext {
                 rt,
-                instance_name,
+                deployment_name,
                 database,
                 runner,
                 function_log,
@@ -262,7 +261,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         loop {
             let mutation_retry_count = function_backoff.failures() as usize;
             let root = get_sampled_span(
-                &self.instance_name,
+                &self.deployment_name,
                 "crons/run_function",
                 &mut self.rt.rng(),
             )
@@ -604,8 +603,8 @@ impl<RT: Runtime> CronJobContext<RT> {
                 // Set state to in progress
                 let mut updated_job = job.clone();
                 updated_job.state = CronJobState::InProgress {
-                    request_id: Some(context.request_id.clone()),
-                    execution_id: Some(context.execution_id),
+                    request_id: context.request_id.clone(),
+                    execution_id: context.execution_id,
                 };
                 CronModel::new(&mut tx, component)
                     .update_job_state(updated_job.cron_next_run())
@@ -684,8 +683,8 @@ impl<RT: Runtime> CronJobContext<RT> {
                 };
                 // Restore the execution ID of the failed execution.
                 let context = ExecutionContext::new_from_parts(
-                    request_id.clone().unwrap_or_else(RequestId::new),
-                    execution_id.unwrap_or_else(ExecutionId::new),
+                    request_id.clone(),
+                    *execution_id,
                     caller.parent_scheduled_job(),
                     caller.is_root(),
                     RequestMetadata::system(),

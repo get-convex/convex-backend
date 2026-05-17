@@ -338,6 +338,7 @@ dependencies = [
  "chrono",
  "cmd_util",
  "common",
+ "const_format",
  "convex_macro",
  "convex_sync_types",
  "csv-async",
@@ -358,12 +359,13 @@ dependencies = [
  "http 1.3.1",
  "http_client",
  "humansize",
+ "indexing",
  "isolate",
  "itertools 0.14.0",
  "keybroker",
  "libc",
  "log_streaming",
- "lru 0.16.4",
+ "lru 0.17.0",
  "maplit",
  "metrics",
  "model",
@@ -554,7 +556,7 @@ dependencies = [
  "errors",
  "fastrace",
  "futures",
- "lru 0.16.4",
+ "lru 0.17.0",
  "metrics",
  "parking_lot",
  "rand 0.9.4",
@@ -1300,6 +1302,7 @@ dependencies = [
  "big_brain_private_api_types",
  "clap",
  "cmd_util",
+ "common",
  "crossbeam-channel",
  "ctrlc",
  "dotenvy",
@@ -2208,6 +2211,7 @@ dependencies = [
  "itoa",
  "rustversion",
  "ryu",
+ "serde",
  "static_assertions",
 ]
 
@@ -3432,6 +3436,7 @@ dependencies = [
  "shape_inference",
  "storage",
  "storage_zip_reader",
+ "thousands",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -4292,6 +4297,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
+]
+
+[[package]]
 name = "hashlink"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4986,6 +5002,7 @@ dependencies = [
  "async-trait",
  "common",
  "convex_macro",
+ "dashmap",
  "derive_more",
  "divan",
  "errors",
@@ -4993,10 +5010,13 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "imbl",
+ "interval_map",
  "itertools 0.14.0",
  "maplit",
  "metrics",
+ "moka",
  "must-let",
+ "parking_lot",
  "runtime",
  "tracing",
  "value",
@@ -5177,7 +5197,7 @@ dependencies = [
  "openssl",
  "parking_lot",
  "pb",
- "phf",
+ "phf 0.13.1",
  "pkcs8 0.10.2",
  "pretty_assertions",
  "prometheus",
@@ -5811,6 +5831,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lru"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e0b564323a0fb6d54b864f625ae139de9612e27edb944dda37c109f05aac531"
+dependencies = [
+ "hashbrown 0.17.0",
+]
+
+[[package]]
 name = "lz4_flex"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6029,6 +6058,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "strum",
  "thiserror 2.0.17",
  "tracing",
  "value",
@@ -6624,7 +6654,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da228ac17ec7684952ec38d602222d7ec74c1255b2505b716c9ed621ab0340a"
 dependencies = [
- "phf",
+ "phf 0.11.2",
  "phf_codegen",
  "serde",
  "serde_json",
@@ -6676,15 +6706,14 @@ dependencies = [
 
 [[package]]
 name = "openssl"
-version = "0.10.77"
+version = "0.10.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfe4646e360ec77dff7dde40ed3d6c5fee52d156ef4a62f53973d38294dad87f"
+checksum = "bf0b434746ee2832f4f0baf10137e1cabb18cbe6912c69e2e33263c45250f542"
 dependencies = [
  "bitflags 2.10.0",
  "cfg-if",
  "foreign-types",
  "libc",
- "once_cell",
  "openssl-macros",
  "openssl-sys",
 ]
@@ -6717,9 +6746,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.113"
+version = "0.9.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad2f2c0eba47118757e4c6d2bff2838f3e0523380021356e7875e858372ce644"
+checksum = "158fe5b292746440aa6e7a7e690e55aeb72d41505e2804c23c6973ad0e9c9781"
 dependencies = [
  "aws-lc-sys",
  "cc",
@@ -7007,8 +7036,18 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade2d8b8f33c7333b51bcf0428d37e217e9f32192ae4772156f65063b8ce03dc"
 dependencies = [
+ "phf_shared 0.11.2",
+]
+
+[[package]]
+name = "phf"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1562dc717473dbaa4c1f85a36410e03c047b2e7df7f45ee938fbef64ae7fadf"
+dependencies = [
  "phf_macros",
- "phf_shared",
+ "phf_shared 0.13.1",
+ "serde",
 ]
 
 [[package]]
@@ -7017,8 +7056,8 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8d39688d359e6b34654d328e262234662d16cc0f60ec8dcbe5e718709342a5a"
 dependencies = [
- "phf_generator",
- "phf_shared",
+ "phf_generator 0.11.1",
+ "phf_shared 0.11.2",
 ]
 
 [[package]]
@@ -7027,18 +7066,28 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1181c94580fa345f50f19d738aaa39c0ed30a600d95cb2d3e23f94266f14fbf"
 dependencies = [
- "phf_shared",
+ "phf_shared 0.11.2",
  "rand 0.8.5",
 ]
 
 [[package]]
-name = "phf_macros"
-version = "0.11.2"
+name = "phf_generator"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3444646e286606587e49f3bcf1679b8cef1dc2c5ecc29ddacaffc305180d464b"
+checksum = "135ace3a761e564ec88c03a77317a7c6b80bb7f7135ef2544dbe054243b89737"
 dependencies = [
- "phf_generator",
- "phf_shared",
+ "fastrand",
+ "phf_shared 0.13.1",
+]
+
+[[package]]
+name = "phf_macros"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "812f032b54b1e759ccd5f8b6677695d5268c588701effba24601f6932f8269ef"
+dependencies = [
+ "phf_generator 0.13.1",
+ "phf_shared 0.13.1",
  "proc-macro2",
  "quote",
  "syn 2.0.108",
@@ -7050,7 +7099,16 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90fcb95eef784c2ac79119d1dd819e162b5da872ce6f3c3abe1e8ca1c082f72b"
 dependencies = [
- "siphasher",
+ "siphasher 0.3.10",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e57fef6bc5981e38c2ce2d63bfa546861309f875b8a75f092d1d54ae2d64f266"
+dependencies = [
+ "siphasher 1.0.3",
 ]
 
 [[package]]
@@ -7172,7 +7230,7 @@ dependencies = [
  "futures-async-stream",
  "hex",
  "itertools 0.14.0",
- "lru 0.16.4",
+ "lru 0.17.0",
  "metrics",
  "parking_lot",
  "postgres-protocol",
@@ -8223,9 +8281,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.11"
+version = "0.103.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20a6af516fea4b20eccceaf166e8aa666ac996208e8a644ce3ef5aa783bc7cd4"
+checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -8981,6 +9039,12 @@ name = "siphasher"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
+
+[[package]]
+name = "siphasher"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ee5873ec9cce0195efcb7a4e9507a04cd49aec9c83d0389df45b1ef7ba2e649"
 
 [[package]]
 name = "slab"
@@ -9908,7 +9972,7 @@ version = "2.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6672b01e3831c99e7e65d2617dbbc4cdf603e60dfc7120a3b6df7fc97ebe3096"
 dependencies = [
- "phf",
+ "phf 0.11.2",
  "phf_codegen",
 ]
 
@@ -10010,7 +10074,7 @@ dependencies = [
  "log",
  "parking_lot",
  "percent-encoding",
- "phf",
+ "phf 0.11.2",
  "pin-project-lite",
  "postgres-protocol",
  "postgres-types",

@@ -146,6 +146,17 @@ request a page of 10 items and then one item is removed, this page may "shrink"
 to only have 9 items. Similarly if new items are added, a page may "grow" beyond
 its initial size.
 
+### Experimental: paginated query result object
+
+[`usePaginatedQuery_experimental`](/api/modules/react#usepaginatedquery_experimental)
+introduces a couple of changes that may become standard in the future. First,
+much of the pagination logic has been pushed down into the client layer so the
+hook has fewer responsibilities. Second, there's an overload that accepts an
+object argument and returns a result object with `status`
+(`"pending" | "success" | "error"`), `data`, `error`, and a `canLoadMore`
+boolean. See the
+[API reference](/api/modules/react#usepaginatedquery_experimental) for details.
+
 ## Paginating manually
 
 If you're paginating outside of React, you can manually call your paginated

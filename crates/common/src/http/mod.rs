@@ -791,7 +791,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     let uri = req.uri().to_string();
 
     let client_version_s = client_version.to_string();
-    let is_test = resolved_host.instance_name.starts_with("test-");
+    let is_test = resolved_host.deployment_name.starts_with("test-");
     let mapped_route = route_metric_mapper.map_route(route.clone());
 
     let mut stats_guard = RequestStatsGuard {
@@ -860,7 +860,7 @@ impl std::fmt::Display for RequestDestination {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ResolvedHostname {
-    pub instance_name: String,
+    pub deployment_name: String,
     pub destination: RequestDestination,
 }
 
@@ -876,14 +876,14 @@ pub static LOCAL_DEPLOYMENT_NAME_PII_REGEX: LazyLock<Regex> =
 pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHostname>> {
     let host = uri.host().context("URI does not have valid host")?;
     if let Some(captures) = CONVEX_DOMAIN_REGEX.captures(host) {
-        let instance_name = captures[CONVEX_DOMAIN_REGEX_INSTANCE_CAPTURE].to_string();
+        let deployment_name = captures[CONVEX_DOMAIN_REGEX_INSTANCE_CAPTURE].to_string();
         let destination = match &captures[CONVEX_DOMAIN_REGEX_TLD_CAPTURE] {
             "cloud" => RequestDestination::ConvexCloud,
             "site" => RequestDestination::ConvexSite,
             _ => unreachable!("Regex capture only matches cloud or site"),
         };
         return Ok(Some(ResolvedHostname {
-            instance_name,
+            deployment_name,
             destination,
         }));
     }
@@ -923,7 +923,7 @@ impl<S: Sync> FromRequestParts<S> for ExtractResolvedHostname {
         // No luck -- fall back to `CONVEX_SITE` and assume `convex.cloud` as this is
         // likely a request to localhost.
         Ok(ExtractResolvedHostname(ResolvedHostname {
-            instance_name: ::std::env::var("CONVEX_SITE").unwrap_or_default(),
+            deployment_name: ::std::env::var("CONVEX_SITE").unwrap_or_default(),
             destination: RequestDestination::ConvexCloud,
         }))
     }
@@ -1076,13 +1076,13 @@ where
                     .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
                     .map(|ci| ci.0.ip().to_string())
             });
-        let ip = ip.and_then(|s| ClientIp::try_from(s).ok());
+        let ip = ip.map(ClientIp::from);
         let user_agent = parts
             .headers
             .get(http::header::USER_AGENT)
             .and_then(|h| h.to_str().ok())
             .map(|s| s.to_owned());
-        let user_agent = user_agent.and_then(|s| ClientUserAgent::try_from(s).ok());
+        let user_agent = user_agent.map(ClientUserAgent::from);
         Ok(ExtractRequestMetadata(RequestMetadata { ip, user_agent }))
     }
 }
@@ -1273,7 +1273,7 @@ async fn log_middleware(
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Result<Response, HttpResponseError> {
-    let site_id = resolved_host.instance_name;
+    let site_id = resolved_host.deployment_name;
     let start = Instant::now();
 
     let remote_addr = remote_addr.ok().map(|connect_info| connect_info.0);

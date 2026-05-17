@@ -14,6 +14,7 @@ import { useContext, useState, useEffect } from "react";
 import udfs from "@common/udfs";
 import classNames from "classnames";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useCollapseSidebarState } from "@common/lib/useCollapseSidebarState";
 import { PulseIcon } from "@common/elements/icons";
@@ -200,7 +201,11 @@ export function DeploymentDashboardLayout({
 }
 
 function PauseBanner() {
-  const deploymentState = useQuery(udfs.deploymentState.deploymentState);
+  const canViewData = useCanViewDeploymentData();
+  const deploymentState = useQuery(
+    udfs.deploymentState.deploymentState,
+    canViewData ? {} : "skip",
+  );
 
   const { useCurrentTeam, useCurrentUsageBanner } = useContext(
     DeploymentInfoContext,

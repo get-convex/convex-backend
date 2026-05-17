@@ -77,6 +77,29 @@ library isn't supported, you can use an action with the
 - [CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
 - [SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
 
+#### Node APIs
+
+A few Node.js APIs are available in the default runtime. If you need more than
+these, see the [Node.js runtime](#nodejs-runtime).
+
+If you are using TypeScript, you may need to add a dev dependency on
+`@types/node` to access these APIs. For TypeScript 6+ you'll also need to add
+`"types": ["node"]` to your `convex/tsconfig.json` file (if not already
+present).
+
+- [process.env](https://nodejs.org/api/process.html#processenv) (see the
+  [Environment variables](/production/environment-variables.mdx) docs)
+- [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage)
+- [AsyncResource](https://nodejs.org/api/async_context.html#class-asyncresource)
+
+:::note
+
+Data in `AsyncLocalStorage` does not propagate into calls to `ctx.runMutation`,
+`ctx.runQuery` or `ctx.runAction`. If you want values to propagate into those
+calls, you'll need to manually pass them as arguments.
+
+:::
+
 ### Restrictions on queries and mutations
 
 Query and mutation functions are further **restricted by the runtime to be
@@ -173,7 +196,7 @@ Note that argument size limits are lower (5MiB instead of 16MiB).
 By default, all actions ran in the Node.js environment are executed in
 Node.js 20. This version is configurable in the
 [convex.json](/production/project-configuration.mdx#configuring-the-nodejs-version)
-file. We currently support Node.js 20 and 22.
+file. We currently support Node.js 20, 22, and 24.
 
 When pushing a new Node.js version to the server, the new code for your
 functions may be executed in the old Node.js version for up a few minutes.

@@ -86,7 +86,6 @@ use cron_jobs::{
     CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID,
     CRON_NEXT_RUN_INDEX_BY_NEXT_TS,
     CRON_NEXT_RUN_TABLE,
-    DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS,
 };
 pub use database::system_tables::{
     SystemIndex,
@@ -362,7 +361,6 @@ static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = Laz
     btreeset! {
         BY_COMPONENT_PATH_INDEX.name(),
         CRON_JOBS_INDEX_BY_NAME.name(),
-        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.name(),
         CRON_JOB_LOGS_INDEX_BY_NAME_TS.name(),
         CRON_NEXT_RUN_INDEX_BY_NEXT_TS.name(),
         CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.name(),
@@ -660,7 +658,6 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         SCHEDULED_JOBS_INDEX_BY_UDF_PATH.name() => 44,
         SESSION_REQUESTS_INDEX.name() => 44,
         FILE_STORAGE_ID_INDEX.name() => 44,
-        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.name() => 47,
         CRON_JOBS_INDEX_BY_NAME.name() => 49,
         CRON_JOB_LOGS_INDEX_BY_NAME_TS.name() => 51,
         CRON_NEXT_RUN_INDEX_BY_NEXT_TS.name() => 118,

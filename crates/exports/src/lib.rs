@@ -57,16 +57,13 @@ use model::{
     virtual_system_mapping,
 };
 use serde_json::json;
-use shape_inference::{
-    export_context::GeneratedSchema,
-    ProdConfig,
-};
 use storage::{
     ChannelWriter,
     Storage,
     Upload,
     UploadExt,
 };
+use thousands::Separable;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use usage_tracking::FunctionUsageTracker;
@@ -98,7 +95,7 @@ pub struct ExportComponents<RT: Runtime> {
     pub database: DatabaseSnapshot<RT>,
     pub exports_storage: Arc<dyn Storage>,
     pub file_storage: Arc<dyn Storage>,
-    pub instance_name: String,
+    pub deployment_name: String,
 }
 
 /// Uploads an export to exports_storage at the returned `ObjectKey`.
@@ -113,7 +110,7 @@ where
     F: Fn(String) -> Fut + Send + Copy,
     Fut: Future<Output = anyhow::Result<()>> + Send,
 {
-    let timer = export_timer(&components.instance_name);
+    let timer = export_timer(&components.deployment_name);
     let exports_storage = &components.exports_storage;
     update_progress("Beginning backup".to_string()).await?;
     let (tables, component_ids_to_paths, by_id_indexes, system_tables, storage_table_counts) = {
@@ -155,7 +152,7 @@ where
             .collect();
         let storage_table_counts: BTreeMap<TableNamespace, u64> = system_tables
             .iter()
-            .filter(|((_, name), _)| *name == *FILE_STORAGE_TABLE)
+            .filter(|((_, name), _)| *name == FILE_STORAGE_TABLE)
             .map(|((ns, _), id)| (*ns, table_summaries.tablet_summary(id).num_values()))
             .collect();
         (
@@ -297,8 +294,9 @@ where
                  bytes written so far",
             );
             update_progress(format!(
-                "Backing up {table_name}{in_component_str}: {num_documents} / {table_total_docs} \
-                 documents"
+                "Backing up {table_name}{in_component_str}: {} / {} documents",
+                num_documents.separate_with_commas(),
+                table_total_docs.separate_with_commas(),
             ))
             .await?;
             last_log_time = Instant::now();
@@ -310,11 +308,7 @@ where
 
     table_upload.complete().await?;
     zip_snapshot_upload
-        .write_legacy_generated_schema(
-            path_prefix,
-            &table_name,
-            GeneratedSchema::<ProdConfig>::Uniform,
-        )
+        .write_legacy_generated_schema(path_prefix, &table_name)
         .await?;
     Ok(())
 }
@@ -352,7 +346,7 @@ where
 
         update_progress(format!("Backing up _tables{in_component_str}")).await?;
         let root = get_sampled_span(
-            &components.instance_name,
+            &components.deployment_name,
             "export_worker/write_table",
             &mut components.runtime.rng(),
         )
@@ -385,7 +379,7 @@ where
             .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
 
         let root = get_sampled_span(
-            &components.instance_name,
+            &components.deployment_name,
             "export_worker/write_table",
             &mut components.runtime.rng(),
         )
@@ -426,7 +420,7 @@ where
             update_progress(format!("Backing up _storage{in_component_str}")).await?;
 
             let root = get_sampled_span(
-                &components.instance_name,
+                &components.deployment_name,
                 "export_worker/write_table",
                 &mut components.runtime.rng(),
             )

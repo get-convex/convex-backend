@@ -31,9 +31,7 @@ function validateKey(key: string) {
 function cloneValue(value: AuditLogValue): JsonValue {
   if (typeof value === "symbol") {
     if (!(value in varNames)) {
-      throw new Error(
-        `Unknown audit var symbol: ${String(value)}. Use one of log.var.requestId, log.var.ip, log.var.userAgent, or log.var.now.`,
-      );
+      throw new Error(`Unknown audit var symbol: ${String(value)}.`);
     }
     return { $var: varNames[value] };
   }
@@ -66,9 +64,6 @@ export function cloneWithSentinels(body: AuditLogBody): {
   return result;
 }
 
-/**
- * @internal
- */
 export const audit = async (body: AuditLogBody): Promise<void> => {
   await performAsyncSyscall("1.0/auditLog", {
     body: cloneWithSentinels(body),

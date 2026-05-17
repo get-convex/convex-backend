@@ -58,7 +58,7 @@ pub fn persistence_seed<RT: Runtime>(
     db: DbDriverTag,
     db_spec: &str,
     flags: ConnectPersistenceFlags,
-    instance_name: &str,
+    deployment_name: &str,
     runtime: RT,
 ) -> anyhow::Result<PersistenceSeed<RT>> {
     match db {
@@ -71,7 +71,7 @@ pub fn persistence_seed<RT: Runtime>(
         | DbDriverTag::MySqlAwsIam(version)
         | DbDriverTag::MySqlMultitenant(version) => {
             let args = persistence_args_from_cluster_url(
-                instance_name,
+                deployment_name,
                 db_spec.parse()?,
                 db,
                 flags.require_ssl,
@@ -87,7 +87,7 @@ pub fn persistence_seed<RT: Runtime>(
                         allow_read_only: flags.allow_read_only,
                         version,
                         schema,
-                        instance_name: instance_name.into(),
+                        instance_name: deployment_name.into(),
                         multitenant,
                         skip_index_creation: flags.skip_index_creation,
                     };
@@ -118,7 +118,7 @@ pub fn persistence_seed<RT: Runtime>(
                         allow_read_only: flags.allow_read_only,
                         version,
                         multitenant,
-                        instance_name: instance_name.into(),
+                        instance_name: deployment_name.into(),
                     };
                     Ok(PersistenceSeed::MySql {
                         pool: Arc::new(ConvexMySqlPool::new(
@@ -141,11 +141,11 @@ pub async fn connect_persistence<RT: Runtime>(
     db: DbDriverTag,
     db_spec: &str,
     flags: ConnectPersistenceFlags,
-    instance_name: &str,
+    deployment_name: &str,
     runtime: RT,
     shutdown_signal: ShutdownSignal,
 ) -> anyhow::Result<Arc<dyn Persistence>> {
-    match persistence_seed(db, db_spec, flags, instance_name, runtime)? {
+    match persistence_seed(db, db_spec, flags, deployment_name, runtime)? {
         PersistenceSeed::Sqlite { db_spec } => {
             let persistence = Arc::new(SqlitePersistence::new(&db_spec)?);
             tracing::info!("Connected to SQLite at {db_spec}");
@@ -159,7 +159,7 @@ pub async fn connect_persistence<RT: Runtime>(
             let pool = PostgresPersistence::create_pool(config)?;
             let persistence =
                 Arc::new(PostgresPersistence::with_pool(pool, options, shutdown_signal).await?);
-            tracing::info!("Connected to Postgres database: {}", instance_name);
+            tracing::info!("Connected to Postgres database: {}", deployment_name);
             Ok(persistence)
         },
         PersistenceSeed::MySql {
@@ -181,7 +181,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
     db_spec: &str,
     require_ssl: bool,
     db_should_be_leader: bool,
-    instance_name: &str,
+    deployment_name: &str,
     runtime: RT,
 ) -> anyhow::Result<Arc<dyn PersistenceReader>> {
     match persistence_seed(
@@ -192,7 +192,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
             allow_read_only: true,
             skip_index_creation: false,
         },
-        instance_name,
+        deployment_name,
         runtime,
     )? {
         PersistenceSeed::Sqlite { db_spec } => {

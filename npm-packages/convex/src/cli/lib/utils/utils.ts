@@ -25,6 +25,7 @@ import {
 } from "../localDeployment/bigBrain.js";
 import type {
   paths as CliManagementPaths,
+  RegionName,
   TeamResponse,
 } from "../../generatedApi.js";
 import createClient from "openapi-fetch";
@@ -38,6 +39,8 @@ export const BIG_BRAIN_URL = `${provisionHost}/api/`;
 const PLATFORM_MANAGEMENT_API_URL = `${provisionHost}/v1/`;
 export const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
+// Alias for CONVEX_DEPLOY_KEY. Accepted anywhere CONVEX_DEPLOY_KEY is.
+export const CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME = "CONVEX_DEPLOYMENT_TOKEN";
 export const CONVEX_DEPLOYMENT_ENV_VAR_NAME = "CONVEX_DEPLOYMENT";
 export const CONVEX_SELF_HOSTED_URL_VAR_NAME = "CONVEX_SELF_HOSTED_URL";
 export const CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME =
@@ -83,6 +86,19 @@ export async function processDeployKeyValue(
   }
 
   return deployKey;
+}
+
+/**
+ * Reads the deploy key from environment variables, accepting either
+ * CONVEX_DEPLOY_KEY or its alias CONVEX_DEPLOYMENT_TOKEN. CONVEX_DEPLOY_KEY
+ * takes precedence when both are set.
+ */
+export function readDeployKeyFromEnv(
+  getEnv: (name: string) => string | undefined | null,
+): string | undefined {
+  const fromDeployKey = getEnv(CONVEX_DEPLOY_KEY_ENV_VAR_NAME);
+  const fromToken = getEnv(CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME);
+  return fromDeployKey || fromToken || undefined;
 }
 
 export function parsePositiveInteger(value: string) {
@@ -454,7 +470,7 @@ export async function selectRegion(
   ctx: Context,
   teamId: number,
   deploymentType: CloudDeploymentType,
-): Promise<string> {
+): Promise<RegionName> {
   const regionsResponse = (
     await typedPlatformClient(ctx).GET(
       "/teams/{team_id}/list_deployment_regions",

@@ -72,12 +72,12 @@ export const screenshots = [
     "light": {
       "filename": "components_health_cache_hit_rate_light.webp",
       "width": 832,
-      "height": 556
+      "height": 564
     },
     "dark": {
       "filename": "components_health_cache_hit_rate_dark.webp",
       "width": 832,
-      "height": 556
+      "height": 564
     }
   },
   {
@@ -117,6 +117,32 @@ export const screenshots = [
       "filename": "components_override_environment_variables_dark.webp",
       "width": 1408,
       "height": 644
+    }
+  },
+  {
+    "storyTitle": "docs/components/PauseDeployment#Running",
+    "light": {
+      "filename": "components_pause_deployment_running_light.webp",
+      "width": 1408,
+      "height": 524
+    },
+    "dark": {
+      "filename": "components_pause_deployment_running_dark.webp",
+      "width": 1408,
+      "height": 524
+    }
+  },
+  {
+    "storyTitle": "docs/components/PauseDeployment#Paused",
+    "light": {
+      "filename": "components_pause_deployment_paused_light.webp",
+      "width": 1408,
+      "height": 524
+    },
+    "dark": {
+      "filename": "components_pause_deployment_paused_dark.webp",
+      "width": 1408,
+      "height": 524
     }
   },
   {

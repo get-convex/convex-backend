@@ -433,6 +433,7 @@ async function startComponentsPushAndCodegen(
     componentDefinitions,
     nodeDependencies: appImplementation.externalNodeDependencies,
     nodeVersion: projectConfig.node.nodeVersion,
+    forCodegen: !!options.codegenOnlyThisComponent,
   };
   if (options.writePushRequest) {
     const pushRequestPath = path.resolve(options.writePushRequest);

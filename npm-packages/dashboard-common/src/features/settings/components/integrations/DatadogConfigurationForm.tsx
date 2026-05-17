@@ -72,42 +72,48 @@ export function DatadogConfigurationForm({
         (existingConfig ? existingConfig.service : project?.name) ?? null,
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
     },
-    onSubmit: async (values) => {
+    onSubmit: async (values, helpers) => {
+      helpers.setStatus(undefined);
       const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
       const ddTags = values.ddTags.split(",").filter((v) => v !== "");
 
-      if (isNewIntegration || isUpgradingToV2) {
-        // If upgrading from v1 to v2, delete the old log stream first
-        if (isUpgradingToV2 && logStreamId) {
-          await deleteLogStream(logStreamId);
+      try {
+        if (isNewIntegration || isUpgradingToV2) {
+          // If upgrading from v1 to v2, delete the old log stream first
+          if (isUpgradingToV2 && logStreamId) {
+            await deleteLogStream(logStreamId);
+          }
+          // Create new integration (either truly new, or upgrading v1 to v2)
+          await createLogStream({
+            logStreamType: "datadog",
+            siteLocation: values.siteLocation,
+            ddApiKey: values.ddApiKey,
+            ddTags,
+            service: values.service,
+          });
+          onAddedIntegration?.();
+          toast(
+            "success",
+            isUpgradingToV2
+              ? "Updated Datadog integration"
+              : "Created Datadog integration",
+          );
+        } else {
+          // Update existing integration without changing version
+          await updateLogStream(logStreamId, {
+            logStreamType: "datadog",
+            siteLocation: values.siteLocation,
+            ddApiKey: values.ddApiKey,
+            ddTags,
+            service: values.service,
+          });
+          toast("success", "Updated Datadog integration");
         }
-        // Create new integration (either truly new, or upgrading v1 to v2)
-        await createLogStream({
-          logStreamType: "datadog",
-          siteLocation: values.siteLocation,
-          ddApiKey: values.ddApiKey,
-          ddTags,
-          service: values.service,
-        });
-        onAddedIntegration?.();
-        toast(
-          "success",
-          isUpgradingToV2
-            ? "Updated Datadog integration"
-            : "Created Datadog integration",
-        );
         onClose();
-      } else {
-        // Update existing integration without changing version
-        await updateLogStream(logStreamId, {
-          logStreamType: "datadog",
-          siteLocation: values.siteLocation,
-          ddApiKey: values.ddApiKey,
-          ddTags,
-          service: values.service,
+      } catch (e) {
+        helpers.setStatus({
+          error: e instanceof Error ? e.message : "Failed to save integration.",
         });
-        toast("success", "Updated Datadog integration");
-        onClose();
       }
     },
     validationSchema: datadogValidationSchema,
@@ -206,12 +212,18 @@ export function DatadogConfigurationForm({
           </div>
         }
       />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {formState.status?.error && (
+          <p className="text-sm text-content-errorSecondary" role="alert">
+            {formState.status.error}
+          </p>
+        )}
         <Button
           variant="primary"
           type="submit"
           aria-label="save"
-          disabled={!formState.dirty}
+          disabled={!formState.dirty || formState.isSubmitting}
+          loading={formState.isSubmitting}
         >
           Save
         </Button>

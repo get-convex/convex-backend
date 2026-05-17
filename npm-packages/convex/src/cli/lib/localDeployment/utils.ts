@@ -9,10 +9,14 @@ export async function choosePorts(
   {
     count,
     requestedPorts,
+    suggestedPorts,
     startPort,
   }: {
     count: number;
+    /** Ports that must mandatorily be used when provided. */
     requestedPorts?: Array<number | null>;
+    /** Ports that will be tried preferentially when provided, but are not required. */
+    suggestedPorts?: Array<number | null>;
     startPort: number;
   },
 ): Promise<Array<number>> {
@@ -30,6 +34,15 @@ export async function choosePorts(
       }
       ports.push(port);
     } else {
+      const suggestedPort = suggestedPorts?.[ports.length] ?? null;
+      if (suggestedPort !== null) {
+        const port = await detect(suggestedPort);
+        if (port === suggestedPort) {
+          ports.push(suggestedPort);
+          continue;
+        }
+      }
+
       const portToTry =
         ports.length > 0 ? ports[ports.length - 1] + 1 : startPort;
       const port = await detect(portToTry);
@@ -41,12 +54,28 @@ export async function choosePorts(
 
 export async function chooseLocalBackendPorts(
   ctx: Context,
-  ports?: { cloud?: number | null; site?: number | null },
+  options?: {
+    suggestedPorts?:
+      | { cloud?: number | undefined; site?: number | undefined }
+      | undefined;
+    requestedPorts?:
+      | { cloud?: number | undefined; site?: number | undefined }
+      | undefined;
+  },
 ): Promise<{ cloudPort: number; sitePort: number }> {
+  const { suggestedPorts, requestedPorts } = options ?? {};
+
   const [cloudPort, sitePort] = await choosePorts(ctx, {
     count: 2,
     startPort: 3210,
-    requestedPorts: [ports?.cloud ?? null, ports?.site ?? null],
+    requestedPorts: [
+      requestedPorts?.cloud ?? null,
+      requestedPorts?.site ?? null,
+    ],
+    suggestedPorts: [
+      suggestedPorts?.cloud ?? null,
+      suggestedPorts?.site ?? null,
+    ],
   });
   return { cloudPort, sitePort };
 }
