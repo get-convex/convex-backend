@@ -1,0 +1,95 @@
+name: Release Self-Hosted Orchestrator
+
+on:
+  workflow_call:
+    outputs:
+      orchestrator_x64_digest:
+        description: "x64 image digest"
+        value: ${{ fromJson(jobs.read.outputs.result).digest.orchestrator-x64 }}
+      orchestrator_arm64_digest:
+        description: "arm64 image digest"
+        value:
+          ${{ fromJson(jobs.read.outputs.result).digest.orchestrator-arm64 }}
+
+env:
+  IMAGE_NAMESPACE:
+    ${{ vars.GHCR_NAMESPACE != '' && vars.GHCR_NAMESPACE ||
+    github.repository_owner }}
+  ORCHESTRATOR_IMAGE_NAME:
+    ${{ vars.ORCHESTRATOR_IMAGE_NAME != '' && vars.ORCHESTRATOR_IMAGE_NAME ||
+    'convex-orchestrator' }}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build orchestrator image
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    runs-on:
+      "runs-on=${{ github.run_id }}-${{ matrix.arch }}/runner=xlarge-${{
+      matrix.arch }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get UTC ISO8601 timestamp
+        run:
+          echo "COMMIT_TIMESTAMP=$(git log -1 --format='%aI' | date -f - --utc
+          '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+      - name: Build and push orchestrator
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        id: build-image
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: .
+          file: self-hosted/docker-build/Dockerfile.orchestrator
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}
+          cache-from: |
+            type=s3,name=convex-orchestrator-${{ matrix.arch }}-${{ github.sha }},prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=convex-orchestrator-${{ matrix.arch }}-${{ github.ref_name }},prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+          cache-to: |
+            type=s3,name=convex-orchestrator-${{ matrix.arch }}-${{ github.sha }},mode=max,prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=convex-orchestrator-${{ matrix.arch }}-${{ github.ref_name }},mode=max,prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+          outputs: push-by-digest=true,type=image,push=true
+          provenance: false
+          build-args: |
+            VERGEN_GIT_SHA=${{ github.sha }}
+            VERGEN_GIT_COMMIT_TIMESTAMP=${{ env.COMMIT_TIMESTAMP }}
+
+      - name: Write digest
+        uses: cloudposse/github-action-matrix-outputs-write@ed06cf3a6bf23b8dce36d1cf0d63123885bb8375 # v1
+        id: digest
+        with:
+          matrix-step-name: ${{ github.job }}
+          matrix-key: orchestrator-${{ matrix.arch }}
+          outputs: |-
+            digest: ${{ steps.build-image.outputs.digest }}
+
+  read:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+        id: read
+        with:
+          matrix-step-name: build
+    outputs:
+      result: "${{ steps.read.outputs.result }}"
