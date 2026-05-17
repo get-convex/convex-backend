@@ -6759,6 +6759,73 @@ dependencies = [
 ]
 
 [[package]]
+name = "orchestrator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "axum-extra",
+ "base32",
+ "base64 0.13.1",
+ "big_brain_private_api_types",
+ "chrono",
+ "clap",
+ "common",
+ "fastrand",
+ "futures",
+ "hex",
+ "http 1.3.1",
+ "http-body-util",
+ "httparse",
+ "hyper",
+ "hyper-util",
+ "keybroker",
+ "orchestrator_api_types",
+ "parking_lot",
+ "pretty_assertions",
+ "rand 0.9.4",
+ "rustls",
+ "rustls-native-certs 0.8.1",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sha2",
+ "slugify",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-postgres",
+ "tokio-postgres-rustls",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "utoipa",
+ "utoipa-axum",
+ "uuid",
+]
+
+[[package]]
+name = "orchestrator_api_types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "big_brain_private_api_types",
+ "chrono",
+ "common",
+ "keybroker",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "strum",
+ "tuple_struct",
+ "utoipa",
+]
+
+[[package]]
 name = "ordered-float"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

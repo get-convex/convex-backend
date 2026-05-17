@@ -146,6 +146,8 @@ oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 once_cell = "1.19"
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
 openssl = { version = "0.10.75", features = [ "aws-lc" ] }
+orchestrator = { path = "crates/orchestrator" }
+orchestrator_api_types = { path = "crates/orchestrator_api_types" }
 packed_value = { path = "crates/packed_value" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }

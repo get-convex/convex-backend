@@ -16,6 +16,12 @@ env:
   DASHBOARD_IMAGE_NAME:
     ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME ||
     'convex-dashboard' }}
+  ORCHESTRATOR_IMAGE_NAME:
+    ${{ vars.ORCHESTRATOR_IMAGE_NAME != '' && vars.ORCHESTRATOR_IMAGE_NAME ||
+    'convex-orchestrator' }}
+  DASHBOARD_ORCHESTRATOR_IMAGE_NAME:
+    ${{ vars.DASHBOARD_ORCHESTRATOR_IMAGE_NAME != '' &&
+    vars.DASHBOARD_ORCHESTRATOR_IMAGE_NAME || 'convex-dashboard-orchestrator' }}
 
 jobs:
   release_backend:
@@ -32,6 +38,20 @@ jobs:
       packages: write
       id-token: write
 
+  release_orchestrator:
+    uses: ./.github/workflows/release_local_orchestrator.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+  release_dashboard_orchestrator:
+    uses: ./.github/workflows/release_local_dashboard_orchestrator.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
   test_backend:
     needs: release_backend
     uses: ./.github/workflows/test_self_hosted_backend.yml
@@ -41,7 +61,14 @@ jobs:
         ${{ needs.release_backend.outputs.backend_arm64_digest }}
 
   tag_images:
-    needs: [release_backend, release_dashboard, test_backend]
+    needs:
+      [
+        release_backend,
+        release_dashboard,
+        release_orchestrator,
+        release_dashboard_orchestrator,
+        test_backend,
+      ]
     # Only run this job if the tests passed
     if: success()
     runs-on: ubuntu-latest
@@ -67,6 +94,20 @@ jobs:
             --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}@${{ needs.release_dashboard.outputs.dashboard_arm64_digest }}
           docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:${{ github.sha }}
 
+      - name: Tag and push orchestrator manifest
+        run: |
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:${{ github.sha }} \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_orchestrator.outputs.orchestrator_x64_digest }} \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_orchestrator.outputs.orchestrator_arm64_digest }}
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Tag and push dashboard-orchestrator manifest
+        run: |
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:${{ github.sha }} \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_dashboard_orchestrator.outputs.dashboard_orchestrator_x64_digest }} \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_dashboard_orchestrator.outputs.dashboard_orchestrator_arm64_digest }}
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:${{ github.sha }}
+
       - name: Tag and push backend manifest as latest
         if: github.ref == 'refs/heads/release'
         run: |
@@ -82,3 +123,19 @@ jobs:
             --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}@${{ needs.release_dashboard.outputs.dashboard_x64_digest }} \
             --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}@${{ needs.release_dashboard.outputs.dashboard_arm64_digest }}
           docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:latest
+
+      - name: Tag and push orchestrator manifest as latest
+        if: github.ref == 'refs/heads/release'
+        run: |
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:latest \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_orchestrator.outputs.orchestrator_x64_digest }} \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_orchestrator.outputs.orchestrator_arm64_digest }}
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:latest
+
+      - name: Tag and push dashboard-orchestrator manifest as latest
+        if: github.ref == 'refs/heads/release'
+        run: |
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:latest \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_dashboard_orchestrator.outputs.dashboard_orchestrator_x64_digest }} \
+            --amend ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}@${{ needs.release_dashboard_orchestrator.outputs.dashboard_orchestrator_arm64_digest }}
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:latest

@@ -20,6 +20,12 @@ env:
   DASHBOARD_IMAGE_NAME:
     ${{ vars.DASHBOARD_IMAGE_NAME != '' && vars.DASHBOARD_IMAGE_NAME ||
     'convex-dashboard' }}
+  ORCHESTRATOR_IMAGE_NAME:
+    ${{ vars.ORCHESTRATOR_IMAGE_NAME != '' && vars.ORCHESTRATOR_IMAGE_NAME ||
+    'convex-orchestrator' }}
+  DASHBOARD_ORCHESTRATOR_IMAGE_NAME:
+    ${{ vars.DASHBOARD_ORCHESTRATOR_IMAGE_NAME != '' &&
+    vars.DASHBOARD_ORCHESTRATOR_IMAGE_NAME || 'convex-dashboard-orchestrator' }}
 
 jobs:
   tag_images_as_latest:
@@ -51,3 +57,23 @@ jobs:
           done
           docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:latest "${args[@]}"
           docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_IMAGE_NAME }}:latest
+
+      - name: Modify convex-orchestrator manifest with latest tag
+        run: |
+          digests=$(docker manifest inspect ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:${{ inputs.github_sha }} | jq -r '.manifests[].digest')
+          args=()
+          for digest in $digests; do
+            args+=(--amend "ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}@$digest")
+          done
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:latest "${args[@]}"
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.ORCHESTRATOR_IMAGE_NAME }}:latest
+
+      - name: Modify dashboard-orchestrator manifest with latest tag
+        run: |
+          digests=$(docker manifest inspect ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:${{ inputs.github_sha }} | jq -r '.manifests[].digest')
+          args=()
+          for digest in $digests; do
+            args+=(--amend "ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}@$digest")
+          done
+          docker manifest create ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:latest "${args[@]}"
+          docker manifest push ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.DASHBOARD_ORCHESTRATOR_IMAGE_NAME }}:latest

@@ -1,0 +1,5077 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "convex-orchestrator",
+    "description": "Self-hosted replacement for Convex Cloud's BigBrain orchestrator.",
+    "license": {
+      "name": "LicenseRef-FSL-1.1-Apache-2.0",
+      "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/list_personal_access_tokens": {
+      "get": {
+        "tags": ["tokens"],
+        "operationId": "list_personal_access_tokens",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedPersonalAccessTokensResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "missing or invalid bearer token"
+          }
+        }
+      }
+    },
+    "/v1/create_personal_access_token": {
+      "post": {
+        "tags": ["tokens"],
+        "operationId": "create_personal_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePersonalAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePersonalAccessTokenResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v1/delete_personal_access_token": {
+      "post": {
+        "tags": ["tokens"],
+        "operationId": "delete_personal_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletePersonalAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "token revoked"
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v1/token_details": {
+      "get": {
+        "tags": ["tokens"],
+        "operationId": "token_details",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTokenDetailsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v1/teams/create_team": {
+      "post": {
+        "tags": ["teams"],
+        "operationId": "create_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateTeamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTeamResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/list_members": {
+      "get": {
+        "tags": ["teams"],
+        "operationId": "list_members",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListTeamMembersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/invite_team_member": {
+      "post": {
+        "tags": ["teams"],
+        "operationId": "invite_member",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "invitation recorded"
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": "caller is not a team admin"
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/create_access_token": {
+      "post": {
+        "tags": ["teams"],
+        "operationId": "create_team_access_token",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTeamAccessTokenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "team not found"
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/create_project": {
+      "post": {
+        "tags": ["projects"],
+        "operationId": "create_project",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreateProjectResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "team not found"
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/list_projects": {
+      "get": {
+        "tags": ["projects"],
+        "operationId": "list_projects",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformProjectDetails"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "get": {
+        "tags": ["projects"],
+        "operationId": "get_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id_or_slug}/projects/{project_slug}": {
+      "get": {
+        "tags": ["projects"],
+        "operationId": "get_project_by_slug",
+        "parameters": [
+          {
+            "name": "team_id_or_slug",
+            "in": "path",
+            "description": "numeric team id or slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "team or project not found"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/delete": {
+      "post": {
+        "tags": ["projects"],
+        "operationId": "delete_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "project and dependents deleted"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/list_deployments": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "list_deployments",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/create_deployment": {
+      "post": {
+        "tags": ["deployments"],
+        "operationId": "create_deployment",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "unknown deployment kind"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/deployment": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "get_default_deployment_for_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "defaultDev",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id_or_slug}/projects/{project_slug}/deployment": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "get_default_deployment_by_slug",
+        "parameters": [
+          {
+            "name": "team_id_or_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "defaultDev",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "team, project, or deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/list_deployments": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "list_team_deployments",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeploymentsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/list_local_deployments": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "list_local_deployments",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListLocalDeploymentsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/list_deployment_classes": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "list_deployment_classes",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeploymentClassesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/teams/{team_id}/list_deployment_regions": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "list_deployment_regions",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeploymentRegionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "get_deployment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}/delete": {
+      "post": {
+        "tags": ["deployments"],
+        "operationId": "delete_deployment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "deployment torn down and removed"
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}/transfer": {
+      "post": {
+        "tags": ["deployments"],
+        "operationId": "transfer_deployment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformTransferDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "deployment moved to the target project"
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}/create_deploy_key": {
+      "post": {
+        "tags": ["deploy_keys"],
+        "operationId": "create_deploy_key",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreateDeployKeyResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}/list_deploy_keys": {
+      "get": {
+        "tags": ["deploy_keys"],
+        "operationId": "list_deploy_keys",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDeployKeyResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}/delete_deploy_key": {
+      "post": {
+        "tags": ["deploy_keys"],
+        "operationId": "delete_deploy_key",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDeleteDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "deploy key revoked"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/create_preview_deploy_key": {
+      "post": {
+        "tags": ["deploy_keys"],
+        "operationId": "create_preview_deploy_key",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreatePreviewDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreatePreviewDeployKeyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/list_preview_deploy_keys": {
+      "get": {
+        "tags": ["deploy_keys"],
+        "operationId": "list_preview_deploy_keys",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListPreviewDeployKeysResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/delete_preview_deploy_key": {
+      "post": {
+        "tags": ["deploy_keys"],
+        "operationId": "delete_preview_deploy_key",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDeletePreviewDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "preview deploy key revoked"
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/list_default_environment_variables": {
+      "get": {
+        "tags": ["env_vars"],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDefaultEnvironmentVariablesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{project_id}/update_default_environment_variables": {
+      "post": {
+        "tags": ["env_vars"],
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDefaultEnvironmentVariablesArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "variables upserted"
+          }
+        }
+      }
+    },
+    "/api/version": {
+      "get": {
+        "tags": ["deployment_internal"],
+        "operationId": "orchestrator_version",
+        "responses": {
+          "200": {
+            "description": "service identity + version JSON"
+          }
+        }
+      }
+    },
+    "/api/authorize": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "summary": "CLI auth endpoint. Accepts only a bootstrap token in v1. Human users\nauthenticate through the dashboard (BetterAuth → /api/internal/exchange_session).",
+        "operationId": "authorize",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceAuthorizeArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceAuthorizeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "missing bootstrapToken"
+          },
+          "401": {
+            "description": "wrong bootstrap token"
+          }
+        }
+      },
+      "head": {
+        "tags": ["deployment_internal"],
+        "operationId": "authorize_head",
+        "responses": {
+          "200": {
+            "description": "ok if bearer token is recognized"
+          }
+        }
+      }
+    },
+    "/api/check_opt_ins": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "check_opt_ins",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetOptInsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accept_opt_ins": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "accept_opt_ins",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OptIn"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "opt-ins recorded"
+          }
+        }
+      }
+    },
+    "/api/teams": {
+      "get": {
+        "tags": ["deployment_internal"],
+        "operationId": "list_teams",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/has_projects": {
+      "get": {
+        "tags": ["deployment_internal"],
+        "operationId": "has_projects",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HasProjectsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/create_project": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "create_project",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "team not found / unknown deployment type"
+          },
+          "403": {
+            "description": "caller is not a team member"
+          }
+        }
+      }
+    },
+    "/api/dashboard/delete_project/{project_id}": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "delete_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "project and its dependents deleted"
+          },
+          "403": {
+            "description": "caller is not a team member"
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      }
+    },
+    "/api/deployment/{deployment_name}/team_and_project": {
+      "get": {
+        "tags": ["deployment_internal"],
+        "operationId": "team_and_project",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamAndProjectForDeploymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment, project, or team not found"
+          }
+        }
+      }
+    },
+    "/api/deployment/team_and_project_for_key": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "team_and_project_for_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamAndProjectForKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamAndProjectForDeploymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "deploy key is malformed"
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/deployment/url_for_key": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "url_for_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UrlForKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UrlForKeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "deploy key is malformed"
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/deployment/authorize_prod": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "authorize_prod",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentAuthProdArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "not a prod deployment"
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/deployment/authorize_preview": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "authorize_preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentAuthPreviewArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAuthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no preview deployment found for this identifier"
+          }
+        }
+      }
+    },
+    "/api/deployment/authorize_within_current_project": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "authorize_within_current_project",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentAuthWithinCurrentProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAuthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/api/deployment/provision_and_authorize": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "provision_and_authorize",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionAndAuthorizeArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentAuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "missing slug or unknown deployment type"
+          },
+          "404": {
+            "description": "team or project not found"
+          }
+        }
+      }
+    },
+    "/api/claim_preview_deployment": {
+      "post": {
+        "tags": ["deployment_internal"],
+        "operationId": "claim_preview_deployment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimPreviewDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimPreviewDeploymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_profile",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/member_data": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_member_data",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberDataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile_emails/list": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_profile_emails",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileEmailResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile_emails/create": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "create_profile_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "501": {
+            "description": "stubbed in v1"
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile_emails/delete": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_profile_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "501": {
+            "description": "stubbed in v1"
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile_emails/update_primary": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "update_primary_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "501": {
+            "description": "stubbed in v1"
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile_emails/resend_verification": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "resend_verification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "stub no-op"
+          }
+        }
+      }
+    },
+    "/api/dashboard/profile_emails/verify/{code}": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "verify_email",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub no-op"
+          }
+        }
+      }
+    },
+    "/api/dashboard/update_profile_name": {
+      "put": {
+        "tags": ["dashboard"],
+        "operationId": "update_profile_name",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileNameArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "name updated"
+          }
+        }
+      }
+    },
+    "/api/dashboard/delete_account": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_account",
+        "responses": {
+          "200": {
+            "description": "member deleted"
+          }
+        }
+      }
+    },
+    "/api/dashboard/optins": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_opt_ins",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetOptInsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["dashboard"],
+        "operationId": "accept_opt_ins",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OptIn"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "opt-ins accepted"
+          }
+        }
+      }
+    },
+    "/api/dashboard/identities": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_identities",
+        "responses": {
+          "200": {
+            "description": "list of linked identities (empty in self-hosted)"
+          }
+        }
+      }
+    },
+    "/api/dashboard/unlink_identity": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "unlink_identity",
+        "responses": {
+          "200": {
+            "description": "stub no-op"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_teams",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "create_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "update_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/delete": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/members": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_members",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMember"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/remove_member": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "remove_member",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveMemberArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/update_member_role": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "update_member_role",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemberRoleArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/get_entitlements": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "get_entitlements_stub",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: returns unlimited self-hosted entitlements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StubTeamEntitlementsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/unpause": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "unpause_deployments",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub no-op (no pause/unpause flow in self-hosted)"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/invites": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_invites",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "create_invite",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/invites/cancel": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "cancel_invite",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveMemberArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/invites/{code}/accept": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "accept_invite",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "invitation accepted, caller added to team"
+          },
+          "404": {
+            "description": "invitation not found"
+          },
+          "409": {
+            "description": "invitation already accepted"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/get_project_roles": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_project_roles",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectRoleEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/update_project_roles": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "update_project_roles",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRolesArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/apply_referral_code": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "apply_referral_code",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "stub no-op (no referral program in self-hosted)"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/referral_state": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "get_referral_state_stub",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty referral state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StubReferralState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/validate_referral_code": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "validate_referral_code_stub",
+        "responses": {
+          "200": {
+            "description": "stub: always invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StubValidateReferralCode"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/projects": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_projects",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/projects/{project_slug}": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_project_by_slug",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/projects/{project_id}": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      },
+      "put": {
+        "tags": ["dashboard"],
+        "operationId": "update_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/delete_projects": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_projects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/projects/{project_id}/transfer": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "transfer_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "501": {
+            "description": "not implemented in v1"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/deployments/{deployment_id}": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_deployment_by_id",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/instances/{deployment_name}/auth": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "get_deployment_auth_dashboard",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentAuthDashboardResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/register": {
+      "post": {
+        "tags": ["dashboard"],
+        "summary": "Register a pre-provisioned backend with the orchestrator. Used by\noperators running in `--provisioner external` mode (the default).",
+        "description": "The orchestrator stores the deployment metadata + a SHA-256 hash of the\nadmin key plus its visible suffix; the plaintext admin key is **not**\nretained. After registration, dashboard and CLI lookups that hit the\nadmin key path return the value the operator passed here.",
+        "operationId": "register_deployment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid args (missing previewIdentifier, unknown deployment type, or duplicate deployment name)"
+          },
+          "403": {
+            "description": "caller is not a team member"
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/access_tokens": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_team_tokens",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/projects/{project_id}/access_tokens": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_project_tokens",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/instances/{deployment_name}/access_tokens": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_deployment_tokens",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessTokenResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/delete_access_token": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/projects/{project_id}/environment_variables/list": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_env_vars",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvironmentVariables"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/projects/{project_id}/environment_variables/update_batch": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "update_env_vars",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDefaultEnvVarsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/get_audit_log_events": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "get_audit_log_events",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/get_orb_subscription": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "orb_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: returns a self-hosted plan record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StubOrbSubscriptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/list_active_plans": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_list",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty list. Also bound to /list_invoices."
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/has_failed_payment": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "no_failure",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: { hasFailedPayment: false }"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/create_subscription": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "ok",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub no-op. Also backs change_subscription_plan, cancel_orb_subscription, unschedule_cancel_orb_subscription, update_billing_*, set_spending_limit."
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/create_setup_intent": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_object",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty JSON object"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/get_current_spend": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "zero_spend",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: { currentSpendCents: 0 }"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/get_spending_limits": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "spending_limits_unbounded",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: no thresholds, zero spend",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StubSpendingLimitsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/request_cloud_backup": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "not_implemented",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "stub: use the backend's /api/snapshot_export flow. Also bound to /restore_from_cloud_backup, /cloud_backups/{id}/delete, /cloud_backups/{id}/cancel, /configure_periodic_backup, /disable_periodic_backup."
+          }
+        }
+      }
+    },
+    "/api/dashboard/cloud_backups/{cloud_backup_id}": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "not_implemented_obj",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "stub: use the backend's /api/snapshot_export flow"
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/list_cloud_backups": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_list",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty list"
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/get_periodic_backup_config": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_object",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty config object"
+          }
+        }
+      }
+    },
+    "/api/dashboard/discord/accounts": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_list",
+        "responses": {
+          "200": {
+            "description": "stub: empty list. Same handler backs vercel/oauth_apps/workos list endpoints."
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_name}/workos_environment": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_object",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty JSON object. Backs several workos_*/get_sso reads."
+          }
+        }
+      }
+    },
+    "/api/dashboard/discord/login_url": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "empty_url",
+        "responses": {
+          "200": {
+            "description": "stub: { url: \"\" }"
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_name}/has_associated_workos_team": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "false_object",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: { value: false }"
+          }
+        }
+      }
+    },
+    "/api/dashboard/discord/authorize": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "ok",
+        "responses": {
+          "200": {
+            "description": "stub no-op. Also backs /discord/unlink."
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/oauth_apps/check": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "ok_obj",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty object. Also backs /workos/check_project_environment_health."
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/oauth_apps/register": {
+      "post": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "not_configured",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "stub: feature is Cloud-only. Backs every WorkOS/SSO write + Vercel join."
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/usage/team_usage_state": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "team_usage_state",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: { state: \"Default\" }"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/usage/current_billing_period": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "billing_period",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: synthetic 1-year billing window starting now"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/usage/get_token_info": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "token_info",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty object"
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/usage/query": {
+      "get": {
+        "tags": ["dashboard_stubs"],
+        "operationId": "usage_query",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "stub: empty usage rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StubUsageQueryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/exchange_session": {
+      "post": {
+        "tags": ["internal"],
+        "operationId": "exchange_session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeSessionArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid email / authUserId"
+          },
+          "401": {
+            "description": "x-service-key missing or wrong"
+          },
+          "501": {
+            "description": "service key not configured on this orchestrator"
+          }
+        },
+        "security": [
+          {
+            "service_key": []
+          }
+        ]
+      }
+    },
+    "/api/internal/health": {
+      "post": {
+        "tags": ["internal"],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "service-key validated"
+          },
+          "401": {
+            "description": "x-service-key missing or wrong"
+          }
+        },
+        "security": [
+          {
+            "service_key": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessToken": {
+        "type": "string"
+      },
+      "AccessTokenResponse": {
+        "type": "object",
+        "required": ["id", "kind", "name", "creationTime", "keySuffix"],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "string"
+          },
+          "keySuffix": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AuditLogEvent": {
+        "type": "object",
+        "required": ["id", "teamId", "action", "metadata", "creationTime"],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memberId": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "metadata": {},
+          "teamId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "AuditLogPage": {
+        "type": "object",
+        "required": ["events"],
+        "properties": {
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEvent"
+            }
+          }
+        }
+      },
+      "ClaimPreviewDeploymentArgs": {
+        "type": "object",
+        "description": "Body of `POST /api/claim_preview_deployment`.",
+        "required": ["projectSelection", "identifier"],
+        "properties": {
+          "identifier": {
+            "type": "string"
+          },
+          "projectSelection": {
+            "$ref": "#/components/schemas/ProjectSelectionArgs"
+          }
+        }
+      },
+      "ClaimPreviewDeploymentResponse": {
+        "type": "object",
+        "description": "Response shape for `POST /api/claim_preview_deployment`.",
+        "required": ["deploymentName", "adminKey", "url", "deploymentType"],
+        "properties": {
+          "adminKey": {
+            "type": "string"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "deploymentType": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateInvitationArgs": {
+        "type": "object",
+        "required": ["email", "role"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "CreatePersonalAccessTokenArgs": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "expiresAt": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreatePersonalAccessTokenResponse": {
+        "type": "object",
+        "required": ["accessToken", "id", "name", "creationTime"],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateProjectArgs": {
+        "type": "object",
+        "description": "Body of `POST /api/create_project` (CLI).",
+        "required": ["team", "projectName"],
+        "properties": {
+          "deploymentType": {
+            "type": ["string", "null"]
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "team": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateProjectResponse": {
+        "type": "object",
+        "description": "Response shape for `POST /api/create_project` (CLI).",
+        "required": ["projectId", "projectSlug", "teamSlug"],
+        "properties": {
+          "adminKey": {
+            "type": ["string", "null"]
+          },
+          "deploymentName": {
+            "type": ["string", "null"]
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "projectSlug": {
+            "type": "string"
+          },
+          "teamSlug": {
+            "type": "string"
+          },
+          "url": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CreateTeamAccessTokenResponse": {
+        "type": "object",
+        "required": ["accessToken"],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateTeamArgs": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "DeleteArgs": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "DeletePersonalAccessTokenArgs": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentAuthPreviewArgs": {
+        "type": "object",
+        "required": ["projectSelection", "previewName"],
+        "properties": {
+          "previewName": {
+            "type": "string",
+            "description": "--preview-name instance selector."
+          },
+          "projectSelection": {
+            "$ref": "#/components/schemas/ProjectSelectionArgs"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentAuthProdArgs": {
+        "type": "object",
+        "required": ["deploymentName"],
+        "properties": {
+          "deploymentClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentClass"
+              }
+            ]
+          },
+          "deploymentName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentAuthResponse": {
+        "type": "object",
+        "required": ["deploymentName", "adminKey", "url", "deploymentType"],
+        "properties": {
+          "adminKey": {
+            "$ref": "#/components/schemas/AccessToken"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "deploymentType": {
+            "$ref": "#/components/schemas/DeploymentType"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentAuthWithinCurrentProjectArgs": {
+        "type": "object",
+        "required": ["projectSelection", "selectedDeploymentName"],
+        "properties": {
+          "projectSelection": {
+            "$ref": "#/components/schemas/ProjectSelectionArgs"
+          },
+          "selectedDeploymentName": {
+            "type": "string",
+            "description": "--deployment-name instance selector."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentClass": {
+        "type": "string",
+        "enum": ["s16", "s256", "d1024"]
+      },
+      "DeploymentId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "DeploymentRegion": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "deploymentType",
+          "deploymentClass",
+          "url",
+          "siteUrl",
+          "state",
+          "creationTime"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "deploymentClass": {
+            "type": "string"
+          },
+          "deploymentType": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"]
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "siteUrl": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentType": {
+        "type": "string",
+        "enum": ["dev", "prod", "preview", "custom"]
+      },
+      "DeviceAuthorizeArgs": {
+        "type": "object",
+        "required": ["deviceName"],
+        "properties": {
+          "bootstrapToken": {
+            "type": ["string", "null"]
+          },
+          "deviceName": {
+            "type": "string"
+          },
+          "email": {
+            "type": ["string", "null"]
+          },
+          "password": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "DeviceAuthorizeResponse": {
+        "type": "object",
+        "required": ["accessToken", "memberId"],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "EnvironmentVariable": {
+        "type": "object",
+        "required": ["name", "value", "deploymentTypes"],
+        "properties": {
+          "deploymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "ExchangeSessionArgs": {
+        "type": "object",
+        "required": ["authUserId", "email"],
+        "properties": {
+          "authUserId": {
+            "type": "string",
+            "description": "BetterAuth user ID — opaque, treated as a stable foreign key."
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ExchangeSessionResponse": {
+        "type": "object",
+        "required": ["accessToken", "memberId", "teamSlug", "role"],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "role": {
+            "type": "string"
+          },
+          "teamSlug": {
+            "type": "string"
+          }
+        }
+      },
+      "GetDeploymentAuthDashboardResponse": {
+        "type": "object",
+        "required": ["adminKey", "url"],
+        "properties": {
+          "adminKey": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "GetOptInsResponse": {
+        "type": "object",
+        "required": ["optInsToAccept"],
+        "properties": {
+          "optInsToAccept": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OptIn"
+            }
+          }
+        }
+      },
+      "HasProjectsResponse": {
+        "type": "object",
+        "description": "Response shape for `GET /api/has_projects` — single boolean.",
+        "required": ["hasProjects"],
+        "properties": {
+          "hasProjects": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InvitationArgs": {
+        "type": "object",
+        "required": ["email", "role"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "InvitationResponse": {
+        "type": "object",
+        "required": ["id", "email", "role", "code", "createdAt"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "ListDeploymentClassesResponse": {
+        "type": "object",
+        "required": ["classes"],
+        "properties": {
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentClass"
+            }
+          }
+        }
+      },
+      "ListDeploymentRegionsResponse": {
+        "type": "object",
+        "required": ["regions"],
+        "properties": {
+          "regions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentRegion"
+            }
+          }
+        }
+      },
+      "ListEnvironmentVariables": {
+        "type": "object",
+        "required": ["variables"],
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentVariable"
+            }
+          }
+        }
+      },
+      "ListLocalDeploymentsResponse": {
+        "type": "object",
+        "required": ["deployments"],
+        "properties": {
+          "deployments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeploymentResponse"
+            }
+          }
+        }
+      },
+      "MemberDataResponse": {
+        "type": "object",
+        "required": ["member", "teams"],
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/MemberResponse"
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamResponse"
+            }
+          }
+        }
+      },
+      "MemberResponse": {
+        "type": "object",
+        "required": ["id", "email"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "OptIn": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PaginatedDefaultEnvironmentVariablesResponse": {
+        "type": "object",
+        "required": ["variables"],
+        "properties": {
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDefaultEnvVar"
+            }
+          }
+        }
+      },
+      "PaginatedDeploymentsResponse": {
+        "type": "object",
+        "required": ["deployments"],
+        "properties": {
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "deployments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeploymentResponse"
+            }
+          }
+        }
+      },
+      "PaginatedPersonalAccessTokensResponse": {
+        "type": "object",
+        "required": ["tokens"],
+        "properties": {
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeployKeyResponse"
+            }
+          }
+        }
+      },
+      "PlatformCreateDeployKeyArgs": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "expiresAt": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformCreateDeployKeyResponse": {
+        "type": "object",
+        "required": ["key", "id", "name", "creationTime"],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformCreateDeploymentArgs": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "deploymentClass": {
+            "type": ["string", "null"]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"]
+          },
+          "region": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PlatformCreatePreviewDeployKeyArgs": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformCreatePreviewDeployKeyResponse": {
+        "type": "object",
+        "required": ["key", "id", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformCreateProjectArgs": {
+        "type": "object",
+        "required": ["projectName"],
+        "properties": {
+          "deploymentType": {
+            "type": ["string", "null"]
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "slug": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PlatformCreateProjectResponse": {
+        "type": "object",
+        "required": ["projectId", "projectSlug", "teamSlug"],
+        "properties": {
+          "adminKey": {
+            "type": ["string", "null"]
+          },
+          "deploymentName": {
+            "type": ["string", "null"]
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "projectSlug": {
+            "type": "string"
+          },
+          "teamSlug": {
+            "type": "string"
+          },
+          "url": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PlatformCreateTeamArgs": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PlatformDefaultEnvVar": {
+        "type": "object",
+        "required": ["name", "value", "deploymentTypes"],
+        "properties": {
+          "deploymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformDeleteDeployKeyArgs": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformDeletePreviewDeployKeyArgs": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformDeployKeyResponse": {
+        "type": "object",
+        "required": ["id", "name", "creationTime", "keySuffix"],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "expiresAt": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Milliseconds since epoch; `None` for keys that never expire."
+          },
+          "id": {
+            "type": "string"
+          },
+          "keySuffix": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformDeploymentResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "kind",
+          "deploymentClass",
+          "url",
+          "siteUrl",
+          "state",
+          "creationTime"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "deploymentClass": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"]
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "siteUrl": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformListPreviewDeployKeysResponse": {
+        "type": "object",
+        "required": ["keys"],
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeployKeyResponse"
+            }
+          }
+        }
+      },
+      "PlatformListTeamMembersResponse": {
+        "type": "object",
+        "required": ["members"],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformTeamMember"
+            }
+          }
+        }
+      },
+      "PlatformProjectDetails": {
+        "type": "object",
+        "required": ["id", "teamId", "name", "slug", "isDemo", "creationTime"],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "isDemo": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PlatformTeamMember": {
+        "type": "object",
+        "required": ["id", "email", "role"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformTeamResponse": {
+        "type": "object",
+        "required": ["id", "name", "slug"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "PlatformTokenDetailsResponse": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "deploymentName": {
+            "type": ["string", "null"]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "projectId": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamId": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PlatformTransferDeploymentArgs": {
+        "type": "object",
+        "required": ["projectId"],
+        "properties": {
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ProfileEmailArgs": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ProfileEmailResponse": {
+        "type": "object",
+        "required": ["id", "email", "isVerified", "isPrimary"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "isVerified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProjectId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "ProjectResponse": {
+        "type": "object",
+        "required": ["id", "teamId", "name", "slug", "isDemo", "creationTime"],
+        "properties": {
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "isDemo": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ProjectRoleEntry": {
+        "type": "object",
+        "required": ["projectId", "memberId"],
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ProjectSelectionArgs": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "CONVEX_DEPLOYMENT, pointing to dev or prod.",
+            "required": ["deploymentName", "kind"],
+            "properties": {
+              "deploymentName": {
+                "type": "string"
+              },
+              "deploymentType": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeploymentType"
+                  }
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["deploymentName"]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "If there is no CONVEX_DEPLOYMENT, select a project with team and\nproject.",
+            "required": ["teamSlug", "projectSlug", "kind"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["teamAndProjectSlugs"]
+              },
+              "projectSlug": {
+                "type": "string"
+              },
+              "teamSlug": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ProjectSlug": {
+        "type": "string"
+      },
+      "ProvisionAndAuthorizeArgs": {
+        "type": "object",
+        "description": "Body of `POST /api/deployment/provision_and_authorize`.",
+        "required": ["deploymentType"],
+        "properties": {
+          "deploymentType": {
+            "type": "string"
+          },
+          "projectSlug": {
+            "type": ["string", "null"]
+          },
+          "teamSlug": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "RegisterDeploymentArgs": {
+        "type": "object",
+        "description": "Body of `POST /api/dashboard/deployments/register` — used by operators in\n`--provisioner external` mode to tell the orchestrator about a backend\nthey pre-started. The orchestrator stores the URL + an admin-key hash so\nthe dashboard and CLI can look it up later.",
+        "required": [
+          "deploymentName",
+          "projectId",
+          "deploymentType",
+          "url",
+          "siteUrl",
+          "adminKey"
+        ],
+        "properties": {
+          "adminKey": {
+            "type": "string",
+            "description": "Full admin key the operator generated when starting their backend.\nStored hashed; only the last few characters are retained in the clear\n(as `keySuffix`) for UI display."
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "deploymentType": {
+            "type": "string",
+            "description": "`prod`, `dev`, or `preview`."
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"],
+            "description": "Required for `preview` deployments — matches the preview branch / id."
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "siteUrl": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "RemoveMemberArgs": {
+        "type": "object",
+        "required": ["memberId"],
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "StubBillingPlan": {
+        "type": "object",
+        "required": ["id", "name", "status"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "StubOrbSubscriptionResponse": {
+        "type": "object",
+        "required": [
+          "plan",
+          "currentPeriodStart",
+          "currentPeriodEnd",
+          "cancelAtPeriodEnd"
+        ],
+        "properties": {
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "currentPeriodEnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "currentPeriodStart": {
+            "type": "number",
+            "format": "double"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/StubBillingPlan"
+          }
+        }
+      },
+      "StubReferralState": {
+        "type": "object",
+        "required": ["code", "referredCount", "maxReferrals"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "maxReferrals": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "referredCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "StubSpendingLimitsResponse": {
+        "type": "object",
+        "required": ["currentSpendCents"],
+        "properties": {
+          "currentSpendCents": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "disableThresholdCents": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "warningThresholdCents": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "StubTeamEntitlementsResponse": {
+        "type": "object",
+        "required": [
+          "maxProjects",
+          "maxTeams",
+          "maxTeamMembers",
+          "maxDeployments",
+          "maxStorageBytes",
+          "maxFunctionCallsPerMonth",
+          "allowPeriodicBackups",
+          "allowAuditLog",
+          "allowCustomDomains",
+          "allowStreamingExport",
+          "plan"
+        ],
+        "properties": {
+          "allowAuditLog": {
+            "type": "boolean"
+          },
+          "allowCustomDomains": {
+            "type": "boolean"
+          },
+          "allowPeriodicBackups": {
+            "type": "boolean"
+          },
+          "allowStreamingExport": {
+            "type": "boolean"
+          },
+          "maxDeployments": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxFunctionCallsPerMonth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxProjects": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxStorageBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxTeamMembers": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxTeams": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "plan": {
+            "type": "string"
+          }
+        }
+      },
+      "StubUsageQueryResponse": {
+        "type": "object",
+        "required": ["rows"],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StubUsageRow"
+            }
+          }
+        }
+      },
+      "StubUsageRow": {
+        "type": "object",
+        "required": ["timestamp", "value"],
+        "properties": {
+          "timestamp": {
+            "type": "number",
+            "format": "double"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "StubValidateReferralCode": {
+        "type": "object",
+        "required": ["valid"],
+        "properties": {
+          "teamName": {
+            "type": ["string", "null"]
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TeamAndProjectForDeploymentResponse": {
+        "type": "object",
+        "required": ["team", "project", "teamId", "projectId"],
+        "properties": {
+          "deploymentId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentId"
+              }
+            ]
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "team": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "TeamAndProjectForKeyArgs": {
+        "type": "object",
+        "description": "Body of `POST /api/deployment/team_and_project_for_key`.",
+        "required": ["deployKey"],
+        "properties": {
+          "deployKey": {
+            "type": "string"
+          }
+        }
+      },
+      "TeamId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "TeamMember": {
+        "type": "object",
+        "required": ["id", "email", "role"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "TeamResponse": {
+        "type": "object",
+        "required": ["id", "name", "slug"],
+        "properties": {
+          "creator": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "TeamSlug": {
+        "type": "string"
+      },
+      "TeamSummary": {
+        "type": "object",
+        "description": "Response shape for `GET /api/teams` (CLI-internal endpoint).",
+        "required": ["id", "name", "slug"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateDefaultEnvVarsArgs": {
+        "type": "object",
+        "required": ["variables"],
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentVariable"
+            }
+          }
+        }
+      },
+      "UpdateDefaultEnvironmentVariablesArgs": {
+        "type": "object",
+        "required": ["variables"],
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDefaultEnvVar"
+            }
+          }
+        }
+      },
+      "UpdateMemberRoleArgs": {
+        "type": "object",
+        "required": ["memberId", "role"],
+        "properties": {
+          "memberId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateProfileNameArgs": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateProjectArgs": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": ["string", "null"]
+          },
+          "slug": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "UpdateProjectRolesArgs": {
+        "type": "object",
+        "required": ["projectId", "adminMemberIds"],
+        "properties": {
+          "adminMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Replaces the full admin set for the project."
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "UpdateTeamArgs": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": ["string", "null"]
+          },
+          "slug": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "UrlForKeyArgs": {
+        "type": "object",
+        "description": "Body of `POST /api/deployment/url_for_key`.",
+        "required": ["deployKey"],
+        "properties": {
+          "deployKey": {
+            "type": "string"
+          }
+        }
+      },
+      "UrlForKeyResponse": {
+        "type": "object",
+        "description": "Response shape for `POST /api/deployment/url_for_key`.",
+        "required": ["url", "deploymentName"],
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "tokens",
+      "description": "/v1: personal access tokens"
+    },
+    {
+      "name": "teams",
+      "description": "/v1: teams and team membership"
+    },
+    {
+      "name": "projects",
+      "description": "/v1: projects within a team"
+    },
+    {
+      "name": "deployments",
+      "description": "/v1: deployments within a project"
+    },
+    {
+      "name": "deploy_keys",
+      "description": "/v1: per-deployment and preview deploy keys"
+    },
+    {
+      "name": "env_vars",
+      "description": "/v1: project-level default environment variables"
+    },
+    {
+      "name": "deployment_internal",
+      "description": "/api: load-bearing CLI / big_brain_client endpoints"
+    },
+    {
+      "name": "dashboard",
+      "description": "/api/dashboard: private dashboard API"
+    },
+    {
+      "name": "dashboard_stubs",
+      "description": "/api/dashboard: stubbed Cloud-only endpoints (Orb, WorkOS, Vercel, Discord, cloud backups, usage analytics)"
+    },
+    {
+      "name": "internal",
+      "description": "/api/internal: service-key-gated endpoints used only by dashboard-orchestrator"
+    }
+  ]
+}

@@ -1,0 +1,266 @@
+// HTTP client for the convex-orchestrator API surface. Mirrors the route
+// shapes the orchestrator (`crates/orchestrator`) exposes:
+//
+//   POST /api/authorize                     - login
+//   GET  /api/dashboard/profile             - current member
+//   GET  /api/dashboard/teams               - teams
+//   POST /api/dashboard/teams               - create team
+//   GET  /api/dashboard/teams/{id}/projects - projects in team
+//   POST /api/create_project                - create project
+//   GET  /v1/projects/{id}/list_deployments - deployments
+//   POST /v1/projects/{id}/create_deployment- provision deployment
+//   POST /api/dashboard/instances/{name}/auth - mint deployment admin key
+
+import { z } from "zod";
+
+// ---------- Schemas ----------
+
+export const memberSchema = z.object({
+  id: z.number(),
+  email: z.string(),
+  name: z.string().nullable(),
+});
+export type Member = z.infer<typeof memberSchema>;
+
+export const teamSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  slug: z.string(),
+  creator: z.number().nullable().optional(),
+});
+export type Team = z.infer<typeof teamSchema>;
+
+export const projectSchema = z.object({
+  id: z.number(),
+  teamId: z.number(),
+  name: z.string(),
+  slug: z.string(),
+  isDemo: z.boolean(),
+  creationTime: z.number(),
+});
+export type Project = z.infer<typeof projectSchema>;
+
+export const deploymentSchema = z.object({
+  id: z.number(),
+  projectId: z.number(),
+  name: z.string(),
+  kind: z.string().optional(),
+  deploymentType: z.string().optional(),
+  deploymentClass: z.string().optional(),
+  url: z.string(),
+  siteUrl: z.string(),
+  state: z.string(),
+  creationTime: z.number(),
+  region: z.string().nullable().optional(),
+  previewIdentifier: z.string().nullable().optional(),
+});
+export type Deployment = z.infer<typeof deploymentSchema>;
+
+// ---------- Errors ----------
+
+export class OrchestratorApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+// ---------- Internals ----------
+
+async function request<T>(
+  baseUrl: string,
+  path: string,
+  init: RequestInit & { auth?: boolean; token?: string | null } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...((init.headers as Record<string, string>) ?? {}),
+  };
+  const useAuth = init.auth !== false;
+  if (useAuth && init.token) {
+    headers.Authorization = `Bearer ${init.token}`;
+  }
+  const url = `${baseUrl.replace(/\/$/, "")}${path}`;
+  const res = await fetch(url, { ...init, headers });
+  if (!res.ok) {
+    let message = res.statusText;
+    let code: string | undefined;
+    try {
+      const body = (await res.json()) as { code?: string; message?: string };
+      message = body.message ?? message;
+      code = body.code;
+    } catch {
+      /* ignore */
+    }
+    throw new OrchestratorApiError(res.status, message, code);
+  }
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+// ---------- Public API ----------
+
+export type AuthorizeResponse = {
+  accessToken: string;
+  memberId: number;
+};
+
+export async function authorizeWithBootstrapToken(
+  baseUrl: string,
+  bootstrapToken: string,
+  deviceName = "dashboard-orchestrator",
+): Promise<AuthorizeResponse> {
+  return request<AuthorizeResponse>(baseUrl, "/api/authorize", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ deviceName, bootstrapToken }),
+  });
+}
+
+export async function authorizeWithPassword(
+  baseUrl: string,
+  email: string,
+  password: string,
+  deviceName = "dashboard-orchestrator",
+): Promise<AuthorizeResponse> {
+  return request<AuthorizeResponse>(baseUrl, "/api/authorize", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ deviceName, email, password }),
+  });
+}
+
+export async function getProfile(
+  baseUrl: string,
+  token: string,
+): Promise<Member> {
+  return memberSchema.parse(
+    await request<unknown>(baseUrl, "/api/dashboard/profile", { token }),
+  );
+}
+
+export async function listTeams(
+  baseUrl: string,
+  token: string,
+): Promise<Team[]> {
+  const data = await request<unknown>(baseUrl, "/api/dashboard/teams", {
+    token,
+  });
+  return z.array(teamSchema).parse(data);
+}
+
+export async function createTeam(
+  baseUrl: string,
+  token: string,
+  name: string,
+): Promise<Team> {
+  const data = await request<unknown>(baseUrl, "/api/dashboard/teams", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ name }),
+  });
+  return teamSchema.parse(data);
+}
+
+export async function listProjects(
+  baseUrl: string,
+  token: string,
+  teamId: number,
+): Promise<Project[]> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/api/dashboard/teams/${teamId}/projects`,
+    { token },
+  );
+  return z.array(projectSchema).parse(data);
+}
+
+export type CreateProjectResponse = {
+  projectId: number;
+  projectSlug: string;
+  teamSlug: string;
+  deploymentName: string | null;
+  url: string | null;
+  adminKey: string | null;
+};
+
+export async function createProject(
+  baseUrl: string,
+  token: string,
+  teamSlug: string,
+  projectName: string,
+  deploymentType: "prod" | "dev" | null = "prod",
+): Promise<CreateProjectResponse> {
+  return request<CreateProjectResponse>(baseUrl, "/api/create_project", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ team: teamSlug, projectName, deploymentType }),
+  });
+}
+
+export async function listDeployments(
+  baseUrl: string,
+  token: string,
+  projectId: number,
+): Promise<Deployment[]> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/v1/projects/${projectId}/list_deployments`,
+    { token },
+  );
+  return z.array(deploymentSchema).parse(data);
+}
+
+// Team-level listing — single round trip for the deployments tab on the
+// team home page. Backed by GET /v1/teams/{team_id}/list_deployments.
+export async function listDeploymentsForTeam(
+  baseUrl: string,
+  token: string,
+  teamId: number,
+): Promise<Deployment[]> {
+  const data = await request<{ deployments: unknown[] }>(
+    baseUrl,
+    `/v1/teams/${teamId}/list_deployments`,
+    { token },
+  );
+  return z.array(deploymentSchema).parse(data.deployments ?? data);
+}
+
+export async function createDeployment(
+  baseUrl: string,
+  token: string,
+  projectId: number,
+  kind: "prod" | "dev" | "preview",
+): Promise<Deployment> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/v1/projects/${projectId}/create_deployment`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ kind }),
+    },
+  );
+  return deploymentSchema.parse(data);
+}
+
+export type DeploymentAuth = {
+  adminKey: string;
+  url: string;
+};
+
+export async function fetchDeploymentAuth(
+  baseUrl: string,
+  token: string,
+  deploymentName: string,
+): Promise<DeploymentAuth> {
+  return request<DeploymentAuth>(
+    baseUrl,
+    `/api/dashboard/instances/${deploymentName}/auth`,
+    { method: "POST", token },
+  );
+}

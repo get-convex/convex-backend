@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1-labs
+# Builds dashboard-orchestrator (the platform UI: login, teams, projects,
+# deployments, deploy keys). Mirrors Dockerfile.dashboard structure but
+# targets the dashboard-orchestrator package and exposes :6793.
+
+FROM ubuntu:noble AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates build-essential
+
+# Install Node.js from the version pinned in .nvmrc.
+COPY .nvmrc /nvmrc
+RUN <<EOF
+RAW=$(sed -E 's/[^0-9.]//g' /nvmrc)
+NODE_MAJOR=$(echo "${RAW}" | cut -d. -f1)
+curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash -
+apt-get install -y --no-install-recommends nodejs="${RAW}-1nodesource1"
+EOF
+
+RUN --mount=type=cache,target=/root/.npm npm install -g @microsoft/rush@5
+WORKDIR /app
+COPY ./npm-packages ./npm-packages
+WORKDIR /app/npm-packages/dashboard-orchestrator
+# `rush update` instead of `rush install` so the build doesn't fail on a
+# stale lock file when we add new deps (e.g. @headlessui/react) — the host
+# regenerates better, but this lets the Docker build self-bootstrap when the
+# host's `rush update` has Windows-specific bin-link issues.
+RUN rush update
+ENV NODE_ENV=production
+# Build-time public env var pinning. Runtime overrides (NEXT_PUBLIC_*) only
+# work for vars read inside `getServerSideProps`/runtime API routes; the
+# values inlined into the client bundle are baked here.
+ARG NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=http://localhost:8050
+ARG NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=http://localhost:6791
+ENV NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=${NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL}
+ENV NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=${NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL}
+RUN rush build -t dashboard-orchestrator
+RUN rush-pnpm deploy --legacy --filter=dashboard-orchestrator --prod /tmp/deploy
+
+FROM ubuntu:noble
+
+COPY .nvmrc /nvmrc
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+RUN <<EOF
+RAW=$(sed -E 's/[^0-9.]//g' /nvmrc)
+NODE_MAJOR=$(echo "${RAW}" | cut -d. -f1)
+curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash -
+apt-get install -y --no-install-recommends nodejs="${RAW}-1nodesource1"
+EOF
+
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 --gid nodejs nextjs
+COPY --from=build --chown=nextjs:nodejs /tmp/deploy/ /app/
+WORKDIR /app
+RUN cp /app/.next/standalone/server.js .
+USER nextjs
+EXPOSE 6793
+ENV PORT=6793
+ENV HOSTNAME=0.0.0.0
+CMD ["node", "./server.js"]

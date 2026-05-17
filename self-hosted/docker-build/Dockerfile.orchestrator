@@ -1,0 +1,89 @@
+# syntax=docker/dockerfile:1-labs
+# Builds the convex-orchestrator binary — the BigBrain replacement that runs
+# at :8050 and owns the platform DB (teams, projects, deployments, deploy
+# keys). Mirrors Dockerfile.backend layout: cargo-chef recipe stage → build
+# stage → ubuntu:noble runtime.
+
+ARG VERGEN_GIT_SHA
+ARG VERGEN_GIT_COMMIT_TIMESTAMP
+
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+WORKDIR /tmp
+COPY rust-toolchain .
+RUN rustup self update && rustup toolchain install
+COPY --parents crates* Cargo* ./
+RUN cargo chef prepare --recipe-path recipe.json --bin convex-orchestrator
+
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN <<EOF
+printf 'APT::Acquire::Retries "10";\n' > /etc/apt/apt.conf.d/80retries
+printf 'APT::Get::Assume-Yes "true";\n' > /etc/apt/apt.conf.d/90forceyes
+printf 'DPkg::Lock::Timeout "30";\n' > /etc/apt/apt.conf.d/85timeout
+echo 'DEBIAN_FRONTEND=noninteractive' > /etc/environment
+apt-get update
+apt-get install -y --no-install-recommends cmake libclang-dev libstdc++6 libc6
+EOF
+
+WORKDIR /
+
+COPY rust-toolchain /rust-toolchain
+RUN rustup self update && rustup toolchain install && cargo search -q convex
+
+WORKDIR /convex
+COPY --from=chef /tmp/recipe.json recipe.json
+RUN --mount=type=cache,target=/convex/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
+    cargo chef cook --release --recipe-path recipe.json
+
+# Copy the rest of the workspace and build the orchestrator binary.
+COPY . .
+
+ARG VERGEN_GIT_SHA
+ARG VERGEN_GIT_COMMIT_TIMESTAMP
+ENV VERGEN_GIT_SHA=${VERGEN_GIT_SHA}
+ENV VERGEN_GIT_COMMIT_TIMESTAMP=${VERGEN_GIT_COMMIT_TIMESTAMP}
+RUN --mount=type=cache,target=/convex/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
+# Fail-fast: without set -e, a `cargo build` error doesn't abort the
+# heredoc and `cp` happily copies the chef-cook stub binary, producing a
+# broken image that exits silently at runtime.
+set -e
+# COPY . . above can leave .rs files with mtimes older than the target/
+# artifacts produced by chef cook. Touch every source file so cargo's
+# incremental build correctly recompiles against real sources instead of
+# reusing the stub binaries.
+find crates -type f \( -name '*.rs' -o -name 'Cargo.toml' \) -exec touch {} +
+cargo build --release -p orchestrator --bin convex-orchestrator
+cp target/release/convex-orchestrator .
+EOF
+ARG debug
+RUN if [[ -z "$debug" ]]; then strip ./convex-orchestrator; fi
+
+FROM ubuntu:noble
+ARG VERGEN_GIT_SHA
+LABEL org.opencontainers.repository=https://github.com/get-convex/convex-backend
+LABEL org.opencontainers.image.revision=${VERGEN_GIT_SHA}
+
+WORKDIR /convex
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOF
+apt-get update
+# `docker.io` provides the docker CLI used by the docker provisioner mode
+# (talks to /var/run/docker.sock mounted from the host). Pulls in
+# containerd-deps but no daemon — the orchestrator never runs the daemon.
+apt-get install -y --no-install-recommends ca-certificates curl libstdc++6 libc6 docker.io
+EOF
+
+COPY --from=build --chmod=744 /convex/convex-orchestrator .
+
+# Volume for the data_root dir (used by the process-mode provisioner; the
+# external-mode provisioner doesn't need it but mounting an empty volume is
+# harmless).
+VOLUME /convex/data
+
+EXPOSE 8050
+ENTRYPOINT ["/convex/convex-orchestrator"]
