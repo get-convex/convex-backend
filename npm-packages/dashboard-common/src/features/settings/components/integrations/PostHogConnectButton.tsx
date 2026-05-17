@@ -5,6 +5,7 @@ import {
   connectPostHog,
   PostHogProject,
 } from "@common/features/settings/lib/posthogOAuth";
+import { PostHogLogo } from "@common/lib/logos/PostHogLogo";
 import { toast } from "@common/lib/utils";
 
 // Shown on both cloud and self-hosted Convex dashboards. The flow targets
@@ -18,17 +19,21 @@ export function PostHogConnectButton({
 }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [projects, setProjects] = useState<PostHogProject[] | null>(null);
+  const [selectedProject, setSelectedProject] = useState<PostHogProject | null>(
+    null,
+  );
 
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
       const found = await connectPostHog();
+      setProjects(found);
       if (found.length === 1) {
+        setSelectedProject(found[0]);
         onSelectProject(found[0]);
         toast("success", `Loaded project "${found[0].name}" from PostHog`);
-        setProjects(null);
       } else {
-        setProjects(found);
+        setSelectedProject(null);
       }
     } catch (e: unknown) {
       const message =
@@ -39,44 +44,33 @@ export function PostHogConnectButton({
     }
   };
 
-  if (projects && projects.length > 1) {
-    return (
-      <div className="flex items-end gap-2">
-        <Combobox<PostHogProject>
-          label="PostHog project"
-          labelHidden={false}
-          placeholder="Select a PostHog project"
-          options={projects.map((p) => ({ label: p.name, value: p }))}
-          selectedOption={null}
-          setSelectedOption={(p) => {
-            if (p) {
-              onSelectProject(p);
-              setProjects(null);
-              toast("success", `Loaded project "${p.name}" from PostHog`);
-            }
-          }}
-        />
-        <Button
-          variant="neutral"
-          type="button"
-          onClick={() => setProjects(null)}
-        >
-          Cancel
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div>
+    <div className="flex items-center gap-2">
       <Button
         variant="neutral"
         type="button"
         onClick={handleConnect}
         loading={isConnecting}
+        icon={<PostHogLogo size={16} />}
       >
-        Connect with PostHog
+        {projects ? "Reconnect to PostHog" : "Connect with PostHog"}
       </Button>
+      {projects && projects.length > 1 && (
+        <Combobox<PostHogProject>
+          label="PostHog project"
+          labelHidden
+          placeholder="Select a PostHog project"
+          options={projects.map((p) => ({ label: p.name, value: p }))}
+          selectedOption={selectedProject}
+          setSelectedOption={(p) => {
+            if (p) {
+              setSelectedProject(p);
+              onSelectProject(p);
+              toast("success", `Loaded project "${p.name}" from PostHog`);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
