@@ -9,8 +9,9 @@ module.exports = {
   },
   plugins: [],
   overrides: [
+    // Next.js requires default exports for pages and API routes.
     {
-      files: ["src/pages/**/*.tsx"],
+      files: ["src/pages/**/*.tsx", "src/pages/api/**/*.ts"],
       rules: {
         "import/no-default-export": "off",
       },
