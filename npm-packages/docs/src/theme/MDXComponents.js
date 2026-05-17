@@ -17,6 +17,7 @@ import BetaContactUsAdmonition from "@site/docs/_betaContactUsAdmonition.mdx";
 import ProFeatureUpsell from "@site/docs/_proFeatureUpsell.mdx";
 import { CodeWithCopyButton } from "../CodeWithCopyButton";
 import { ErrorExample } from "../ErrorExample";
+import { Screenshot } from "../components/Screenshot";
 
 export default {
   // Re-use the default set of tags/components
@@ -35,6 +36,7 @@ export default {
   StepByStep,
   Step,
   Snippet,
+  Screenshot,
   TourGuide,
   TourStep,
 };
