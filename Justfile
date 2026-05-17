@@ -19,10 +19,12 @@ _default:
 set positional-arguments
 
 # (*) Run the open source convex backend on port 3210
+# The first instance-name/secret path matches the layout in the upstream Convex monorepo
+# where keybroker/ is a sibling directory; the fallback is the OSS layout at crates/keybroker/.
 run-local-backend *ARGS:
   cargo run -p local_backend --bin convex-local-backend -- \
-    --instance-name "$(cat {{justfile_directory()}}/../keybroker/dev/instance_name.txt)" \
-    --instance-secret "$(cat {{justfile_directory()}}/../keybroker/dev/secret.txt)" \
+    --instance-name "$(cat {{justfile_directory()}}/../keybroker/dev/instance_name.txt 2>/dev/null || cat {{justfile_directory()}}/crates/keybroker/dev/instance_name.txt)" \
+    --instance-secret "$(cat {{justfile_directory()}}/../keybroker/dev/secret.txt 2>/dev/null || cat {{justfile_directory()}}/crates/keybroker/dev/secret.txt)" \
     "$@"
 
 run-dashboard *ARGS:
