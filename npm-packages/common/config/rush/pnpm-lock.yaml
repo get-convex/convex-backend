@@ -397,7 +397,7 @@ importers:
     devDependencies:
       '@convex-dev/auth':
         specifier: ^0.0.91
-        version: 0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)
+        version: 0.0.91(@auth/core@0.37.4(nodemailer@6.9.16))(convex@..+convex)(react@18.3.1)
       '@convex-dev/eslint-plugin':
         specifier: workspace:*
         version: link:../eslint-plugin
@@ -1508,6 +1508,9 @@ importers:
       next-themes:
         specifier: ~0.4.0
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      nodemailer:
+        specifier: ~6.9.0
+        version: 6.9.16
       pg:
         specifier: ~8.13.0
         version: 8.13.3
@@ -5675,7 +5678,7 @@ importers:
     dependencies:
       '@convex-dev/auth':
         specifier: ^0.0.91
-        version: 0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)
+        version: 0.0.91(@auth/core@0.37.4(nodemailer@6.9.16))(convex@..+convex)(react@19.2.4)
       '@convex-dev/workflow':
         specifier: ^0.3.3
         version: 0.3.3(@convex-dev/workpool@0.3.0(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.14)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex))(convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.12.14)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@..+convex)
@@ -22717,6 +22720,10 @@ packages:
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
+  nodemailer@6.9.16:
+    resolution: {integrity: sha512-psAuZdTIRN08HKVd/E8ObdV6NO7NTBY3KsC30F7M4H1OnmLCUNaS56FpYxyb26zWLSyYF9Ozch9KYHhHegsiOQ==}
+    engines: {node: '>=6.0.0'}
+
   noms@0.0.0:
     resolution: {integrity: sha512-lNDU9VJaOPxUmXcLb+HQFeUgQQPtMI24Gt6hgfuMHRJgMRHMF/qZ4HJD3GDru4sSw9IQl2jPjAYnQrdIeLbwow==}
 
@@ -28695,13 +28702,15 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@auth/core@0.37.4':
+  '@auth/core@0.37.4(nodemailer@6.9.16)':
     dependencies:
       '@panva/hkdf': 1.2.1
       jose: 5.10.0
       oauth4webapi: 3.8.4
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
+    optionalDependencies:
+      nodemailer: 6.9.16
 
   '@auth0/auth0-auth-js@1.6.0':
     dependencies:
@@ -31764,9 +31773,9 @@ snapshots:
     dependencies:
       commander: 14.0.3
 
-  '@convex-dev/auth@0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)':
+  '@convex-dev/auth@0.0.91(@auth/core@0.37.4(nodemailer@6.9.16))(convex@..+convex)(react@18.3.1)':
     dependencies:
-      '@auth/core': 0.37.4
+      '@auth/core': 0.37.4(nodemailer@6.9.16)
       '@oslojs/crypto': 1.0.1
       '@oslojs/encoding': 1.1.0
       convex: link:../../convex
@@ -31781,9 +31790,9 @@ snapshots:
     optionalDependencies:
       react: 18.3.1
 
-  '@convex-dev/auth@0.0.91(@auth/core@0.37.4)(convex@..+convex)(react@19.2.4)':
+  '@convex-dev/auth@0.0.91(@auth/core@0.37.4(nodemailer@6.9.16))(convex@..+convex)(react@19.2.4)':
     dependencies:
-      '@auth/core': 0.37.4
+      '@auth/core': 0.37.4(nodemailer@6.9.16)
       '@oslojs/crypto': 1.0.1
       '@oslojs/encoding': 1.1.0
       convex: link:../../convex
@@ -53029,6 +53038,8 @@ snapshots:
       es6-promise: 3.3.1
 
   node-releases@2.0.27: {}
+
+  nodemailer@6.9.16: {}
 
   noms@0.0.0:
     dependencies:
