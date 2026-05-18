@@ -62,22 +62,24 @@ impl DeveloperDocumentId {
     }
 
     pub fn encode_into<'a>(&self, out: &'a mut EncodedDocumentIdBuffer) -> &'a str {
-        let mut buf = [0; MAX_BINARY_LEN];
+        let mut buf = [0; 28];
 
         let mut pos = 0;
 
         pos += vint_encode(self.table().into(), &mut buf[pos..]);
+        let f1 = fletcher16(&buf[..pos]);
 
         buf[pos..(pos + 16)].copy_from_slice(&self.internal_id());
+        let f2 = fletcher16(&self.internal_id());
         pos += 16;
 
-        let footer = fletcher16(&buf[..pos]) ^ VERSION;
+        let footer = fletcher16_combine(f1, f2, 16) ^ VERSION;
         buf[pos..(pos + 2)].copy_from_slice(&footer.to_le_bytes());
         pos += 2;
 
-        base32::encode_into(&mut out.0, &buf[..pos]);
+        base32::encode_into::<true>(&mut out.0, &buf, pos);
 
-        std::str::from_utf8(&out.0[..base32::encoded_len(pos)]).expect("base32 wasn't valid UTF8?")
+        unsafe { std::str::from_utf8_unchecked(&out.0[..base32::encoded_len(pos)]) }
     }
 
     pub fn encode(&self) -> String {
@@ -141,7 +143,7 @@ impl DeveloperDocumentId {
         // TODO: Checking base32 decoding above alone isn't sufficient, see
         // `test_id_decoding_one_to_one` below for a counterexample if we only check
         // that `base32::decode` is one-to-one.
-        if id.encode() != s {
+        if id.encode_into(&mut Default::default()) != s {
             return Err(IdDecodeError::InvalidLength(s.len()));
         }
 
@@ -260,9 +262,21 @@ fn vint_decode(buf: &[u8]) -> Result<(u32, usize), VintDecodeError> {
 fn fletcher16(buf: &[u8]) -> u16 {
     let mut c0 = 0u8;
     let mut c1 = 0u8;
-    for byte in buf {
+    for (i, byte) in buf.iter().enumerate() {
         c0 = c0.wrapping_add(*byte);
-        c1 = c1.wrapping_add(c0);
+        c1 = c1.wrapping_add(byte.wrapping_mul((buf.len() - i) as u8));
     }
     ((c1 as u16) << 8) | (c0 as u16)
+}
+// Combine two fletcher16 checksums:
+// `fletcher16_combine(fletcher16(buf1), fletcher16(buf2), buf2.len())`
+// equals `fletcher16([buf1, buf2].concat())`.
+fn fletcher16_combine(b1: u16, b2: u16, b2len: usize) -> u16 {
+    let [b10, b11] = b1.to_le_bytes();
+    let [b20, b21] = b2.to_le_bytes();
+    u16::from_le_bytes([
+        b10.wrapping_add(b20),
+        b11.wrapping_add(b21)
+            .wrapping_add(b10.wrapping_mul(b2len as u8)),
+    ])
 }
