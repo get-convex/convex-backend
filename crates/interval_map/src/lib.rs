@@ -356,7 +356,7 @@ impl IntervalMap {
     /// Time complexity is on average `O((k + 1) log n)` where `k` is the number
     /// of returned intervals and `n` is the total number of intervals stored.
     pub fn query(&self, point: &[u8], mut cb: impl FnMut(SubscriberId)) {
-        self.query_subtree(point, self.root, &mut cb);
+        self.query_subtree(point, self.root, &mut cb, None);
     }
 
     fn query_subtree(
@@ -364,22 +364,22 @@ impl IntervalMap {
         point: &[u8],
         node: Option<NodeKey>,
         cb: &mut impl FnMut(SubscriberId),
+        last_upper_bound: Option<NodeKey>,
     ) {
         let Some(node) = node else {
             return;
         };
-        if self.nodes[self.nodes[node].max_upper_bound]
-            .upper_bound
-            .greater_than(point)
-        {
-            if self.nodes[node].key.as_ref() <= point {
-                self.query_subtree(point, self.nodes[node].child[0], cb);
-                if self.nodes[node].upper_bound.greater_than(point) {
-                    cb(self.nodes[node].subscriber);
+        let me = &self.nodes[node];
+        let mub = me.max_upper_bound;
+        if last_upper_bound == Some(mub) || self.nodes[mub].upper_bound.greater_than(point) {
+            if me.key.as_ref() <= point {
+                self.query_subtree(point, me.child[0], cb, Some(mub));
+                if mub == node || me.upper_bound.greater_than(point) {
+                    cb(me.subscriber);
                 }
-                self.query_subtree(point, self.nodes[node].child[1], cb);
+                self.query_subtree(point, me.child[1], cb, Some(mub));
             } else {
-                self.query_subtree(point, self.nodes[node].child[0], cb);
+                self.query_subtree(point, me.child[0], cb, Some(mub));
             }
         }
     }
