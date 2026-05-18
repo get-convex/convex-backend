@@ -8,7 +8,7 @@ import { auth } from "../../../lib/auth";
 
 const ORCHESTRATOR_URL =
   process.env.CONVEX_ORCHESTRATOR_URL ??
-  process.env.NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL ??
+  process.env.PUBLIC_ORCHESTRATOR_URL ??
   "http://localhost:8050";
 
 const SERVICE_KEY = process.env.CONVEX_ORCHESTRATOR_SERVICE_KEY;

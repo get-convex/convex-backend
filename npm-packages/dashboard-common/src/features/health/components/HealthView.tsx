@@ -84,7 +84,6 @@ export function HealthView({
                       teamSlug={teamSlug}
                       projectSlug={projectSlug}
                       lastBackupTime={lastBackupTime}
-                      canViewBackups={canViewBackups}
                       teamMembers={teamMembers}
                       regions={regions}
                     />

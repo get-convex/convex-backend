@@ -117,14 +117,12 @@ BOOTSTRAP_TOKEN='<random-hex>'
 SERVICE_KEY='<random-hex>'
 BETTER_AUTH_SECRET='<random-hex>'
 
-# Public URLs the browser uses. The dashboard-orchestrator image's
-# startup script (start.sh) rewrites the baked client bundle to match
-# PUBLIC_ORCHESTRATOR_URL / PUBLIC_SELF_HOSTED_DASHBOARD_URL, so no
-# rebuild is needed.
+# Public URLs the browser uses. The dashboard server reads these at
+# request time and injects them into the page via _document.tsx, so the
+# pre-built image runs unchanged on any host.
 PUBLIC_ORIGIN='https://convex.my-domain.com'
 PUBLIC_DASHBOARD_URL='https://convex.my-domain.com'
 PUBLIC_ORCHESTRATOR_URL='https://api.convex.my-domain.com'
-PUBLIC_SELF_HOSTED_DASHBOARD_URL='https://embed.convex.my-domain.com'
 
 # Spawned-deployment subdomains. Points at the wildcard record above.
 ROUTER_HOST='convex.my-domain.com'
@@ -155,8 +153,7 @@ first start).
 | `BETTER_AUTH_SECRET`                                                                                                 | `better-auth-secret-change-me`                                                     | Session signing key for the dashboard auth.                                                                                           |
 | `PUBLIC_ORIGIN`                                                                                                      | `http://localhost`                                                                 | Stamped into URLs the orchestrator returns to clients.                                                                                |
 | `PUBLIC_DASHBOARD_URL`                                                                                               | `http://localhost:6793`                                                            | Browser URL of the platform UI; also `BETTER_AUTH_URL` and the inner dashboard's `TRUSTED_PARENT_ORIGINS`.                            |
-| `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-side URL for the orchestrator API. Applied at container startup; no rebuild needed.                                           |
-| `PUBLIC_SELF_HOSTED_DASHBOARD_URL`                                                                                   | `http://localhost:6791`                                                            | Browser-side URL for the per-deployment dashboard iframe. Applied at container startup; no rebuild needed.                            |
+| `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-facing orchestrator URL. Read by the dashboard server at request time and injected into the page; no image rebuild required.  |
 | `ROUTER_HOST`                                                                                                        | `localhost`                                                                        | Suffix host for spawned-deployment subdomains.                                                                                        |
 | `ROUTER_PUBLIC_PORT`                                                                                                 | `${ROUTER_PORT}`                                                                   | Public port for the router (set to `443` behind TLS).                                                                                 |
 | `ORCHESTRATOR_PORT` / `ROUTER_PORT` / `DASHBOARD_ORCHESTRATOR_PORT` / `DASHBOARD_SELF_HOSTED_PORT` / `POSTGRES_PORT` | `8050` / `9000` / `6793` / `6791` / `5433`                                         | Host port bindings.                                                                                                                   |
@@ -259,9 +256,7 @@ to dump a spec compatible with the dashboard's
 
 ```sh
 cd npm-packages/dashboard-orchestrator
-NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=http://localhost:8050 \
-NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=http://localhost:6791 \
-  npm run dev
+PUBLIC_ORCHESTRATOR_URL=http://localhost:8050 npm run dev
 ```
 
 Open `http://localhost:6792`. Sign in using the `--bootstrap-token` value you
