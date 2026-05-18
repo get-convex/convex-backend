@@ -41,9 +41,12 @@ ENV NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=${NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL}
 ENV NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=${NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL}
 RUN rush build -t dashboard-orchestrator
 
-# Stage the runtime tree at /opt/runtime. Handles both flat
-# (.next/standalone/server.js) and nested-monorepo
-# (.next/standalone/npm-packages/dashboard-orchestrator/server.js) layouts.
+# Stage the entire standalone tree at /opt/runtime. In a Next.js monorepo
+# standalone build, the traced node_modules sits at .next/standalone/ (the
+# root) while server.js lands under .next/standalone/<workspace-rel-path>/.
+# Copying only the server.js subdir misses node_modules → "Cannot find
+# module 'next'" at runtime. We copy the whole tree and record the
+# subpath so the runtime entrypoint can `cd` into it.
 WORKDIR /app/npm-packages/dashboard-orchestrator
 RUN <<EOF
 set -e
@@ -52,22 +55,29 @@ if [ ! -d .next/standalone ]; then
   ls -la .next 2>/dev/null || echo "  (no .next directory either)"
   exit 1
 fi
-SERVER=$(find .next/standalone -name server.js | head -1)
+mkdir -p /opt/runtime
+cp -a .next/standalone/. /opt/runtime/
+# Locate server.js (excluding any nested node_modules copies).
+SERVER=$(find /opt/runtime -name server.js -not -path '*/node_modules/*' | head -1)
 if [ -z "$SERVER" ]; then
-  echo "FATAL: .next/standalone exists but contains no server.js"
-  find .next/standalone -maxdepth 4 -print | head -50
+  echo "FATAL: standalone tree has no server.js"
+  find /opt/runtime -maxdepth 4 -print | head -50
   exit 1
 fi
-SRCDIR=$(dirname "$SERVER")
-mkdir -p /opt/runtime
-# Standalone tree (traced node_modules + server.js).
-cp -a "$SRCDIR/." /opt/runtime/
-# Static and public assets sit alongside server.js in the standalone runtime.
-mkdir -p /opt/runtime/.next
-cp -a .next/static /opt/runtime/.next/static
+APPDIR=$(dirname "$SERVER")
+# Static + public assets live alongside server.js in the standalone
+# runtime. Put them next to wherever server.js actually landed.
+mkdir -p "$APPDIR/.next"
+cp -a .next/static "$APPDIR/.next/static"
 if [ -d public ]; then
-  cp -a public /opt/runtime/public
+  cp -a public "$APPDIR/public"
 fi
+# Record the runtime app subdir (relative to /opt/runtime). Empty string
+# means "flat" layout; otherwise something like
+# "npm-packages/dashboard-orchestrator".
+REL=${APPDIR#/opt/runtime}
+REL=${REL#/}
+printf '%s' "$REL" > /opt/runtime/.appdir
 EOF
 
 FROM ubuntu:noble
@@ -89,4 +99,8 @@ USER nextjs
 EXPOSE 6793
 ENV PORT=6793
 ENV HOSTNAME=0.0.0.0
-CMD ["node", "./server.js"]
+# /app/.appdir is "" (flat layout) or the workspace-relative path to the
+# app (nested monorepo layout). Either way the standalone root is /app
+# and Node's module resolution walks up from the app dir into /app/
+# node_modules.
+CMD ["sh", "-c", "cd /app/\"$(cat /app/.appdir)\" && exec node server.js"]
