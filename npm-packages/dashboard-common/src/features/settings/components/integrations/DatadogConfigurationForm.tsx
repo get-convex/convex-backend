@@ -74,10 +74,10 @@ export function DatadogConfigurationForm({
     },
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
-      const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
-      const ddTags = values.ddTags.split(",").filter((v) => v !== "");
-
       try {
+        const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
+        const ddTags = values.ddTags.split(",").filter((v) => v !== "");
+
         if (isNewIntegration || isUpgradingToV2) {
           // If upgrading from v1 to v2, delete the old log stream first
           if (isUpgradingToV2 && logStreamId) {

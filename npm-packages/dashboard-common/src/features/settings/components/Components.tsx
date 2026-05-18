@@ -6,22 +6,12 @@ import { Sheet } from "@ui/Sheet";
 import { Nent } from "@common/lib/useNents";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Button } from "@ui/Button";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 
 export function Components({ nents }: { nents: Nent[] }) {
-  const {
-    useCurrentDeployment,
-    useCustomRolePermission,
-    useHasProjectAdminPermissions,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const isAdmin = useHasProjectAdminPermissions(deployment?.projectId);
-  const canWriteDataCustom = useCustomRolePermission(
-    "deployment:data:write",
-    true,
-  );
-  const canDelete = isAdmin || canWriteDataCustom !== false;
-
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canWriteData = useIsOperationAllowed("WriteData");
   const sortedNents = [...nents]
     .filter((nent) => nent.name !== null)
     .sort((a, b) => {
@@ -55,7 +45,7 @@ export function Components({ nents }: { nents: Nent[] }) {
         ) : (
           <div className="my-4 flex flex-col divide-y">
             {sortedNents.map((nent, i) => (
-              <ComponentListItem key={i} nent={nent} canDelete={canDelete} />
+              <ComponentListItem key={i} nent={nent} canDelete={canWriteData} />
             ))}
           </div>
         )}
@@ -107,10 +97,15 @@ function ComponentListItem({
         inline
         className="ml-auto"
         tip={
-          !canDelete
-            ? "You do not have permission to delete components in this deployment."
-            : nent.state === "active" &&
-              "You must unmount your component before it can be deleted."
+          !canDelete ? (
+            <PermissionDeniedTip
+              message="You do not have permission to delete components in this deployment."
+              action="deployment:data:write"
+            />
+          ) : (
+            nent.state === "active" &&
+            "You must unmount your component before it can be deleted."
+          )
         }
         tipSide="left"
         onClick={() => {

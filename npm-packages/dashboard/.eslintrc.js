@@ -51,6 +51,26 @@ module.exports = {
     ],
   },
   rules: {
+    "no-restricted-imports": [
+      2,
+      {
+        paths: [
+          "lodash",
+          {
+            name: "@common/elements/NoPermissionMessage",
+            message:
+              "Use 'elements/NoPermissionMessage' from the dashboard package instead.",
+          },
+        ],
+        patterns: [
+          {
+            group: ["react-day-picker"],
+            importNames: ["Button"],
+            message: "You probably mean to import from @ui/Button.",
+          },
+        ],
+      },
+    ],
     "boundaries/element-types": [
       2,
       {

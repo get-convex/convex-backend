@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { LDMultiKindContext } from "launchdarkly-js-sdk-common";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { createGlobalState } from "react-use";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
@@ -8,7 +8,7 @@ import { useProfile } from "api/profile";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useCurrentDeployment } from "api/deployments";
-import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export const useGlobalLDContext = createGlobalState<
   LDMultiKindContext | undefined
@@ -70,7 +70,8 @@ export const useLDContext = () => {
 
 export const useLDContextWithDeployment = () => {
   const ctx = useLDContext();
-  const canViewData = useCanViewDeploymentData();
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewData = useIsOperationAllowed("ViewData");
   const serverVersion = useQuery(
     udfs.getVersion.default,
     canViewData ? undefined : "skip",

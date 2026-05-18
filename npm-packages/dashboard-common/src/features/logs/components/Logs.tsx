@@ -52,6 +52,9 @@ export function Logs({
         false,
       );
     },
+    onPermissionDenied: (message: string) => {
+      toast("error", message, "logStreamPermissionDenied", false);
+    },
   });
 
   // Manage state for filter text.

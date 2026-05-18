@@ -3,7 +3,7 @@ import { useState, useContext } from "react";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { Button } from "@ui/Button";
 import { useNents } from "@common/lib/useNents";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { DeleteFileModal } from "./DeleteFileModal";
 
 export function DeleteFilesButton({
@@ -12,24 +12,13 @@ export function DeleteFilesButton({
   selectedFiles: Id<"_storage">[];
 }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canDeleteFiles = useIsOperationAllowed("WriteData");
 
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
     selectedNent && selectedNent.state !== "active"
   );
-  const canDeleteFiles =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
 
   const { length } = selectedFiles;
   if (length === 0) return null;

@@ -4,6 +4,7 @@ import udfs from "@common/udfs";
 import {
   DeploymentInfo,
   DeploymentInfoContext,
+  PermissionsContext,
 } from "@common/lib/deploymentContext";
 import { Link } from "@ui/Link";
 import { Loading } from "@ui/Loading";
@@ -16,6 +17,7 @@ import {
 } from "@radix-ui/react-icons";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
@@ -88,11 +90,17 @@ function getWorkOSNotSupportedReason(
   return undefined;
 }
 
-function useRelevantEnvVars() {
+function useRelevantEnvVars(): {
+  canViewEnv: boolean;
+  workosEnvVars: WorkOSEnvVars | null;
+} {
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canViewEnv = useIsOperationAllowed("ViewEnvironmentVariables");
+
   // Fetch deployment-level environment variables
   const environmentVariables: undefined | Array<EnvironmentVariable> = useQuery(
     udfs.listEnvironmentVariables.default,
-    {},
+    canViewEnv ? {} : "skip",
   );
 
   // Extract WorkOS environment variables
@@ -116,7 +124,7 @@ function useRelevantEnvVars() {
     };
   }, [environmentVariables]);
 
-  return workosEnvVars;
+  return { canViewEnv, workosEnvVars };
 }
 
 function InviteTeamMemberSection({
@@ -728,6 +736,7 @@ function ConsolidatedEnvironmentSection({
   notSupportedReason,
   envVarsLink,
   workosEnvVars,
+  canViewEnv,
   deploymentName,
   deployment,
   canProvisionProduction,
@@ -746,6 +755,7 @@ function ConsolidatedEnvironmentSection({
   notSupportedReason: string | undefined;
   envVarsLink?: string;
   workosEnvVars: WorkOSEnvVars;
+  canViewEnv: boolean;
   deploymentName?: string;
   deployment: ReturnType<DeploymentInfo["useCurrentDeployment"]>;
   canProvisionProduction: boolean;
@@ -1049,6 +1059,20 @@ function ConsolidatedEnvironmentSection({
               </span>
             ) : null}
             {(() => {
+              if (!canViewEnv) {
+                return (
+                  <div className="flex gap-1 text-xs text-content-secondary">
+                    Environment variable status unknown{" "}
+                    <HelpTooltip>
+                      <PermissionDeniedTip
+                        message="You must be able to view environment variables to check environment variable configuration"
+                        action="deployment:env:view"
+                      />
+                    </HelpTooltip>
+                  </div>
+                );
+              }
+
               const changes: EnvVarChange[] = [];
 
               if (clientIdMissing || clientIdMismatch) {
@@ -1450,7 +1474,7 @@ export function WorkOSConfigurationForm() {
   ) as ProjectEnvironment[] | undefined;
   const notSupportedReason = getWorkOSNotSupportedReason(deployment);
 
-  const workosEnvVars = useRelevantEnvVars();
+  const { canViewEnv, workosEnvVars } = useRelevantEnvVars();
 
   const envVarsLink =
     team && project && deployment
@@ -1472,7 +1496,7 @@ export function WorkOSConfigurationForm() {
     );
   }
 
-  if (!workosData || !workosEnvVars) {
+  if (!workosData || (canViewEnv && !workosEnvVars)) {
     return (
       <div className="flex h-32 items-center justify-center">
         <Loading />
@@ -1481,6 +1505,11 @@ export function WorkOSConfigurationForm() {
   }
 
   const { workosTeam, environment } = workosData;
+  const resolvedEnvVars: WorkOSEnvVars = workosEnvVars ?? {
+    clientId: null,
+    environmentId: null,
+    apiKey: null,
+  };
   const hasTeam = workosTeam !== null && workosTeam !== undefined;
   const teamInfo = teamHealthData?.data?.teamProvisioned
     ? teamHealthData.data.teamInfo
@@ -1489,7 +1518,7 @@ export function WorkOSConfigurationForm() {
 
   // Hide everything if there's no team, no environment, and no config
   const showAnySections =
-    hasTeam || environment !== null || workosEnvVars.clientId !== null;
+    hasTeam || environment !== null || resolvedEnvVars.clientId !== null;
 
   if (!showAnySections) {
     // Only show workspace section
@@ -1505,7 +1534,7 @@ export function WorkOSConfigurationForm() {
             teamId={team?.id}
             showCongratulations={showTeamCreatedSuccess}
             onTeamCreated={handleTeamCreated}
-            hasClientIdConfigured={!!workosEnvVars.clientId}
+            hasClientIdConfigured={!!resolvedEnvVars.clientId}
           />
         </div>
         <ModalFooter />
@@ -1527,7 +1556,8 @@ export function WorkOSConfigurationForm() {
           hasTeam={hasTeam}
           notSupportedReason={notSupportedReason}
           envVarsLink={envVarsLink}
-          workosEnvVars={workosEnvVars}
+          workosEnvVars={resolvedEnvVars}
+          canViewEnv={canViewEnv}
           deploymentName={deployment?.name}
           deployment={deployment}
           canProvisionProduction={canProvisionProduction}
@@ -1540,7 +1570,7 @@ export function WorkOSConfigurationForm() {
         <WorkOSProjectEnvironments
           projectId={deployment.projectId}
           deploymentType={deployment?.deploymentType}
-          workosClientId={workosEnvVars.clientId}
+          workosClientId={resolvedEnvVars.clientId}
           hasLinkedWorkspace={!!workosTeam}
         />
       )}
@@ -1557,7 +1587,7 @@ export function WorkOSConfigurationForm() {
           teamId={team?.id}
           showCongratulations={showTeamCreatedSuccess}
           onTeamCreated={handleTeamCreated}
-          hasClientIdConfigured={!!workosEnvVars.clientId}
+          hasClientIdConfigured={!!resolvedEnvVars.clientId}
         />
       </div>
 

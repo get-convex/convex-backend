@@ -4,7 +4,11 @@ import type { FunctionResult as FunctionResultType } from "convex/browser";
 import { useContext, useEffect, useState } from "react";
 import { Value } from "convex/values";
 import { Button } from "@ui/Button";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { toast } from "@common/lib/utils";
 import { RequestFilter } from "@common/lib/appMetrics";
 import { ComponentId } from "@common/lib/useNents";
@@ -17,6 +21,7 @@ import {
   useIsImpersonating,
 } from "@common/features/functionRunner/components/RunHistory";
 import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
+import { RoleStatementAction } from "@convex-dev/platform/managementApi";
 
 // This is a hook because we want to return composable components that can be arranged
 // vertically or horizontally.
@@ -95,14 +100,10 @@ export function useFunctionResult({
     }
   }, [runHistoryItem, setImpersonatedUser, setIsImpersonating]);
 
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-    useCustomRolePermission,
-    permissionDeniedTip,
-    useLogDeploymentEvent,
-  } = useContext(DeploymentInfoContext);
+  const { useCurrentDeployment, useLogDeploymentEvent } = useContext(
+    DeploymentInfoContext,
+  );
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
 
   const deployment = useCurrentDeployment();
   const dtype = deployment?.deploymentType;
@@ -110,56 +111,15 @@ export function useFunctionResult({
 
   const { areEditsAuthorized, authorizeEdits } = useEditsAuthorization();
   const log = useLogDeploymentEvent();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  // Each run guard ANDs the admin-key op with the custom-role permission.
-  // `nonCustomRoleResult` is `true` so built-in admin/developer members
-  // keep their existing behavior; project admins always bypass.
-  const canRunInternalQueriesOp = useIsOperationAllowed("RunInternalQueries");
-  const canRunInternalMutationsOp = useIsOperationAllowed(
-    "RunInternalMutations",
-  );
-  const canRunInternalActionsOp = useIsOperationAllowed("RunInternalActions");
-  const canViewDataOp = useIsOperationAllowed("ViewData");
-  const canWriteDataOp = useIsOperationAllowed("WriteData");
-  const canRunInternalQueriesCustom = useCustomRolePermission(
-    "deployment:functions:runInternalQueries",
-    true,
-  );
-  const canRunInternalMutationsCustom = useCustomRolePermission(
-    "deployment:functions:runInternalMutations",
-    true,
-  );
-  const canRunInternalActionsCustom = useCustomRolePermission(
-    "deployment:functions:runInternalActions",
-    true,
-  );
-  const canViewDataCustom = useCustomRolePermission(
-    "deployment:data:view",
-    true,
-  );
-  const canWriteDataCustom = useCustomRolePermission(
-    "deployment:data:write",
-    true,
-  );
-  const canRunInternalQueries =
-    canRunInternalQueriesOp &&
-    (hasAdminPermissions || canRunInternalQueriesCustom !== false);
-  const canRunInternalMutations =
-    canRunInternalMutationsOp &&
-    (hasAdminPermissions || canRunInternalMutationsCustom !== false);
-  const canRunInternalActions =
-    canRunInternalActionsOp &&
-    (hasAdminPermissions || canRunInternalActionsCustom !== false);
-  const canViewData =
-    canViewDataOp && (hasAdminPermissions || canViewDataCustom !== false);
-  const canWriteData =
-    canWriteDataOp && (hasAdminPermissions || canWriteDataCustom !== false);
+  const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
+  const canRunInternalMutations = useIsOperationAllowed("RunInternalMutations");
+  const canRunInternalActions = useIsOperationAllowed("RunInternalActions");
+  const canViewData = useIsOperationAllowed("ViewData");
+  const canWriteData = useIsOperationAllowed("WriteData");
 
   const isInternal = visibility?.kind === "internal";
 
-  const canRunOp = (() => {
+  const canRunFunction = (() => {
     if (isInternal) {
       // Internal functions require explicit RunInternal* permissions
       return udfType === "Query"
@@ -176,16 +136,9 @@ export function useFunctionResult({
     return true;
   })();
 
-  const canRunFunction =
-    (udfType === "Query" ||
-      deployment?.deploymentType !== "prod" ||
-      hasAdminPermissions) &&
-    canRunOp;
-
   // The specific role action that would unblock this Run button — used
   // by the disabled-state tooltip so custom-role members see exactly
-  // which grant is missing. `null` for the cases (top-level public
-  // functions, etc.) where the action isn't a custom-role check.
+  // which grant is missing.
   const missingRunAction = (() => {
     if (isInternal) {
       if (udfType === "Query") return "deployment:functions:runInternalQueries";
@@ -255,19 +208,21 @@ export function useFunctionResult({
       <div className={classNames("flex items-center gap-2 mx-4")}>
         <Button
           tip={
-            disabled
-              ? "Fix the errors above to continue."
-              : !canRunFunction
-                ? missingRunAction
-                  ? permissionDeniedTip(
-                      "You do not have permission to run this function in this deployment.",
-                      missingRunAction,
-                    )
-                  : "You do not have permission to run this function in this deployment."
-                : !areEditsAuthorized
-                  ? // TODO(ENG-10340) Edit this message to use the deployment ref
-                    `You are about to run a ${udfType.toLowerCase()} in a ${`${dtype ?? ""} deployment`.trim()}. Unlock edits to continue.`
-                  : undefined
+            disabled ? (
+              "Fix the errors above to continue."
+            ) : !canRunFunction ? (
+              missingRunAction ? (
+                <PermissionDeniedTip
+                  message="You do not have permission to run this function in this deployment."
+                  action={missingRunAction as RoleStatementAction}
+                />
+              ) : (
+                "You do not have permission to run this function in this deployment."
+              )
+            ) : !areEditsAuthorized ? (
+              // TODO(ENG-10340) Edit this message to use the deployment ref
+              `You are about to run a ${udfType.toLowerCase()} in a ${`${dtype ?? ""} deployment`.trim()}. Unlock edits to continue.`
+            ) : undefined
           }
           size="sm"
           className="w-full max-w-[48rem] items-center justify-center"

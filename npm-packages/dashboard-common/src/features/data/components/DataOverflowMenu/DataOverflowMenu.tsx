@@ -7,10 +7,11 @@ import {
   CubeIcon,
 } from "@radix-ui/react-icons";
 import { useContext } from "react";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { Menu, MenuItem } from "@ui/Menu";
 import { TableSchemaStatus } from "@common/features/data/components/TableSchema";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 
 export function DataOverflowMenu({
   tableSchemaStatus,
@@ -44,20 +45,9 @@ export function DataOverflowMenu({
     tableSchemaStatus?.isValidationRunning &&
     tableSchemaStatus?.isDefinedInInProgressSchema;
 
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
 
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-  const canManageTable =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const canManageTable = useIsOperationAllowed("WriteData");
   return (
     <Menu
       placement="bottom-start"
@@ -86,13 +76,16 @@ export function DataOverflowMenu({
       </MenuItem>
       <MenuItem
         tip={
-          isInUnmountedComponent
-            ? "Cannot clear tables in an unmounted component."
-            : numRows === 0
-              ? "There are no documents to delete."
-              : !canManageTable
-                ? "You do not have permission to clear tables in this deployment."
-                : undefined
+          isInUnmountedComponent ? (
+            "Cannot clear tables in an unmounted component."
+          ) : numRows === 0 ? (
+            "There are no documents to delete."
+          ) : !canManageTable ? (
+            <PermissionDeniedTip
+              message="You do not have permission to clear tables in this deployment."
+              action="deployment:data:write"
+            />
+          ) : undefined
         }
         tipSide="left"
         variant="danger"
@@ -111,7 +104,10 @@ export function DataOverflowMenu({
           ) : isInInProgressSchema ? (
             "Cannot delete table while schema validation is in progress."
           ) : !canManageTable ? (
-            "You do not have permission to delete tables in this deployment."
+            <PermissionDeniedTip
+              message="You do not have permission to delete tables in this deployment."
+              action="deployment:data:write"
+            />
           ) : undefined
         }
         tipSide="left"

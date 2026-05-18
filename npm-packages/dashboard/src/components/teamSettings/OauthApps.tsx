@@ -7,7 +7,7 @@ import {
   useIsCurrentMemberTeamAdmin,
 } from "api/roles";
 import { OauthAppResponse } from "generatedApi";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { OAUTH_APPLICATION_RESOURCE } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import {

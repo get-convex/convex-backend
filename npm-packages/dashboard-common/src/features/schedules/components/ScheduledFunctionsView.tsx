@@ -1,13 +1,13 @@
 import { useContext } from "react";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { SchedulingLayout } from "@common/layouts/SchedulingLayout";
 import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
 import { ScheduledFunctionsContent } from "@common/features/schedules/components/ScheduledFunctionsContent";
 
 export function ScheduledFunctionsView() {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewData = useIsOperationAllowed("ViewData");
   const currentOpenFunction = useCurrentOpenFunction();
 
@@ -15,7 +15,10 @@ export function ScheduledFunctionsView() {
     return (
       <>
         <DeploymentPageTitle title="Scheduled Functions" />
-        <NoPermissionMessage message="You do not have permission to view scheduled functions in this deployment." />
+        <NoPermissionMessage
+          message="You do not have permission to view scheduled functions in this deployment."
+          missingPermission="deployment:data:view"
+        />
       </>
     );
   }

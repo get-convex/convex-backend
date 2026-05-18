@@ -17,7 +17,7 @@ import { useRouter } from "next/router";
 import { useHasCustomRolePermission } from "api/roles";
 import { useProfile } from "api/profile";
 import { teamTokenResource } from "lib/permissions";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 
 export function ApplicationsLayout({ team }: { team: TeamResponse }) {
   const router = useRouter();

@@ -4,36 +4,10 @@ import { Link } from "@ui/Link";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { LockClosedIcon } from "@radix-ui/react-icons";
-import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
 import { useMyCustomRoles } from "api/roles";
 import { useCurrentTeam } from "api/teams";
 import { useSupportFormOpen } from "elements/SupportWidget";
-
-// TODO(ari): Remove this mapping once we migrate DeploymentOps to use the new format.
-const DEPLOYMENT_OP_TO_ACTION: Record<string, RoleStatementAction> = {
-  Deploy: "deployment:deploy",
-  PauseDeployment: "deployment:pause",
-  UnpauseDeployment: "deployment:unpause",
-  ViewEnvironmentVariables: "deployment:env:view",
-  WriteEnvironmentVariables: "deployment:env:write",
-  ViewData: "deployment:data:view",
-  WriteData: "deployment:data:write",
-  RunInternalQueries: "deployment:functions:runInternalQueries",
-  RunInternalMutations: "deployment:functions:runInternalMutations",
-  RunInternalActions: "deployment:functions:runInternalActions",
-  RunTestQuery: "deployment:functions:runTestQuery",
-  ActAsUser: "deployment:functions:actAsUser",
-  ViewBackups: "deployment:backups:view",
-  CreateBackups: "deployment:backups:create",
-  DownloadBackups: "deployment:backups:download",
-  DeleteBackups: "deployment:backups:delete",
-  ImportBackups: "deployment:backups:import",
-  ViewLogs: "deployment:logs:view",
-  ViewMetrics: "deployment:metrics:view",
-  ViewAuditLog: "deployment:auditLog:view",
-  ViewIntegrations: "deployment:integrations:view",
-  WriteIntegrations: "deployment:integrations:write",
-};
+import { DEPLOYMENT_OP_TO_ACTION } from "lib/permissions";
 
 export default function Custom500() {
   return <Fallback eventId={null} error={new Error("Internal Server Error")} />;
@@ -80,7 +54,9 @@ export function Fallback({
     // raw value so action strings already in the role format pass
     // through unchanged.
     const missingAction = rawOperation
-      ? (DEPLOYMENT_OP_TO_ACTION[rawOperation] ?? rawOperation)
+      ? (DEPLOYMENT_OP_TO_ACTION[
+          rawOperation as keyof typeof DEPLOYMENT_OP_TO_ACTION
+        ] ?? rawOperation)
       : undefined;
     return <PermissionDeniedFallback missingAction={missingAction} />;
   }

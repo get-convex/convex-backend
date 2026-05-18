@@ -68,9 +68,9 @@ export function SentryConfigurationForm({
     },
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
-      const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
-
       try {
+        const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
+
         if (isNewIntegration || isUpgradingToV2) {
           // If upgrading from v1 to v2, delete the old log stream first
           if (isUpgradingToV2 && logStreamId) {

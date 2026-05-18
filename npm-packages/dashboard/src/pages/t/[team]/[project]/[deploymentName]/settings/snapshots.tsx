@@ -3,7 +3,7 @@ import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { SnapshotExport } from "components/deploymentSettings/SnapshotExport";
 import { SnapshotImport } from "components/deploymentSettings/SnapshotImport";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";

@@ -3,25 +3,14 @@ import { useContext, useState } from "react";
 import { FileMetadata } from "system-udfs/convex/_system/frontend/fileStorageV2";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { DeleteFileModal } from "./DeleteFileModal";
 import { PreviewImage } from "./PreviewImage";
 
 export function FileActions({ file }: { file: FileMetadata }) {
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-  const canDeleteFiles =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canDeleteFiles = useIsOperationAllowed("WriteData");
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
     selectedNent && selectedNent.state !== "active"

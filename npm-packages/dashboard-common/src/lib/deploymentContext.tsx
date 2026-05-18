@@ -15,7 +15,7 @@ import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import type { RoleStatementAction } from "@convex-dev/platform/managementApi";
+import { DeploymentOp } from "system-udfs/convex/_system/server";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 export const PROVISION_DEV_PAGE_NAME = "development";
@@ -95,38 +95,10 @@ export type DeploymentInfo = (
     refreshInterval?: number,
   ): { configs: ProjectEnvVarConfig[] } | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
-  /**
-   * Check whether the current member's *custom roles* allow `action` on
-   * the resource implied by the current page context (team / project /
-   * deployment derived from the URL).
-   *
-   * - Returns `true` for local deployments since they aren't subject to
-   *   custom-role enforcement.
-   * - Returns `nonCustomRoleResult` for built-in admin/developer members
-   *   (they have no custom-role statements). Pick `true` for read gates
-   *   any built-in member should pass, or `false` for mutation gates
-   *   where built-in role checks happen separately at the call site.
-   * - Returns `undefined` while the role list is loading.
-   *
-   * Mirrors the server-side eval in
-   * `crates_private/big_brain_lib/src/roles/eval.rs`. Use only for UI
-   * gating — the server is the source of truth.
-   */
-  useCustomRolePermission(
-    action: RoleStatementAction,
-    nonCustomRoleResult: boolean,
-  ): boolean | undefined;
-  /**
-   * Render a tooltip body for a disabled control that's gated on
-   * permissions. For custom-role members, the missing action name is
-   * surfaced below `message` so support can grep for it. Built-in
-   * admin/developer members and self-hosted users see just `message`,
-   * since the action name isn't actionable for them.
-   */
-  permissionDeniedTip(
-    message: string,
-    action: RoleStatementAction,
-  ): React.ReactNode;
+  /** Whether the current member has a custom role (as opposed to a built-in
+   *  admin/developer role). Returns `false` for self-hosted and local
+   *  deployments. */
+  useHasCustomRole(): boolean;
   /**
    * Check whether the current admin key is allowed to perform a specific
    * deployment operation (e.g. "ViewData", "WriteData").
@@ -134,7 +106,7 @@ export type DeploymentInfo = (
    * Returns `true` when all operations are allowed (full admin key) or when
    * the operation is in the key's allowed list.
    */
-  useIsOperationAllowed(operation: string): boolean;
+  useIsOperationAllowed(operation: DeploymentOp): boolean | undefined;
   useIsDeploymentPaused(): boolean | undefined;
   useLogDeploymentEvent(): (msg: string, props?: object | null) => void;
   workOSOperations: {
@@ -346,6 +318,67 @@ export const DeploymentInfoContext = createContext<DeploymentInfo>(
   undefined as unknown as DeploymentInfo,
 );
 
+type PermissionsContextValue = {
+  // canViewDataCached is used in placed where we don't want to initiate a live useSWR subscription for performance reasons.
+  canViewDataCached: boolean;
+  useIsOperationAllowed: (operation: DeploymentOp) => boolean;
+};
+
+export const PermissionsContext = createContext<PermissionsContextValue>({
+  canViewDataCached: true,
+  useIsOperationAllowed: () => true,
+});
+
+export function PermissionsProvider({ children }: { children: ReactNode }) {
+  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const canViewDataCached = useIsOperationAllowed("ViewData");
+
+  // While permissions are loading, show a loading indicator to avoid flashing a "no permission" view while permissions are stil loading.
+  if (canViewDataCached === undefined) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <LoadingLogo />
+      </div>
+    );
+  }
+
+  return (
+    <PermissionsProviderInner
+      useIsOperationAllowed={
+        // We know that this will not return undefined since canViewDataCached is set.
+        useIsOperationAllowed as (operation: DeploymentOp) => boolean
+      }
+      canViewDataCached={canViewDataCached}
+    >
+      {children}
+    </PermissionsProviderInner>
+  );
+}
+
+function PermissionsProviderInner({
+  children,
+  useIsOperationAllowed,
+  canViewDataCached,
+}: {
+  children: ReactNode;
+  useIsOperationAllowed: (operation: DeploymentOp) => boolean;
+  canViewDataCached: boolean;
+}) {
+  const value = useMemo(
+    () => ({
+      canViewDataCached,
+      useIsOperationAllowed,
+    }),
+    [canViewDataCached, useIsOperationAllowed],
+  );
+
+  return (
+    <PermissionsContext.Provider value={value}>
+      {children}
+    </PermissionsContext.Provider>
+  );
+}
+
 export type ConnectedDeployment = {
   client: ConvexReactClient;
   httpClient: ConvexHttpClient;
@@ -516,7 +549,6 @@ export function DeploymentApiProvider({
   const deploymentInfoContext = useContext(DeploymentInfoContext);
 
   const connected = useConnectedDeployment(deploymentName);
-
   let value: MaybeConnectedDeployment = {
     deployment: undefined,
     deploymentName,

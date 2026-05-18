@@ -6,7 +6,10 @@ import udfs from "@common/udfs";
 import { UdfType } from "system-udfs/convex/_system/frontend/common";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { FunctionRunnerDisabledWhilePaused } from "@common/features/functions/components/FunctionRunnerDisabledWhilePaused";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
 import { ModuleFunction } from "@common/lib/functions/types";
 import { Loading } from "@ui/Loading";
@@ -25,18 +28,9 @@ export function FunctionSummary({
   const npmPackageVersion = useQuery(udfs.getVersion.default);
   const versionTooOld = !!npmPackageVersion && lt(npmPackageVersion, "0.13.0");
 
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-    useIsDeploymentPaused,
-  } = useContext(DeploymentInfoContext);
+  const { useIsDeploymentPaused } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
 
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const isProd = deployment?.deploymentType === "prod";
   const udfType = currentOpenFunction.udfType;
   const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
   const canRunInternalMutations = useIsOperationAllowed("RunInternalMutations");
@@ -47,7 +41,7 @@ export function FunctionSummary({
   const isInternal = currentOpenFunction.visibility?.kind === "internal";
   const isInComponent = !!currentOpenFunction.componentPath;
 
-  const canRunOp = (() => {
+  const canRunFunction = (() => {
     if (isInternal) {
       return udfType === "Query"
         ? canRunInternalQueries
@@ -60,9 +54,6 @@ export function FunctionSummary({
     }
     return true;
   })();
-
-  const canRunFunction =
-    (udfType === "Query" || !isProd || hasAdminPermissions) && canRunOp;
 
   const showGlobalRunner = useShowGlobalRunner();
   const showFunctionRunner = () => {

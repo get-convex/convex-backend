@@ -23,6 +23,7 @@ import { useCurrentDeployment, useDeploymentRegions } from "api/deployments";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useListCloudBackupsIfAvailable } from "api/backups";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import {
   useHasCustomRolePermission,
   useHasProjectAdminPermissions,
@@ -38,6 +39,7 @@ import {
   functionIdentifierValue,
   functionIdentifierFromValue,
 } from "@common/lib/functions/generateFileTree";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
@@ -50,6 +52,7 @@ const InsightsContext = createContext<
       insights?: Insight[];
       selectedFunctions: MultiSelectValue;
       setSelectedFunctions: (selectedFunctions: MultiSelectValue) => void;
+      canViewInsights: boolean;
     }
   | undefined
 >(undefined);
@@ -82,25 +85,8 @@ export function HealthWithInsights() {
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
 
-  // Only fetch the backup list when the member can view it — otherwise
-  // the request hangs and the summary's backup section would either spin
-  // forever or block rendering entirely.
-  const isAdmin = useHasProjectAdminPermissions(project?.id);
-  const resource =
-    project && deployment && deployment.kind === "cloud"
-      ? deploymentResource(project, {
-          id: deployment.id,
-          deploymentType: deployment.deploymentType,
-          creator: deployment.creator ?? null,
-        })
-      : undefined;
-  const canViewBackupsCustom = useHasCustomRolePermission(
-    team?.id,
-    "deployment:backups:view",
-    resource,
-    true,
-  );
-  const canViewBackups = isAdmin || canViewBackupsCustom !== false;
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canViewBackups = useIsOperationAllowed("ViewBackups");
   const backups = useListCloudBackupsIfAvailable(
     canViewBackups ? deployment : undefined,
   );
@@ -116,6 +102,23 @@ export function HealthWithInsights() {
       : null;
   }, [backups]);
 
+  const insightsResource =
+    project && deployment && deployment.kind === "cloud"
+      ? deploymentResource(project, {
+          id: deployment.id,
+          deploymentType: deployment.deploymentType,
+          creator: deployment.creator ?? null,
+        })
+      : undefined;
+  const isAdmin = useHasProjectAdminPermissions(project?.id);
+  const canViewInsightsCustom = useHasCustomRolePermission(
+    team?.id,
+    "deployment:insights:view",
+    insightsResource,
+    true,
+  );
+  const canViewInsights = isAdmin || canViewInsightsCustom !== false;
+
   const selectedInsight = insights?.find(
     (insight) => getInsightPageIdentifier(insight) === page,
   );
@@ -128,7 +131,7 @@ export function HealthWithInsights() {
       )}
     >
       <div className="flex items-center gap-2">
-        {page.startsWith("insight") && (
+        {canViewInsights && page.startsWith("insight") && (
           <Button
             icon={<ChevronLeftIcon className="size-5" />}
             tip="Back to Health"
@@ -175,7 +178,7 @@ export function HealthWithInsights() {
           >
             Health
           </MaybeLink>{" "}
-          {page.startsWith("insight") && (
+          {canViewInsights && page.startsWith("insight") && (
             <>
               <span className="animate-fadeInFromLoading">/</span>
               <span className="animate-fadeInFromLoading">
@@ -205,7 +208,7 @@ export function HealthWithInsights() {
               </span>
             </>
           )}
-          {selectedInsight && (
+          {canViewInsights && selectedInsight && (
             <>
               <span className="animate-fadeInFromLoading">/</span>
               <div className="flex animate-fadeInFromLoading flex-wrap gap-1 text-content-primary">
@@ -215,7 +218,7 @@ export function HealthWithInsights() {
           )}
         </h3>
       </div>
-      {page === "insights" && (
+      {canViewInsights && page === "insights" && (
         <div className="flex animate-fadeInFromLoading flex-wrap items-center gap-4">
           <span className="text-sm text-content-secondary">
             {new Date(from).toLocaleString([], {
@@ -253,11 +256,12 @@ export function HealthWithInsights() {
   const providerValue = useMemo(
     () => ({
       page,
-      insights,
+      insights: canViewInsights ? insights : undefined,
       selectedFunctions,
       setSelectedFunctions,
+      canViewInsights,
     }),
-    [page, insights, selectedFunctions, setSelectedFunctions],
+    [page, insights, selectedFunctions, setSelectedFunctions, canViewInsights],
   );
 
   return (
@@ -270,7 +274,6 @@ export function HealthWithInsights() {
         teamSlug={team?.slug}
         projectSlug={project?.slug}
         lastBackupTime={lastBackupTime}
-        canViewBackups={canViewBackups}
         teamMembers={teamMembers}
         regions={regions}
       />
@@ -279,7 +282,7 @@ export function HealthWithInsights() {
 }
 
 function InsightsWrapper({ children }: { children: React.ReactNode }) {
-  const { insights, selectedFunctions, page } =
+  const { insights, selectedFunctions, page, canViewInsights } =
     useContext(InsightsContext) || {};
   return (
     <div
@@ -296,41 +299,59 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
         inert={page !== "insights" ? "inert" : undefined}
         className="mb-6 flex w-full shrink-0 px-6"
       >
-        <Sheet
-          padding={false}
-          className="scrollbar h-fit max-h-full w-full max-w-[70rem] min-w-0 overflow-auto"
-        >
-          <InsightsSummary
-            insights={insights?.filter((insight) => {
-              if (!selectedFunctions) return true;
-              if (selectedFunctions === "all") return true;
+        {canViewInsights === false ? (
+          <Sheet className="scrollbar h-fit max-h-full w-full max-w-[70rem] min-w-0 overflow-auto py-12">
+            <NoPermissionMessage
+              message="You do not have permission to view insights."
+              missingPermission="deployment:insights:view"
+            />
+          </Sheet>
+        ) : (
+          <Sheet
+            padding={false}
+            className="scrollbar h-fit max-h-full w-full max-w-[70rem] min-w-0 overflow-auto"
+          >
+            <InsightsSummary
+              insights={insights?.filter((insight) => {
+                if (!selectedFunctions) return true;
+                if (selectedFunctions === "all") return true;
 
-              return (
-                selectedFunctions.includes(
-                  functionIdentifierValue(
-                    insight.functionId,
-                    insight.componentPath ?? undefined,
-                  ),
-                ) || selectedFunctions.includes("_other")
-              );
-            })}
-          />
-        </Sheet>
+                return (
+                  selectedFunctions.includes(
+                    functionIdentifierValue(
+                      insight.functionId,
+                      insight.componentPath ?? undefined,
+                    ),
+                  ) || selectedFunctions.includes("_other")
+                );
+              })}
+            />
+          </Sheet>
+        )}
       </div>
       <div
         // @ts-expect-error https://github.com/facebook/react/issues/17157
         inert={!page.startsWith("insight:") ? "inert" : undefined}
         className="scrollbar flex w-full shrink-0 overflow-y-auto px-6"
       >
-        <InsightSummaryBreakdown
-          insight={
-            insights
-              ? insights?.find(
-                  (insight) => getInsightPageIdentifier(insight) === page,
-                ) || null
-              : undefined
-          }
-        />
+        {canViewInsights === false ? (
+          <Sheet className="max-w-3xl py-12">
+            <NoPermissionMessage
+              message="You do not have permission to view insights."
+              missingPermission="deployment:insights:view"
+            />
+          </Sheet>
+        ) : (
+          <InsightSummaryBreakdown
+            insight={
+              insights
+                ? insights?.find(
+                    (insight) => getInsightPageIdentifier(insight) === page,
+                  ) || null
+                : undefined
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -356,7 +377,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
       { shallow: true },
     );
   }, [query, push]);
-  const { page } = useContext(InsightsContext) || {};
+  const { page, canViewInsights } = useContext(InsightsContext) || {};
   return (
     <div
       className="scrollbar flex w-full shrink-0 grow flex-col overflow-y-auto px-6 pb-4"
@@ -364,7 +385,10 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
       inert={page !== "home" ? "inert" : undefined}
     >
       {children}
-      <SmallInsightsSummary onViewAll={onViewAll || (() => {})} />
+      <SmallInsightsSummary
+        onViewAll={onViewAll || (() => {})}
+        canViewInsights={canViewInsights}
+      />
     </div>
   );
 }

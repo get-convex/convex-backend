@@ -1,6 +1,6 @@
 import { DeleteProjectModal } from "components/projects/modals/DeleteProjectModal";
 import { PageContent } from "@common/elements/PageContent";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";

@@ -91,9 +91,29 @@ export async function streamFunctionLogs(
     signal,
   });
   if (!response.ok) {
-    throw new Error(await response.text());
+    const text = await response.text();
+    if (response.status === 403) {
+      let message = text;
+      try {
+        const parsed = JSON.parse(text);
+        if (typeof parsed.message === "string") {
+          message = parsed.message;
+        }
+      } catch {
+        // not JSON, use raw text
+      }
+      throw new PermissionDeniedError(message);
+    }
+    throw new Error(text);
   }
   return response.json();
+}
+
+export class PermissionDeniedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermissionDeniedError";
+  }
 }
 
 export function useSchedulerLag() {

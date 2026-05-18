@@ -44,14 +44,14 @@ export function PostHogLogsConfigurationForm({
     },
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
-      const args = {
-        logStreamType: "postHogLogs" as const,
-        apiKey: values.apiKey,
-        host: values.host || null,
-        serviceName: values.serviceName || null,
-      };
-
       try {
+        const args = {
+          logStreamType: "postHogLogs" as const,
+          apiKey: values.apiKey,
+          host: values.host || null,
+          serviceName: values.serviceName || null,
+        };
+
         if (isNewIntegration) {
           await createLogStream(args);
           onAddedIntegration?.();

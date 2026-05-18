@@ -15,7 +15,8 @@ import {
   useConfigurePeriodicBackup,
 } from "api/backups";
 import { useCurrentProject } from "api/projects";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useState } from "react";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
   PeriodicBackupConfig,
@@ -68,18 +69,13 @@ export function Backups({
           creator: deployment.creator ?? null,
         })
       : undefined;
-  const canCreateCustom = useHasCustomRolePermission(
-    team.id,
-    "deployment:backups:create",
-    resource,
-    builtinAllowed,
-  );
-  const canImportCustom = useHasCustomRolePermission(
-    team.id,
-    "deployment:backups:import",
-    resource,
-    builtinAllowed,
-  );
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canCreate = useIsOperationAllowed("CreateBackups");
+  const canImport = useIsOperationAllowed("ImportBackups");
+  const canDelete = useIsOperationAllowed("DeleteBackups");
+  // Periodic backup config/disable are management-plane actions (not
+  // data-plane DeploymentOps), so they go through useHasCustomRolePermission
+  // directly instead of useIsOperationAllowed.
   const canConfigurePeriodicCustom = useHasCustomRolePermission(
     team.id,
     "deployment:backups:configurePeriodic",
@@ -92,19 +88,10 @@ export function Backups({
     resource,
     builtinAllowed,
   );
-  const canDeleteCustom = useHasCustomRolePermission(
-    team.id,
-    "deployment:backups:delete",
-    resource,
-    builtinAllowed,
-  );
-  const canCreate = hasAdminPermissions || canCreateCustom === true;
-  const canImport = hasAdminPermissions || canImportCustom === true;
   const canConfigurePeriodic =
     hasAdminPermissions || canConfigurePeriodicCustom === true;
   const canDisablePeriodic =
     hasAdminPermissions || canDisablePeriodicCustom === true;
-  const canDelete = hasAdminPermissions || canDeleteCustom === true;
 
   const isDedicated =
     deployment.kind === "cloud" && deployment.class.startsWith("d");

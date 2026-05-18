@@ -35,7 +35,7 @@ import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useDeployments } from "api/deployments";
 import { useHasCustomRolePermission } from "api/roles";
 import { useTeamEntitlements } from "api/teams";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { TEAM_RESOURCE } from "lib/permissions";
 import { useProjectById, useProjectBySlug } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";

@@ -9,7 +9,7 @@ import {
 import { useProfile } from "api/profile";
 import { TeamResponse } from "generatedApi";
 import { TeamAccessTokens } from "components/teamSettings/TeamAccessTokens";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { teamTokenResource } from "lib/permissions";
 import React from "react";
 import { useAccessToken } from "hooks/useServerSideData";

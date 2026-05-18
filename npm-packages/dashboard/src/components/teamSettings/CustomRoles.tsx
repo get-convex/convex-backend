@@ -29,7 +29,7 @@ import {
   useHasCustomRolePermission,
   useIsCurrentMemberTeamAdmin,
 } from "api/roles";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import Editor, { BeforeMount, OnMount } from "@monaco-editor/react";
 import { editorOptions } from "@common/elements/ObjectEditor/ObjectEditor";
@@ -692,8 +692,8 @@ function CustomRoleForm({
                   .
                 </p>
                 <p className="text-xs text-content-secondary">
-                  Changes to deployment-level actions may take a few minutes to
-                  propogate to team members.
+                  It may take a few minutes to propogate deployment-level
+                  permissions to deployments.
                 </p>
               </div>
             </div>

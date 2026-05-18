@@ -30,7 +30,10 @@ import semver from "semver";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { Spinner } from "@ui/Spinner";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 
 function useLatestConvexVersion(currentVersion: string | undefined) {
@@ -135,44 +138,20 @@ export function DeploymentSummary({
   teamSlug,
   projectSlug,
   lastBackupTime,
-  canViewBackups = true,
   teamMembers,
   regions,
 }: {
   deployment: PlatformDeploymentResponse;
   teamSlug: string;
   projectSlug: string;
-  // `undefined` while loading, `null` when backups are unavailable for this
-  // deployment (d1024 / non-cloud) or there's no backup yet, otherwise the
-  // requested time of the latest complete backup.
   lastBackupTime?: number | null;
-  // When false, the backup section is omitted entirely (e.g. the member
-  // lacks `deployment:backups:view`). Defaults to `true`.
-  canViewBackups?: boolean;
   teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
 }) {
-  const {
-    TeamMemberLink,
-    useCustomRolePermission,
-    useHasProjectAdminPermissions,
-  } = useContext(DeploymentInfoContext);
-
-  // Each of the four queries below resolves to a `queryPrivateSystem("ViewData")`
-  // function on the deployment, so they require the `deployment:data:view`
-  // grant. Built-in members always have it; custom-role members only if
-  // their role permits it. Skip the queries when we know the member is
-  // denied — otherwise they'd hang and the whole summary would spin
-  // forever.
-  const isAdmin = useHasProjectAdminPermissions(deployment.projectId);
-  const canViewDataCustom = useCustomRolePermission(
-    "deployment:data:view",
-    true,
-  );
-  // Treat `undefined` (role list still loading) as "may view" so the
-  // queries fire eagerly; if the member turns out to be denied, the
-  // server will reject and the rows render their fallbacks.
-  const canViewData = isAdmin || canViewDataCustom !== false;
+  const { TeamMemberLink } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canViewData = useIsOperationAllowed("ViewData");
+  const canViewBackups = useIsOperationAllowed("ViewBackups");
 
   const lastPushEvent = useQuery(
     udfs.deploymentEvents.lastPushEvent,
@@ -213,11 +192,8 @@ export function DeploymentSummary({
         deployment.region
       : undefined;
 
-  // Check if we're still loading critical data. The backup section
-  // loads independently — `lastBackupTime === undefined` only hides that
-  // row (or the whole row, if the member can't view backups) without
-  // blocking the rest of the summary. Queries we deliberately skipped
-  // (no `deployment:data:view`) also return `undefined`, so exclude
+  // Check if we're still loading critical data. Queries we deliberately
+  // skipped (no `deployment:data:view`) return `undefined`, so exclude
   // them from the loading gate.
   const isLoading =
     canViewData &&
@@ -423,10 +399,10 @@ export function DeploymentSummary({
               </div>
             )}
 
-            {/* Last Backup (only for cloud deployments the member can
-                view). Loads independently from the rest of the summary —
-                render a small placeholder while the backup list is in
-                flight so the panel doesn't reflow when it resolves. */}
+            {/* Last Backup (only for cloud deployments). Loads
+                independently from the rest of the summary — render a
+                small placeholder while the backup list is in flight so
+                the panel doesn't reflow when it resolves. */}
             {deployment.kind === "cloud" && canViewBackups && (
               <div className="flex items-center gap-2">
                 <Tooltip tip="Last backup">

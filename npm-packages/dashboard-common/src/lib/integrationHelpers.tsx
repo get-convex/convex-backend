@@ -302,12 +302,12 @@ export const AUTHENTICATION_DESCRIPTION = (
 
 export type IntegrationUnavailableReason =
   | "MissingEntitlement"
-  | "CannotManageProd"
+  | "CannotManageDeployment"
   | "LocalDeployment";
 
 export const UNAVAILABLE_TOOLTIP_TEXT = {
   MissingEntitlement: "This integration requires the Pro plan.",
-  CannotManageProd:
+  CannotManageDeployment:
     "You do not have permission to manage integrations in this deployment.",
   LocalDeployment: "You cannot manage integrations in a local deployment.",
 };

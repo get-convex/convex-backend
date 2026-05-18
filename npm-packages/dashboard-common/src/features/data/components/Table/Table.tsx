@@ -51,7 +51,7 @@ import { useStoredColumnOrder } from "@common/features/data/components/Table/uti
 import { ViewDocument } from "@common/features/data/components/Table/ViewDocument";
 import { useDataPageSize } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
 import { LoadingLogo } from "@ui/Loading";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { useColumnDragAndDrop } from "@common/features/data/components/Table/utils/useColumnDragAndDrop";
 
@@ -112,25 +112,14 @@ export function Table({
   onColumnOrderChange?: (newOrder: string[]) => void;
 }) {
   const [pageSize] = useDataPageSize(componentId, tableName);
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canManageTable = useIsOperationAllowed("WriteData");
 
   const { selectedNent } = useNents();
 
   const isInUnmountedComponent = !!(
     selectedNent && selectedNent.state !== "active"
   );
-  const canManageTable =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
 
   const [storedColumnOrder, setStoredColumnOrder] =
     useStoredColumnOrder(localStorageKey);

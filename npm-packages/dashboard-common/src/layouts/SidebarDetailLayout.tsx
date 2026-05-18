@@ -16,8 +16,10 @@ import { DotFilledIcon, DragHandleDots2Icon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 
 import { PageContent } from "@common/elements/PageContent";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { Tooltip } from "@ui/Tooltip";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Button } from "@ui/Button";
@@ -92,7 +94,8 @@ export function SidebarDetailLayout({
 
 function NpmConvexServerVersionBanner() {
   const upgradeRequiredVersion = "0.19.1";
-  const canViewData = useCanViewDeploymentData();
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canViewData = useIsOperationAllowed("ViewData");
   const currentVersion = useQuery(
     udfs.getVersion.default,
     canViewData ? undefined : "skip",

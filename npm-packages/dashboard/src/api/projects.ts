@@ -47,6 +47,11 @@ export function useProjectBySlug(
   if (isLoading) {
     return undefined;
   }
+  // Don't return stale data from keepPreviousData when the slug doesn't match
+  // to avoid race conditions with project/deployment 404s
+  if (data && data.slug !== projectSlug) {
+    return undefined;
+  }
   return data;
 }
 

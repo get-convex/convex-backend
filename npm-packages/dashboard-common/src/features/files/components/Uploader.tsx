@@ -4,7 +4,10 @@ import { useContext, useRef, useState } from "react";
 import udfs from "@common/udfs";
 import { toast } from "@common/lib/utils";
 import { useNents } from "@common/lib/useNents";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 
@@ -39,21 +42,9 @@ export function useUploadFiles(options?: {
   onFilesUploaded?: (count: number) => void;
 }) {
   const onFilesUploaded = options?.onFilesUploaded;
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-    captureException,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-
-  const canUploadFiles =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const { captureException } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canUploadFiles = useIsOperationAllowed("WriteData");
   const generateUploadUrl = useMutation(udfs.fileStorageV2.generateUploadUrl);
 
   const [isUploading, setIsUploading] = useState(false);

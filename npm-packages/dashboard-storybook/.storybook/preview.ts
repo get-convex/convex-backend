@@ -12,6 +12,9 @@ sb.mock(import("../../dashboard/src/api/projects.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/profile.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/deployments.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/roles.ts"), { spy: true });
+sb.mock(import("../../dashboard/src/hooks/useDeploymentPermissions.ts"), {
+  spy: true,
+});
 sb.mock(import("../../dashboard/src/api/invitations.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/billing.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/accessTokens.ts"), { spy: true });

@@ -15,6 +15,7 @@ import type {
   RoleStatementAction,
   RoleStatementActions,
 } from "@convex-dev/platform/managementApi";
+import type { DeploymentOp } from "system-udfs/convex/_system/server";
 
 export type ResourceKind =
   | "team"
@@ -92,6 +93,54 @@ export type ConcreteSegment =
 export type ConcreteResource = { segments: ConcreteSegment[] };
 
 export type AccessDecision = "allowed" | "denied";
+
+// --- DeploymentOp → RoleStatementAction mapping --------------------------
+
+// TODO(ari): Remove this mapping once we migrate DeploymentOps to use the new format.
+export const DEPLOYMENT_OP_TO_ACTION: Record<
+  DeploymentOp,
+  RoleStatementAction
+> = {
+  Deploy: "deployment:deploy",
+  PauseDeployment: "deployment:pause",
+  UnpauseDeployment: "deployment:unpause",
+  ViewEnvironmentVariables: "deployment:env:view",
+  WriteEnvironmentVariables: "deployment:env:write",
+  ViewData: "deployment:data:view",
+  WriteData: "deployment:data:write",
+  RunInternalQueries: "deployment:functions:runInternalQueries",
+  RunInternalMutations: "deployment:functions:runInternalMutations",
+  RunInternalActions: "deployment:functions:runInternalActions",
+  RunTestQuery: "deployment:functions:runTestQuery",
+  ActAsUser: "deployment:functions:actAsUser",
+  ViewBackups: "deployment:backups:view",
+  CreateBackups: "deployment:backups:create",
+  DownloadBackups: "deployment:backups:download",
+  DeleteBackups: "deployment:backups:delete",
+  ImportBackups: "deployment:backups:import",
+  ViewLogs: "deployment:logs:view",
+  ViewMetrics: "deployment:metrics:view",
+  ViewAuditLog: "deployment:auditLog:view",
+  ViewIntegrations: "deployment:integrations:view",
+  WriteIntegrations: "deployment:integrations:write",
+};
+
+const READ_ONLY_ACTIONS: RoleStatementAction[] = [
+  "deployment:data:view",
+  "deployment:env:view",
+  "deployment:functions:runInternalQueries",
+  "deployment:functions:runTestQuery",
+  "deployment:auditLog:view",
+  "deployment:logs:view",
+  "deployment:metrics:view",
+  "deployment:integrations:view",
+  "deployment:backups:view",
+  "deployment:backups:download",
+];
+
+export function isReadOnlyAction(action: RoleStatementAction): boolean {
+  return READ_ONLY_ACTIONS.includes(action);
+}
 
 // --- Parsing ------------------------------------------------------------
 
