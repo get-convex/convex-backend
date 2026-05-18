@@ -1,7 +1,13 @@
 # syntax=docker/dockerfile:1-labs
 # Builds dashboard-orchestrator (the platform UI: login, teams, projects,
-# deployments, deploy keys). Mirrors Dockerfile.dashboard structure but
-# targets the dashboard-orchestrator package and exposes :6793.
+# deployments, deploy keys). Targets the dashboard-orchestrator package
+# and exposes :6793.
+#
+# Unlike Dockerfile.dashboard we skip `rush-pnpm deploy` and copy Next.js's
+# standalone output directly. pnpm deploy's "publishable files only" pass
+# strips `.next/` (it's gitignored), which silently breaks self-hosted
+# orchestrator builds. The canonical Next.js standalone pattern copies
+# `.next/standalone` + `.next/static` + `public` from the build stage.
 
 FROM ubuntu:noble AS build
 
@@ -34,7 +40,35 @@ ARG NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=http://localhost:6791
 ENV NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=${NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL}
 ENV NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=${NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL}
 RUN rush build -t dashboard-orchestrator
-RUN rush-pnpm deploy --legacy --filter=dashboard-orchestrator --prod /tmp/deploy
+
+# Stage the runtime tree at /opt/runtime. Handles both flat
+# (.next/standalone/server.js) and nested-monorepo
+# (.next/standalone/npm-packages/dashboard-orchestrator/server.js) layouts.
+WORKDIR /app/npm-packages/dashboard-orchestrator
+RUN <<EOF
+set -e
+if [ ! -d .next/standalone ]; then
+  echo "FATAL: next build did not emit .next/standalone"
+  ls -la .next 2>/dev/null || echo "  (no .next directory either)"
+  exit 1
+fi
+SERVER=$(find .next/standalone -name server.js | head -1)
+if [ -z "$SERVER" ]; then
+  echo "FATAL: .next/standalone exists but contains no server.js"
+  find .next/standalone -maxdepth 4 -print | head -50
+  exit 1
+fi
+SRCDIR=$(dirname "$SERVER")
+mkdir -p /opt/runtime
+# Standalone tree (traced node_modules + server.js).
+cp -a "$SRCDIR/." /opt/runtime/
+# Static and public assets sit alongside server.js in the standalone runtime.
+mkdir -p /opt/runtime/.next
+cp -a .next/static /opt/runtime/.next/static
+if [ -d public ]; then
+  cp -a public /opt/runtime/public
+fi
+EOF
 
 FROM ubuntu:noble
 
@@ -49,26 +83,8 @@ EOF
 
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 --gid nodejs nextjs
-COPY --from=build --chown=nextjs:nodejs /tmp/deploy/ /app/
+COPY --from=build --chown=nextjs:nodejs /opt/runtime/ /app/
 WORKDIR /app
-# Next.js standalone output sometimes lands under a nested monorepo path
-# (e.g. .next/standalone/npm-packages/dashboard-orchestrator/server.js)
-# instead of .next/standalone/server.js. Locate server.js, then collapse
-# the standalone tree so server.js sits at the package root.
-RUN <<EOF
-set -e
-SERVER=$(find /app/.next/standalone -name server.js | head -1)
-if [ -z "$SERVER" ]; then
-  echo "FATAL: no server.js found under /app/.next/standalone"
-  ls -la /app/.next/standalone || ls -la /app/.next
-  exit 1
-fi
-SRCDIR=$(dirname "$SERVER")
-if [ "$SRCDIR" != "/app/.next/standalone" ]; then
-  cp -a "$SRCDIR/." /app/.next/standalone/
-fi
-cp /app/.next/standalone/server.js .
-EOF
 USER nextjs
 EXPOSE 6793
 ENV PORT=6793
