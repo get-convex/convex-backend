@@ -207,7 +207,7 @@ spki = { version = "0.7.3", features = [ "std" ] }
 sqlite = { path = "crates/sqlite" }
 storage = { path = "crates/storage" }
 storage_zip_reader = { path = "crates/storage_zip_reader" }
-strum = { version = "0.27", features = [ "derive" ] }
+strum = { version = "0.28", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
 sync = { path = "crates/sync" }
