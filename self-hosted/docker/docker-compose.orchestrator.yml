@@ -46,9 +46,7 @@ services:
       - "${POSTGRES_PORT:-5433}:5432"
 
   orchestrator:
-    build:
-      context: ../..
-      dockerfile: self-hosted/docker-build/Dockerfile.orchestrator
+    image: ghcr.io/defy-works/convex-orchestrator:latest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -63,7 +61,7 @@ services:
       # backend; `external` requires manual registration via the API.
       CONVEX_ORCHESTRATOR_PROVISIONER: "${PROVISIONER:-docker}"
       # Image the docker provisioner pulls/runs for each new deployment.
-      CONVEX_ORCHESTRATOR_BACKEND_IMAGE: "${BACKEND_IMAGE:-ghcr.io/get-convex/convex-backend:latest}"
+      CONVEX_ORCHESTRATOR_BACKEND_IMAGE: "${BACKEND_IMAGE:-ghcr.io/defy-works/convex-backend:latest}"
       # Container name prefix for spawned backends. Useful for grep/labels.
       CONVEX_ORCHESTRATOR_BACKEND_CONTAINER_PREFIX: "orchestrator-deployment-"
       # Network name spawned backends join. Must equal the docker-compose
@@ -103,15 +101,12 @@ services:
       retries: 10
 
   dashboard-orchestrator:
-    build:
-      context: ../..
-      dockerfile: self-hosted/docker-build/Dockerfile.dashboard-orchestrator
-      args:
-        # Bake in URLs the browser uses to reach the orchestrator + the
-        # embedded per-deployment dashboard. The browser hits these from
-        # outside Docker, so they must be the host-side ports.
-        NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL: "${NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL:-http://localhost:8050}"
-        NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL: "${NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL:-http://localhost:6791}"
+    # NEXT_PUBLIC_* values are baked at image build time
+    # (release_local_dashboard_orchestrator.yml uses the Dockerfile defaults:
+    # http://localhost:8050 and http://localhost:6791). Override by building
+    # locally from Dockerfile.dashboard-orchestrator if you need different
+    # browser-facing URLs.
+    image: ghcr.io/defy-works/convex-dashboard-orchestrator:latest
     restart: unless-stopped
     depends_on:
       orchestrator:
@@ -137,7 +132,7 @@ services:
       - "${DASHBOARD_ORCHESTRATOR_PORT:-6793}:6793"
 
   dashboard-self-hosted:
-    image: ghcr.io/get-convex/convex-dashboard:latest
+    image: ghcr.io/defy-works/convex-dashboard:latest
     restart: unless-stopped
     environment:
       # Empty default — each deployment iframe pushes its own URL via

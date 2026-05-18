@@ -1,7 +1,7 @@
 services:
   backend:
     # Change this to :${REV} if you want to pin to a specific version
-    image: ghcr.io/get-convex/convex-backend:latest
+    image: ghcr.io/defy-works/convex-backend:latest
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
@@ -52,7 +52,7 @@ services:
 
   dashboard:
     # Change this to :${REV} if you want to pin to a specific version
-    image: ghcr.io/get-convex/convex-dashboard:latest
+    image: ghcr.io/defy-works/convex-dashboard:latest
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
