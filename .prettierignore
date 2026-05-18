@@ -41,10 +41,6 @@ npm-packages/convex/api-extractor-configs/reports
 npm-packages/convex/api-extractor-configs/temp
 # openapi
 npm-packages/convex/src/cli/generatedApi.ts
-# ?
-npm-packages/convex-ai-chat/esm
-npm-packages/convex-ai-chat/cjs
-npm-packages/convex-ai-chat/css
 # Autoformatted by codegen, but with different prettier settings
 npm-packages/**/convex/README.md
 npm-packages/**/convex/_generated/*

@@ -460,10 +460,6 @@
       "projectFolder": "convex-analytics"
     },
     {
-      "packageName": "convex-ai-chat",
-      "projectFolder": "convex-ai-chat"
-    },
-    {
       "packageName": "docs",
       "projectFolder": "docs"
     },
