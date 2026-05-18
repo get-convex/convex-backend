@@ -256,8 +256,6 @@ export default defineConfig([
     "demos/html/script.js", // uses js-doc
     "demos/html/browser.bundle.js", // just until we can link to a CDN for this
     "create-convex/template-*",
-    "convex-ai-chat/esm",
-    "convex-ai-chat/cjs",
     "**/_generated/**", // auto-generated files
   ]),
 ]);

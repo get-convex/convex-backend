@@ -31,7 +31,6 @@
     "raw-loader": "4.0.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "convex-ai-chat": "workspace:*",
     "convex-analytics": "workspace:*",
     "convex": "workspace:*",
     "@docusaurus/theme-common": "~3.10.0",
