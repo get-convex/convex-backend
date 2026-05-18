@@ -311,6 +311,7 @@ function CustomRoleForm({
   teamSlug,
   existingRole,
   templateId,
+  readOnly = false,
   onClose,
   onSaved,
 }: {
@@ -318,6 +319,7 @@ function CustomRoleForm({
   teamSlug: string;
   existingRole?: CustomRoleResponse;
   templateId?: string;
+  readOnly?: boolean;
   onClose: () => void;
   onSaved: (roleId: number) => void;
 }) {
@@ -596,6 +598,7 @@ function CustomRoleForm({
           onKeyDown={handleCmdEnter}
           placeholder="e.g. Viewer"
           error={nameError}
+          disabled={readOnly}
         />
         <div className="flex flex-col gap-1">
           <label
@@ -606,7 +609,7 @@ function CustomRoleForm({
           </label>
           <textarea
             id="role-description"
-            className="min-h-[60px] w-full rounded border bg-background-secondary px-3 py-2 text-sm text-content-primary"
+            className="min-h-[60px] w-full rounded border bg-background-secondary px-3 py-2 text-sm text-content-primary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary"
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);
@@ -614,6 +617,7 @@ function CustomRoleForm({
             }}
             onKeyDown={handleCmdEnter}
             placeholder="Optional description for this role"
+            disabled={readOnly}
           />
         </div>
         <div className="flex min-h-0 flex-1 flex-col gap-1">
@@ -635,6 +639,7 @@ function CustomRoleForm({
                 onMount={handleEditorMount}
                 options={{
                   ...editorOptions,
+                  readOnly,
                   scrollBeyondLastLine: false,
                   padding: { top: 8, bottom: 8 },
                   // Shared `editorOptions` disables IntelliSense; re-enable it
@@ -664,12 +669,12 @@ function CustomRoleForm({
           </div>
         </div>
         <div className="flex w-full items-start justify-end gap-2">
-          {error && (
+          {!readOnly && error && (
             <p className="mr-auto text-sm text-content-errorSecondary">
               {error}
             </p>
           )}
-          {!error && savedRoleName && (
+          {!readOnly && !error && savedRoleName && (
             <div className="mr-auto flex items-start gap-1 text-sm">
               <CheckCircledIcon className="mt-0.5 shrink-0 text-content-success" />
               <div className="flex flex-col gap-1">
@@ -694,15 +699,17 @@ function CustomRoleForm({
             </div>
           )}
           <Button variant="neutral" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            {readOnly ? "Close" : "Cancel"}
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!canSave}
-            tip={saveBlockedReason}
-          >
-            {savedRoleId !== undefined ? "Save" : "Create"}
-          </Button>
+          {!readOnly && (
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSave}
+              tip={saveBlockedReason}
+            >
+              {savedRoleId !== undefined ? "Save" : "Create"}
+            </Button>
+          )}
         </div>
       </div>
     </Sheet>
@@ -712,12 +719,14 @@ function CustomRoleForm({
 function CustomRoleListItem({
   role,
   teamId,
+  onView,
   onEdit,
   disabled,
   disabledReason,
 }: {
   role: CustomRoleResponse;
   teamId: number;
+  onView: () => void;
   onEdit: () => void;
   disabled?: boolean;
   disabledReason?: string;
@@ -755,12 +764,24 @@ function CustomRoleListItem({
               size: "xs",
               icon: <DotsVerticalIcon />,
               "aria-label": "Custom role options",
-              disabled,
-              tip: disabled ? disabledReason : undefined,
             }}
           >
-            <MenuItem action={onEdit}>Edit</MenuItem>
-            <MenuItem variant="danger" action={() => setShowDelete(true)}>
+            <MenuItem action={onView}>View</MenuItem>
+            <MenuItem
+              action={onEdit}
+              disabled={disabled}
+              tip={disabled ? disabledReason : undefined}
+              tipSide="left"
+            >
+              Edit
+            </MenuItem>
+            <MenuItem
+              variant="danger"
+              action={() => setShowDelete(true)}
+              disabled={disabled}
+              tip={disabled ? disabledReason : undefined}
+              tipSide="left"
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -839,12 +860,21 @@ function CustomRolesContent({ team }: { team: TeamResponse }) {
   const editingRole = editingRoleId
     ? roles?.find((r) => r.id.toString() === editingRoleId)
     : undefined;
+  const viewingRoleId =
+    typeof router.query.view === "string" ? router.query.view : undefined;
+  const viewingRole = viewingRoleId
+    ? roles?.find((r) => r.id.toString() === viewingRoleId)
+    : undefined;
   const isNewRole = router.query.new === "1";
   const newRoleTemplateId =
     typeof router.query.template === "string"
       ? router.query.template
       : undefined;
-  const showForm = canManage && (isNewRole || editingRoleId !== undefined);
+  const showEditForm = canManage && (isNewRole || editingRoleId !== undefined);
+  const showViewForm = viewingRoleId !== undefined;
+  const showForm = showEditForm || showViewForm;
+  const formRole = showViewForm ? viewingRole : editingRole;
+  const formRoleId = showViewForm ? viewingRoleId : editingRoleId;
 
   const listHref = {
     pathname: "/t/[team]/settings/custom-roles",
@@ -881,9 +911,22 @@ function CustomRolesContent({ team }: { team: TeamResponse }) {
     );
   };
 
+  const goToView = (roleId: number) => {
+    void router.push(
+      {
+        pathname: "/t/[team]/settings/custom-roles",
+        query: { team: team.slug, view: roleId.toString() },
+      },
+      undefined,
+      { shallow: true },
+    );
+  };
+
   const currentCrumb = isNewRole
     ? "New"
-    : (editingRole?.name ?? (editingRoleId ? "Edit" : undefined));
+    : showViewForm
+      ? (viewingRole?.name ?? "View")
+      : (editingRole?.name ?? (editingRoleId ? "Edit" : undefined));
 
   return (
     <div className="-mx-6 flex min-h-0 flex-1 flex-col">
@@ -981,6 +1024,7 @@ function CustomRolesContent({ team }: { team: TeamResponse }) {
                         key={role.id}
                         role={role}
                         teamId={team.id}
+                        onView={() => goToView(role.id)}
                         onEdit={() => goToEdit(role.id)}
                         disabled={!canManage}
                         disabledReason={disabledReason}
@@ -1004,7 +1048,7 @@ function CustomRolesContent({ team }: { team: TeamResponse }) {
             inert={!showForm ? "inert" : undefined}
           >
             {showForm &&
-              (editingRoleId !== undefined && customRolesData === undefined ? (
+              (formRoleId !== undefined && customRolesData === undefined ? (
                 <Loading fullHeight={false} className="h-48 w-full" />
               ) : (
                 // Stable key: the form is unmounted whenever `showForm` flips
@@ -1015,8 +1059,9 @@ function CustomRolesContent({ team }: { team: TeamResponse }) {
                   key="custom-role-form"
                   teamId={team.id}
                   teamSlug={team.slug}
-                  existingRole={editingRole}
+                  existingRole={formRole}
                   templateId={newRoleTemplateId}
+                  readOnly={showViewForm}
                   onClose={goToList}
                   onSaved={goToEdit}
                 />

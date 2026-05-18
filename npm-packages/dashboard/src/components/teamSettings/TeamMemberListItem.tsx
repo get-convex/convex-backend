@@ -137,7 +137,11 @@ export function TeamMemberListItem({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <RoleDisplay role={member.role} customRoles={member.customRoles} />
+        <RoleDisplay
+          role={member.role}
+          customRoles={member.customRoles}
+          teamSlug={team.slug}
+        />
         <Menu
           placement="bottom-end"
           buttonProps={{

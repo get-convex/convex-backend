@@ -199,6 +199,7 @@ export function TeamMemberList({
                 <TeamMemberInviteListItem
                   key={`invite${idx}`}
                   invite={invite}
+                  teamSlug={team.slug}
                   canInvite={canInvite}
                   canCancelInvite={canCancelInvite}
                   onCreateInvite={onCreateInvite}
