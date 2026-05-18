@@ -646,12 +646,18 @@ export class BaseConvexClient {
    * when the user's rights were permanently revoked.
    * @param fetchToken - an async function returning the JWT-encoded OpenID Connect Identity Token
    * @param onChange - a callback that will be called when the authentication status changes
+   * @param onRefreshChange - a callback called with `true` when the socket is paused to fetch a replacement token after a server rejection, and `false` when refresh completes
    */
   setAuth(
     fetchToken: AuthTokenFetcher,
     onChange: (isAuthenticated: boolean) => void,
+    onRefreshChange?: (isRefreshing: boolean) => void,
   ) {
-    void this.authenticationManager.setConfig(fetchToken, onChange);
+    void this.authenticationManager.setConfig(
+      fetchToken,
+      onChange,
+      onRefreshChange,
+    );
   }
 
   hasAuth() {
