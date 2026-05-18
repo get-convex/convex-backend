@@ -39,7 +39,9 @@ async function sendAuthEmail(opts: {
     // SMTP delivery — so we cast through any to avoid forcing every build
     // to install the @types/nodemailer types.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mod = (await import("nodemailer" as any)) as {
+    const mod = (await import(
+      /* webpackIgnore: true */ "nodemailer" as any
+    )) as {
       default: {
         createTransport(url: string): {
           sendMail(opts: {

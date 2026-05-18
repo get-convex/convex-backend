@@ -51,7 +51,24 @@ RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 --gid nodejs nextjs
 COPY --from=build --chown=nextjs:nodejs /tmp/deploy/ /app/
 WORKDIR /app
-RUN cp /app/.next/standalone/server.js .
+# Next.js standalone output sometimes lands under a nested monorepo path
+# (e.g. .next/standalone/npm-packages/dashboard-orchestrator/server.js)
+# instead of .next/standalone/server.js. Locate server.js, then collapse
+# the standalone tree so server.js sits at the package root.
+RUN <<EOF
+set -e
+SERVER=$(find /app/.next/standalone -name server.js | head -1)
+if [ -z "$SERVER" ]; then
+  echo "FATAL: no server.js found under /app/.next/standalone"
+  ls -la /app/.next/standalone || ls -la /app/.next
+  exit 1
+fi
+SRCDIR=$(dirname "$SERVER")
+if [ "$SRCDIR" != "/app/.next/standalone" ]; then
+  cp -a "$SRCDIR/." /app/.next/standalone/
+fi
+cp /app/.next/standalone/server.js .
+EOF
 USER nextjs
 EXPOSE 6793
 ENV PORT=6793
