@@ -62,6 +62,7 @@ pub mod pool_stats;
 pub mod query;
 pub mod query_journal;
 pub mod retriable_stream;
+pub mod retry;
 pub mod runtime;
 pub mod schemas;
 pub mod sentry;
