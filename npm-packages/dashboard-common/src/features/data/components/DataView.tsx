@@ -12,8 +12,10 @@ import {
   DataSideBarSkeleton,
 } from "@common/features/data/components/DataSidebar";
 import { ShowSchema } from "@common/features/data/components/ShowSchema";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useCanViewDeploymentData } from "@common/lib/useCanViewDeploymentData";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
@@ -36,6 +38,7 @@ export function DataView({
   const { useCurrentDeployment, ErrorBoundary } = useContext(
     DeploymentInfoContext,
   );
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const deployment = useCurrentDeployment() ?? {
     id: undefined,
     kind: undefined,
@@ -46,7 +49,7 @@ export function DataView({
   const router = useRouter();
   const tableMetadata = useTableMetadataAndUpdateURL();
 
-  const canViewData = useCanViewDeploymentData();
+  const canViewData = useIsOperationAllowed("ViewData");
 
   const componentId = useNents().selectedNent?.id;
   const schemas = useQuery(
@@ -109,7 +112,10 @@ export function DataView({
     return (
       <>
         <DeploymentPageTitle title="Data" />
-        <NoPermissionMessage message="You do not have permission to view data in this deployment." />
+        <NoPermissionMessage
+          message="You do not have permission to view data in this deployment."
+          missingPermission="deployment:data:view"
+        />
       </>
     );
   }

@@ -1,11 +1,15 @@
 import { TrashIcon } from "@radix-ui/react-icons";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { useRouter } from "next/router";
 import { useContext, useState } from "react";
 import {
   useCancelAllJobs,
   useDeleteScheduledJobsTable,
 } from "@common/features/schedules/lib/api";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import {
   itemIdentifier,
   useCurrentOpenFunction,
@@ -50,19 +54,10 @@ export function ScheduledFunctionsContentToolbar({
   const cancelJobs = useCancelAllJobs();
   const deleteScheduledJobsTable = useDeleteScheduledJobsTable();
 
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-  const canCancelJobs =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const canCancelJobs = useIsOperationAllowed("WriteData");
 
   return (
     <div className="flex w-full flex-wrap items-center gap-4">
@@ -119,8 +114,12 @@ export function ScheduledFunctionsContentToolbar({
           icon={<TrashIcon />}
           disabled={!canCancelJobs}
           tip={
-            !canCancelJobs &&
-            "You do not have permission to cancel scheduled runs in this deployment."
+            !canCancelJobs && (
+              <PermissionDeniedTip
+                message="You do not have permission to cancel scheduled runs in this deployment."
+                action="deployment:data:write"
+              />
+            )
           }
         >
           Cancel All {currentOpenFunction && "(for the selected function)"}

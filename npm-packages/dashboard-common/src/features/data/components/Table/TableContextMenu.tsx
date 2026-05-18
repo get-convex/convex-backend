@@ -30,6 +30,7 @@ import {
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 
 export function useTableContextMenuState(): {
   contextMenuState: TableContextMenuState | null;
@@ -370,11 +371,14 @@ function CellActions({
               </div>
             ),
             disabled: disableEdit,
-            tip: isInUnmountedComponent
-              ? "Cannot edit documents in an unmounted component."
-              : !canManageTable
-                ? "You do not have permission to edit data in this deployment."
-                : null,
+            tip: isInUnmountedComponent ? (
+              "Cannot edit documents in an unmounted component."
+            ) : !canManageTable ? (
+              <PermissionDeniedTip
+                message="You do not have permission to edit data in this deployment."
+                action="deployment:data:write"
+              />
+            ) : null,
           },
         ]
       : null;
@@ -537,8 +541,12 @@ function DocumentActions({
       disabled: disableEditDoc,
       tip: isInUnmountedComponent
         ? "Cannot edit documents in an unmounted component."
-        : !canManageTable &&
-          "You do not have permission to edit data in this deployment.",
+        : !canManageTable && (
+            <PermissionDeniedTip
+              message="You do not have permission to edit data in this deployment."
+              action="deployment:data:write"
+            />
+          ),
       tipSide: "right",
       action: editDocCb,
     },
@@ -548,8 +556,12 @@ function DocumentActions({
       disabled: disableEditDoc,
       tip: isInUnmountedComponent
         ? "Cannot delete documents in an unmounted component."
-        : !canManageTable &&
-          "You do not have permission to edit data in this deployment.",
+        : !canManageTable && (
+            <PermissionDeniedTip
+              message="You do not have permission to delete data in this deployment."
+              action="deployment:data:write"
+            />
+          ),
       tipSide: "right",
       danger: true,
       action: () => {

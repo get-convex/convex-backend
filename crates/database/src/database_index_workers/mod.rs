@@ -429,7 +429,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 indexes: needs_backfill,
             };
             docs_indexed = index_writer
-                .backfill_from_ts(ts, &index_registry, index_selector, 1, cursor)
+                .backfill_from_ts(ts, &index_registry, index_selector, 1, cursor, None)
                 .await?;
         }
 

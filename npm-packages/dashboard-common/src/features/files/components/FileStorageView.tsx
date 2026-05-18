@@ -6,7 +6,7 @@ import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { toast } from "@common/lib/utils";
 import { useNents } from "@common/lib/useNents";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 import { PageContent } from "@common/elements/PageContent";
@@ -21,7 +21,7 @@ export function FileStorageView({
 }: {
   onFilesUploaded?: (count: number) => void;
 }) {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewData = useIsOperationAllowed("ViewData");
 
   const [selectedFiles, setSelectedFiles] = useState<
@@ -91,7 +91,10 @@ export function FileStorageView({
     return (
       <>
         <DeploymentPageTitle title="Files" />
-        <NoPermissionMessage message="You do not have permission to view files in this deployment." />
+        <NoPermissionMessage
+          message="You do not have permission to view files in this deployment."
+          missingPermission="deployment:data:view"
+        />
       </>
     );
   }

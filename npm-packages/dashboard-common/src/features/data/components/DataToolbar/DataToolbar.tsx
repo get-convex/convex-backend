@@ -4,7 +4,10 @@ import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { Spinner } from "@ui/Spinner";
 import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { PopupState } from "@common/features/data/lib/useToolPopup";
 import { useEnabledDebounced } from "@common/features/data/lib/useEnabledDebounced";
@@ -14,6 +17,7 @@ import {
   useActiveSchema,
 } from "@common/features/data/lib/helpers";
 import { TableSchemaStatus } from "@common/features/data/components/TableSchema";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { useRouter } from "next/router";
 
 export type DataToolbarProps = {
@@ -61,24 +65,14 @@ export function DataToolbar({
   const isEditingMoreThanOne =
     isEditingAllAndMoreThanOne || numRowsSelected > 1;
 
-  const {
-    useLogDeploymentEvent,
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsProtectedDeployment,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
+  const { useLogDeploymentEvent, useIsProtectedDeployment } = useContext(
+    DeploymentInfoContext,
+  );
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const isProtectedDeployment = useIsProtectedDeployment();
   const log = useLogDeploymentEvent();
 
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-  const canManageTable =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const canManageTable = useIsOperationAllowed("WriteData");
 
   return (
     <div className="flex flex-col">
@@ -272,8 +266,12 @@ function AddDocumentButton({
       tip={
         isInUnmountedComponent
           ? "Cannot add documents in an unmounted component."
-          : !canManageTable &&
-            "You do not have permission to add documents in this deployment."
+          : !canManageTable && (
+              <PermissionDeniedTip
+                message="You do not have permission to add documents in this deployment."
+                action="deployment:data:write"
+              />
+            )
       }
     >
       Add
@@ -341,8 +339,12 @@ function EditDocumentButton({
       tip={
         isInUnmountedComponent
           ? "Cannot edit documents in an unmounted component."
-          : !canManageTable &&
-            "You do not have permission to edit documents in this deployment."
+          : !canManageTable && (
+              <PermissionDeniedTip
+                message="You do not have permission to edit documents in this deployment."
+                action="deployment:data:write"
+              />
+            )
       }
       size="sm"
       variant="neutral"
@@ -413,8 +415,12 @@ function DeleteDocumentButton({
       tip={
         isInUnmountedComponent
           ? "Cannot delete documents in an unmounted component."
-          : !canManageTable &&
-            "You do not have permission to delete documents in this deployment."
+          : !canManageTable && (
+              <PermissionDeniedTip
+                message="You do not have permission to delete documents in this deployment."
+                action="deployment:data:write"
+              />
+            )
       }
       onClick={async () => {
         log("open delete document panel", {

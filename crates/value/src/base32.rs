@@ -54,40 +54,40 @@ pub const fn encoded_buffer_len(len: usize) -> usize {
     len.div_ceil(5) * 8
 }
 
-/// Writes the base32-encoding of `data` into `out`, which should have length at
-/// least `encoded_buffer_len(data.len())`. Only the first
+/// Writes the base32-encoding of `data[..len]` into `out`, which should have
+/// length at least `encoded_buffer_len(data.len())`. Only the first
 /// `encoded_len(data.len())` bytes of `out` should be used.
+///
+/// If `MAY_OVERREAD` is true, then assumes that we can read past `len` at least
+/// 3 bytes past the last chunk & that `data[len..]` is all zeroes
 #[inline]
-pub fn encode_into(out: &mut [u8], data: &[u8]) {
-    // Process the input in chunks of length 5 (i.e 40 bits), potentially padding
-    // the last chunk with zeros for now.
-    for (chunk, out_chunk) in data.chunks(5).zip(out.chunks_mut(8)) {
-        let block = chunk.try_into().unwrap_or_else(|_| {
-            // Zero-extend the last chunk if necessary
-            let mut block = [0u8; 5];
-            block[..chunk.len()].copy_from_slice(chunk);
-            block
-        });
-
+pub fn encode_into<const MAY_OVERREAD: bool>(out: &mut [u8], data: &[u8], len: usize) {
+    // Process the input in chunks of length 5 (i.e 40 bits).
+    for (i, out_chunk) in (0..len).step_by(5).zip(out.as_chunks_mut::<8>().0) {
+        let block = if MAY_OVERREAD {
+            // Read 8 bytes at a time for performance
+            u64::from_be_bytes(*data[i..].first_chunk::<8>().unwrap())
+        } else {
+            let chunk = &data[i..len.min(i + 5)];
+            let mut buf = [0; 8];
+            buf[..chunk.len()].copy_from_slice(chunk);
+            u64::from_be_bytes(buf)
+        };
         // Turn our block of 5 groups of 8 bits into 8 groups of 5 bits.
-        #[inline]
-        fn alphabet(index: u8) -> u8 {
-            ALPHABET[index as usize]
-        }
-        out_chunk[0] = alphabet((block[0] & 0b1111_1000) >> 3);
-        out_chunk[1] = alphabet((block[0] & 0b0000_0111) << 2 | ((block[1] & 0b1100_0000) >> 6));
-        out_chunk[2] = alphabet((block[1] & 0b0011_1110) >> 1);
-        out_chunk[3] = alphabet((block[1] & 0b0000_0001) << 4 | ((block[2] & 0b1111_0000) >> 4));
-        out_chunk[4] = alphabet((block[2] & 0b0000_1111) << 1 | (block[3] >> 7));
-        out_chunk[5] = alphabet((block[3] & 0b0111_1100) >> 2);
-        out_chunk[6] = alphabet((block[3] & 0b0000_0011) << 3 | ((block[4] & 0b1110_0000) >> 5));
-        out_chunk[7] = alphabet(block[4] & 0b0001_1111);
+        out_chunk[0] = ALPHABET[((block >> 59) & 0x1f) as usize];
+        out_chunk[1] = ALPHABET[((block >> 54) & 0x1f) as usize];
+        out_chunk[2] = ALPHABET[((block >> 49) & 0x1f) as usize];
+        out_chunk[3] = ALPHABET[((block >> 44) & 0x1f) as usize];
+        out_chunk[4] = ALPHABET[((block >> 39) & 0x1f) as usize];
+        out_chunk[5] = ALPHABET[((block >> 34) & 0x1f) as usize];
+        out_chunk[6] = ALPHABET[((block >> 29) & 0x1f) as usize];
+        out_chunk[7] = ALPHABET[((block >> 24) & 0x1f) as usize];
     }
 }
 
 pub fn encode(data: &[u8]) -> String {
     let mut out = vec![0; encoded_buffer_len(data.len())];
-    encode_into(&mut out, data);
+    encode_into::<false>(&mut out, data, data.len());
     // Truncate any extra zeros we added on the last block.
     out.truncate(encoded_len(data.len()));
     String::from_utf8(out).unwrap()

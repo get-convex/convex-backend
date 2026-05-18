@@ -9,7 +9,7 @@ import {
   useIsCurrentMemberTeamAdmin,
 } from "api/roles";
 import { MEMBER_RESOURCE } from "lib/permissions";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { Link } from "@ui/Link";
 import { TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";

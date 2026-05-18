@@ -12,7 +12,7 @@ import {
 } from "api/roles";
 import { useProfile } from "api/profile";
 import { deploymentTokenResource } from "lib/permissions";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { Link } from "@ui/Link";
 
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";

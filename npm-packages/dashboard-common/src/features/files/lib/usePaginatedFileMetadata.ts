@@ -1,7 +1,10 @@
 import { usePaginatedQuery } from "convex/react";
 import { useContext, useState } from "react";
 import udfs from "@common/udfs";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useNents } from "@common/lib/useNents";
 import { usePausedLiveData } from "@common/lib/usePausedLiveData";
@@ -10,9 +13,8 @@ import { FileFilters } from "../components/FileStorageHeader";
 export const FILE_METADATA_PAGE_SIZE = 20;
 
 export function usePaginatedFileMetadata() {
-  const { useCurrentDeployment, useIsOperationAllowed } = useContext(
-    DeploymentInfoContext,
-  );
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const deployment = useCurrentDeployment();
   const canViewData = useIsOperationAllowed("ViewData");
   const [filters, setFilters] = useState<FileFilters>({

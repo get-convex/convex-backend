@@ -6,7 +6,7 @@ import { useTeamAuditLog } from "api/auditLog";
 import { useHasCustomRolePermission } from "api/roles";
 import { useTeamEntitlements, useTeamMembers } from "api/teams";
 import { AuditLogAction, TeamResponse } from "generatedApi";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { TEAM_RESOURCE } from "lib/permissions";
 import { useRouter } from "next/router";
 import { AuditLogContent } from "./AuditLogContent";

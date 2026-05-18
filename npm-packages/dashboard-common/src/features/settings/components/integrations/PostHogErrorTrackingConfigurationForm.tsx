@@ -44,13 +44,13 @@ export function PostHogErrorTrackingConfigurationForm({
     },
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
-      const args = {
-        logStreamType: "postHogErrorTracking" as const,
-        apiKey: values.apiKey,
-        host: values.host || null,
-      };
-
       try {
+        const args = {
+          logStreamType: "postHogErrorTracking" as const,
+          apiKey: values.apiKey,
+          host: values.host || null,
+        };
+
         if (isNewIntegration) {
           await createLogStream(args);
           onAddedIntegration?.();

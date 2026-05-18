@@ -21,7 +21,8 @@ import { SchemaJson, displaySchema } from "@common/lib/format";
 import { useRunTestFunction } from "@common/features/functionRunner/lib/client";
 import { ComponentId } from "@common/lib/useNents";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {
   RunHistory,
@@ -186,32 +187,9 @@ export function useFunctionEditor(
   setRunHistoryItem: (item: RunHistoryItem) => void,
   onRanCustomQuery?: () => void,
 ) {
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-    useCustomRolePermission,
-    permissionDeniedTip,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canRunTestQueryOp = useIsOperationAllowed("RunTestQuery");
-  const canViewDataOp = useIsOperationAllowed("ViewData");
-  const canRunTestQueryCustom = useCustomRolePermission(
-    "deployment:functions:runTestQuery",
-    true,
-  );
-  const canViewDataCustom = useCustomRolePermission(
-    "deployment:data:view",
-    true,
-  );
-  const canRunTestQuery =
-    canRunTestQueryOp &&
-    (hasAdminPermissions || canRunTestQueryCustom !== false);
-  const canViewData =
-    canViewDataOp && (hasAdminPermissions || canViewDataCustom !== false);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canRunTestQuery = useIsOperationAllowed("RunTestQuery");
+  const canViewData = useIsOperationAllowed("ViewData");
   const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
@@ -470,12 +448,12 @@ export function useFunctionEditor(
         className={classNames("items-center justify-center", "w-full")}
         disabled={!canRunTestQuery}
         tip={
-          !canRunTestQuery
-            ? permissionDeniedTip(
-                "You do not have permission to run custom queries in this deployment.",
-                "deployment:functions:runTestQuery",
-              )
-            : undefined
+          !canRunTestQuery ? (
+            <PermissionDeniedTip
+              message="You do not have permission to run custom queries in this deployment."
+              action="deployment:functions:runTestQuery"
+            />
+          ) : undefined
         }
         loading={isInFlight}
         icon={<PlayIcon />}

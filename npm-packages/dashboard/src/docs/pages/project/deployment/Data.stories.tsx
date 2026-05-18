@@ -1,5 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import {
+  PermissionsProvider,
   ConnectedDeploymentContext,
   DeploymentInfoContext,
 } from "@common/lib/deploymentContext";
@@ -734,9 +735,11 @@ export const ComponentDropdown: Story = {
             isSelfHosted: false,
           }}
         >
-          <FunctionsContext.Provider value={new Map()}>
-            <DataView />
-          </FunctionsContext.Provider>
+          <PermissionsProvider>
+            <FunctionsContext.Provider value={new Map()}>
+              <DataView />
+            </FunctionsContext.Provider>
+          </PermissionsProvider>
         </DeploymentInfoContext.Provider>
       </ConvexProvider>
     </ConnectedDeploymentContext.Provider>

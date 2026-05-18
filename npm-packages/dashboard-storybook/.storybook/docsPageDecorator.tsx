@@ -21,7 +21,12 @@ import {
 import {
   useIsCurrentMemberTeamAdmin,
   useHasProjectAdminPermissions,
+  useMyCustomRoles,
 } from "../../dashboard/src/api/roles";
+import {
+  useIsOperationAllowed,
+  useHasCustomRole,
+} from "../../dashboard/src/hooks/useDeploymentPermissions";
 import { useHasOptedIn } from "../../dashboard/src/api/optins";
 import {
   flagDefaults,
@@ -315,6 +320,19 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     isLoading: false,
   });
   mocked(useHasProjectAdminPermissions).mockReturnValue(true);
+  mocked(useMyCustomRoles).mockReturnValue({
+    role: "admin",
+    customRoles: [],
+  });
+  // Mock the deployment-permission hooks directly. `useMyCustomRoles` is
+  // called from inside `useHasCustomRolePermission` within the same module,
+  // so module-level mocks of `useMyCustomRoles` don't intercept that call —
+  // the hook still hits the real backend and returns `undefined`, which
+  // makes the PermissionsProvider in DeploymentDashboardLayout render
+  // LoadingLogo forever and freezes every docs/pages/project/deployment/*
+  // story.
+  mocked(useIsOperationAllowed).mockReturnValue(true);
+  mocked(useHasCustomRole).mockReturnValue(false);
   mocked(useHasOptedIn).mockReturnValue({
     hasOptedIn: true,
     isLoading: false,

@@ -8,7 +8,10 @@ import { DirectorySidebar } from "@common/features/functions/components/Director
 import { FunctionSummary } from "@common/features/functions/components/FunctionSummary";
 import { PerformanceGraphs } from "@common/features/functions/components/PerformanceGraphs";
 import { SingleGraph } from "@common/features/functions/components/SingleGraph";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
 import { EmptySection } from "@common/elements/EmptySection";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
@@ -24,14 +27,17 @@ import { Sheet } from "@ui/Sheet";
 import { FunctionLogs } from "./FunctionLogs";
 
 export function FunctionsView() {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewData = useIsOperationAllowed("ViewData");
 
   if (!canViewData) {
     return (
       <>
         <DeploymentPageTitle title="Functions" />
-        <NoPermissionMessage message="You do not have permission to view functions in this deployment." />
+        <NoPermissionMessage
+          message="You do not have permission to view functions in this deployment."
+          missingPermission="deployment:data:view"
+        />
       </>
     );
   }

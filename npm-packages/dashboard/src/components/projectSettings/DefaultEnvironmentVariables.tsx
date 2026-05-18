@@ -16,7 +16,7 @@ import { defaultEnvironmentVariableResource } from "lib/permissions";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import { UpdateDefaultEnvironmentVariablesArgs } from "@convex-dev/platform/managementApi";
 import { Link } from "@ui/Link";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { EnvironmentVariables } from "@common/features/settings/components/EnvironmentVariables";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";

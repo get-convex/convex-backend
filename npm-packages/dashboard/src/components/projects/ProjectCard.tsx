@@ -18,10 +18,10 @@ import { ProjectDetails } from "generatedApi";
 import {
   useHasCustomRolePermission,
   useHasProjectAdminPermissions,
+  useMyCustomRoles,
 } from "api/roles";
-import { useProfile } from "api/profile";
 import { useCurrentTeam } from "api/teams";
-import { deploymentResource, projectResource } from "lib/permissions";
+import { projectResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { HighlightMatch } from "elements/HighlightMatch";
 import { DeleteProjectModal } from "./modals/DeleteProjectModal";
@@ -38,7 +38,6 @@ export function ProjectCard({
   const router = useRouter();
   const { id, slug, name } = project;
   const team = useCurrentTeam();
-  const profile = useProfile();
 
   const [deleteModal, setDeleteModal] = useState(false);
   const [lostAccessModal, setLostAccessModal] = useState(false);
@@ -55,38 +54,12 @@ export function ProjectCard({
 
   const hasAdminPermissions = useHasProjectAdminPermissions(project.id);
 
-  // Custom-role gates. We don't have the actual deployment id/creator
-  // for the prod/dev defaults at this point in the rendering pipeline,
-  // so synthesize a resource that's specific enough for `type=`/`creator=self`
-  // selectors (the common patterns) — `creator=self` matches the user's
-  // own dev, and a placeholder id is OK because `id=` selectors are rare.
-  // `nonCustomRoleResult: true` so built-in admin AND developer members
-  // keep the links; only custom-role members get a real evaluation.
-  const canViewProdCustom = useHasCustomRolePermission(
-    team?.id,
-    "deployment:view",
-    deploymentResource(project, {
-      id: -1,
-      deploymentType: "prod",
-      creator: null,
-    }),
-    true,
-  );
-  const canViewDevCustom = useHasCustomRolePermission(
-    team?.id,
-    "deployment:view",
-    deploymentResource(project, {
-      id: -1,
-      deploymentType: "dev",
-      creator: profile?.id ?? null,
-    }),
-    true,
-  );
-  // Treat the "loading" tri-state as allowed so the prod/dev pair doesn't
-  // flicker into the "View deployments" fallback while role data resolves
-  // — only explicit denials should collapse the links.
-  const canViewProd = hasAdminPermissions || canViewProdCustom !== false;
-  const canViewDev = hasAdminPermissions || canViewDevCustom !== false;
+  // Custom-role members get the deployments-list redirect instead of the
+  // Production/Development pair: the backend already nulls out
+  // `prodDeploymentName`/`devDeploymentName` for deployments they can't
+  // view, and we don't want to surface the provision links to them.
+  const myRoles = useMyCustomRoles(team?.id);
+  const isCustomRoleMember = myRoles?.role === "custom";
 
   const canDeleteCustom = useHasCustomRolePermission(
     team?.id,
@@ -138,22 +111,11 @@ export function ProjectCard({
     },
   ];
 
-  // Pick the card-level href based on what the user is allowed to view.
-  // When they can see neither prod nor dev, redirect to the deployments
-  // list view scoped to this project so they can still discover any
-  // other deployments their role allows (e.g. preview).
+  // For custom-role members, redirect to the deployments list view scoped
+  // to this project so they can still discover any deployments their role
+  // allows (e.g. preview).
   const deploymentsListHref = `/t/${team?.slug}?view=deployments&projectId=${project.id}`;
-  const cardHref = isProdDefault
-    ? canViewProd
-      ? defaultHref
-      : canViewDev
-        ? devHref
-        : deploymentsListHref
-    : canViewDev
-      ? defaultHref
-      : canViewProd
-        ? prodHref
-        : deploymentsListHref;
+  const cardHref = isCustomRoleMember ? deploymentsListHref : defaultHref;
 
   const cardContent = (
     <Card
@@ -166,7 +128,7 @@ export function ProjectCard({
         <div className="relative z-10 flex gap-1">
           {!isLoadingDeployments ? (
             <div className="flex flex-col items-end">
-              {canViewProd && canViewDev && (
+              {!isCustomRoleMember && (
                 <DeploymentLinks
                   isProdDefault={isProdDefault}
                   devHref={devHref}

@@ -9,7 +9,10 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { CreateNewTable } from "@common/features/data/components/DataSidebar";
 import { EmptySection } from "@common/elements/EmptySection";
 import { useNents } from "@common/lib/useNents";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import { useTableMetadata } from "@common/lib/useTableMetadata";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
@@ -38,21 +41,10 @@ export function EmptyDataContent({
 }) {
   const { selectedNent } = useNents();
 
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-    useLogDeploymentEvent,
-  } = useContext(DeploymentInfoContext);
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
 
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-  const canAddDocuments =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const canAddDocuments = useIsOperationAllowed("WriteData");
   const tableMetadata = useTableMetadata();
   const log = useLogDeploymentEvent();
 

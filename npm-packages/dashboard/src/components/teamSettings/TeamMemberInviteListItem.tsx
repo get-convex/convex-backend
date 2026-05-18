@@ -10,6 +10,7 @@ import { RoleDisplay } from "./RoleDisplay";
 
 type TeamMemberInviteListItemProps = {
   invite: InvitationResponse;
+  teamSlug: string;
   // Both gates may be `undefined` while permissions are loading.
   canInvite: boolean | undefined;
   canCancelInvite: boolean | undefined;
@@ -19,6 +20,7 @@ type TeamMemberInviteListItemProps = {
 
 export function TeamMemberInviteListItem({
   invite,
+  teamSlug,
   canInvite,
   canCancelInvite,
   onCreateInvite,
@@ -60,7 +62,11 @@ export function TeamMemberInviteListItem({
             Invitation expired
           </span>
         )}
-        <RoleDisplay role={invite.role} customRoles={invite.customRoles} />
+        <RoleDisplay
+          role={invite.role}
+          customRoles={invite.customRoles}
+          teamSlug={teamSlug}
+        />
         <Menu
           placement="bottom-end"
           buttonProps={{

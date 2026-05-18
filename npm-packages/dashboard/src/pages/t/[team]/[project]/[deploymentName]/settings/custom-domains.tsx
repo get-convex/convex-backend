@@ -1,7 +1,7 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { Loading } from "@ui/Loading";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { CustomDomains } from "components/deploymentSettings/CustomDomains";
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
