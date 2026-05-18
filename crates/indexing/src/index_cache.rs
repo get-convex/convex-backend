@@ -204,6 +204,16 @@ impl IndexIntervals {
     }
 }
 
+enum IntervalStatus {
+    Tracked,
+    /// The deployment entry is gone — expected when remove_deployment races
+    /// with an in-flight populate or get.
+    DeploymentGone,
+    /// Deployment entry present but interval missing — indicates a refcount
+    /// bug.
+    IntervalMissing,
+}
+
 /// Shared cache for index range reads up-to-date as of the latest commits.
 #[derive(Clone)]
 pub struct IndexCache {
@@ -297,6 +307,29 @@ impl IndexCache {
         log_index_cache_size(self.cache.weighted_size());
     }
 
+    fn check_interval_tracking(
+        index_to_intervals: &Arc<DashMap<DeploymentId, DashMap<IndexId, IndexIntervals>>>,
+        deployment_id: DeploymentId,
+        index_id: IndexId,
+        interval: &Arc<Interval>,
+        order: Order,
+        max_size: usize,
+    ) -> IntervalStatus {
+        let deployment_intervals = index_to_intervals.get(&deployment_id);
+        let tracked = deployment_intervals
+            .as_ref()
+            .and_then(|d| d.get(&index_id).map(|iv| iv.value().clone()))
+            .map(|iv| iv.contains(interval, order, max_size))
+            .unwrap_or(false);
+        if tracked {
+            IntervalStatus::Tracked
+        } else if deployment_intervals.is_none() {
+            IntervalStatus::DeploymentGone
+        } else {
+            IntervalStatus::IntervalMissing
+        }
+    }
+
     /// Invalidate a cache entry if the write falls within its tracked interval.
     fn apply_write_to_cache(&self, key: &CacheKey, write: &DatabaseIndexWrite) {
         let old_in_interval = write
@@ -353,24 +386,53 @@ impl IndexCacheHandle {
         max_size: usize,
     ) -> Option<IndexPage> {
         let mut timer = index_cache_get_timer();
+        let key = CacheKey {
+            deployment_id: self.deployment_id,
+            index_id,
+            interval: interval.clone(),
+            order,
+            max_size,
+        };
         let result = self
             .cache
             .cache
-            .get(&CacheKey {
-                deployment_id: self.deployment_id,
+            .get(&key)
+            .and_then(|cached_interval| cached_interval.index_page_at_ts(ts));
+        if result.is_some() {
+            // A ready entry must have its interval tracked so apply_writes can invalidate
+            // it. If the interval is missing, this entry is a zombie that would serve
+            // stale data — remove it and treat as a miss.
+            // DashMap lock is released before any moka call to maintain lock ordering.
+            match IndexCache::check_interval_tracking(
+                &self.cache.index_to_intervals,
+                self.deployment_id,
                 index_id,
-                interval,
+                &interval,
                 order,
                 max_size,
-            })
-            .and_then(|cached_interval| cached_interval.index_page_at_ts(ts));
-        let hit = result.is_some();
-        if hit {
-            timer.add_label(StaticMetricLabel::new("status", "hit"));
+            ) {
+                IntervalStatus::Tracked => {
+                    timer.add_label(StaticMetricLabel::new("status", "hit"));
+                },
+                IntervalStatus::DeploymentGone => {
+                    timer.add_label(StaticMetricLabel::new("status", "miss"));
+                    return None;
+                },
+                IntervalStatus::IntervalMissing => {
+                    tracing::error!(
+                        "IndexCache: ready entry found but interval not tracked — invalidating \
+                         zombie entry (deployment_id={:?}, index_id={index_id:?})",
+                        self.deployment_id
+                    );
+                    self.cache.cache.remove(&key);
+                    timer.add_label(StaticMetricLabel::new("status", "miss"));
+                    return None;
+                },
+            }
         } else {
             timer.add_label(StaticMetricLabel::new("status", "miss"));
         }
-        tracing::debug!(hit, "IndexCache::get");
+        tracing::debug!(hit = result.is_some(), "IndexCache::get");
         result
     }
 
@@ -484,24 +546,35 @@ impl IndexCacheHandle {
         // Phase 2 of 2PC: mark the cache entry as ready to serve reads if it's still
         // there. If it is missing, it was evicted by a concurrent call to
         // `apply_writes`.
-        let index_to_intervals = self.cache.index_to_intervals.clone();
         self.cache.cache.entry(key).and_compute_with(|maybe_entry| {
             if let Some(entry) = maybe_entry
                 && entry.value().begin_ts == ts
             {
-                let interval_is_recorded = index_to_intervals
-                    .get(&deployment_id)
-                    .and_then(|d| d.get(&index_id).map(|iv| iv.value().clone()))
-                    .map(|iv| iv.contains(&interval, order, max_size))
-                    .unwrap_or(false);
-                if !interval_is_recorded {
-                    tracing::error!(
-                        "IndexCache invariant violated: marking entry ready but interval not \
-                         registered in index_to_intervals (deployment_id={deployment_id:?}, \
-                         index_id={index_id:?})"
-                    );
-                    timer.add_label(StaticMetricLabel::new("result", "invalid"));
-                    return Op::Remove;
+                // Remove if the interval is no longer registered. remove_deployment
+                // atomically removes the deployment entry before removing cache entries,
+                // so a concurrent populate may find the deployment gone — that's expected.
+                match IndexCache::check_interval_tracking(
+                    &self.cache.index_to_intervals,
+                    deployment_id,
+                    index_id,
+                    &interval,
+                    order,
+                    max_size,
+                ) {
+                    IntervalStatus::Tracked => {},
+                    IntervalStatus::DeploymentGone => {
+                        timer.add_label(StaticMetricLabel::new("result", "invalid"));
+                        return Op::Remove;
+                    },
+                    IntervalStatus::IntervalMissing => {
+                        tracing::error!(
+                            "IndexCache invariant violated: interval not registered in \
+                             index_to_intervals but deployment entry is present \
+                             (deployment_id={deployment_id:?}, index_id={index_id:?})"
+                        );
+                        timer.add_label(StaticMetricLabel::new("result", "invalid"));
+                        return Op::Remove;
+                    },
                 }
                 let mut value = entry.into_value();
                 value.is_ready = true;
