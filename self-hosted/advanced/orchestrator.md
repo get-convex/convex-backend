@@ -117,11 +117,10 @@ BOOTSTRAP_TOKEN='<random-hex>'
 SERVICE_KEY='<random-hex>'
 BETTER_AUTH_SECRET='<random-hex>'
 
-# Public URLs the browser uses. Three of these (the NEXT_PUBLIC_* ones,
-# fed via PUBLIC_ORCHESTRATOR_URL and PUBLIC_SELF_HOSTED_DASHBOARD_URL)
-# are baked into the dashboard's JS bundle at image build time, so
-# changing them requires rebuilding the dashboard-orchestrator image
-# (see below).
+# Public URLs the browser uses. The dashboard-orchestrator image's
+# startup script (start.sh) rewrites the baked client bundle to match
+# PUBLIC_ORCHESTRATOR_URL / PUBLIC_SELF_HOSTED_DASHBOARD_URL, so no
+# rebuild is needed.
 PUBLIC_ORIGIN='https://convex.my-domain.com'
 PUBLIC_DASHBOARD_URL='https://convex.my-domain.com'
 PUBLIC_ORCHESTRATOR_URL='https://api.convex.my-domain.com'
@@ -147,24 +146,6 @@ Sign in at `https://convex.my-domain.com` using `BOOTSTRAP_TOKEN` (the
 orchestrator registers it as a personal access token for the first admin on
 first start).
 
-### Rebuilding the dashboard for non-localhost URLs
-
-The dashboard's browser bundle inlines `PUBLIC_ORCHESTRATOR_URL` and
-`PUBLIC_SELF_HOSTED_DASHBOARD_URL` at image build time. The pre-built
-`ghcr.io/defy-works/convex-dashboard-orchestrator:latest` bakes
-`http://localhost:*` URLs, so a remote browser hitting the stack will try to
-call your laptop's `localhost` and fail. To bake in your domain:
-
-```sh
-git clone https://github.com/defy-works/convex-backend.git
-cd convex-backend/self-hosted/docker
-# .env from above lives here
-docker compose -f docker-compose.orchestrator.yml up -d --build
-```
-
-`--build` runs the `Dockerfile.dashboard-orchestrator` with the `PUBLIC_*`
-values from your `.env` baked in as the `NEXT_PUBLIC_*` args.
-
 ### Environment reference
 
 | Var                                                                                                                  | Default                                                                            | Purpose                                                                                                                               |
@@ -174,8 +155,8 @@ values from your `.env` baked in as the `NEXT_PUBLIC_*` args.
 | `BETTER_AUTH_SECRET`                                                                                                 | `better-auth-secret-change-me`                                                     | Session signing key for the dashboard auth.                                                                                           |
 | `PUBLIC_ORIGIN`                                                                                                      | `http://localhost`                                                                 | Stamped into URLs the orchestrator returns to clients.                                                                                |
 | `PUBLIC_DASHBOARD_URL`                                                                                               | `http://localhost:6793`                                                            | Browser URL of the platform UI; also `BETTER_AUTH_URL` and the inner dashboard's `TRUSTED_PARENT_ORIGINS`.                            |
-| `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-side URL for the orchestrator API. _Baked at build time._                                                                     |
-| `PUBLIC_SELF_HOSTED_DASHBOARD_URL`                                                                                   | `http://localhost:6791`                                                            | Browser-side URL for the per-deployment dashboard iframe. _Baked at build time._                                                      |
+| `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-side URL for the orchestrator API. Applied at container startup; no rebuild needed.                                           |
+| `PUBLIC_SELF_HOSTED_DASHBOARD_URL`                                                                                   | `http://localhost:6791`                                                            | Browser-side URL for the per-deployment dashboard iframe. Applied at container startup; no rebuild needed.                            |
 | `ROUTER_HOST`                                                                                                        | `localhost`                                                                        | Suffix host for spawned-deployment subdomains.                                                                                        |
 | `ROUTER_PUBLIC_PORT`                                                                                                 | `${ROUTER_PORT}`                                                                   | Public port for the router (set to `443` behind TLS).                                                                                 |
 | `ORCHESTRATOR_PORT` / `ROUTER_PORT` / `DASHBOARD_ORCHESTRATOR_PORT` / `DASHBOARD_SELF_HOSTED_PORT` / `POSTGRES_PORT` | `8050` / `9000` / `6793` / `6791` / `5433`                                         | Host port bindings.                                                                                                                   |

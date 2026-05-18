@@ -63,15 +63,6 @@ services:
 
   dashboard-orchestrator:
     image: ${DASHBOARD_ORCHESTRATOR_IMAGE:-ghcr.io/defy-works/convex-dashboard-orchestrator:latest}
-    # Rebuild locally with custom NEXT_PUBLIC_* URLs:
-    #   docker compose -f docker-compose.orchestrator.yml build dashboard-orchestrator
-    # The pre-built image bakes localhost URLs for the browser bundle.
-    build:
-      context: ../..
-      dockerfile: self-hosted/docker-build/Dockerfile.dashboard-orchestrator
-      args:
-        NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL: ${PUBLIC_ORCHESTRATOR_URL:-http://localhost:${ORCHESTRATOR_PORT:-8050}}
-        NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL: ${PUBLIC_SELF_HOSTED_DASHBOARD_URL:-http://localhost:${DASHBOARD_SELF_HOSTED_PORT:-6791}}
     restart: unless-stopped
     stop_grace_period: 10s
     depends_on:
@@ -80,6 +71,10 @@ services:
     ports:
       - "${DASHBOARD_ORCHESTRATOR_PORT:-6793}:6793"
     environment:
+      # PUBLIC_* are rewritten into the baked client bundle at container
+      # start by /app/start.sh — no image rebuild required.
+      - PUBLIC_ORCHESTRATOR_URL=${PUBLIC_ORCHESTRATOR_URL:-http://localhost:${ORCHESTRATOR_PORT:-8050}}
+      - PUBLIC_SELF_HOSTED_DASHBOARD_URL=${PUBLIC_SELF_HOSTED_DASHBOARD_URL:-http://localhost:${DASHBOARD_SELF_HOSTED_PORT:-6791}}
       - BETTER_AUTH_DATABASE_URL=${BETTER_AUTH_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
       - BETTER_AUTH_URL=${PUBLIC_DASHBOARD_URL:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-better-auth-secret-change-me}
