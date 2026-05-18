@@ -1,148 +1,104 @@
-# End-to-end stack for testing the convex orchestrator + dashboard.
-#
-# Bring it up with:
-#   docker compose -f self-hosted/docker/docker-compose.orchestrator.yml up --build
-#
-# Then visit:
-#   http://localhost:6793  – orchestrator dashboard (sign in / teams / projects)
-#   http://localhost:8050  – orchestrator API
-#   http://localhost:6791  – dashboard-self-hosted (loaded inside iframes)
-#
-# The bootstrap token is printed by the orchestrator on first start; check
-# `docker compose logs orchestrator` and look for the line beginning
-# "BOOTSTRAP TOKEN".
-#
-# Convex backend deployments themselves are NOT auto-provisioned by this
-# compose. The Provisioner trait is currently in `external` mode (a no-op)
-# until the dyn-compat issue is resolved — see `docs/superpowers/specs/`.
-# To exercise the deployment-level UI end to end, manually start one
-# convex-local-backend container and insert a row into the `deployments`
-# table (or use the orchestrator API).
-
-name: convex-orchestrator-stack
+name: convex-orchestrator
 
 services:
   postgres:
     image: postgres:16
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: orchestrator
-      POSTGRES_PASSWORD: orchestrator
-      POSTGRES_DB: orchestrator
+    stop_grace_period: 10s
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # BetterAuth needs `user`, `session`, `account`, `verification` tables.
-      # Postgres' entrypoint runs every *.sql under /docker-entrypoint-initdb.d
-      # exactly once when the data volume is empty.
-      - ../docker/init-better-auth.sql:/docker-entrypoint-initdb.d/00-better-auth.sql:ro
+      - ./init-better-auth.sql:/docker-entrypoint-initdb.d/00-better-auth.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-orchestrator}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-orchestrator}
+      - POSTGRES_DB=${POSTGRES_DB:-orchestrator}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U orchestrator -d orchestrator"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER:-orchestrator} -d
+          $${POSTGRES_DB:-orchestrator}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      # Expose for ad-hoc psql access during testing. Default 5433 to avoid
-      # clashing with a host-side postgres on the standard port.
-      - "${POSTGRES_PORT:-5433}:5432"
 
   orchestrator:
-    image: ghcr.io/defy-works/convex-orchestrator:latest
+    image: ${ORCHESTRATOR_IMAGE:-ghcr.io/defy-works/convex-orchestrator:latest}
     restart: unless-stopped
+    stop_grace_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      CONVEX_ORCHESTRATOR_DATABASE_URL: "postgres://orchestrator:orchestrator@postgres:5432/orchestrator"
-      CONVEX_ORCHESTRATOR_PROVISION_ADDR: "0.0.0.0:8050"
-      CONVEX_ORCHESTRATOR_PUBLIC_ORIGIN: "http://localhost"
-      # `docker` mode shells out to `docker run` (against the mounted host
-      # socket below) to spawn one convex-local-backend container per
-      # deployment. `process` mints fake credentials without spawning a real
-      # backend; `external` requires manual registration via the API.
-      CONVEX_ORCHESTRATOR_PROVISIONER: "${PROVISIONER:-docker}"
-      # Image the docker provisioner pulls/runs for each new deployment.
-      CONVEX_ORCHESTRATOR_BACKEND_IMAGE: "${BACKEND_IMAGE:-ghcr.io/defy-works/convex-backend:latest}"
-      # Container name prefix for spawned backends. Useful for grep/labels.
-      CONVEX_ORCHESTRATOR_BACKEND_CONTAINER_PREFIX: "orchestrator-deployment-"
-      # Network name spawned backends join. Must equal the docker-compose
-      # network this stack uses so the proxy can reach them via DNS. The
-      # auto-generated network for `name: convex-orchestrator-stack` is
-      # `convex-orchestrator-stack_default`.
-      CONVEX_ORCHESTRATOR_BACKEND_NETWORK: "convex-orchestrator-stack_default"
-      # Reverse proxy front-end address inside the container, and the
-      # public port the browser hits (set by the host port mapping below).
-      CONVEX_ORCHESTRATOR_ROUTER_ADDR: "0.0.0.0:9000"
-      CONVEX_ORCHESTRATOR_ROUTER_HOST: "${ROUTER_HOST:-localhost}"
-      CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_PORT: "${ROUTER_PORT:-9000}"
-      CONVEX_ORCHESTRATOR_DATA_ROOT: "/convex/data"
-      # Stable bootstrap token so we don't have to re-read logs every time
-      # the container restarts during local testing. Override in prod.
-      CONVEX_ORCHESTRATOR_BOOTSTRAP_TOKEN: "${BOOTSTRAP_TOKEN:-orchestrator-bootstrap-token-change-me}"
-      # Service key shared with the dashboard for /api/internal/* calls.
-      CONVEX_ORCHESTRATOR_SERVICE_KEY: "${SERVICE_KEY:-orchestrator-service-key-change-me}"
-      CONVEX_ORCHESTRATOR_ADMIN_EMAILS: "${ADMIN_EMAILS:-admin@example.com}"
-      CONVEX_ORCHESTRATOR_REGISTRATION: "${REGISTRATION_MODE:-allowlist}"
-      RUST_LOG: "${RUST_LOG:-orchestrator=debug,tower_http=info}"
     ports:
       - "${ORCHESTRATOR_PORT:-8050}:8050"
-      # Reverse proxy: every spawned backend is reached via
-      # `<deployment>.localhost:9000` / `<deployment>-site.localhost:9000`.
       - "${ROUTER_PORT:-9000}:9000"
     volumes:
       - orchestrator-data:/convex/data
-      # docker provisioner shells out to `docker run` against the host
-      # daemon. The orchestrator process needs read-write access to the
-      # socket; on Docker Desktop for Windows/macOS the same path works.
       - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - CONVEX_ORCHESTRATOR_DATABASE_URL=${CONVEX_ORCHESTRATOR_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
+      - CONVEX_ORCHESTRATOR_PROVISION_ADDR=${CONVEX_ORCHESTRATOR_PROVISION_ADDR:-0.0.0.0:8050}
+      - CONVEX_ORCHESTRATOR_ROUTER_ADDR=${CONVEX_ORCHESTRATOR_ROUTER_ADDR:-0.0.0.0:9000}
+      - CONVEX_ORCHESTRATOR_PUBLIC_ORIGIN=${PUBLIC_ORIGIN:-http://localhost}
+      - CONVEX_ORCHESTRATOR_ROUTER_HOST=${ROUTER_HOST:-localhost}
+      - CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_PORT=${ROUTER_PUBLIC_PORT:-${ROUTER_PORT:-9000}}
+      - CONVEX_ORCHESTRATOR_PROVISIONER=${PROVISIONER:-docker}
+      - CONVEX_ORCHESTRATOR_BACKEND_IMAGE=${BACKEND_IMAGE:-ghcr.io/defy-works/convex-backend:latest}
+      - CONVEX_ORCHESTRATOR_BACKEND_CONTAINER_PREFIX=${BACKEND_CONTAINER_PREFIX:-convex-orchestrator-deployment-}
+      - CONVEX_ORCHESTRATOR_BACKEND_NETWORK=${BACKEND_NETWORK:-convex-orchestrator_default}
+      - CONVEX_ORCHESTRATOR_DATA_ROOT=${CONVEX_ORCHESTRATOR_DATA_ROOT:-/convex/data}
+      - CONVEX_ORCHESTRATOR_BOOTSTRAP_TOKEN=${BOOTSTRAP_TOKEN:-orchestrator-bootstrap-token-change-me}
+      - CONVEX_ORCHESTRATOR_SERVICE_KEY=${SERVICE_KEY:-orchestrator-service-key-change-me}
+      - CONVEX_ORCHESTRATOR_ADMIN_EMAILS=${ADMIN_EMAILS:-admin@example.com}
+      - CONVEX_ORCHESTRATOR_REGISTRATION=${REGISTRATION_MODE:-allowlist}
+      - RUST_LOG=${RUST_LOG:-orchestrator=info,tower_http=warn}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8050/health || exit 1"]
+      test: curl -fsS http://localhost:8050/health || exit 1
       interval: 5s
       start_period: 30s
       retries: 10
 
   dashboard-orchestrator:
-    # NEXT_PUBLIC_* values are baked at image build time
-    # (release_local_dashboard_orchestrator.yml uses the Dockerfile defaults:
-    # http://localhost:8050 and http://localhost:6791). Override by building
-    # locally from Dockerfile.dashboard-orchestrator if you need different
-    # browser-facing URLs.
-    image: ghcr.io/defy-works/convex-dashboard-orchestrator:latest
+    image: ${DASHBOARD_ORCHESTRATOR_IMAGE:-ghcr.io/defy-works/convex-dashboard-orchestrator:latest}
+    # Rebuild locally with custom NEXT_PUBLIC_* URLs:
+    #   docker compose -f docker-compose.orchestrator.yml build dashboard-orchestrator
+    # The pre-built image bakes localhost URLs for the browser bundle.
+    build:
+      context: ../..
+      dockerfile: self-hosted/docker-build/Dockerfile.dashboard-orchestrator
+      args:
+        NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL: ${PUBLIC_ORCHESTRATOR_URL:-http://localhost:${ORCHESTRATOR_PORT:-8050}}
+        NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL: ${PUBLIC_SELF_HOSTED_DASHBOARD_URL:-http://localhost:${DASHBOARD_SELF_HOSTED_PORT:-6791}}
     restart: unless-stopped
+    stop_grace_period: 10s
     depends_on:
       orchestrator:
         condition: service_started
-    environment:
-      # Server-side env. BetterAuth needs Postgres + a session secret.
-      BETTER_AUTH_DATABASE_URL: "postgres://orchestrator:orchestrator@postgres:5432/orchestrator"
-      BETTER_AUTH_URL: "${BETTER_AUTH_URL:-http://localhost:6793}"
-      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:-better-auth-secret-change-me}"
-      BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION: "${BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION:-0}"
-      # Optional: SMTP for password reset / email verification. If unset,
-      # links are printed to the dashboard's stdout.
-      BETTER_AUTH_SMTP_URL: "${BETTER_AUTH_SMTP_URL:-}"
-      BETTER_AUTH_SMTP_FROM: "${BETTER_AUTH_SMTP_FROM:-no-reply@orchestrator}"
-      # Must match orchestrator's CONVEX_ORCHESTRATOR_SERVICE_KEY — used by
-      # the dashboard's /api/orchestrator/token bridge (mints a per-user PAT
-      # via the service-key-authed /api/internal/exchange_session endpoint).
-      CONVEX_ORCHESTRATOR_SERVICE_KEY: "${SERVICE_KEY:-orchestrator-service-key-change-me}"
-      # Server-side base URL the bridge uses to reach the orchestrator
-      # container (over the docker network, not the host port mapping).
-      CONVEX_ORCHESTRATOR_URL: "http://orchestrator:8050"
     ports:
       - "${DASHBOARD_ORCHESTRATOR_PORT:-6793}:6793"
+    environment:
+      - BETTER_AUTH_DATABASE_URL=${BETTER_AUTH_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
+      - BETTER_AUTH_URL=${PUBLIC_DASHBOARD_URL:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-better-auth-secret-change-me}
+      - BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION=${BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION:-0}
+      - BETTER_AUTH_SMTP_URL=${BETTER_AUTH_SMTP_URL:-}
+      - BETTER_AUTH_SMTP_FROM=${BETTER_AUTH_SMTP_FROM:-no-reply@orchestrator}
+      - CONVEX_ORCHESTRATOR_SERVICE_KEY=${SERVICE_KEY:-orchestrator-service-key-change-me}
+      - CONVEX_ORCHESTRATOR_URL=${CONVEX_ORCHESTRATOR_INTERNAL_URL:-http://orchestrator:8050}
 
   dashboard-self-hosted:
-    image: ghcr.io/defy-works/convex-dashboard:latest
+    image: ${DASHBOARD_IMAGE:-ghcr.io/defy-works/convex-dashboard:latest}
     restart: unless-stopped
-    environment:
-      # Empty default — each deployment iframe pushes its own URL via
-      # postMessage at runtime, so a build-time pin is fine.
-      NEXT_PUBLIC_DEPLOYMENT_URL: ""
-      NEXT_PUBLIC_LOAD_MONACO_INTERNALLY: "true"
-      # CSP allowance: let the dashboard-orchestrator iframe us in.
-      TRUSTED_PARENT_ORIGINS: "http://localhost:6793"
+    stop_grace_period: 10s
     ports:
       - "${DASHBOARD_SELF_HOSTED_PORT:-6791}:6791"
+    environment:
+      - NEXT_PUBLIC_DEPLOYMENT_URL=${NEXT_PUBLIC_DEPLOYMENT_URL:-}
+      - NEXT_PUBLIC_LOAD_MONACO_INTERNALLY=${NEXT_PUBLIC_LOAD_MONACO_INTERNALLY:-true}
+      - TRUSTED_PARENT_ORIGINS=${TRUSTED_PARENT_ORIGINS:-${PUBLIC_DASHBOARD_URL:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}}
 
 volumes:
   pgdata:
