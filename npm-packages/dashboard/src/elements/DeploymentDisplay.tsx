@@ -16,7 +16,7 @@ import { Button } from "@ui/Button";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { DeploymentMenuOptions } from "components/header/ProjectSelector/DeploymentMenuOptions";
 import { useCurrentProject } from "api/projects";
-import { useRef, useState, useEffect } from "react";
+import { useContext, useRef, useState, useEffect } from "react";
 import {
   PROVISION_DEV_PAGE_NAME,
   PROVISION_PROD_PAGE_NAME,
@@ -27,11 +27,7 @@ import { useListVanityDomains } from "api/vanityDomains";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { DeploymentProvider } from "components/projectSettings/CustomDomains";
-import {
-  useHasCustomRolePermission,
-  useHasProjectAdminPermissions,
-} from "api/roles";
-import { deploymentResource } from "lib/permissions";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 
 function DeploymentDomainInfo({
@@ -44,23 +40,9 @@ function DeploymentDomainInfo({
   whoseName: string | null;
 }) {
   const team = useCurrentTeam();
-  const project = useCurrentProject();
-  const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
-  const resource =
-    project && deployment.kind === "cloud"
-      ? deploymentResource(project, {
-          id: deployment.id,
-          deploymentType: deployment.deploymentType,
-          creator: deployment.creator ?? null,
-        })
-      : undefined;
-  const canViewDataCustom = useHasCustomRolePermission(
-    team?.id,
-    "deployment:data:view",
-    resource,
-    true,
-  );
-  const canViewData = hasAdminPermissions || canViewDataCustom !== false;
+  const deploymentInfo = useContext(DeploymentInfoContext);
+  const canViewData =
+    deploymentInfo?.useIsOperationAllowed("ViewData") ?? false;
   const hasEntitlement = !!useTeamEntitlements(team?.id)?.customDomainsEnabled;
   const domains = useListVanityDomains(
     hasEntitlement ? deployment?.name : undefined,

@@ -15,12 +15,8 @@ import { usePostHog } from "hooks/usePostHog";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useListCloudBackupsIfAvailable } from "api/backups";
-import {
-  useHasCustomRolePermission,
-  useHasProjectAdminPermissions,
-} from "api/roles";
-import { deploymentResource } from "lib/permissions";
-import { useMemo, useRef } from "react";
+import { PermissionsContext } from "@common/lib/deploymentContext";
+import { useContext, useMemo, useRef } from "react";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -59,24 +55,8 @@ function DeploymentURLAndDeployKey() {
   const teamMembers = useTeamMembers(team?.id);
   const { regions } = useDeploymentRegions(team?.id);
 
-  // Only fetch backups when the member can view them; otherwise the
-  // backup section is omitted from the summary entirely.
-  const isAdmin = useHasProjectAdminPermissions(project?.id);
-  const resource =
-    project && deployment && deployment.kind === "cloud"
-      ? deploymentResource(project, {
-          id: deployment.id,
-          deploymentType: deployment.deploymentType,
-          creator: deployment.creator ?? null,
-        })
-      : undefined;
-  const canViewBackupsCustom = useHasCustomRolePermission(
-    team?.id,
-    "deployment:backups:view",
-    resource,
-    true,
-  );
-  const canViewBackups = isAdmin || canViewBackupsCustom !== false;
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canViewBackups = useIsOperationAllowed("ViewBackups");
   const backups = useListCloudBackupsIfAvailable(
     canViewBackups ? deployment : undefined,
   );
@@ -99,7 +79,6 @@ function DeploymentURLAndDeployKey() {
           teamSlug={team.slug}
           projectSlug={project.slug}
           lastBackupTime={lastBackupTime}
-          canViewBackups={canViewBackups}
           teamMembers={teamMembers}
           regions={regions}
         />

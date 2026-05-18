@@ -1,18 +1,21 @@
 import startCase from "lodash/startCase";
+import Link from "next/link";
 import type { TeamMemberCustomRole } from "generatedApi";
 
 type RoleDisplayProps = {
   role: string;
   customRoles?: TeamMemberCustomRole[] | null;
+  teamSlug: string;
 };
 
 /**
  * Renders a team member's role: built-in roles (Admin/Developer) as plain
  * text and `custom` as a row of tag chips with each attached role's name.
- * Used by both the team-members list and the pending-invites list so they
- * stay visually consistent.
+ * Custom-role chips link to the role's view-definition page. Used by both
+ * the team-members list and the pending-invites list so they stay visually
+ * consistent.
  */
-export function RoleDisplay({ role, customRoles }: RoleDisplayProps) {
+export function RoleDisplay({ role, customRoles, teamSlug }: RoleDisplayProps) {
   if (role !== "custom") {
     return (
       <div className="text-sm text-content-primary">{startCase(role)}</div>
@@ -25,12 +28,16 @@ export function RoleDisplay({ role, customRoles }: RoleDisplayProps) {
         <div className="text-sm text-content-primary">Custom</div>
       ) : (
         list.map(({ id, name }) => (
-          <span
+          <Link
             key={id}
-            className="rounded-sm border px-1.5 py-1 text-xs text-content-primary"
+            href={{
+              pathname: "/t/[team]/settings/custom-roles",
+              query: { team: teamSlug, view: id.toString() },
+            }}
+            className="rounded-sm border px-1.5 py-1 text-xs text-content-primary hover:bg-background-tertiary"
           >
             {name}
-          </span>
+          </Link>
         ))
       )}
     </div>

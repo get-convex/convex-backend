@@ -2,7 +2,10 @@ import { usePaginatedQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { useEffect, useContext, useRef } from "react";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 
 export type DeploymentAuditLogEvent = Doc<"_deployment_audit_log"> & {
   memberName: string;
@@ -175,9 +178,11 @@ export function usePaginatedDeploymentEvents(
   }[],
   initialNumItems = 10,
 ) {
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canViewAuditLog = useIsOperationAllowed("ViewAuditLog");
   const { results, ...rest } = usePaginatedQuery(
     udfs.paginatedDeploymentEvents.default,
-    filters ? { filters } : "skip",
+    filters && canViewAuditLog ? { filters } : "skip",
     {
       initialNumItems,
     },

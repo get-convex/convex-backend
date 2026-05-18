@@ -792,5 +792,11 @@ pub fn database_operational_error(error: anyhow::Error) -> anyhow::Error {
         .context(ErrorMetadata::operational_internal_server_error())
 }
 
+/// True if `e` (or anything in its anyhow context chain) is a transient
+/// database error.
+pub fn is_transient_db_error(e: &anyhow::Error) -> bool {
+    e.is::<DatabaseTimeoutError>() || e.is::<DatabaseOperationalError>()
+}
+
 pub const AUTH_ERROR: &str = "AuthError";
 pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";

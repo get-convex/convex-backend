@@ -2,7 +2,7 @@ import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 import { useCurrentProject, useInfiniteProjects } from "api/projects";
-import { useHasCustomRolePermission } from "api/roles";
+import { useHasCustomRolePermission, useMyCustomRoles } from "api/roles";
 import { useState, useMemo, useRef } from "react";
 import { TeamResponse, ProjectDetails } from "generatedApi";
 import classNames from "classnames";
@@ -228,7 +228,7 @@ function ProjectSelectorListItem({
         close={close}
         project={project}
         key={project.id}
-        teamSlug={team.slug}
+        team={team}
       />
     </div>
   );
@@ -236,7 +236,7 @@ function ProjectSelectorListItem({
 
 function ProjectSelectorItem({
   project,
-  teamSlug,
+  team,
   close,
   selected = false,
   active = false,
@@ -244,7 +244,7 @@ function ProjectSelectorItem({
   optionRef,
 }: {
   project: ProjectDetails;
-  teamSlug?: string;
+  team: TeamResponse;
   close: () => void;
   selected?: boolean;
   active?: boolean;
@@ -254,11 +254,24 @@ function ProjectSelectorItem({
   const { generateHref, defaultHref } = useDeploymentUris(
     project.id,
     project.slug,
-    teamSlug,
+    team.slug,
   );
   const [lastViewedDeployment] = useLastViewedDeploymentForProject(
     project.slug,
   );
+
+  // Custom-role members are routed to the deployments-list view since we
+  // can't be sure they can view the default/last-viewed deployment.
+  const myRoles = useMyCustomRoles(team.id);
+  const isCustomRoleMember = myRoles?.role === "custom";
+
+  const deploymentsListHref = `/t/${team.slug}?view=deployments&projectId=${project.id}`;
+  const href = isCustomRoleMember
+    ? deploymentsListHref
+    : lastViewedDeployment
+      ? generateHref(lastViewedDeployment)
+      : defaultHref!;
+
   return (
     <div
       className="flex w-full gap-0.5 p-0.5"
@@ -269,11 +282,7 @@ function ProjectSelectorItem({
     >
       <SelectorItem
         className="grow"
-        href={
-          lastViewedDeployment
-            ? generateHref(lastViewedDeployment)
-            : defaultHref!
-        }
+        href={href}
         active={active}
         selected={selected}
         close={close}

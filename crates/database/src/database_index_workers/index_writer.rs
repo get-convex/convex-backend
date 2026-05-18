@@ -12,6 +12,7 @@ use std::{
 use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
+    errors::is_transient_db_error,
     knobs::{
         INDEX_BACKFILL_CHUNK_RATE,
         INDEX_BACKFILL_CHUNK_SIZE,
@@ -34,6 +35,10 @@ use common::{
         RevisionPair,
     },
     query::Order,
+    retry::{
+        retry_with_backoff,
+        RetryConfig,
+    },
     runtime::{
         new_rate_limiter,
         try_join,
@@ -217,6 +222,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: IndexSelector,
         concurrency: usize,
         cursor: Option<ResolvedDocumentId>,
+        retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<u64> {
         let pause_client = self.runtime.pause_client();
         pause_client.wait(PERFORM_BACKFILL_LABEL).await;
@@ -234,6 +240,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                                 &index_metadata,
                                 tablet_id,
                                 cursor,
+                                retry_config,
                             )
                             .await
                     })
@@ -263,6 +270,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_registry: &IndexRegistry,
         tablet_id: TabletId,
         cursor: Option<ResolvedDocumentId>,
+        retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<u64> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
@@ -307,6 +315,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_registry,
             ReceiverStream::new(index_update_rx),
             index_selector,
+            retry_config,
         );
         let (docs_indexed, _) = future::try_join(producer, consumer).await?;
         Ok(docs_indexed)
@@ -336,6 +345,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         end_ts: RepeatableTimestamp,
         index_registry: &IndexRegistry,
         index_selector: &IndexSelector,
+        retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<()> {
         let repeatable_persistence = RepeatablePersistence::new(
             self.reader.clone(),
@@ -361,6 +371,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_registry,
             ReceiverStream::new(rx),
             index_selector,
+            retry_config,
         );
 
         // Consider ourselves successful if both the producer and consumer exit
@@ -369,12 +380,30 @@ impl<RT: Runtime> IndexWriter<RT> {
         Ok(())
     }
 
+    /// Index chunk writes use `ConflictStrategy::Overwrite`, so re-applying
+    /// a chunk after a transient db error is safe.
+    async fn write_chunk_with_optional_retry(
+        &self,
+        persistence: &Arc<dyn Persistence>,
+        index_updates: &[PersistenceIndexEntry],
+        retry_config: Option<RetryConfig>,
+    ) -> anyhow::Result<()> {
+        let write = || persistence.write(&[], index_updates, ConflictStrategy::Overwrite);
+        match retry_config {
+            None => write().await,
+            Some(retry) => {
+                retry_with_backoff("index_chunk_write", retry, is_transient_db_error, write).await
+            },
+        }
+    }
+
     async fn write_index_entries(
         &self,
         phase: String,
         index_registry: &IndexRegistry,
         revision_pairs: impl Stream<Item = RevisionPair>,
         index_selector: &IndexSelector,
+        retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<()> {
         let should_send_progress = self.progress_tx.is_some();
         let approx_num_indexes = match index_selector {
@@ -426,9 +455,12 @@ impl<RT: Runtime> IndexWriter<RT> {
                         let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
                         self.runtime.wait(delay).await;
                     }
-                    persistence
-                        .write(&[], &index_updates, ConflictStrategy::Overwrite)
-                        .await?;
+                    self.write_chunk_with_optional_retry(
+                        &persistence,
+                        &index_updates,
+                        retry_config,
+                    )
+                    .await?;
                 }
                 anyhow::Ok((docs_in_chunk, cursor, bytes_read, bytes_written))
             })

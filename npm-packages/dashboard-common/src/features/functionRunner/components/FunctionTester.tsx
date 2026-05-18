@@ -53,7 +53,11 @@ import {
   useIsImpersonating,
 } from "@common/features/functionRunner/components/RunHistory";
 import { useGlobalReactClient } from "@common/features/functionRunner/lib/client";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 
 const CUSTOM_TEST_QUERY_PLACEHOLDER =
   "__CONVEX_PLACEHOLDER_custom_test_query_1255035852";
@@ -579,40 +583,14 @@ export function useFunctionTester({
     onCopiedQueryResult,
   });
 
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useLogDeploymentEvent,
-    useIsOperationAllowed,
-    useCustomRolePermission,
-    permissionDeniedTip,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
+  const { useLogDeploymentEvent, useHasCustomRole } = useContext(
+    DeploymentInfoContext,
   );
-  const canRunInternalQueriesOp = useIsOperationAllowed("RunInternalQueries");
-  const canViewDataOp = useIsOperationAllowed("ViewData");
-  const canActAsUserOp = useIsOperationAllowed("ActAsUser");
-  const canRunInternalQueriesCustom = useCustomRolePermission(
-    "deployment:functions:runInternalQueries",
-    true,
-  );
-  const canViewDataCustom = useCustomRolePermission(
-    "deployment:data:view",
-    true,
-  );
-  const canActAsUserCustom = useCustomRolePermission(
-    "deployment:functions:actAsUser",
-    true,
-  );
-  const canRunInternalQueries =
-    canRunInternalQueriesOp &&
-    (hasAdminPermissions || canRunInternalQueriesCustom !== false);
-  const canViewData =
-    canViewDataOp && (hasAdminPermissions || canViewDataCustom !== false);
-  const canActAsUser =
-    canActAsUserOp && (hasAdminPermissions || canActAsUserCustom !== false);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canRunInternalQueries = useIsOperationAllowed("RunInternalQueries");
+  const canViewData = useIsOperationAllowed("ViewData");
+  const canActAsUser = useIsOperationAllowed("ActAsUser");
+  const hasCustomRole = useHasCustomRole();
 
   const canRunQuery = (() => {
     if (!moduleFunction || moduleFunction.udfType !== "Query") return true;
@@ -651,7 +629,7 @@ export function useFunctionTester({
         <p className="text-sm text-content-secondary">
           You do not have permission to run this function in this deployment.
         </p>
-        {missingQueryAction && (
+        {missingQueryAction && hasCustomRole && (
           <p className="text-xs text-content-tertiary">
             Missing permission:{" "}
             <code className="rounded bg-background-tertiary px-1 py-0.5 font-mono">
@@ -705,12 +683,12 @@ export function useFunctionTester({
         <div className="flex items-start gap-4 px-4">
           <Tooltip
             tip={
-              !canActAsUser
-                ? permissionDeniedTip(
-                    "You do not have permission to act as a user in this deployment.",
-                    "deployment:functions:actAsUser",
-                  )
-                : undefined
+              !canActAsUser ? (
+                <PermissionDeniedTip
+                  message="You do not have permission to act as a user in this deployment."
+                  action="deployment:functions:actAsUser"
+                />
+              ) : undefined
             }
           >
             <label

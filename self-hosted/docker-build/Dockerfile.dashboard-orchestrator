@@ -29,13 +29,10 @@ COPY ./npm-packages ./npm-packages
 WORKDIR /app/npm-packages/dashboard-orchestrator
 RUN rush install
 ENV NODE_ENV=production
-# Build-time public env var pinning. Runtime overrides (NEXT_PUBLIC_*) only
-# work for vars read inside `getServerSideProps`/runtime API routes; the
-# values inlined into the client bundle are baked here.
-ARG NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=http://localhost:8050
-ARG NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=http://localhost:6791
-ENV NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=${NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL}
-ENV NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=${NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL}
+# Browser-facing URLs (orchestrator API etc.) are NOT baked at build
+# time. They're injected into the page at request time by `_document.tsx`
+# from server-side env (PUBLIC_ORCHESTRATOR_URL), so this image runs
+# unchanged on any host.
 RUN rush build -t dashboard-orchestrator
 RUN rush-pnpm deploy --legacy --filter=dashboard-orchestrator --prod /tmp/deploy
 # pnpm deploy strips gitignored paths (.next/ is in .gitignore), so the

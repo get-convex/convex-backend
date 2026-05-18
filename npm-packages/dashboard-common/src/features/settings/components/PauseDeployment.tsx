@@ -6,7 +6,11 @@ import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import udfs from "@common/udfs";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { usePauseDeployment, useUnpauseDeployment } from "../lib/api";
 
 // TODO insert link to docs here
@@ -28,39 +32,16 @@ export function PauseDeployment({
   onPausedDeployment?: () => void;
 }) {
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-    useCustomRolePermission,
-    permissionDeniedTip,
-  } = useContext(DeploymentInfoContext);
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const deployment = useCurrentDeployment();
   const deploymentType = deployment?.deploymentType ?? "prod";
   const [paused, setPaused] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
   const canPauseOp = useIsOperationAllowed("PauseDeployment");
   const canUnpauseOp = useIsOperationAllowed("UnpauseDeployment");
-  // Built-in admin/developer members keep the historical "prod-only"
-  // gate (admins can always pause; developers can pause non-prod).
-  // Custom-role members start with no permissions, so the
-  // `deployment:pause`/`unpause` grant is required on *every* deployment
-  // type — not just prod. Encoding that into `nonCustomRoleResult`
-  // collapses both rules into one check below.
-  const isProd = deployment?.deploymentType === "prod";
-  const canPauseCustom = useCustomRolePermission("deployment:pause", !isProd);
-  const canUnpauseCustom = useCustomRolePermission(
-    "deployment:unpause",
-    !isProd,
-  );
-  const canManage =
-    hasAdminPermissions ||
-    (paused ? canUnpauseCustom === true : canPauseCustom === true);
-  const canPauseOrResume = canManage && (paused ? canUnpauseOp : canPauseOp);
+  const canPauseOrResume = paused ? canUnpauseOp : canPauseOp;
 
   const pauseDeployment = usePauseDeployment();
   const unpauseDeployment = useUnpauseDeployment();
@@ -137,12 +118,14 @@ export function PauseDeployment({
               onClick={() => setShowConfirmation(true)}
               disabled={!canPauseOrResume}
               tip={
-                !canPauseOrResume
-                  ? permissionDeniedTip(
-                      `You do not have permission to ${changeVerb(paused).toLowerCase()} this deployment.`,
-                      paused ? "deployment:unpause" : "deployment:pause",
-                    )
-                  : ""
+                !canPauseOrResume ? (
+                  <PermissionDeniedTip
+                    message={`You do not have permission to ${changeVerb(paused).toLowerCase()} this deployment.`}
+                    action={paused ? "deployment:unpause" : "deployment:pause"}
+                  />
+                ) : (
+                  ""
+                )
               }
             >
               {paused ? "Resume Deployment" : "Pause Deployment"}

@@ -17,7 +17,7 @@ import {
   useGenerateSSOConfigurationLink,
   useUpdateSSO,
 } from "api/teams";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { SSO_RESOURCE } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useEffect, useMemo, useState } from "react";

@@ -16,11 +16,11 @@ import {
 import { HealthCard } from "@common/elements/HealthCard";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 import { calcBuckets } from "@common/lib/charts/buckets";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
 
 export function PerformanceGraphs() {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewMetrics = useIsOperationAllowed("ViewMetrics");
   const currentOpenFunction = useCurrentOpenFunction();
   const deploymentUrl = useDeploymentUrl();
@@ -28,7 +28,10 @@ export function PerformanceGraphs() {
 
   if (!canViewMetrics) {
     return (
-      <NoPermissionMessage message="You do not have permission to view metrics in this deployment." />
+      <NoPermissionMessage
+        message="You do not have permission to view metrics in this deployment."
+        missingPermission="deployment:metrics:view"
+      />
     );
   }
 

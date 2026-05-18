@@ -2,7 +2,7 @@
 import "../../../@convex-dev/design-system/src/styles/shared.css";
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
-import { AppProps } from "next/app";
+import App, { AppContext, AppInitialProps, AppProps } from "next/app";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { SWRConfig } from "swr";
@@ -33,7 +33,14 @@ function isAuthRoute(pathname: string): boolean {
   );
 }
 
-export default function App({ Component, pageProps }: AppProps) {
+// Disable automatic static optimization for every page. This is what
+// makes `_document.tsx`'s getInitialProps run per-request — so the
+// runtime config injected into <head> reflects the live server env
+// (PUBLIC_ORCHESTRATOR_URL) instead of the build-time value.
+MyApp.getInitialProps = async (context: AppContext): Promise<AppInitialProps> =>
+  App.getInitialProps(context);
+
+export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const isDeployment = isDeploymentRoute(router.pathname);
   const isAuth = isAuthRoute(router.pathname);

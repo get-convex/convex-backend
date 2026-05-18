@@ -149,13 +149,7 @@ export function OrchestratorDeploymentShell({
       deployment.kind === "prod" || deployment.deploymentType === "prod",
     useHasProjectAdminPermissions: () => true,
     useIsOperationAllowed: () => true,
-    // Self-hosted is single-role: every authenticated member implicitly has
-    // every permission. Dashboard-common added per-action gating for
-    // custom-roles in upstream — give it a permissive resolver.
-    useCustomRolePermission: () => true,
-    // Self-hosted never produces a permission-denied state, so the message
-    // passes through unchanged.
-    permissionDeniedTip: (message: string) => message,
+    useHasCustomRole: () => false,
     useIsDeploymentPaused: () => {
       const state = useQuery(udfs.deploymentState.deploymentState);
       return state?.state === "paused";

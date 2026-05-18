@@ -1,4 +1,5 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
+import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 import { JSONValue, jsonToConvex } from "convex/values";
 import Link from "next/link";
 import { memo, useContext, useState } from "react";
@@ -6,7 +7,7 @@ import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import { areEqual } from "react-window";
 import { useCancelJob } from "@common/features/schedules/lib/api";
 import { useNents } from "@common/lib/useNents";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { PermissionsContext } from "@common/lib/deploymentContext";
 import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { useCopy } from "@common/lib/useCopy";
 import { DetailPanel } from "@common/elements/DetailPanel";
@@ -71,19 +72,8 @@ function JobItemImpl({
   const [showArgs, setShowArgs] = useState(false);
   const { selectedNent } = useNents();
   const cancelJob = useCancelJob();
-  const {
-    useCurrentDeployment,
-    useHasProjectAdminPermissions,
-    useIsOperationAllowed,
-  } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const hasAdminPermissions = useHasProjectAdminPermissions(
-    deployment?.projectId,
-  );
-  const canWriteData = useIsOperationAllowed("WriteData");
-  const canCancelJobs =
-    (deployment?.deploymentType !== "prod" || hasAdminPermissions) &&
-    canWriteData;
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
+  const canCancelJobs = useIsOperationAllowed("WriteData");
 
   if (nextTs === null) {
     throw new Error("Could not find timestamp to run scheduled job at");
@@ -148,8 +138,12 @@ function JobItemImpl({
               action={() => setShowDeleteModal(true)}
               disabled={currentlyRunning || !canCancelJobs}
               tip={
-                !canCancelJobs &&
-                "You do not have permission to cancel scheduled runs in this deployment."
+                !canCancelJobs && (
+                  <PermissionDeniedTip
+                    message="You do not have permission to cancel scheduled runs in this deployment."
+                    action="deployment:data:write"
+                  />
+                )
               }
               variant="danger"
             >

@@ -8,7 +8,7 @@ import {
   useGetSpendingLimits,
 } from "api/billing";
 import { Loading } from "@ui/Loading";
-import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import {
   useHasCustomRolePermission,
   useIsCurrentMemberTeamAdmin,

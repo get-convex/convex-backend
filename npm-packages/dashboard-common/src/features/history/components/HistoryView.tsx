@@ -7,7 +7,10 @@ import {
   DateRangePicker,
   useDateFilters,
 } from "@common/elements/DateRangePicker";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  DeploymentInfoContext,
+  PermissionsContext,
+} from "@common/lib/deploymentContext";
 import {
   DeploymentAuditLogEvent,
   DeploymentAuditLogFilters,
@@ -27,14 +30,17 @@ const PAGE_SIZE = 10;
 const DISTANCE_FROM_BOTTOM_THRESHOLD_PX = 300;
 
 export function HistoryView() {
-  const { useIsOperationAllowed } = useContext(DeploymentInfoContext);
+  const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewAuditLog = useIsOperationAllowed("ViewAuditLog");
 
   if (!canViewAuditLog) {
     return (
       <>
         <DeploymentPageTitle title="History" />
-        <NoPermissionMessage message="You do not have permission to view deployment history in this deployment." />
+        <NoPermissionMessage
+          message="You do not have permission to view deployment history in this deployment."
+          missingPermission="deployment:auditLog:view"
+        />
       </>
     );
   }

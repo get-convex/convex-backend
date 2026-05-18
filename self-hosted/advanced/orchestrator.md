@@ -77,6 +77,96 @@ errors, but the cloud-only feature is not implemented):
 See `docs/superpowers/specs/2026-05-02-convex-orchestrator-design.md` for the
 complete design and reasoning.
 
+## Deploying with Docker Compose
+
+The orchestrator, Postgres, the platform UI, and the per-deployment dashboard
+are wired up in
+[`docker-compose.orchestrator.yml`](https://github.com/defy-works/convex-backend/tree/release/self-hosted/docker/docker-compose.orchestrator.yml).
+Every value is configurable via the environment. With no `.env` it boots against
+`http://localhost`; for anything beyond local dev, point browsers at your domain
+and replace the three secrets.
+
+Download the compose file onto your server:
+
+```sh
+curl -O https://raw.githubusercontent.com/defy-works/convex-backend/release/self-hosted/docker/docker-compose.orchestrator.yml
+curl -O https://raw.githubusercontent.com/defy-works/convex-backend/release/self-hosted/docker/init-better-auth.sql
+```
+
+Set up routing to forward requests from your domain to the four host ports
+exposed by the stack:
+
+- `https://convex.my-domain.com` forwards to `http://localhost:6793` — the
+  platform UI (sign in, teams, projects, deployments).
+- `https://api.convex.my-domain.com` forwards to `http://localhost:8050` — the
+  orchestrator API.
+- `https://embed.convex.my-domain.com` forwards to `http://localhost:6791` — the
+  per-deployment dashboard, embedded as iframes.
+- `https://*.convex.my-domain.com` forwards to `http://localhost:9000` — the
+  router that fronts each spawned `convex-backend`. Each deployment is reached
+  at `<deployment-id>.convex.my-domain.com` and
+  `<deployment-id>-site.convex.my-domain.com`, so a wildcard DNS + TLS record is
+  required.
+
+In a `.env` file beside the compose file:
+
+```sh
+# Secrets — generate with `openssl rand -hex 32`. The defaults are
+# placeholders for local dev only.
+BOOTSTRAP_TOKEN='<random-hex>'
+SERVICE_KEY='<random-hex>'
+BETTER_AUTH_SECRET='<random-hex>'
+
+# Public URLs the browser uses. The dashboard server reads these at
+# request time and injects them into the page via _document.tsx, so the
+# pre-built image runs unchanged on any host.
+PUBLIC_ORIGIN='https://convex.my-domain.com'
+PUBLIC_DASHBOARD_URL='https://convex.my-domain.com'
+PUBLIC_ORCHESTRATOR_URL='https://api.convex.my-domain.com'
+
+# Spawned-deployment subdomains. Points at the wildcard record above.
+ROUTER_HOST='convex.my-domain.com'
+ROUTER_PUBLIC_PORT='443'
+
+# First admin email + signup policy. `allowlist` = only ADMIN_EMAILS can
+# sign up; `open` = anyone; `closed` = no signup (invite-only).
+ADMIN_EMAILS='you@my-domain.com'
+REGISTRATION_MODE='allowlist'
+```
+
+Start the stack:
+
+```sh
+docker compose -f docker-compose.orchestrator.yml up -d
+```
+
+Sign in at `https://convex.my-domain.com` using `BOOTSTRAP_TOKEN` (the
+orchestrator registers it as a personal access token for the first admin on
+first start).
+
+### Environment reference
+
+| Var                                                                                                                  | Default                                                                            | Purpose                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `BOOTSTRAP_TOKEN`                                                                                                    | `orchestrator-bootstrap-token-change-me`                                           | Initial admin PAT. Change before exposing the stack.                                                                                  |
+| `SERVICE_KEY`                                                                                                        | `orchestrator-service-key-change-me`                                               | Shared secret between orchestrator and dashboard for `/api/internal/*`.                                                               |
+| `BETTER_AUTH_SECRET`                                                                                                 | `better-auth-secret-change-me`                                                     | Session signing key for the dashboard auth.                                                                                           |
+| `PUBLIC_ORIGIN`                                                                                                      | `http://localhost`                                                                 | Stamped into URLs the orchestrator returns to clients.                                                                                |
+| `PUBLIC_DASHBOARD_URL`                                                                                               | `http://localhost:6793`                                                            | Browser URL of the platform UI; also `BETTER_AUTH_URL` and the inner dashboard's `TRUSTED_PARENT_ORIGINS`.                            |
+| `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-facing orchestrator URL. Read by the dashboard server at request time and injected into the page; no image rebuild required.  |
+| `ROUTER_HOST`                                                                                                        | `localhost`                                                                        | Suffix host for spawned-deployment subdomains.                                                                                        |
+| `ROUTER_PUBLIC_PORT`                                                                                                 | `${ROUTER_PORT}`                                                                   | Public port for the router (set to `443` behind TLS).                                                                                 |
+| `ORCHESTRATOR_PORT` / `ROUTER_PORT` / `DASHBOARD_ORCHESTRATOR_PORT` / `DASHBOARD_SELF_HOSTED_PORT` / `POSTGRES_PORT` | `8050` / `9000` / `6793` / `6791` / `5433`                                         | Host port bindings.                                                                                                                   |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`                                                                | `orchestrator`                                                                     | Bundled Postgres credentials.                                                                                                         |
+| `CONVEX_ORCHESTRATOR_DATABASE_URL` / `BETTER_AUTH_DATABASE_URL`                                                      | derived from the bundled Postgres                                                  | Override to point at an external Postgres.                                                                                            |
+| `PROVISIONER`                                                                                                        | `docker`                                                                           | `docker` shells out to the host docker socket; `external` is a no-op (register backends manually); `process` is for embedded testing. |
+| `BACKEND_IMAGE`                                                                                                      | `ghcr.io/defy-works/convex-backend:latest`                                         | Image the provisioner runs for each new deployment.                                                                                   |
+| `BACKEND_CONTAINER_PREFIX` / `BACKEND_NETWORK`                                                                       | `convex-orchestrator-deployment-` / `convex-orchestrator_default`                  | Container name prefix + docker network spawned backends join.                                                                         |
+| `ADMIN_EMAILS` / `REGISTRATION_MODE`                                                                                 | `admin@example.com` / `allowlist`                                                  | First admin + signup policy.                                                                                                          |
+| `BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION` / `BETTER_AUTH_SMTP_URL` / `BETTER_AUTH_SMTP_FROM`                          | `0` / unset / `no-reply@orchestrator`                                              | Optional SMTP for password reset / verification links.                                                                                |
+| `ORCHESTRATOR_IMAGE` / `DASHBOARD_ORCHESTRATOR_IMAGE` / `DASHBOARD_IMAGE`                                            | `ghcr.io/defy-works/convex-{orchestrator,dashboard-orchestrator,dashboard}:latest` | Pin to a specific image tag.                                                                                                          |
+| `RUST_LOG`                                                                                                           | `orchestrator=info,tower_http=warn`                                                | Orchestrator log filter.                                                                                                              |
+
 ## Running the orchestrator
 
 The orchestrator stores its state in PostgreSQL. We recommend
@@ -166,9 +256,7 @@ to dump a spec compatible with the dashboard's
 
 ```sh
 cd npm-packages/dashboard-orchestrator
-NEXT_PUBLIC_CONVEX_ORCHESTRATOR_URL=http://localhost:8050 \
-NEXT_PUBLIC_SELF_HOSTED_DASHBOARD_URL=http://localhost:6791 \
-  npm run dev
+PUBLIC_ORCHESTRATOR_URL=http://localhost:8050 npm run dev
 ```
 
 Open `http://localhost:6792`. Sign in using the `--bootstrap-token` value you
