@@ -93,9 +93,9 @@ curl -O https://raw.githubusercontent.com/defy-works/convex-backend/release/self
 curl -O https://raw.githubusercontent.com/defy-works/convex-backend/release/self-hosted/docker/init-better-auth.sql
 ```
 
-Set up routing to forward requests from your domain to the host ports exposed
-by the stack — either via the bundled Traefik (`--profile tls`, see below) or
-your own reverse proxy:
+Set up routing to forward requests from your domain to the host ports exposed by
+the stack — either via the bundled Traefik (`--profile tls`, see below) or your
+own reverse proxy:
 
 - `https://convex.my-domain.com` forwards to `http://localhost:6793` — the
   platform UI (sign in, teams, projects, deployments).
@@ -173,8 +173,8 @@ DNS_PROVIDER='cloudflare'               # already the default; can omit
 CF_DNS_API_TOKEN='<the token>'
 ```
 
-(`DASHBOARD_HOST`, `ORCHESTRATOR_HOST`, and `ROUTER_HOST` are already set
-from the previous step.)
+(`DASHBOARD_HOST`, `ORCHESTRATOR_HOST`, and `ROUTER_HOST` are already set from
+the previous step.)
 
 DNS: point A/AAAA records for **all three hosts** at the VPS, plus a wildcard
 for spawned deployments:
