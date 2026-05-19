@@ -5,6 +5,7 @@ import {
   AuthIntegration,
   EXC_INTEGRATIONS,
   EXPORT_INTEGRATIONS,
+  IMPORT_INTEGRATIONS,
   ExceptionReportingIntegration,
   LOG_INTEGRATIONS,
   LogIntegration,
@@ -167,6 +168,15 @@ export function Integrations({
               onAddedIntegration={onAddedIntegration}
               writeDisabled={!canWriteIntegrations}
               writeDisabledTip={integrationWriteTip}
+            />
+          ))}
+          {IMPORT_INTEGRATIONS.map((i) => (
+            <PanelCard
+              key={i}
+              integration={{ kind: i }}
+              unavailableReason={null}
+              teamSlug={team?.slug}
+              onAddedIntegration={onAddedIntegration}
             />
           ))}
         </div>

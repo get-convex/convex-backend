@@ -22,6 +22,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
+        DocumentLogEntry,
         LatestDocument,
         Persistence,
         PersistenceIndexEntry,
@@ -152,6 +153,15 @@ impl IndexSelector {
     }
 }
 
+/// What an `IndexWriter` writes per chunk.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IndexWriterMode {
+    /// Default: write only index entries to the destination.
+    IndexesOnly,
+    /// Also write the document log entries alongside the index entries.
+    IndexesAndDocuments,
+}
+
 #[derive(Clone)]
 pub struct IndexWriter<RT: Runtime> {
     // Persistence target for writing indexes.
@@ -162,6 +172,7 @@ pub struct IndexWriter<RT: Runtime> {
     rate_limiter: Arc<RateLimiter<RT>>,
     runtime: RT,
     progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
+    mode: IndexWriterMode,
 }
 
 pub struct TabletBackfillProgress {
@@ -180,6 +191,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         runtime: RT,
         progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
+        mode: IndexWriterMode,
     ) -> Self {
         let entries_per_second =
             INDEX_BACKFILL_CHUNK_RATE.saturating_mul(*INDEX_BACKFILL_CHUNK_SIZE);
@@ -198,6 +210,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             )),
             runtime,
             progress_tx,
+            mode,
         }
     }
 
@@ -281,8 +294,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         );
 
         let (index_update_tx, index_update_rx) = mpsc::channel(32);
-        // Convert document stream into revision pairs, ignoring previous revisions
-        // because we are backfilling at exactly snapshot_ts
         let producer = async {
             let by_id = index_registry.must_get_by_id(tablet_id)?.id();
             let mut stream =
@@ -292,7 +303,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 let LatestDocument {
                     ts,
                     value: document,
-                    ..
+                    prev_ts,
                 } = item;
                 docs_sent += 1;
                 _ = index_update_tx
@@ -302,7 +313,8 @@ impl<RT: Runtime> IndexWriter<RT> {
                             ts,
                             document: Some(document),
                         },
-                        prev_rev: None,
+                        // include the prev_ts so we can write it later in IndexesAndDocuments mode
+                        prev_rev: prev_ts.map(|ts| DocumentRevision { ts, document: None }),
                     })
                     .await;
             }
@@ -380,15 +392,17 @@ impl<RT: Runtime> IndexWriter<RT> {
         Ok(())
     }
 
-    /// Index chunk writes use `ConflictStrategy::Overwrite`, so re-applying
-    /// a chunk after a transient db error is safe.
+    /// Chunk writes use `ConflictStrategy::Overwrite`, so re-applying a chunk
+    /// after a transient db error is safe for both the index entries and the
+    /// (optional) document log entries.
     async fn write_chunk_with_optional_retry(
         &self,
         persistence: &Arc<dyn Persistence>,
+        documents: &[DocumentLogEntry],
         index_updates: &[PersistenceIndexEntry],
         retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<()> {
-        let write = || persistence.write(&[], index_updates, ConflictStrategy::Overwrite);
+        let write = || persistence.write(documents, index_updates, ConflictStrategy::Overwrite);
         match retry_config {
             None => write().await,
             Some(retry) => {
@@ -442,21 +456,31 @@ impl<RT: Runtime> IndexWriter<RT> {
                         ));
                     }
                 }
-                let num_entries_written = u32::try_from(index_updates.len())?;
                 let docs_in_chunk = chunk.len() as u64;
+                let documents: Vec<DocumentLogEntry> = match self.mode {
+                    IndexWriterMode::IndexesAndDocuments => {
+                        chunk.into_iter().map(|rp| rp.into_log_entry()).collect()
+                    },
+                    IndexWriterMode::IndexesOnly => Vec::new(),
+                };
+                let num_entries_written = u32::try_from(index_updates.len() + documents.len())?;
                 // N.B: it's possible to end up with no entries if we're
                 // backfilling forward through historical documents that have no
                 // present indexes in `index_registry`.
-                if let Some(num_entries_written) = NonZeroU32::new(num_entries_written) {
-                    while let Err(not_until) = rate_limiter
-                        .check_n(num_entries_written)
-                        .expect("RateLimiter capacity impossibly small")
-                    {
-                        let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
-                        self.runtime.wait(delay).await;
+                if !index_updates.is_empty() || !documents.is_empty() {
+                    if let Some(num_entries_written) = NonZeroU32::new(num_entries_written) {
+                        while let Err(not_until) = rate_limiter
+                            .check_n(num_entries_written)
+                            .expect("RateLimiter capacity impossibly small")
+                        {
+                            let delay =
+                                not_until.wait_time_from(self.runtime.monotonic_now().into());
+                            self.runtime.wait(delay).await;
+                        }
                     }
                     self.write_chunk_with_optional_retry(
                         &persistence,
+                        &documents,
                         &index_updates,
                         retry_config,
                     )

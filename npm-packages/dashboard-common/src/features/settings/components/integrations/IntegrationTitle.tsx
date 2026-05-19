@@ -24,11 +24,13 @@ export function IntegrationTitle({
           {integrationKind === "sentry" ||
           integrationKind === "postHogErrorTracking"
             ? "Exception Reporting"
-            : integrationKind === "airbyte" || integrationKind === "fivetran"
+            : integrationKind === "fivetran"
               ? "Streaming Export"
-              : integrationKind === "workos"
-                ? "Authentication"
-                : "Log Stream"}
+              : integrationKind === "airbyte"
+                ? "Streaming Import"
+                : integrationKind === "workos"
+                  ? "Authentication"
+                  : "Log Stream"}
         </p>
       </Tooltip>
     </div>

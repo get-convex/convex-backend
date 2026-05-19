@@ -147,6 +147,7 @@ declare module "@commander-js/extra-typings" {
         history: number;
         success: boolean;
         jsonl: boolean;
+        tail?: number | boolean;
       }
     >;
 
@@ -580,7 +581,15 @@ Command.prototype.addLogsOptions = function () {
       "Print a log line for every successful function execution",
       false,
     )
-    .option("--jsonl", "Output raw log events as JSONL", false);
+    .option("--jsonl", "Output raw log events as JSONL", false)
+    .addOption(
+      new Option(
+        "--tail [n]",
+        "Deprecated/unnecessary: `convex logs` already tails by default. Accepted as an alias for --history for compatibility with agents that pass it.",
+      )
+        .argParser(parseInteger)
+        .hideHelp(),
+    );
 };
 
 Command.prototype.addNetworkTestOptions = function () {
