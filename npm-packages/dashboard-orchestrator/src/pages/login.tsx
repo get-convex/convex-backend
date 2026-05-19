@@ -48,8 +48,12 @@ export default function LoginPage() {
 
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return;
+    try {
       setLastProvider(window.localStorage.getItem(LAST_PROVIDER_KEY));
+    } catch {
+      // Firefox throws "operation is insecure" under strict tracking
+      // protection. Treat as no remembered provider.
     }
   }, []);
 
@@ -63,8 +67,11 @@ export default function LoginPage() {
   }, [email, password, mode, submitting, showPassword]);
 
   const remember = (provider: string) => {
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return;
+    try {
       window.localStorage.setItem(LAST_PROVIDER_KEY, provider);
+    } catch {
+      // See useEffect above.
     }
   };
 
