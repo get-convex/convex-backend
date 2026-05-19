@@ -10,7 +10,7 @@ export async function bigBrainStart(
     teamSlug: string;
     instanceName: string | null;
   },
-): Promise<{ deploymentName: string; adminKey: string }> {
+): Promise<{ deploymentName: string; adminKey: string; projectId: number }> {
   return bigBrainAPI({
     ctx,
     method: "POST",
