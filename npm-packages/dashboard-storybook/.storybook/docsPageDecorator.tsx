@@ -22,6 +22,7 @@ import {
   useIsCurrentMemberTeamAdmin,
   useHasProjectAdminPermissions,
   useMyCustomRoles,
+  useHasCustomRolePermission,
 } from "../../dashboard/src/api/roles";
 import {
   useIsOperationAllowed,
@@ -302,11 +303,11 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     isLoading: false,
   });
   mocked(useGetSpendingLimits).mockReturnValue({
-    isLoading: false,
-    spendingLimits: {
-      state: null,
-      disableThresholdCents: null,
-      warningThresholdCents: null,
+    status: "ok",
+    data: {
+      state: "Running",
+      disableThresholdCents: 50000,
+      warningThresholdCents: 25000,
     },
   });
   mocked(useHasFailedPayment).mockReturnValue({
@@ -324,6 +325,11 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     role: "admin",
     customRoles: [],
   });
+  // `useHasCustomRolePermission` calls `useMyCustomRoles` internally within
+  // the same module, so the module-level mock of `useMyCustomRoles` doesn't
+  // intercept that call — without this mock the real useBBQuery fires and
+  // makes an HTTP request to list_my_custom_roles.
+  mocked(useHasCustomRolePermission).mockReturnValue(true);
   // Mock the deployment-permission hooks directly. `useMyCustomRoles` is
   // called from inside `useHasCustomRolePermission` within the same module,
   // so module-level mocks of `useMyCustomRoles` don't intercept that call —
