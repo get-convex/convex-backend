@@ -93,15 +93,14 @@ curl -O https://raw.githubusercontent.com/defy-works/convex-backend/release/self
 curl -O https://raw.githubusercontent.com/defy-works/convex-backend/release/self-hosted/docker/init-better-auth.sql
 ```
 
-Set up routing to forward requests from your domain to the four host ports
-exposed by the stack:
+Set up routing to forward requests from your domain to the host ports exposed
+by the stack — either via the bundled Traefik (`--profile tls`, see below) or
+your own reverse proxy:
 
 - `https://convex.my-domain.com` forwards to `http://localhost:6793` — the
   platform UI (sign in, teams, projects, deployments).
 - `https://api.convex.my-domain.com` forwards to `http://localhost:8050` — the
   orchestrator API.
-- `https://embed.convex.my-domain.com` forwards to `http://localhost:6791` — the
-  per-deployment dashboard, embedded as iframes.
 - `https://*.convex.my-domain.com` forwards to `http://localhost:9000` — the
   router that fronts each spawned `convex-backend`. Each deployment is reached
   at `<deployment-id>.convex.my-domain.com` and
@@ -144,6 +143,84 @@ Sign in at `https://convex.my-domain.com` using `BOOTSTRAP_TOKEN` (the
 orchestrator registers it as a personal access token for the first admin on
 first start).
 
+### TLS with Let's Encrypt (optional, opt-in via `--profile tls`)
+
+The compose ships a Traefik service under the `tls` profile that terminates
+80/443 on the host, auto-issues Let's Encrypt certs, and forwards to the
+internal services. With it enabled, you don't run any other reverse proxy.
+
+It uses the **DNS-01 challenge** (one wildcard cert for `*.${ROUTER_HOST}` plus
+individual certs for the dashboard and orchestrator API hosts), which is
+rate-limit-free no matter how many deployments you spawn. The trade-off is that
+you need an API token from your DNS provider so Traefik can prove control over
+your domain. The default provider is **Cloudflare**; the patterns for other
+providers are identical, only the env variable names change.
+
+#### Cloudflare setup
+
+1. Log into the Cloudflare dashboard for the domain that hosts your
+   `defy.works`-equivalent (e.g. `my-domain.com`).
+2. Profile → API Tokens → Create Token → Custom token with the permissions:
+   - `Zone:DNS:Edit` for the target zone
+   - `Zone:Zone:Read` for the target zone
+3. Copy the token. Add to `.env`:
+
+```sh
+LETSENCRYPT_EMAIL='you@my-domain.com'   # only used by LE for renewal warnings
+DNS_PROVIDER='cloudflare'               # already the default; can omit
+CF_DNS_API_TOKEN='<the token>'
+
+# Hostname routing — these tell Traefik which container to send each
+# host to. They mirror the PUBLIC_*_URL values above without the
+# scheme. ROUTER_HOST you've already set.
+DASHBOARD_HOST='convex.my-domain.com'
+ORCHESTRATOR_HOST='api.convex.my-domain.com'
+```
+
+DNS: point A/AAAA records for **all three hosts** at the VPS, plus a wildcard
+for spawned deployments:
+
+```
+convex.my-domain.com         A   <vps-ip>
+api.convex.my-domain.com     A   <vps-ip>
+*.convex.my-domain.com       A   <vps-ip>
+```
+
+Bring the stack up with the `tls` profile:
+
+```sh
+docker compose -f docker-compose.orchestrator.yml --profile tls up -d
+```
+
+Traefik will pick up the labels on the existing services, request the certs from
+Let's Encrypt via Cloudflare DNS, and start routing. First issuance takes
+~10–30s; watch progress with `docker compose logs -f traefik`.
+
+#### Other DNS providers
+
+Set `DNS_PROVIDER` to your provider's slug from the
+[Traefik DNS-01 provider list](https://doc.traefik.io/traefik/https/acme/#providers)
+and pass through that provider's env vars. The compose already pipes through the
+common ones — Cloudflare, Route 53, DigitalOcean, Gandi v5, Hetzner, Namecheap —
+and any others can be added to the `traefik` service's `environment:` block.
+
+| Provider     | `DNS_PROVIDER` slug | Env vars                                                   |
+| ------------ | ------------------- | ---------------------------------------------------------- |
+| Cloudflare   | `cloudflare`        | `CF_DNS_API_TOKEN`                                         |
+| AWS Route 53 | `route53`           | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` |
+| DigitalOcean | `digitalocean`      | `DO_AUTH_TOKEN`                                            |
+| Gandi v5     | `gandiv5`           | `GANDIV5_API_KEY`                                          |
+| Hetzner      | `hetzner`           | `HETZNER_API_KEY`                                          |
+| Namecheap    | `namecheap`         | `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`                  |
+
+#### Local dev / VPS without TLS
+
+When you omit `--profile tls`, Traefik doesn't start and the host-port bindings
+(`8050`, `6793`, etc., bound to `127.0.0.1` by default) are how you reach the
+services. Set `BIND_ADDR=0.0.0.0` if you want raw exposure on the VPS public IP
+— but at that point you should use the `tls` profile and have proper certs
+instead.
+
 ### Environment reference
 
 | Var                                                                                                                  | Default                                                                            | Purpose                                                                                                                               |
@@ -155,6 +232,11 @@ first start).
 | `PUBLIC_DASHBOARD_URL`                                                                                               | `http://localhost:6793`                                                            | Browser URL of the platform UI; also `BETTER_AUTH_URL` and the inner dashboard's `TRUSTED_PARENT_ORIGINS`.                            |
 | `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-facing orchestrator URL. Read by the dashboard server at request time and injected into the page; no image rebuild required.  |
 | `ROUTER_HOST`                                                                                                        | `localhost`                                                                        | Suffix host for spawned-deployment subdomains.                                                                                        |
+| `DASHBOARD_HOST` / `ORCHESTRATOR_HOST`                                                                               | unset (sentinels)                                                                  | Hostnames for Traefik `Host(\`...\`)`matchers. Required when using`--profile tls`.                                                    |
+| `LETSENCRYPT_EMAIL`                                                                                                  | unset                                                                              | Email registered with Let's Encrypt (renewal warnings only). Required when using `--profile tls`.                                     |
+| `DNS_PROVIDER`                                                                                                       | `cloudflare`                                                                       | Traefik DNS-01 challenge provider slug. See `--profile tls` setup above.                                                              |
+| `CF_DNS_API_TOKEN` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `DO_AUTH_TOKEN` / others         | unset                                                                              | DNS provider creds for the DNS-01 challenge.                                                                                          |
+| `BIND_ADDR`                                                                                                          | `127.0.0.1`                                                                        | Host interface that the raw service ports bind to. Set to `0.0.0.0` to expose without Traefik (not recommended on a public VPS).      |
 | `ROUTER_PUBLIC_PORT`                                                                                                 | `${ROUTER_PORT}`                                                                   | Public port for the router (set to `443` behind TLS).                                                                                 |
 | `ORCHESTRATOR_PORT` / `ROUTER_PORT` / `DASHBOARD_ORCHESTRATOR_PORT` / `DASHBOARD_SELF_HOSTED_PORT` / `POSTGRES_PORT` | `8050` / `9000` / `6793` / `6791` / `5433`                                         | Host port bindings.                                                                                                                   |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`                                                                | `orchestrator`                                                                     | Bundled Postgres credentials.                                                                                                         |

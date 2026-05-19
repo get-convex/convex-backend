@@ -33,11 +33,29 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${ORCHESTRATOR_PORT:-8050}:8050"
-      - "${ROUTER_PORT:-9000}:9000"
+      - "${BIND_ADDR:-127.0.0.1}:${ORCHESTRATOR_PORT:-8050}:8050"
+      - "${BIND_ADDR:-127.0.0.1}:${ROUTER_PORT:-9000}:9000"
     volumes:
       - orchestrator-data:/convex/data
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      # Orchestrator API on ORCHESTRATOR_HOST.
+      - "traefik.http.routers.orchestrator-api.rule=Host(`${ORCHESTRATOR_HOST:-orchestrator-host-not-set.invalid}`)"
+      - "traefik.http.routers.orchestrator-api.entrypoints=websecure"
+      - "traefik.http.routers.orchestrator-api.tls.certresolver=le"
+      - "traefik.http.routers.orchestrator-api.service=orchestrator-api"
+      - "traefik.http.services.orchestrator-api.loadbalancer.server.port=8050"
+      # Spawned-deployment subdomains route to the in-orchestrator
+      # router at :9000. The wildcard cert (main + *.ROUTER_HOST SANs)
+      # covers any number of deployments.
+      - "traefik.http.routers.orchestrator-router.rule=HostRegexp(`.+\\.${ROUTER_HOST:-router-host-not-set.invalid}$$`)"
+      - "traefik.http.routers.orchestrator-router.entrypoints=websecure"
+      - "traefik.http.routers.orchestrator-router.tls.certresolver=le"
+      - "traefik.http.routers.orchestrator-router.tls.domains[0].main=${ROUTER_HOST:-router-host-not-set.invalid}"
+      - "traefik.http.routers.orchestrator-router.tls.domains[0].sans=*.${ROUTER_HOST:-router-host-not-set.invalid}"
+      - "traefik.http.routers.orchestrator-router.service=orchestrator-router"
+      - "traefik.http.services.orchestrator-router.loadbalancer.server.port=9000"
     environment:
       - CONVEX_ORCHESTRATOR_DATABASE_URL=${CONVEX_ORCHESTRATOR_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
       - CONVEX_ORCHESTRATOR_PROVISION_ADDR=${CONVEX_ORCHESTRATOR_PROVISION_ADDR:-0.0.0.0:8050}
@@ -69,7 +87,13 @@ services:
       orchestrator:
         condition: service_started
     ports:
-      - "${DASHBOARD_ORCHESTRATOR_PORT:-6793}:6793"
+      - "${BIND_ADDR:-127.0.0.1}:${DASHBOARD_ORCHESTRATOR_PORT:-6793}:6793"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST:-dashboard-host-not-set.invalid}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=le"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=6793"
     environment:
       # Browser-facing orchestrator URL. Read by the Next.js server at
       # request time and injected into the page via _document.tsx — no
@@ -89,12 +113,55 @@ services:
     restart: unless-stopped
     stop_grace_period: 10s
     ports:
-      - "${DASHBOARD_SELF_HOSTED_PORT:-6791}:6791"
+      - "${BIND_ADDR:-127.0.0.1}:${DASHBOARD_SELF_HOSTED_PORT:-6791}:6791"
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=${NEXT_PUBLIC_DEPLOYMENT_URL:-}
       - NEXT_PUBLIC_LOAD_MONACO_INTERNALLY=${NEXT_PUBLIC_LOAD_MONACO_INTERNALLY:-true}
       - TRUSTED_PARENT_ORIGINS=${TRUSTED_PARENT_ORIGINS:-${PUBLIC_DASHBOARD_URL:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}}
 
+  # TLS terminator. Opt-in via `docker compose --profile tls up -d`.
+  # Auto-issues a wildcard Let's Encrypt cert (DNS-01) for the spawned-
+  # deployment subdomains, plus individual certs for the dashboard and
+  # orchestrator API hosts. Provider defaults to Cloudflare; for others
+  # set DNS_PROVIDER and the matching env vars (see traefik docs).
+  traefik:
+    image: traefik:v3
+    profiles: [tls]
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik-acme:/acme
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # DNS provider creds — pass through whichever ones your provider
+      # needs. See https://doc.traefik.io/traefik/https/acme/#providers
+      # for the full list. Common providers:
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-}
+      - DO_AUTH_TOKEN=${DO_AUTH_TOKEN:-}
+      - GANDIV5_API_KEY=${GANDIV5_API_KEY:-}
+      - HETZNER_API_KEY=${HETZNER_API_KEY:-}
+      - NAMECHEAP_API_USER=${NAMECHEAP_API_USER:-}
+      - NAMECHEAP_API_KEY=${NAMECHEAP_API_KEY:-}
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.email=${LETSENCRYPT_EMAIL:-LETSENCRYPT_EMAIL_NOT_SET}"
+      - "--certificatesresolvers.le.acme.storage=/acme/acme.json"
+      - "--certificatesresolvers.le.acme.dnschallenge=true"
+      - "--certificatesresolvers.le.acme.dnschallenge.provider=${DNS_PROVIDER:-cloudflare}"
+
 volumes:
   pgdata:
   orchestrator-data:
+  traefik-acme:
