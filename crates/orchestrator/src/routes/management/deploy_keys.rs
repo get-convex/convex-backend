@@ -215,9 +215,30 @@ pub(crate) async fn create_preview_deploy_key(
     Path(project_id): Path<i64>,
     Json(args): Json<PlatformCreatePreviewDeployKeyArgs>,
 ) -> ApiResult<Json<PlatformCreatePreviewDeployKeyResponse>> {
+    // The Convex CLI's `isPreviewDeployKey` requires the prefix to split
+    // into exactly three colon-separated parts: `preview:<team>:<project>`.
+    // It then routes by extracting team/project slugs from those parts and
+    // calling `authorize_preview` on the orchestrator. Mint the key in
+    // that exact shape so the CLI accepts it and we get the team/project
+    // identifiers back on auth (validated against `token.project_id`).
+    let project = state
+        .storage
+        .get_project(project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
+    let team = state
+        .storage
+        .get_team(project.team_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound(format!("team {}", project.team_id)))?;
     let public_id = random_id();
     let secret = mint_token_secret(&public_id);
-    let key = encode_deploy_key("preview", "project", &secret.secret);
+    let key = format!(
+        "preview:{}:{}|{}",
+        team.slug, project.slug, secret.secret
+    );
     let hash = sha256_hex(&secret.secret);
     let suffix = suffix_of(&secret.secret);
     state

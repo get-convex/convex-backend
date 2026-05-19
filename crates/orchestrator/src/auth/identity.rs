@@ -78,11 +78,12 @@ async fn resolve(state: &OrchestratorState, raw: &str) -> Result<AuthIdentity, A
             ApiError::Unauthorized
         })?;
     // For "deploy-key shaped" tokens the middle slot of the wire format is
-    // the deployment name (or the literal "project" for project deploy
-    // keys), not the row's randomly minted `public_id`. Validate that the
+    // a resource identifier (the deployment name for per-deployment keys,
+    // or `<team_slug>:<project_slug>` for project-scoped preview keys),
+    // not the row's randomly minted `public_id`. Validate that the
     // received value matches the token's bound resource instead of the
-    // stored `public_id` so deploy keys actually authenticate. For all
-    // other token kinds the original strict equality still applies.
+    // stored `public_id`. For all other token kinds the original strict
+    // equality still applies.
     let is_deploy_key_kind = matches!(
         token.kind,
         AccessTokenKind::DeployProd
@@ -92,7 +93,42 @@ async fn resolve(state: &OrchestratorState, raw: &str) -> Result<AuthIdentity, A
     );
     if is_deploy_key_kind {
         let expected = if matches!(token.kind, AccessTokenKind::ProjectDeploy) {
-            "project".to_string()
+            // Project-scoped preview keys are `preview:<team>:<project>|<secret>`.
+            // After parse_token splits on the first `:` and the `|`, the
+            // remaining middle slot is `<team>:<project>` — match it
+            // against the team/project that owns this token row.
+            let project_id = token.project_id.ok_or_else(|| {
+                tracing::debug!(
+                    public_id = %token.public_id,
+                    "auth: project deploy-key row has no project_id"
+                );
+                ApiError::Unauthorized
+            })?;
+            let project = state
+                .storage
+                .get_project(project_id)
+                .await
+                .map_err(ApiError::Internal)?
+                .ok_or_else(|| {
+                    tracing::debug!(
+                        project_id,
+                        "auth: project deploy-key references a missing project"
+                    );
+                    ApiError::Unauthorized
+                })?;
+            let team = state
+                .storage
+                .get_team(project.team_id)
+                .await
+                .map_err(ApiError::Internal)?
+                .ok_or_else(|| {
+                    tracing::debug!(
+                        team_id = project.team_id,
+                        "auth: project deploy-key references a missing team"
+                    );
+                    ApiError::Unauthorized
+                })?;
+            format!("{}:{}", team.slug, project.slug)
         } else {
             let deployment_id = token.deployment_id.ok_or_else(|| {
                 tracing::debug!(
@@ -121,7 +157,7 @@ async fn resolve(state: &OrchestratorState, raw: &str) -> Result<AuthIdentity, A
                 expected = %expected,
                 received_public_id = parsed.public_id,
                 kind = ?token.kind,
-                "auth: deploy-key deployment-name mismatch"
+                "auth: deploy-key resource-identifier mismatch"
             );
             return Err(ApiError::Unauthorized);
         }
