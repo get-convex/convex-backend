@@ -70,6 +70,12 @@ services:
       - CONVEX_ORCHESTRATOR_PUBLIC_ORIGIN=${PUBLIC_ORIGIN:-${DASHBOARD_HOST:+https://}${DASHBOARD_HOST:-http://localhost}}
       - CONVEX_ORCHESTRATOR_ROUTER_HOST=${ROUTER_HOST:-localhost}
       - CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_PORT=${ROUTER_PUBLIC_PORT:-${ROUTER_PORT:-9000}}
+      # Scheme of the deployment URLs the orchestrator advertises.
+      # Default `http` for raw-port local dev. Set to `https` (or pass
+      # ROUTER_PUBLIC_PORT=443) when TLS terminates in front of the
+      # orchestrator (Traefik) — otherwise the dashboard's WebSocket
+      # subscription hits a mixed-content block.
+      - CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_SCHEME=${ROUTER_PUBLIC_SCHEME:-http}
       - CONVEX_ORCHESTRATOR_PROVISIONER=${PROVISIONER:-docker}
       - CONVEX_ORCHESTRATOR_BACKEND_IMAGE=${BACKEND_IMAGE:-ghcr.io/defy-works/convex-backend:latest}
       - CONVEX_ORCHESTRATOR_BACKEND_CONTAINER_PREFIX=${BACKEND_CONTAINER_PREFIX:-convex-orchestrator-deployment-}

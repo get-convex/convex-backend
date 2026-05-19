@@ -109,6 +109,16 @@ struct Args {
     )]
     router_public_port: u16,
 
+    /// Public scheme (`http` or `https`) for browser-facing deployment URLs.
+    /// Set to `https` when terminating TLS in front of the orchestrator
+    /// (e.g. via Traefik), `http` for raw-port local dev.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_SCHEME",
+        default_value = "http"
+    )]
+    router_public_scheme: String,
+
     /// Shared secret the dashboard-orchestrator uses to call internal
     /// PAT-minting endpoints after BetterAuth authenticates a user.
     #[arg(long, env = "CONVEX_ORCHESTRATOR_SERVICE_KEY")]
@@ -169,6 +179,7 @@ async fn main() -> anyhow::Result<()> {
         backend_container_prefix: args.backend_container_prefix.clone(),
         router_host: args.router_host.clone(),
         router_public_port: args.router_public_port,
+        router_public_scheme: args.router_public_scheme.clone(),
     };
 
     tracing::info!(?config.data_root, "starting convex-orchestrator");

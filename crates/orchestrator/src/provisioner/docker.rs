@@ -49,6 +49,11 @@ pub struct DockerProvisioner {
     router_host: String,
     /// Port the reverse proxy is exposed on from the browser's perspective.
     router_public_port: u16,
+    /// `http` or `https`. Determines the scheme of the deployment URLs the
+    /// orchestrator hands out — must be `https` when TLS terminates in
+    /// front of the orchestrator (Traefik, etc.) so the browser doesn't
+    /// hit mixed-content blocks on the Convex client's WebSocket.
+    router_public_scheme: String,
 }
 
 impl DockerProvisioner {
@@ -58,6 +63,7 @@ impl DockerProvisioner {
         network: Option<String>,
         router_host: String,
         router_public_port: u16,
+        router_public_scheme: String,
     ) -> Self {
         Self {
             backend_image,
@@ -66,6 +72,30 @@ impl DockerProvisioner {
             network,
             router_host,
             router_public_port,
+            router_public_scheme,
+        }
+    }
+
+    /// Format a browser-facing deployment URL. Omits the port when it's
+    /// the default for the scheme so URLs stay clean behind TLS.
+    fn deployment_url(&self, host_prefix: &str) -> String {
+        let default_port = match self.router_public_scheme.as_str() {
+            "https" => 443,
+            _ => 80,
+        };
+        if self.router_public_port == default_port {
+            format!(
+                "{}://{}.{}",
+                self.router_public_scheme, host_prefix, self.router_host
+            )
+        } else {
+            format!(
+                "{}://{}.{}:{}",
+                self.router_public_scheme,
+                host_prefix,
+                self.router_host,
+                self.router_public_port
+            )
         }
     }
 
@@ -90,14 +120,8 @@ impl Provisioner for DockerProvisioner {
         // Browser-facing URLs go through the reverse proxy. `*.localhost`
         // resolves to the loopback in modern browsers; the proxy parses
         // `Host` and forwards to the docker-DNS hostname.
-        let url = format!(
-            "http://{}.{}:{}",
-            req.deployment_name, self.router_host, self.router_public_port
-        );
-        let site_url = format!(
-            "http://{}-site.{}:{}",
-            req.deployment_name, self.router_host, self.router_public_port
-        );
+        let url = self.deployment_url(&req.deployment_name);
+        let site_url = self.deployment_url(&format!("{}-site", req.deployment_name));
 
         let secret: String = rand::rng()
             .sample_iter(&Alphanumeric)

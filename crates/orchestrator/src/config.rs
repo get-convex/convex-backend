@@ -29,8 +29,12 @@ pub struct OrchestratorConfig {
     /// Default `localhost`; full host header is `<deployment>.<router_host>`.
     pub router_host: String,
     /// Public port the proxy is reachable on from the browser. Used to
-    /// build deployment URLs of the form `http://<name>.<host>:<port>`.
+    /// build deployment URLs of the form `<scheme>://<name>.<host>[:<port>]`.
     pub router_public_port: u16,
+    /// Public scheme (`http` or `https`) the proxy is reachable on. When
+    /// terminating TLS in front of the orchestrator (Traefik etc.), set to
+    /// `https`. Default `http` for raw-port local dev.
+    pub router_public_scheme: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
