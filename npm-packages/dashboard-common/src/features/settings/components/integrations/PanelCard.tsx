@@ -1,5 +1,8 @@
 import classNames from "classnames";
-import { ExportIntegrationType } from "system-udfs/convex/_system/frontend/common";
+import {
+  ExportIntegrationType,
+  ImportIntegrationType,
+} from "system-udfs/convex/_system/frontend/common";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Modal } from "@ui/Modal";
@@ -12,6 +15,7 @@ import {
   AuthIntegration,
   integrationToLogo,
   STREAMING_EXPORT_DESCRIPTION,
+  STREAMING_IMPORT_DESCRIPTION,
   LOG_STREAMS_DESCRIPTION,
   AUTHENTICATION_DESCRIPTION,
 } from "@common/lib/integrationHelpers";
@@ -35,7 +39,8 @@ export type PanelCardProps = {
     | LogIntegration
     | ExceptionReportingIntegration
     | AuthIntegration
-    | { kind: ExportIntegrationType };
+    | { kind: ExportIntegrationType }
+    | { kind: ImportIntegrationType };
   unavailableReason: IntegrationUnavailableReason | null;
   teamSlug?: string;
   onAddedIntegration?: (kind: string) => void;
@@ -108,7 +113,7 @@ export function PanelCard({
           </div>
         </div>
       )}
-      {(integration.kind === "airbyte" || integration.kind === "fivetran") && (
+      {integration.kind === "fivetran" && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <IntegrationTitle
             logo={logo}
@@ -130,6 +135,27 @@ export function PanelCard({
                 <ExternalLinkIcon />
               </Button>
             )}
+          </div>
+        </div>
+      )}
+      {integration.kind === "airbyte" && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <IntegrationTitle
+            logo={logo}
+            integrationKind={integration.kind}
+            description={STREAMING_IMPORT_DESCRIPTION}
+          />
+          <div className="ml-auto">
+            <Button
+              href={importSetupLink(integration.kind)}
+              target="_blank"
+              className="flex items-center gap-2"
+              inline
+              variant="neutral"
+            >
+              <div>Get Started</div>
+              <ExternalLinkIcon />
+            </Button>
           </div>
         </div>
       )}
@@ -168,10 +194,19 @@ export function PanelCard({
 
 function exportSetupLink(kind: ExportIntegrationType): string {
   switch (kind) {
-    case "airbyte":
-      return "https://docs.airbyte.com/integrations/sources/convex";
     case "fivetran":
       return "https://fivetran.com/integrations/convex";
+    default: {
+      kind satisfies never;
+      return "";
+    }
+  }
+}
+
+function importSetupLink(kind: ImportIntegrationType): string {
+  switch (kind) {
+    case "airbyte":
+      return "https://docs.airbyte.com/integrations/destinations/convex";
     default: {
       kind satisfies never;
       return "";

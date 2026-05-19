@@ -116,9 +116,9 @@ npx convex import --replace --table <tableNameToClear> empty_file.jsonl
 ## Warnings
 
 - [Streaming Export](/production/integrations/streaming-import-export.md)
-  (Fivetran or Airbyte) does not handle data imports or backup restorations,
-  similar to table deletion and creation and some schema changes. We recommend
-  resetting streaming export sync after a restore or a data import.
+  (Fivetran) does not handle data imports or backup restorations, similar to
+  table deletion and creation and some schema changes. We recommend resetting
+  streaming export sync after a restore or a data import.
 - Avoid changing the ZIP file between downloading it from Data Export and
   importing it with `npx convex import`. Some manual changes of the ZIP file may
   be possible, but remain undocumented. Please share your use case and check

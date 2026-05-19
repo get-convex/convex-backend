@@ -11,22 +11,23 @@ databases.
 
 Fivetran enables streaming export from Convex to any of their
 [supported destinations](https://fivetran.com/docs/destinations). The Convex
-team maintains a Convex source connector, for streaming export. Streaming import
-into Convex via Fivetran is not supported at the moment.
+team maintains a Convex source connector for streaming export. Streaming import
+into Convex via Fivetran is not supported.
 
-Using Airbyte enables streaming import from any of their
-[supported sources](https://airbyte.com/connectors?connector-type=Sources) into
-Convex and streaming export from Convex into any of their
-[supported destinations](https://airbyte.com/connectors?connector-type=Destinations).
-The Convex team maintains a Convex source connector for streaming export and a
-Convex destination connector for streaming import.
+Airbyte enables streaming import into Convex from any of their
+[supported sources](https://airbyte.com/connectors?connector-type=Sources). The
+Convex team maintains a Convex destination connector for streaming import.
+Streaming export from Convex via Airbyte is not supported.
 
 <BetaAdmonition feature="Fivetran & Airbyte integrations" verb="are" />
 
 ## Streaming Export
 
 Exporting data can be useful for handling workloads that aren't supported by
-Convex directly. Some use cases include:
+Convex directly. For simple analyses, we recommend
+[downloading a backup](/database/backup-restore) and processing it. For more
+advanced use cases where you need to continuously stream data, try out the
+Fivetran streaming export connector. Some use cases include:
 
 1. Analytics
    - Convex isn't optimized for queries that load huge amounts of data. A data
@@ -45,10 +46,9 @@ Convex directly. Some use cases include:
 
 <ProFeatureUpsell feature="Streaming export" verb="requires" />
 
-See the [Fivetran](https://fivetran.com/integrations/convex) or
-[Airbyte](https://docs.airbyte.com/integrations/sources/convex) docs to learn
-how to set up a streaming export. [Contact us](https://convex.dev/community) if
-you need help or have questions.
+See the [Fivetran](https://fivetran.com/integrations/convex) docs to learn how
+to set up a streaming export. [Contact us](https://convex.dev/community) if you
+need help or have questions.
 
 ## Streaming Import
 
