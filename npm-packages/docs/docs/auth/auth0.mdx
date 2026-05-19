@@ -147,11 +147,18 @@ function App() {
 }
 ```
 
-You can also use the `Authenticated`, `Unauthenticated` and `AuthLoading` helper
-components which use the `useConvexAuth` hook under the hood:
+You can also use the `Authenticated`, `Unauthenticated`, `AuthLoading` and
+`AuthRefreshing` helper components which use the `useConvexAuth` hook under the
+hood. `AuthRefreshing` renders when queries and mutations are paused for token
+refresh (generally a rare case).
 
 ```tsx title="src/App.ts"
-import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import {
+  Authenticated,
+  Unauthenticated,
+  AuthLoading,
+  AuthRefreshing,
+} from "convex/react";
 
 function App() {
   return (
@@ -159,6 +166,7 @@ function App() {
       <Authenticated>Logged in</Authenticated>
       <Unauthenticated>Logged out</Unauthenticated>
       <AuthLoading>Still loading</AuthLoading>
+      <AuthRefreshing>Refreshing token...</AuthRefreshing>
     </div>
   );
 }

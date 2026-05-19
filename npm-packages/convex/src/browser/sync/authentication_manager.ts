@@ -32,6 +32,7 @@ export type AuthTokenFetcher = (args: {
 type AuthConfig = {
   fetchToken: AuthTokenFetcher;
   onAuthChange: (isAuthenticated: boolean) => void;
+  onRefreshChange?: ((isRefreshing: boolean) => void) | undefined;
 };
 
 /**
@@ -96,6 +97,8 @@ export class AuthenticationManager {
   private readonly clearAuth: () => void;
   private readonly logger: Logger;
   private readonly refreshTokenLeewaySeconds: number;
+  // Track last value to avoid redundant calls
+  private lastRefreshChange: boolean;
   // Number of times we have attempted to confirm the latest token. We retry up
   // to `MAX_TOKEN_CONFIRMATION_ATTEMPTS` times.
   private tokenConfirmationAttempts = 0;
@@ -123,11 +126,25 @@ export class AuthenticationManager {
     this.clearAuth = callbacks.clearAuth;
     this.logger = config.logger;
     this.refreshTokenLeewaySeconds = config.refreshTokenLeewaySeconds;
+    this.lastRefreshChange = false;
+  }
+
+  private notifyRefreshChange(isRefreshing: boolean) {
+    if (
+      this.authState.state !== "noAuth" &&
+      this.authState.state !== "initialRefetch" &&
+      this.authState.config.onRefreshChange &&
+      this.lastRefreshChange !== isRefreshing
+    ) {
+      this.lastRefreshChange = isRefreshing;
+      this.authState.config.onRefreshChange(isRefreshing);
+    }
   }
 
   async setConfig(
     fetchToken: AuthTokenFetcher,
     onChange: (isAuthenticated: boolean) => void,
+    onRefreshChange?: (isRefreshing: boolean) => void,
   ) {
     this.resetAuthState();
     this._logVerbose("pausing WS for auth token fetch");
@@ -138,17 +155,22 @@ export class AuthenticationManager {
     if (token.isFromOutdatedConfig) {
       return;
     }
+    const config: AuthConfig = {
+      fetchToken,
+      onAuthChange: onChange,
+      onRefreshChange,
+    };
     if (token.value) {
       this.setAuthState({
         state: "waitingForServerConfirmationOfCachedToken",
-        config: { fetchToken, onAuthChange: onChange },
+        config,
         hasRetried: false,
       });
       this.authenticate(token.value);
     } else {
       this.setAuthState({
         state: "initialRefetch",
-        config: { fetchToken, onAuthChange: onChange },
+        config,
       });
       // Try again with `forceRefreshToken: true`
       await this.refetchToken();
@@ -190,6 +212,7 @@ export class AuthenticationManager {
     }
     if (this.authState.state === "waitingForServerConfirmationOfFreshToken") {
       this._logVerbose("server confirmed new auth token is valid");
+      this.notifyRefreshChange(false);
       this.scheduleTokenRefetch(this.authState.token);
       this.tokenConfirmationAttempts = 0;
       if (!this.authState.hadAuth) {
@@ -254,7 +277,12 @@ export class AuthenticationManager {
       );
     }
 
+    this.notifyRefreshChange(true);
     await this.stopSocket();
+    if ((this.authState.state as AuthState["state"]) === "noAuth") {
+      // setConfig() or stop() ran during the await.
+      return;
+    }
     const token = await this.fetchTokenAndGuardAgainstRace(
       this.authState.config.fetchToken,
       {
@@ -432,7 +460,11 @@ export class AuthenticationManager {
     this.resetAuthState();
   }
 
+  // The sole path to `state === "noAuth"`; consumers rely on this firing
+  // `notifyRefreshChange(false)` to pair any in-flight `(true)`. May run
+  // when refresh state is already false.
   private resetAuthState() {
+    this.notifyRefreshChange(false);
     this.setAuthState({ state: "noAuth" });
   }
 

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Button } from "@ui/Button";
@@ -876,6 +876,7 @@ function DeleteProjectSection({
   url: string;
 }) {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
@@ -890,6 +891,15 @@ function DeleteProjectSection({
         },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Refresh the project + deployment lists so the deleted project
+      // disappears from the team home without a manual reload. The team
+      // page reads ["projects", teamId, token] and ["deployments", ...].
+      await mutate(
+        (key) =>
+          Array.isArray(key) && (key[0] === "projects" || key[0] === "deployments"),
+        undefined,
+        { revalidate: true },
+      );
       void router.replace(`/t/${team.slug}`);
     } catch (err) {
       setError((err as Error).message);

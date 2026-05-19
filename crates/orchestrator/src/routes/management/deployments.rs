@@ -394,11 +394,19 @@ pub(crate) async fn delete_deployment(
         .await
         .map_err(ApiError::Internal)?
         .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
-    state
-        .provisioner
-        .teardown(&deployment_name)
-        .await
-        .map_err(ApiError::Internal)?;
+    // Teardown is best-effort: if `docker rm` can't reach the daemon or
+    // the container is already gone we still want to release the DB row
+    // (and free the unique deployment-name slot). Mirrors what
+    // `cascade_delete_project` does — the orphan container, if any, is
+    // invisible to the dashboard once the row is gone, and a stale name
+    // would otherwise block re-creation forever.
+    if let Err(e) = state.provisioner.teardown(&deployment_name).await {
+        tracing::warn!(
+            deployment = %deployment_name,
+            error = %e,
+            "teardown failed during delete; continuing with row deletion",
+        );
+    }
     state
         .storage
         .delete_deployment(d.id)
