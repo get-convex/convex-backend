@@ -74,6 +74,7 @@ use crate::{
     database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
+        IndexWriterMode,
         TabletBackfillProgress,
     },
     metrics::{
@@ -128,6 +129,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             retention_validator,
             runtime.clone(),
             Some(progress_tx),
+            IndexWriterMode::IndexesOnly,
         );
         let mut worker = IndexWorker {
             in_progress_index_ids: Default::default(),
