@@ -25,18 +25,26 @@ const LAST_VIEWED_DEPLOYMENT = (projectSlug: string) =>
 
 type DeployKind = "prod" | "dev" | "preview";
 
+function safeLocalStorageGet(key: string): string | null {
+  // Firefox throws DOMException("The operation is insecure") on
+  // localStorage access when strict tracking protection or an extension
+  // partitions storage. Treat any failure as "no remembered value".
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 function pickDefault(
   deployments: Deployment[],
   projectSlug: string,
 ): Deployment | undefined {
-  if (typeof window !== "undefined") {
-    const last = window.localStorage.getItem(
-      LAST_VIEWED_DEPLOYMENT(projectSlug),
-    );
-    if (last) {
-      const match = deployments.find((d) => d.name === last);
-      if (match) return match;
-    }
+  const last = safeLocalStorageGet(LAST_VIEWED_DEPLOYMENT(projectSlug));
+  if (last) {
+    const match = deployments.find((d) => d.name === last);
+    if (match) return match;
   }
   return (
     deployments.find((d) => (d.kind ?? d.deploymentType) === "dev") ??
