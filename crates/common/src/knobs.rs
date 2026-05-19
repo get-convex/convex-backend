@@ -1423,11 +1423,11 @@ pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new
 });
 
 /// Size of the cache for access token authentication
-pub static AUTH_CACHE_SIZE: LazyLock<usize> = LazyLock::new(|| env_config("AUTH_CACHE_SIZE", 1000));
+pub static AUTH_CACHE_SIZE: LazyLock<u64> = LazyLock::new(|| env_config("AUTH_CACHE_SIZE", 1000));
 
 /// Length of time an entry to the access authentication cache is valid
 pub static AUTH_CACHE_TTL_SECONDS: LazyLock<u64> =
-    LazyLock::new(|| env_config("AUTH_CACHE_TTL_SECONDS", 60));
+    LazyLock::new(|| env_config("AUTH_CACHE_TTL_SECONDS", 30));
 
 /// Request body limit for airbyte streaming import requests
 pub static AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT: LazyLock<usize> = LazyLock::new(|| {
