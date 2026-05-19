@@ -19,6 +19,28 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Reconcile Cargo.lock against the workspace and amend the current
+# (merge) commit if it changed. Upstream's lockfile (taken via the
+# `merge=theirs` driver in .gitattributes) lacks our fork-local crates
+# — orchestrator, orchestrator_api_types — so `cargo update -w --locked`
+# in downstream CI would fail. Pre-emptively regenerate here so we
+# never push a lockfile that's out of sync with our Cargo.toml.
+reconcile_cargo_lock() {
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "cargo not on PATH; skipping Cargo.lock reconciliation" >&2
+    return 0
+  fi
+  if [ ! -f Cargo.toml ]; then
+    return 0
+  fi
+  cargo update --workspace 2>&1 | sed 's/^/  /'
+  if ! git diff --quiet Cargo.lock; then
+    git add Cargo.lock
+    git commit --amend --no-edit
+    echo "Amended merge commit with regenerated Cargo.lock"
+  fi
+}
+
 git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git" 2>/dev/null || true
 git fetch --no-tags origin "${TARGET_BRANCH}" || true
 git fetch --no-tags upstream "${UPSTREAM_BRANCH}"
@@ -42,6 +64,7 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
   if [ "$before" = "$after" ]; then
     echo "${TARGET_BRANCH} is already up to date with upstream/${UPSTREAM_BRANCH}"
   else
+    reconcile_cargo_lock
     git push origin "HEAD:${TARGET_BRANCH}"
   fi
 
@@ -84,6 +107,7 @@ LLM-auto-resolved conflicts via ${llm_model_used}:
 ${file_list}
 
 Workflow run: ${run_url}"
+      reconcile_cargo_lock
       git push origin "HEAD:${TARGET_BRANCH}"
 
       # Close any stale sync PR — we just merged cleanly.

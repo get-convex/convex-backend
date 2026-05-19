@@ -56,6 +56,12 @@ jobs:
           git config merge.theirs.name "always take theirs"
           git config merge.theirs.driver "cp -f %B %A"
 
+      - name: Install Rust toolchain
+        # Sync script reconciles Cargo.lock with our workspace after the
+        # `merge=theirs` driver takes upstream's lockfile — needs cargo.
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
+
       - name: Sync enhanced
         env:
           GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
@@ -89,6 +95,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config merge.theirs.name "always take theirs"
           git config merge.theirs.driver "cp -f %B %A"
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
 
       - name: Sync release
         env:
