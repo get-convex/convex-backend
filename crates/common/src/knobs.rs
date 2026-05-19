@@ -1668,3 +1668,8 @@ pub static SHOW_PII_IN_ERRORS: LazyLock<bool> =
 /// Default 512 MiB
 pub static INDEX_CACHE_SIZE: LazyLock<u64> =
     LazyLock::new(|| env_config("INDEX_CACHE_SIZE", 512 * 1024 * 1024));
+
+/// Timeout on sending a message to the committer. Commits will fail if this
+/// timeout elapses and the commit queue is still full.
+pub static SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS", 500)));

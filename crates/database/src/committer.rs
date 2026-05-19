@@ -43,6 +43,7 @@ use common::{
         COMMIT_TRACE_THRESHOLD,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
+        SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS,
         TRANSACTION_WARN_READ_SET_INTERVALS,
     },
     persistence::{
@@ -1278,6 +1279,7 @@ impl CommitterClient {
     ) -> anyhow::Result<Timestamp> {
         let _timer = metrics::commit_client_timer(transaction.identity());
         self.check_generated_ids(&transaction).await?;
+        let rt = transaction.runtime().clone();
 
         // Finish reading everything from persistence.
         let transaction = transaction.finalize()?;
@@ -1297,10 +1299,18 @@ impl CommitterClient {
             write_source,
             parent_trace: EncodedSpan::from_parent(),
         };
-        self.sender.try_send(message).map_err(|e| match e {
-            TrySendError::Full(..) => metrics::committer_full_error().into(),
-            TrySendError::Closed(..) => metrics::shutdown_error(),
-        })?;
+
+        // Waits until the committer has space to send a message, with a timeout.
+        // This makes it resilient to the committer being full.
+        select_biased! {
+            result = self.sender.send(message).fuse() => {
+                result.map_err(|_| metrics::shutdown_error())?
+            },
+            _ = rt.wait(*SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS) => {
+                anyhow::bail!(metrics::committer_full_error());
+            },
+        };
+
         let Ok(result) = rx.await else {
             anyhow::bail!(metrics::shutdown_error());
         };
