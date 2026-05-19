@@ -40,16 +40,21 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      # Orchestrator API on ORCHESTRATOR_HOST.
+      # Orchestrator API on ORCHESTRATOR_HOST. Priority above the
+      # wildcard router below so api.${ROUTER_HOST} reaches :8050 even
+      # when ORCHESTRATOR_HOST happens to be a subdomain of ROUTER_HOST.
       - "traefik.http.routers.orchestrator-api.rule=Host(`${ORCHESTRATOR_HOST:-orchestrator-host-not-set.invalid}`)"
+      - "traefik.http.routers.orchestrator-api.priority=100"
       - "traefik.http.routers.orchestrator-api.entrypoints=websecure"
       - "traefik.http.routers.orchestrator-api.tls.certresolver=le"
       - "traefik.http.routers.orchestrator-api.service=orchestrator-api"
       - "traefik.http.services.orchestrator-api.loadbalancer.server.port=8050"
       # Spawned-deployment subdomains route to the in-orchestrator
       # router at :9000. The wildcard cert (main + *.ROUTER_HOST SANs)
-      # covers any number of deployments.
+      # covers any number of deployments. Lower priority so specific
+      # Host() routers above win for known hosts.
       - "traefik.http.routers.orchestrator-router.rule=HostRegexp(`.+\\.${ROUTER_HOST:-router-host-not-set.invalid}$$`)"
+      - "traefik.http.routers.orchestrator-router.priority=1"
       - "traefik.http.routers.orchestrator-router.entrypoints=websecure"
       - "traefik.http.routers.orchestrator-router.tls.certresolver=le"
       - "traefik.http.routers.orchestrator-router.tls.domains[0].main=${ROUTER_HOST:-router-host-not-set.invalid}"
@@ -93,6 +98,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST:-dashboard-host-not-set.invalid}`)"
+      - "traefik.http.routers.dashboard.priority=100"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=le"
       - "traefik.http.services.dashboard.loadbalancer.server.port=6793"
