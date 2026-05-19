@@ -331,6 +331,7 @@ async fn deployment_internal_flow_against_real_db() {
         backend_container_prefix: "test-".into(),
         router_host: "localhost".into(),
         router_public_port: 9000,
+        router_public_scheme: "http".into(),
     };
 
     // Construct OrchestratorState the public way, then swap in the stub
