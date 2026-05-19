@@ -1,12 +1,14 @@
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { PauseDeployment } from "@common/features/settings/components/PauseDeployment";
+import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { useAccessToken } from "../../../../../../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../../../../../../lib/config";
@@ -14,9 +16,21 @@ import { orchestratorUrl } from "../../../../../../lib/config";
 export default function DeploymentSettings() {
   const pauseRef = useRef<HTMLDivElement | null>(null);
   useScrollToHash("#pause-deployment", pauseRef);
+  const { useCurrentTeam, useCurrentProject, useCurrentDeployment } =
+    useContext(DeploymentInfoContext);
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const deployment = useCurrentDeployment();
   return (
     <DeploymentSettingsLayout page="general">
       <div className="flex flex-col gap-4">
+        {deployment && team?.slug && project?.slug && (
+          <DeploymentSummary
+            deployment={deployment}
+            teamSlug={team.slug}
+            projectSlug={project.slug}
+          />
+        )}
         <Sheet>
           <h3>Deployment</h3>
           <p className="mt-2 max-w-prose text-content-secondary">

@@ -127,23 +127,33 @@ export function OrchestratorDeploymentShell({
       name: project.name,
       slug: project.slug,
     }),
+    // Shape this as a cloud-kind PlatformDeploymentResponse so the shared
+    // `<DeploymentSummary>` renders the URL panel (gated on `kind === "cloud"`).
+    // The orchestrator stores type/class on differently named fields; remap
+    // them here rather than forking the summary component.
     useCurrentDeployment: () =>
       ({
+        kind: "cloud",
         id: deployment.id,
         projectId: deployment.projectId,
         name: deployment.name,
-        kind: deployment.kind ?? deployment.deploymentType ?? "prod",
-        deploymentType: deployment.deploymentType ?? deployment.kind ?? "prod",
-        deploymentClass: deployment.deploymentClass ?? "standard",
-        url: deployment.url,
-        siteUrl: deployment.siteUrl,
-        state: deployment.state,
-        creationTime: deployment.creationTime,
-        region: deployment.region ?? null,
+        // `reference` is the human-readable identifier the cloud dashboard
+        // displays in bold before the deployment name. The orchestrator
+        // doesn't track one, so reuse the deployment type — it gives
+        // `<DeploymentSummary>` non-empty content for the bold span.
+        reference:
+          deployment.deploymentType ?? deployment.kind ?? deployment.name,
+        deploymentType: (deployment.deploymentType ??
+          deployment.kind ??
+          "prod") as "prod" | "dev" | "preview" | "custom",
+        class: deployment.deploymentClass ?? "standard",
+        deploymentUrl: deployment.url,
+        createTime: deployment.creationTime,
+        region: deployment.region ?? "",
+        isDefault: true,
         previewIdentifier: deployment.previewIdentifier ?? null,
-        // Cloud's PlatformDeploymentResponse has more fields the dashboard
-        // doesn't actually read; cast through unknown to keep the type
-        // checker happy.
+        // PlatformDeploymentResponse has more optional fields the dashboard
+        // doesn't read; cast through unknown to satisfy the type checker.
       }) as unknown as ReturnType<DeploymentInfo["useCurrentDeployment"]>,
     useIsProtectedDeployment: () =>
       deployment.kind === "prod" || deployment.deploymentType === "prod",
