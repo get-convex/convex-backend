@@ -9,6 +9,7 @@ import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { useContext, useRef, useState } from "react";
+import { useSWRConfig } from "swr";
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { useAccessToken } from "../../../../../../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../../../../../../lib/config";
@@ -54,6 +55,7 @@ function DeleteDeploymentSection() {
   const deploymentName = router.query.deploymentName as string | undefined;
   const token = useAccessToken();
   const url = orchestratorUrl();
+  const { mutate } = useSWRConfig();
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,26 @@ function DeleteDeploymentSection() {
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}: ${body}`);
+      }
+      // Invalidate cached deployment lists so the deleted row disappears
+      // from the project's deployment dropdown / index without a manual
+      // page refresh. Project- and team-scoped lists both use a tuple key
+      // starting with "deployments"; revalidate them all.
+      await mutate(
+        (key) => Array.isArray(key) && key[0] === "deployments",
+        undefined,
+        { revalidate: true },
+      );
+      // Drop the localStorage "last viewed" pointer so the project
+      // redirector doesn't try to bounce us back into the deleted row.
+      if (typeof window !== "undefined" && projectSlug) {
+        try {
+          window.localStorage.removeItem(`orch-last-deployment-${projectSlug}`);
+        } catch {
+          // localStorage may throw in strict-tracking-protected browsers;
+          // a stale pointer is harmless because `pickDefault` falls back
+          // when the name doesn't match an existing deployment.
+        }
       }
       void router.replace(`/t/${teamSlug}/${projectSlug}`);
     } catch (err) {

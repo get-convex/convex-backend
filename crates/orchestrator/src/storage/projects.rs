@@ -131,12 +131,15 @@ impl Storage {
     }
 
     pub async fn delete_project(&self, id: i64) -> anyhow::Result<()> {
+        // Hard delete so `UNIQUE(team_id, slug)` releases the slot —
+        // soft-deleted rows keep blocking new projects with the same slug
+        // and there's no restore UI to justify keeping the row around. The
+        // schema's `ON DELETE CASCADE` chain cleans up access_tokens,
+        // project_admins, default_env_vars; deployments are torn down
+        // separately in `cascade_delete_project` before this runs.
         let conn = self.pool().acquire().await?;
         conn.client()
-            .execute(
-                "UPDATE projects SET deleted = TRUE WHERE id = $1",
-                &[&id],
-            )
+            .execute("DELETE FROM projects WHERE id = $1", &[&id])
             .await?;
         Ok(())
     }

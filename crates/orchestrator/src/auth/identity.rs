@@ -77,7 +77,55 @@ async fn resolve(state: &OrchestratorState, raw: &str) -> Result<AuthIdentity, A
             );
             ApiError::Unauthorized
         })?;
-    if token.public_id != parsed.public_id {
+    // For "deploy-key shaped" tokens the middle slot of the wire format is
+    // the deployment name (or the literal "project" for project deploy
+    // keys), not the row's randomly minted `public_id`. Validate that the
+    // received value matches the token's bound resource instead of the
+    // stored `public_id` so deploy keys actually authenticate. For all
+    // other token kinds the original strict equality still applies.
+    let is_deploy_key_kind = matches!(
+        token.kind,
+        AccessTokenKind::DeployProd
+            | AccessTokenKind::DeployDev
+            | AccessTokenKind::DeployPreview
+            | AccessTokenKind::ProjectDeploy
+    );
+    if is_deploy_key_kind {
+        let expected = if matches!(token.kind, AccessTokenKind::ProjectDeploy) {
+            "project".to_string()
+        } else {
+            let deployment_id = token.deployment_id.ok_or_else(|| {
+                tracing::debug!(
+                    public_id = %token.public_id,
+                    kind = ?token.kind,
+                    "auth: deploy-key token row has no deployment_id"
+                );
+                ApiError::Unauthorized
+            })?;
+            let dep = state
+                .storage
+                .get_deployment(deployment_id)
+                .await
+                .map_err(ApiError::Internal)?
+                .ok_or_else(|| {
+                    tracing::debug!(
+                        deployment_id,
+                        "auth: deploy-key references a deployment that no longer exists"
+                    );
+                    ApiError::Unauthorized
+                })?;
+            dep.name
+        };
+        if expected != parsed.public_id {
+            tracing::debug!(
+                expected = %expected,
+                received_public_id = parsed.public_id,
+                kind = ?token.kind,
+                "auth: deploy-key deployment-name mismatch"
+            );
+            return Err(ApiError::Unauthorized);
+        }
+    } else if token.public_id != parsed.public_id {
         tracing::debug!(
             stored_public_id = %token.public_id,
             received_public_id = parsed.public_id,
