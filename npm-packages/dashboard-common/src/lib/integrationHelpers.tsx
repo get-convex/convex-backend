@@ -4,6 +4,7 @@ import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import {
   DatadogSiteLocation,
   ExportIntegrationType,
+  ImportIntegrationType,
   IntegrationConfig,
   IntegrationType,
 } from "system-udfs/convex/_system/frontend/common";
@@ -36,10 +37,8 @@ export const LOG_INTEGRATIONS = [
 ] as const;
 export const EXC_INTEGRATIONS = ["sentry", "postHogErrorTracking"] as const;
 export const AUTH_INTEGRATIONS = ["workos"] as const;
-export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = [
-  "fivetran",
-  "airbyte",
-];
+export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = ["fivetran"];
+export const IMPORT_INTEGRATIONS: ImportIntegrationType[] = ["airbyte"];
 
 export type LogIntegrationConfig =
   | Infer<typeof axiomConfig>
@@ -274,11 +273,29 @@ export const EXCEPTION_REPORTING_DESCRIPTION = (
 
 export const STREAMING_EXPORT_DESCRIPTION = (
   <div>
-    <p>Set up streaming export with third party connector platforms.</p>{" "}
+    <p>Set up streaming export with a third party connector platform.</p>{" "}
     <p>
-      Fivetran and Airbyte are data integration platforms that allow you to
-      export your Convex data to other databases and data warehouses like
-      Snowflake, Databricks, BigTable, Tableau, and many others.
+      Fivetran is a data integration platform that allows you to export your
+      Convex data to other databases and data warehouses like Snowflake,
+      Databricks, BigTable, Tableau, and many others.
+    </p>
+    <Link
+      passHref
+      href="https://docs.convex.dev/database/import-export/streaming"
+      target="_blank"
+    >
+      Learn more
+    </Link>
+    .
+  </div>
+);
+
+export const STREAMING_IMPORT_DESCRIPTION = (
+  <div>
+    <p>Set up streaming import with a third party connector platform.</p>{" "}
+    <p>
+      Airbyte is a data integration platform that allows you to import data from
+      other databases and sources into Convex.
     </p>
     <Link
       passHref

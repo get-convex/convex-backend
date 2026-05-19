@@ -53,6 +53,7 @@ pub use component_registry::ComponentRegistry;
 pub use database_index_workers::{
     index_writer::{
         IndexWriter,
+        IndexWriterMode,
         PERFORM_BACKFILL_LABEL,
     },
     IndexWorker,

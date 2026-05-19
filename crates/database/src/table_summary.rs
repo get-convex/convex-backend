@@ -338,6 +338,7 @@ pub async fn write_snapshot(
         .await
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BootstrapKind {
     FromScratch,
     FromCheckpoint,
