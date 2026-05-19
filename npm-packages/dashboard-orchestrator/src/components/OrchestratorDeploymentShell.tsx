@@ -192,10 +192,14 @@ export function OrchestratorDeploymentShell({
     // teams/projects/audit) talking to a self-hosted control plane instead of
     // BigBrain. dashboard-common's `isSelfHosted` flag selects between cloud
     // chrome and the single-deployment self-hosted shell — orchestrator wants
-    // the cloud chrome, so set this to false. This also matches the existing
-    // behavior on Project Settings/Usage links and the admin-keys filter
-    // without modifying any upstream code.
+    // the cloud chrome, so this stays false.
     isSelfHosted: false,
+    // ...but the backend behind every orchestrator deployment IS a
+    // convex-local-backend that owns its own admin keys via `/api/admin_keys`.
+    // Surface the Admin Keys page in the deployment settings sidebar without
+    // flipping `isSelfHosted` (which would disable Project Settings / Usage
+    // links and break the chrome).
+    deploymentBackendOwnsAdminKeys: true,
     workosIntegrationEnabled: false,
     connectionStateCheckIntervalMs: 2500,
   };

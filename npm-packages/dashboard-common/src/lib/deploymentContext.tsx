@@ -310,6 +310,20 @@ export type DeploymentInfo = (
   projectsURI: string;
   deploymentsURI: string;
   isSelfHosted: boolean;
+  /**
+   * Whether the deployment's backend exposes the `/api/admin_keys` surface
+   * (`POST` create, `GET` list, `POST /:id/revoke`, `PATCH /:id`). True for
+   * any convex-local-backend (single-deployment self-hosted dashboards set
+   * this implicitly via `isSelfHosted: true`, and the orchestrator dashboard
+   * sets it explicitly because it keeps `isSelfHosted: false` for chrome
+   * purposes). False for cloud-Convex deployments — BigBrain owns admin
+   * keys there and the endpoint just isn't there.
+   *
+   * Optional so existing consumers (cloud dashboard, self-hosted) keep their
+   * current behavior without a code change. When unset, falls back to
+   * `isSelfHosted && !isCloudDeploymentInSelfHostedDashboard`.
+   */
+  deploymentBackendOwnsAdminKeys?: boolean;
   workosIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };

@@ -1,6 +1,5 @@
 //! Public Management API at `/v1/...`.
 
-pub(crate) mod deploy_keys;
 pub(crate) mod deployments;
 pub(crate) mod env_vars;
 pub(crate) mod members;
@@ -17,7 +16,6 @@ pub fn router() -> Router<OrchestratorState> {
         .merge(teams::router())
         .merge(projects::router())
         .merge(deployments::router())
-        .merge(deploy_keys::router())
         .merge(env_vars::router())
         .merge(tokens::router())
         .merge(members::router())

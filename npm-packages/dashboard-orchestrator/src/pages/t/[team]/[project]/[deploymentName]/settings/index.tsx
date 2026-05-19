@@ -32,13 +32,6 @@ export default function DeploymentSettings() {
             projectSlug={project.slug}
           />
         )}
-        <Sheet>
-          <h3>Deployment</h3>
-          <p className="mt-2 max-w-prose text-content-secondary">
-            Use the project-level Settings page on the orchestrator to manage
-            deploy keys for this deployment.
-          </p>
-        </Sheet>
         <div ref={pauseRef}>
           <PauseDeployment />
         </div>

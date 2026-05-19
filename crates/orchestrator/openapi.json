@@ -796,212 +796,6 @@
         }
       }
     },
-    "/v1/deployments/{deployment_name}/create_deploy_key": {
-      "post": {
-        "tags": ["deploy_keys"],
-        "operationId": "create_deploy_key",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformCreateDeployKeyArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformCreateDeployKeyResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "deployment not found"
-          }
-        }
-      }
-    },
-    "/v1/deployments/{deployment_name}/list_deploy_keys": {
-      "get": {
-        "tags": ["deploy_keys"],
-        "operationId": "list_deploy_keys",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PlatformDeployKeyResponse"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "deployment not found"
-          }
-        }
-      }
-    },
-    "/v1/deployments/{deployment_name}/delete_deploy_key": {
-      "post": {
-        "tags": ["deploy_keys"],
-        "operationId": "delete_deploy_key",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformDeleteDeployKeyArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "deploy key revoked"
-          }
-        }
-      }
-    },
-    "/v1/projects/{project_id}/create_preview_deploy_key": {
-      "post": {
-        "tags": ["deploy_keys"],
-        "operationId": "create_preview_deploy_key",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformCreatePreviewDeployKeyArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformCreatePreviewDeployKeyResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/projects/{project_id}/list_preview_deploy_keys": {
-      "get": {
-        "tags": ["deploy_keys"],
-        "operationId": "list_preview_deploy_keys",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformListPreviewDeployKeysResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/projects/{project_id}/delete_preview_deploy_key": {
-      "post": {
-        "tags": ["deploy_keys"],
-        "operationId": "delete_preview_deploy_key",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformDeletePreviewDeployKeyArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "preview deploy key revoked"
-          }
-        }
-      }
-    },
     "/v1/projects/{project_id}/list_default_environment_variables": {
       "get": {
         "tags": ["env_vars"],
@@ -1288,139 +1082,6 @@
           },
           "404": {
             "description": "deployment, project, or team not found"
-          }
-        }
-      }
-    },
-    "/api/deployment/team_and_project_for_key": {
-      "post": {
-        "tags": ["deployment_internal"],
-        "operationId": "team_and_project_for_key",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TeamAndProjectForKeyArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TeamAndProjectForDeploymentResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "deploy key is malformed"
-          },
-          "404": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/deployment/url_for_key": {
-      "post": {
-        "tags": ["deployment_internal"],
-        "operationId": "url_for_key",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UrlForKeyArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UrlForKeyResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "deploy key is malformed"
-          },
-          "404": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/deployment/authorize_prod": {
-      "post": {
-        "tags": ["deployment_internal"],
-        "operationId": "authorize_prod",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeploymentAuthProdArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentAuthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "not a prod deployment"
-          },
-          "404": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/deployment/authorize_preview": {
-      "post": {
-        "tags": ["deployment_internal"],
-        "operationId": "authorize_preview",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeploymentAuthPreviewArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentAuthResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "no preview deployment found for this identifier"
           }
         }
       }
@@ -3634,40 +3295,6 @@
           }
         }
       },
-      "DeploymentAuthPreviewArgs": {
-        "type": "object",
-        "required": ["projectSelection", "previewName"],
-        "properties": {
-          "previewName": {
-            "type": "string",
-            "description": "--preview-name instance selector."
-          },
-          "projectSelection": {
-            "$ref": "#/components/schemas/ProjectSelectionArgs"
-          }
-        },
-        "additionalProperties": false
-      },
-      "DeploymentAuthProdArgs": {
-        "type": "object",
-        "required": ["deploymentName"],
-        "properties": {
-          "deploymentClass": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DeploymentClass"
-              }
-            ]
-          },
-          "deploymentName": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
       "DeploymentAuthResponse": {
         "type": "object",
         "required": ["deploymentName", "adminKey", "url", "deploymentType"],
@@ -3701,8 +3328,16 @@
         "additionalProperties": false
       },
       "DeploymentClass": {
-        "type": "string",
-        "enum": ["s16", "s256", "d1024"]
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "DeploymentId": {
         "type": "integer",
@@ -4069,38 +3704,6 @@
           }
         }
       },
-      "PlatformCreateDeployKeyArgs": {
-        "type": "object",
-        "required": ["name"],
-        "properties": {
-          "expiresAt": {
-            "type": ["number", "null"],
-            "format": "double"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "PlatformCreateDeployKeyResponse": {
-        "type": "object",
-        "required": ["key", "id", "name", "creationTime"],
-        "properties": {
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
-          "id": {
-            "type": "string"
-          },
-          "key": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
       "PlatformCreateDeploymentArgs": {
         "type": "object",
         "required": ["kind"],
@@ -4116,30 +3719,6 @@
           },
           "region": {
             "type": ["string", "null"]
-          }
-        }
-      },
-      "PlatformCreatePreviewDeployKeyArgs": {
-        "type": "object",
-        "required": ["name"],
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "PlatformCreatePreviewDeployKeyResponse": {
-        "type": "object",
-        "required": ["key", "id", "name"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "key": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },
@@ -4213,24 +3792,6 @@
             "type": "string"
           },
           "value": {
-            "type": "string"
-          }
-        }
-      },
-      "PlatformDeleteDeployKeyArgs": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        }
-      },
-      "PlatformDeletePreviewDeployKeyArgs": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {
-          "id": {
             "type": "string"
           }
         }
@@ -4310,18 +3871,6 @@
           },
           "url": {
             "type": "string"
-          }
-        }
-      },
-      "PlatformListPreviewDeployKeysResponse": {
-        "type": "object",
-        "required": ["keys"],
-        "properties": {
-          "keys": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlatformDeployKeyResponse"
-            }
           }
         }
       },
@@ -4842,16 +4391,6 @@
           }
         }
       },
-      "TeamAndProjectForKeyArgs": {
-        "type": "object",
-        "description": "Body of `POST /api/deployment/team_and_project_for_key`.",
-        "required": ["deployKey"],
-        "properties": {
-          "deployKey": {
-            "type": "string"
-          }
-        }
-      },
       "TeamId": {
         "type": "integer",
         "format": "int64",
@@ -5006,29 +4545,6 @@
             "type": ["string", "null"]
           }
         }
-      },
-      "UrlForKeyArgs": {
-        "type": "object",
-        "description": "Body of `POST /api/deployment/url_for_key`.",
-        "required": ["deployKey"],
-        "properties": {
-          "deployKey": {
-            "type": "string"
-          }
-        }
-      },
-      "UrlForKeyResponse": {
-        "type": "object",
-        "description": "Response shape for `POST /api/deployment/url_for_key`.",
-        "required": ["url", "deploymentName"],
-        "properties": {
-          "deploymentName": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          }
-        }
       }
     }
   },
@@ -5048,10 +4564,6 @@
     {
       "name": "deployments",
       "description": "/v1: deployments within a project"
-    },
-    {
-      "name": "deploy_keys",
-      "description": "/v1: per-deployment and preview deploy keys"
     },
     {
       "name": "env_vars",

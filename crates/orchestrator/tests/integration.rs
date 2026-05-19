@@ -68,13 +68,6 @@ const EXPECTED_MANAGEMENT_OPERATIONS: &[(&str, &str)] = &[
     ("get", "/v1/deployments/{deployment_name}"),
     ("post", "/v1/deployments/{deployment_name}/delete"),
     ("post", "/v1/deployments/{deployment_name}/transfer"),
-    // deploy keys
-    ("post", "/v1/deployments/{deployment_name}/create_deploy_key"),
-    ("get", "/v1/deployments/{deployment_name}/list_deploy_keys"),
-    ("post", "/v1/deployments/{deployment_name}/delete_deploy_key"),
-    ("post", "/v1/projects/{project_id}/create_preview_deploy_key"),
-    ("get", "/v1/projects/{project_id}/list_preview_deploy_keys"),
-    ("post", "/v1/projects/{project_id}/delete_preview_deploy_key"),
     // env vars
     ("get", "/v1/projects/{project_id}/list_default_environment_variables"),
     ("post", "/v1/projects/{project_id}/update_default_environment_variables"),

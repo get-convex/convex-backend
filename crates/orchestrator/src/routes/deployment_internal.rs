@@ -29,18 +29,13 @@ use orchestrator_api_types::{
         ClaimPreviewDeploymentResponse,
         CreateProjectArgs,
         CreateProjectResponse,
-        DeploymentAuthPreviewArgs,
-        DeploymentAuthProdArgs,
         DeploymentAuthResponse,
         DeploymentAuthWithinCurrentProjectArgs,
         HasProjectsResponse,
         ProjectSelectionArgs,
         ProvisionAndAuthorizeArgs,
         TeamAndProjectForDeploymentResponse,
-        TeamAndProjectForKeyArgs,
         TeamSummary,
-        UrlForKeyArgs,
-        UrlForKeyResponse,
     },
 };
 
@@ -87,13 +82,6 @@ pub fn router() -> Router<OrchestratorState> {
             "/deployment/{deployment_name}/team_and_project",
             get(team_and_project),
         )
-        .route(
-            "/deployment/team_and_project_for_key",
-            post(team_and_project_for_key),
-        )
-        .route("/deployment/url_for_key", post(url_for_key))
-        .route("/deployment/authorize_prod", post(authorize_prod))
-        .route("/deployment/authorize_preview", post(authorize_preview))
         .route(
             "/deployment/authorize_within_current_project",
             post(authorize_within_current_project),
@@ -459,141 +447,6 @@ pub(crate) async fn team_and_project(
 ) -> ApiResult<Json<TeamAndProjectForDeploymentResponse>> {
     let _ = auth;
     resolve_team_and_project(&state, &deployment_name).await
-}
-
-#[utoipa::path(
-    post,
-    path = "/api/deployment/team_and_project_for_key",
-    request_body = TeamAndProjectForKeyArgs,
-    responses(
-        (status = 200, body = TeamAndProjectForDeploymentResponse),
-        (status = 400, description = "deploy key is malformed"),
-        (status = 404),
-    ),
-    tag = "deployment_internal",
-)]
-pub(crate) async fn team_and_project_for_key(
-    State(state): State<OrchestratorState>,
-    Json(args): Json<TeamAndProjectForKeyArgs>,
-) -> ApiResult<Json<TeamAndProjectForDeploymentResponse>> {
-    let parts = crate::auth::deploy_keys::parse_deploy_key(&args.deploy_key)
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
-    resolve_team_and_project(&state, parts.deployment_name).await
-}
-
-#[utoipa::path(
-    post,
-    path = "/api/deployment/url_for_key",
-    request_body = UrlForKeyArgs,
-    responses(
-        (status = 200, body = UrlForKeyResponse),
-        (status = 400, description = "deploy key is malformed"),
-        (status = 404),
-    ),
-    tag = "deployment_internal",
-)]
-pub(crate) async fn url_for_key(
-    State(state): State<OrchestratorState>,
-    Json(args): Json<UrlForKeyArgs>,
-) -> ApiResult<Json<UrlForKeyResponse>> {
-    let parts = crate::auth::deploy_keys::parse_deploy_key(&args.deploy_key)
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
-    let deployment = state
-        .storage
-        .get_deployment_by_name(parts.deployment_name)
-        .await
-        .map_err(ApiError::Internal)?
-        .ok_or_else(|| ApiError::NotFound(format!("deployment {}", parts.deployment_name)))?;
-    Ok(Json(UrlForKeyResponse {
-        url: deployment.url,
-        deployment_name: deployment.name,
-    }))
-}
-
-#[utoipa::path(
-    post,
-    path = "/api/deployment/authorize_prod",
-    request_body = DeploymentAuthProdArgs,
-    responses(
-        (status = 200, body = DeploymentAuthResponse),
-        (status = 400, description = "not a prod deployment"),
-        (status = 404),
-    ),
-    tag = "deployment_internal",
-)]
-pub(crate) async fn authorize_prod(
-    auth: AuthIdentity,
-    State(state): State<OrchestratorState>,
-    Json(args): Json<DeploymentAuthProdArgs>,
-) -> ApiResult<Json<DeploymentAuthResponse>> {
-    let _ = auth;
-    let deployment = state
-        .storage
-        .get_deployment_by_name(&args.deployment_name)
-        .await
-        .map_err(ApiError::Internal)?
-        .ok_or_else(|| ApiError::NotFound(format!("deployment {}", args.deployment_name)))?;
-    if deployment.deployment_type != DeploymentType::Prod {
-        return Err(ApiError::BadRequest("not a prod deployment".into()));
-    }
-    let admin_key =
-        admin_key_for_deployment(&state, &deployment).await.ok_or(ApiError::Forbidden)?;
-    Ok(Json(DeploymentAuthResponse {
-        deployment_name: deployment.name,
-        admin_key: admin_key.into(),
-        url: deployment.url,
-        deployment_type: common::types::DeploymentType::Prod,
-    }))
-}
-
-#[utoipa::path(
-    post,
-    path = "/api/deployment/authorize_preview",
-    request_body = DeploymentAuthPreviewArgs,
-    responses(
-        (status = 200, body = DeploymentAuthResponse),
-        (status = 404, description = "no preview deployment found for this identifier"),
-    ),
-    tag = "deployment_internal",
-)]
-pub(crate) async fn authorize_preview(
-    auth: AuthIdentity,
-    State(state): State<OrchestratorState>,
-    Json(args): Json<DeploymentAuthPreviewArgs>,
-) -> ApiResult<Json<DeploymentAuthResponse>> {
-    let _ = auth;
-    let project = resolve_project_for_selection(&state, &args.project_selection).await?;
-    // Find existing preview deployment by identifier or create one.
-    let deployments = state
-        .storage
-        .list_deployments(project.id)
-        .await
-        .map_err(ApiError::Internal)?;
-    let existing = deployments
-        .iter()
-        .find(|d| {
-            d.deployment_type == DeploymentType::Preview
-                && d.preview_identifier.as_deref() == Some(args.preview_name.as_str())
-        })
-        .cloned();
-    let deployment = match existing {
-        Some(d) => d,
-        None => {
-            return Err(ApiError::NotFound(format!(
-                "no preview deployment for {}",
-                args.preview_name
-            )))
-        },
-    };
-    let admin_key = admin_key_for_deployment(&state, &deployment)
-        .await
-        .ok_or(ApiError::Forbidden)?;
-    Ok(Json(DeploymentAuthResponse {
-        deployment_name: deployment.name.clone(),
-        admin_key: admin_key.into(),
-        url: deployment.url,
-        deployment_type: common::types::DeploymentType::Preview,
-    }))
 }
 
 #[utoipa::path(
