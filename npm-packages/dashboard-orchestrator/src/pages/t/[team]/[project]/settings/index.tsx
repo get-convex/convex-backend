@@ -698,6 +698,7 @@ function DeployKeysSection({
             </code>
             <CopyButton text={createdKey} />
           </div>
+          <DeployKeyUsageHint deployKey={createdKey} url={url} />
           <div className="mt-4 flex justify-end">
             <Button size="xs" onClick={() => setCreatedKey(null)}>
               Done
@@ -706,6 +707,48 @@ function DeployKeysSection({
         </Modal>
       )}
     </>
+  );
+}
+
+/**
+ * Self-hosted orchestrator deploys go via the orchestrator's
+ * `/api/deployment/authorize_prod` exchange, mirroring how
+ * `dashboard.convex.dev` brokers admin keys for hosted Convex. That means
+ * the CLI needs `CONVEX_DEPLOY_KEY` + `CONVEX_PROVISION_HOST=<orchestrator>`
+ * — NOT `CONVEX_SELF_HOSTED_URL` + `CONVEX_SELF_HOSTED_ADMIN_KEY`, which
+ * sends the key straight to the backend container (which doesn't know
+ * about orchestrator-issued tokens and rejects them as BadAdminKey).
+ * Show the right invocation so users don't reach for the wrong env vars.
+ */
+function DeployKeyUsageHint({
+  deployKey,
+  url,
+}: {
+  deployKey: string;
+  url: string;
+}) {
+  const snippet =
+    `CONVEX_DEPLOY_KEY=${deployKey} \\\n` +
+    `CONVEX_PROVISION_HOST=${url} \\\n` +
+    `npx convex deploy`;
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <p className="text-sm text-content-secondary">
+        Use this key with the Convex CLI by pointing it at the orchestrator:
+      </p>
+      <div className="flex items-start gap-2">
+        <pre className="scrollbar flex-1 overflow-x-auto rounded-sm bg-background-tertiary p-2 font-mono text-xs">
+          {snippet}
+        </pre>
+        <CopyButton text={snippet} />
+      </div>
+      <p className="text-xs text-content-tertiary">
+        Do <strong>not</strong> set <code>CONVEX_SELF_HOSTED_ADMIN_KEY</code> —
+        that flow sends the key directly to the backend and bypasses the
+        orchestrator's token validation, so the backend will reject it as{" "}
+        <code>BadAdminKey</code>.
+      </p>
+    </div>
   );
 }
 
