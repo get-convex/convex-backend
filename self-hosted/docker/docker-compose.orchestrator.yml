@@ -60,7 +60,9 @@ services:
       - CONVEX_ORCHESTRATOR_DATABASE_URL=${CONVEX_ORCHESTRATOR_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
       - CONVEX_ORCHESTRATOR_PROVISION_ADDR=${CONVEX_ORCHESTRATOR_PROVISION_ADDR:-0.0.0.0:8050}
       - CONVEX_ORCHESTRATOR_ROUTER_ADDR=${CONVEX_ORCHESTRATOR_ROUTER_ADDR:-0.0.0.0:9000}
-      - CONVEX_ORCHESTRATOR_PUBLIC_ORIGIN=${PUBLIC_ORIGIN:-http://localhost}
+      # Auto-derives to https://${DASHBOARD_HOST} when set, else
+      # falls back to http://localhost. Explicit PUBLIC_ORIGIN overrides.
+      - CONVEX_ORCHESTRATOR_PUBLIC_ORIGIN=${PUBLIC_ORIGIN:-${DASHBOARD_HOST:+https://}${DASHBOARD_HOST:-http://localhost}}
       - CONVEX_ORCHESTRATOR_ROUTER_HOST=${ROUTER_HOST:-localhost}
       - CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_PORT=${ROUTER_PUBLIC_PORT:-${ROUTER_PORT:-9000}}
       - CONVEX_ORCHESTRATOR_PROVISIONER=${PROVISIONER:-docker}
@@ -95,12 +97,13 @@ services:
       - "traefik.http.routers.dashboard.tls.certresolver=le"
       - "traefik.http.services.dashboard.loadbalancer.server.port=6793"
     environment:
-      # Browser-facing orchestrator URL. Read by the Next.js server at
-      # request time and injected into the page via _document.tsx — no
-      # image rebuild required.
-      - PUBLIC_ORCHESTRATOR_URL=${PUBLIC_ORCHESTRATOR_URL:-http://localhost:${ORCHESTRATOR_PORT:-8050}}
+      # URLs the browser hits. When *_HOST is set, derive
+      # https://${HOST}; otherwise fall back to localhost:port for
+      # local dev. PUBLIC_*_URL overrides take precedence for operators
+      # who want non-https schemes or explicit port-suffixed URLs.
+      - PUBLIC_ORCHESTRATOR_URL=${PUBLIC_ORCHESTRATOR_URL:-${ORCHESTRATOR_HOST:+https://}${ORCHESTRATOR_HOST:-http://localhost:${ORCHESTRATOR_PORT:-8050}}}
       - BETTER_AUTH_DATABASE_URL=${BETTER_AUTH_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
-      - BETTER_AUTH_URL=${PUBLIC_DASHBOARD_URL:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-${PUBLIC_DASHBOARD_URL:-${DASHBOARD_HOST:+https://}${DASHBOARD_HOST:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}}}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-better-auth-secret-change-me}
       - BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION=${BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION:-0}
       - BETTER_AUTH_SMTP_URL=${BETTER_AUTH_SMTP_URL:-}
@@ -117,7 +120,7 @@ services:
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=${NEXT_PUBLIC_DEPLOYMENT_URL:-}
       - NEXT_PUBLIC_LOAD_MONACO_INTERNALLY=${NEXT_PUBLIC_LOAD_MONACO_INTERNALLY:-true}
-      - TRUSTED_PARENT_ORIGINS=${TRUSTED_PARENT_ORIGINS:-${PUBLIC_DASHBOARD_URL:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}}
+      - TRUSTED_PARENT_ORIGINS=${TRUSTED_PARENT_ORIGINS:-${PUBLIC_DASHBOARD_URL:-${DASHBOARD_HOST:+https://}${DASHBOARD_HOST:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}}}
 
   # TLS terminator. Opt-in via `docker compose --profile tls up -d`.
   # Auto-issues a wildcard Let's Encrypt cert (DNS-01) for the spawned-
@@ -160,6 +163,11 @@ services:
       - "--certificatesresolvers.le.acme.storage=/acme/acme.json"
       - "--certificatesresolvers.le.acme.dnschallenge=true"
       - "--certificatesresolvers.le.acme.dnschallenge.provider=${DNS_PROVIDER:-cloudflare}"
+      # Pin lego's zone-discovery resolver to a public recursor. The
+      # default (whatever resolv.conf in the container points at) often
+      # returns SERVFAIL for SOA queries on apex domains, which makes
+      # lego walk up to the TLD and fail with "could not find zone".
+      - "--certificatesresolvers.le.acme.dnschallenge.resolvers=${DNS_RESOLVERS:-1.1.1.1:53,8.8.8.8:53}"
 
 volumes:
   pgdata:

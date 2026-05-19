@@ -116,16 +116,18 @@ BOOTSTRAP_TOKEN='<random-hex>'
 SERVICE_KEY='<random-hex>'
 BETTER_AUTH_SECRET='<random-hex>'
 
-# Public URLs the browser uses. The dashboard server reads these at
-# request time and injects them into the page via _document.tsx, so the
-# pre-built image runs unchanged on any host.
-PUBLIC_ORIGIN='https://convex.my-domain.com'
-PUBLIC_DASHBOARD_URL='https://convex.my-domain.com'
-PUBLIC_ORCHESTRATOR_URL='https://api.convex.my-domain.com'
-
-# Spawned-deployment subdomains. Points at the wildcard record above.
+# Hostnames. The compose derives all browser-facing URLs as
+# https://${HOST}, and Traefik (if enabled) uses these for routing.
+DASHBOARD_HOST='convex.my-domain.com'
+ORCHESTRATOR_HOST='api.convex.my-domain.com'
 ROUTER_HOST='convex.my-domain.com'
 ROUTER_PUBLIC_PORT='443'
+
+# Optional overrides — only needed if you want a non-https scheme or
+# a port-suffixed URL (e.g. local dev with traefik off):
+# PUBLIC_DASHBOARD_URL='https://convex.my-domain.com'
+# PUBLIC_ORCHESTRATOR_URL='https://api.convex.my-domain.com'
+# PUBLIC_ORIGIN='https://convex.my-domain.com'
 
 # First admin email + signup policy. `allowlist` = only ADMIN_EMAILS can
 # sign up; `open` = anyone; `closed` = no signup (invite-only).
@@ -169,13 +171,10 @@ providers are identical, only the env variable names change.
 LETSENCRYPT_EMAIL='you@my-domain.com'   # only used by LE for renewal warnings
 DNS_PROVIDER='cloudflare'               # already the default; can omit
 CF_DNS_API_TOKEN='<the token>'
-
-# Hostname routing — these tell Traefik which container to send each
-# host to. They mirror the PUBLIC_*_URL values above without the
-# scheme. ROUTER_HOST you've already set.
-DASHBOARD_HOST='convex.my-domain.com'
-ORCHESTRATOR_HOST='api.convex.my-domain.com'
 ```
+
+(`DASHBOARD_HOST`, `ORCHESTRATOR_HOST`, and `ROUTER_HOST` are already set
+from the previous step.)
 
 DNS: point A/AAAA records for **all three hosts** at the VPS, plus a wildcard
 for spawned deployments:
