@@ -1,17 +1,20 @@
 //! Deploy key encoding and parsing.
 //!
-//! Format: `env:<deployment_name>|<base64-secret>` — orchestrator-issued
-//! keys all carry the `env:` prefix because self-hosted deployments are
-//! identified by name (the kind is implied by the deployment record). The
-//! parser still accepts the legacy `prod:`/`dev:`/`preview:` prefixes so
-//! existing keys minted before this change continue to work.
+//! Format: `<kind>:<deployment_name>|<secret>` where `<kind>` is the
+//! deployment type (`prod` / `dev` / `preview`) or `project` for the
+//! project-scoped preview key. The Convex CLI's `isDeploymentKey` check
+//! is `/^(dev|prod):.*\|/` — anything else is rejected before a network
+//! call ever happens, so the prefix is load-bearing and must match the
+//! deployment kind. The parser still accepts the legacy `env:` prefix so
+//! tokens minted by older orchestrator builds continue to authenticate
+//! against this server (they'll need to be regenerated to actually be
+//! usable from the CLI, but the orchestrator won't pretend they're
+//! invalid).
 
 use anyhow::{
     anyhow,
     bail,
 };
-
-pub const DEPLOY_KEY_PREFIX: &str = "env";
 
 #[derive(Debug, Clone)]
 pub struct DeployKeyParts<'a> {
@@ -37,8 +40,8 @@ pub fn parse_deploy_key(input: &str) -> anyhow::Result<DeployKeyParts<'_>> {
     })
 }
 
-pub fn encode_deploy_key(_kind: &str, deployment_name: &str, secret: &str) -> String {
-    format!("{DEPLOY_KEY_PREFIX}:{deployment_name}|{secret}")
+pub fn encode_deploy_key(kind: &str, deployment_name: &str, secret: &str) -> String {
+    format!("{kind}:{deployment_name}|{secret}")
 }
 
 #[cfg(test)]
@@ -46,32 +49,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_valid_env() {
-        let k = parse_deploy_key("env:happy-otter-123|abcdef").unwrap();
-        assert_eq!(k.kind, "env");
+    fn parse_valid_prod() {
+        let k = parse_deploy_key("prod:happy-otter-123|abcdef").unwrap();
+        assert_eq!(k.kind, "prod");
         assert_eq!(k.deployment_name, "happy-otter-123");
         assert_eq!(k.secret, "abcdef");
     }
 
     #[test]
-    fn parse_legacy_prod() {
-        // Pre-`env:` keys must still parse so old tokens keep working.
-        let k = parse_deploy_key("prod:happy-otter-123|abcdef").unwrap();
-        assert_eq!(k.kind, "prod");
+    fn parse_legacy_env() {
+        // Tokens minted by older orchestrator builds (which hardcoded the
+        // `env:` prefix) must still parse so existing rows authenticate;
+        // the CLI won't accept them, but the user can regenerate.
+        let k = parse_deploy_key("env:happy-otter-123|abcdef").unwrap();
+        assert_eq!(k.kind, "env");
         assert_eq!(k.deployment_name, "happy-otter-123");
     }
 
     #[test]
-    fn encode_uses_env_prefix() {
-        // The kind argument is ignored; output always has `env:` so the
-        // orchestrator emits a single, uniform format.
+    fn encode_carries_kind_prefix() {
+        // The CLI keys deploy-key routing off the prefix (`isDeploymentKey`
+        // matches `^(dev|prod):`), so we have to emit the real deployment
+        // type rather than a placeholder.
         assert_eq!(
             encode_deploy_key("prod", "happy-otter-123", "secret"),
-            "env:happy-otter-123|secret",
+            "prod:happy-otter-123|secret",
+        );
+        assert_eq!(
+            encode_deploy_key("dev", "happy-otter-123", "secret"),
+            "dev:happy-otter-123|secret",
         );
         assert_eq!(
             encode_deploy_key("preview", "abc-def-1", "s2"),
-            "env:abc-def-1|s2",
+            "preview:abc-def-1|s2",
         );
     }
 
