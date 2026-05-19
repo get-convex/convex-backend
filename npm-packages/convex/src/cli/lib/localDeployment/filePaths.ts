@@ -168,6 +168,10 @@ export type LocalDeploymentConfig = {
   // This is stored in the config for project-local storage where the directory
   // name is always "default" rather than the deployment name.
   deploymentName?: string;
+  // Numeric id of the cloud project this local deployment is registered under.
+  // Used to detect when the cloud project has changed since the last time it
+  // was used (e.g. through `npx convex deployment select`).
+  cloudProjectId: number | undefined;
 };
 
 /**

@@ -172,6 +172,8 @@ export async function handleAnonymousDeployment(
     adminKey,
     instanceSecret,
     forceUpgrade: options.forceUpgrade,
+    // Anonymous deployments aren't registered against a cloud project.
+    cloudProjectId: undefined,
   });
 
   const cleanupFunc = ctx.removeCleanup(cleanupHandle);
@@ -465,15 +467,16 @@ export async function handleLinkToProject(
   }
   logVerbose(`Creating local deployment in project ${projectSlug}`);
   // Register it in big brain
-  const { deploymentName: localDeploymentName, adminKey } = await bigBrainStart(
-    ctx,
-    {
-      port: config.ports.cloud,
-      projectSlug,
-      teamSlug: args.teamSlug,
-      instanceName: null,
-    },
-  );
+  const {
+    deploymentName: localDeploymentName,
+    adminKey,
+    projectId,
+  } = await bigBrainStart(ctx, {
+    port: config.ports.cloud,
+    projectSlug,
+    teamSlug: args.teamSlug,
+    instanceName: null,
+  });
   const localConfig = loadDeploymentConfig(ctx, "local", localDeploymentName);
   if (localConfig !== null) {
     return ctx.crash({
@@ -499,6 +502,7 @@ export async function handleLinkToProject(
     adminKey,
     backendVersion: config.backendVersion,
     ports: config.ports,
+    cloudProjectId: projectId,
   });
   await bigBrainPause(ctx, {
     projectSlug,
