@@ -15,7 +15,7 @@ if (!databaseUrl) {
   );
 }
 
-const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:6792";
+const baseURL = process.env.BETTER_AUTH_URL || "http://localhost:6792";
 
 // Best-effort email send. If the operator has set BETTER_AUTH_SMTP_URL we
 // dispatch through nodemailer; otherwise we log the link to stdout so a dev
