@@ -33,6 +33,7 @@ use sync_types::{
     CanonicalizedUdfPath,
     ErrorPayload,
     FunctionName,
+    IdentityVersion,
     LogLinesMessage,
     ServerMessage,
     SessionId,
@@ -455,6 +456,13 @@ impl HeapSize for Timestamp {
     #[inline]
     fn heap_size(&self) -> usize {
         0
+    }
+}
+
+impl HeapSize for IdentityVersion {
+    #[inline]
+    fn heap_size(&self) -> usize {
+        (**self).heap_size()
     }
 }
 

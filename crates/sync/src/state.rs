@@ -88,8 +88,8 @@ pub struct ClientVersion {
 impl ClientVersion {
     fn initial() -> Self {
         Self {
-            query_set: 0,
-            identity: 0,
+            query_set: QuerySetVersion::default(),
+            identity: IdentityVersion::default(),
         }
     }
 }
@@ -250,10 +250,9 @@ impl SyncState {
         new_identity: Identity,
         base_version: IdentityVersion,
     ) -> anyhow::Result<()> {
-        let current_version = self.received_client_version.identity;
-        anyhow::ensure!(current_version == base_version);
+        anyhow::ensure!(self.received_client_version.identity == base_version);
         self.pending_identity = Some(new_identity);
-        self.received_client_version.identity = current_version + 1;
+        self.received_client_version.identity.incr();
         Ok(())
     }
 
