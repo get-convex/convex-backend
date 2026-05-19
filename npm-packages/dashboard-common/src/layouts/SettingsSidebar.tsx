@@ -32,6 +32,7 @@ export function SettingsSidebar({
 }) {
   const {
     isSelfHosted,
+    deploymentBackendOwnsAdminKeys,
     useCurrentProject,
     useCurrentDeployment,
     teamsURI,
@@ -46,8 +47,14 @@ export function SettingsSidebar({
     useIsCloudDeploymentInSelfHostedDashboard();
   const isSelfHostedDeployment =
     isSelfHosted && !isCloudDeploymentInSelfHostedDashboard;
+  // Backends that expose `/api/admin_keys` (single-deployment self-hosted
+  // OR orchestrator-managed deployments) get the Admin Keys page in the
+  // sidebar. When the new flag is omitted (cloud dashboard / older code
+  // paths) we preserve the original `isSelfHostedDeployment`-only gate.
+  const showAdminKeys =
+    deploymentBackendOwnsAdminKeys ?? isSelfHostedDeployment;
 
-  const allowedPages = useAllowedPages({ isSelfHostedDeployment });
+  const allowedPages = useAllowedPages({ showAdminKeys });
 
   return (
     <>
@@ -157,11 +164,7 @@ export function SettingsSidebar({
   );
 }
 
-function useAllowedPages({
-  isSelfHostedDeployment,
-}: {
-  isSelfHostedDeployment: boolean;
-}) {
+function useAllowedPages({ showAdminKeys }: { showAdminKeys: boolean }) {
   const { nents } = useNents();
 
   let pages = DEPLOYMENT_SETTINGS_PAGES;
@@ -172,8 +175,9 @@ function useAllowedPages({
 
   pages = pages.filter((d) => d !== "snapshots");
 
-  // Admin Keys management is only available on true self-hosted deployments.
-  if (!isSelfHostedDeployment) {
+  // Admin Keys management is shown for backends that own that surface —
+  // single-deployment self-hosted shells and orchestrator-managed deployments.
+  if (!showAdminKeys) {
     pages = pages.filter((d) => d !== "admin-keys");
   }
 
