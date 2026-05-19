@@ -50,6 +50,7 @@ impl OrchestratorState {
                     config.backend_network.clone(),
                     config.router_host.clone(),
                     config.router_public_port,
+                    config.router_public_scheme.clone(),
                 );
                 // Re-seed port allocator from the highest backend_port already
                 // recorded so we don't collide with surviving containers.
