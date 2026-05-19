@@ -896,7 +896,8 @@ function DeleteProjectSection({
       // page reads ["projects", teamId, token] and ["deployments", ...].
       await mutate(
         (key) =>
-          Array.isArray(key) && (key[0] === "projects" || key[0] === "deployments"),
+          Array.isArray(key) &&
+          (key[0] === "projects" || key[0] === "deployments"),
         undefined,
         { revalidate: true },
       );
