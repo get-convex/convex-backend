@@ -5,18 +5,13 @@ import Head from "next/head";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
 import { Sheet } from "@ui/Sheet";
-import { Modal } from "@ui/Modal";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { Link as UiLink } from "@ui/Link";
-import { CopyButton } from "@common/elements/CopyButton";
 import { TrashIcon } from "@radix-ui/react-icons";
 import {
-  listDeployments,
   listProjects,
   listTeams,
   Project,
   Team,
-  Deployment,
 } from "../../../../../lib/orchestratorApi";
 import { useAccessToken } from "../../../../../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../../../../../lib/config";
@@ -25,8 +20,6 @@ const SECTION_IDS = {
   projectForm: "project-form",
   projectUsage: "project-usage",
   projectAdmins: "project-admins",
-  productionDeployKeys: "production-deploy-keys",
-  previewDeployKeys: "preview-deploy-keys",
   envVars: "env-vars",
   deleteProject: "delete-project",
 } as const;
@@ -35,8 +28,6 @@ const sections: Array<{ id: string; label: string }> = [
   { id: SECTION_IDS.projectForm, label: "Edit Project" },
   { id: SECTION_IDS.projectUsage, label: "Project Usage" },
   { id: SECTION_IDS.projectAdmins, label: "Project Admins" },
-  { id: SECTION_IDS.productionDeployKeys, label: "Production Deploy Keys" },
-  { id: SECTION_IDS.previewDeployKeys, label: "Preview Deploy Keys" },
   { id: SECTION_IDS.envVars, label: "Environment Variables" },
   { id: SECTION_IDS.deleteProject, label: "Delete Project" },
 ];
@@ -150,24 +141,6 @@ export default function ProjectSettingsPage() {
                     project={project}
                     token={token}
                     url={url}
-                  />
-                </div>
-                <div id={SECTION_IDS.productionDeployKeys}>
-                  <DeployKeysSection
-                    team={team}
-                    project={project}
-                    token={token}
-                    url={url}
-                    kind="prod"
-                  />
-                </div>
-                <div id={SECTION_IDS.previewDeployKeys}>
-                  <DeployKeysSection
-                    team={team}
-                    project={project}
-                    token={token}
-                    url={url}
-                    kind="preview"
                   />
                 </div>
                 <div id={SECTION_IDS.envVars}>
@@ -405,350 +378,6 @@ function EditProjectSection({
         </div>
       </form>
     </Sheet>
-  );
-}
-
-type DeployKey = {
-  id: string;
-  name: string;
-  creationTime: number;
-  keySuffix: string;
-  /** Milliseconds since epoch; absent if the key never expires. */
-  expiresAt?: number;
-};
-
-function DeployKeysSection({
-  team: _team,
-  project,
-  token,
-  url,
-  kind,
-}: {
-  team: Team;
-  project: Project;
-  token: string;
-  url: string;
-  kind: "prod" | "preview";
-}) {
-  const { data: deployments } = useSWR(["deployments", project.id, token], () =>
-    listDeployments(url, token, project.id),
-  );
-  const target: Deployment | undefined = deployments?.find(
-    (d) => (d.kind ?? d.deploymentType) === kind,
-  );
-
-  const { data: keys, mutate } = useSWR<DeployKey[]>(
-    target && token ? ["deployKeys", kind, target.name, token] : null,
-    async () => {
-      const all = await fetchJson<DeployKey[]>(
-        `${url}/v1/deployments/${target!.name}/list_deploy_keys`,
-        token,
-      );
-      return all.filter((k) => k.name !== "ephemeral");
-    },
-  );
-
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState("");
-  // "" = never expire, otherwise yyyy-mm-dd from <input type="date">.
-  const [newExpiry, setNewExpiry] = useState("");
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [revoking, setRevoking] = useState<DeployKey | null>(null);
-  const [revokeError, setRevokeError] = useState<string | undefined>();
-
-  const onCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!target) return;
-    setError(null);
-    setSubmitting(true);
-    try {
-      const expiresAt = newExpiry
-        ? // Treat the picker's date as end-of-day local so a key dated
-          // 2026-05-31 is valid through that whole day.
-          new Date(newExpiry).getTime() + 24 * 3600_000 - 1
-        : undefined;
-      const res = await fetch(
-        `${url}/v1/deployments/${target.name}/create_deploy_key`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ name: newName, expires_at: expiresAt }),
-        },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = (await res.json()) as { key: string };
-      setCreatedKey(body.key);
-      setNewName("");
-      setNewExpiry("");
-      setShowCreate(false);
-      await mutate();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const onConfirmRevoke = async () => {
-    if (!target || !revoking) return;
-    setRevokeError(undefined);
-    try {
-      const res = await fetch(
-        `${url}/v1/deployments/${target.name}/delete_deploy_key`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ id: revoking.id }),
-        },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await mutate();
-    } catch (err) {
-      setRevokeError((err as Error).message);
-      throw err;
-    }
-  };
-
-  const heading =
-    kind === "prod" ? "Production Deploy Keys" : "Preview Deploy Keys";
-  const description =
-    kind === "prod" ? (
-      <>
-        Used by{" "}
-        <code className="rounded-sm bg-background-tertiary px-1 font-mono">
-          npx convex deploy
-        </code>{" "}
-        to push to production.
-      </>
-    ) : (
-      <>
-        Used by hosting providers (Vercel, Netlify) to{" "}
-        <UiLink
-          href="https://docs.convex.dev/production/multiple-deployments#preview"
-          target="_blank"
-        >
-          create preview deployments
-        </UiLink>{" "}
-        for pull requests.
-      </>
-    );
-
-  return (
-    <>
-      <Sheet id={`section-${kind}-deploy-keys`}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="mb-1 text-base font-semibold">{heading}</h3>
-            <p className="max-w-prose text-sm text-content-secondary">
-              {description}
-            </p>
-          </div>
-          <Button
-            size="xs"
-            onClick={() => setShowCreate(true)}
-            disabled={!target}
-          >
-            + Generate
-          </Button>
-        </div>
-        {!target && (
-          <p className="mt-3 text-sm text-content-secondary">
-            Provision a {kind === "prod" ? "production" : "preview"} deployment
-            first.
-          </p>
-        )}
-        {error && (
-          <div className="mt-2 text-xs text-content-error" role="alert">
-            {error}
-          </div>
-        )}
-        <ul className="mt-4 divide-y divide-border-transparent">
-          {(keys ?? []).map((k) => {
-            const expired =
-              k.expiresAt !== null &&
-              k.expiresAt !== undefined &&
-              k.expiresAt < Date.now();
-            return (
-              <li
-                key={k.id}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-content-primary">
-                    {k.name}
-                    {expired && (
-                      <span className="rounded-full border border-current px-1.5 py-0.5 text-[10px] font-medium text-content-error uppercase">
-                        Expired
-                      </span>
-                    )}
-                  </div>
-                  <div className="font-mono text-xs text-content-secondary">
-                    {kind}:…{k.keySuffix}
-                  </div>
-                  {k.expiresAt !== null && k.expiresAt !== undefined && (
-                    <div className="text-xs text-content-tertiary">
-                      {expired ? "Expired " : "Expires "}
-                      {new Date(k.expiresAt).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                  )}
-                </div>
-                <Button
-                  size="xs"
-                  variant="danger"
-                  onClick={() => setRevoking(k)}
-                >
-                  Revoke
-                </Button>
-              </li>
-            );
-          })}
-          {(keys ?? []).length === 0 && target && (
-            <li className="py-3 text-sm text-content-secondary">
-              No deploy keys yet.
-            </li>
-          )}
-        </ul>
-      </Sheet>
-
-      {showCreate && (
-        <Modal
-          title={`Generate ${kind} deploy key`}
-          onClose={() => setShowCreate(false)}
-        >
-          <form onSubmit={onCreate} className="flex flex-col gap-4">
-            <TextInput
-              id={`${kind}KeyName`}
-              label="Name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. CI"
-              autoFocus
-            />
-            <label
-              className="flex flex-col gap-1 text-sm"
-              htmlFor={`${kind}KeyExpiry`}
-            >
-              <span className="text-content-primary">Expires (optional)</span>
-              <input
-                id={`${kind}KeyExpiry`}
-                type="date"
-                value={newExpiry}
-                onChange={(e) => setNewExpiry(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
-                className="h-9 rounded-sm border border-border-transparent bg-background-primary px-2 text-sm"
-              />
-              <span className="text-xs text-content-secondary">
-                Leave blank for a key that never expires.
-              </span>
-            </label>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="neutral"
-                size="xs"
-                onClick={() => setShowCreate(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="xs" disabled={!newName || submitting}>
-                {submitting ? "Generating…" : "Generate"}
-              </Button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {revoking && (
-        <ConfirmationDialog
-          dialogTitle="Revoke deploy key"
-          confirmText="Revoke key"
-          onClose={() => setRevoking(null)}
-          onConfirm={onConfirmRevoke}
-          error={revokeError}
-          dialogBody={
-            <>
-              Revoke the {kind === "prod" ? "production" : "preview"} deploy key{" "}
-              <span className="font-semibold">{revoking.name}</span>. Anything
-              using this key (CI, hosting providers) will start failing.
-            </>
-          }
-        />
-      )}
-
-      {createdKey && (
-        <Modal title="Deploy key generated" onClose={() => setCreatedKey(null)}>
-          <p className="mb-3 text-sm text-content-secondary">
-            Copy this key now — you won't see it again.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded-sm bg-background-tertiary p-2 font-mono text-xs">
-              {createdKey}
-            </code>
-            <CopyButton text={createdKey} />
-          </div>
-          <DeployKeyUsageHint deployKey={createdKey} url={url} />
-          <div className="mt-4 flex justify-end">
-            <Button size="xs" onClick={() => setCreatedKey(null)}>
-              Done
-            </Button>
-          </div>
-        </Modal>
-      )}
-    </>
-  );
-}
-
-/**
- * Self-hosted orchestrator deploys go via the orchestrator's
- * `/api/deployment/authorize_prod` exchange, mirroring how
- * `dashboard.convex.dev` brokers admin keys for hosted Convex. That means
- * the CLI needs `CONVEX_DEPLOY_KEY` + `CONVEX_PROVISION_HOST=<orchestrator>`
- * — NOT `CONVEX_SELF_HOSTED_URL` + `CONVEX_SELF_HOSTED_ADMIN_KEY`, which
- * sends the key straight to the backend container (which doesn't know
- * about orchestrator-issued tokens and rejects them as BadAdminKey).
- * Show the right invocation so users don't reach for the wrong env vars.
- */
-function DeployKeyUsageHint({
-  deployKey,
-  url,
-}: {
-  deployKey: string;
-  url: string;
-}) {
-  const snippet =
-    `CONVEX_DEPLOY_KEY=${deployKey} \\\n` +
-    `CONVEX_PROVISION_HOST=${url} \\\n` +
-    `npx convex deploy`;
-  return (
-    <div className="mt-4 flex flex-col gap-2">
-      <p className="text-sm text-content-secondary">
-        Use this key with the Convex CLI by pointing it at the orchestrator:
-      </p>
-      <div className="flex items-start gap-2">
-        <pre className="scrollbar flex-1 overflow-x-auto rounded-sm bg-background-tertiary p-2 font-mono text-xs">
-          {snippet}
-        </pre>
-        <CopyButton text={snippet} />
-      </div>
-      <p className="text-xs text-content-tertiary">
-        Do <strong>not</strong> set <code>CONVEX_SELF_HOSTED_ADMIN_KEY</code> —
-        that flow sends the key directly to the backend and bypasses the
-        orchestrator's token validation, so the backend will reject it as{" "}
-        <code>BadAdminKey</code>.
-      </p>
-    </div>
   );
 }
 
