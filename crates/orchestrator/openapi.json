@@ -2999,6 +2999,24 @@
         }
       }
     },
+    "/api/dashboard/knob_registry": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "knob_registry",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnobRegistryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dashboard/teams/{team_id}/usage/team_usage_state": {
       "get": {
         "tags": ["dashboard_stubs"],
@@ -3708,6 +3726,39 @@
           },
           "role": {
             "type": "string"
+          }
+        }
+      },
+      "KnobEntry": {
+        "type": "object",
+        "required": ["envVar", "description", "category", "exposure"],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": ["string", "null"]
+          },
+          "envVar": {
+            "type": "string"
+          },
+          "exposure": {
+            "type": "string"
+          }
+        }
+      },
+      "KnobRegistryResponse": {
+        "type": "object",
+        "required": ["knobs"],
+        "properties": {
+          "knobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnobEntry"
+            }
           }
         }
       },
