@@ -224,6 +224,7 @@ async fn not_found() -> impl IntoResponse {
         crate::routes::dashboard::integrations_stub::ok,
         crate::routes::dashboard::integrations_stub::ok_obj,
         crate::routes::dashboard::integrations_stub::not_configured,
+        crate::routes::dashboard::host_capacity::host_capacity,
         crate::routes::dashboard::usage_stub::team_usage_state,
         crate::routes::dashboard::usage_stub::billing_period,
         crate::routes::dashboard::usage_stub::token_info,

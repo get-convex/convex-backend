@@ -2981,6 +2981,24 @@
         }
       }
     },
+    "/api/dashboard/host_capacity": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "host_capacity",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostCapacityResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dashboard/teams/{team_id}/usage/team_usage_state": {
       "get": {
         "tags": ["dashboard_stubs"],
@@ -3618,6 +3636,42 @@
         "properties": {
           "hasProjects": {
             "type": "boolean"
+          }
+        }
+      },
+      "HostCapacityResponse": {
+        "type": "object",
+        "required": [
+          "totalMemoryMb",
+          "totalCpus",
+          "allocatedMemoryMb",
+          "allocatedCpus",
+          "deploymentCount"
+        ],
+        "properties": {
+          "allocatedCpus": {
+            "type": "number",
+            "format": "float"
+          },
+          "allocatedMemoryMb": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "deploymentCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "totalCpus": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "totalMemoryMb": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },

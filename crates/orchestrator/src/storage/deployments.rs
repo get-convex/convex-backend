@@ -265,6 +265,17 @@ impl Storage {
             .await?;
         Ok(())
     }
+
+    /// Returns tier strings for all deployments. Caller joins against TIERS to
+    /// sum memory/CPU.
+    pub async fn list_deployment_tiers(&self) -> anyhow::Result<Vec<String>> {
+        let conn = self.pool().acquire().await?;
+        let rows = conn
+            .client()
+            .query("SELECT tier FROM deployments", &[])
+            .await?;
+        Ok(rows.into_iter().map(|r| r.get::<_, String>(0)).collect())
+    }
 }
 
 const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE id = $1";
