@@ -14,7 +14,11 @@ export function TierSelector({
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
       {TIERS.map((tier) => {
-        const projectedMb = (capacity?.allocatedMemoryMb ?? 0) + tier.memoryMb;
+        // Unbounded tiers project as consuming the whole host; treat as
+        // total+1 so the "would exceed" check fires unless the host is empty.
+        const projectedMb = tier.unbounded
+          ? (capacity?.totalMemoryMb ?? 0) + 1
+          : (capacity?.allocatedMemoryMb ?? 0) + tier.memoryMb;
         const wouldExceed =
           capacity !== undefined && projectedMb > capacity.totalMemoryMb;
         const selected = value === tier.name;
@@ -35,13 +39,17 @@ export function TierSelector({
             )}
             title={
               wouldExceed
-                ? `Would exceed host capacity (need ${tier.memoryMb} MB).`
+                ? tier.unbounded
+                  ? "max requires an empty host — all capacity would be consumed."
+                  : `Would exceed host capacity (need ${tier.memoryMb} MB).`
                 : undefined
             }
           >
             <span className="font-mono text-sm font-semibold">{tier.name}</span>
             <span className="text-xs text-content-secondary">
-              {(tier.memoryMb / 1024).toFixed(0)} GB · {tier.cpus} CPUs
+              {tier.unbounded
+                ? "Unbounded"
+                : `${(tier.memoryMb / 1024).toFixed(0)} GB · ${tier.cpus} CPUs`}
             </span>
           </button>
         );

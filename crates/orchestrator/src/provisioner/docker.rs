@@ -178,10 +178,17 @@ impl Provisioner for DockerProvisioner {
             "-d".into(),
             "--restart".into(),
             "unless-stopped".into(),
-            "--memory".into(),
-            format!("{}m", tier.memory_mb),
-            "--cpus".into(),
-            format!("{:.2}", tier.cpus),
+        ];
+        // Unbounded tiers (e.g. `max`) run without resource caps — the host
+        // owns all of its memory/CPU budget. Bounded tiers get explicit limits
+        // so noisy neighbours can't crowd each other out.
+        if !tier.unbounded {
+            args.push("--memory".into());
+            args.push(format!("{}m", tier.memory_mb));
+            args.push("--cpus".into());
+            args.push(format!("{:.2}", tier.cpus));
+        }
+        args.extend([
             "--name".into(),
             container_name.clone(),
             "--label".into(),
@@ -190,7 +197,7 @@ impl Provisioner for DockerProvisioner {
             format!("orchestrator.project_id={}", req.project_id),
             "--label".into(),
             format!("orchestrator.tier={}", tier.name),
-        ];
+        ]);
         for (k, v) in &env {
             args.push("-e".into());
             args.push(format!("{k}={v}"));

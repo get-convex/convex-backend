@@ -52,8 +52,16 @@ pub(crate) async fn host_capacity(
     let mut allocated_cpus: f32 = 0.0;
     for t in &tiers {
         if let Some(tier) = crate::provisioner::tiers::lookup(t) {
-            allocated_memory += u64::from(tier.memory_mb);
-            allocated_cpus += tier.cpus;
+            // Unbounded tiers consume the entire host; reflect that in the
+            // dashboard strip so it shows "fully booked" when a max-tier
+            // deployment exists.
+            if tier.unbounded {
+                allocated_memory += host.total_memory_mb;
+                allocated_cpus += host.total_cpus as f32;
+            } else {
+                allocated_memory += u64::from(tier.memory_mb);
+                allocated_cpus += tier.cpus;
+            }
         }
     }
     Ok(Json(HostCapacityResponse {
