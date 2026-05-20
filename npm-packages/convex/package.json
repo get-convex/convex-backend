@@ -209,7 +209,6 @@
   "files": [
     "bin",
     "browser",
-    "config",
     "dist",
     "nextjs",
     "react",
@@ -224,7 +223,6 @@
     "README.md",
     "browser-bundle.js",
     "package.json",
-    "tsconfig.json",
     "!*.test.*",
     "!test",
     "!test_fixtures",
