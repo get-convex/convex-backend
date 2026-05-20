@@ -4,6 +4,7 @@
 mod docker;
 mod external;
 mod process;
+pub mod tiers;
 
 pub use docker::DockerProvisioner;
 pub use external::ExternalProvisioner;
