@@ -11,6 +11,8 @@ pub use docker::DockerProvisioner;
 pub use external::ExternalProvisioner;
 pub use process::ProcessProvisioner;
 
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 
 use crate::storage::DeploymentType;
@@ -20,6 +22,11 @@ pub struct ProvisionRequest {
     pub deployment_name: String,
     pub deployment_type: DeploymentType,
     pub project_id: i64,
+    /// Tier name e.g. "S4" | "S8" | "S16" | "S32". Caller resolves the
+    /// project's tier before calling.
+    pub tier: String,
+    /// Per-project knob overrides layered on top of the tier defaults.
+    pub knob_overrides: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +39,9 @@ pub struct ProvisionResult {
     pub instance_secret: String,
     pub backend_pid: Option<i64>,
     pub backend_port: i64,
+    /// The fully-resolved env that was passed to the backend container
+    /// (base + tier defaults + project overrides), snapshotted for audit.
+    pub resolved_env: BTreeMap<String, String>,
 }
 
 #[async_trait]

@@ -314,6 +314,8 @@ pub(crate) async fn create_project(
                 deployment_name: name.clone(),
                 deployment_type: dt,
                 project_id: project.id,
+                tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+                knob_overrides: std::collections::BTreeMap::new(),
             })
             .await
             .map_err(ApiError::Internal)?;
@@ -549,6 +551,8 @@ pub(crate) async fn provision_and_authorize(
             deployment_name: name.clone(),
             deployment_type: dt,
             project_id: project.id,
+            tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+            knob_overrides: std::collections::BTreeMap::new(),
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -643,6 +647,8 @@ pub(crate) async fn claim_preview_deployment(
                     deployment_name: name.clone(),
                     deployment_type: DeploymentType::Preview,
                     project_id: project.id,
+                    tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+                    knob_overrides: std::collections::BTreeMap::new(),
                 })
                 .await
                 .map_err(ApiError::Internal)?;

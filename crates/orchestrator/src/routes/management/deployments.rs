@@ -131,6 +131,8 @@ pub(crate) async fn create_deployment(
             deployment_name: name.clone(),
             deployment_type: dt,
             project_id,
+            tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+            knob_overrides: std::collections::BTreeMap::new(),
         })
         .await
         .map_err(ApiError::Internal)?;

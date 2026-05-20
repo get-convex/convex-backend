@@ -257,6 +257,7 @@ impl Provisioner for StubProvisioner {
             instance_secret: "stub-instance-secret".into(),
             backend_pid: None,
             backend_port: 0,
+            resolved_env: std::collections::BTreeMap::new(),
         })
     }
 
