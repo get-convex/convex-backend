@@ -6,6 +6,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod host_capacity;
 pub mod errors;
 pub mod ids;
 pub mod knob_registry;

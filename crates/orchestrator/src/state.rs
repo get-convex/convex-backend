@@ -28,6 +28,7 @@ pub struct OrchestratorState {
     pub storage: Storage,
     pub config: Arc<OrchestratorConfig>,
     pub provisioner: Arc<dyn Provisioner>,
+    pub host_capacity: Arc<crate::host_capacity::HostCapacityReader>,
 }
 
 impl OrchestratorState {
@@ -70,6 +71,7 @@ impl OrchestratorState {
             storage,
             config: Arc::new(config),
             provisioner,
+            host_capacity: Arc::new(crate::host_capacity::HostCapacityReader::new()),
         };
 
         state.bootstrap_if_empty().await?;

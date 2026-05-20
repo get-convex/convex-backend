@@ -42,6 +42,7 @@ serde_with = { workspace = true }
 sha2 = { workspace = true }
 slugify = { workspace = true }
 strum = { workspace = true }
+sysinfo = "0.33"
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
