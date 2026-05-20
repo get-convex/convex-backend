@@ -13,6 +13,47 @@ export function CapacityStrip({
     return null;
   }
   const selected = lookupTier(selectedTier);
+
+  // Unbounded tier consumes all host capacity.
+  if (selected?.unbounded) {
+    const currentPct = Math.round(
+      (capacity.allocatedMemoryMb / capacity.totalMemoryMb) * 100,
+    );
+    const isOver = capacity.allocatedMemoryMb > 0;
+    /* eslint-disable no-restricted-syntax -- progress bar fill; bg-content-* is appropriate for small indicator fills */
+    const fillColor = isOver ? "bg-content-error" : "bg-content-warning";
+    /* eslint-enable no-restricted-syntax */
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-xs text-content-secondary">
+          <span>
+            Host capacity {(capacity.allocatedMemoryMb / 1024).toFixed(1)} /{" "}
+            {(capacity.totalMemoryMb / 1024).toFixed(1)} GB allocated
+          </span>
+          <span className="font-mono">{currentPct}%</span>
+        </div>
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-background-tertiary">
+          <div
+            className={cn(
+              "absolute inset-y-0 left-0 transition-all",
+              fillColor,
+            )}
+            style={{ width: "100%" }}
+          />
+        </div>
+        <p
+          className={cn(
+            "text-xs",
+            isOver ? "text-content-error" : "text-content-warning",
+          )}
+        >
+          max consumes all host capacity — no further deployments can be
+          provisioned
+        </p>
+      </div>
+    );
+  }
+
   const projectedMb = capacity.allocatedMemoryMb + (selected?.memoryMb ?? 0);
   const projectedPct = Math.min(
     100,

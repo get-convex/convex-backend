@@ -505,14 +505,27 @@ pub(crate) async fn ensure_host_capacity(
         .map_err(ApiError::Internal)?;
     let allocated_mb: u64 = tiers
         .iter()
-        .filter_map(|t| {
-            crate::provisioner::tiers::lookup(t).map(|tt| u64::from(tt.memory_mb))
+        .filter_map(|t| crate::provisioner::tiers::lookup(t))
+        .map(|tt| {
+            if tt.unbounded {
+                host.total_memory_mb
+            } else {
+                u64::from(tt.memory_mb)
+            }
         })
         .sum();
-    let projected = allocated_mb + u64::from(tier.memory_mb);
+    // An unbounded tier claims the full host; project it as total+1 to
+    // guarantee the `projected > total` check fires when anything is already
+    // allocated. On an empty host `0 + total == total` so it passes.
+    let new_tier_mb = if tier.unbounded {
+        host.total_memory_mb
+    } else {
+        u64::from(tier.memory_mb)
+    };
+    let projected = allocated_mb + new_tier_mb;
     if projected > host.total_memory_mb {
         return Err(ApiError::HostCapacityExceeded {
-            needed_mb: u64::from(tier.memory_mb),
+            needed_mb: new_tier_mb,
             free_mb: host.total_memory_mb.saturating_sub(allocated_mb),
         });
     }

@@ -8,6 +8,11 @@
 //! pin to `4` (upstream's `0` means "use all host cores", which varies
 //! across heterogeneous hosts — pinning a fixed worker count keeps
 //! behavior predictable from one host to another).
+//!
+//! `max` is an unbounded tier: `docker run` skips `--memory`/`--cpus`
+//! flags entirely, and the host-capacity check treats it as consuming the
+//! whole host so subsequent deployments hit 409. Intended for single-tenant
+//! hosts where one deployment should own all resources.
 
 /// Default tier assigned to projects + deployments when nothing is specified.
 pub const DEFAULT_TIER: &str = "S16";
@@ -18,6 +23,9 @@ pub struct Tier {
     pub memory_mb: u32,
     pub cpus: f32,
     pub knob_defaults: &'static [(&'static str, &'static str)],
+    /// When `true`, provisioner skips `--memory`/`--cpus` docker flags and
+    /// the host-capacity check treats this tier as consuming the entire host.
+    pub unbounded: bool,
 }
 
 /// Tier ladder, in increasing resource order.
@@ -26,6 +34,7 @@ pub const TIERS: &[Tier] = &[
         name: "S4",
         memory_mb: 1024,
         cpus: 0.5,
+        unbounded: false,
         knob_defaults: &[
             ("RUNTIME_WORKER_THREADS", "1"),
             ("UDF_CACHE_MAX_SIZE", "26214400"), // ¼ × 104,857,600
@@ -40,6 +49,7 @@ pub const TIERS: &[Tier] = &[
         name: "S8",
         memory_mb: 2048,
         cpus: 1.0,
+        unbounded: false,
         knob_defaults: &[
             ("RUNTIME_WORKER_THREADS", "2"),
             ("UDF_CACHE_MAX_SIZE", "52428800"), // ½ × 104,857,600
@@ -54,6 +64,7 @@ pub const TIERS: &[Tier] = &[
         name: "S16",
         memory_mb: 4096,
         cpus: 2.0,
+        unbounded: false,
         // S16 = upstream defaults verbatim. Do not change these without
         // breaking the "no regression on upgrade" guarantee from the spec.
         knob_defaults: &[
@@ -70,6 +81,7 @@ pub const TIERS: &[Tier] = &[
         name: "S32",
         memory_mb: 8192,
         cpus: 4.0,
+        unbounded: false,
         knob_defaults: &[
             ("RUNTIME_WORKER_THREADS", "8"),
             ("UDF_CACHE_MAX_SIZE", "209715200"), // 2 × 104,857,600
@@ -78,6 +90,70 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "1000000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "256"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "2048"),
+        ],
+    },
+    Tier {
+        name: "S64",
+        memory_mb: 16384,
+        cpus: 8.0,
+        unbounded: false,
+        knob_defaults: &[
+            ("RUNTIME_WORKER_THREADS", "16"),
+            ("UDF_CACHE_MAX_SIZE", "419430400"), // 4 × 104,857,600
+            ("FUNRUN_INDEX_CACHE_SIZE", "200000000"),
+            ("FUNRUN_MODULE_CACHE_SIZE", "1000000000"),
+            ("FUNRUN_CODE_CACHE_SIZE", "2000000000"),
+            ("FUNRUN_MAX_ISOLATE_WORKERS", "512"),
+            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "4096"),
+        ],
+    },
+    Tier {
+        name: "S128",
+        memory_mb: 32768,
+        cpus: 16.0,
+        unbounded: false,
+        knob_defaults: &[
+            ("RUNTIME_WORKER_THREADS", "32"),
+            ("UDF_CACHE_MAX_SIZE", "838860800"), // 8 × 104,857,600
+            ("FUNRUN_INDEX_CACHE_SIZE", "400000000"),
+            ("FUNRUN_MODULE_CACHE_SIZE", "2000000000"),
+            ("FUNRUN_CODE_CACHE_SIZE", "4000000000"),
+            ("FUNRUN_MAX_ISOLATE_WORKERS", "1024"),
+            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "8192"),
+        ],
+    },
+    Tier {
+        name: "S256",
+        memory_mb: 65536,
+        cpus: 32.0,
+        unbounded: false,
+        knob_defaults: &[
+            ("RUNTIME_WORKER_THREADS", "64"),
+            ("UDF_CACHE_MAX_SIZE", "1677721600"), // 16 × 104,857,600
+            ("FUNRUN_INDEX_CACHE_SIZE", "800000000"),
+            ("FUNRUN_MODULE_CACHE_SIZE", "4000000000"),
+            ("FUNRUN_CODE_CACHE_SIZE", "8000000000"),
+            ("FUNRUN_MAX_ISOLATE_WORKERS", "2048"),
+            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "16384"),
+        ],
+    },
+    Tier {
+        name: "max",
+        // memory_mb and cpus are unused when unbounded=true; docker run
+        // skips --memory/--cpus. Use 0 as a sentinel so arithmetic on
+        // bounded tiers stays correct.
+        memory_mb: 0,
+        cpus: 0.0,
+        unbounded: true,
+        // max reuses S256's knob defaults so cache sizes don't blow up.
+        knob_defaults: &[
+            ("RUNTIME_WORKER_THREADS", "64"),
+            ("UDF_CACHE_MAX_SIZE", "1677721600"),
+            ("FUNRUN_INDEX_CACHE_SIZE", "800000000"),
+            ("FUNRUN_MODULE_CACHE_SIZE", "4000000000"),
+            ("FUNRUN_CODE_CACHE_SIZE", "8000000000"),
+            ("FUNRUN_MAX_ISOLATE_WORKERS", "2048"),
+            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "16384"),
         ],
     },
 ];
@@ -131,9 +207,23 @@ mod tests {
 
     #[test]
     fn memory_strictly_increases_through_ladder() {
-        let mems: Vec<_> = TIERS.iter().map(|t| t.memory_mb).collect();
+        // Unbounded tiers (e.g. `max`) don't have a real memory_mb value;
+        // exclude them from the monotonicity check.
+        let mems: Vec<_> = TIERS
+            .iter()
+            .filter(|t| !t.unbounded)
+            .map(|t| t.memory_mb)
+            .collect();
         for w in mems.windows(2) {
             assert!(w[0] < w[1], "tier memory must be strictly increasing");
         }
+    }
+
+    #[test]
+    fn unbounded_tier_recognized() {
+        let max = lookup("max").unwrap();
+        assert!(max.unbounded, "`max` tier must be unbounded");
+        let s16 = lookup("S16").unwrap();
+        assert!(!s16.unbounded, "S16 must not be unbounded");
     }
 }
