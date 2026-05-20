@@ -8,6 +8,7 @@ pub mod auth;
 pub mod config;
 pub mod errors;
 pub mod ids;
+pub mod knob_registry;
 pub mod provisioner;
 pub mod proxy;
 pub mod router;

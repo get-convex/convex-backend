@@ -59,5 +59,8 @@ uuid = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
 
+[build-dependencies]
+syn = { version = "2", features = ["full", "extra-traits", "visit"] }
+
 [lints]
 workspace = true
