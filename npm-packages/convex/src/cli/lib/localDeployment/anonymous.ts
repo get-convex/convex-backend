@@ -199,6 +199,8 @@ export async function handleAnonymousDeployment(
     adminKey,
     deploymentName: deployment.deploymentName,
     deploymentUrl: localDeploymentUrl(cloudPort),
+    reference: null,
+    isDefault: false,
     onActivity,
   };
 }

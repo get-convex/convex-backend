@@ -112,6 +112,8 @@ export async function deploymentCredentialsOrConfigure(
       projectSlug: string | null;
       teamSlug: string | null;
       siteUrl: string | null;
+      reference: string | null;
+      isDefault: boolean;
     } | null;
   }
 > {
@@ -171,6 +173,8 @@ export async function _deploymentCredentialsOrConfigure(
       deploymentType: DeploymentType;
       projectSlug: string | null;
       teamSlug: string | null;
+      reference: string | null;
+      isDefault: boolean;
     } | null;
   }
 > {
@@ -275,6 +279,8 @@ export async function _deploymentCredentialsOrConfigure(
             deploymentType: "anonymous",
             projectSlug: null,
             teamSlug: null,
+            reference: null,
+            isDefault: false,
           },
         };
       }
@@ -385,6 +391,8 @@ async function handleChooseProject(
       deploymentType: DeploymentType;
       projectSlug: string;
       teamSlug: string;
+      reference: string | null;
+      isDefault: boolean;
     };
   }
 > {
@@ -417,6 +425,8 @@ async function handleChooseProject(
     deploymentName,
     deploymentUrl: url,
     adminKey,
+    reference,
+    isDefault,
   } = await ensureDeploymentProvisioned(ctx, {
     teamSlug: project.teamSlug,
     projectSlug: project.projectSlug,
@@ -430,6 +440,8 @@ async function handleChooseProject(
       deploymentType: deploymentOptions.kind,
       projectSlug: project.projectSlug,
       teamSlug: project.teamSlug,
+      reference,
+      isDefault,
     },
   };
 }
