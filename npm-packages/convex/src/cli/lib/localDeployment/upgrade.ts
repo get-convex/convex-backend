@@ -7,6 +7,7 @@ import {
 } from "../../../bundler/log.js";
 import { runSystemQuery } from "../run.js";
 import {
+  LocalDeploymentConfig,
   LocalDeploymentKind,
   deploymentStateDir,
   loadDeploymentConfig,
@@ -46,13 +47,15 @@ export async function handlePotentialUpgrade(
     adminKey: string;
     instanceSecret: string;
     forceUpgrade: boolean;
+    cloudProjectId: number | undefined;
   },
 ): Promise<{ cleanupHandle: string }> {
-  const newConfig = {
+  const newConfig: LocalDeploymentConfig = {
     ports: args.ports,
     backendVersion: args.newVersion,
     adminKey: args.adminKey,
     instanceSecret: args.instanceSecret,
+    cloudProjectId: args.cloudProjectId,
   };
   if (args.oldVersion === null || args.oldVersion === args.newVersion) {
     // No upgrade needed. Save the current config and start running the backend.
@@ -150,6 +153,7 @@ export async function handlePotentialUpgrade(
     oldAdminKey,
     newAdminKey,
     instanceSecret: args.instanceSecret,
+    cloudProjectId: args.cloudProjectId,
   });
 }
 
@@ -171,6 +175,7 @@ async function handleUpgrade(
     oldAdminKey: string;
     newAdminKey: string;
     instanceSecret: string;
+    cloudProjectId: number | undefined;
   },
 ): Promise<{ cleanupHandle: string }> {
   const { binaryPath: oldBinaryPath } = await ensureBackendBinaryDownloaded(
@@ -337,6 +342,7 @@ async function handleUpgrade(
     backendVersion: args.newVersion,
     adminKey: args.newAdminKey,
     instanceSecret: args.instanceSecret,
+    cloudProjectId: args.cloudProjectId,
   });
 
   return { cleanupHandle };

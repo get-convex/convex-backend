@@ -106,6 +106,13 @@ const serverVersion = v.union(
     next_version: v.string(),
   }),
 );
+const nodeVersionDiff = v.union(
+  v.null(),
+  v.object({
+    previous_version: v.union(v.string(), v.null()),
+    next_version: v.union(v.string(), v.null()),
+  }),
+);
 const moduleDiff = v.object({
   added: v.array(v.string()),
   removed: v.array(v.string()),
@@ -169,6 +176,7 @@ export const pushConfigWithComponents = v.object({
       }),
     ),
     message: v.optional(v.string()),
+    node_version_diff: v.optional(nodeVersionDiff),
   }),
 });
 

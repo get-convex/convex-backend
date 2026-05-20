@@ -65,6 +65,9 @@ export function DeploymentEventContent({
               &ldquo;{event.metadata.message}&rdquo;
             </p>
           )}
+          <NodeVersionChange
+            nodeVersionDiff={event.metadata.node_version_diff ?? null}
+          />
           {event.metadata.component_diffs.map(
             ({ component_path, component_diff }) => {
               const auth =
@@ -725,6 +728,52 @@ function ServerVersionChange({
       <Variable variableName={serverVersion.next_version} />
     </div>
   ) : null;
+}
+
+type NodeVersionDiff = {
+  previous_version: string | null;
+  next_version: string | null;
+} | null;
+function NodeVersionChange({
+  nodeVersionDiff,
+}: {
+  nodeVersionDiff: NodeVersionDiff;
+}) {
+  if (!nodeVersionDiff) {
+    return null;
+  }
+  const { previous_version, next_version } = nodeVersionDiff;
+
+  if (next_version === null) {
+    if (previous_version === null) {
+      throw new Error(
+        "Unexpected Node.js version transition from null to null",
+      );
+    }
+    return (
+      <div className="flex items-center gap-1 text-sm">
+        <span>Updated the Node.js version from</span>
+        <Variable variableName={previous_version} />
+        <span>to using the default Node.js version</span>
+      </div>
+    );
+  }
+  if (previous_version === null) {
+    return (
+      <div className="flex items-center gap-1 text-sm">
+        <span>Set the Node.js version to</span>
+        <Variable variableName={next_version} />
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1 text-sm">
+      <span>Updated the Node.js version from</span>
+      <Variable variableName={previous_version} />
+      <span>to</span>
+      <Variable variableName={next_version} />
+    </div>
+  );
 }
 
 function SchemaElement(diff: Infer<typeof schemaDiffType>) {

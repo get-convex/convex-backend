@@ -61,6 +61,10 @@ use crate::{
         ImportMode,
         ImportRequestor,
     },
+    source_packages::types::{
+        NodeVersionDiff,
+        SerializedNodeVersionDiff,
+    },
 };
 
 pub static DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
@@ -1139,6 +1143,7 @@ pub struct PushComponentDiffs {
     pub auth_diff: AuthDiff,
     pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
     pub message: Option<PushMessage>,
+    pub node_version_diff: Option<NodeVersionDiff>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1188,6 +1193,10 @@ impl TryFrom<SerializedPushComponentDiffs> for PushComponentDiffs {
             auth_diff: value.auth_diff.unwrap_or_default(),
             component_diffs,
             message: value.message.map(PushMessage::try_from).transpose()?,
+            node_version_diff: value
+                .node_version_diff
+                .map(NodeVersionDiff::try_from)
+                .transpose()?,
         })
     }
 }
@@ -1202,6 +1211,8 @@ pub struct SerializedPushComponentDiffs {
     auth_diff: Option<AuthDiff>,
     component_diffs: Vec<ComponentPathAndDiff>,
     message: Option<String>,
+    #[serde(default)]
+    node_version_diff: Option<SerializedNodeVersionDiff>,
 }
 
 impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
@@ -1221,10 +1232,15 @@ impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
                 })
             })
             .collect::<anyhow::Result<Vec<ComponentPathAndDiff>>>()?;
+        let node_version_diff = value
+            .node_version_diff
+            .map(SerializedNodeVersionDiff::try_from)
+            .transpose()?;
         Ok(SerializedPushComponentDiffs {
             auth_diff: Some(auth_diff),
             component_diffs,
             message: value.message.map(|m| (m.0).0),
+            node_version_diff,
         })
     }
 }

@@ -108,7 +108,7 @@ export async function handleLocalDeployment(
     requestedPorts: options.ports,
     suggestedPorts: existingDeploymentForProject?.config.ports,
   });
-  const { deploymentName, adminKey } = await bigBrainStart(ctx, {
+  const { deploymentName, adminKey, projectId } = await bigBrainStart(ctx, {
     port: cloudPort,
     projectSlug: options.projectSlug,
     teamSlug: options.teamSlug,
@@ -138,6 +138,7 @@ export async function handleLocalDeployment(
     adminKey,
     instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
     forceUpgrade: options.forceUpgrade,
+    cloudProjectId: projectId,
   });
 
   if (isFirstTime) {

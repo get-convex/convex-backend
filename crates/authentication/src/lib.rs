@@ -8,17 +8,12 @@ use std::{
 use anyhow::Context;
 use biscuit::{
     jwk::JWKSet,
-    ClaimPresenceOptions,
-    Presence,
     TemporalOptions,
     ValidationOptions,
     JWT,
 };
 use chrono::TimeZone;
-use common::{
-    auth::AuthInfo,
-    types::TeamId,
-};
+use common::auth::AuthInfo;
 use data_url::DataUrl;
 use errors::ErrorMetadata;
 use futures::Future;
@@ -45,9 +40,6 @@ use serde::{
     Serialize,
 };
 use sync_types::AuthenticationToken;
-use tuple_struct::tuple_struct_string;
-
-tuple_struct_string!(WorkOSOrgID);
 
 pub mod access_token_auth;
 pub mod application_auth;
@@ -283,7 +275,7 @@ where
             issuer,
             algorithm,
         } => {
-            let jwks_body = fetch_jwks(&jwks_uri, &http_client).await?;
+            let jwks_body = fetch_jwks(&jwks_uri, http_client).await?;
             let jwks: JWKSet<biscuit::Empty> = serde_json::de::from_slice(&jwks_body)
                 .with_context(|| {
                     ErrorMetadata::unauthenticated(
@@ -403,9 +395,9 @@ const JWKS_MEDIA_TYPES: [&str; 2] = [
 
 const APPLICATION_JSON: http::HeaderValue = http::HeaderValue::from_static("application/json");
 
-async fn fetch_jwks<F, E>(
+pub async fn fetch_jwks<F, E>(
     jwks_uri: &str,
-    http_client: &(impl Fn(HttpRequest) -> F + 'static),
+    http_client: impl Fn(HttpRequest) -> F,
 ) -> anyhow::Result<Vec<u8>>
 where
     F: Future<Output = Result<HttpResponse, E>>,
@@ -482,340 +474,4 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct AuthAccessToken(pub String);
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthIdToken(pub String);
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DeviceToken(pub String);
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct AppToken {
-    pub client_id: String,
-    pub client_secret: String,
-}
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct WorkOSClaims {
-    #[serde(rename = "workos_first_name")]
-    first_name: Option<String>,
-    #[serde(rename = "workos_last_name")]
-    last_name: Option<String>,
-    #[serde(rename = "workos_email")]
-    email: Option<String>,
-
-    #[serde(flatten)]
-    vercel: Option<VercelClaims>,
-
-    sso_team_id: Option<String>,
-
-    org_id: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum VercelUserRole {
-    ADMIN,
-    USER,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct VercelClaims {
-    // The installation_id is the id of the vercel integration installation.
-    // We use it to decide which team a member should belong to if they're logging
-    // in via Vercel.
-    #[serde(rename = "vercel_installation_id")]
-    installation_id: String,
-    // Obfuscated id of the vercel team.
-    #[serde(rename = "vercel_account_id")]
-    account_id: String,
-    // The user role is the role of the user in the vercel team.
-    // We use it to decide whether the user should be an admin or developer.
-    #[serde(rename = "vercel_user_role")]
-    user_role: VercelUserRole,
-}
-
-impl VercelClaims {
-    pub fn installation_id(&self) -> &str {
-        &self.installation_id
-    }
-
-    pub fn account_id(&self) -> &str {
-        &self.account_id
-    }
-
-    pub fn user_role(&self) -> &VercelUserRole {
-        &self.user_role
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ConsoleAccessToken {
-    email: Option<String>,
-    sub: String,
-    name: Option<String>,
-    vercel: Option<VercelClaims>,
-    sso_team_id: Option<TeamId>,
-    workos_org_id: Option<WorkOSOrgID>,
-}
-
-impl ConsoleAccessToken {
-    pub fn email(&self) -> Option<&str> {
-        self.email.as_deref()
-    }
-
-    pub fn sub(&self) -> &str {
-        &self.sub
-    }
-
-    pub fn workos_org_id(&self) -> Option<&WorkOSOrgID> {
-        self.workos_org_id.as_ref()
-    }
-}
-
-impl From<ConsoleAccessToken> for UserInfo {
-    fn from(value: ConsoleAccessToken) -> Self {
-        Self {
-            email: value.email,
-            name: value.name,
-            vercel: value.vercel,
-        }
-    }
-}
-
-#[derive(Deserialize, Clone, Debug)]
-/// Relevant fields in the WorkOS JWT
-pub struct UserInfo {
-    name: Option<String>,
-    email: Option<String>,
-    vercel: Option<VercelClaims>,
-}
-
-impl UserInfo {
-    pub fn name(&self) -> Option<&String> {
-        self.name.as_ref()
-    }
-
-    pub fn email(&self) -> Option<&str> {
-        self.email.as_deref()
-    }
-
-    pub fn vercel_info(&self) -> Option<&VercelClaims> {
-        self.vercel.as_ref()
-    }
-}
-
-/// AuthenticatedLogin can only be constructed from a ConsoleAccessToken which
-/// has been validated
-pub struct AuthenticatedLogin {
-    email: Option<String>,
-    sub: String,
-    user_info: Option<UserInfo>,
-    sso_team_id: Option<TeamId>,
-    workos_org_id: Option<WorkOSOrgID>,
-}
-
-impl AuthenticatedLogin {
-    pub fn new(token: ConsoleAccessToken, user_info: Option<UserInfo>) -> Self {
-        AuthenticatedLogin {
-            email: token.email,
-            sub: token.sub,
-            user_info,
-            sso_team_id: token.sso_team_id,
-            workos_org_id: token.workos_org_id,
-        }
-    }
-
-    pub fn email(&self) -> Option<&str> {
-        self.email.as_deref()
-    }
-
-    pub fn sub(&self) -> &str {
-        &self.sub
-    }
-
-    pub fn user_info(&self) -> Option<&UserInfo> {
-        self.user_info.as_ref()
-    }
-
-    pub fn vercel_info(&self) -> Option<&VercelClaims> {
-        self.user_info.as_ref().and_then(|ui| ui.vercel_info())
-    }
-
-    pub fn sso_team_id(&self) -> Option<TeamId> {
-        self.sso_team_id
-    }
-
-    pub fn workos_org_id(&self) -> Option<&WorkOSOrgID> {
-        self.workos_org_id.as_ref()
-    }
-}
-
-pub fn names_to_full_name(first_name: Option<String>, last_name: Option<String>) -> Option<String> {
-    match (first_name, last_name) {
-        (Some(first), Some(last)) => Some(format!("{first} {last}")),
-        (Some(first), None) => Some(first),
-        (None, Some(last)) => Some(last),
-        (None, None) => None,
-    }
-}
-
-pub async fn validate_access_token<F, E>(
-    access_token: &AuthAccessToken,
-    http_client: impl Fn(HttpRequest) -> F + 'static,
-    system_time: SystemTime,
-    workos_client_id: &str,
-    workos_api_key: &str,
-    workos_auth_urls: &Vec<String>,
-) -> anyhow::Result<ConsoleAccessToken>
-where
-    F: Future<Output = Result<HttpResponse, E>>,
-    E: std::error::Error + 'static + Send + Sync,
-{
-    if workos_api_key.is_empty() {
-        anyhow::bail!(
-            "WORKOS_API_KEY is not set. For local development, you may find this key in 1password \
-             under 'WorkOS staging API Key'"
-        );
-    }
-
-    let encoded_token = JWT::<WorkOSClaims, biscuit::Empty>::new_encoded(&access_token.0);
-
-    // Fetch WorkOS JWKS
-    let jwks_url = format!("https://apiauth.convex.dev/sso/jwks/{workos_client_id}");
-    let jwks_data = fetch_jwks(&jwks_url, &http_client).await?;
-    let jwks: JWKSet<biscuit::Empty> =
-        serde_json::de::from_slice(&jwks_data).with_context(|| {
-            format!(
-                "Invalid WorkOS jwks response body: {}",
-                String::from_utf8_lossy(&jwks_data)
-            )
-        })?;
-
-    let algorithm = encoded_token
-        .unverified_header()
-        .context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be decoded",
-        ))?
-        .registered
-        .algorithm;
-
-    let decoded_token = encoded_token
-        .decode_with_jwks(&jwks, Some(algorithm))
-        .context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be decoded",
-        ))?;
-
-    let validation_options = ValidationOptions {
-        claim_presence_options: ClaimPresenceOptions {
-            issuer: Presence::Required,
-            audience: Presence::Required,
-            subject: Presence::Required,
-            expiry: Presence::Required,
-            ..Default::default()
-        },
-        temporal_options: TemporalOptions {
-            epsilon: chrono::Duration::seconds(5),
-            now: Some(chrono::DateTime::from(system_time)),
-        },
-        // Use default audience validation (which is to ignore)
-        ..ValidationOptions::default()
-    };
-
-    decoded_token
-        .validate(validation_options)
-        .context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be validated",
-        ))?;
-
-    let claims = decoded_token
-        .payload()
-        .context(ErrorMetadata::unauthenticated(
-            "Unauthenticated",
-            "Could not deserialize jwt claims",
-        ))?;
-
-    let issuer = claims.registered.issuer.as_ref().ok_or_else(|| {
-        anyhow::anyhow!(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token missing issuer claim"
-        ))
-    })?;
-
-    let allowed_issuer_domains = vec![
-        "https://api.workos.com/user_management/".to_string(),
-        "https://apiauth.convex.dev/user_management/".to_string(),
-        "https://api.auth.convex.dev/user_management/".to_string(),
-    ];
-
-    let matching_issuer_domain = allowed_issuer_domains
-        .iter()
-        .find(|domain| issuer.starts_with(domain.as_str()));
-    match matching_issuer_domain {
-        Some(matching_issuer) => {
-            anyhow::ensure!(
-                *issuer == format!("{matching_issuer}{workos_client_id}"),
-                ErrorMetadata::unauthenticated(
-                    "AccessTokenInvalid",
-                    format!("Issuer {issuer} does not match WorkOS client ID")
-                )
-            )
-        },
-        None => {
-            anyhow::ensure!(
-                workos_auth_urls.iter().any(|url| {
-                    let normalized_url = url.trim_end_matches('/');
-                    let normalized_issuer = issuer.trim_end_matches('/');
-                    normalized_url == normalized_issuer
-                }),
-                ErrorMetadata::unauthenticated(
-                    "AccessTokenInvalid",
-                    format!("Issuer {issuer} not in allowed WorkOS auth URLs")
-                )
-            );
-        },
-    }
-
-    let audiences = claims.registered.audience.as_ref().ok_or_else(|| {
-        ErrorMetadata::unauthenticated("AccessTokenInvalid", "Access Token missing audience claim")
-    })?;
-    if !audiences.iter().any(|a| a == workos_client_id) {
-        tracing::info!(
-            audience = ?audiences,
-            expected_audience = %workos_client_id,
-            issuer = %issuer,
-            subject = ?claims.registered.subject,
-            "WorkOS access token does not have valid audience"
-        );
-        anyhow::bail!(ErrorMetadata::forbidden(
-            "AccessTokenForbidden",
-            format!("Audience does not contain WorkOS client ID {workos_client_id}"),
-        ));
-    };
-
-    let full_name = names_to_full_name(
-        claims.private.first_name.clone(),
-        claims.private.last_name.clone(),
-    );
-
-    let sub = match claims.registered.subject.as_ref() {
-        Some(sub) => sub.clone(),
-        None => anyhow::bail!("Missing subject claim"),
-    };
-
-    let sso_team_id = claims
-        .private
-        .sso_team_id
-        .as_ref()
-        .map(|id| id.parse().map(TeamId))
-        .transpose()?;
-
-    Ok(ConsoleAccessToken {
-        email: claims.private.email.clone(),
-        sub,
-        vercel: claims.private.vercel.clone(),
-        sso_team_id,
-        workos_org_id: claims.private.org_id.clone().map(WorkOSOrgID),
-        name: full_name,
-    })
-}

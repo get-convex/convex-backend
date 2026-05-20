@@ -62,6 +62,40 @@ impl From<NodeVersion> for String {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NodeVersionDiff {
+    pub previous_version: Option<NodeVersion>,
+    pub next_version: Option<NodeVersion>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializedNodeVersionDiff {
+    pub previous_version: Option<String>,
+    pub next_version: Option<String>,
+}
+
+impl TryFrom<NodeVersionDiff> for SerializedNodeVersionDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(value: NodeVersionDiff) -> anyhow::Result<Self> {
+        Ok(SerializedNodeVersionDiff {
+            previous_version: value.previous_version.map(String::from),
+            next_version: value.next_version.map(String::from),
+        })
+    }
+}
+
+impl TryFrom<SerializedNodeVersionDiff> for NodeVersionDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedNodeVersionDiff) -> anyhow::Result<Self> {
+        Ok(NodeVersionDiff {
+            previous_version: value.previous_version.map(|s| s.parse()).transpose()?,
+            next_version: value.next_version.map(|s| s.parse()).transpose()?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourcePackage {
     pub storage_key: ObjectKey,
     pub sha256: Sha256Digest,

@@ -232,10 +232,11 @@ export async function createLocalDeployment(
     });
   }
 
-  const { teamSlug, slug: projectSlug } = await resolveProject(
-    ctx,
-    currentDeployment,
-  );
+  const {
+    teamSlug,
+    slug: projectSlug,
+    id: cloudProjectId,
+  } = await resolveProject(ctx, currentDeployment);
 
   showSpinner("Downloading local backend...");
   const { version } = await ensureBackendBinaryDownloaded(ctx, {
@@ -257,6 +258,7 @@ export async function createLocalDeployment(
     ports: { cloud: cloudPort, site: sitePort },
     adminKey,
     instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
+    cloudProjectId,
   });
 
   logFinishedStep("Created local deployment.");

@@ -51,8 +51,55 @@ impl Display for QueryId {
     }
 }
 
-pub type QuerySetVersion = u32;
-pub type IdentityVersion = u32;
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Hash,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Display,
+    derive_more::Deref,
+)]
+pub struct QuerySetVersion(u32);
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Hash,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Display,
+    derive_more::Deref,
+)]
+pub struct IdentityVersion(u32);
+
+impl QuerySetVersion {
+    pub fn incr(&mut self) -> Self {
+        self.0 += 1;
+        *self
+    }
+}
+impl IdentityVersion {
+    pub fn incr(&mut self) -> Self {
+        self.0 += 1;
+        *self
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Query {
@@ -285,8 +332,8 @@ pub struct StateVersion {
 impl StateVersion {
     pub fn initial() -> Self {
         Self {
-            query_set: 0,
-            identity: 0,
+            query_set: QuerySetVersion::default(),
+            identity: IdentityVersion::default(),
             ts: Timestamp::MIN,
         }
     }
