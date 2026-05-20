@@ -130,6 +130,7 @@ use common::{
         env_var_limit_met,
         env_var_name_not_unique,
         env_var_total_size,
+        env_var_total_size_limit_met,
         AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
@@ -1695,12 +1696,10 @@ impl<RT: Runtime> Application<RT> {
 
         anyhow::ensure!(all_env_vars.len() <= *ENV_VAR_LIMIT, env_var_limit_met(),);
         let total_size = env_var_total_size(&all_env_vars);
-        if total_size > *ENV_VAR_TOTAL_SIZE_LIMIT {
-            tracing::info!(
-                "Environment variable total size {total_size} exceeds limit {}",
-                *ENV_VAR_TOTAL_SIZE_LIMIT,
-            );
-        }
+        anyhow::ensure!(
+            total_size <= *ENV_VAR_TOTAL_SIZE_LIMIT,
+            env_var_total_size_limit_met(total_size),
+        );
 
         Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await?;
 
@@ -1732,12 +1731,10 @@ impl<RT: Runtime> Application<RT> {
             all_env_vars_with_new.insert(ev.name().clone(), ev.value().clone());
         }
         let total_size = env_var_total_size(&all_env_vars_with_new);
-        if total_size > *ENV_VAR_TOTAL_SIZE_LIMIT {
-            tracing::info!(
-                "Environment variable total size {total_size} exceeds limit {}",
-                *ENV_VAR_TOTAL_SIZE_LIMIT,
-            );
-        }
+        anyhow::ensure!(
+            total_size <= *ENV_VAR_TOTAL_SIZE_LIMIT,
+            env_var_total_size_limit_met(total_size),
+        );
         for environment_variable in environment_variables.clone() {
             self.create_one_environment_variable(tx, environment_variable)
                 .await?;
