@@ -71,6 +71,13 @@ pub struct PlatformCreateDeploymentArgs {
     pub region: Option<String>,
     #[serde(default)]
     pub preview_identifier: Option<String>,
+    /// Overrides the project's default tier for this deployment only.
+    #[serde(default)]
+    pub tier: Option<String>,
+    /// Per-deployment knob overrides layered on top of the project's
+    /// `knob_overrides`. Empty omitted.
+    #[serde(default)]
+    pub knob_overrides: Option<std::collections::BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]

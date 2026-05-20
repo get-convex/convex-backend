@@ -3801,11 +3801,25 @@
           "kind": {
             "type": "string"
           },
+          "knobOverrides": {
+            "type": ["object", "null"],
+            "description": "Per-deployment knob overrides layered on top of the project's\n`knob_overrides`. Empty omitted.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
           "previewIdentifier": {
             "type": ["string", "null"]
           },
           "region": {
             "type": ["string", "null"]
+          },
+          "tier": {
+            "type": ["string", "null"],
+            "description": "Overrides the project's default tier for this deployment only."
           }
         }
       },

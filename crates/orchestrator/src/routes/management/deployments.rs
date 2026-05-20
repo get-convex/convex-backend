@@ -125,17 +125,52 @@ pub(crate) async fn create_deployment(
         .parse()
         .map_err(|_| ApiError::BadRequest(format!("unknown deployment kind {}", args.kind)))?;
     let name = random_deployment_name();
+    let project = state
+        .storage
+        .get_project(project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
+    let tier = args
+        .tier
+        .as_deref()
+        .unwrap_or(&project.tier)
+        .to_string();
+    if crate::provisioner::tiers::lookup(&tier).is_none() {
+        return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
+    }
+    // Merge project-level overrides with any deployment-level overrides.
+    let project_overrides = project
+        .knob_overrides
+        .as_object()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        })
+        .unwrap_or_default();
+    let mut overrides = project_overrides;
+    if let Some(extra) = &args.knob_overrides {
+        for (k, v) in extra {
+            if let Err(e) = crate::knob_registry::validate(k, v) {
+                return Err(ApiError::BadRequest(e.to_string()));
+            }
+            overrides.insert(k.clone(), v.clone());
+        }
+    }
     let result = state
         .provisioner
         .provision(crate::provisioner::ProvisionRequest {
             deployment_name: name.clone(),
             deployment_type: dt,
             project_id,
-            tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
-            knob_overrides: std::collections::BTreeMap::new(),
+            tier: tier.clone(),
+            knob_overrides: overrides.clone(),
         })
         .await
         .map_err(ApiError::Internal)?;
+    let resolved_overrides = serde_json::to_value(&result.resolved_env)
+        .map_err(|e| ApiError::Internal(e.into()))?;
     let new = state
         .storage
         .create_deployment(crate::storage::deployments::NewDeployment {
@@ -151,8 +186,8 @@ pub(crate) async fn create_deployment(
             creator_id: Some(member_id),
             preview_identifier: args.preview_identifier.as_deref(),
             instance_secret: &result.instance_secret,
-            tier: crate::provisioner::tiers::DEFAULT_TIER,
-            knob_overrides: &serde_json::json!({}),
+            tier: &tier,
+            knob_overrides: &resolved_overrides,
         })
         .await
         .map_err(ApiError::Internal)?;
