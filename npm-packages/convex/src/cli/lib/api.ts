@@ -323,6 +323,8 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
   deploymentName: string;
   deploymentUrl: string;
   adminKey: AdminKey;
+  reference: string;
+  isDefault: boolean;
 }> {
   if (projectSelection.kind === "projectDeployKey") {
     const auth = ctx.bigBrainAuth();
@@ -368,9 +370,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
       printedMessage: msg,
     });
   }
-  const adminKey = data.adminKey;
-  const url = data.url;
-  const deploymentName = data.deploymentName;
+  const { adminKey, url, deploymentName, reference, isDefault } = data;
   if (adminKey === undefined || url === undefined) {
     const msg = "Unknown error during authorization: " + JSON.stringify(data);
     return await ctx.crash({
@@ -380,18 +380,13 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
       printedMessage: msg,
     });
   }
-  return { adminKey, deploymentUrl: url, deploymentName };
+  return { adminKey, deploymentUrl: url, deploymentName, reference, isDefault };
 }
 
 async function fetchExistingDevDeploymentCredentialsOrCrash(
   ctx: Context,
   deploymentName: DeploymentName,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: DeploymentType;
-}> {
+): Promise<DeploymentAuthResponse> {
   const slugs = await fetchTeamAndProject(ctx, deploymentName);
   const credentials =
     await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
@@ -408,6 +403,8 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
     adminKey: credentials.adminKey,
     url: credentials.deploymentUrl,
     deploymentType: "dev",
+    reference: credentials.reference,
+    isDefault: credentials.isDefault,
   };
 }
 
@@ -415,18 +412,22 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
 // Helpers for `loadSelectedDeploymentCredentials`
 // ----------------------------------------------------------------------
 
+type DeploymentAuthResponse = {
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: DeploymentType;
+  reference: string | null; // null = local deployment
+  isDefault: boolean;
+};
+
 // Returns the user's own dev deployment, which may be a local deployment
 // if one is configured. Used for dev commands (including `npx convex dev`)
 // when no specific deployment is specified.
 async function handleOwnDev(
   ctx: Context,
   projectSelection: ProjectSelection,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: DeploymentType;
-}> {
+): Promise<DeploymentAuthResponse> {
   switch (projectSelection.kind) {
     case "deploymentName": {
       if (projectSelection.deploymentType === "local") {
@@ -439,6 +440,8 @@ async function handleOwnDev(
           adminKey: credentials.adminKey,
           url: credentials.deploymentUrl,
           deploymentType: "local",
+          reference: null,
+          isDefault: false,
         };
       }
       return await fetchExistingDevDeploymentCredentialsOrCrash(
@@ -460,6 +463,8 @@ async function handleOwnDev(
         adminKey: credentials.adminKey,
         deploymentName: credentials.deploymentName,
         deploymentType: "dev",
+        reference: credentials.reference,
+        isDefault: credentials.isDefault,
       };
     }
     default: {
@@ -478,12 +483,7 @@ async function handleOwnDev(
 async function handleProd(
   ctx: Context,
   projectSelection: ProjectSelection,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: "prod";
-}> {
+): Promise<DeploymentAuthResponse & { deploymentType: "prod" }> {
   switch (projectSelection.kind) {
     case "deploymentName": {
       const credentials = await bigBrainAPI({
@@ -509,6 +509,8 @@ async function handleProd(
         adminKey: credentials.adminKey,
         deploymentName: credentials.deploymentName,
         deploymentType: "prod",
+        reference: credentials.reference,
+        isDefault: credentials.isDefault,
       };
     }
   }
@@ -518,12 +520,7 @@ async function handlePreview(
   ctx: Context,
   previewName: string,
   projectSelection: ProjectSelection,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: "preview";
-}> {
+): Promise<DeploymentAuthResponse & { deploymentType: "preview" }> {
   switch (projectSelection.kind) {
     case "deploymentName":
     case "teamAndProjectSlugs":
@@ -552,12 +549,7 @@ async function handleDeploymentName(
   ctx: Context,
   deploymentName: string,
   projectSelection: ProjectSelection,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: DeploymentType;
-}> {
+): Promise<DeploymentAuthResponse> {
   switch (projectSelection.kind) {
     case "deploymentName":
     case "teamAndProjectSlugs":
@@ -585,12 +577,7 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
   ctx: Context,
   projectSelection: ProjectSelection,
   deploymentSelection: DeploymentSelectionWithinProject,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: DeploymentType;
-}> {
+): Promise<DeploymentAuthResponse> {
   switch (deploymentSelection.kind) {
     case "unspecified": {
       // default to the user's default dev deployment
@@ -670,12 +657,7 @@ async function handleRefInProject(
   ctx: Context,
   selector: InProjectSelector,
   projectSelection: ProjectSelection,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: DeploymentType;
-}> {
+): Promise<DeploymentAuthResponse> {
   switch (selector.kind) {
     case "dev": {
       const access = await checkAccessToSelectedProject(ctx, projectSelection);
@@ -729,12 +711,7 @@ async function handleDeploymentSelector(
   ctx: Context,
   selector: string,
   projectSelection: ProjectSelection,
-): Promise<{
-  deploymentName: string;
-  adminKey: string;
-  url: string;
-  deploymentType: DeploymentType;
-}> {
+): Promise<DeploymentAuthResponse> {
   const parsed = parseDeploymentSelector(selector);
   switch (parsed.kind) {
     case "deploymentName":
@@ -761,6 +738,8 @@ async function handleDeploymentSelector(
         adminKey: credentials.adminKey,
         url: credentials.deploymentUrl,
         deploymentType: "local",
+        reference: null,
+        isDefault: false,
       };
     }
     case "inCurrentProject":
@@ -824,6 +803,8 @@ async function _loadExistingDeploymentCredentialsForProject(
     deploymentFields: {
       deploymentName: result.deploymentName,
       deploymentType: result.deploymentType,
+      reference: result.reference,
+      isDefault: result.isDefault,
 
       projectSlug:
         accessResult.kind === "hasAccess" ? accessResult.projectSlug : null,
@@ -841,6 +822,8 @@ export type DetailedDeploymentCredentials = {
     deploymentType: DeploymentType;
     projectSlug: string | null;
     teamSlug: string | null;
+    reference: string | null;
+    isDefault: boolean;
   } | null;
 };
 
@@ -924,6 +907,8 @@ export async function loadSelectedDeploymentCredentials(
           deploymentType: "anonymous",
           projectSlug: null,
           teamSlug: null,
+          reference: null,
+          isDefault: false,
         },
       };
     }
@@ -985,6 +970,8 @@ export async function fetchTeamAndProjectForKey(
     project: string; // slug
     teamId: number;
     projectId: number;
+    reference: string | null;
+    isDefault: boolean;
   };
 
   const { team, project } = data;
