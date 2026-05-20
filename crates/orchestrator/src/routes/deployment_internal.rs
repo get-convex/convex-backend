@@ -334,6 +334,8 @@ pub(crate) async fn create_project(
                 creator_id: Some(member_id),
                 preview_identifier: None,
                 instance_secret: &result.instance_secret,
+                tier: crate::provisioner::tiers::DEFAULT_TIER,
+                knob_overrides: &serde_json::json!({}),
             })
             .await
             .map_err(ApiError::Internal)?;
@@ -571,6 +573,8 @@ pub(crate) async fn provision_and_authorize(
             creator_id: Some(member_id),
             preview_identifier: None,
             instance_secret: &result.instance_secret,
+            tier: crate::provisioner::tiers::DEFAULT_TIER,
+            knob_overrides: &serde_json::json!({}),
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -667,6 +671,8 @@ pub(crate) async fn claim_preview_deployment(
                     creator_id: Some(member_id),
                     preview_identifier: Some(&args.identifier),
                     instance_secret: &result.instance_secret,
+                    tier: crate::provisioner::tiers::DEFAULT_TIER,
+                    knob_overrides: &serde_json::json!({}),
                 })
                 .await
                 .map_err(ApiError::Internal)?;

@@ -197,6 +197,8 @@ pub(crate) async fn register_deployment(
             creator_id: Some(member_id),
             preview_identifier: args.preview_identifier.as_deref(),
             instance_secret: &args.admin_key,
+            tier: crate::provisioner::tiers::DEFAULT_TIER,
+            knob_overrides: &serde_json::json!({}),
         })
         .await
         .map_err(ApiError::Internal)?;
