@@ -797,7 +797,10 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
 
   useEffect(() => {
     if (settings && draft === null) {
-      setDraft({ tier: settings.tier, overrides: { ...settings.knobOverrides } });
+      setDraft({
+        tier: settings.tier,
+        overrides: { ...settings.knobOverrides },
+      });
     }
   }, [settings, draft]);
 
@@ -850,8 +853,8 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
       {savedAt && !dirty && (
         <p className="mt-3 text-xs text-content-secondary">
           Saved. Applies to new deployments only. Existing deployments keep
-          their current settings — re-create them to pick up the changes
-          (clears their data, backends have no persistent volumes).
+          their current settings — re-create them to pick up the changes (clears
+          their data, backends have no persistent volumes).
         </p>
       )}
       {error && (
@@ -860,7 +863,9 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
         </div>
       )}
       <div className="mt-4 flex items-center justify-between">
-        <UiLink href={`/t/${team.slug}/${project.slug}/settings/advanced-knobs`}>
+        <UiLink
+          href={`/t/${team.slug}/${project.slug}/settings/advanced-knobs`}
+        >
           View advanced settings →
         </UiLink>
         <Button size="xs" onClick={onSave} disabled={!dirty || saving}>

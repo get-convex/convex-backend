@@ -7,10 +7,7 @@ import { Callout } from "@ui/Callout";
 import { TextInput } from "@ui/TextInput";
 import { Link as UiLink } from "@ui/Link";
 import useSWR from "swr";
-import {
-  listProjects,
-  listTeams,
-} from "../../../../../lib/orchestratorApi";
+import { listProjects, listTeams } from "../../../../../lib/orchestratorApi";
 import { useAccessToken } from "../../../../../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../../../../../lib/config";
 import { useHostCapacity } from "../../../../../hooks/useHostCapacity";
@@ -116,8 +113,8 @@ export default function AdvancedKnobsPage() {
         {/* eslint-disable-next-line no-restricted-syntax -- text-lg IS the heading style on this h1 */}
         <h1 className="text-lg font-semibold">Advanced backend settings</h1>
         <Callout variant="instructions">
-          These are power-user knobs. Bad values can prevent a deployment
-          from starting. Changes apply to new deployments only.
+          These are power-user knobs. Bad values can prevent a deployment from
+          starting. Changes apply to new deployments only.
         </Callout>
         <Sheet>
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -144,9 +141,7 @@ export default function AdvancedKnobsPage() {
             {/* eslint-disable-next-line react/forbid-elements */}
             <select
               value={show}
-              onChange={(e) =>
-                setShow(e.target.value as typeof show)
-              }
+              onChange={(e) => setShow(e.target.value as typeof show)}
               className="h-9 rounded-sm border border-border-transparent bg-background-primary px-2 text-sm"
             >
               <option value="all">All</option>
@@ -156,8 +151,8 @@ export default function AdvancedKnobsPage() {
             </select>
           </div>
           <div className="mb-2 text-xs text-content-secondary">
-            Showing {filtered.length} of {registry?.length ?? 0} · {overriddenCount}{" "}
-            overridden
+            Showing {filtered.length} of {registry?.length ?? 0} ·{" "}
+            {overriddenCount} overridden
           </div>
           <div className="divide-y">
             {filtered.map((knob) => {
