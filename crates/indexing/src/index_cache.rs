@@ -38,7 +38,10 @@ use interval_map::IntervalMap;
 use metrics::StaticMetricLabel;
 use moka::{
     notification::RemovalCause,
-    ops::compute::Op,
+    ops::compute::{
+        CompResult,
+        Op,
+    },
 };
 use parking_lot::Mutex;
 use value::heap_size::{
@@ -294,7 +297,7 @@ impl IndexCache {
 
             for (index_id, intervals) in entries {
                 for (interval, order, max_size) in intervals.intervals() {
-                    self.cache.remove(&CacheKey {
+                    self.cache.invalidate(&CacheKey {
                         deployment_id,
                         index_id,
                         interval,
@@ -345,13 +348,12 @@ impl IndexCache {
         if !old_in_interval && !new_in_interval {
             return;
         }
-        if self.cache.remove(key).is_some() {
-            tracing::debug!(
-                deployment_id = ?key.deployment_id,
-                "IndexCache::apply_write_to_cache invalidated entry"
-            );
-            log_index_cache_invalidation();
-        }
+        self.cache.invalidate(key);
+        tracing::debug!(
+            deployment_id = ?key.deployment_id,
+            "IndexCache::apply_write_to_cache invalidated entry"
+        );
+        log_index_cache_invalidation();
     }
 }
 
@@ -424,7 +426,7 @@ impl IndexCacheHandle {
                          zombie entry (deployment_id={:?}, index_id={index_id:?})",
                         self.deployment_id
                     );
-                    self.cache.cache.remove(&key);
+                    self.cache.cache.invalidate(&key);
                     timer.add_label(StaticMetricLabel::new("status", "miss"));
                     return None;
                 },
@@ -498,7 +500,23 @@ impl IndexCacheHandle {
             entries_size,
             begin_ts: ts,
         };
-        self.cache.cache.insert(key.clone(), cached_interval);
+        let result = self
+            .cache
+            .cache
+            .entry(key.clone())
+            .and_compute_with(|maybe_entry| {
+                // Only insert if there's no existing entry — a prior entry with an earlier
+                // begin_ts can serve a wider range of reads.
+                if maybe_entry.is_some() {
+                    Op::Nop
+                } else {
+                    Op::Put(cached_interval)
+                }
+            });
+        if !matches!(result, CompResult::Inserted(_)) {
+            timer.add_label(StaticMetricLabel::new("result", "already_exists"));
+            return;
+        }
 
         self.cache
             .index_to_intervals
@@ -516,7 +534,7 @@ impl IndexCacheHandle {
         else {
             // Remove the cache entry. The eviction listener will remove from
             // index_to_intervals
-            self.cache.cache.remove(&key);
+            self.cache.cache.invalidate(&key);
             timer.add_label(StaticMetricLabel::new("result", "out_of_retention"));
             return;
         };
@@ -538,7 +556,7 @@ impl IndexCacheHandle {
                 timer.add_label(StaticMetricLabel::new("result", "invalid"));
                 // Remove the cache entry. The eviction listener will remove from
                 // index_to_intervals
-                self.cache.cache.remove(&key);
+                self.cache.cache.invalidate(&key);
                 return;
             }
         }
@@ -610,7 +628,7 @@ impl IndexCacheHandle {
             order,
             max_size,
         };
-        self.cache.cache.remove(&key);
+        self.cache.cache.invalidate(&key);
         log_index_cache_size(self.cache.cache.weighted_size());
     }
 

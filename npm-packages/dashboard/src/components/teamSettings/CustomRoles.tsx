@@ -152,6 +152,8 @@ const RESOURCE_PATTERN =
   `|sso:\\*` +
   `|integration:\\*)$`;
 
+// ⚠️ If updating this, please remember to also update the
+//    JSON schema in docs (npm-packages/docs/docs/team-management/custom-roles.mdx)
 const statementsSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
   title: "Custom Role Statements",
