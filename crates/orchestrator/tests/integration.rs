@@ -228,6 +228,8 @@ fn deployment_auth_response_is_byte_identical_to_upstream() {
         "adminKey": "prod:happy-otter-123|s_secret",
         "url": "http://happy-otter-123.localhost:9000",
         "deploymentType": "prod",
+        "reference": null,
+        "isDefault": false,
     });
     let via_upstream: upstream::DeploymentAuthResponse =
         serde_json::from_value(upstream_json.clone()).expect("upstream parse");

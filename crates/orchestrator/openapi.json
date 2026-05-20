@@ -3420,7 +3420,13 @@
       },
       "DeploymentAuthResponse": {
         "type": "object",
-        "required": ["deploymentName", "adminKey", "url", "deploymentType"],
+        "required": [
+          "deploymentName",
+          "adminKey",
+          "url",
+          "deploymentType",
+          "isDefault"
+        ],
         "properties": {
           "adminKey": {
             "$ref": "#/components/schemas/AccessToken"
@@ -3430,6 +3436,14 @@
           },
           "deploymentType": {
             "$ref": "#/components/schemas/DeploymentType"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Preview/custom/local are always `false`."
+          },
+          "reference": {
+            "type": ["string", "null"],
+            "description": "The user-facing reference for this deployment (e.g. `preview/pr-42`),\nusable as the `<ref>` in `team:project:<ref>` selectors. `None` for\nlocal deployments, which don't have a Big Brain reference."
           },
           "url": {
             "type": "string"
@@ -4590,7 +4604,7 @@
       },
       "TeamAndProjectForDeploymentResponse": {
         "type": "object",
-        "required": ["team", "project", "teamId", "projectId"],
+        "required": ["team", "project", "teamId", "projectId", "isDefault"],
         "properties": {
           "deploymentId": {
             "oneOf": [
@@ -4602,11 +4616,19 @@
               }
             ]
           },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Always `false` for local deployments."
+          },
           "project": {
             "$ref": "#/components/schemas/ProjectSlug"
           },
           "projectId": {
             "$ref": "#/components/schemas/ProjectId"
+          },
+          "reference": {
+            "type": ["string", "null"],
+            "description": "The user-facing reference for this deployment (e.g. `preview/pr-42`),\nusable as the `<ref>` in `team:project:<ref>` selectors. `None` for\nlocal deployments."
           },
           "team": {
             "$ref": "#/components/schemas/TeamSlug"

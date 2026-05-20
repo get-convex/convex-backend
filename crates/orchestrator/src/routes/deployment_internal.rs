@@ -511,6 +511,11 @@ pub(crate) async fn authorize_within_current_project(
         admin_key: admin_key.into(),
         url: deployment.url,
         deployment_type: dt,
+        // The orchestrator doesn't track BigBrain-style refs or per-project
+        // default flags; the auth response carries them on the upstream wire
+        // but for self-hosted both are always None/false.
+        reference: None,
+        is_default: false,
     }))
 }
 
@@ -568,6 +573,8 @@ pub(crate) async fn provision_and_authorize(
             admin_key: admin_key.into(),
             url: existing.url,
             deployment_type: to_common_deployment_type(dt),
+            reference: None,
+            is_default: false,
         }));
     }
 
@@ -630,6 +637,8 @@ pub(crate) async fn provision_and_authorize(
         admin_key: result.admin_key.into(),
         url: new.url,
         deployment_type: to_common_deployment_type(dt),
+        reference: None,
+        is_default: false,
     }))
 }
 
@@ -761,6 +770,8 @@ async fn resolve_team_and_project(
         team_id: common::types::TeamId(t.id as u64),
         project_id: common::types::ProjectId(p.id as u64),
         deployment_id: Some(common::types::DeploymentId(d.id as u64)),
+        reference: None,
+        is_default: false,
     }))
 }
 
