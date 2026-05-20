@@ -56,6 +56,8 @@ const EXPECTED_MANAGEMENT_OPERATIONS: &[(&str, &str)] = &[
     ("get", "/v1/projects/{project_id}"),
     ("get", "/v1/teams/{team_id_or_slug}/projects/{project_slug}"),
     ("post", "/v1/projects/{project_id}/delete"),
+    ("get", "/v1/projects/{project_id}/settings"),
+    ("patch", "/v1/projects/{project_id}/settings"),
     // deployments
     ("get", "/v1/projects/{project_id}/list_deployments"),
     ("post", "/v1/projects/{project_id}/create_deployment"),

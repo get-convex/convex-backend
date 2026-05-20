@@ -414,6 +414,81 @@
         }
       }
     },
+    "/v1/projects/{project_id}/settings": {
+      "get": {
+        "tags": ["projects"],
+        "operationId": "get_project_settings",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSettingsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["projects"],
+        "operationId": "patch_project_settings",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectSettingsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "unknown tier or knob"
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/list_deployments": {
       "get": {
         "tags": ["deployments"],
@@ -4109,6 +4184,25 @@
           }
         ]
       },
+      "ProjectSettingsResponse": {
+        "type": "object",
+        "required": ["tier", "knobOverrides"],
+        "properties": {
+          "knobOverrides": {
+            "type": "object",
+            "description": "Flat map from env var name to canonical string value. Empty when no\noverrides have been set (the deployment will use tier defaults).",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "tier": {
+            "type": "string"
+          }
+        }
+      },
       "ProjectSlug": {
         "type": "string"
       },
@@ -4532,6 +4626,25 @@
           "projectId": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "UpdateProjectSettingsArgs": {
+        "type": "object",
+        "properties": {
+          "knobOverrides": {
+            "type": ["object", "null"],
+            "description": "Replace the override map entirely. Omit to leave unchanged. A value\nof `null` for any individual knob clears that override (so the\neffective value falls back to tier default).",
+            "additionalProperties": {
+              "type": ["string", "null"]
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "tier": {
+            "type": ["string", "null"],
+            "description": "Set to switch tier. Omit to leave unchanged."
           }
         }
       },

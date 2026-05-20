@@ -15,6 +15,8 @@ use orchestrator_api_types::management::{
     PlatformCreateProjectArgs,
     PlatformCreateProjectResponse,
     PlatformProjectDetails,
+    ProjectSettingsResponse,
+    UpdateProjectSettingsArgs,
 };
 
 use crate::{
@@ -41,6 +43,10 @@ pub fn router() -> Router<OrchestratorState> {
             get(get_project_by_slug),
         )
         .route("/projects/{project_id}/delete", post(delete_project))
+        .route(
+            "/projects/{project_id}/settings",
+            get(get_project_settings).patch(patch_project_settings),
+        )
 }
 
 #[utoipa::path(
@@ -188,4 +194,111 @@ pub(crate) async fn delete_project(
         .await
         .map_err(ApiError::Internal)?;
     Ok(StatusCode::OK)
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/projects/{project_id}/settings",
+    params(("project_id" = i64, Path)),
+    responses(
+        (status = 200, body = ProjectSettingsResponse),
+        (status = 404, description = "project not found"),
+    ),
+    tag = "projects",
+)]
+pub(crate) async fn get_project_settings(
+    _auth: AuthIdentity,
+    State(state): State<OrchestratorState>,
+    Path(project_id): Path<i64>,
+) -> ApiResult<Json<ProjectSettingsResponse>> {
+    let project = state
+        .storage
+        .get_project(project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
+    let overrides = json_object_to_btree(&project.knob_overrides);
+    Ok(Json(ProjectSettingsResponse {
+        tier: project.tier,
+        knob_overrides: overrides,
+    }))
+}
+
+#[utoipa::path(
+    patch,
+    path = "/v1/projects/{project_id}/settings",
+    params(("project_id" = i64, Path)),
+    request_body = UpdateProjectSettingsArgs,
+    responses(
+        (status = 200, body = ProjectSettingsResponse),
+        (status = 400, description = "unknown tier or knob"),
+        (status = 404, description = "project not found"),
+    ),
+    tag = "projects",
+)]
+pub(crate) async fn patch_project_settings(
+    _auth: AuthIdentity,
+    State(state): State<OrchestratorState>,
+    Path(project_id): Path<i64>,
+    Json(args): Json<UpdateProjectSettingsArgs>,
+) -> ApiResult<Json<ProjectSettingsResponse>> {
+    if let Some(tier) = args.tier.as_deref() {
+        if crate::provisioner::tiers::lookup(tier).is_none() {
+            return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
+        }
+    }
+    let new_overrides = if let Some(patch) = &args.knob_overrides {
+        let existing = state
+            .storage
+            .get_project(project_id)
+            .await
+            .map_err(ApiError::Internal)?
+            .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
+        let mut merged = json_object_to_btree(&existing.knob_overrides);
+        for (k, v) in patch {
+            // Validate every key against the registry.
+            if let Err(e) = crate::knob_registry::validate(k, v.as_deref().unwrap_or("")) {
+                return Err(ApiError::BadRequest(e.to_string()));
+            }
+            match v {
+                Some(val) => {
+                    merged.insert(k.clone(), val.clone());
+                },
+                None => {
+                    merged.remove(k);
+                },
+            }
+        }
+        Some(serde_json::to_value(&merged).map_err(|e| ApiError::Internal(e.into()))?)
+    } else {
+        None
+    };
+
+    state
+        .storage
+        .update_project_settings(project_id, args.tier.as_deref(), new_overrides.as_ref())
+        .await
+        .map_err(ApiError::Internal)?;
+
+    // Re-read to return the canonical post-state.
+    let project = state
+        .storage
+        .get_project(project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
+    Ok(Json(ProjectSettingsResponse {
+        tier: project.tier,
+        knob_overrides: json_object_to_btree(&project.knob_overrides),
+    }))
+}
+
+fn json_object_to_btree(v: &serde_json::Value) -> std::collections::BTreeMap<String, String> {
+    v.as_object()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        })
+        .unwrap_or_default()
 }

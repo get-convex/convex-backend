@@ -128,6 +128,8 @@ async fn not_found() -> impl IntoResponse {
         crate::routes::management::projects::get_project,
         crate::routes::management::projects::get_project_by_slug,
         crate::routes::management::projects::delete_project,
+        crate::routes::management::projects::get_project_settings,
+        crate::routes::management::projects::patch_project_settings,
         crate::routes::management::deployments::list_deployments,
         crate::routes::management::deployments::create_deployment,
         crate::routes::management::deployments::get_default_deployment_for_project,

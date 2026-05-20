@@ -314,3 +314,23 @@ pub struct PaginatedDefaultEnvironmentVariablesResponse {
 pub struct UpdateDefaultEnvironmentVariablesArgs {
     pub variables: Vec<PlatformDefaultEnvVar>,
 }
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectSettingsResponse {
+    pub tier: String,
+    /// Flat map from env var name to canonical string value. Empty when no
+    /// overrides have been set (the deployment will use tier defaults).
+    pub knob_overrides: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProjectSettingsArgs {
+    /// Set to switch tier. Omit to leave unchanged.
+    pub tier: Option<String>,
+    /// Replace the override map entirely. Omit to leave unchanged. A value
+    /// of `null` for any individual knob clears that override (so the
+    /// effective value falls back to tier default).
+    pub knob_overrides: Option<std::collections::BTreeMap<String, Option<String>>>,
+}
