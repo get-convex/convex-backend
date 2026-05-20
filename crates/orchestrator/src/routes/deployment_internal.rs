@@ -299,6 +299,28 @@ pub(crate) async fn create_project(
         .await
         .map_err(ApiError::Internal)?;
 
+    // Resolve and validate tier + knob overrides from the request.
+    let tier = args
+        .tier
+        .as_deref()
+        .unwrap_or(crate::provisioner::tiers::DEFAULT_TIER);
+    if crate::provisioner::tiers::lookup(tier).is_none() {
+        return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
+    }
+    let overrides = args.knob_overrides.clone().unwrap_or_default();
+    for (k, v) in &overrides {
+        if let Err(e) = crate::knob_registry::validate(k, v) {
+            return Err(ApiError::BadRequest(e.to_string()));
+        }
+    }
+    let overrides_json =
+        serde_json::to_value(&overrides).map_err(|e| ApiError::Internal(e.into()))?;
+    state
+        .storage
+        .update_project_settings(project.id, Some(tier), Some(&overrides_json))
+        .await
+        .map_err(ApiError::Internal)?;
+
     // Optionally provision a deployment.
     let mut deployment_name = None;
     let mut deployment_url = None;
@@ -314,11 +336,13 @@ pub(crate) async fn create_project(
                 deployment_name: name.clone(),
                 deployment_type: dt,
                 project_id: project.id,
-                tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
-                knob_overrides: std::collections::BTreeMap::new(),
+                tier: tier.to_string(),
+                knob_overrides: overrides.clone(),
             })
             .await
             .map_err(ApiError::Internal)?;
+        let resolved_overrides = serde_json::to_value(&result.resolved_env)
+            .map_err(|e| ApiError::Internal(e.into()))?;
         let new = state
             .storage
             .create_deployment(crate::storage::deployments::NewDeployment {
@@ -334,8 +358,8 @@ pub(crate) async fn create_project(
                 creator_id: Some(member_id),
                 preview_identifier: None,
                 instance_secret: &result.instance_secret,
-                tier: crate::provisioner::tiers::DEFAULT_TIER,
-                knob_overrides: &serde_json::json!({}),
+                tier,
+                knob_overrides: &resolved_overrides,
             })
             .await
             .map_err(ApiError::Internal)?;

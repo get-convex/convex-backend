@@ -3293,6 +3293,15 @@
           "deploymentType": {
             "type": ["string", "null"]
           },
+          "knobOverrides": {
+            "type": ["object", "null"],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
           "projectName": {
             "type": "string"
           },
@@ -3301,6 +3310,9 @@
           },
           "team": {
             "type": "string"
+          },
+          "tier": {
+            "type": ["string", "null"]
           }
         }
       },

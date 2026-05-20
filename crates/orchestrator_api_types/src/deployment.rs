@@ -96,6 +96,10 @@ pub struct CreateProjectArgs {
     pub deployment_type: Option<String>,
     #[serde(default)]
     pub region: Option<String>,
+    #[serde(default)]
+    pub tier: Option<String>,
+    #[serde(default)]
+    pub knob_overrides: Option<std::collections::BTreeMap<String, String>>,
 }
 
 /// Response shape for `POST /api/create_project` (CLI).

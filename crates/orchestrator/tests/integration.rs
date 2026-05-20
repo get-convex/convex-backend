@@ -383,6 +383,8 @@ async fn deployment_internal_flow_against_real_db() {
         project_name: "Integration Test Project".into(),
         deployment_type: Some("dev".into()),
         region: None,
+        tier: None,
+        knob_overrides: None,
     };
     let resp = app
         .clone()
