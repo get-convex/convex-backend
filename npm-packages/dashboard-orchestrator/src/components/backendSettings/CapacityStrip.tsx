@@ -13,8 +13,7 @@ export function CapacityStrip({
     return null;
   }
   const selected = lookupTier(selectedTier);
-  const projectedMb =
-    capacity.allocatedMemoryMb + (selected?.memoryMb ?? 0);
+  const projectedMb = capacity.allocatedMemoryMb + (selected?.memoryMb ?? 0);
   const projectedPct = Math.min(
     100,
     Math.round((projectedMb / capacity.totalMemoryMb) * 100),

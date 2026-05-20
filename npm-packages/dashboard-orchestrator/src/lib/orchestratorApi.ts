@@ -328,11 +328,9 @@ export async function getHostCapacity(
   baseUrl: string,
   token: string,
 ): Promise<HostCapacity> {
-  const data = await request<unknown>(
-    baseUrl,
-    "/api/dashboard/host_capacity",
-    { token },
-  );
+  const data = await request<unknown>(baseUrl, "/api/dashboard/host_capacity", {
+    token,
+  });
   return hostCapacityResponseSchema.parse(data);
 }
 

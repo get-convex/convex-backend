@@ -150,8 +150,8 @@ function AdminKeyListItem({
                     </>
                   )}{" "}
                   will immediately log you out of the dashboard. The
-                  orchestrator will mint a fresh bootstrap key on the next
-                  page load.
+                  orchestrator will mint a fresh bootstrap key on the next page
+                  load.
                 </>
               ) : (
                 <>

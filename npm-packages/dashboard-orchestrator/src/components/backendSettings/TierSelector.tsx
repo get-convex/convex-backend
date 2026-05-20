@@ -14,8 +14,7 @@ export function TierSelector({
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
       {TIERS.map((tier) => {
-        const projectedMb =
-          (capacity?.allocatedMemoryMb ?? 0) + tier.memoryMb;
+        const projectedMb = (capacity?.allocatedMemoryMb ?? 0) + tier.memoryMb;
         const wouldExceed =
           capacity !== undefined && projectedMb > capacity.totalMemoryMb;
         const selected = value === tier.name;
