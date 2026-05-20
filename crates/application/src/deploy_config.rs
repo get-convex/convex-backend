@@ -109,9 +109,11 @@ use model::{
     source_packages::{
         types::{
             NodeVersion,
+            NodeVersionDiff,
             SourcePackage,
         },
         upload_download::download_package,
+        SourcePackageModel,
     },
     udf_config::types::UdfConfig,
 };
@@ -748,6 +750,11 @@ impl<RT: Runtime> Application<RT> {
                             .put(start_push.app_auth.clone())
                             .await?;
 
+                        let prev_node_version = SourcePackageModel::new(tx, TableNamespace::Global)
+                            .get_latest()
+                            .await?
+                            .and_then(|p| p.into_value().node_version);
+
                         // Diff the component definitions.
                         let (definition_diffs, modules_by_definition, udf_config_by_definition) =
                             ComponentDefinitionConfigModel::new(tx)
@@ -768,10 +775,22 @@ impl<RT: Runtime> Application<RT> {
                             )
                             .await?;
 
+                        let next_node_version = SourcePackageModel::new(tx, TableNamespace::Global)
+                            .get_latest()
+                            .await?
+                            .and_then(|p| p.into_value().node_version);
+
+                        let node_version_diff =
+                            (prev_node_version != next_node_version).then_some(NodeVersionDiff {
+                                previous_version: prev_node_version,
+                                next_version: next_node_version,
+                            });
+
                         let diffs = PushComponentDiffs {
                             auth_diff: auth_diff.clone(),
                             component_diffs: component_diffs.clone(),
                             message: message.clone(),
+                            node_version_diff,
                         };
                         let audit_log_events =
                             vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }];

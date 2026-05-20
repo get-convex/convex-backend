@@ -1815,3 +1815,96 @@ export const PushConfigWithComponentsAndMessage: Story = {
     },
   },
 };
+
+export const PushConfigWithNodeVersionFirstSet: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config_with_components",
+      metadata: {
+        auth_diff: { added: [], removed: [] },
+        component_diffs: [
+          {
+            component_path: null,
+            component_diff: {
+              diffType: { type: "modify" },
+              moduleDiff: { added: [], removed: [] },
+              cronDiff: { added: [], updated: [], deleted: [] },
+              schemaDiff: null,
+              udfConfigDiff: null,
+            },
+          },
+        ],
+        node_version_diff: {
+          previous_version: null,
+          next_version: "22",
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const PushConfigWithNodeVersionUpdate: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config_with_components",
+      metadata: {
+        auth_diff: { added: [], removed: [] },
+        component_diffs: [
+          {
+            component_path: null,
+            component_diff: {
+              diffType: { type: "modify" },
+              moduleDiff: { added: [], removed: [] },
+              cronDiff: { added: [], updated: [], deleted: [] },
+              schemaDiff: null,
+              udfConfigDiff: null,
+            },
+          },
+        ],
+        node_version_diff: {
+          previous_version: "22",
+          next_version: "20",
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const PushConfigWithNodeVersionUnset: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config_with_components",
+      metadata: {
+        auth_diff: { added: [], removed: [] },
+        component_diffs: [
+          {
+            component_path: null,
+            component_diff: {
+              diffType: { type: "modify" },
+              moduleDiff: { added: [], removed: [] },
+              cronDiff: { added: [], updated: [], deleted: [] },
+              schemaDiff: null,
+              udfConfigDiff: null,
+            },
+          },
+        ],
+        node_version_diff: {
+          previous_version: "22",
+          next_version: null,
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
