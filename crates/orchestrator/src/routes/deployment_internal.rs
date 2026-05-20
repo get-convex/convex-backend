@@ -329,6 +329,7 @@ pub(crate) async fn create_project(
         let dt: DeploymentType = dt_str
             .parse()
             .map_err(|_| ApiError::BadRequest(format!("unknown deployment type {dt_str}")))?;
+        crate::routes::management::deployments::ensure_host_capacity(&state, tier).await?;
         let name = crate::ids::random_deployment_name();
         let result = state
             .provisioner

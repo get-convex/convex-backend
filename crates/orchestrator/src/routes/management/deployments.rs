@@ -139,6 +139,7 @@ pub(crate) async fn create_deployment(
     if crate::provisioner::tiers::lookup(&tier).is_none() {
         return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
     }
+    ensure_host_capacity(&state, &tier).await?;
     // Merge project-level overrides with any deployment-level overrides.
     let project_overrides = project
         .knob_overrides
@@ -483,6 +484,39 @@ pub(crate) async fn transfer_deployment(
         .await
         .map_err(ApiError::Internal)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Check that provisioning a deployment of the given tier would not push
+/// total allocated memory past the host's physical limit.
+///
+/// Called from `create_deployment` and, via `pub(crate)`, from
+/// `deployment_internal::create_project`'s auto-provision path.
+pub(crate) async fn ensure_host_capacity(
+    state: &crate::state::OrchestratorState,
+    tier_name: &str,
+) -> crate::errors::ApiResult<()> {
+    let tier = crate::provisioner::tiers::lookup(tier_name)
+        .ok_or_else(|| ApiError::BadRequest(format!("unknown tier {tier_name}")))?;
+    let host = state.host_capacity.read();
+    let tiers = state
+        .storage
+        .list_deployment_tiers()
+        .await
+        .map_err(ApiError::Internal)?;
+    let allocated_mb: u64 = tiers
+        .iter()
+        .filter_map(|t| {
+            crate::provisioner::tiers::lookup(t).map(|tt| u64::from(tt.memory_mb))
+        })
+        .sum();
+    let projected = allocated_mb + u64::from(tier.memory_mb);
+    if projected > host.total_memory_mb {
+        return Err(ApiError::HostCapacityExceeded {
+            needed_mb: u64::from(tier.memory_mb),
+            free_mb: host.total_memory_mb.saturating_sub(allocated_mb),
+        });
+    }
+    Ok(())
 }
 
 #[allow(dead_code)]
