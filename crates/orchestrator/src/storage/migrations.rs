@@ -14,5 +14,19 @@ pub async fn run(pool: &PgPool) -> anyhow::Result<()> {
     conn.client()
         .batch_execute("DELETE FROM projects WHERE deleted = TRUE")
         .await?;
+    // Project-backend-knobs migration. Idempotent — `IF NOT EXISTS` on each
+    // column means re-running this against an already-migrated DB is a no-op.
+    conn.client()
+        .batch_execute(
+            r#"
+            ALTER TABLE projects
+              ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'S16',
+              ADD COLUMN IF NOT EXISTS knob_overrides JSONB NOT NULL DEFAULT '{}'::jsonb;
+            ALTER TABLE deployments
+              ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'S16',
+              ADD COLUMN IF NOT EXISTS knob_overrides JSONB NOT NULL DEFAULT '{}'::jsonb;
+            "#,
+        )
+        .await?;
     Ok(())
 }
