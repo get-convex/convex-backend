@@ -56,6 +56,8 @@ const EXPECTED_MANAGEMENT_OPERATIONS: &[(&str, &str)] = &[
     ("get", "/v1/projects/{project_id}"),
     ("get", "/v1/teams/{team_id_or_slug}/projects/{project_slug}"),
     ("post", "/v1/projects/{project_id}/delete"),
+    ("get", "/v1/projects/{project_id}/settings"),
+    ("patch", "/v1/projects/{project_id}/settings"),
     // deployments
     ("get", "/v1/projects/{project_id}/list_deployments"),
     ("post", "/v1/projects/{project_id}/create_deployment"),
@@ -226,6 +228,8 @@ fn deployment_auth_response_is_byte_identical_to_upstream() {
         "adminKey": "prod:happy-otter-123|s_secret",
         "url": "http://happy-otter-123.localhost:9000",
         "deploymentType": "prod",
+        "reference": null,
+        "isDefault": false,
     });
     let via_upstream: upstream::DeploymentAuthResponse =
         serde_json::from_value(upstream_json.clone()).expect("upstream parse");
@@ -257,6 +261,7 @@ impl Provisioner for StubProvisioner {
             instance_secret: "stub-instance-secret".into(),
             backend_pid: None,
             backend_port: 0,
+            resolved_env: std::collections::BTreeMap::new(),
         })
     }
 
@@ -380,6 +385,8 @@ async fn deployment_internal_flow_against_real_db() {
         project_name: "Integration Test Project".into(),
         deployment_type: Some("dev".into()),
         region: None,
+        tier: None,
+        knob_overrides: None,
     };
     let resp = app
         .clone()

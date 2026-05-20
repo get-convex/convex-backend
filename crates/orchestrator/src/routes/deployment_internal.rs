@@ -299,6 +299,28 @@ pub(crate) async fn create_project(
         .await
         .map_err(ApiError::Internal)?;
 
+    // Resolve and validate tier + knob overrides from the request.
+    let tier = args
+        .tier
+        .as_deref()
+        .unwrap_or(crate::provisioner::tiers::DEFAULT_TIER);
+    if crate::provisioner::tiers::lookup(tier).is_none() {
+        return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
+    }
+    let overrides = args.knob_overrides.clone().unwrap_or_default();
+    for (k, v) in &overrides {
+        if let Err(e) = crate::knob_registry::validate(k, v) {
+            return Err(ApiError::BadRequest(e.to_string()));
+        }
+    }
+    let overrides_json =
+        serde_json::to_value(&overrides).map_err(|e| ApiError::Internal(e.into()))?;
+    state
+        .storage
+        .update_project_settings(project.id, Some(tier), Some(&overrides_json))
+        .await
+        .map_err(ApiError::Internal)?;
+
     // Optionally provision a deployment.
     let mut deployment_name = None;
     let mut deployment_url = None;
@@ -307,6 +329,7 @@ pub(crate) async fn create_project(
         let dt: DeploymentType = dt_str
             .parse()
             .map_err(|_| ApiError::BadRequest(format!("unknown deployment type {dt_str}")))?;
+        crate::routes::management::deployments::ensure_host_capacity(&state, tier).await?;
         let name = crate::ids::random_deployment_name();
         let result = state
             .provisioner
@@ -314,9 +337,13 @@ pub(crate) async fn create_project(
                 deployment_name: name.clone(),
                 deployment_type: dt,
                 project_id: project.id,
+                tier: tier.to_string(),
+                knob_overrides: overrides.clone(),
             })
             .await
             .map_err(ApiError::Internal)?;
+        let resolved_overrides = serde_json::to_value(&result.resolved_env)
+            .map_err(|e| ApiError::Internal(e.into()))?;
         let new = state
             .storage
             .create_deployment(crate::storage::deployments::NewDeployment {
@@ -332,6 +359,8 @@ pub(crate) async fn create_project(
                 creator_id: Some(member_id),
                 preview_identifier: None,
                 instance_secret: &result.instance_secret,
+                tier,
+                knob_overrides: &resolved_overrides,
             })
             .await
             .map_err(ApiError::Internal)?;
@@ -482,6 +511,11 @@ pub(crate) async fn authorize_within_current_project(
         admin_key: admin_key.into(),
         url: deployment.url,
         deployment_type: dt,
+        // The orchestrator doesn't track BigBrain-style refs or per-project
+        // default flags; the auth response carries them on the upstream wire
+        // but for self-hosted both are always None/false.
+        reference: None,
+        is_default: false,
     }))
 }
 
@@ -539,6 +573,8 @@ pub(crate) async fn provision_and_authorize(
             admin_key: admin_key.into(),
             url: existing.url,
             deployment_type: to_common_deployment_type(dt),
+            reference: None,
+            is_default: false,
         }));
     }
 
@@ -549,6 +585,8 @@ pub(crate) async fn provision_and_authorize(
             deployment_name: name.clone(),
             deployment_type: dt,
             project_id: project.id,
+            tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+            knob_overrides: std::collections::BTreeMap::new(),
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -567,6 +605,8 @@ pub(crate) async fn provision_and_authorize(
             creator_id: Some(member_id),
             preview_identifier: None,
             instance_secret: &result.instance_secret,
+            tier: crate::provisioner::tiers::DEFAULT_TIER,
+            knob_overrides: &serde_json::json!({}),
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -597,6 +637,8 @@ pub(crate) async fn provision_and_authorize(
         admin_key: result.admin_key.into(),
         url: new.url,
         deployment_type: to_common_deployment_type(dt),
+        reference: None,
+        is_default: false,
     }))
 }
 
@@ -643,6 +685,8 @@ pub(crate) async fn claim_preview_deployment(
                     deployment_name: name.clone(),
                     deployment_type: DeploymentType::Preview,
                     project_id: project.id,
+                    tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+                    knob_overrides: std::collections::BTreeMap::new(),
                 })
                 .await
                 .map_err(ApiError::Internal)?;
@@ -661,6 +705,8 @@ pub(crate) async fn claim_preview_deployment(
                     creator_id: Some(member_id),
                     preview_identifier: Some(&args.identifier),
                     instance_secret: &result.instance_secret,
+                    tier: crate::provisioner::tiers::DEFAULT_TIER,
+                    knob_overrides: &serde_json::json!({}),
                 })
                 .await
                 .map_err(ApiError::Internal)?;
@@ -724,6 +770,8 @@ async fn resolve_team_and_project(
         team_id: common::types::TeamId(t.id as u64),
         project_id: common::types::ProjectId(p.id as u64),
         deployment_id: Some(common::types::DeploymentId(d.id as u64)),
+        reference: None,
+        is_default: false,
     }))
 }
 

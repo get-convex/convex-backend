@@ -194,11 +194,19 @@ export async function createProject(
   teamSlug: string,
   projectName: string,
   deploymentType: "prod" | "dev" | null = "prod",
+  tier?: string,
+  knobOverrides?: Record<string, string>,
 ): Promise<CreateProjectResponse> {
   return request<CreateProjectResponse>(baseUrl, "/api/create_project", {
     method: "POST",
     token,
-    body: JSON.stringify({ team: teamSlug, projectName, deploymentType }),
+    body: JSON.stringify({
+      team: teamSlug,
+      projectName,
+      deploymentType,
+      tier,
+      knobOverrides,
+    }),
   });
 }
 
@@ -263,4 +271,88 @@ export async function fetchDeploymentAuth(
     `/api/dashboard/instances/${deploymentName}/auth`,
     { method: "POST", token },
   );
+}
+
+// ---------- Project settings / host capacity / knob registry ----------
+
+export const projectSettingsResponseSchema = z.object({
+  tier: z.string(),
+  knobOverrides: z.record(z.string(), z.string()),
+});
+export type ProjectSettings = z.infer<typeof projectSettingsResponseSchema>;
+
+export async function getProjectSettings(
+  baseUrl: string,
+  token: string,
+  projectId: number,
+): Promise<ProjectSettings> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/v1/projects/${projectId}/settings`,
+    { token },
+  );
+  return projectSettingsResponseSchema.parse(data);
+}
+
+export async function patchProjectSettings(
+  baseUrl: string,
+  token: string,
+  projectId: number,
+  patch: {
+    tier?: string;
+    knobOverrides?: Record<string, string | null>;
+  },
+): Promise<ProjectSettings> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/v1/projects/${projectId}/settings`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(patch),
+    },
+  );
+  return projectSettingsResponseSchema.parse(data);
+}
+
+export const hostCapacityResponseSchema = z.object({
+  totalMemoryMb: z.number(),
+  totalCpus: z.number(),
+  allocatedMemoryMb: z.number(),
+  allocatedCpus: z.number(),
+  deploymentCount: z.number(),
+});
+export type HostCapacity = z.infer<typeof hostCapacityResponseSchema>;
+
+export async function getHostCapacity(
+  baseUrl: string,
+  token: string,
+): Promise<HostCapacity> {
+  const data = await request<unknown>(
+    baseUrl,
+    "/api/dashboard/host_capacity",
+    { token },
+  );
+  return hostCapacityResponseSchema.parse(data);
+}
+
+export const knobEntrySchema = z.object({
+  envVar: z.string(),
+  description: z.string(),
+  category: z.string(),
+  exposure: z.enum(["curated", "tierTuned", "advanced"]),
+  displayName: z.string().nullable(),
+});
+export type KnobEntry = z.infer<typeof knobEntrySchema>;
+
+export async function getKnobRegistry(
+  baseUrl: string,
+  token: string,
+): Promise<KnobEntry[]> {
+  const data = await request<{ knobs: unknown[] }>(
+    baseUrl,
+    "/api/dashboard/knob_registry",
+    { token },
+  );
+  return z.array(knobEntrySchema).parse(data.knobs);
 }

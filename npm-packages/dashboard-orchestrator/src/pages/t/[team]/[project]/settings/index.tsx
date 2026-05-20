@@ -3,6 +3,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Button } from "@ui/Button";
+import { Link as UiLink } from "@ui/Link";
 import { TextInput } from "@ui/TextInput";
 import { Sheet } from "@ui/Sheet";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
@@ -15,11 +16,19 @@ import {
 } from "../../../../../lib/orchestratorApi";
 import { useAccessToken } from "../../../../../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../../../../../lib/config";
+import {
+  BackendSettingsForm,
+  type BackendSettingsDraft,
+} from "../../../../../components/backendSettings/BackendSettingsForm";
+import { useHostCapacity } from "../../../../../hooks/useHostCapacity";
+import { useKnobRegistry } from "../../../../../hooks/useKnobRegistry";
+import { useProjectSettings } from "../../../../../hooks/useProjectSettings";
 
 const SECTION_IDS = {
   projectForm: "project-form",
   projectUsage: "project-usage",
   projectAdmins: "project-admins",
+  backend: "backend",
   envVars: "env-vars",
   deleteProject: "delete-project",
 } as const;
@@ -28,6 +37,7 @@ const sections: Array<{ id: string; label: string }> = [
   { id: SECTION_IDS.projectForm, label: "Edit Project" },
   { id: SECTION_IDS.projectUsage, label: "Project Usage" },
   { id: SECTION_IDS.projectAdmins, label: "Project Admins" },
+  { id: SECTION_IDS.backend, label: "Backend" },
   { id: SECTION_IDS.envVars, label: "Environment Variables" },
   { id: SECTION_IDS.deleteProject, label: "Delete Project" },
 ];
@@ -142,6 +152,9 @@ export default function ProjectSettingsPage() {
                     token={token}
                     url={url}
                   />
+                </div>
+                <div id={SECTION_IDS.backend}>
+                  <BackendSection team={team} project={project} />
                 </div>
                 <div id={SECTION_IDS.envVars}>
                   <EnvVarsSection project={project} token={token} url={url} />
@@ -769,6 +782,96 @@ function ProjectAdminsSection({
           </li>
         )}
       </ul>
+    </Sheet>
+  );
+}
+
+function BackendSection({ team, project }: { team: Team; project: Project }) {
+  const { settings, save } = useProjectSettings(project.id);
+  const { data: capacity } = useHostCapacity();
+  const { data: registry } = useKnobRegistry();
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [draft, setDraft] = useState<BackendSettingsDraft | null>(null);
+
+  useEffect(() => {
+    if (settings && draft === null) {
+      setDraft({
+        tier: settings.tier,
+        overrides: { ...settings.knobOverrides },
+      });
+    }
+  }, [settings, draft]);
+
+  const dirty =
+    !!settings &&
+    !!draft &&
+    (draft.tier !== settings.tier ||
+      JSON.stringify(draft.overrides) !==
+        JSON.stringify(settings.knobOverrides));
+
+  const onSave = async () => {
+    if (!draft) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const patch: Record<string, string | null> = { ...draft.overrides };
+      if (settings) {
+        for (const k of Object.keys(settings.knobOverrides)) {
+          if (!(k in draft.overrides)) patch[k] = null;
+        }
+      }
+      await save({ tier: draft.tier, knobOverrides: patch });
+      setSavedAt(Date.now());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!draft) {
+    return (
+      <Sheet>
+        <h3 className="mb-4 text-base font-semibold">Backend</h3>
+        <p className="text-sm text-content-secondary">Loading…</p>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet>
+      <h3 className="mb-4 text-base font-semibold">Backend</h3>
+      <BackendSettingsForm
+        registry={registry}
+        capacity={capacity}
+        tierDefaults={{}}
+        initial={draft}
+        onChange={setDraft}
+      />
+      {savedAt && !dirty && (
+        <p className="mt-3 text-xs text-content-secondary">
+          Saved. Applies to new deployments only. Existing deployments keep
+          their current settings — re-create them to pick up the changes (clears
+          their data, backends have no persistent volumes).
+        </p>
+      )}
+      {error && (
+        <div className="mt-2 text-xs text-content-error" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="mt-4 flex items-center justify-between">
+        <UiLink
+          href={`/t/${team.slug}/${project.slug}/settings/advanced-knobs`}
+        >
+          View advanced settings →
+        </UiLink>
+        <Button size="xs" onClick={onSave} disabled={!dirty || saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
     </Sheet>
   );
 }

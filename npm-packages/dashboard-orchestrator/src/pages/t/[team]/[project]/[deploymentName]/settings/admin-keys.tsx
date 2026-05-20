@@ -74,8 +74,8 @@ function AdminKeysPageBody({
         </Button>
       </div>
       <p className="mb-2 max-w-prose text-content-primary">
-        Admin keys grant full access to this deployment via the dashboard or
-        the Convex CLI. Paste them into{" "}
+        Admin keys grant full access to this deployment via the dashboard or the
+        Convex CLI. Paste them into{" "}
         <code className="rounded bg-background-tertiary px-1 text-xs">
           CONVEX_SELF_HOSTED_ADMIN_KEY
         </code>{" "}

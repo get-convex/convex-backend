@@ -414,6 +414,81 @@
         }
       }
     },
+    "/v1/projects/{project_id}/settings": {
+      "get": {
+        "tags": ["projects"],
+        "operationId": "get_project_settings",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSettingsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["projects"],
+        "operationId": "patch_project_settings",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectSettingsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "unknown tier or knob"
+          },
+          "404": {
+            "description": "project not found"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/list_deployments": {
       "get": {
         "tags": ["deployments"],
@@ -2906,6 +2981,42 @@
         }
       }
     },
+    "/api/dashboard/host_capacity": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "host_capacity",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostCapacityResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/knob_registry": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "knob_registry",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnobRegistryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dashboard/teams/{team_id}/usage/team_usage_state": {
       "get": {
         "tags": ["dashboard_stubs"],
@@ -3218,6 +3329,15 @@
           "deploymentType": {
             "type": ["string", "null"]
           },
+          "knobOverrides": {
+            "type": ["object", "null"],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
           "projectName": {
             "type": "string"
           },
@@ -3226,6 +3346,9 @@
           },
           "team": {
             "type": "string"
+          },
+          "tier": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -3297,7 +3420,13 @@
       },
       "DeploymentAuthResponse": {
         "type": "object",
-        "required": ["deploymentName", "adminKey", "url", "deploymentType"],
+        "required": [
+          "deploymentName",
+          "adminKey",
+          "url",
+          "deploymentType",
+          "isDefault"
+        ],
         "properties": {
           "adminKey": {
             "$ref": "#/components/schemas/AccessToken"
@@ -3307,6 +3436,14 @@
           },
           "deploymentType": {
             "$ref": "#/components/schemas/DeploymentType"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Preview/custom/local are always `false`."
+          },
+          "reference": {
+            "type": ["string", "null"],
+            "description": "The user-facing reference for this deployment (e.g. `preview/pr-42`),\nusable as the `<ref>` in `team:project:<ref>` selectors. `None` for\nlocal deployments, which don't have a Big Brain reference."
           },
           "url": {
             "type": "string"
@@ -3534,6 +3671,42 @@
           }
         }
       },
+      "HostCapacityResponse": {
+        "type": "object",
+        "required": [
+          "totalMemoryMb",
+          "totalCpus",
+          "allocatedMemoryMb",
+          "allocatedCpus",
+          "deploymentCount"
+        ],
+        "properties": {
+          "allocatedCpus": {
+            "type": "number",
+            "format": "float"
+          },
+          "allocatedMemoryMb": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "deploymentCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "totalCpus": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "totalMemoryMb": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "InvitationArgs": {
         "type": "object",
         "required": ["email", "role"],
@@ -3567,6 +3740,39 @@
           },
           "role": {
             "type": "string"
+          }
+        }
+      },
+      "KnobEntry": {
+        "type": "object",
+        "required": ["envVar", "description", "category", "exposure"],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": ["string", "null"]
+          },
+          "envVar": {
+            "type": "string"
+          },
+          "exposure": {
+            "type": "string"
+          }
+        }
+      },
+      "KnobRegistryResponse": {
+        "type": "object",
+        "required": ["knobs"],
+        "properties": {
+          "knobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnobEntry"
+            }
           }
         }
       },
@@ -3714,11 +3920,25 @@
           "kind": {
             "type": "string"
           },
+          "knobOverrides": {
+            "type": ["object", "null"],
+            "description": "Per-deployment knob overrides layered on top of the project's\n`knob_overrides`. Empty omitted.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
           "previewIdentifier": {
             "type": ["string", "null"]
           },
           "region": {
             "type": ["string", "null"]
+          },
+          "tier": {
+            "type": ["string", "null"],
+            "description": "Overrides the project's default tier for this deployment only."
           }
         }
       },
@@ -4109,6 +4329,25 @@
           }
         ]
       },
+      "ProjectSettingsResponse": {
+        "type": "object",
+        "required": ["tier", "knobOverrides"],
+        "properties": {
+          "knobOverrides": {
+            "type": "object",
+            "description": "Flat map from env var name to canonical string value. Empty when no\noverrides have been set (the deployment will use tier defaults).",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "tier": {
+            "type": "string"
+          }
+        }
+      },
       "ProjectSlug": {
         "type": "string"
       },
@@ -4365,7 +4604,7 @@
       },
       "TeamAndProjectForDeploymentResponse": {
         "type": "object",
-        "required": ["team", "project", "teamId", "projectId"],
+        "required": ["team", "project", "teamId", "projectId", "isDefault"],
         "properties": {
           "deploymentId": {
             "oneOf": [
@@ -4377,11 +4616,19 @@
               }
             ]
           },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Always `false` for local deployments."
+          },
           "project": {
             "$ref": "#/components/schemas/ProjectSlug"
           },
           "projectId": {
             "$ref": "#/components/schemas/ProjectId"
+          },
+          "reference": {
+            "type": ["string", "null"],
+            "description": "The user-facing reference for this deployment (e.g. `preview/pr-42`),\nusable as the `<ref>` in `team:project:<ref>` selectors. `None` for\nlocal deployments."
           },
           "team": {
             "$ref": "#/components/schemas/TeamSlug"
@@ -4532,6 +4779,25 @@
           "projectId": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "UpdateProjectSettingsArgs": {
+        "type": "object",
+        "properties": {
+          "knobOverrides": {
+            "type": ["object", "null"],
+            "description": "Replace the override map entirely. Omit to leave unchanged. A value\nof `null` for any individual knob clears that override (so the\neffective value falls back to tier default).",
+            "additionalProperties": {
+              "type": ["string", "null"]
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "tier": {
+            "type": ["string", "null"],
+            "description": "Set to switch tier. Omit to leave unchanged."
           }
         }
       },

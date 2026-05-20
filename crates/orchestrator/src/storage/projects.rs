@@ -12,6 +12,8 @@ pub struct ProjectRecord {
     pub is_demo: bool,
     pub creation_time: i64,
     pub deleted: bool,
+    pub tier: String,
+    pub knob_overrides: serde_json::Value,
 }
 
 impl Storage {
@@ -42,6 +44,10 @@ impl Storage {
             is_demo,
             creation_time: now,
             deleted: false,
+            // Mirrors the `tier DEFAULT 'S16'` and `knob_overrides DEFAULT '{}'::jsonb`
+            // schema defaults — keep these in sync if the schema changes.
+            tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+            knob_overrides: serde_json::Value::Object(Default::default()),
         })
     }
 
@@ -50,7 +56,7 @@ impl Storage {
         let row = conn
             .client()
             .query_opt(
-                "SELECT id, team_id, name, slug, is_demo, creation_time, deleted
+                "SELECT id, team_id, name, slug, is_demo, creation_time, deleted, tier, knob_overrides
                  FROM projects WHERE id = $1",
                 &[&id],
             )
@@ -67,7 +73,7 @@ impl Storage {
         let row = conn
             .client()
             .query_opt(
-                "SELECT id, team_id, name, slug, is_demo, creation_time, deleted
+                "SELECT id, team_id, name, slug, is_demo, creation_time, deleted, tier, knob_overrides
                  FROM projects WHERE team_id = $1 AND slug = $2 AND deleted = FALSE",
                 &[&team_id, &slug],
             )
@@ -83,7 +89,7 @@ impl Storage {
         let rows = conn
             .client()
             .query(
-                "SELECT id, team_id, name, slug, is_demo, creation_time, deleted
+                "SELECT id, team_id, name, slug, is_demo, creation_time, deleted, tier, knob_overrides
                  FROM projects WHERE team_id = $1 AND deleted = FALSE
                  ORDER BY creation_time ASC",
                 &[&team_id],
@@ -213,6 +219,34 @@ impl Storage {
         }
         Ok(())
     }
+
+    /// Replace the project's tier + knob_overrides atomically. Either field
+    /// can be `None` to leave it unchanged.
+    pub async fn update_project_settings(
+        &self,
+        project_id: i64,
+        tier: Option<&str>,
+        knob_overrides: Option<&serde_json::Value>,
+    ) -> anyhow::Result<()> {
+        let conn = self.pool().acquire().await?;
+        if let Some(tier) = tier {
+            conn.client()
+                .execute(
+                    "UPDATE projects SET tier = $1 WHERE id = $2",
+                    &[&tier, &project_id],
+                )
+                .await?;
+        }
+        if let Some(overrides) = knob_overrides {
+            conn.client()
+                .execute(
+                    "UPDATE projects SET knob_overrides = $1 WHERE id = $2",
+                    &[&overrides, &project_id],
+                )
+                .await?;
+        }
+        Ok(())
+    }
 }
 
 fn map_project(row: Row) -> ProjectRecord {
@@ -224,5 +258,7 @@ fn map_project(row: Row) -> ProjectRecord {
         is_demo: row.get(4),
         creation_time: row.get(5),
         deleted: row.get(6),
+        tier: row.get(7),
+        knob_overrides: row.get(8),
     }
 }

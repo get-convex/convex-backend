@@ -6796,6 +6796,8 @@ dependencies = [
  "sha2",
  "slugify",
  "strum 0.28.0",
+ "syn 2.0.108",
+ "sysinfo 0.33.1",
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
@@ -8659,7 +8661,7 @@ dependencies = [
  "smallvec",
  "smol_str",
  "sparse",
- "sysinfo",
+ "sysinfo 0.30.12",
  "tar",
  "tempfile",
  "thiserror 1.0.59",
@@ -9585,6 +9587,20 @@ dependencies = [
  "once_cell",
  "rayon",
  "windows 0.52.0",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.33.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fc858248ea01b66f19d8e8a6d55f41deaf91e9d495246fd01368d99935c6c01"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+ "memchr",
+ "ntapi",
+ "rayon",
+ "windows 0.54.0",
 ]
 
 [[package]]

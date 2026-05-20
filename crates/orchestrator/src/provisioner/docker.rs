@@ -144,6 +144,29 @@ impl Provisioner for DockerProvisioner {
             })
             .collect();
 
+        let tier = crate::provisioner::tiers::lookup(&req.tier).ok_or_else(|| {
+            anyhow::anyhow!(
+                "unknown tier {} (known: {:?})",
+                req.tier,
+                crate::provisioner::tiers::all_tier_names().collect::<Vec<_>>()
+            )
+        })?;
+
+        let base_env: Vec<(&str, String)> = vec![
+            ("INSTANCE_NAME", req.deployment_name.clone()),
+            ("INSTANCE_SECRET", instance_secret.clone()),
+            ("CONVEX_CLOUD_ORIGIN", url.clone()),
+            ("CONVEX_SITE_ORIGIN", site_url.clone()),
+            ("DISABLE_BEACON", "true".into()),
+            ("DO_NOT_REQUIRE_SSL", "true".into()),
+            ("DOCUMENT_RETENTION_DELAY", "172800".into()),
+        ];
+        let env = crate::provisioner::env::compose_env(
+            base_env.iter().map(|(k, v)| (*k, v.as_str())),
+            tier.knob_defaults,
+            req.knob_overrides.iter().map(|(k, v)| (k.clone(), v.clone())),
+        );
+
         let container_name = self.container_name(&req.deployment_name);
 
         // Note: no `-p` mappings. The proxy reaches each backend over the
@@ -155,27 +178,23 @@ impl Provisioner for DockerProvisioner {
             "-d".into(),
             "--restart".into(),
             "unless-stopped".into(),
+            "--memory".into(),
+            format!("{}m", tier.memory_mb),
+            "--cpus".into(),
+            format!("{:.2}", tier.cpus),
             "--name".into(),
             container_name.clone(),
-            "-e".into(),
-            format!("INSTANCE_NAME={}", req.deployment_name),
-            "-e".into(),
-            format!("INSTANCE_SECRET={instance_secret}"),
-            "-e".into(),
-            format!("CONVEX_CLOUD_ORIGIN={url}"),
-            "-e".into(),
-            format!("CONVEX_SITE_ORIGIN={site_url}"),
-            "-e".into(),
-            "DISABLE_BEACON=true".into(),
-            "-e".into(),
-            "DO_NOT_REQUIRE_SSL=true".into(),
-            "-e".into(),
-            "DOCUMENT_RETENTION_DELAY=172800".into(),
             "--label".into(),
             format!("orchestrator.deployment={}", req.deployment_name),
             "--label".into(),
             format!("orchestrator.project_id={}", req.project_id),
+            "--label".into(),
+            format!("orchestrator.tier={}", tier.name),
         ];
+        for (k, v) in &env {
+            args.push("-e".into());
+            args.push(format!("{k}={v}"));
+        }
         if let Some(net) = self.network.as_deref()
             && !net.is_empty()
         {
@@ -243,6 +262,7 @@ impl Provisioner for DockerProvisioner {
             instance_secret: admin_key_from_backend,
             backend_pid: None,
             backend_port: api_port as i64,
+            resolved_env: env,
         })
     }
 

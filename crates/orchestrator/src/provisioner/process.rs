@@ -91,6 +91,7 @@ impl Provisioner for ProcessProvisioner {
             instance_secret,
             backend_pid: None,
             backend_port: port as i64,
+            resolved_env: std::collections::BTreeMap::new(),
         })
     }
 

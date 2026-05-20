@@ -53,6 +53,8 @@ pub struct DeploymentRecord {
     pub state: DeploymentState,
     pub preview_identifier: Option<String>,
     pub instance_secret: String,
+    pub tier: String,
+    pub knob_overrides: serde_json::Value,
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +71,8 @@ pub struct NewDeployment<'a> {
     pub creator_id: Option<i64>,
     pub preview_identifier: Option<&'a str>,
     pub instance_secret: &'a str,
+    pub tier: &'a str,
+    pub knob_overrides: &'a serde_json::Value,
 }
 
 impl Storage {
@@ -86,8 +90,8 @@ impl Storage {
                 "INSERT INTO deployments (
                     project_id, name, deployment_type, deployment_class, region, url,
                     site_url, backend_pid, backend_port, creator_id, creation_time, state,
-                    preview_identifier, instance_secret
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'running',$12,$13)
+                    preview_identifier, instance_secret, tier, knob_overrides
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'running',$12,$13,$14,$15)
                 RETURNING id",
                 &[
                     &n.project_id,
@@ -103,6 +107,8 @@ impl Storage {
                     &now,
                     &n.preview_identifier,
                     &n.instance_secret,
+                    &n.tier,
+                    &n.knob_overrides,
                 ],
             )
             .await?;
@@ -123,6 +129,8 @@ impl Storage {
             state: DeploymentState::Running,
             preview_identifier: n.preview_identifier.map(str::to_string),
             instance_secret: n.instance_secret.to_string(),
+            tier: n.tier.to_string(),
+            knob_overrides: n.knob_overrides.clone(),
         })
     }
 
@@ -194,7 +202,7 @@ impl Storage {
             .query_opt(
                 "SELECT id, project_id, name, deployment_type, deployment_class, region, url,
                         site_url, backend_pid, backend_port, creator_id, creation_time, state,
-                        preview_identifier, instance_secret
+                        preview_identifier, instance_secret, tier, knob_overrides
                  FROM deployments
                  WHERE project_id = $1 AND deployment_type = $2
                    AND preview_identifier IS NULL
@@ -257,12 +265,23 @@ impl Storage {
             .await?;
         Ok(())
     }
+
+    /// Returns tier strings for all deployments. Caller joins against TIERS to
+    /// sum memory/CPU.
+    pub async fn list_deployment_tiers(&self) -> anyhow::Result<Vec<String>> {
+        let conn = self.pool().acquire().await?;
+        let rows = conn
+            .client()
+            .query("SELECT tier FROM deployments", &[])
+            .await?;
+        Ok(rows.into_iter().map(|r| r.get::<_, String>(0)).collect())
+    }
 }
 
-const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret FROM deployments WHERE id = $1";
-const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret FROM deployments WHERE name = $1";
-const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
-const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
+const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE id = $1";
+const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE name = $1";
+const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
+const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
 
 fn map_deployment(row: Row) -> DeploymentRecord {
     DeploymentRecord {
@@ -290,5 +309,7 @@ fn map_deployment(row: Row) -> DeploymentRecord {
             .unwrap_or(DeploymentState::Running),
         preview_identifier: row.get(13),
         instance_secret: row.get(14),
+        tier: row.get(15),
+        knob_overrides: row.get(16),
     }
 }
