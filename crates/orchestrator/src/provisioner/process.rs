@@ -92,6 +92,7 @@ impl Provisioner for ProcessProvisioner {
             backend_pid: None,
             backend_port: port as i64,
             resolved_env: std::collections::BTreeMap::new(),
+            sidecar_credentials: None,
         })
     }
 

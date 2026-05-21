@@ -179,6 +179,7 @@ pub(crate) async fn create_deployment(
             tier: tier.clone(),
             knob_overrides: overrides.clone(),
             existing_instance_secret: None,
+            sidecar_credentials: None,
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -829,6 +830,7 @@ pub(crate) async fn restart_deployment(
             tier: effective_tier.clone(),
             knob_overrides: overrides,
             existing_instance_secret: Some(deployment.instance_secret.clone()),
+            sidecar_credentials: None,
         })
         .await
         .map_err(ApiError::Internal)?;

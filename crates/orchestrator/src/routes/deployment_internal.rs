@@ -340,6 +340,7 @@ pub(crate) async fn create_project(
                 tier: tier.to_string(),
                 knob_overrides: overrides.clone(),
                 existing_instance_secret: None,
+                sidecar_credentials: None,
             })
             .await
             .map_err(ApiError::Internal)?;
@@ -595,6 +596,7 @@ pub(crate) async fn provision_and_authorize(
             tier: tier.clone(),
             knob_overrides: std::collections::BTreeMap::new(),
             existing_instance_secret: None,
+            sidecar_credentials: None,
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -703,6 +705,7 @@ pub(crate) async fn claim_preview_deployment(
                     tier: tier.clone(),
                     knob_overrides: std::collections::BTreeMap::new(),
                     existing_instance_secret: None,
+                    sidecar_credentials: None,
                 })
                 .await
                 .map_err(ApiError::Internal)?;

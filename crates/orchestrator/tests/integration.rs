@@ -265,6 +265,7 @@ impl Provisioner for StubProvisioner {
             backend_pid: None,
             backend_port: 0,
             resolved_env: std::collections::BTreeMap::new(),
+            sidecar_credentials: None,
         })
     }
 

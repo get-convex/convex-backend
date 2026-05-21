@@ -52,6 +52,9 @@ impl OrchestratorState {
                     config.router_host.clone(),
                     config.router_public_port,
                     config.router_public_scheme.clone(),
+                    // Task 7 will wire this from CLI flags. For now, the
+                    // hardcoded VolumeSqlite preserves v2 behavior exactly.
+                    crate::provisioner::ProvisioningStrategy::VolumeSqlite,
                 );
                 // Re-seed port allocator from the highest backend_port already
                 // recorded so we don't collide with surviving containers.

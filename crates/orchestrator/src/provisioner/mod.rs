@@ -35,6 +35,26 @@ pub enum ProvisioningStrategy {
     },
 }
 
+/// Credentials minted (or reused) for a deployment's sidecar containers.
+/// Only populated when the provisioner runs in `Sidecar` mode; the caller
+/// snapshots them onto the deployment row so restart can reuse them.
+#[derive(Clone)]
+pub struct SidecarCredentials {
+    pub pg_password: String,
+    pub minio_root_user: String,
+    pub minio_root_password: String,
+}
+
+impl std::fmt::Debug for SidecarCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SidecarCredentials")
+            .field("pg_password", &"<redacted>")
+            .field("minio_root_user", &"<redacted>")
+            .field("minio_root_password", &"<redacted>")
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProvisionRequest {
     pub deployment_name: String,
@@ -49,6 +69,11 @@ pub struct ProvisionRequest {
     /// one. Used by the restart flow so the backend's admin keys stay valid
     /// across restarts (they are derived from this secret).
     pub existing_instance_secret: Option<String>,
+    /// When `Some(...)`, the provisioner reuses these sidecar credentials
+    /// instead of minting new ones. Set by the restart flow so the new
+    /// backend container connects to the same already-running pg/minio
+    /// sidecars with the same credentials.
+    pub sidecar_credentials: Option<SidecarCredentials>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +89,10 @@ pub struct ProvisionResult {
     /// The fully-resolved env that was passed to the backend container
     /// (base + tier defaults + project overrides), snapshotted for audit.
     pub resolved_env: BTreeMap<String, String>,
+    /// Populated when the strategy was Sidecar. Carries the credentials
+    /// (either freshly minted or reused) so the caller can snapshot them
+    /// onto the deployment row.
+    pub sidecar_credentials: Option<SidecarCredentials>,
 }
 
 #[async_trait]
