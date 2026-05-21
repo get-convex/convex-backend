@@ -146,11 +146,16 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
 
     #[fastrace::trace]
     pub async fn get_all(&mut self) -> anyhow::Result<BTreeMap<EnvVarName, EnvVarValue>> {
-        let query = Query::full_table_scan(ENVIRONMENT_VARIABLES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut environment_variables = BTreeMap::new();
-        while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let env_var: ParsedDocument<PersistedEnvironmentVariable> = doc.parse()?;
+        for env_var in self
+            .tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<EnvironmentVariablesTable>::by_creation_time(),
+            )?
+            .all()
+            .await?
+        {
             let old_value = environment_variables
                 .insert(env_var.0.name().to_owned(), env_var.0.value().to_owned());
             anyhow::ensure!(old_value.is_none(), "Duplicate environment variable");

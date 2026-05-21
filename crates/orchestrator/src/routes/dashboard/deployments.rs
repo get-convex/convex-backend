@@ -203,6 +203,11 @@ pub(crate) async fn register_deployment(
             pg_password: None,
             minio_root_user: None,
             minio_root_password: None,
+            // Externally-registered deployments — operator owns the
+            // backend, we never see the raw INSTANCE_SECRET. Restart
+            // would be a no-op for these anyway (External provisioner
+            // bails), so leaving this NULL is fine.
+            backend_instance_secret: None,
         })
         .await
         .map_err(ApiError::Internal)?;

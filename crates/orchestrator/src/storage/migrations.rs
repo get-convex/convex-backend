@@ -55,5 +55,18 @@ pub async fn run(pool: &PgPool) -> anyhow::Result<()> {
             "#,
         )
         .await?;
+    // Hotfix migration: persist the 64-hex INSTANCE_SECRET env var
+    // separately from the `instance_secret` column (which actually holds
+    // the backend-produced admin key). Without this, restart_deployment
+    // would feed the admin key back as INSTANCE_SECRET and the backend
+    // would fail to hex-decode it.
+    conn.client()
+        .batch_execute(
+            r#"
+            ALTER TABLE deployments
+              ADD COLUMN IF NOT EXISTS backend_instance_secret TEXT;
+            "#,
+        )
+        .await?;
     Ok(())
 }

@@ -435,6 +435,11 @@ impl Provisioner for DockerProvisioner {
             // We store the backend-derived admin key here so
             // `ephemeral_admin_key` returns it as-is for the dashboard.
             instance_secret: admin_key_from_backend,
+            // The 64-hex secret we actually fed to the backend; the
+            // caller persists this so restart can reuse it (without it,
+            // restart would round-trip the admin key as INSTANCE_SECRET
+            // and the backend would fail to hex-decode it).
+            backend_instance_secret: instance_secret.clone(),
             backend_pid: None,
             backend_port: api_port as i64,
             resolved_env: env,
