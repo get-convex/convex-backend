@@ -113,5 +113,6 @@ pub fn deployment_to_platform(d: &DeploymentRecord) -> PlatformDeploymentRespons
         creation_time: d.creation_time as f64,
         region: d.region.clone(),
         preview_identifier: d.preview_identifier.clone(),
+        tier: d.tier.clone(),
     }
 }

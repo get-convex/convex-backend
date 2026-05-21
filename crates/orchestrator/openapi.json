@@ -4089,6 +4089,10 @@
           "state": {
             "type": "string"
           },
+          "tier": {
+            "type": "string",
+            "description": "Resource tier (S4/S8/S16/S32/S64/S128/S256/max) snapshotted on the\ndeployment row at provision time. Surfaced so the dashboard can\ndisplay the tier badge without an extra request to settings."
+          },
           "url": {
             "type": "string"
           }

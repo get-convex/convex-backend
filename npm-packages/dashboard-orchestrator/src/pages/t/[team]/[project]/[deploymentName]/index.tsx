@@ -23,6 +23,10 @@ export default function HealthPage() {
       deployment={deployment}
       teamSlug={team?.slug}
       projectSlug={project?.slug}
+      // Orchestrator deployments don't expose a "last backup time" via
+      // BigBrain. Pass `null` so DeploymentSummary renders "No backup yet"
+      // (with a link to the Backups page) instead of spinning forever.
+      lastBackupTime={null}
     />
   );
 }

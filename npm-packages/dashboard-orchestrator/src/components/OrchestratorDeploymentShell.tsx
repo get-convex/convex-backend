@@ -146,7 +146,11 @@ export function OrchestratorDeploymentShell({
         deploymentType: (deployment.deploymentType ??
           deployment.kind ??
           "prod") as "prod" | "dev" | "preview" | "custom",
-        class: deployment.deploymentClass ?? "standard",
+        // Surface the resource tier (S4/S8/S16/.../max) as the deployment's
+        // `class` so the summary card badge shows something meaningful for
+        // orchestrator deployments. Falls back to "S16" if the orchestrator
+        // pre-dates the tier-on-platform-response field.
+        class: deployment.tier ?? "S16",
         deploymentUrl: deployment.url,
         createTime: deployment.creationTime,
         region: deployment.region ?? "",

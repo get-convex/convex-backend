@@ -59,6 +59,11 @@ pub struct PlatformDeploymentResponse {
     pub creation_time: f64,
     pub region: Option<String>,
     pub preview_identifier: Option<String>,
+    /// Resource tier (S4/S8/S16/S32/S64/S128/S256/max) snapshotted on the
+    /// deployment row at provision time. Surfaced so the dashboard can
+    /// display the tier badge without an extra request to settings.
+    #[serde(default)]
+    pub tier: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]

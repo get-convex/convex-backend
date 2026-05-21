@@ -219,6 +219,13 @@ pub(crate) async fn list_members(
             .await
             .map_err(ApiError::Internal)?
         {
+            // Hide the synthetic "System (bootstrap)" member from the team
+            // members list — it exists only so the CLI bootstrap-token flow
+            // has a member to attach PATs to, not as an actual user. Real
+            // operators don't need to see or manage it.
+            if m.auth_user_id == crate::state::SYSTEM_AUTH_USER_ID {
+                continue;
+            }
             out.push(TeamMember {
                 id: m.id as u64,
                 email: m.primary_email,
