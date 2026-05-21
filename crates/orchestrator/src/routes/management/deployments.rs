@@ -201,6 +201,10 @@ pub(crate) async fn create_deployment(
             instance_secret: &result.instance_secret,
             tier: &tier,
             knob_overrides: &resolved_overrides,
+            storage_mode: "volume-sqlite",
+            pg_password: None,
+            minio_root_user: None,
+            minio_root_password: None,
         })
         .await
         .map_err(ApiError::Internal)?;
