@@ -329,7 +329,7 @@ pub(crate) async fn create_project(
         let dt: DeploymentType = dt_str
             .parse()
             .map_err(|_| ApiError::BadRequest(format!("unknown deployment type {dt_str}")))?;
-        crate::routes::management::deployments::ensure_host_capacity(&state, tier).await?;
+        crate::routes::management::deployments::ensure_host_capacity(&state, tier, false).await?;
         let name = crate::ids::random_deployment_name();
         let result = state
             .provisioner
@@ -578,6 +578,8 @@ pub(crate) async fn provision_and_authorize(
         }));
     }
 
+    let tier = crate::provisioner::tiers::DEFAULT_TIER.to_string();
+    crate::routes::management::deployments::ensure_host_capacity(&state, &tier, false).await?;
     let name = crate::ids::random_deployment_name();
     let result = state
         .provisioner
@@ -585,7 +587,7 @@ pub(crate) async fn provision_and_authorize(
             deployment_name: name.clone(),
             deployment_type: dt,
             project_id: project.id,
-            tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+            tier: tier.clone(),
             knob_overrides: std::collections::BTreeMap::new(),
         })
         .await
@@ -605,7 +607,7 @@ pub(crate) async fn provision_and_authorize(
             creator_id: Some(member_id),
             preview_identifier: None,
             instance_secret: &result.instance_secret,
-            tier: crate::provisioner::tiers::DEFAULT_TIER,
+            tier: &tier,
             knob_overrides: &serde_json::json!({}),
         })
         .await
@@ -678,6 +680,9 @@ pub(crate) async fn claim_preview_deployment(
     let deployment = match existing {
         Some(d) => d,
         None => {
+            let tier = crate::provisioner::tiers::DEFAULT_TIER.to_string();
+            crate::routes::management::deployments::ensure_host_capacity(&state, &tier, false)
+                .await?;
             let name = crate::ids::random_deployment_name();
             let result = state
                 .provisioner
@@ -685,7 +690,7 @@ pub(crate) async fn claim_preview_deployment(
                     deployment_name: name.clone(),
                     deployment_type: DeploymentType::Preview,
                     project_id: project.id,
-                    tier: crate::provisioner::tiers::DEFAULT_TIER.to_string(),
+                    tier: tier.clone(),
                     knob_overrides: std::collections::BTreeMap::new(),
                 })
                 .await
@@ -705,7 +710,7 @@ pub(crate) async fn claim_preview_deployment(
                     creator_id: Some(member_id),
                     preview_identifier: Some(&args.identifier),
                     instance_secret: &result.instance_secret,
-                    tier: crate::provisioner::tiers::DEFAULT_TIER,
+                    tier: &tier,
                     knob_overrides: &serde_json::json!({}),
                 })
                 .await

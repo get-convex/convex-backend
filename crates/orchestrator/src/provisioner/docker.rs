@@ -110,6 +110,10 @@ impl DockerProvisioner {
     fn container_name(&self, deployment_name: &str) -> String {
         format!("{}{}", self.container_prefix, deployment_name)
     }
+
+    fn volume_name(&self, deployment_name: &str) -> String {
+        format!("{}{}", self.container_prefix, deployment_name)
+    }
 }
 
 #[async_trait]
@@ -168,6 +172,25 @@ impl Provisioner for DockerProvisioner {
         );
 
         let container_name = self.container_name(&req.deployment_name);
+        let volume_name = self.volume_name(&req.deployment_name);
+
+        // Ensure a named volume exists for this deployment's persistent data.
+        // `docker volume create` is idempotent for the same name + driver, so
+        // "already exists" is not an error. We bail hard on any other failure
+        // to avoid stranding a container without its volume.
+        let vol_output = Command::new("docker")
+            .args(["volume", "create", &volume_name])
+            .output()
+            .await
+            .map_err(|e| anyhow::anyhow!("docker volume create failed: {e}"))?;
+        if !vol_output.status.success() {
+            let stderr = String::from_utf8_lossy(&vol_output.stderr);
+            anyhow::bail!(
+                "docker volume create failed (exit {:?}): {}",
+                vol_output.status.code(),
+                stderr.trim()
+            );
+        }
 
         // Note: no `-p` mappings. The proxy reaches each backend over the
         // shared docker network via DNS hostname. Removing host ports lets
@@ -198,6 +221,8 @@ impl Provisioner for DockerProvisioner {
             "--label".into(),
             format!("orchestrator.tier={}", tier.name),
         ]);
+        args.push("-v".into());
+        args.push(format!("{}:/convex/data", volume_name));
         for (k, v) in &env {
             args.push("-e".into());
             args.push(format!("{k}={v}"));
@@ -288,6 +313,31 @@ impl Provisioner for DockerProvisioner {
                 stderr = %stderr.trim(),
                 "docker rm reported a non-zero exit; treating as best-effort teardown",
             );
+        }
+        // Best-effort volume removal. Pre-v2 deployments may not have a named
+        // volume, so a non-zero exit here is only logged.
+        let volume_name = self.volume_name(deployment_name);
+        let vol_output = Command::new("docker")
+            .args(["volume", "rm", &volume_name])
+            .output()
+            .await;
+        match vol_output {
+            Ok(o) if !o.status.success() => {
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                tracing::warn!(
+                    deployment_name,
+                    stderr = %stderr.trim(),
+                    "docker volume rm reported a non-zero exit; treating as best-effort",
+                );
+            },
+            Err(e) => {
+                tracing::warn!(
+                    deployment_name,
+                    error = %e,
+                    "docker volume rm invocation failed; treating as best-effort",
+                );
+            },
+            Ok(_) => {},
         }
         Ok(())
     }

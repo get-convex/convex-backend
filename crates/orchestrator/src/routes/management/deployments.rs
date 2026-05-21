@@ -139,7 +139,7 @@ pub(crate) async fn create_deployment(
     if crate::provisioner::tiers::lookup(&tier).is_none() {
         return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
     }
-    ensure_host_capacity(&state, &tier).await?;
+    ensure_host_capacity(&state, &tier, args.force.unwrap_or(false)).await?;
     // Merge project-level overrides with any deployment-level overrides.
     let project_overrides = project
         .knob_overrides
@@ -491,12 +491,19 @@ pub(crate) async fn transfer_deployment(
 ///
 /// Called from `create_deployment` and, via `pub(crate)`, from
 /// `deployment_internal::create_project`'s auto-provision path.
+///
+/// When `force` is `true`, the memory-budget check is skipped so operators
+/// can intentionally over-commit a host. Tier validation still runs.
 pub(crate) async fn ensure_host_capacity(
     state: &crate::state::OrchestratorState,
     tier_name: &str,
+    force: bool,
 ) -> crate::errors::ApiResult<()> {
     let tier = crate::provisioner::tiers::lookup(tier_name)
         .ok_or_else(|| ApiError::BadRequest(format!("unknown tier {tier_name}")))?;
+    if force {
+        return Ok(());
+    }
     let host = state.host_capacity.read();
     let tiers = state
         .storage

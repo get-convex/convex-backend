@@ -3917,6 +3917,10 @@
           "deploymentClass": {
             "type": ["string", "null"]
           },
+          "force": {
+            "type": ["boolean", "null"],
+            "description": "Bypass the host-capacity 409 when the projected allocation would\nexceed 100%. Operators set this to intentionally over-commit a host."
+          },
           "kind": {
             "type": "string"
           },
