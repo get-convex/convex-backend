@@ -65,7 +65,9 @@ CREATE TABLE IF NOT EXISTS deployments (
     preview_identifier TEXT,
     instance_secret TEXT NOT NULL DEFAULT '',
     tier TEXT NOT NULL DEFAULT 'S16',
-    knob_overrides JSONB NOT NULL DEFAULT '{}'::jsonb
+    knob_overrides JSONB NOT NULL DEFAULT '{}'::jsonb,
+    desired_tier TEXT,
+    desired_overrides JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 CREATE INDEX IF NOT EXISTS deployments_project_idx ON deployments(project_id, deployment_type);
 

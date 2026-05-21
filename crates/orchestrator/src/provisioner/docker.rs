@@ -141,12 +141,16 @@ impl Provisioner for DockerProvisioner {
 
         // INSTANCE_SECRET is 64 hex chars — convex-local-backend uses it to
         // derive its admin-key cipher; mismatching it makes admin auth fail.
-        let instance_secret: String = (0..64)
-            .map(|_| {
-                let n = rand::rng().random_range(0..16);
-                std::char::from_digit(n, 16).unwrap()
-            })
-            .collect();
+        let instance_secret: String = if let Some(existing) = req.existing_instance_secret.clone() {
+            existing
+        } else {
+            (0..64)
+                .map(|_| {
+                    let n = rand::rng().random_range(0..16);
+                    std::char::from_digit(n, 16).unwrap()
+                })
+                .collect()
+        };
 
         let tier = crate::provisioner::tiers::lookup(&req.tier).ok_or_else(|| {
             anyhow::anyhow!(
@@ -296,6 +300,19 @@ impl Provisioner for DockerProvisioner {
             backend_port: api_port as i64,
             resolved_env: env,
         })
+    }
+
+    async fn respawn(&self, req: ProvisionRequest) -> anyhow::Result<ProvisionResult> {
+        // Remove only the container — the named volume survives because
+        // `docker volume create` in `provision` is idempotent (no-op if
+        // the volume already exists). The new container reattaches to the
+        // same volume and picks up the new INSTANCE_SECRET env var.
+        let container_name = self.container_name(&req.deployment_name);
+        let _ = Command::new("docker")
+            .args(["rm", "-f", &container_name])
+            .output()
+            .await; // best-effort; container may be gone already
+        self.provision(req).await
     }
 
     async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()> {

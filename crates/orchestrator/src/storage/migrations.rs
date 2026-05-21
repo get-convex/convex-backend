@@ -28,5 +28,15 @@ pub async fn run(pool: &PgPool) -> anyhow::Result<()> {
             "#,
         )
         .await?;
+    // Phase B migration: per-deployment desired settings columns.
+    conn.client()
+        .batch_execute(
+            r#"
+            ALTER TABLE deployments
+              ADD COLUMN IF NOT EXISTS desired_tier TEXT,
+              ADD COLUMN IF NOT EXISTS desired_overrides JSONB NOT NULL DEFAULT '{}'::jsonb;
+            "#,
+        )
+        .await?;
     Ok(())
 }

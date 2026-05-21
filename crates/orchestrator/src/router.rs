@@ -141,6 +141,9 @@ async fn not_found() -> impl IntoResponse {
         crate::routes::management::deployments::get_deployment,
         crate::routes::management::deployments::delete_deployment,
         crate::routes::management::deployments::transfer_deployment,
+        crate::routes::management::deployments::get_deployment_settings,
+        crate::routes::management::deployments::patch_deployment_settings,
+        crate::routes::management::deployments::restart_deployment,
         crate::routes::management::env_vars::list,
         crate::routes::management::env_vars::update,
         // Deployment-internal (/api/...)
