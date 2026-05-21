@@ -26,6 +26,7 @@ export function useCustomRolePermission(
   const team = useCurrentTeam();
   const project = useCurrentProject();
   const deployment = useCurrentDeployment();
+  const isProjectAdmin = useHasProjectAdminPermissions(project?.id);
   const resource =
     project && deployment && deployment.kind === "cloud"
       ? deploymentResource(project, {
@@ -34,12 +35,15 @@ export function useCustomRolePermission(
           creator: deployment.creator ?? null,
         })
       : undefined;
-  return useHasCustomRolePermission(
+  const customRoleResult = useHasCustomRolePermission(
     team?.id,
     action,
     resource,
     nonCustomRoleResult,
   );
+  // Project admin bypasses custom-role clamping for deployment ops.
+  if (isProjectAdmin) return nonCustomRoleResult;
+  return customRoleResult;
 }
 
 export function useIsActionAllowedForBuiltinRole(
