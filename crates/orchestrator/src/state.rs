@@ -45,6 +45,7 @@ impl OrchestratorState {
                 crate::provisioner::ProcessProvisioner::new(config.data_root.clone()),
             ),
             crate::config::ProvisionerMode::Docker => {
+                let strategy = config.provisioning_strategy();
                 let dp = crate::provisioner::DockerProvisioner::new(
                     config.backend_image.clone(),
                     config.backend_container_prefix.clone(),
@@ -52,9 +53,7 @@ impl OrchestratorState {
                     config.router_host.clone(),
                     config.router_public_port,
                     config.router_public_scheme.clone(),
-                    // Task 7 will wire this from CLI flags. For now, the
-                    // hardcoded VolumeSqlite preserves v2 behavior exactly.
-                    crate::provisioner::ProvisioningStrategy::VolumeSqlite,
+                    strategy,
                 );
                 // Re-seed port allocator from the highest backend_port already
                 // recorded so we don't collide with surviving containers.

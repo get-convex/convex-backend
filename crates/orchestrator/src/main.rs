@@ -138,6 +138,33 @@ struct Args {
         default_value = "allowlist"
     )]
     registration: String,
+
+    /// When true (default), new deployments spawn Postgres + MinIO sidecar
+    /// containers alongside the backend. When false, new deployments use
+    /// the v2 volume+sqlite path. Existing deployments keep their original
+    /// storage_mode regardless.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_ENABLE_SIDECARS",
+        default_value_t = true
+    )]
+    enable_sidecars: bool,
+
+    /// Docker image for the Postgres sidecar.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_POSTGRES_IMAGE",
+        default_value = "postgres:16-alpine"
+    )]
+    postgres_image: String,
+
+    /// Docker image for the MinIO sidecar.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_MINIO_IMAGE",
+        default_value = "quay.io/minio/minio:latest"
+    )]
+    minio_image: String,
 }
 
 fn init_tracing() {
@@ -180,6 +207,9 @@ async fn main() -> anyhow::Result<()> {
         router_host: args.router_host.clone(),
         router_public_port: args.router_public_port,
         router_public_scheme: args.router_public_scheme.clone(),
+        enable_sidecars: args.enable_sidecars,
+        postgres_image: args.postgres_image,
+        minio_image: args.minio_image,
     };
 
     tracing::info!(?config.data_root, "starting convex-orchestrator");
