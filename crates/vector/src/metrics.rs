@@ -41,17 +41,19 @@ register_convex_histogram!(
     &[STATUS_LABEL[0], "index_update_type"],
 );
 pub fn index_manager_update_timer() -> StatusTimer {
-    StatusTimer::new(&VECTOR_INDEX_MANAGER_UPDATE_SECONDS)
+    let mut timer = StatusTimer::new(&VECTOR_INDEX_MANAGER_UPDATE_SECONDS);
+    timer.add_label(StaticMetricLabel::new("index_update_type", "unknown"));
+    timer
 }
 
 pub fn finish_index_manager_update_timer(
     mut timer: StatusTimer,
     index_update_type: IndexUpdateType,
 ) {
-    timer.add_label(StaticMetricLabel::new(
-        "index_update_type",
-        index_update_type.tag(),
-    ));
+    timer.replace_label(
+        StaticMetricLabel::new("index_update_type", "unknown"),
+        StaticMetricLabel::new("index_update_type", index_update_type.tag()),
+    );
     timer.finish();
 }
 
