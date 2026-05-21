@@ -104,10 +104,10 @@ version 1.34.0 or later.
 
 </Admonition>
 
-#### From a script (e.g. agent setup script)
+#### From a script
 
-You can also use `npx convex deployment create` in scripts to automatically
-manage deployments:
+`npx convex deployment create` can be used non-interactively in setup scripts,
+e.g. to provision a fresh dev deployment per CI run or per agent worktree:
 
 ```bash
 npx convex deployment create <reference> --type=<type> [options] [--select]
@@ -124,70 +124,9 @@ characters, dashes, and slashes. The reference is used by the Convex dashboard
 and by `npx convex` to identify the deployment, so we recommend using
 descriptive names.
 
-Below are some examples of how to use `npx convex deployment create` with
-popular tools:
-
-<Details summary="Using the Codex app">
-
-Open the Codex app settings and go to _Environments_. Select the environment for
-your project or create one if needed. Use the following setup script:
-
-```bash
-npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-codex/$(basename \"$(dirname \"$CODEX_WORKTREE_PATH\")\") --select"
-```
-
-Replace `my-team` and `my-project` with your team and project slugs.
-
-When starting a new worktree, select the environment that you just created.
-
-</Details>
-
-<Details summary="Using Conductor">
-
-Add the following setup command to the `conductor.json` file of your project:
-
-```json
-{
-  "scripts": {
-    "setup": "npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-conductor/$CONDUCTOR_WORKSPACE_NAME --select"
-  }
-}
-```
-
-Replace `my-team` and `my-project` with your team and project slugs.
-
-</Details>
-
-<Details summary="Using Cursor local worktrees">
-
-Add the following setup command to the `.cursor/worktrees.json` file of your
-project:
-
-```json
-{
-  "setup-worktree": [
-    "npm ci",
-    "npx convex deployment create --type=dev my-team:my-project:dev/$USER-cursor/$(basename \"$PWD\") --select"
-  ]
-}
-```
-
-Replace `my-team` and `my-project` with your team and project slugs.
-
-</Details>
-
-<Details summary="Using T3 Code">
-
-Click on **Add action** in the top bar. Enable _Run automatically on worktree
-creation_ and use the following command:
-
-```bash
-npm ci && npx convex deployment create --type=dev my-team:my-project:dev/$USER-t3code/$(basename "$PWD" | sed 's/^t3code-//') --select
-```
-
-Replace `my-team` and `my-project` with your team and project slugs.
-
-</Details>
+For ready-made setup scripts that wire this into Codex, Conductor, Cursor
+worktrees, and T3 Code, see
+[Agent Mode → Worktree setups](/cli/background-agents.mdx#worktree-setups).
 
 ### Through the API
 
@@ -226,6 +165,20 @@ To use `npx convex deployment select` and `--deployment`, you must use the
 `convex` NPM package version 1.34.0 or later.
 
 </Admonition>
+
+### Scoping a deploy key to a single deployment \{#deploy-keys}
+
+If you want to hand a single deployment off to a coding agent or CI job, mint a
+deploy key scoped just to it and save it to `.env.local` as `CONVEX_DEPLOY_KEY`:
+
+```bash
+npx convex deployment token create agent-token --save-env
+```
+
+Once that env var is set, subsequent `npx convex` commands run against that
+deployment only. See
+[Creating and deleting deploy keys from the CLI](/cli/deploy-key-types.mdx#deployment-token)
+for the full options.
 
 ## Deployment types
 
