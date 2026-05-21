@@ -264,5 +264,7 @@ export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
   adminKey: string;
+  reference: string | null;
+  isDefault: boolean;
   onActivity: OnDeploymentActivityFunc | null;
 };

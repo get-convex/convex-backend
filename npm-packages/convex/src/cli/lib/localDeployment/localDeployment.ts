@@ -47,6 +47,8 @@ export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
   adminKey: string;
+  reference: string | null;
+  isDefault: boolean;
   onActivity: OnDeploymentActivityFunc;
 };
 
@@ -186,6 +188,8 @@ export async function handleLocalDeployment(
     adminKey,
     deploymentName,
     deploymentUrl: localDeploymentUrl(cloudPort),
+    reference: null,
+    isDefault: false,
     onActivity,
   };
 }
@@ -246,6 +250,8 @@ async function handleOffline(
     adminKey: config.adminKey,
     deploymentName,
     deploymentUrl: localDeploymentUrl(cloudPort),
+    reference: null,
+    isDefault: false,
     onActivity: async (isOffline: boolean, wasOffline: boolean) => {
       await ensureBackendRunning(ctx, {
         cloudPort,
