@@ -165,7 +165,11 @@ function BackupsLayout({
               <h4>Existing Backups</h4>
             </div>
             <BackupsContent
-              latest={latest ?? undefined}
+              // Pass the value through directly: BackupsContent
+              // distinguishes `undefined` (still loading) from `null`
+              // (loaded — no backups yet). Collapsing them with `??` makes
+              // the empty state unreachable and the spinner runs forever.
+              latest={latest}
               deploymentUrl={deploymentUrl}
               adminKey={adminKey}
             />
@@ -181,7 +185,10 @@ function BackupsContent({
   deploymentUrl,
   adminKey,
 }: {
-  latest: ExportRow | undefined;
+  // Three-state from `useQuery`: undefined = loading, null = loaded with
+  // no rows, value = the latest export. The empty state requires `null`,
+  // so we keep all three reachable here.
+  latest: ExportRow | null | undefined;
   deploymentUrl: string;
   adminKey: string;
 }) {
