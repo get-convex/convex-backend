@@ -137,6 +137,8 @@ impl DockerProvisioner {
         )
         .await?;
         sc::wait_for_postgres(&pg_container).await?;
+        sc::create_postgres_database(&pg_container, &sc::postgres_db_name(deployment_name))
+            .await?;
         sc::wait_for_minio(&minio_container).await?;
         sc::create_minio_buckets(
             &minio_container,

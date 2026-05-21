@@ -54,8 +54,63 @@ pub fn generate_password() -> String {
 /// Build the POSTGRES_URL the backend uses to reach its sidecar Postgres.
 /// Always SSL-disabled — the sidecar is reachable only via the orchestrator's
 /// docker network, never over a public path.
+///
+/// The URL deliberately has no database in the path. The backend's
+/// `--db postgres-v5` driver (see `crates/clusters/src/lib.rs`) appends the
+/// per-deployment database name itself, derived from the deployment name
+/// with hyphens replaced by underscores. We create that database via
+/// [`create_postgres_database`] right after the sidecar comes up.
 pub fn compose_postgres_url(pg_container: &str, password: &str) -> String {
-    format!("postgres://convex:{password}@{pg_container}:5432/convex?sslmode=disable")
+    format!("postgres://convex:{password}@{pg_container}:5432/?sslmode=disable")
+}
+
+/// Derive the per-deployment database name from the deployment name.
+/// Mirrors the backend's `deployment_name.replace('-', "_")` convention
+/// in `crates/clusters/src/lib.rs`.
+pub fn postgres_db_name(deployment_name: &str) -> String {
+    deployment_name.replace('-', "_")
+}
+
+/// Create the per-deployment Postgres database via `docker exec psql`.
+/// Idempotent: tolerates "already exists" (Postgres error code 42P04).
+/// Connects to the bootstrap `convex` database (created by the
+/// `POSTGRES_DB=convex` env var on the sidecar container) and issues a
+/// `CREATE DATABASE` against it.
+pub async fn create_postgres_database(
+    container_name: &str,
+    db_name: &str,
+) -> anyhow::Result<()> {
+    // db_name is derived from the deployment slug (alphanumeric + `_`
+    // after `replace('-', "_")`) so identifier-quoting is safe here.
+    let sql = format!(r#"CREATE DATABASE "{db_name}""#);
+    let output = Command::new("docker")
+        .args([
+            "exec",
+            container_name,
+            "psql",
+            "-U",
+            "convex",
+            "-d",
+            "convex",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            &sql,
+        ])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker exec psql failed: {e}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("already exists") {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "create database {db_name} on {container_name} failed: {}",
+        stderr.trim()
+    );
 }
 
 /// The 5 backend env vars that point file storage at the sidecar MinIO,
@@ -374,12 +429,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pg_url_has_no_sslmode_require() {
+    fn pg_url_has_no_db_in_path_and_no_sslmode_require() {
+        // Backend's --db postgres-v5 driver appends the per-deployment DB
+        // name itself (deployment_name with `-` → `_`) and rejects URLs
+        // whose path is anything but "" or "/" — so the URL must end at
+        // `/?sslmode=disable`, not `/convex?sslmode=disable`.
         let url = compose_postgres_url("orchestratorpg-foo", "abc123");
         assert_eq!(
             url,
-            "postgres://convex:abc123@orchestratorpg-foo:5432/convex?sslmode=disable"
+            "postgres://convex:abc123@orchestratorpg-foo:5432/?sslmode=disable"
         );
+    }
+
+    #[test]
+    fn postgres_db_name_matches_backend_convention() {
+        // Mirrors `deployment_name.replace('-', "_")` in
+        // crates/clusters/src/lib.rs so the DB we create is the one the
+        // backend tries to connect to.
+        assert_eq!(postgres_db_name("spry-fox"), "spry_fox");
+        assert_eq!(postgres_db_name("noslug"), "noslug");
+        assert_eq!(postgres_db_name("a-b-c"), "a_b_c");
     }
 
     #[test]
