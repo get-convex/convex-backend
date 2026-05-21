@@ -5,6 +5,7 @@ mod docker;
 mod external;
 mod process;
 pub mod env;
+pub mod sidecar;
 pub mod tiers;
 
 pub use docker::DockerProvisioner;
@@ -16,6 +17,23 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 
 use crate::storage::DeploymentType;
+
+/// Strategy `DockerProvisioner` uses when bringing up a new deployment.
+/// Decided at orchestrator startup; snapshotted onto each deployment's
+/// `storage_mode` column so the rest of its lifecycle (teardown, restart)
+/// stays in the original mode.
+#[derive(Debug, Clone)]
+pub enum ProvisioningStrategy {
+    /// v2 behavior — single backend container with a `/convex/data` named
+    /// volume holding SQLite + file storage.
+    VolumeSqlite,
+    /// v3 behavior — backend container plus two sidecars (Postgres + MinIO)
+    /// on the existing docker network. Credentials minted per deployment.
+    Sidecar {
+        postgres_image: String,
+        minio_image: String,
+    },
+}
 
 #[derive(Debug, Clone)]
 pub struct ProvisionRequest {
