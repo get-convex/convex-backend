@@ -97,6 +97,7 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
             | 1290 // EROptionPreventsStatement "The MySQL server is running with the --read-only option so it cannot execute this statement"
             | 2013 // CRServerLost
             | 1053 // ERServerShutdown
+            | 1040 // ERConCount "Too many connections"
             , ..
         }) => {
             database_operational_error(e.into())
@@ -291,11 +292,11 @@ async fn handle_errors_with_retries<R, RT: Runtime>(
             attempt += 1;
             continue;
         } else {
-            tokio_spawn("disconnect_mysql_timeout_conn", async move {
+            tokio_spawn("disconnect_mysql_conn", async move {
                 // Disconnecting the connection could take a long time as well,
                 // so do it in the background.
                 if let Err(e) = old_conn.disconnect().await {
-                    tracing::warn!("Error disconnecting timed out MySQL connection: {e}");
+                    tracing::warn!("Error disconnecting MySQL connection: {e}");
                 }
             });
             return Err(e);
