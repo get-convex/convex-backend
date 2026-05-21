@@ -83,6 +83,10 @@ pub struct PlatformCreateDeploymentArgs {
     /// `knob_overrides`. Empty omitted.
     #[serde(default)]
     pub knob_overrides: Option<std::collections::BTreeMap<String, String>>,
+    /// Bypass the host-capacity 409 when the projected allocation would
+    /// exceed 100%. Operators set this to intentionally over-commit a host.
+    #[serde(default)]
+    pub force: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
