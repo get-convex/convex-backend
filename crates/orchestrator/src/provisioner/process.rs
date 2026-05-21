@@ -88,7 +88,11 @@ impl Provisioner for ProcessProvisioner {
             admin_key,
             admin_key_hash: hash,
             admin_key_suffix,
-            instance_secret,
+            instance_secret: instance_secret.clone(),
+            // Process mode doesn't actually start the backend in v1, so
+            // there is no distinction between the two values here. Echo
+            // the same secret so the restart path has something to reuse.
+            backend_instance_secret: instance_secret,
             backend_pid: None,
             backend_port: port as i64,
             resolved_env: std::collections::BTreeMap::new(),

@@ -262,6 +262,7 @@ impl Provisioner for StubProvisioner {
             admin_key_hash: "stub-hash".into(),
             admin_key_suffix: "stub".into(),
             instance_secret: "stub-instance-secret".into(),
+            backend_instance_secret: "0".repeat(64),
             backend_pid: None,
             backend_port: 0,
             resolved_env: std::collections::BTreeMap::new(),

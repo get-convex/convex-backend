@@ -369,6 +369,7 @@ pub(crate) async fn create_project(
                 pg_password,
                 minio_root_user,
                 minio_root_password,
+                backend_instance_secret: Some(result.backend_instance_secret.as_str()),
             })
             .await
             .map_err(ApiError::Internal)?;
@@ -625,6 +626,7 @@ pub(crate) async fn provision_and_authorize(
             pg_password,
             minio_root_user,
             minio_root_password,
+            backend_instance_secret: Some(result.backend_instance_secret.as_str()),
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -736,6 +738,7 @@ pub(crate) async fn claim_preview_deployment(
                     pg_password,
                     minio_root_user,
                     minio_root_password,
+                    backend_instance_secret: Some(result.backend_instance_secret.as_str()),
                 })
                 .await
                 .map_err(ApiError::Internal)?;

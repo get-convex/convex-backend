@@ -84,6 +84,12 @@ pub struct ProvisionResult {
     pub admin_key_hash: String,
     pub admin_key_suffix: String,
     pub instance_secret: String,
+    /// The 64-hex-char value passed to the backend as the `INSTANCE_SECRET`
+    /// env var. Distinct from the `instance_secret` field above which
+    /// holds the admin key the backend produces. Persisted so restart
+    /// can reuse it instead of feeding the admin key back to the backend
+    /// (which fails to hex-decode and aborts startup).
+    pub backend_instance_secret: String,
     pub backend_pid: Option<i64>,
     pub backend_port: i64,
     /// The fully-resolved env that was passed to the backend container

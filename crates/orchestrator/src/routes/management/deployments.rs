@@ -208,6 +208,7 @@ pub(crate) async fn create_deployment(
             pg_password,
             minio_root_user,
             minio_root_password,
+            backend_instance_secret: Some(result.backend_instance_secret.as_str()),
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -862,7 +863,12 @@ pub(crate) async fn restart_deployment(
             project_id: deployment.project_id,
             tier: effective_tier.clone(),
             knob_overrides: overrides,
-            existing_instance_secret: Some(deployment.instance_secret.clone()),
+            // Reuse the 64-hex INSTANCE_SECRET we persisted at provision
+            // time. For legacy rows (column NULL because they predate
+            // this hotfix), pass None — the provisioner mints a fresh
+            // secret, the backend derives a fresh admin key, and we
+            // write both back via `update_deployment_secrets` below.
+            existing_instance_secret: deployment.backend_instance_secret.clone(),
             sidecar_credentials,
         })
         .await
@@ -870,6 +876,20 @@ pub(crate) async fn restart_deployment(
 
     let resolved_overrides =
         serde_json::to_value(&result.resolved_env).map_err(|e| ApiError::Internal(e.into()))?;
+
+    // Persist the (possibly fresh) INSTANCE_SECRET and the matching
+    // admin key. For non-legacy rows this is a no-op write of the same
+    // values; for legacy rows it backfills the new column and updates
+    // `instance_secret` so the dashboard sees the new admin key.
+    state
+        .storage
+        .update_deployment_secrets(
+            deployment.id,
+            &result.instance_secret,
+            &result.backend_instance_secret,
+        )
+        .await
+        .map_err(ApiError::Internal)?;
 
     // Snapshot the new tier + resolved env back into the audit columns.
     state

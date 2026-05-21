@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS deployments (
     storage_mode TEXT NOT NULL DEFAULT 'volume-sqlite' CHECK (storage_mode IN ('volume-sqlite','sidecar')),
     pg_password TEXT,
     minio_root_user TEXT,
-    minio_root_password TEXT
+    minio_root_password TEXT,
+    backend_instance_secret TEXT
 );
 CREATE INDEX IF NOT EXISTS deployments_project_idx ON deployments(project_id, deployment_type);
 

@@ -61,6 +61,12 @@ pub struct DeploymentRecord {
     pub pg_password: Option<String>,
     pub minio_root_user: Option<String>,
     pub minio_root_password: Option<String>,
+    /// 64-hex-char value passed to the backend as the `INSTANCE_SECRET`
+    /// env var. Distinct from `instance_secret` above which (despite the
+    /// name) holds the backend-produced admin key. `None` for legacy rows
+    /// created before this column existed and for externally-registered
+    /// deployments where the operator never gave us the raw secret.
+    pub backend_instance_secret: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +89,7 @@ pub struct NewDeployment<'a> {
     pub pg_password: Option<&'a str>,
     pub minio_root_user: Option<&'a str>,
     pub minio_root_password: Option<&'a str>,
+    pub backend_instance_secret: Option<&'a str>,
 }
 
 impl Storage {
@@ -101,9 +108,10 @@ impl Storage {
                     project_id, name, deployment_type, deployment_class, region, url,
                     site_url, backend_pid, backend_port, creator_id, creation_time, state,
                     preview_identifier, instance_secret, tier, knob_overrides,
-                    storage_mode, pg_password, minio_root_user, minio_root_password
+                    storage_mode, pg_password, minio_root_user, minio_root_password,
+                    backend_instance_secret
                 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'running',$12,$13,$14,$15,
-                    $16,$17,$18,$19)
+                    $16,$17,$18,$19,$20)
                 RETURNING id",
                 &[
                     &n.project_id,
@@ -125,6 +133,7 @@ impl Storage {
                     &n.pg_password,
                     &n.minio_root_user,
                     &n.minio_root_password,
+                    &n.backend_instance_secret,
                 ],
             )
             .await?;
@@ -153,6 +162,7 @@ impl Storage {
             pg_password: n.pg_password.map(str::to_string),
             minio_root_user: n.minio_root_user.map(str::to_string),
             minio_root_password: n.minio_root_password.map(str::to_string),
+            backend_instance_secret: n.backend_instance_secret.map(str::to_string),
         })
     }
 
@@ -226,7 +236,8 @@ impl Storage {
                         site_url, backend_pid, backend_port, creator_id, creation_time, state,
                         preview_identifier, instance_secret, tier, knob_overrides,
                         desired_tier, desired_overrides,
-                        storage_mode, pg_password, minio_root_user, minio_root_password
+                        storage_mode, pg_password, minio_root_user, minio_root_password,
+                        backend_instance_secret
                  FROM deployments
                  WHERE project_id = $1 AND deployment_type = $2
                    AND preview_identifier IS NULL
@@ -356,6 +367,29 @@ impl Storage {
         Ok(())
     }
 
+    /// Persist a fresh admin key + backend instance secret pair after a
+    /// restart. Restart of a legacy row (with `backend_instance_secret =
+    /// NULL`) mints a brand-new 64-hex INSTANCE_SECRET, which in turn
+    /// causes the backend to derive a brand-new admin key — both must
+    /// be written back so the dashboard's `ephemeral_admin_key` lookup
+    /// stays in sync.
+    pub async fn update_deployment_secrets(
+        &self,
+        id: i64,
+        admin_key: &str,
+        backend_instance_secret: &str,
+    ) -> anyhow::Result<()> {
+        let conn = self.pool().acquire().await?;
+        conn.client()
+            .execute(
+                "UPDATE deployments SET instance_secret = $1, backend_instance_secret = $2 WHERE \
+                 id = $3",
+                &[&admin_key, &backend_instance_secret, &id],
+            )
+            .await?;
+        Ok(())
+    }
+
     /// Snapshot the tier + resolved env into the audit columns (`tier`,
     /// `knob_overrides`). Called after a successful restart so the "running"
     /// state reflects the new container.
@@ -376,10 +410,10 @@ impl Storage {
     }
 }
 
-const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password FROM deployments WHERE id = $1";
-const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password FROM deployments WHERE name = $1";
-const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
-const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides, d.desired_tier, d.desired_overrides, d.storage_mode, d.pg_password, d.minio_root_user, d.minio_root_password FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
+const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password, backend_instance_secret FROM deployments WHERE id = $1";
+const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password, backend_instance_secret FROM deployments WHERE name = $1";
+const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password, backend_instance_secret FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
+const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides, d.desired_tier, d.desired_overrides, d.storage_mode, d.pg_password, d.minio_root_user, d.minio_root_password, d.backend_instance_secret FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
 
 fn map_deployment(row: Row) -> DeploymentRecord {
     DeploymentRecord {
@@ -415,5 +449,6 @@ fn map_deployment(row: Row) -> DeploymentRecord {
         pg_password: row.get(20),
         minio_root_user: row.get(21),
         minio_root_password: row.get(22),
+        backend_instance_secret: row.get(23),
     }
 }
