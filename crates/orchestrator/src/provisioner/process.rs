@@ -96,7 +96,7 @@ impl Provisioner for ProcessProvisioner {
         })
     }
 
-    async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()> {
+    async fn teardown(&self, deployment_name: &str, _storage_mode: &str) -> anyhow::Result<()> {
         tracing::info!(
             deployment_name,
             "process-mode teardown is a no-op in v1; stop the backend process manually"

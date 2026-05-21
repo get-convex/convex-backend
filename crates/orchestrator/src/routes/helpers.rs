@@ -32,7 +32,7 @@ pub async fn cascade_delete_project(
 ) -> anyhow::Result<()> {
     let deployments = state.storage.list_deployments(project_id).await?;
     for d in deployments {
-        if let Err(e) = state.provisioner.teardown(&d.name).await {
+        if let Err(e) = state.provisioner.teardown(&d.name, &d.storage_mode).await {
             tracing::warn!(
                 project_id,
                 deployment = %d.name,

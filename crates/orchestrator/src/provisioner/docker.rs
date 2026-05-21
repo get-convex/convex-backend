@@ -453,8 +453,9 @@ impl Provisioner for DockerProvisioner {
         self.provision(req).await
     }
 
-    async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()> {
+    async fn teardown(&self, deployment_name: &str, storage_mode: &str) -> anyhow::Result<()> {
         let container_name = self.container_name(deployment_name);
+        // Backend container — present in both modes.
         let output = Command::new("docker")
             .args(["rm", "-f", &container_name])
             .output()
@@ -469,30 +470,48 @@ impl Provisioner for DockerProvisioner {
                 "docker rm reported a non-zero exit; treating as best-effort teardown",
             );
         }
-        // Best-effort volume removal. Pre-v2 deployments may not have a named
-        // volume, so a non-zero exit here is only logged.
-        let volume_name = self.volume_name(deployment_name);
-        let vol_output = Command::new("docker")
-            .args(["volume", "rm", &volume_name])
-            .output()
-            .await;
-        match vol_output {
-            Ok(o) if !o.status.success() => {
-                let stderr = String::from_utf8_lossy(&o.stderr);
-                tracing::warn!(
+
+        // Branch on the deployment's snapshotted storage_mode. We deliberately
+        // trust the row's value (not `self.strategy`) so a deployment created
+        // in one mode is always torn down in that same mode, even if the
+        // orchestrator was later restarted under the other strategy.
+        match storage_mode {
+            "sidecar" => {
+                crate::provisioner::sidecar::teardown_sidecars(
+                    &self.container_prefix,
                     deployment_name,
-                    stderr = %stderr.trim(),
-                    "docker volume rm reported a non-zero exit; treating as best-effort",
-                );
+                )
+                .await;
             },
-            Err(e) => {
-                tracing::warn!(
-                    deployment_name,
-                    error = %e,
-                    "docker volume rm invocation failed; treating as best-effort",
-                );
+            _ => {
+                // volume-sqlite (the default for unknown values too —
+                // keeps cleanup best-effort for pre-v3 rows).
+                // Best-effort volume removal. Pre-v2 deployments may not have
+                // a named volume, so a non-zero exit here is only logged.
+                let volume_name = self.volume_name(deployment_name);
+                let vol_output = Command::new("docker")
+                    .args(["volume", "rm", &volume_name])
+                    .output()
+                    .await;
+                match vol_output {
+                    Ok(o) if !o.status.success() => {
+                        let stderr = String::from_utf8_lossy(&o.stderr);
+                        tracing::warn!(
+                            deployment_name,
+                            stderr = %stderr.trim(),
+                            "docker volume rm reported a non-zero exit; treating as best-effort",
+                        );
+                    },
+                    Err(e) => {
+                        tracing::warn!(
+                            deployment_name,
+                            error = %e,
+                            "docker volume rm invocation failed; treating as best-effort",
+                        );
+                    },
+                    Ok(_) => {},
+                }
             },
-            Ok(_) => {},
         }
         Ok(())
     }

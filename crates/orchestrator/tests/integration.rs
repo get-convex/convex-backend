@@ -269,7 +269,7 @@ impl Provisioner for StubProvisioner {
         })
     }
 
-    async fn teardown(&self, _deployment_name: &str) -> anyhow::Result<()> {
+    async fn teardown(&self, _deployment_name: &str, _storage_mode: &str) -> anyhow::Result<()> {
         Ok(())
     }
 }

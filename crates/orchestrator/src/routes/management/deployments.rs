@@ -457,7 +457,11 @@ pub(crate) async fn delete_deployment(
     // `cascade_delete_project` does — the orphan container, if any, is
     // invisible to the dashboard once the row is gone, and a stale name
     // would otherwise block re-creation forever.
-    if let Err(e) = state.provisioner.teardown(&deployment_name).await {
+    if let Err(e) = state
+        .provisioner
+        .teardown(&deployment_name, &d.storage_mode)
+        .await
+    {
         tracing::warn!(
             deployment = %deployment_name,
             error = %e,

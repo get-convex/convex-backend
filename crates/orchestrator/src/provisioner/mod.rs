@@ -102,14 +102,24 @@ pub trait Provisioner: Send + Sync {
     async fn provision(&self, req: ProvisionRequest) -> anyhow::Result<ProvisionResult>;
 
     /// Tear down a deployment's backend (if any). External mode is a no-op.
-    async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()>;
+    ///
+    /// `storage_mode` is the deployment row's snapshot of which provisioning
+    /// strategy was used (`"volume-sqlite"` or `"sidecar"`). The Docker
+    /// provisioner branches on it so sidecar-mode deployments get their
+    /// pg/minio sidecars + volumes torn down while volume-sqlite mode keeps
+    /// the v2 single-volume cleanup. Other provisioner impls (process,
+    /// external, stub) ignore the arg since they don't own storage.
+    async fn teardown(&self, deployment_name: &str, storage_mode: &str) -> anyhow::Result<()>;
 
     /// Re-provision a deployment. The default implementation tears down the
     /// existing backend and re-provisions from scratch (losing volume data for
     /// provisioners that store data inside the container). `DockerProvisioner`
     /// overrides this with a volume-preserving version.
     async fn respawn(&self, req: ProvisionRequest) -> anyhow::Result<ProvisionResult> {
-        self.teardown(&req.deployment_name).await?;
+        // Default respawn assumes volume-sqlite semantics; the docker
+        // provisioner overrides `respawn` entirely so this default is only
+        // exercised by impls that ignore `storage_mode` anyway.
+        self.teardown(&req.deployment_name, "volume-sqlite").await?;
         self.provision(req).await
     }
 }
