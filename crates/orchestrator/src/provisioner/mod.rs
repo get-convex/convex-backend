@@ -27,6 +27,10 @@ pub struct ProvisionRequest {
     pub tier: String,
     /// Per-project knob overrides layered on top of the tier defaults.
     pub knob_overrides: BTreeMap<String, String>,
+    /// When `Some(...)`, use this instance_secret instead of generating a new
+    /// one. Used by the restart flow so the backend's admin keys stay valid
+    /// across restarts (they are derived from this secret).
+    pub existing_instance_secret: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -52,4 +56,13 @@ pub trait Provisioner: Send + Sync {
 
     /// Tear down a deployment's backend (if any). External mode is a no-op.
     async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()>;
+
+    /// Re-provision a deployment. The default implementation tears down the
+    /// existing backend and re-provisions from scratch (losing volume data for
+    /// provisioners that store data inside the container). `DockerProvisioner`
+    /// overrides this with a volume-preserving version.
+    async fn respawn(&self, req: ProvisionRequest) -> anyhow::Result<ProvisionResult> {
+        self.teardown(&req.deployment_name).await?;
+        self.provision(req).await
+    }
 }

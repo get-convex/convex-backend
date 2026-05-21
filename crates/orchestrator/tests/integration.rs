@@ -70,6 +70,9 @@ const EXPECTED_MANAGEMENT_OPERATIONS: &[(&str, &str)] = &[
     ("get", "/v1/deployments/{deployment_name}"),
     ("post", "/v1/deployments/{deployment_name}/delete"),
     ("post", "/v1/deployments/{deployment_name}/transfer"),
+    ("get", "/v1/deployments/{deployment_name}/settings"),
+    ("patch", "/v1/deployments/{deployment_name}/settings"),
+    ("post", "/v1/deployments/{deployment_name}/restart"),
     // env vars
     ("get", "/v1/projects/{project_id}/list_default_environment_variables"),
     ("post", "/v1/projects/{project_id}/update_default_environment_variables"),

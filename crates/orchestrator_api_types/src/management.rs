@@ -350,3 +350,44 @@ pub struct UpdateProjectSettingsArgs {
     /// effective value falls back to tier default).
     pub knob_overrides: Option<std::collections::BTreeMap<String, Option<String>>>,
 }
+
+/// Serde deserializer that distinguishes `{"field": null}` (→ `Some(None)`)
+/// from the field being absent entirely (→ `None`). Used for PATCH endpoints
+/// where `null` means "clear" and omission means "leave unchanged".
+pub fn double_option<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: serde::Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    Ok(Some(Option::deserialize(deserializer)?))
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DeploymentSettingsResponse {
+    /// Effective tier for the next spawn: `desired_tier` if set, else the
+    /// project's tier.
+    pub effective_tier: String,
+    /// `Some` when this deployment overrides the project tier; `None` when
+    /// it inherits.
+    pub desired_tier: Option<String>,
+    /// Deployment-level overrides only (not merged with project's).
+    pub desired_overrides: std::collections::BTreeMap<String, String>,
+    /// Tier the currently-running container was spawned with.
+    pub running_tier: String,
+    /// Resolved env the currently-running container was spawned with.
+    pub running_overrides: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDeploymentSettingsArgs {
+    /// Set to a tier name to override the project tier. Set to `null` to
+    /// clear the override and fall back to the project tier. Omit to leave
+    /// unchanged.
+    #[serde(default, deserialize_with = "double_option")]
+    pub desired_tier: Option<Option<String>>,
+    /// Partial knob-override patch: `Some(value)` sets a key, `None` for a
+    /// key clears it. Omit the whole field to leave unchanged.
+    pub desired_overrides: Option<std::collections::BTreeMap<String, Option<String>>>,
+}

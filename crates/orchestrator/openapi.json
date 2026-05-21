@@ -871,6 +871,113 @@
         }
       }
     },
+    "/v1/deployments/{deployment_name}/settings": {
+      "get": {
+        "tags": ["deployments"],
+        "operationId": "get_deployment_settings",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentSettingsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["deployments"],
+        "operationId": "patch_deployment_settings",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDeploymentSettingsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "unknown tier or knob"
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
+    "/v1/deployments/{deployment_name}/restart": {
+      "post": {
+        "tags": ["deployments"],
+        "operationId": "restart_deployment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "unknown tier or insufficient capacity"
+          },
+          "404": {
+            "description": "deployment not found"
+          }
+        }
+      }
+    },
     "/v1/projects/{project_id}/list_default_environment_variables": {
       "get": {
         "tags": ["env_vars"],
@@ -3547,6 +3654,49 @@
           }
         }
       },
+      "DeploymentSettingsResponse": {
+        "type": "object",
+        "required": [
+          "effectiveTier",
+          "desiredOverrides",
+          "runningTier",
+          "runningOverrides"
+        ],
+        "properties": {
+          "desiredOverrides": {
+            "type": "object",
+            "description": "Deployment-level overrides only (not merged with project's).",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "desiredTier": {
+            "type": ["string", "null"],
+            "description": "`Some` when this deployment overrides the project tier; `None` when\nit inherits."
+          },
+          "effectiveTier": {
+            "type": "string",
+            "description": "Effective tier for the next spawn: `desired_tier` if set, else the\nproject's tier."
+          },
+          "runningOverrides": {
+            "type": "object",
+            "description": "Resolved env the currently-running container was spawned with.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "runningTier": {
+            "type": "string",
+            "description": "Tier the currently-running container was spawned with."
+          }
+        }
+      },
       "DeploymentType": {
         "type": "string",
         "enum": ["dev", "prod", "preview", "custom"]
@@ -4735,6 +4885,25 @@
             "items": {
               "$ref": "#/components/schemas/PlatformDefaultEnvVar"
             }
+          }
+        }
+      },
+      "UpdateDeploymentSettingsArgs": {
+        "type": "object",
+        "properties": {
+          "desiredOverrides": {
+            "type": ["object", "null"],
+            "description": "Partial knob-override patch: `Some(value)` sets a key, `None` for a\nkey clears it. Omit the whole field to leave unchanged.",
+            "additionalProperties": {
+              "type": ["string", "null"]
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "desiredTier": {
+            "type": ["string", "null"],
+            "description": "Set to a tier name to override the project tier. Set to `null` to\nclear the override and fall back to the project tier. Omit to leave\nunchanged."
           }
         }
       },

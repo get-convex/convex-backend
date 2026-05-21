@@ -15,6 +15,7 @@ use axum::{
 use orchestrator_api_types::management::{
     DeploymentClass,
     DeploymentRegion,
+    DeploymentSettingsResponse,
     ListDeploymentClassesResponse,
     ListDeploymentRegionsResponse,
     ListLocalDeploymentsResponse,
@@ -23,6 +24,7 @@ use orchestrator_api_types::management::{
     PlatformDeploymentResponse,
     PlatformTransferDeploymentArgs,
     PlatformUpdateDeploymentArgs,
+    UpdateDeploymentSettingsArgs,
 };
 use serde::Deserialize;
 
@@ -77,6 +79,14 @@ pub fn router() -> Router<OrchestratorState> {
         .route(
             "/deployments/{deployment_name}/transfer",
             post(transfer_deployment),
+        )
+        .route(
+            "/deployments/{deployment_name}/settings",
+            get(get_deployment_settings).patch(patch_deployment_settings),
+        )
+        .route(
+            "/deployments/{deployment_name}/restart",
+            post(restart_deployment),
         )
 }
 
@@ -167,6 +177,7 @@ pub(crate) async fn create_deployment(
             project_id,
             tier: tier.clone(),
             knob_overrides: overrides.clone(),
+            existing_instance_secret: None,
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -562,4 +573,275 @@ async fn _update_deployment(
             .map_err(ApiError::Internal)?;
     }
     Ok(StatusCode::OK)
+}
+
+/// Like `ensure_host_capacity` but excludes the deployment identified by
+/// `deployment_id` from the current-allocation sum. Used for restarts so a
+/// tier-unchanged restart doesn't falsely report "insufficient capacity"
+/// (the deployment's own row already counts toward the total).
+pub(crate) async fn ensure_host_capacity_for_restart(
+    state: &crate::state::OrchestratorState,
+    deployment_id: i64,
+    tier_name: &str,
+    force: bool,
+) -> crate::errors::ApiResult<()> {
+    let tier = crate::provisioner::tiers::lookup(tier_name)
+        .ok_or_else(|| ApiError::BadRequest(format!("unknown tier {tier_name}")))?;
+    if force {
+        return Ok(());
+    }
+    let host = state.host_capacity.read();
+    let tiers = state
+        .storage
+        .list_deployment_tiers_excluding(deployment_id)
+        .await
+        .map_err(ApiError::Internal)?;
+    let allocated_mb: u64 = tiers
+        .iter()
+        .filter_map(|t| crate::provisioner::tiers::lookup(t))
+        .map(|tt| {
+            if tt.unbounded {
+                host.total_memory_mb
+            } else {
+                u64::from(tt.memory_mb)
+            }
+        })
+        .sum();
+    let new_tier_mb = if tier.unbounded {
+        host.total_memory_mb
+    } else {
+        u64::from(tier.memory_mb)
+    };
+    let projected = allocated_mb + new_tier_mb;
+    if projected > host.total_memory_mb {
+        return Err(ApiError::HostCapacityExceeded {
+            needed_mb: new_tier_mb,
+            free_mb: host.total_memory_mb.saturating_sub(allocated_mb),
+        });
+    }
+    Ok(())
+}
+
+fn json_object_to_btree(v: &serde_json::Value) -> std::collections::BTreeMap<String, String> {
+    v.as_object()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[utoipa::path(
+    get,
+    path = "/v1/deployments/{deployment_name}/settings",
+    params(("deployment_name" = String, Path)),
+    responses(
+        (status = 200, body = DeploymentSettingsResponse),
+        (status = 404, description = "deployment not found"),
+    ),
+    tag = "deployments",
+)]
+pub(crate) async fn get_deployment_settings(
+    _auth: AuthIdentity,
+    State(state): State<OrchestratorState>,
+    Path(deployment_name): Path<String>,
+) -> ApiResult<Json<DeploymentSettingsResponse>> {
+    let deployment = state
+        .storage
+        .get_deployment_by_name(&deployment_name)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
+    let project = state
+        .storage
+        .get_project(deployment.project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("project".into()))?;
+    let effective_tier = deployment
+        .desired_tier
+        .clone()
+        .unwrap_or_else(|| project.tier.clone());
+    let desired_overrides = json_object_to_btree(&deployment.desired_overrides);
+    let running_overrides = json_object_to_btree(&deployment.knob_overrides);
+    Ok(Json(DeploymentSettingsResponse {
+        effective_tier,
+        desired_tier: deployment.desired_tier.clone(),
+        desired_overrides,
+        running_tier: deployment.tier.clone(),
+        running_overrides,
+    }))
+}
+
+#[utoipa::path(
+    patch,
+    path = "/v1/deployments/{deployment_name}/settings",
+    params(("deployment_name" = String, Path)),
+    request_body = UpdateDeploymentSettingsArgs,
+    responses(
+        (status = 200, body = DeploymentSettingsResponse),
+        (status = 400, description = "unknown tier or knob"),
+        (status = 404, description = "deployment not found"),
+    ),
+    tag = "deployments",
+)]
+pub(crate) async fn patch_deployment_settings(
+    _auth: AuthIdentity,
+    State(state): State<OrchestratorState>,
+    Path(deployment_name): Path<String>,
+    Json(args): Json<UpdateDeploymentSettingsArgs>,
+) -> ApiResult<Json<DeploymentSettingsResponse>> {
+    let deployment = state
+        .storage
+        .get_deployment_by_name(&deployment_name)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
+
+    // Validate desired_tier if provided.
+    if let Some(Some(ref tier)) = args.desired_tier {
+        if crate::provisioner::tiers::lookup(tier).is_none() {
+            return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
+        }
+    }
+
+    // Merge desired_overrides patch into the current desired_overrides.
+    let new_desired_overrides: Option<serde_json::Value> =
+        if let Some(patch) = &args.desired_overrides {
+            let mut merged = json_object_to_btree(&deployment.desired_overrides);
+            for (k, v) in patch {
+                if let Err(e) = crate::knob_registry::validate(k, v.as_deref().unwrap_or("")) {
+                    return Err(ApiError::BadRequest(e.to_string()));
+                }
+                match v {
+                    Some(val) => {
+                        merged.insert(k.clone(), val.clone());
+                    },
+                    None => {
+                        merged.remove(k);
+                    },
+                }
+            }
+            Some(serde_json::to_value(&merged).map_err(|e| ApiError::Internal(e.into()))?)
+        } else {
+            None
+        };
+
+    // Translate `Option<Option<String>>` → `Option<Option<&str>>` for storage.
+    let tier_update: Option<Option<&str>> =
+        args.desired_tier.as_ref().map(|inner| inner.as_deref());
+
+    state
+        .storage
+        .update_deployment_settings(
+            deployment.id,
+            tier_update,
+            new_desired_overrides.as_ref(),
+        )
+        .await
+        .map_err(ApiError::Internal)?;
+
+    // Re-read to return the canonical post-state.
+    let deployment = state
+        .storage
+        .get_deployment_by_name(&deployment_name)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
+    let project = state
+        .storage
+        .get_project(deployment.project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("project".into()))?;
+    let effective_tier = deployment
+        .desired_tier
+        .clone()
+        .unwrap_or_else(|| project.tier.clone());
+    Ok(Json(DeploymentSettingsResponse {
+        effective_tier,
+        desired_tier: deployment.desired_tier.clone(),
+        desired_overrides: json_object_to_btree(&deployment.desired_overrides),
+        running_tier: deployment.tier.clone(),
+        running_overrides: json_object_to_btree(&deployment.knob_overrides),
+    }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/v1/deployments/{deployment_name}/restart",
+    params(("deployment_name" = String, Path)),
+    responses(
+        (status = 200, body = PlatformDeploymentResponse),
+        (status = 400, description = "unknown tier or insufficient capacity"),
+        (status = 404, description = "deployment not found"),
+    ),
+    tag = "deployments",
+)]
+pub(crate) async fn restart_deployment(
+    _auth: AuthIdentity,
+    State(state): State<OrchestratorState>,
+    Path(deployment_name): Path<String>,
+) -> ApiResult<Json<PlatformDeploymentResponse>> {
+    let deployment = state
+        .storage
+        .get_deployment_by_name(&deployment_name)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
+    let project = state
+        .storage
+        .get_project(deployment.project_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("project".into()))?;
+
+    // Resolve effective tier: deployment override takes precedence.
+    let effective_tier = deployment
+        .desired_tier
+        .clone()
+        .unwrap_or_else(|| project.tier.clone());
+
+    // Capacity check: exclude this deployment's own current tier from the sum
+    // so a same-tier restart doesn't self-reject.
+    ensure_host_capacity_for_restart(&state, deployment.id, &effective_tier, false).await?;
+
+    // Compose effective overrides: project layer then deployment layer.
+    let mut overrides = json_object_to_btree(&project.knob_overrides);
+    for (k, v) in json_object_to_btree(&deployment.desired_overrides) {
+        overrides.insert(k, v);
+    }
+
+    let result = state
+        .provisioner
+        .respawn(crate::provisioner::ProvisionRequest {
+            deployment_name: deployment_name.clone(),
+            deployment_type: deployment.deployment_type,
+            project_id: deployment.project_id,
+            tier: effective_tier.clone(),
+            knob_overrides: overrides,
+            existing_instance_secret: Some(deployment.instance_secret.clone()),
+        })
+        .await
+        .map_err(ApiError::Internal)?;
+
+    let resolved_overrides =
+        serde_json::to_value(&result.resolved_env).map_err(|e| ApiError::Internal(e.into()))?;
+
+    // Snapshot the new tier + resolved env back into the audit columns.
+    state
+        .storage
+        .update_deployment_snapshot(deployment.id, &effective_tier, &resolved_overrides)
+        .await
+        .map_err(ApiError::Internal)?;
+
+    // Re-read and return the fresh row.
+    let updated = state
+        .storage
+        .get_deployment_by_name(&deployment_name)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
+    Ok(Json(crate::routes::helpers::deployment_to_platform(&updated)))
 }

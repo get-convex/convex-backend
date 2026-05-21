@@ -55,6 +55,8 @@ pub struct DeploymentRecord {
     pub instance_secret: String,
     pub tier: String,
     pub knob_overrides: serde_json::Value,
+    pub desired_tier: Option<String>,
+    pub desired_overrides: serde_json::Value,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +133,8 @@ impl Storage {
             instance_secret: n.instance_secret.to_string(),
             tier: n.tier.to_string(),
             knob_overrides: n.knob_overrides.clone(),
+            desired_tier: None,
+            desired_overrides: serde_json::Value::Object(Default::default()),
         })
     }
 
@@ -202,7 +206,8 @@ impl Storage {
             .query_opt(
                 "SELECT id, project_id, name, deployment_type, deployment_class, region, url,
                         site_url, backend_pid, backend_port, creator_id, creation_time, state,
-                        preview_identifier, instance_secret, tier, knob_overrides
+                        preview_identifier, instance_secret, tier, knob_overrides,
+                        desired_tier, desired_overrides
                  FROM deployments
                  WHERE project_id = $1 AND deployment_type = $2
                    AND preview_identifier IS NULL
@@ -276,12 +281,86 @@ impl Storage {
             .await?;
         Ok(rows.into_iter().map(|r| r.get::<_, String>(0)).collect())
     }
+
+    /// Like `list_deployment_tiers` but excludes the deployment with the given
+    /// id. Used by `ensure_host_capacity_for_restart` so a tier-unchanged
+    /// restart doesn't double-count the restarting deployment's own row.
+    pub async fn list_deployment_tiers_excluding(
+        &self,
+        exclude_id: i64,
+    ) -> anyhow::Result<Vec<String>> {
+        let conn = self.pool().acquire().await?;
+        let rows = conn
+            .client()
+            .query(
+                "SELECT tier FROM deployments WHERE id != $1",
+                &[&exclude_id],
+            )
+            .await?;
+        Ok(rows.into_iter().map(|r| r.get::<_, String>(0)).collect())
+    }
+
+    /// Update the deployment's desired_tier and/or desired_overrides.
+    ///
+    /// `desired_tier`:
+    ///   - `None`        → leave the column unchanged
+    ///   - `Some(None)`  → set the column to SQL NULL (fall back to project tier)
+    ///   - `Some(Some("S32"))` → set the column to "S32"
+    ///
+    /// `desired_overrides`:
+    ///   - `None`        → leave unchanged
+    ///   - `Some(v)`     → replace with `v`
+    pub async fn update_deployment_settings(
+        &self,
+        deployment_id: i64,
+        desired_tier: Option<Option<&str>>,
+        desired_overrides: Option<&serde_json::Value>,
+    ) -> anyhow::Result<()> {
+        let conn = self.pool().acquire().await?;
+        if let Some(tier) = desired_tier {
+            // tier is Option<&str>: None → NULL, Some(s) → value
+            conn.client()
+                .execute(
+                    "UPDATE deployments SET desired_tier = $1 WHERE id = $2",
+                    &[&tier, &deployment_id],
+                )
+                .await?;
+        }
+        if let Some(overrides) = desired_overrides {
+            conn.client()
+                .execute(
+                    "UPDATE deployments SET desired_overrides = $1 WHERE id = $2",
+                    &[&overrides, &deployment_id],
+                )
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Snapshot the tier + resolved env into the audit columns (`tier`,
+    /// `knob_overrides`). Called after a successful restart so the "running"
+    /// state reflects the new container.
+    pub async fn update_deployment_snapshot(
+        &self,
+        deployment_id: i64,
+        tier: &str,
+        knob_overrides: &serde_json::Value,
+    ) -> anyhow::Result<()> {
+        let conn = self.pool().acquire().await?;
+        conn.client()
+            .execute(
+                "UPDATE deployments SET tier = $1, knob_overrides = $2 WHERE id = $3",
+                &[&tier, &knob_overrides, &deployment_id],
+            )
+            .await?;
+        Ok(())
+    }
 }
 
-const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE id = $1";
-const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE name = $1";
-const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
-const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
+const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides FROM deployments WHERE id = $1";
+const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides FROM deployments WHERE name = $1";
+const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
+const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides, d.desired_tier, d.desired_overrides FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
 
 fn map_deployment(row: Row) -> DeploymentRecord {
     DeploymentRecord {
@@ -311,5 +390,7 @@ fn map_deployment(row: Row) -> DeploymentRecord {
         instance_secret: row.get(14),
         tier: row.get(15),
         knob_overrides: row.get(16),
+        desired_tier: row.get(17),
+        desired_overrides: row.get(18),
     }
 }
