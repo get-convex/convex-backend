@@ -1,47 +1,47 @@
-use std::collections::BTreeMap;
-
 pub use common::types::{
     EnvVarName,
     EnvVarValue,
     EnvironmentVariable,
 };
-use value::{
-    obj,
-    ConvexObject,
-    ConvexValue,
+use serde::{
+    Deserialize,
+    Serialize,
 };
+use value::codegen_convex_serialization;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PersistedEnvironmentVariable(pub EnvironmentVariable);
 
-impl TryFrom<PersistedEnvironmentVariable> for ConvexObject {
-    type Error = anyhow::Error;
+#[derive(Serialize, Deserialize)]
+pub struct SerializedEnvironmentVariable {
+    pub name: String,
+    pub value: String,
+}
 
-    fn try_from(
+impl From<PersistedEnvironmentVariable> for SerializedEnvironmentVariable {
+    fn from(
         PersistedEnvironmentVariable(
             EnvironmentVariable { name, value }
         ): PersistedEnvironmentVariable,
-    ) -> anyhow::Result<ConvexObject> {
-        obj!("name" => String::from(name), "value" => String::from(value))
+    ) -> SerializedEnvironmentVariable {
+        SerializedEnvironmentVariable {
+            name: name.into(),
+            value: value.into(),
+        }
     }
 }
 
-impl TryFrom<ConvexObject> for PersistedEnvironmentVariable {
+impl TryFrom<SerializedEnvironmentVariable> for PersistedEnvironmentVariable {
     type Error = anyhow::Error;
 
-    fn try_from(obj: ConvexObject) -> anyhow::Result<PersistedEnvironmentVariable> {
-        let mut fields = BTreeMap::from(obj);
-        let name: String = match fields.remove("name") {
-            Some(ConvexValue::String(s)) => s.into(),
-            v => anyhow::bail!("Invalid name field for EnvironmentVariable: {v:?}"),
-        };
-        let value: String = match fields.remove("value") {
-            Some(ConvexValue::String(s)) => s.into(),
-            v => anyhow::bail!("Invalid value field for EnvironmentVariable: {v:?}"),
-        };
+    fn try_from(
+        obj: SerializedEnvironmentVariable,
+    ) -> anyhow::Result<PersistedEnvironmentVariable> {
         Ok(Self(EnvironmentVariable {
-            name: name.parse()?,
-            value: value.parse()?,
+            name: obj.name.parse()?,
+            value: obj.value.parse()?,
         }))
     }
 }
+
+codegen_convex_serialization!(PersistedEnvironmentVariable, SerializedEnvironmentVariable);
