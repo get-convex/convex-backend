@@ -92,10 +92,11 @@ impl Provisioner for ProcessProvisioner {
             backend_pid: None,
             backend_port: port as i64,
             resolved_env: std::collections::BTreeMap::new(),
+            sidecar_credentials: None,
         })
     }
 
-    async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()> {
+    async fn teardown(&self, deployment_name: &str, _storage_mode: &str) -> anyhow::Result<()> {
         tracing::info!(
             deployment_name,
             "process-mode teardown is a no-op in v1; stop the backend process manually"

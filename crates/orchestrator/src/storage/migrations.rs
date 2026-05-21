@@ -38,5 +38,22 @@ pub async fn run(pool: &PgPool) -> anyhow::Result<()> {
             "#,
         )
         .await?;
+    // v3 migration: per-deployment storage mode + sidecar credentials.
+    // Existing rows default to 'volume-sqlite' (v2 behavior preserved).
+    // Credentials are plaintext at rest — encrypt the orchestrator DB at
+    // the disk layer. The CHECK constraint from schema.rs only applies to
+    // fresh DB inits; orchestrator-side validation enforces the same
+    // invariant for ALTERed DBs.
+    conn.client()
+        .batch_execute(
+            r#"
+            ALTER TABLE deployments
+              ADD COLUMN IF NOT EXISTS storage_mode TEXT NOT NULL DEFAULT 'volume-sqlite',
+              ADD COLUMN IF NOT EXISTS pg_password TEXT,
+              ADD COLUMN IF NOT EXISTS minio_root_user TEXT,
+              ADD COLUMN IF NOT EXISTS minio_root_password TEXT;
+            "#,
+        )
+        .await?;
     Ok(())
 }

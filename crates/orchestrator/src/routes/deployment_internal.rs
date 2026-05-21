@@ -340,11 +340,14 @@ pub(crate) async fn create_project(
                 tier: tier.to_string(),
                 knob_overrides: overrides.clone(),
                 existing_instance_secret: None,
+                sidecar_credentials: None,
             })
             .await
             .map_err(ApiError::Internal)?;
         let resolved_overrides = serde_json::to_value(&result.resolved_env)
             .map_err(|e| ApiError::Internal(e.into()))?;
+        let (storage_mode, pg_password, minio_root_user, minio_root_password) =
+            result.storage_columns();
         let new = state
             .storage
             .create_deployment(crate::storage::deployments::NewDeployment {
@@ -362,6 +365,10 @@ pub(crate) async fn create_project(
                 instance_secret: &result.instance_secret,
                 tier,
                 knob_overrides: &resolved_overrides,
+                storage_mode,
+                pg_password,
+                minio_root_user,
+                minio_root_password,
             })
             .await
             .map_err(ApiError::Internal)?;
@@ -591,9 +598,12 @@ pub(crate) async fn provision_and_authorize(
             tier: tier.clone(),
             knob_overrides: std::collections::BTreeMap::new(),
             existing_instance_secret: None,
+            sidecar_credentials: None,
         })
         .await
         .map_err(ApiError::Internal)?;
+    let (storage_mode, pg_password, minio_root_user, minio_root_password) =
+        result.storage_columns();
     let new = state
         .storage
         .create_deployment(crate::storage::deployments::NewDeployment {
@@ -611,6 +621,10 @@ pub(crate) async fn provision_and_authorize(
             instance_secret: &result.instance_secret,
             tier: &tier,
             knob_overrides: &serde_json::json!({}),
+            storage_mode,
+            pg_password,
+            minio_root_user,
+            minio_root_password,
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -695,9 +709,12 @@ pub(crate) async fn claim_preview_deployment(
                     tier: tier.clone(),
                     knob_overrides: std::collections::BTreeMap::new(),
                     existing_instance_secret: None,
+                    sidecar_credentials: None,
                 })
                 .await
                 .map_err(ApiError::Internal)?;
+            let (storage_mode, pg_password, minio_root_user, minio_root_password) =
+                result.storage_columns();
             let new = state
                 .storage
                 .create_deployment(crate::storage::deployments::NewDeployment {
@@ -715,6 +732,10 @@ pub(crate) async fn claim_preview_deployment(
                     instance_secret: &result.instance_secret,
                     tier: &tier,
                     knob_overrides: &serde_json::json!({}),
+                    storage_mode,
+                    pg_password,
+                    minio_root_user,
+                    minio_root_password,
                 })
                 .await
                 .map_err(ApiError::Internal)?;

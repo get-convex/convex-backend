@@ -67,7 +67,11 @@ CREATE TABLE IF NOT EXISTS deployments (
     tier TEXT NOT NULL DEFAULT 'S16',
     knob_overrides JSONB NOT NULL DEFAULT '{}'::jsonb,
     desired_tier TEXT,
-    desired_overrides JSONB NOT NULL DEFAULT '{}'::jsonb
+    desired_overrides JSONB NOT NULL DEFAULT '{}'::jsonb,
+    storage_mode TEXT NOT NULL DEFAULT 'volume-sqlite' CHECK (storage_mode IN ('volume-sqlite','sidecar')),
+    pg_password TEXT,
+    minio_root_user TEXT,
+    minio_root_password TEXT
 );
 CREATE INDEX IF NOT EXISTS deployments_project_idx ON deployments(project_id, deployment_type);
 

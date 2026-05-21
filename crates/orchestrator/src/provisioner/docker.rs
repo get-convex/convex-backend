@@ -54,6 +54,11 @@ pub struct DockerProvisioner {
     /// front of the orchestrator (Traefik, etc.) so the browser doesn't
     /// hit mixed-content blocks on the Convex client's WebSocket.
     router_public_scheme: String,
+    /// Strategy decided at orchestrator startup. Each `provision()` branches
+    /// on this — `VolumeSqlite` keeps v2 behavior (named `/convex/data`
+    /// volume); `Sidecar { .. }` spawns pg+minio sidecars and layers their
+    /// env into the backend container's docker-run flags.
+    strategy: crate::provisioner::ProvisioningStrategy,
 }
 
 impl DockerProvisioner {
@@ -64,6 +69,7 @@ impl DockerProvisioner {
         router_host: String,
         router_public_port: u16,
         router_public_scheme: String,
+        strategy: crate::provisioner::ProvisioningStrategy,
     ) -> Self {
         Self {
             backend_image,
@@ -73,7 +79,84 @@ impl DockerProvisioner {
             router_host,
             router_public_port,
             router_public_scheme,
+            strategy,
         }
+    }
+
+    /// Spawn (idempotent) pg + minio sidecars and create their buckets.
+    /// Returns:
+    ///   - the env vars to layer into the backend's docker run flags
+    ///     (POSTGRES_URL + AWS_* + S3_*)
+    ///   - the SidecarCredentials used (so the caller can snapshot them on
+    ///     the deployment row)
+    ///
+    /// When `creds` is Some(...), reuses those credentials (restart path).
+    /// When None, mints fresh credentials (initial provision path).
+    async fn bring_up_sidecars(
+        &self,
+        deployment_name: &str,
+        pg_max_connections: u32,
+        postgres_image: &str,
+        minio_image: &str,
+        creds: Option<&crate::provisioner::SidecarCredentials>,
+    ) -> anyhow::Result<(
+        Vec<(&'static str, String)>,
+        crate::provisioner::SidecarCredentials,
+    )> {
+        use crate::provisioner::sidecar as sc;
+
+        let pg_container = sc::pg_container_name(&self.container_prefix, deployment_name);
+        let pg_volume = sc::pg_volume_name(&self.container_prefix, deployment_name);
+        let minio_container = sc::minio_container_name(&self.container_prefix, deployment_name);
+        let minio_volume = sc::minio_volume_name(&self.container_prefix, deployment_name);
+
+        let credentials = creds
+            .cloned()
+            .unwrap_or_else(|| crate::provisioner::SidecarCredentials {
+                pg_password: sc::generate_password(),
+                minio_root_user: sc::generate_password(),
+                minio_root_password: sc::generate_password(),
+            });
+
+        sc::spawn_postgres_sidecar(
+            &pg_container,
+            &pg_volume,
+            self.network.as_deref(),
+            postgres_image,
+            &credentials.pg_password,
+            pg_max_connections,
+        )
+        .await?;
+        sc::spawn_minio_sidecar(
+            &minio_container,
+            &minio_volume,
+            self.network.as_deref(),
+            minio_image,
+            &credentials.minio_root_user,
+            &credentials.minio_root_password,
+        )
+        .await?;
+        sc::wait_for_postgres(&pg_container).await?;
+        sc::wait_for_minio(&minio_container).await?;
+        sc::create_minio_buckets(
+            &minio_container,
+            self.network.as_deref(),
+            &credentials.minio_root_user,
+            &credentials.minio_root_password,
+        )
+        .await?;
+
+        let mut env = Vec::new();
+        env.push((
+            "POSTGRES_URL",
+            sc::compose_postgres_url(&pg_container, &credentials.pg_password),
+        ));
+        env.extend(sc::compose_s3_env(
+            &minio_container,
+            &credentials.minio_root_user,
+            &credentials.minio_root_password,
+        ));
+        Ok((env, credentials))
     }
 
     /// Format a browser-facing deployment URL. Omits the port when it's
@@ -160,6 +243,38 @@ impl Provisioner for DockerProvisioner {
             )
         })?;
 
+        // Branch on the configured strategy. In `Sidecar` mode we spawn
+        // pg+minio sidecars now (idempotent — restart reuses existing ones)
+        // and layer their connection env into the backend's docker-run
+        // flags. `VolumeSqlite` is a no-op here and keeps v2 behavior.
+        let (strategy_env, sidecar_credentials_for_result): (
+            Vec<(&'static str, String)>,
+            Option<crate::provisioner::SidecarCredentials>,
+        ) = match &self.strategy {
+            crate::provisioner::ProvisioningStrategy::VolumeSqlite => (Vec::new(), None),
+            crate::provisioner::ProvisioningStrategy::Sidecar {
+                postgres_image,
+                minio_image,
+            } => {
+                let pg_max_connections = tier
+                    .knob_defaults
+                    .iter()
+                    .find(|(k, _)| *k == "POSTGRES_MAX_CONNECTIONS")
+                    .and_then(|(_, v)| v.parse::<u32>().ok())
+                    .unwrap_or(128);
+                let (env, creds) = self
+                    .bring_up_sidecars(
+                        &req.deployment_name,
+                        pg_max_connections,
+                        postgres_image,
+                        minio_image,
+                        req.sidecar_credentials.as_ref(),
+                    )
+                    .await?;
+                (env, Some(creds))
+            },
+        };
+
         let base_env: Vec<(&str, String)> = vec![
             ("INSTANCE_NAME", req.deployment_name.clone()),
             ("INSTANCE_SECRET", instance_secret.clone()),
@@ -170,7 +285,10 @@ impl Provisioner for DockerProvisioner {
             ("DOCUMENT_RETENTION_DELAY", "172800".into()),
         ];
         let env = crate::provisioner::env::compose_env(
-            base_env.iter().map(|(k, v)| (*k, v.as_str())),
+            base_env
+                .iter()
+                .map(|(k, v)| (*k, v.as_str()))
+                .chain(strategy_env.iter().map(|(k, v)| (*k, v.as_str()))),
             tier.knob_defaults,
             req.knob_overrides.iter().map(|(k, v)| (k.clone(), v.clone())),
         );
@@ -182,18 +300,30 @@ impl Provisioner for DockerProvisioner {
         // `docker volume create` is idempotent for the same name + driver, so
         // "already exists" is not an error. We bail hard on any other failure
         // to avoid stranding a container without its volume.
-        let vol_output = Command::new("docker")
-            .args(["volume", "create", &volume_name])
-            .output()
-            .await
-            .map_err(|e| anyhow::anyhow!("docker volume create failed: {e}"))?;
-        if !vol_output.status.success() {
-            let stderr = String::from_utf8_lossy(&vol_output.stderr);
-            anyhow::bail!(
-                "docker volume create failed (exit {:?}): {}",
-                vol_output.status.code(),
-                stderr.trim()
-            );
+        //
+        // In `Sidecar` mode the backend container holds no persistent state
+        // (pg owns the DB, minio owns file storage) so we skip the volume
+        // entirely.
+        match &self.strategy {
+            crate::provisioner::ProvisioningStrategy::VolumeSqlite => {
+                let vol_output = Command::new("docker")
+                    .args(["volume", "create", &volume_name])
+                    .output()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("docker volume create failed: {e}"))?;
+                if !vol_output.status.success() {
+                    let stderr = String::from_utf8_lossy(&vol_output.stderr);
+                    anyhow::bail!(
+                        "docker volume create failed (exit {:?}): {}",
+                        vol_output.status.code(),
+                        stderr.trim()
+                    );
+                }
+            },
+            crate::provisioner::ProvisioningStrategy::Sidecar { .. } => {
+                // No backend-side volume — pg/minio own their own storage in
+                // their own named volumes (managed by sidecar.rs spawn helpers).
+            },
         }
 
         // Note: no `-p` mappings. The proxy reaches each backend over the
@@ -225,8 +355,15 @@ impl Provisioner for DockerProvisioner {
             "--label".into(),
             format!("orchestrator.tier={}", tier.name),
         ]);
-        args.push("-v".into());
-        args.push(format!("{}:/convex/data", volume_name));
+        match &self.strategy {
+            crate::provisioner::ProvisioningStrategy::VolumeSqlite => {
+                args.push("-v".into());
+                args.push(format!("{}:/convex/data", volume_name));
+            },
+            crate::provisioner::ProvisioningStrategy::Sidecar { .. } => {
+                // No /convex/data mount — pg holds the DB, minio holds storage.
+            },
+        }
         for (k, v) in &env {
             args.push("-e".into());
             args.push(format!("{k}={v}"));
@@ -299,6 +436,7 @@ impl Provisioner for DockerProvisioner {
             backend_pid: None,
             backend_port: api_port as i64,
             resolved_env: env,
+            sidecar_credentials: sidecar_credentials_for_result,
         })
     }
 
@@ -315,8 +453,9 @@ impl Provisioner for DockerProvisioner {
         self.provision(req).await
     }
 
-    async fn teardown(&self, deployment_name: &str) -> anyhow::Result<()> {
+    async fn teardown(&self, deployment_name: &str, storage_mode: &str) -> anyhow::Result<()> {
         let container_name = self.container_name(deployment_name);
+        // Backend container — present in both modes.
         let output = Command::new("docker")
             .args(["rm", "-f", &container_name])
             .output()
@@ -331,30 +470,48 @@ impl Provisioner for DockerProvisioner {
                 "docker rm reported a non-zero exit; treating as best-effort teardown",
             );
         }
-        // Best-effort volume removal. Pre-v2 deployments may not have a named
-        // volume, so a non-zero exit here is only logged.
-        let volume_name = self.volume_name(deployment_name);
-        let vol_output = Command::new("docker")
-            .args(["volume", "rm", &volume_name])
-            .output()
-            .await;
-        match vol_output {
-            Ok(o) if !o.status.success() => {
-                let stderr = String::from_utf8_lossy(&o.stderr);
-                tracing::warn!(
+
+        // Branch on the deployment's snapshotted storage_mode. We deliberately
+        // trust the row's value (not `self.strategy`) so a deployment created
+        // in one mode is always torn down in that same mode, even if the
+        // orchestrator was later restarted under the other strategy.
+        match storage_mode {
+            "sidecar" => {
+                crate::provisioner::sidecar::teardown_sidecars(
+                    &self.container_prefix,
                     deployment_name,
-                    stderr = %stderr.trim(),
-                    "docker volume rm reported a non-zero exit; treating as best-effort",
-                );
+                )
+                .await;
             },
-            Err(e) => {
-                tracing::warn!(
-                    deployment_name,
-                    error = %e,
-                    "docker volume rm invocation failed; treating as best-effort",
-                );
+            _ => {
+                // volume-sqlite (the default for unknown values too —
+                // keeps cleanup best-effort for pre-v3 rows).
+                // Best-effort volume removal. Pre-v2 deployments may not have
+                // a named volume, so a non-zero exit here is only logged.
+                let volume_name = self.volume_name(deployment_name);
+                let vol_output = Command::new("docker")
+                    .args(["volume", "rm", &volume_name])
+                    .output()
+                    .await;
+                match vol_output {
+                    Ok(o) if !o.status.success() => {
+                        let stderr = String::from_utf8_lossy(&o.stderr);
+                        tracing::warn!(
+                            deployment_name,
+                            stderr = %stderr.trim(),
+                            "docker volume rm reported a non-zero exit; treating as best-effort",
+                        );
+                    },
+                    Err(e) => {
+                        tracing::warn!(
+                            deployment_name,
+                            error = %e,
+                            "docker volume rm invocation failed; treating as best-effort",
+                        );
+                    },
+                    Ok(_) => {},
+                }
             },
-            Ok(_) => {},
         }
         Ok(())
     }

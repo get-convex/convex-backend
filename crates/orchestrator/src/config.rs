@@ -3,6 +3,8 @@ use std::{
     str::FromStr,
 };
 
+use crate::provisioner::ProvisioningStrategy;
+
 #[derive(Debug, Clone)]
 pub struct OrchestratorConfig {
     pub database_url: String,
@@ -35,6 +37,31 @@ pub struct OrchestratorConfig {
     /// terminating TLS in front of the orchestrator (Traefik etc.), set to
     /// `https`. Default `http` for raw-port local dev.
     pub router_public_scheme: String,
+    /// When true, new deployments spawn Postgres + MinIO sidecar containers
+    /// alongside the backend. When false, new deployments use the v2
+    /// volume+sqlite path. Existing deployments keep whatever `storage_mode`
+    /// they were created with.
+    pub enable_sidecars: bool,
+    /// Docker image for the Postgres sidecar (used when `enable_sidecars`).
+    pub postgres_image: String,
+    /// Docker image for the MinIO sidecar (used when `enable_sidecars`).
+    pub minio_image: String,
+}
+
+impl OrchestratorConfig {
+    /// Resolve the v3 docker provisioning strategy from the flag bundle.
+    /// `enable_sidecars=true` → Sidecar with the two image refs;
+    /// `enable_sidecars=false` → VolumeSqlite (v2 escape hatch).
+    pub fn provisioning_strategy(&self) -> ProvisioningStrategy {
+        if self.enable_sidecars {
+            ProvisioningStrategy::Sidecar {
+                postgres_image: self.postgres_image.clone(),
+                minio_image: self.minio_image.clone(),
+            }
+        } else {
+            ProvisioningStrategy::VolumeSqlite
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,6 +118,68 @@ impl FromStr for RegistrationMode {
             other => Err(anyhow::anyhow!(
                 "unknown registration mode {other:?} (expected allowlist, open, or invite-only)"
             )),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config(enable_sidecars: bool) -> OrchestratorConfig {
+        OrchestratorConfig {
+            database_url: "postgres://test".into(),
+            data_root: PathBuf::from("/tmp/orch-test"),
+            public_origin: "http://localhost".into(),
+            bootstrap_token: None,
+            provisioner_mode: ProvisionerMode::External,
+            service_key: None,
+            admin_emails: Vec::new(),
+            registration_mode: RegistrationMode::Allowlist,
+            backend_image: "irrelevant".into(),
+            backend_network: None,
+            backend_container_prefix: "test-".into(),
+            router_host: "localhost".into(),
+            router_public_port: 9000,
+            router_public_scheme: "http".into(),
+            enable_sidecars,
+            postgres_image: "postgres:16-alpine".into(),
+            minio_image: "quay.io/minio/minio:latest".into(),
+        }
+    }
+
+    #[test]
+    fn enable_sidecars_true_yields_sidecar_strategy() {
+        let cfg = test_config(true);
+        assert!(matches!(
+            cfg.provisioning_strategy(),
+            ProvisioningStrategy::Sidecar { .. }
+        ));
+    }
+
+    #[test]
+    fn enable_sidecars_false_yields_volume_sqlite() {
+        let cfg = test_config(false);
+        assert!(matches!(
+            cfg.provisioning_strategy(),
+            ProvisioningStrategy::VolumeSqlite
+        ));
+    }
+
+    #[test]
+    fn sidecar_strategy_carries_configured_images() {
+        let mut cfg = test_config(true);
+        cfg.postgres_image = "custom-pg:17".into();
+        cfg.minio_image = "custom-mc:rel1".into();
+        match cfg.provisioning_strategy() {
+            ProvisioningStrategy::Sidecar {
+                postgres_image,
+                minio_image,
+            } => {
+                assert_eq!(postgres_image, "custom-pg:17");
+                assert_eq!(minio_image, "custom-mc:rel1");
+            },
+            other => panic!("expected Sidecar, got {other:?}"),
         }
     }
 }

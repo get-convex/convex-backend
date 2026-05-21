@@ -57,6 +57,10 @@ pub struct DeploymentRecord {
     pub knob_overrides: serde_json::Value,
     pub desired_tier: Option<String>,
     pub desired_overrides: serde_json::Value,
+    pub storage_mode: String,
+    pub pg_password: Option<String>,
+    pub minio_root_user: Option<String>,
+    pub minio_root_password: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +79,10 @@ pub struct NewDeployment<'a> {
     pub instance_secret: &'a str,
     pub tier: &'a str,
     pub knob_overrides: &'a serde_json::Value,
+    pub storage_mode: &'a str,
+    pub pg_password: Option<&'a str>,
+    pub minio_root_user: Option<&'a str>,
+    pub minio_root_password: Option<&'a str>,
 }
 
 impl Storage {
@@ -92,8 +100,10 @@ impl Storage {
                 "INSERT INTO deployments (
                     project_id, name, deployment_type, deployment_class, region, url,
                     site_url, backend_pid, backend_port, creator_id, creation_time, state,
-                    preview_identifier, instance_secret, tier, knob_overrides
-                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'running',$12,$13,$14,$15)
+                    preview_identifier, instance_secret, tier, knob_overrides,
+                    storage_mode, pg_password, minio_root_user, minio_root_password
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'running',$12,$13,$14,$15,
+                    $16,$17,$18,$19)
                 RETURNING id",
                 &[
                     &n.project_id,
@@ -111,6 +121,10 @@ impl Storage {
                     &n.instance_secret,
                     &n.tier,
                     &n.knob_overrides,
+                    &n.storage_mode,
+                    &n.pg_password,
+                    &n.minio_root_user,
+                    &n.minio_root_password,
                 ],
             )
             .await?;
@@ -135,6 +149,10 @@ impl Storage {
             knob_overrides: n.knob_overrides.clone(),
             desired_tier: None,
             desired_overrides: serde_json::Value::Object(Default::default()),
+            storage_mode: n.storage_mode.to_string(),
+            pg_password: n.pg_password.map(str::to_string),
+            minio_root_user: n.minio_root_user.map(str::to_string),
+            minio_root_password: n.minio_root_password.map(str::to_string),
         })
     }
 
@@ -207,7 +225,8 @@ impl Storage {
                 "SELECT id, project_id, name, deployment_type, deployment_class, region, url,
                         site_url, backend_pid, backend_port, creator_id, creation_time, state,
                         preview_identifier, instance_secret, tier, knob_overrides,
-                        desired_tier, desired_overrides
+                        desired_tier, desired_overrides,
+                        storage_mode, pg_password, minio_root_user, minio_root_password
                  FROM deployments
                  WHERE project_id = $1 AND deployment_type = $2
                    AND preview_identifier IS NULL
@@ -357,10 +376,10 @@ impl Storage {
     }
 }
 
-const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides FROM deployments WHERE id = $1";
-const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides FROM deployments WHERE name = $1";
-const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
-const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides, d.desired_tier, d.desired_overrides FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
+const SELECT_DEPLOYMENT_BY_ID: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password FROM deployments WHERE id = $1";
+const SELECT_DEPLOYMENT_BY_NAME: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password FROM deployments WHERE name = $1";
+const SELECT_DEPLOYMENTS_BY_PROJECT: &str = "SELECT id, project_id, name, deployment_type, deployment_class, region, url, site_url, backend_pid, backend_port, creator_id, creation_time, state, preview_identifier, instance_secret, tier, knob_overrides, desired_tier, desired_overrides, storage_mode, pg_password, minio_root_user, minio_root_password FROM deployments WHERE project_id = $1 ORDER BY creation_time ASC";
+const SELECT_DEPLOYMENTS_BY_TEAM: &str = "SELECT d.id, d.project_id, d.name, d.deployment_type, d.deployment_class, d.region, d.url, d.site_url, d.backend_pid, d.backend_port, d.creator_id, d.creation_time, d.state, d.preview_identifier, d.instance_secret, d.tier, d.knob_overrides, d.desired_tier, d.desired_overrides, d.storage_mode, d.pg_password, d.minio_root_user, d.minio_root_password FROM deployments d INNER JOIN projects p ON p.id = d.project_id WHERE p.team_id = $1 ORDER BY d.creation_time ASC";
 
 fn map_deployment(row: Row) -> DeploymentRecord {
     DeploymentRecord {
@@ -392,5 +411,9 @@ fn map_deployment(row: Row) -> DeploymentRecord {
         knob_overrides: row.get(16),
         desired_tier: row.get(17),
         desired_overrides: row.get(18),
+        storage_mode: row.get(19),
+        pg_password: row.get(20),
+        minio_root_user: row.get(21),
+        minio_root_password: row.get(22),
     }
 }

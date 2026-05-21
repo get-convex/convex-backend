@@ -43,6 +43,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "125000000"), // ¼ × 500,000,000
             ("FUNRUN_MAX_ISOLATE_WORKERS", "32"), // ¼ × 128
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "256"),
+            ("POSTGRES_MAX_CONNECTIONS", "32"),
         ],
     },
     Tier {
@@ -58,6 +59,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "250000000"), // ½ × 500,000,000
             ("FUNRUN_MAX_ISOLATE_WORKERS", "64"), // ½ × 128
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "512"),
+            ("POSTGRES_MAX_CONNECTIONS", "64"),
         ],
     },
     Tier {
@@ -75,6 +77,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "500000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "128"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "1024"),
+            ("POSTGRES_MAX_CONNECTIONS", "128"),
         ],
     },
     Tier {
@@ -90,6 +93,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "1000000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "256"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "2048"),
+            ("POSTGRES_MAX_CONNECTIONS", "256"),
         ],
     },
     Tier {
@@ -105,6 +109,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "2000000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "512"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "4096"),
+            ("POSTGRES_MAX_CONNECTIONS", "512"),
         ],
     },
     Tier {
@@ -120,6 +125,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "4000000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "1024"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "8192"),
+            ("POSTGRES_MAX_CONNECTIONS", "1024"),
         ],
     },
     Tier {
@@ -135,6 +141,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "8000000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "2048"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "16384"),
+            ("POSTGRES_MAX_CONNECTIONS", "2048"),
         ],
     },
     Tier {
@@ -154,6 +161,7 @@ pub const TIERS: &[Tier] = &[
             ("FUNRUN_CODE_CACHE_SIZE", "8000000000"),
             ("FUNRUN_MAX_ISOLATE_WORKERS", "2048"),
             ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "16384"),
+            ("POSTGRES_MAX_CONNECTIONS", "4096"),
         ],
     },
 ];
@@ -203,6 +211,9 @@ mod tests {
         // RUNTIME_WORKER_THREADS is intentionally pinned to "4" — upstream
         // default is "0" (= number of host cores). See module doc.
         assert_eq!(pairs["RUNTIME_WORKER_THREADS"], "4");
+        // POSTGRES_MAX_CONNECTIONS — upstream default for Postgres clients
+        // (matches `crates/common/src/knobs.rs:934`).
+        assert_eq!(pairs["POSTGRES_MAX_CONNECTIONS"], "128");
     }
 
     #[test]
@@ -225,5 +236,32 @@ mod tests {
         assert!(max.unbounded, "`max` tier must be unbounded");
         let s16 = lookup("S16").unwrap();
         assert!(!s16.unbounded, "S16 must not be unbounded");
+    }
+
+    #[test]
+    fn postgres_max_connections_doubles_per_tier() {
+        let expected: &[(&str, &str)] = &[
+            ("S4", "32"),
+            ("S8", "64"),
+            ("S16", "128"),
+            ("S32", "256"),
+            ("S64", "512"),
+            ("S128", "1024"),
+            ("S256", "2048"),
+            ("max", "4096"),
+        ];
+        for (tier_name, want) in expected {
+            let tier = lookup(tier_name).expect("tier present");
+            let got = tier
+                .knob_defaults
+                .iter()
+                .find(|(k, _)| *k == "POSTGRES_MAX_CONNECTIONS")
+                .map(|(_, v)| *v)
+                .unwrap_or("MISSING");
+            assert_eq!(
+                got, *want,
+                "tier {tier_name} POSTGRES_MAX_CONNECTIONS = {got:?}, want {want:?}",
+            );
+        }
     }
 }

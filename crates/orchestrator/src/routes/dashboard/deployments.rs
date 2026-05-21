@@ -199,6 +199,10 @@ pub(crate) async fn register_deployment(
             instance_secret: &args.admin_key,
             tier: crate::provisioner::tiers::DEFAULT_TIER,
             knob_overrides: &serde_json::json!({}),
+            storage_mode: "volume-sqlite",
+            pg_password: None,
+            minio_root_user: None,
+            minio_root_password: None,
         })
         .await
         .map_err(ApiError::Internal)?;

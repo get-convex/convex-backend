@@ -265,10 +265,11 @@ impl Provisioner for StubProvisioner {
             backend_pid: None,
             backend_port: 0,
             resolved_env: std::collections::BTreeMap::new(),
+            sidecar_credentials: None,
         })
     }
 
-    async fn teardown(&self, _deployment_name: &str) -> anyhow::Result<()> {
+    async fn teardown(&self, _deployment_name: &str, _storage_mode: &str) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -333,6 +334,9 @@ async fn deployment_internal_flow_against_real_db() {
         router_host: "localhost".into(),
         router_public_port: 9000,
         router_public_scheme: "http".into(),
+        enable_sidecars: false,
+        postgres_image: "postgres:16-alpine".into(),
+        minio_image: "quay.io/minio/minio:latest".into(),
     };
 
     // Construct OrchestratorState the public way, then swap in the stub
