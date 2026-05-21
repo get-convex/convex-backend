@@ -13,6 +13,8 @@ import { TierSelector } from "./TierSelector";
 export type BackendSettingsDraft = {
   tier: string;
   overrides: Record<string, string>;
+  /** When true, bypass the host-capacity check on provision/restart. */
+  force?: boolean;
 };
 
 export function BackendSettingsForm({
@@ -44,7 +46,12 @@ export function BackendSettingsForm({
           capacity={capacity}
           onChange={(tier) => update({ ...draft, tier })}
         />
-        <CapacityStrip capacity={capacity} selectedTier={draft.tier} />
+        <CapacityStrip
+          capacity={capacity}
+          selectedTier={draft.tier}
+          force={draft.force}
+          onForceChange={(f) => update({ ...draft, force: f })}
+        />
       </div>
       <Disclosure>
         {({ open }) => (

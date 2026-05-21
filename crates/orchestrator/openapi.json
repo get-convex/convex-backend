@@ -958,6 +958,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestartDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "",
@@ -4576,6 +4586,15 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "RestartDeploymentArgs": {
+        "type": "object",
+        "properties": {
+          "force": {
+            "type": ["boolean", "null"],
+            "description": "Bypass the host-capacity 409 when the projected allocation would\nexceed 100%. Operators set this to intentionally over-commit a host."
           }
         }
       },

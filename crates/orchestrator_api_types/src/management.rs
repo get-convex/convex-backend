@@ -391,3 +391,12 @@ pub struct UpdateDeploymentSettingsArgs {
     /// key clears it. Omit the whole field to leave unchanged.
     pub desired_overrides: Option<std::collections::BTreeMap<String, Option<String>>>,
 }
+
+#[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RestartDeploymentArgs {
+    /// Bypass the host-capacity 409 when the projected allocation would
+    /// exceed 100%. Operators set this to intentionally over-commit a host.
+    #[serde(default)]
+    pub force: Option<bool>,
+}
