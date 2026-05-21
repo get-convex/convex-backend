@@ -5,9 +5,13 @@ import { lookupTier } from "./tiers";
 export function CapacityStrip({
   capacity,
   selectedTier,
+  force,
+  onForceChange,
 }: {
   capacity: HostCapacity | undefined;
   selectedTier: string;
+  force?: boolean;
+  onForceChange?: (force: boolean) => void;
 }) {
   if (!capacity || capacity.totalMemoryMb === 0) {
     return null;
@@ -108,6 +112,18 @@ export function CapacityStrip({
             ? `${selectedTier} would push to ${projectedPct}% — exceeds host capacity. Provisioning will fail.`
             : `${selectedTier} would push to ${projectedPct}% — close to host capacity.`}
         </p>
+      )}
+      {over && onForceChange !== undefined && (
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-content-secondary">
+          {/* eslint-disable-next-line react/forbid-elements -- plain checkbox for force-provision opt-in */}
+          <input
+            type="checkbox"
+            checked={force ?? false}
+            onChange={(e) => onForceChange(e.target.checked)}
+            className="h-3 w-3"
+          />
+          Force provision (over-commit this host)
+        </label>
       )}
     </div>
   );

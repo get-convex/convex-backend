@@ -357,3 +357,73 @@ export async function getKnobRegistry(
   );
   return z.array(knobEntrySchema).parse(data.knobs);
 }
+
+// ---------- Deployment-level settings / restart ----------
+
+export const deploymentSettingsResponseSchema = z.object({
+  effectiveTier: z.string(),
+  desiredTier: z.string().nullable(),
+  desiredOverrides: z.record(z.string(), z.string()),
+  runningTier: z.string(),
+  runningOverrides: z.record(z.string(), z.string()),
+});
+export type DeploymentSettings = z.infer<
+  typeof deploymentSettingsResponseSchema
+>;
+
+export async function getDeploymentSettings(
+  baseUrl: string,
+  token: string,
+  deploymentName: string,
+): Promise<DeploymentSettings> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/v1/deployments/${encodeURIComponent(deploymentName)}/settings`,
+    { token },
+  );
+  return deploymentSettingsResponseSchema.parse(data);
+}
+
+export async function patchDeploymentSettings(
+  baseUrl: string,
+  token: string,
+  deploymentName: string,
+  patch: {
+    // `undefined` = leave unchanged, `null` = clear (fall back to project
+    // tier), string = set as override.
+    desiredTier?: string | null;
+    desiredOverrides?: Record<string, string | null>;
+  },
+): Promise<DeploymentSettings> {
+  const body: Record<string, unknown> = {};
+  if (patch.desiredTier !== undefined) body.desiredTier = patch.desiredTier;
+  if (patch.desiredOverrides !== undefined)
+    body.desiredOverrides = patch.desiredOverrides;
+  const data = await request<unknown>(
+    baseUrl,
+    `/v1/deployments/${encodeURIComponent(deploymentName)}/settings`,
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(body),
+    },
+  );
+  return deploymentSettingsResponseSchema.parse(data);
+}
+
+export async function restartDeployment(
+  baseUrl: string,
+  token: string,
+  deploymentName: string,
+  force?: boolean,
+): Promise<void> {
+  await request<unknown>(
+    baseUrl,
+    `/v1/deployments/${encodeURIComponent(deploymentName)}/restart`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify(force ? { force } : {}),
+    },
+  );
+}

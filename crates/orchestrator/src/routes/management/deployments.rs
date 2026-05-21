@@ -24,6 +24,7 @@ use orchestrator_api_types::management::{
     PlatformDeploymentResponse,
     PlatformTransferDeploymentArgs,
     PlatformUpdateDeploymentArgs,
+    RestartDeploymentArgs,
     UpdateDeploymentSettingsArgs,
 };
 use serde::Deserialize;
@@ -783,6 +784,7 @@ pub(crate) async fn restart_deployment(
     _auth: AuthIdentity,
     State(state): State<OrchestratorState>,
     Path(deployment_name): Path<String>,
+    Json(args): Json<RestartDeploymentArgs>,
 ) -> ApiResult<Json<PlatformDeploymentResponse>> {
     let deployment = state
         .storage
@@ -805,7 +807,8 @@ pub(crate) async fn restart_deployment(
 
     // Capacity check: exclude this deployment's own current tier from the sum
     // so a same-tier restart doesn't self-reject.
-    ensure_host_capacity_for_restart(&state, deployment.id, &effective_tier, false).await?;
+    let force = args.force.unwrap_or(false);
+    ensure_host_capacity_for_restart(&state, deployment.id, &effective_tier, force).await?;
 
     // Compose effective overrides: project layer then deployment layer.
     let mut overrides = json_object_to_btree(&project.knob_overrides);
