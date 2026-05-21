@@ -273,6 +273,8 @@ type DeploymentFields = {
   deploymentType: DeploymentType;
   projectSlug: string;
   teamSlug: string;
+  reference: string | null;
+  isDefault: boolean;
 };
 
 export type ProjectSelection =
@@ -587,6 +589,8 @@ async function getDeploymentSelectionFromEnv(
                 deploymentType: deploymentType,
                 teamSlug: slugs.team,
                 projectSlug: slugs.project,
+                reference: slugs.reference,
+                isDefault: slugs.isDefault,
               },
               source: "deployKey",
             },

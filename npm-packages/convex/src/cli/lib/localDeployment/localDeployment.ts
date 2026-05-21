@@ -451,6 +451,8 @@ export async function importDefaultEnvVars(
       deploymentType: "local" as const,
       projectSlug,
       teamSlug,
+      reference: null,
+      isDefault: false,
     },
   };
 
