@@ -95,6 +95,30 @@ pub struct ProvisionResult {
     pub sidecar_credentials: Option<SidecarCredentials>,
 }
 
+impl ProvisionResult {
+    /// Destructure for `NewDeployment` insertion: returns the snapshot
+    /// columns (storage_mode + optional sidecar creds) borrowed from
+    /// `self`. `Some(creds)` → sidecar mode; `None` → volume-sqlite.
+    pub fn storage_columns(
+        &self,
+    ) -> (
+        &'static str,
+        Option<&str>,
+        Option<&str>,
+        Option<&str>,
+    ) {
+        match &self.sidecar_credentials {
+            Some(c) => (
+                "sidecar",
+                Some(c.pg_password.as_str()),
+                Some(c.minio_root_user.as_str()),
+                Some(c.minio_root_password.as_str()),
+            ),
+            None => ("volume-sqlite", None, None, None),
+        }
+    }
+}
+
 #[async_trait]
 pub trait Provisioner: Send + Sync {
     /// Provision a backend for the given deployment, returning the URL,

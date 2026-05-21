@@ -185,6 +185,8 @@ pub(crate) async fn create_deployment(
         .map_err(ApiError::Internal)?;
     let resolved_overrides = serde_json::to_value(&result.resolved_env)
         .map_err(|e| ApiError::Internal(e.into()))?;
+    let (storage_mode, pg_password, minio_root_user, minio_root_password) =
+        result.storage_columns();
     let new = state
         .storage
         .create_deployment(crate::storage::deployments::NewDeployment {
@@ -202,10 +204,10 @@ pub(crate) async fn create_deployment(
             instance_secret: &result.instance_secret,
             tier: &tier,
             knob_overrides: &resolved_overrides,
-            storage_mode: "volume-sqlite",
-            pg_password: None,
-            minio_root_user: None,
-            minio_root_password: None,
+            storage_mode,
+            pg_password,
+            minio_root_user,
+            minio_root_password,
         })
         .await
         .map_err(ApiError::Internal)?;
@@ -825,6 +827,33 @@ pub(crate) async fn restart_deployment(
         overrides.insert(k, v);
     }
 
+    // Sidecar-mode deployments reuse their stored credentials so the new
+    // backend container reconnects to the still-running pg/minio sidecars.
+    let sidecar_credentials = if deployment.storage_mode == "sidecar" {
+        Some(crate::provisioner::SidecarCredentials {
+            pg_password: deployment.pg_password.clone().ok_or_else(|| {
+                ApiError::Internal(anyhow::anyhow!(
+                    "sidecar-mode deployment {} missing pg_password",
+                    deployment.name,
+                ))
+            })?,
+            minio_root_user: deployment.minio_root_user.clone().ok_or_else(|| {
+                ApiError::Internal(anyhow::anyhow!(
+                    "sidecar-mode deployment {} missing minio_root_user",
+                    deployment.name,
+                ))
+            })?,
+            minio_root_password: deployment.minio_root_password.clone().ok_or_else(|| {
+                ApiError::Internal(anyhow::anyhow!(
+                    "sidecar-mode deployment {} missing minio_root_password",
+                    deployment.name,
+                ))
+            })?,
+        })
+    } else {
+        None
+    };
+
     let result = state
         .provisioner
         .respawn(crate::provisioner::ProvisionRequest {
@@ -834,7 +863,7 @@ pub(crate) async fn restart_deployment(
             tier: effective_tier.clone(),
             knob_overrides: overrides,
             existing_instance_secret: Some(deployment.instance_secret.clone()),
-            sidecar_credentials: None,
+            sidecar_credentials,
         })
         .await
         .map_err(ApiError::Internal)?;
