@@ -7,6 +7,7 @@ hide_table_of_contents: true
 import TutorialGraphic from "@site/static/img/tutorial-graphic.svg";
 import {
   QuickFrameworksList,
+  QuickHarnessesList,
   QuickLanguagesList,
 } from "@site/src/QuickstartsList.tsx";
 import { LargeCardList } from "@site/src/QuickstartsList.tsx";
@@ -38,6 +39,25 @@ libraries. It makes it easy to build and scale dynamic live-updating apps.
 />
 
 ## Get Started
+
+### **Built for AI coding agents**
+
+Convex's database primitives were designed with scale and safety at the core.
+This means agents can write correct Convex code with fewer iterations, avoiding
+issues they'd hit in a traditional SQL database. Convex's query / mutation /
+action split makes agent-written code actually safe. Mutations run as
+serializable transactions, so an agent has the opportunity to
+race-condition-correct code by default: no locking primitives to reason about,
+no half-applied writes, avoiding whole classes of consistency bugs to debug
+later.
+
+It's as easy as telling your agent or harness
+
+> "Let's make a todo app with Convex"
+
+See the per-tool setup guides for more details:
+
+<QuickHarnessesList />
 
 Your favorite frameworks:
 
