@@ -19,6 +19,11 @@ import NuxtLogo from "@site/static/img/nuxt-logo.svg";
 import AndroidLogo from "@site/static/img/android-logo.svg";
 import SwiftLogo from "@site/static/img/swift-logo.svg";
 import TanStackLogo from "@site/static/img/tanstack-logo.svg";
+import ClaudeCodeLogo from "@site/static/img/claude-code-logo.svg";
+import CursorLogo from "@site/static/img/cursor-logo.svg";
+import GitHubCopilotLogo from "@site/static/img/github-copilot-logo.svg";
+import CodexLogo from "@site/static/img/codex-logo.svg";
+import conductorLogoUrl from "@site/static/img/conductor-logo.png";
 import React from "react";
 import Link from "@docusaurus/Link";
 import { ReactNode } from "@mdx-js/react/lib";
@@ -167,6 +172,47 @@ export function QuickFrameworksList() {
           href: "/quickstart/script-tag",
           docId: "quickstart/script-tag",
           label: "Script tag",
+        },
+      ]}
+    />
+  );
+}
+
+export function QuickHarnessesList() {
+  return (
+    <DocCardList
+      items={[
+        {
+          icon: <ClaudeCodeLogo height={40} />,
+          href: "/ai/using-claude-code",
+          docId: "ai/using-claude-code",
+          label: "Claude Code",
+        },
+        {
+          icon: <CodexLogo height={40} />,
+          href: "/ai/using-codex",
+          docId: "ai/using-codex",
+          label: "Codex",
+        },
+        {
+          icon: <CursorLogo height={40} />,
+          href: "/ai/using-cursor",
+          docId: "ai/using-cursor",
+          label: "Cursor",
+        },
+        {
+          icon: <GitHubCopilotLogo height={40} />,
+          href: "/ai/using-github-copilot",
+          docId: "ai/using-github-copilot",
+          label: "GitHub Copilot",
+        },
+        {
+          icon: (
+            <img src={conductorLogoUrl} height={40} alt="" aria-hidden="true" />
+          ),
+          href: "/ai/using-conductor",
+          docId: "ai/using-conductor",
+          label: "Conductor",
         },
       ]}
     />

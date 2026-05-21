@@ -37,7 +37,9 @@ follow.
 See these documents for install instructions:
 
 - [Cursor](/ai/using-cursor.mdx#add-convex-cursorrules)
-- [Windsurf](/ai/using-windsurf.mdx#add-convex-rules)
+- [Claude Code](/ai/using-claude-code.mdx#add-convex-rules)
+- [Codex](/ai/using-codex.mdx#add-convex-rules)
+- [Conductor](/ai/using-conductor.mdx#add-convex-rules)
 - [GitHub Copilot](/ai/using-github-copilot.mdx#add-convex-instructions)
 
 For all other IDEs, add the following rules file to your project and refer to it
@@ -97,17 +99,56 @@ A good setup script for e.g. ChatGPT Codex might include
 
 ```sh
 npm i
-CONVEX_AGENT_MODE=anonymous npx convex dev --once
+# npx convex init # allows setting environment variables before pushing
+# npx convex env set --from-file ./path/to/.env.agent (optional)
+npx convex dev --once
 ```
 
 or
 
 ```sh
 bun i
-CONVEX_AGENT_MODE=anonymous bun x convex dev --once
+bun x convex dev --once
 ```
 
 This command requires "full" internet access to download the binary.
+
+### Cloud dev deployments per agent
+
+If you'd rather give each agent (or each worktree) its own throwaway _cloud_ dev
+deployment instead of an anonymous local one, a setup script can provision one
+and hand the agent a deploy key scoped only to it:
+
+```sh
+# Create a new dev deployment and select it.
+npx convex deployment create --type dev --select \
+  team-slug:project-slug:dev/$USER/$(basename "$PWD") \
+  --expiration "in 5 days"
+
+# Mint a deploy key scoped only to this deployment and save it to .env.local
+# as CONVEX_DEPLOY_KEY.
+npx convex deployment token create agent-token --save-env
+
+# Push code once.
+npx convex dev --once
+```
+
+Once `CONVEX_DEPLOY_KEY` is set in `.env.local`, the agent can only push to and
+develop against its own dev deployment — not prod or other developers'
+deployments.
+
+If the agent needs environment variables, the easiest path is to set them as
+[project environment variable defaults](/production/environment-variables.mdx#project-environment-variable-defaults)
+so they're applied automatically to every new cloud deployment. You can also
+seed values from another source via `npx convex env set` (which accepts multiple
+variables on stdin or via `--from-file`).
+
+See
+[Creating and deleting deploy keys from the CLI](/cli/deploy-key-types.mdx#deployment-token)
+for the full options on `npx convex deployment token`, and
+[Working with Multiple Deployments](/production/multiple-deployments.mdx) for
+worktree-based recipes (Conductor, Cursor, Codex, T3 Code) that you can adapt to
+this flow.
 
 ## Convex MCP Server
 
