@@ -53,6 +53,9 @@ export const deploymentSchema = z.object({
   creationTime: z.number(),
   region: z.string().nullable().optional(),
   previewIdentifier: z.string().nullable().optional(),
+  // Optional for backward compat with orchestrator builds that pre-date the
+  // tier-on-platform-response field. Defaults to "S16" downstream when absent.
+  tier: z.string().optional(),
 });
 export type Deployment = z.infer<typeof deploymentSchema>;
 

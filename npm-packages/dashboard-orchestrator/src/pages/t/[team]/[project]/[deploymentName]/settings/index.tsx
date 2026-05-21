@@ -30,6 +30,11 @@ export default function DeploymentSettings() {
             deployment={deployment}
             teamSlug={team.slug}
             projectSlug={project.slug}
+            // Orchestrator doesn't surface a "last backup time"; pass null so
+            // the summary renders "No backup yet" rather than an infinite
+            // spinner. The Backup & Restore page itself talks to the running
+            // backend directly.
+            lastBackupTime={null}
           />
         )}
         <div ref={pauseRef}>
