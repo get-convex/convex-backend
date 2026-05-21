@@ -50,6 +50,7 @@ use value::heap_size::{
 };
 
 use crate::{
+    atomic_cache::AtomicCache,
     backend_in_memory_indexes::{
         IndexEntry,
         IndexPage,
@@ -220,7 +221,7 @@ enum IntervalStatus {
 /// Shared cache for index range reads up-to-date as of the latest commits.
 #[derive(Clone)]
 pub struct IndexCache {
-    cache: moka::sync::Cache<CacheKey, CachedInterval>,
+    cache: AtomicCache<CacheKey, CachedInterval>,
     /// Nested map of deployments to indexes to (interval, order, max_size)
     /// triples tracked in the cache. May include intervals that are no
     /// longer tracked because they were evicted by moka, but no interval
@@ -271,7 +272,7 @@ impl IndexCache {
             })
             .build();
         Self {
-            cache,
+            cache: AtomicCache::new(cache),
             index_to_intervals,
             next_deployment_id: Arc::new(AtomicU32::new(0)),
         }
@@ -297,7 +298,7 @@ impl IndexCache {
 
             for (index_id, intervals) in entries {
                 for (interval, order, max_size) in intervals.intervals() {
-                    self.cache.invalidate(&CacheKey {
+                    self.cache.remove(CacheKey {
                         deployment_id,
                         index_id,
                         interval,
@@ -348,7 +349,7 @@ impl IndexCache {
         if !old_in_interval && !new_in_interval {
             return;
         }
-        self.cache.invalidate(key);
+        self.cache.remove(key.clone());
         tracing::debug!(
             deployment_id = ?key.deployment_id,
             "IndexCache::apply_write_to_cache invalidated entry"
@@ -426,7 +427,7 @@ impl IndexCacheHandle {
                          zombie entry (deployment_id={:?}, index_id={index_id:?})",
                         self.deployment_id
                     );
-                    self.cache.cache.invalidate(&key);
+                    self.cache.cache.remove(key);
                     timer.add_label(StaticMetricLabel::new("status", "miss"));
                     return None;
                 },
@@ -500,19 +501,15 @@ impl IndexCacheHandle {
             entries_size,
             begin_ts: ts,
         };
-        let result = self
-            .cache
-            .cache
-            .entry(key.clone())
-            .and_compute_with(|maybe_entry| {
-                // Only insert if there's no existing entry — a prior entry with an earlier
-                // begin_ts can serve a wider range of reads.
-                if maybe_entry.is_some() {
-                    Op::Nop
-                } else {
-                    Op::Put(cached_interval)
-                }
-            });
+        let result = self.cache.cache.compute(key.clone(), |maybe_entry| {
+            // Only insert if there's no existing entry — a prior entry with an earlier
+            // begin_ts can serve a wider range of reads.
+            if maybe_entry.is_some() {
+                Op::Nop
+            } else {
+                Op::Put(cached_interval)
+            }
+        });
         if !matches!(result, CompResult::Inserted(_)) {
             timer.add_label(StaticMetricLabel::new("result", "already_exists"));
             return;
@@ -534,7 +531,7 @@ impl IndexCacheHandle {
         else {
             // Remove the cache entry. The eviction listener will remove from
             // index_to_intervals
-            self.cache.cache.invalidate(&key);
+            self.cache.cache.remove(key);
             timer.add_label(StaticMetricLabel::new("result", "out_of_retention"));
             return;
         };
@@ -556,7 +553,7 @@ impl IndexCacheHandle {
                 timer.add_label(StaticMetricLabel::new("result", "invalid"));
                 // Remove the cache entry. The eviction listener will remove from
                 // index_to_intervals
-                self.cache.cache.invalidate(&key);
+                self.cache.cache.remove(key);
                 return;
             }
         }
@@ -564,7 +561,7 @@ impl IndexCacheHandle {
         // Phase 2 of 2PC: mark the cache entry as ready to serve reads if it's still
         // there. If it is missing, it was evicted by a concurrent call to
         // `apply_writes`.
-        self.cache.cache.entry(key).and_compute_with(|maybe_entry| {
+        self.cache.cache.compute(key, |maybe_entry| {
             if let Some(entry) = maybe_entry
                 && entry.value().begin_ts == ts
             {
@@ -628,7 +625,7 @@ impl IndexCacheHandle {
             order,
             max_size,
         };
-        self.cache.cache.invalidate(&key);
+        self.cache.cache.remove(key);
         log_index_cache_size(self.cache.cache.weighted_size());
     }
 

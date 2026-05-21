@@ -8,6 +8,7 @@
 #![feature(try_blocks_heterogeneous)]
 #![feature(anonymous_lifetime_in_impl_trait)]
 
+pub mod atomic_cache;
 pub mod backend_in_memory_indexes;
 pub mod index_cache;
 pub mod index_registry;
