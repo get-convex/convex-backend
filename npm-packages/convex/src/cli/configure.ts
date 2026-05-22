@@ -81,8 +81,6 @@ type ConfigureCmdOptions = {
   team?: string | undefined;
   project?: string | undefined;
   devDeployment?: "cloud" | "local" | undefined;
-  local?: boolean | undefined;
-  cloud?: boolean | undefined;
   url?: string | undefined;
   adminKey?: string | undefined;
   envFile?: string | undefined;
@@ -406,8 +404,6 @@ async function handleChooseProject(
     team: cmdOptions.team,
     project: cmdOptions.project,
     devDeployment: cmdOptions.devDeployment,
-    local: cmdOptions.local,
-    cloud: cmdOptions.cloud,
   });
   if (
     selectionWithinProject.kind === "prod" ||
@@ -488,8 +484,6 @@ export async function selectProject(
     team?: string | undefined;
     project?: string | undefined;
     devDeployment?: "cloud" | "local" | undefined;
-    local?: boolean | undefined;
-    cloud?: boolean | undefined;
     defaultProjectName?: string | undefined;
   },
 ): Promise<{
@@ -524,8 +518,6 @@ async function selectNewProject(
     team?: string | undefined;
     project?: string | undefined;
     devDeployment?: "cloud" | "local" | undefined;
-    cloud?: boolean | undefined;
-    local?: boolean | undefined;
     defaultProjectName?: string | undefined;
   },
 ) {
@@ -549,11 +541,6 @@ async function selectNewProject(
       didChooseBetweenTeams || choseProjectInteractively,
     projectSlug: undefined,
     devDeploymentFromFlag: config.devDeployment,
-    forceDevDeployment: config.local
-      ? "local"
-      : config.cloud
-        ? "cloud"
-        : undefined,
   });
 
   const region =
@@ -613,8 +600,6 @@ async function selectExistingProject(
     team?: string | undefined;
     project?: string | undefined;
     devDeployment?: "cloud" | "local" | undefined;
-    local?: boolean | undefined;
-    cloud?: boolean | undefined;
   },
 ): Promise<{
   teamSlug: string;
@@ -647,11 +632,6 @@ async function selectExistingProject(
     projectSlug,
     userHasChosenSomethingInteractively: chosen || !config.project,
     devDeploymentFromFlag: config.devDeployment,
-    forceDevDeployment: config.local
-      ? "local"
-      : config.cloud
-        ? "cloud"
-        : undefined,
   });
 
   logFinishedStep(`Reinitialized project ${chalkStderr.bold(projectSlug)}`);

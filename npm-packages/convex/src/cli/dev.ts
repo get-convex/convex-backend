@@ -105,7 +105,7 @@ export const dev = new Command("dev")
       "Ignore existing configuration and configure new or existing project, interactively or set by --team <team_slug>, --project <project_slug>, and --dev-deployment local|cloud",
     )
       .choices(["new", "existing"] as const)
-      .conflicts(["--local", "--cloud", "--url", "--admin-key", "--env-file"]),
+      .conflicts(["--url", "--admin-key", "--env-file"]),
   )
   .addOption(
     new Option(
@@ -157,24 +157,8 @@ Same format as .env.local or .env files, and overrides them.`,
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
   .addOption(new Option("--deployment <deployment>").hideHelp())
-  .addOption(
-    new Option(
-      "--local",
-      "Use local deployment regardless of last used backend. DB data will not be downloaded from any cloud deployment.",
-    )
-      .default(false)
-      .conflicts(["--prod", "--url", "--admin-key", "--cloud"])
-      .hideHelp(),
-  )
-  .addOption(
-    new Option(
-      "--cloud",
-      "Use cloud deployment regardles of last used backend. DB data will not be uploaded from local.",
-    )
-      .default(false)
-      .conflicts(["--prod", "--url", "--admin-key", "--local"])
-      .hideHelp(),
-  )
+  .addOption(new Option("--local").default(false).hideHelp())
+  .addOption(new Option("--cloud").default(false).hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
@@ -190,6 +174,30 @@ Same format as .env.local or .env files, and overrides them.`,
           chalkStderr.bold(
             `      npx convex deployment select ${cmdOptions.deployment}\n`,
           ) +
+          "  Then, run `npx convex dev` again.",
+      });
+    }
+
+    if (cmdOptions.local) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "`--local` is deprecated. \n\n" +
+          "  To select your local deployment, run: \n" +
+          chalkStderr.bold("      npx convex deployment select local\n") +
+          "  Then, run `npx convex dev` again.",
+      });
+    }
+
+    if (cmdOptions.cloud) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "`--cloud` is deprecated. \n\n" +
+          "  To select your personal cloud dev deployment, run: \n" +
+          chalkStderr.bold("      npx convex deployment select dev\n") +
           "  Then, run `npx convex dev` again.",
       });
     }
