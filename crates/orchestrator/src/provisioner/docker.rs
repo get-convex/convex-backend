@@ -12,27 +12,14 @@
 //!   `INSTANCE_SECRET` so the orchestrator can mint matching admin keys
 //! - uses `--restart unless-stopped` so it survives orchestrator restarts
 
-use std::sync::atomic::{
-    AtomicU16,
-    Ordering,
-};
+use std::sync::atomic::{AtomicU16, Ordering};
 
 use async_trait::async_trait;
-use rand::{
-    distr::Alphanumeric,
-    Rng,
-};
+use rand::{distr::Alphanumeric, Rng};
 use tokio::process::Command;
 
-use super::{
-    ProvisionRequest,
-    ProvisionResult,
-    Provisioner,
-};
-use crate::auth::tokens::{
-    sha256_hex,
-    suffix_of,
-};
+use super::{ProvisionRequest, ProvisionResult, Provisioner};
+use crate::auth::tokens::{sha256_hex, suffix_of};
 
 pub struct DockerProvisioner {
     backend_image: String,
@@ -96,6 +83,7 @@ impl DockerProvisioner {
         &self,
         deployment_name: &str,
         pg_max_connections: u32,
+        sidecar_resources: crate::provisioner::sidecar::SidecarResources,
         postgres_image: &str,
         minio_image: &str,
         creds: Option<&crate::provisioner::SidecarCredentials>,
@@ -110,13 +98,14 @@ impl DockerProvisioner {
         let minio_container = sc::minio_container_name(&self.container_prefix, deployment_name);
         let minio_volume = sc::minio_volume_name(&self.container_prefix, deployment_name);
 
-        let credentials = creds
-            .cloned()
-            .unwrap_or_else(|| crate::provisioner::SidecarCredentials {
-                pg_password: sc::generate_password(),
-                minio_root_user: sc::generate_password(),
-                minio_root_password: sc::generate_password(),
-            });
+        let credentials =
+            creds
+                .cloned()
+                .unwrap_or_else(|| crate::provisioner::SidecarCredentials {
+                    pg_password: sc::generate_password(),
+                    minio_root_user: sc::generate_password(),
+                    minio_root_password: sc::generate_password(),
+                });
 
         sc::spawn_postgres_sidecar(
             &pg_container,
@@ -125,6 +114,7 @@ impl DockerProvisioner {
             postgres_image,
             &credentials.pg_password,
             pg_max_connections,
+            sidecar_resources.postgres,
         )
         .await?;
         sc::spawn_minio_sidecar(
@@ -134,11 +124,11 @@ impl DockerProvisioner {
             minio_image,
             &credentials.minio_root_user,
             &credentials.minio_root_password,
+            sidecar_resources.minio,
         )
         .await?;
         sc::wait_for_postgres(&pg_container).await?;
-        sc::create_postgres_database(&pg_container, &sc::postgres_db_name(deployment_name))
-            .await?;
+        sc::create_postgres_database(&pg_container, &sc::postgres_db_name(deployment_name)).await?;
         sc::wait_for_minio(&minio_container).await?;
         sc::create_minio_buckets(
             &minio_container,
@@ -176,10 +166,7 @@ impl DockerProvisioner {
         } else {
             format!(
                 "{}://{}.{}:{}",
-                self.router_public_scheme,
-                host_prefix,
-                self.router_host,
-                self.router_public_port
+                self.router_public_scheme, host_prefix, self.router_host, self.router_public_port
             )
         }
     }
@@ -217,10 +204,7 @@ impl Provisioner for DockerProvisioner {
             .take(32)
             .map(|c| c as char)
             .collect();
-        let admin_key = format!(
-            "{}:{}|{}",
-            req.deployment_type, req.deployment_name, secret
-        );
+        let admin_key = format!("{}:{}|{}", req.deployment_type, req.deployment_name, secret);
         let hash = sha256_hex(&secret);
         let admin_key_suffix = suffix_of(&secret);
 
@@ -264,10 +248,13 @@ impl Provisioner for DockerProvisioner {
                     .find(|(k, _)| *k == "POSTGRES_MAX_CONNECTIONS")
                     .and_then(|(_, v)| v.parse::<u32>().ok())
                     .unwrap_or(128);
+                let sidecar_resources =
+                    crate::provisioner::sidecar::SidecarResources::for_tier(tier);
                 let (env, creds) = self
                     .bring_up_sidecars(
                         &req.deployment_name,
                         pg_max_connections,
+                        sidecar_resources,
                         postgres_image,
                         minio_image,
                         req.sidecar_credentials.as_ref(),
@@ -292,7 +279,9 @@ impl Provisioner for DockerProvisioner {
                 .map(|(k, v)| (*k, v.as_str()))
                 .chain(strategy_env.iter().map(|(k, v)| (*k, v.as_str()))),
             tier.knob_defaults,
-            req.knob_overrides.iter().map(|(k, v)| (k.clone(), v.clone())),
+            req.knob_overrides
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone())),
         );
 
         let container_name = self.container_name(&req.deployment_name);
@@ -497,35 +486,34 @@ impl Provisioner for DockerProvisioner {
                 )
                 .await;
             },
-            _ => {
-                // volume-sqlite (the default for unknown values too —
-                // keeps cleanup best-effort for pre-v3 rows).
-                // Best-effort volume removal. Pre-v2 deployments may not have
-                // a named volume, so a non-zero exit here is only logged.
-                let volume_name = self.volume_name(deployment_name);
-                let vol_output = Command::new("docker")
-                    .args(["volume", "rm", &volume_name])
-                    .output()
-                    .await;
-                match vol_output {
-                    Ok(o) if !o.status.success() => {
-                        let stderr = String::from_utf8_lossy(&o.stderr);
-                        tracing::warn!(
-                            deployment_name,
-                            stderr = %stderr.trim(),
-                            "docker volume rm reported a non-zero exit; treating as best-effort",
-                        );
-                    },
-                    Err(e) => {
-                        tracing::warn!(
-                            deployment_name,
-                            error = %e,
-                            "docker volume rm invocation failed; treating as best-effort",
-                        );
-                    },
-                    Ok(_) => {},
-                }
+            _ => {},
+        }
+
+        // Best-effort volume removal. Mixed infrastructure modes can have
+        // sidecars and a backend volume at the same time, while older rows may
+        // not have a named volume at all.
+        let volume_name = self.volume_name(deployment_name);
+        let vol_output = Command::new("docker")
+            .args(["volume", "rm", &volume_name])
+            .output()
+            .await;
+        match vol_output {
+            Ok(o) if !o.status.success() => {
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                tracing::warn!(
+                    deployment_name,
+                    stderr = %stderr.trim(),
+                    "docker volume rm reported a non-zero exit; treating as best-effort",
+                );
             },
+            Err(e) => {
+                tracing::warn!(
+                    deployment_name,
+                    error = %e,
+                    "docker volume rm invocation failed; treating as best-effort",
+                );
+            },
+            Ok(_) => {},
         }
         Ok(())
     }
@@ -559,7 +547,5 @@ async fn wait_for_admin_key(container_name: &str) -> anyhow::Result<String> {
             last_err = String::from_utf8_lossy(&output.stderr).trim().to_string();
         }
     }
-    anyhow::bail!(
-        "backend never produced an admin key (last error: {last_err})"
-    )
+    anyhow::bail!("backend never produced an admin key (last error: {last_err})")
 }

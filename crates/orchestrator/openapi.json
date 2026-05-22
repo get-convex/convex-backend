@@ -3458,6 +3458,9 @@
           "projectName": {
             "type": "string"
           },
+          "provisioningMode": {
+            "type": ["string", "null"]
+          },
           "region": {
             "type": ["string", "null"]
           },
@@ -4096,6 +4099,10 @@
           },
           "previewIdentifier": {
             "type": ["string", "null"]
+          },
+          "provisioningMode": {
+            "type": ["string", "null"],
+            "description": "Override the project's default infrastructure strategy for this\ndeployment only (`default`, `volume-sqlite`, or `sidecar`)."
           },
           "region": {
             "type": ["string", "null"]

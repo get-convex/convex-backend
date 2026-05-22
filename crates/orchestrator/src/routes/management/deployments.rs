@@ -1,40 +1,20 @@
 use axum::{
-    extract::{
-        Path,
-        Query,
-        State,
-    },
+    extract::{Path, Query, State},
     http::StatusCode,
-    routing::{
-        get,
-        post,
-    },
-    Json,
-    Router,
+    routing::{get, post},
+    Json, Router,
 };
 use orchestrator_api_types::management::{
-    DeploymentClass,
-    DeploymentRegion,
-    DeploymentSettingsResponse,
-    ListDeploymentClassesResponse,
-    ListDeploymentRegionsResponse,
-    ListLocalDeploymentsResponse,
-    PaginatedDeploymentsResponse,
-    PlatformCreateDeploymentArgs,
-    PlatformDeploymentResponse,
-    PlatformTransferDeploymentArgs,
-    PlatformUpdateDeploymentArgs,
-    RestartDeploymentArgs,
-    UpdateDeploymentSettingsArgs,
+    DeploymentClass, DeploymentRegion, DeploymentSettingsResponse, ListDeploymentClassesResponse,
+    ListDeploymentRegionsResponse, ListLocalDeploymentsResponse, PaginatedDeploymentsResponse,
+    PlatformCreateDeploymentArgs, PlatformDeploymentResponse, PlatformTransferDeploymentArgs,
+    PlatformUpdateDeploymentArgs, RestartDeploymentArgs, UpdateDeploymentSettingsArgs,
 };
 use serde::Deserialize;
 
 use crate::{
     auth::identity::AuthIdentity,
-    errors::{
-        ApiError,
-        ApiResult,
-    },
+    errors::{ApiError, ApiResult},
     ids::random_deployment_name,
     routes::helpers::deployment_to_platform,
     state::OrchestratorState,
@@ -59,7 +39,10 @@ pub fn router() -> Router<OrchestratorState> {
             "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
             get(get_default_deployment_by_slug),
         )
-        .route("/teams/{team_id}/list_deployments", get(list_team_deployments))
+        .route(
+            "/teams/{team_id}/list_deployments",
+            get(list_team_deployments),
+        )
         .route(
             "/teams/{team_id}/list_local_deployments",
             get(list_local_deployments),
@@ -142,11 +125,7 @@ pub(crate) async fn create_deployment(
         .await
         .map_err(ApiError::Internal)?
         .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
-    let tier = args
-        .tier
-        .as_deref()
-        .unwrap_or(&project.tier)
-        .to_string();
+    let tier = args.tier.as_deref().unwrap_or(&project.tier).to_string();
     if crate::provisioner::tiers::lookup(&tier).is_none() {
         return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
     }
@@ -170,6 +149,13 @@ pub(crate) async fn create_deployment(
             overrides.insert(k.clone(), v.clone());
         }
     }
+    let backend_infrastructure =
+        crate::provisioner::backend_config::backend_infrastructure_from_overrides(
+            &overrides,
+            args.provisioning_mode.as_deref(),
+        )
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let backend_overrides = crate::provisioner::backend_config::backend_env_overrides(&overrides);
     let result = state
         .provisioner
         .provision(crate::provisioner::ProvisionRequest {
@@ -177,14 +163,15 @@ pub(crate) async fn create_deployment(
             deployment_type: dt,
             project_id,
             tier: tier.clone(),
-            knob_overrides: overrides.clone(),
+            knob_overrides: backend_overrides,
+            backend_infrastructure,
             existing_instance_secret: None,
             sidecar_credentials: None,
         })
         .await
         .map_err(ApiError::Internal)?;
-    let resolved_overrides = serde_json::to_value(&result.resolved_env)
-        .map_err(|e| ApiError::Internal(e.into()))?;
+    let resolved_overrides =
+        serde_json::to_value(&result.resolved_env).map_err(|e| ApiError::Internal(e.into()))?;
     let (storage_mode, pg_password, minio_root_user, minio_root_password) =
         result.storage_columns();
     let new = state
@@ -576,9 +563,9 @@ async fn _update_deployment(
         .map_err(ApiError::Internal)?
         .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
     if let Some(class_str) = args.deployment_class {
-        let class: crate::storage::DeploymentClass = class_str.parse().map_err(|_| {
-            ApiError::BadRequest(format!("unknown deployment class {class_str}"))
-        })?;
+        let class: crate::storage::DeploymentClass = class_str
+            .parse()
+            .map_err(|_| ApiError::BadRequest(format!("unknown deployment class {class_str}")))?;
         state
             .storage
             .update_deployment_class(d.id, class)
@@ -747,11 +734,7 @@ pub(crate) async fn patch_deployment_settings(
 
     state
         .storage
-        .update_deployment_settings(
-            deployment.id,
-            tier_update,
-            new_desired_overrides.as_ref(),
-        )
+        .update_deployment_settings(deployment.id, tier_update, new_desired_overrides.as_ref())
         .await
         .map_err(ApiError::Internal)?;
 
@@ -862,7 +845,12 @@ pub(crate) async fn restart_deployment(
             deployment_type: deployment.deployment_type,
             project_id: deployment.project_id,
             tier: effective_tier.clone(),
-            knob_overrides: overrides.clone(),
+            knob_overrides: crate::provisioner::backend_config::backend_env_overrides(&overrides),
+            backend_infrastructure:
+                crate::provisioner::backend_config::backend_infrastructure_from_overrides(
+                    &overrides, None,
+                )
+                .map_err(|e| ApiError::BadRequest(e.to_string()))?,
             // Reuse the 64-hex INSTANCE_SECRET we persisted at provision
             // time. For legacy rows (column NULL because they predate
             // this hotfix), pass None — the provisioner mints a fresh
@@ -917,5 +905,7 @@ pub(crate) async fn restart_deployment(
         .await
         .map_err(ApiError::Internal)?
         .ok_or_else(|| ApiError::NotFound("deployment".into()))?;
-    Ok(Json(crate::routes::helpers::deployment_to_platform(&updated)))
+    Ok(Json(crate::routes::helpers::deployment_to_platform(
+        &updated,
+    )))
 }

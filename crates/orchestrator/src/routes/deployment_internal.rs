@@ -5,67 +5,32 @@
 //! and the CLI's `bigBrainAPI` calls.
 
 use axum::{
-    extract::{
-        Path,
-        State,
-    },
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{
-        get,
-        post,
-    },
-    Json,
-    Router,
+    routing::{get, post},
+    Json, Router,
 };
 use orchestrator_api_types::{
-    dashboard::{
-        DeviceAuthorizeArgs,
-        DeviceAuthorizeResponse,
-        OptIn,
-    },
+    dashboard::{DeviceAuthorizeArgs, DeviceAuthorizeResponse, OptIn},
     deployment::{
-        ClaimPreviewDeploymentArgs,
-        ClaimPreviewDeploymentResponse,
-        CreateProjectArgs,
-        CreateProjectResponse,
-        DeploymentAuthResponse,
-        DeploymentAuthWithinCurrentProjectArgs,
-        HasProjectsResponse,
-        ProjectSelectionArgs,
-        ProvisionAndAuthorizeArgs,
-        TeamAndProjectForDeploymentResponse,
-        TeamSummary,
+        ClaimPreviewDeploymentArgs, ClaimPreviewDeploymentResponse, CreateProjectArgs,
+        CreateProjectResponse, DeploymentAuthResponse, DeploymentAuthWithinCurrentProjectArgs,
+        HasProjectsResponse, ProjectSelectionArgs, ProvisionAndAuthorizeArgs,
+        TeamAndProjectForDeploymentResponse, TeamSummary,
     },
 };
 
 use crate::{
     auth::{
-        identity::{
-            AuthIdentity,
-            OptionalAuth,
-        },
-        tokens::{
-            encode_pat,
-            mint_token_secret,
-            parse_token,
-            sha256_hex,
-            suffix_of,
-        },
+        identity::{AuthIdentity, OptionalAuth},
+        tokens::{encode_pat, mint_token_secret, parse_token, sha256_hex, suffix_of},
     },
-    errors::{
-        ApiError,
-        ApiResult,
-    },
+    errors::{ApiError, ApiResult},
     ids::random_id,
     routes::helpers::deployment_to_response,
     state::OrchestratorState,
-    storage::{
-        access_tokens::NewAccessToken,
-        AccessTokenKind,
-        DeploymentClass,
-        DeploymentType,
-    },
+    storage::{access_tokens::NewAccessToken, AccessTokenKind, DeploymentClass, DeploymentType},
 };
 
 pub fn router() -> Router<OrchestratorState> {
@@ -77,7 +42,10 @@ pub fn router() -> Router<OrchestratorState> {
         .route("/teams", get(list_teams))
         .route("/has_projects", get(has_projects))
         .route("/create_project", post(create_project))
-        .route("/dashboard/delete_project/{project_id}", post(delete_project))
+        .route(
+            "/dashboard/delete_project/{project_id}",
+            post(delete_project),
+        )
         .route(
             "/deployment/{deployment_name}/team_and_project",
             get(team_and_project),
@@ -187,7 +155,9 @@ pub(crate) async fn authorize_head(_auth: OptionalAuth) -> impl IntoResponse {
     responses((status = 200, body = orchestrator_api_types::dashboard::GetOptInsResponse)),
     tag = "deployment_internal",
 )]
-pub(crate) async fn check_opt_ins(_auth: AuthIdentity) -> ApiResult<Json<orchestrator_api_types::dashboard::GetOptInsResponse>> {
+pub(crate) async fn check_opt_ins(
+    _auth: AuthIdentity,
+) -> ApiResult<Json<orchestrator_api_types::dashboard::GetOptInsResponse>> {
     Ok(Json(orchestrator_api_types::dashboard::GetOptInsResponse {
         opt_ins_to_accept: Vec::new(),
     }))
@@ -254,7 +224,11 @@ pub(crate) async fn has_projects(
     _auth: AuthIdentity,
     State(state): State<OrchestratorState>,
 ) -> ApiResult<Json<HasProjectsResponse>> {
-    let n = state.storage.count_projects().await.map_err(ApiError::Internal)?;
+    let n = state
+        .storage
+        .count_projects()
+        .await
+        .map_err(ApiError::Internal)?;
     Ok(Json(HasProjectsResponse {
         has_projects: n > 0,
     }))
@@ -307,12 +281,25 @@ pub(crate) async fn create_project(
     if crate::provisioner::tiers::lookup(tier).is_none() {
         return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
     }
-    let overrides = args.knob_overrides.clone().unwrap_or_default();
+    let mut overrides = args.knob_overrides.clone().unwrap_or_default();
+    let backend_infrastructure =
+        crate::provisioner::backend_config::backend_infrastructure_from_overrides(
+            &overrides,
+            args.provisioning_mode.as_deref(),
+        )
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    if args.provisioning_mode.is_some() {
+        crate::provisioner::backend_config::upsert_provisioning_mode_override(
+            &mut overrides,
+            backend_infrastructure.provisioning_mode,
+        );
+    }
     for (k, v) in &overrides {
         if let Err(e) = crate::knob_registry::validate(k, v) {
             return Err(ApiError::BadRequest(e.to_string()));
         }
     }
+    let backend_overrides = crate::provisioner::backend_config::backend_env_overrides(&overrides);
     let overrides_json =
         serde_json::to_value(&overrides).map_err(|e| ApiError::Internal(e.into()))?;
     state
@@ -338,14 +325,15 @@ pub(crate) async fn create_project(
                 deployment_type: dt,
                 project_id: project.id,
                 tier: tier.to_string(),
-                knob_overrides: overrides.clone(),
+                knob_overrides: backend_overrides.clone(),
+                backend_infrastructure,
                 existing_instance_secret: None,
                 sidecar_credentials: None,
             })
             .await
             .map_err(ApiError::Internal)?;
-        let resolved_overrides = serde_json::to_value(&result.resolved_env)
-            .map_err(|e| ApiError::Internal(e.into()))?;
+        let resolved_overrides =
+            serde_json::to_value(&result.resolved_env).map_err(|e| ApiError::Internal(e.into()))?;
         let (storage_mode, pg_password, minio_root_user, minio_root_password) =
             result.storage_columns();
         let new = state
@@ -587,7 +575,24 @@ pub(crate) async fn provision_and_authorize(
         }));
     }
 
-    let tier = crate::provisioner::tiers::DEFAULT_TIER.to_string();
+    let tier = project.tier.clone();
+    let project_overrides = project
+        .knob_overrides
+        .as_object()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        })
+        .unwrap_or_default();
+    let backend_infrastructure =
+        crate::provisioner::backend_config::backend_infrastructure_from_overrides(
+            &project_overrides,
+            None,
+        )
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let backend_overrides =
+        crate::provisioner::backend_config::backend_env_overrides(&project_overrides);
     crate::routes::management::deployments::ensure_host_capacity(&state, &tier, false).await?;
     let name = crate::ids::random_deployment_name();
     let result = state
@@ -597,7 +602,8 @@ pub(crate) async fn provision_and_authorize(
             deployment_type: dt,
             project_id: project.id,
             tier: tier.clone(),
-            knob_overrides: std::collections::BTreeMap::new(),
+            knob_overrides: backend_overrides,
+            backend_infrastructure,
             existing_instance_secret: None,
             sidecar_credentials: None,
         })
@@ -698,7 +704,24 @@ pub(crate) async fn claim_preview_deployment(
     let deployment = match existing {
         Some(d) => d,
         None => {
-            let tier = crate::provisioner::tiers::DEFAULT_TIER.to_string();
+            let tier = project.tier.clone();
+            let project_overrides = project
+                .knob_overrides
+                .as_object()
+                .map(|m| {
+                    m.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect::<std::collections::BTreeMap<_, _>>()
+                })
+                .unwrap_or_default();
+            let backend_infrastructure =
+                crate::provisioner::backend_config::backend_infrastructure_from_overrides(
+                    &project_overrides,
+                    None,
+                )
+                .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+            let backend_overrides =
+                crate::provisioner::backend_config::backend_env_overrides(&project_overrides);
             crate::routes::management::deployments::ensure_host_capacity(&state, &tier, false)
                 .await?;
             let name = crate::ids::random_deployment_name();
@@ -709,7 +732,8 @@ pub(crate) async fn claim_preview_deployment(
                     deployment_type: DeploymentType::Preview,
                     project_id: project.id,
                     tier: tier.clone(),
-                    knob_overrides: std::collections::BTreeMap::new(),
+                    knob_overrides: backend_overrides,
+                    backend_infrastructure,
                     existing_instance_secret: None,
                     sidecar_credentials: None,
                 })
@@ -820,9 +844,7 @@ async fn resolve_project_for_selection(
                 .get_deployment_by_name(deployment_name)
                 .await
                 .map_err(ApiError::Internal)?
-                .ok_or_else(|| {
-                    ApiError::NotFound(format!("deployment {}", deployment_name))
-                })?;
+                .ok_or_else(|| ApiError::NotFound(format!("deployment {}", deployment_name)))?;
             let p = state
                 .storage
                 .get_project(d.project_id)

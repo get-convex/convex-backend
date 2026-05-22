@@ -20,6 +20,31 @@ pub fn find(env_var: &str) -> Option<&'static KnobMeta> {
     KNOWN_KNOBS.iter().find(|k| k.env_var == env_var)
 }
 
+const INFRASTRUCTURE_OVERRIDE_KEYS: &[&str] = &[
+    crate::provisioner::backend_config::PROVISIONING_MODE_OVERRIDE_KEY,
+    crate::provisioner::backend_config::DATABASE_MODE_OVERRIDE_KEY,
+    crate::provisioner::backend_config::STORAGE_MODE_OVERRIDE_KEY,
+    "POSTGRES_URL",
+    "MYSQL_URL",
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "S3_ENDPOINT_URL",
+    "AWS_S3_FORCE_PATH_STYLE",
+    "AWS_S3_DISABLE_SSE",
+    "AWS_S3_DISABLE_CHECKSUMS",
+    "S3_STORAGE_EXPORTS_BUCKET",
+    "S3_STORAGE_SNAPSHOT_IMPORTS_BUCKET",
+    "S3_STORAGE_MODULES_BUCKET",
+    "S3_STORAGE_FILES_BUCKET",
+    "S3_STORAGE_SEARCH_BUCKET",
+];
+
+pub fn is_infrastructure_override(env_var: &str) -> bool {
+    INFRASTRUCTURE_OVERRIDE_KEYS.contains(&env_var)
+}
+
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ValidationError {
     #[error("unknown knob env var: {0}")]
@@ -31,7 +56,7 @@ pub enum ValidationError {
 /// curated/exposure layer grows that field; for v1 we keep validation to
 /// "is this a known knob".
 pub fn validate(env_var: &str, _value: &str) -> Result<(), ValidationError> {
-    if find(env_var).is_some() {
+    if find(env_var).is_some() || is_infrastructure_override(env_var) {
         Ok(())
     } else {
         Err(ValidationError::Unknown(env_var.to_string()))
@@ -83,5 +108,21 @@ mod tests {
     #[test]
     fn validate_known_accepted() {
         assert!(validate("UDF_USE_FUNRUN", "true").is_ok());
+    }
+
+    #[test]
+    fn validate_infrastructure_overrides_accepted() {
+        for var in [
+            crate::provisioner::backend_config::PROVISIONING_MODE_OVERRIDE_KEY,
+            crate::provisioner::backend_config::DATABASE_MODE_OVERRIDE_KEY,
+            crate::provisioner::backend_config::STORAGE_MODE_OVERRIDE_KEY,
+            "POSTGRES_URL",
+            "MYSQL_URL",
+            "S3_ENDPOINT_URL",
+            "AWS_S3_FORCE_PATH_STYLE",
+            "S3_STORAGE_FILES_BUCKET",
+        ] {
+            assert!(validate(var, "value").is_ok(), "{var} should be accepted");
+        }
     }
 }

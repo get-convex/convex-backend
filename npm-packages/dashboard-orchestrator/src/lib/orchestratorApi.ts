@@ -199,6 +199,7 @@ export async function createProject(
   deploymentType: "prod" | "dev" | null = "prod",
   tier?: string,
   knobOverrides?: Record<string, string>,
+  provisioningMode?: "default" | "volume-sqlite" | "sidecar",
 ): Promise<CreateProjectResponse> {
   return request<CreateProjectResponse>(baseUrl, "/api/create_project", {
     method: "POST",
@@ -208,6 +209,7 @@ export async function createProject(
       projectName,
       deploymentType,
       tier,
+      provisioningMode,
       knobOverrides,
     }),
   });

@@ -394,6 +394,7 @@ async fn deployment_internal_flow_against_real_db() {
         deployment_type: Some("dev".into()),
         region: None,
         tier: None,
+        provisioning_mode: None,
         knob_overrides: None,
     };
     let resp = app

@@ -10,6 +10,10 @@ import {
   BackendSettingsForm,
   type BackendSettingsDraft,
 } from "./backendSettings/BackendSettingsForm";
+import {
+  DEFAULT_INFRASTRUCTURE,
+  infrastructureOverrides,
+} from "./backendSettings/backendInfrastructure";
 import { DEFAULT_TIER } from "./backendSettings/tiers";
 import { useHostCapacity } from "../hooks/useHostCapacity";
 import { useKnobRegistry } from "../hooks/useKnobRegistry";
@@ -34,6 +38,7 @@ export function CreateProjectModal({
   const [draft, setDraft] = useState<BackendSettingsDraft>({
     tier: DEFAULT_TIER,
     overrides: {},
+    infrastructure: DEFAULT_INFRASTRUCTURE,
   });
 
   // Tier defaults map (env-var → value) for the currently selected tier.
@@ -55,6 +60,13 @@ export function CreateProjectModal({
     setSubmitting(true);
     setError(null);
     try {
+      const infrastructure = infrastructureOverrides(
+        draft.infrastructure ?? DEFAULT_INFRASTRUCTURE,
+      );
+      const overrides = {
+        ...draft.overrides,
+        ...infrastructure.overrides,
+      };
       const res = await createProject(
         url,
         token,
@@ -62,7 +74,8 @@ export function CreateProjectModal({
         name,
         "prod",
         draft.tier,
-        Object.keys(draft.overrides).length > 0 ? draft.overrides : undefined,
+        Object.keys(overrides).length > 0 ? overrides : undefined,
+        infrastructure.provisioningMode,
       );
       onCreated?.(res.projectSlug);
       onClose();
@@ -91,6 +104,7 @@ export function CreateProjectModal({
           capacity={capacity}
           tierDefaults={tierDefaults}
           initial={draft}
+          showInfrastructure
           onChange={setDraft}
         />
         {error && (
