@@ -151,6 +151,14 @@ services:
     profiles: [tls]
     restart: unless-stopped
     stop_grace_period: 10s
+    # Traefik fronts every browser connection, then opens an upstream
+    # socket per request to the orchestrator/dashboard/spawned-backend.
+    # Roughly 2× the fd count of the orchestrator service, so match its
+    # ulimit so Traefik isn't the choke point.
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
     ports:
       - "80:80"
       - "443:443"
