@@ -1,11 +1,11 @@
 export type InProjectSelector =
   | { kind: "dev" }
   | { kind: "prod" }
+  | { kind: "local" }
   | { kind: "reference"; reference: string };
 
 export type ParsedDeploymentSelector =
   | { kind: "deploymentName"; deploymentName: string }
-  | { kind: "local" }
   | { kind: "inCurrentProject"; selector: InProjectSelector }
   | { kind: "inProject"; projectSlug: string; selector: InProjectSelector }
   | {
@@ -18,6 +18,7 @@ export type ParsedDeploymentSelector =
 function parseInProjectSelector(s: string): InProjectSelector {
   if (s === "dev") return { kind: "dev" };
   if (s === "prod") return { kind: "prod" };
+  if (s === "local") return { kind: "local" };
   return { kind: "reference", reference: s };
 }
 
@@ -27,7 +28,6 @@ function parseInProjectSelector(s: string): InProjectSelector {
 export function parseDeploymentSelector(
   selector: string,
 ): ParsedDeploymentSelector {
-  if (selector === "local") return { kind: "local" };
   if (/^[a-z]+-[a-z]+-[0-9]+$/.test(selector)) {
     return { kind: "deploymentName", deploymentName: selector };
   }
