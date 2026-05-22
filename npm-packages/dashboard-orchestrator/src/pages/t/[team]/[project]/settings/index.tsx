@@ -9,6 +9,7 @@ import { Sheet } from "@ui/Sheet";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TrashIcon } from "@radix-ui/react-icons";
 import {
+  listDeployments,
   listProjects,
   listTeams,
   Project,
@@ -787,9 +788,27 @@ function ProjectAdminsSection({
 }
 
 function BackendSection({ team, project }: { team: Team; project: Project }) {
+  const token = useAccessToken();
+  const url = orchestratorUrl();
   const { settings, save } = useProjectSettings(project.id);
   const { data: capacity } = useHostCapacity();
   const { data: registry } = useKnobRegistry();
+  // The production deployment's running tier — used to subtract its
+  // slice from host-capacity allocation so the strip doesn't double-count
+  // when an operator changes the project tier to resize prod. Falls back
+  // to undefined (no subtraction) if the project has no prod deployment
+  // yet or while the list is loading.
+  const { data: deployments } = useSWR(
+    token ? ["deployments", project.id, token] : null,
+    () => listDeployments(url, token!, project.id),
+  );
+  const productionDeployment = useMemo(
+    () =>
+      (deployments ?? []).find(
+        (d) => d.deploymentType === "prod" || d.kind === "prod",
+      ),
+    [deployments],
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -847,6 +866,7 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
         registry={registry}
         capacity={capacity}
         tierDefaults={{}}
+        currentTier={productionDeployment?.tier}
         initial={draft}
         onChange={setDraft}
       />

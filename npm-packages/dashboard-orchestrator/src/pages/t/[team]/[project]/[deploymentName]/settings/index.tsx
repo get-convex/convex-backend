@@ -8,19 +8,11 @@ import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
-import { useContext, useMemo, useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { useAccessToken } from "../../../../../../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../../../../../../lib/config";
-import { useDeploymentSettings } from "../../../../../../hooks/useDeploymentSettings";
-import { useProjectSettings } from "../../../../../../hooks/useProjectSettings";
-import { useHostCapacity } from "../../../../../../hooks/useHostCapacity";
-import { useKnobRegistry } from "../../../../../../hooks/useKnobRegistry";
-import {
-  BackendSettingsForm,
-  type BackendSettingsDraft,
-} from "../../../../../../components/backendSettings/BackendSettingsForm";
 
 export default function DeploymentSettings() {
   const pauseRef = useRef<HTMLDivElement | null>(null);
@@ -45,207 +37,12 @@ export default function DeploymentSettings() {
             lastBackupTime={null}
           />
         )}
-        {deployment && (
-          <DeploymentBackendSection deploymentName={deployment.name} />
-        )}
         <div ref={pauseRef}>
           <PauseDeployment />
         </div>
         <DeleteDeploymentSection />
       </div>
     </DeploymentSettingsLayout>
-  );
-}
-
-function DeploymentBackendSection({
-  deploymentName,
-}: {
-  deploymentName: string;
-}) {
-  const { useCurrentProject } = useContext(DeploymentInfoContext);
-  const project = useCurrentProject();
-  const { settings, save, restart } = useDeploymentSettings(deploymentName);
-  const { settings: projectSettings } = useProjectSettings(project?.id);
-  const { data: capacity } = useHostCapacity();
-  const { data: registry } = useKnobRegistry();
-
-  const initialDraft = useMemo<BackendSettingsDraft>(
-    () => ({
-      tier: settings?.desiredTier ?? settings?.effectiveTier ?? "S16",
-      overrides: settings?.desiredOverrides ?? {},
-      force: false,
-    }),
-    // Re-seed only when remote settings load for the first time.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings?.desiredTier, settings?.effectiveTier],
-  );
-
-  const [draft, setDraft] = useState<BackendSettingsDraft>(initialDraft);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
-  const [restartError, setRestartError] = useState<string | null>(null);
-  const [restarting, setRestarting] = useState(false);
-
-  // Reset local draft whenever remote settings arrive (first load or after
-  // a successful save).
-  const prevEffective = useRef<string | undefined>(undefined);
-  if (settings && settings.effectiveTier !== prevEffective.current) {
-    prevEffective.current = settings.effectiveTier;
-    setDraft({
-      tier: settings.desiredTier ?? settings.effectiveTier,
-      overrides: settings.desiredOverrides,
-      force: false,
-    });
-  }
-
-  const tierDefaults = useMemo<Record<string, string>>(() => ({}), []);
-
-  const hasDrift =
-    settings !== undefined &&
-    (settings.runningTier !== settings.effectiveTier ||
-      JSON.stringify(settings.runningOverrides) !==
-        JSON.stringify({
-          ...(projectSettings?.knobOverrides ?? {}),
-          ...settings.desiredOverrides,
-        }));
-
-  const handleSave = async () => {
-    if (!settings) return;
-    setSaveError(null);
-    setSaving(true);
-    try {
-      // If the user picked the same tier as the project, clear the
-      // per-deployment override so the deployment inherits again.
-      const projectTier = projectSettings?.tier ?? settings.effectiveTier;
-      const desiredTier = draft.tier === projectTier ? null : draft.tier;
-
-      // Build the overrides patch: send null for any key that was in the
-      // original desired_overrides but is no longer in the draft.
-      const patchOverrides: Record<string, string | null> = {
-        ...draft.overrides,
-      };
-      for (const key of Object.keys(settings.desiredOverrides)) {
-        if (!(key in draft.overrides)) {
-          patchOverrides[key] = null;
-        }
-      }
-
-      await save({ desiredTier, desiredOverrides: patchOverrides });
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRestart = async () => {
-    setRestartError(null);
-    setRestarting(true);
-    try {
-      await restart(draft.force);
-      setShowRestartConfirm(false);
-    } catch (err) {
-      setRestartError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRestarting(false);
-    }
-  };
-
-  if (!settings) {
-    return (
-      <Sheet>
-        <h3>Backend</h3>
-        <p className="mt-2 text-sm text-content-secondary">Loading settings…</p>
-      </Sheet>
-    );
-  }
-
-  const projectTier = projectSettings?.tier ?? settings.effectiveTier;
-
-  return (
-    <Sheet>
-      <h3>Backend</h3>
-      <p className="mt-1 mb-4 text-sm text-content-secondary">
-        Inherits from project:{" "}
-        <code className="rounded-sm bg-background-tertiary px-1 font-mono">
-          {projectTier}
-        </code>
-        . Picking the same tier as the project clears the per-deployment
-        override.
-      </p>
-
-      <BackendSettingsForm
-        registry={registry}
-        capacity={capacity}
-        tierDefaults={tierDefaults}
-        currentTier={settings.runningTier}
-        initial={{
-          tier: settings.desiredTier ?? settings.effectiveTier,
-          overrides: settings.desiredOverrides,
-          force: false,
-        }}
-        onChange={setDraft}
-      />
-
-      {hasDrift && (
-        <Callout variant="instructions" className="mt-4">
-          Saved changes haven&apos;t been applied yet. Click{" "}
-          <strong>Apply changes (Restart)</strong> to spawn a new container with
-          these settings (existing data is preserved on the volume).
-        </Callout>
-      )}
-
-      {saveError && (
-        <Callout variant="error" className="mt-3">
-          {saveError}
-        </Callout>
-      )}
-
-      <div className="mt-4 flex gap-2">
-        <Button
-          variant="neutral"
-          size="xs"
-          onClick={() => void handleSave()}
-          disabled={saving}
-        >
-          {saving ? "Saving…" : "Save"}
-        </Button>
-        <Button
-          variant="neutral"
-          size="xs"
-          onClick={() => setShowRestartConfirm(true)}
-          disabled={restarting}
-        >
-          Apply changes (Restart)
-        </Button>
-      </div>
-
-      {showRestartConfirm && (
-        <ConfirmationDialog
-          dialogTitle={`Restart ${deploymentName}?`}
-          dialogBody={
-            <div className="flex flex-col gap-3">
-              <p className="text-sm">
-                The container for{" "}
-                <span className="font-semibold">{deploymentName}</span> will be
-                recreated with the saved settings. Data on the volume persists.
-                This causes brief downtime.
-              </p>
-              {restartError && (
-                <Callout variant="error">{restartError}</Callout>
-              )}
-            </div>
-          }
-          confirmText="Restart deployment"
-          onClose={() => {
-            setShowRestartConfirm(false);
-            setRestartError(null);
-          }}
-          onConfirm={handleRestart}
-        />
-      )}
-    </Sheet>
   );
 }
 
