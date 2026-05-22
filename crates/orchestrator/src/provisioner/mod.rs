@@ -1,10 +1,11 @@
 //! Backend provisioning. v1 ships an `External` mode (operator pre-provisions
 //! and registers backends via API) and a `Process` mode skeleton.
 
+pub mod backend_config;
 mod docker;
+pub mod env;
 mod external;
 mod process;
-pub mod env;
 pub mod sidecar;
 pub mod tiers;
 
@@ -15,6 +16,7 @@ pub use process::ProcessProvisioner;
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
+use backend_config::BackendInfrastructurePlan;
 
 use crate::storage::DeploymentType;
 
@@ -65,6 +67,9 @@ pub struct ProvisionRequest {
     pub tier: String,
     /// Per-project knob overrides layered on top of the tier defaults.
     pub knob_overrides: BTreeMap<String, String>,
+    /// Request-scoped backend infrastructure choices. Defaults preserve the
+    /// orchestrator-wide setting.
+    pub backend_infrastructure: BackendInfrastructurePlan,
     /// When `Some(...)`, use this instance_secret instead of generating a new
     /// one. Used by the restart flow so the backend's admin keys stay valid
     /// across restarts (they are derived from this secret).
@@ -105,14 +110,7 @@ impl ProvisionResult {
     /// Destructure for `NewDeployment` insertion: returns the snapshot
     /// columns (storage_mode + optional sidecar creds) borrowed from
     /// `self`. `Some(creds)` → sidecar mode; `None` → volume-sqlite.
-    pub fn storage_columns(
-        &self,
-    ) -> (
-        &'static str,
-        Option<&str>,
-        Option<&str>,
-        Option<&str>,
-    ) {
+    pub fn storage_columns(&self) -> (&'static str, Option<&str>, Option<&str>, Option<&str>) {
         match &self.sidecar_credentials {
             Some(c) => (
                 "sidecar",

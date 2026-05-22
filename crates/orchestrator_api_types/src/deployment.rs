@@ -99,6 +99,8 @@ pub struct CreateProjectArgs {
     #[serde(default)]
     pub tier: Option<String>,
     #[serde(default)]
+    pub provisioning_mode: Option<String>,
+    #[serde(default)]
     pub knob_overrides: Option<std::collections::BTreeMap<String, String>>,
 }
 

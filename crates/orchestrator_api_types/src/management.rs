@@ -79,6 +79,10 @@ pub struct PlatformCreateDeploymentArgs {
     /// Overrides the project's default tier for this deployment only.
     #[serde(default)]
     pub tier: Option<String>,
+    /// Override the project's default infrastructure strategy for this
+    /// deployment only (`default`, `volume-sqlite`, or `sidecar`).
+    #[serde(default)]
+    pub provisioning_mode: Option<String>,
     /// Per-deployment knob overrides layered on top of the project's
     /// `knob_overrides`. Empty omitted.
     #[serde(default)]

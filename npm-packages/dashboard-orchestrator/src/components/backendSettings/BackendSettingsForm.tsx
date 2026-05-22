@@ -6,6 +6,11 @@ import {
 import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 import type { HostCapacity, KnobEntry } from "../../lib/orchestratorApi";
+import { BackendInfrastructureForm } from "./BackendInfrastructureForm";
+import {
+  DEFAULT_INFRASTRUCTURE,
+  type BackendInfrastructureDraft,
+} from "./backendInfrastructure";
 import { CapacityStrip } from "./CapacityStrip";
 import { CuratedKnobs } from "./CuratedKnobs";
 import { TierSelector } from "./TierSelector";
@@ -15,6 +20,7 @@ export type BackendSettingsDraft = {
   overrides: Record<string, string>;
   /** When true, bypass the host-capacity check on provision/restart. */
   force?: boolean;
+  infrastructure?: BackendInfrastructureDraft;
 };
 
 export function BackendSettingsForm({
@@ -22,6 +28,7 @@ export function BackendSettingsForm({
   capacity,
   tierDefaults,
   currentTier,
+  showInfrastructure = false,
   initial,
   onChange,
 }: {
@@ -35,6 +42,7 @@ export function BackendSettingsForm({
    * Leave undefined for the project-creation flow (new deployment).
    */
   currentTier?: string;
+  showInfrastructure?: boolean;
   initial: BackendSettingsDraft;
   onChange: (next: BackendSettingsDraft) => void;
 }) {
@@ -72,6 +80,16 @@ export function BackendSettingsForm({
               customized)
             </DisclosureButton>
             <DisclosurePanel className="pt-2">
+              {showInfrastructure && (
+                <div className="mb-4 border-b border-border-transparent pb-4">
+                  <BackendInfrastructureForm
+                    value={draft.infrastructure ?? DEFAULT_INFRASTRUCTURE}
+                    onChange={(infrastructure) =>
+                      update({ ...draft, infrastructure })
+                    }
+                  />
+                </div>
+              )}
               {!registry ? (
                 <div className="text-xs text-content-secondary">
                   Loading knob registry…

@@ -6,15 +6,9 @@
 //! All container/volume names are derived from the deployment name +
 //! orchestrator's `container_prefix`, so callers can stay name-agnostic.
 
-use rand::{
-    distr::Alphanumeric,
-    Rng,
-};
+use rand::{distr::Alphanumeric, Rng};
 use tokio::process::Command;
-use tokio::time::{
-    sleep,
-    Duration,
-};
+use tokio::time::{sleep, Duration};
 
 /// 5 buckets per deployment, matching the backend's `--s3-storage` env
 /// var names. Kept as constants so `compose_s3_env` and `create_buckets`
@@ -26,6 +20,50 @@ pub const BUCKET_NAMES: [&str; 5] = [
     "convex-files",
     "convex-search",
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SidecarContainerResources {
+    pub memory_mb: u32,
+    pub cpus: f32,
+    pub unbounded: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SidecarResources {
+    pub postgres: SidecarContainerResources,
+    pub minio: SidecarContainerResources,
+}
+
+impl SidecarResources {
+    pub fn for_tier(tier: &crate::provisioner::tiers::Tier) -> Self {
+        if tier.unbounded {
+            let unbounded = SidecarContainerResources {
+                memory_mb: 0,
+                cpus: 0.0,
+                unbounded: true,
+            };
+            return Self {
+                postgres: unbounded,
+                minio: unbounded,
+            };
+        }
+
+        // Sidecars share the host with the backend. Keep caps below the
+        // backend tier while still scaling them up with larger deployments.
+        Self {
+            postgres: SidecarContainerResources {
+                memory_mb: (tier.memory_mb / 4).max(256),
+                cpus: (tier.cpus / 4.0).max(0.25),
+                unbounded: false,
+            },
+            minio: SidecarContainerResources {
+                memory_mb: (tier.memory_mb / 8).max(128),
+                cpus: (tier.cpus / 8.0).max(0.10),
+                unbounded: false,
+            },
+        }
+    }
+}
 
 pub fn pg_container_name(container_prefix: &str, deployment_name: &str) -> String {
     format!("{container_prefix}pg-{deployment_name}")
@@ -76,10 +114,7 @@ pub fn postgres_db_name(deployment_name: &str) -> String {
 /// Connects to the bootstrap `convex` database (created by the
 /// `POSTGRES_DB=convex` env var on the sidecar container) and issues a
 /// `CREATE DATABASE` against it.
-pub async fn create_postgres_database(
-    container_name: &str,
-    db_name: &str,
-) -> anyhow::Result<()> {
+pub async fn create_postgres_database(container_name: &str, db_name: &str) -> anyhow::Result<()> {
     // db_name is derived from the deployment slug (alphanumeric + `_`
     // after `replace('-', "_")`) so identifier-quoting is safe here.
     let sql = format!(r#"CREATE DATABASE "{db_name}""#);
@@ -148,30 +183,38 @@ pub fn compose_s3_env(
     ]
 }
 
-/// Spawn the Postgres sidecar. Idempotent on the container — if a
-/// container with this name already exists, this is a no-op success.
-pub async fn spawn_postgres_sidecar(
+fn push_resource_args(args: &mut Vec<String>, resources: SidecarContainerResources) {
+    if resources.unbounded {
+        return;
+    }
+    args.push("--memory".into());
+    args.push(format!("{}m", resources.memory_mb));
+    args.push("--cpus".into());
+    args.push(format!("{:.2}", resources.cpus));
+}
+
+fn build_postgres_run_args(
     container_name: &str,
     volume_name: &str,
     network: Option<&str>,
     image: &str,
     password: &str,
     max_connections: u32,
-) -> anyhow::Result<()> {
-    if container_exists(container_name).await? {
-        return Ok(());
-    }
-    ensure_volume(volume_name).await?;
+    resources: SidecarContainerResources,
+) -> Vec<String> {
     let mut args: Vec<String> = vec![
         "run".into(),
         "-d".into(),
         "--restart".into(),
         "unless-stopped".into(),
         // `max_connections` for the `max` tier is 4096, and Postgres
-        // needs ~1.5× that in fds for backends + workers + WAL. Default
+        // needs ~1.5x that in fds for backends + workers + WAL. Default
         // 1024 nofile would exhaust before the pool is even full.
         "--ulimit".into(),
         "nofile=1048576:1048576".into(),
+    ];
+    push_resource_args(&mut args, resources);
+    args.extend([
         "--name".into(),
         container_name.into(),
         "-v".into(),
@@ -182,7 +225,7 @@ pub async fn spawn_postgres_sidecar(
         "POSTGRES_DB=convex".into(),
         "-e".into(),
         format!("POSTGRES_PASSWORD={password}"),
-    ];
+    ]);
     if let Some(net) = network
         && !net.is_empty()
     {
@@ -193,6 +236,76 @@ pub async fn spawn_postgres_sidecar(
     // Server-side max_connections must match the backend's pool ceiling.
     args.push("-c".into());
     args.push(format!("max_connections={max_connections}"));
+    args
+}
+
+fn build_minio_run_args(
+    container_name: &str,
+    volume_name: &str,
+    network: Option<&str>,
+    image: &str,
+    root_user: &str,
+    root_password: &str,
+    resources: SidecarContainerResources,
+) -> Vec<String> {
+    let mut args: Vec<String> = vec![
+        "run".into(),
+        "-d".into(),
+        "--restart".into(),
+        "unless-stopped".into(),
+        // MinIO opens an fd per concurrent multipart upload + per
+        // connection from the backend's S3 client. Match the rest of
+        // the stack so MinIO isn't the next bottleneck.
+        "--ulimit".into(),
+        "nofile=1048576:1048576".into(),
+    ];
+    push_resource_args(&mut args, resources);
+    args.extend([
+        "--name".into(),
+        container_name.into(),
+        "-v".into(),
+        format!("{volume_name}:/data"),
+        "-e".into(),
+        format!("MINIO_ROOT_USER={root_user}"),
+        "-e".into(),
+        format!("MINIO_ROOT_PASSWORD={root_password}"),
+    ]);
+    if let Some(net) = network
+        && !net.is_empty()
+    {
+        args.push("--network".into());
+        args.push(net.into());
+    }
+    args.push(image.into());
+    args.push("server".into());
+    args.push("/data".into());
+    args
+}
+
+/// Spawn the Postgres sidecar. Idempotent on the container — if a
+/// container with this name already exists, this is a no-op success.
+pub async fn spawn_postgres_sidecar(
+    container_name: &str,
+    volume_name: &str,
+    network: Option<&str>,
+    image: &str,
+    password: &str,
+    max_connections: u32,
+    resources: SidecarContainerResources,
+) -> anyhow::Result<()> {
+    if container_exists(container_name).await? {
+        return Ok(());
+    }
+    ensure_volume(volume_name).await?;
+    let args = build_postgres_run_args(
+        container_name,
+        volume_name,
+        network,
+        image,
+        password,
+        max_connections,
+        resources,
+    );
     run_docker(&args, "spawn postgres sidecar").await?;
     Ok(())
 }
@@ -205,39 +318,21 @@ pub async fn spawn_minio_sidecar(
     image: &str,
     root_user: &str,
     root_password: &str,
+    resources: SidecarContainerResources,
 ) -> anyhow::Result<()> {
     if container_exists(container_name).await? {
         return Ok(());
     }
     ensure_volume(volume_name).await?;
-    let mut args: Vec<String> = vec![
-        "run".into(),
-        "-d".into(),
-        "--restart".into(),
-        "unless-stopped".into(),
-        // MinIO opens an fd per concurrent multipart upload + per
-        // connection from the backend's S3 client. Match the rest of
-        // the stack so MinIO isn't the next bottleneck.
-        "--ulimit".into(),
-        "nofile=1048576:1048576".into(),
-        "--name".into(),
-        container_name.into(),
-        "-v".into(),
-        format!("{volume_name}:/data"),
-        "-e".into(),
-        format!("MINIO_ROOT_USER={root_user}"),
-        "-e".into(),
-        format!("MINIO_ROOT_PASSWORD={root_password}"),
-    ];
-    if let Some(net) = network
-        && !net.is_empty()
-    {
-        args.push("--network".into());
-        args.push(net.into());
-    }
-    args.push(image.into());
-    args.push("server".into());
-    args.push("/data".into());
+    let args = build_minio_run_args(
+        container_name,
+        volume_name,
+        network,
+        image,
+        root_user,
+        root_password,
+        resources,
+    );
     run_docker(&args, "spawn minio sidecar").await?;
     Ok(())
 }
@@ -519,5 +614,85 @@ mod tests {
             p, p2,
             "two generate_password() calls produced the same value — RNG may be seeded"
         );
+    }
+
+    #[test]
+    fn sidecar_resources_scale_with_backend_tier() {
+        let s4 = SidecarResources::for_tier(crate::provisioner::tiers::lookup("S4").unwrap());
+        let s16 = SidecarResources::for_tier(crate::provisioner::tiers::lookup("S16").unwrap());
+        let s64 = SidecarResources::for_tier(crate::provisioner::tiers::lookup("S64").unwrap());
+
+        assert!(s4.postgres.memory_mb < s16.postgres.memory_mb);
+        assert!(s16.postgres.memory_mb < s64.postgres.memory_mb);
+        assert!(s4.postgres.cpus < s16.postgres.cpus);
+        assert!(s16.postgres.cpus < s64.postgres.cpus);
+
+        assert!(s4.minio.memory_mb < s16.minio.memory_mb);
+        assert!(s16.minio.memory_mb < s64.minio.memory_mb);
+        assert!(s4.minio.cpus < s16.minio.cpus);
+        assert!(s16.minio.cpus < s64.minio.cpus);
+    }
+
+    #[test]
+    fn sidecar_docker_args_include_tier_limits_for_bounded_tiers() {
+        let resources =
+            SidecarResources::for_tier(crate::provisioner::tiers::lookup("S16").unwrap());
+
+        let pg_args = build_postgres_run_args(
+            "pg-dep",
+            "pgdata-dep",
+            Some("orch-net"),
+            "postgres:17",
+            "secret",
+            128,
+            resources.postgres,
+        );
+        assert!(pg_args.windows(2).any(|w| w == ["--memory", "1024m"]));
+        assert!(pg_args.windows(2).any(|w| w == ["--cpus", "0.50"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "max_connections=128"]));
+
+        let minio_args = build_minio_run_args(
+            "minio-dep",
+            "miniodata-dep",
+            Some("orch-net"),
+            "minio/minio:latest",
+            "root",
+            "secret",
+            resources.minio,
+        );
+        assert!(minio_args.windows(2).any(|w| w == ["--memory", "512m"]));
+        assert!(minio_args.windows(2).any(|w| w == ["--cpus", "0.25"]));
+    }
+
+    #[test]
+    fn sidecar_docker_args_omit_limits_for_unbounded_tier() {
+        let resources =
+            SidecarResources::for_tier(crate::provisioner::tiers::lookup("max").unwrap());
+
+        let pg_args = build_postgres_run_args(
+            "pg-dep",
+            "pgdata-dep",
+            None,
+            "postgres:17",
+            "secret",
+            4096,
+            resources.postgres,
+        );
+        assert!(!pg_args.iter().any(|arg| arg == "--memory"));
+        assert!(!pg_args.iter().any(|arg| arg == "--cpus"));
+
+        let minio_args = build_minio_run_args(
+            "minio-dep",
+            "miniodata-dep",
+            None,
+            "minio/minio:latest",
+            "root",
+            "secret",
+            resources.minio,
+        );
+        assert!(!minio_args.iter().any(|arg| arg == "--memory"));
+        assert!(!minio_args.iter().any(|arg| arg == "--cpus"));
     }
 }
