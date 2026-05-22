@@ -90,10 +90,7 @@ function DeploymentBackendSection({
   // Reset local draft whenever remote settings arrive (first load or after
   // a successful save).
   const prevEffective = useRef<string | undefined>(undefined);
-  if (
-    settings &&
-    settings.effectiveTier !== prevEffective.current
-  ) {
+  if (settings && settings.effectiveTier !== prevEffective.current) {
     prevEffective.current = settings.effectiveTier;
     setDraft({
       tier: settings.desiredTier ?? settings.effectiveTier,
@@ -121,8 +118,7 @@ function DeploymentBackendSection({
       // If the user picked the same tier as the project, clear the
       // per-deployment override so the deployment inherits again.
       const projectTier = projectSettings?.tier ?? settings.effectiveTier;
-      const desiredTier =
-        draft.tier === projectTier ? null : draft.tier;
+      const desiredTier = draft.tier === projectTier ? null : draft.tier;
 
       // Build the overrides patch: send null for any key that was in the
       // original desired_overrides but is no longer in the draft.
@@ -160,9 +156,7 @@ function DeploymentBackendSection({
     return (
       <Sheet>
         <h3>Backend</h3>
-        <p className="mt-2 text-sm text-content-secondary">
-          Loading settings…
-        </p>
+        <p className="mt-2 text-sm text-content-secondary">Loading settings…</p>
       </Sheet>
     );
   }
