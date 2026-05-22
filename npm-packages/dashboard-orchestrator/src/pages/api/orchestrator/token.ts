@@ -31,16 +31,18 @@ export default async function handler(
     return;
   }
 
+  const requestHeaders: [string, string][] = Object.entries(
+    req.headers,
+  ).flatMap(([k, v]) =>
+    Array.isArray(v)
+      ? v.map((x): [string, string] => [k, x])
+      : v
+        ? [[k, v]]
+        : [],
+  );
+
   const session = await auth.api.getSession({
-    headers: new Headers(
-      Object.entries(req.headers).flatMap(([k, v]) =>
-        Array.isArray(v)
-          ? v.map((x) => [k, x] as [string, string])
-          : v
-            ? [[k, v]]
-            : [],
-      ),
-    ),
+    headers: new Headers(requestHeaders),
   });
   if (!session?.user) {
     res.status(401).json({ error: "not authenticated" });
