@@ -29,6 +29,13 @@ services:
     image: ${ORCHESTRATOR_IMAGE:-ghcr.io/defy-works/convex-orchestrator:latest}
     restart: unless-stopped
     stop_grace_period: 10s
+    # Long-lived dashboard WebSockets + per-deployment proxy connections
+    # blow through the default 1024 fd cap quickly. Pin a generous limit
+    # so the orchestrator doesn't `accept()` into `Too many open files`.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       postgres:
         condition: service_healthy
