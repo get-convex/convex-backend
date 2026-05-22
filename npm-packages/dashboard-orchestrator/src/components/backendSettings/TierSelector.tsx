@@ -1,16 +1,31 @@
 import { cn } from "@ui/cn";
 import type { HostCapacity } from "../../lib/orchestratorApi";
-import { TIERS } from "./tiers";
+import { lookupTier, TIERS } from "./tiers";
 
 export function TierSelector({
   value,
   onChange,
   capacity,
+  currentTier,
 }: {
   value: string;
   onChange: (tier: string) => void;
   capacity: HostCapacity | undefined;
+  /**
+   * When set, subtract this tier's memory from `allocatedMemoryMb`
+   * before checking whether the candidate tier would exceed host
+   * capacity. Avoids disabling the deployment's own current tier
+   * (and any smaller tier) on the per-deployment settings page.
+   */
+  currentTier?: string;
 }) {
+  const current = currentTier ? lookupTier(currentTier) : undefined;
+  const baselineAllocatedMb =
+    current && !current.unbounded
+      ? Math.max(0, (capacity?.allocatedMemoryMb ?? 0) - current.memoryMb)
+      : current?.unbounded
+        ? 0
+        : (capacity?.allocatedMemoryMb ?? 0);
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
       {TIERS.map((tier) => {
@@ -18,7 +33,7 @@ export function TierSelector({
         // total+1 so the "would exceed" check fires unless the host is empty.
         const projectedMb = tier.unbounded
           ? (capacity?.totalMemoryMb ?? 0) + 1
-          : (capacity?.allocatedMemoryMb ?? 0) + tier.memoryMb;
+          : baselineAllocatedMb + tier.memoryMb;
         const wouldExceed =
           capacity !== undefined && projectedMb > capacity.totalMemoryMb;
         const selected = value === tier.name;

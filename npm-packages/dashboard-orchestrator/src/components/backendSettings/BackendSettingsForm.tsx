@@ -52,6 +52,7 @@ export function BackendSettingsForm({
         <TierSelector
           value={draft.tier}
           capacity={capacity}
+          currentTier={currentTier}
           onChange={(tier) => update({ ...draft, tier })}
         />
         <CapacityStrip

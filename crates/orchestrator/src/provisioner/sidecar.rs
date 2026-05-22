@@ -130,6 +130,14 @@ pub fn compose_s3_env(
         // has no docker DNS entry. The backend's aws_utils crate honors
         // this env var (see crates/aws_utils/src/lib.rs).
         ("AWS_S3_FORCE_PATH_STYLE", "true".into()),
+        // MinIO doesn't have KMS configured by default; if the backend
+        // emits the `x-amz-server-side-encryption: aws:kms` header MinIO
+        // rejects the request with `NotImplemented`. Disabling SSE makes
+        // the backend skip the encryption headers (aws_utils::is_sse_disabled).
+        ("AWS_S3_DISABLE_SSE", "true".into()),
+        // MinIO is conservative about S3 checksum trailers; disabling
+        // them avoids signature mismatches on multipart uploads.
+        ("AWS_S3_DISABLE_CHECKSUMS", "true".into()),
         ("AWS_ACCESS_KEY_ID", root_user.to_string()),
         ("AWS_SECRET_ACCESS_KEY", root_password.to_string()),
         ("S3_STORAGE_EXPORTS_BUCKET", BUCKET_NAMES[0].into()),
@@ -463,6 +471,8 @@ mod tests {
         assert_eq!(map["AWS_REGION"], "us-east-1");
         assert_eq!(map["AWS_ENDPOINT_URL_S3"], "http://minio-foo:9000");
         assert_eq!(map["AWS_S3_FORCE_PATH_STYLE"], "true");
+        assert_eq!(map["AWS_S3_DISABLE_SSE"], "true");
+        assert_eq!(map["AWS_S3_DISABLE_CHECKSUMS"], "true");
         assert_eq!(map["AWS_ACCESS_KEY_ID"], "user");
         assert_eq!(map["AWS_SECRET_ACCESS_KEY"], "pass");
         assert_eq!(map["S3_STORAGE_EXPORTS_BUCKET"], "convex-exports");
