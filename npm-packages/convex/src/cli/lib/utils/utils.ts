@@ -374,8 +374,6 @@ export async function selectDevDeploymentType(
     userHasChosenSomethingInteractively,
     // from `--configure --dev-deployment local|cloud`
     devDeploymentFromFlag,
-    // from `--cloud or --local`
-    forceDevDeployment,
   }:
     | {
         chosenConfiguration: "new" | "existing" | "ask" | null;
@@ -384,7 +382,6 @@ export async function selectDevDeploymentType(
         projectSlug: string;
         userHasChosenSomethingInteractively: boolean;
         devDeploymentFromFlag: "cloud" | "local" | undefined;
-        forceDevDeployment: "cloud" | "local" | undefined;
       }
     | {
         chosenConfiguration: "new" | "existing" | "ask" | null;
@@ -394,10 +391,8 @@ export async function selectDevDeploymentType(
         projectSlug: undefined;
         userHasChosenSomethingInteractively: boolean;
         devDeploymentFromFlag: "cloud" | "local" | undefined;
-        forceDevDeployment: "cloud" | "local" | undefined;
       },
 ): Promise<{ devDeployment: "cloud" | "local" }> {
-  if (forceDevDeployment) return { devDeployment: forceDevDeployment };
   if (devDeploymentFromFlag) return { devDeployment: devDeploymentFromFlag };
 
   if (newOrExisting === "existing" && chosenConfiguration === null) {
