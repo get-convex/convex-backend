@@ -25,6 +25,7 @@ import Link from "next/link";
 import { LoadingLogo } from "@ui/Loading";
 import { useAccessToken } from "../lib/useOrchestratorToken";
 import { orchestratorUrl } from "../lib/config";
+import { deploymentUrlForBrowser } from "../lib/deploymentUrl";
 import {
   fetchDeploymentAuth,
   listDeployments,
@@ -103,11 +104,12 @@ export function OrchestratorDeploymentShell({
   const teamsURI = `/t/${team.slug}`;
   const projectsURI = `/t/${team.slug}/${project.slug}`;
   const deploymentsURI = `/t/${team.slug}/${project.slug}/${deployment.name}`;
+  const browserDeploymentUrl = deploymentUrlForBrowser(auth.url);
 
   const deploymentInfo: DeploymentInfo = {
     ok: true,
     adminKey: auth.adminKey,
-    deploymentUrl: auth.url,
+    deploymentUrl: browserDeploymentUrl,
     addBreadcrumb: () => {},
     captureMessage: console.error,
     captureException: console.error,
@@ -151,7 +153,7 @@ export function OrchestratorDeploymentShell({
         // orchestrator deployments. Falls back to "S16" if the orchestrator
         // pre-dates the tier-on-platform-response field.
         class: deployment.tier ?? "S16",
-        deploymentUrl: deployment.url,
+        deploymentUrl: browserDeploymentUrl,
         createTime: deployment.creationTime,
         region: deployment.region ?? "",
         isDefault: true,
