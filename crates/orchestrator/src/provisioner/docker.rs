@@ -337,6 +337,13 @@ impl Provisioner for DockerProvisioner {
             "-d".into(),
             "--restart".into(),
             "unless-stopped".into(),
+            // Each backend's Postgres pool (up to 4096 entries at the `max`
+            // tier) + WebSocket client connections + action subprocess fds
+            // routinely exceed docker's default 1024 nofile cap. Match the
+            // orchestrator/traefik ceiling so backends aren't the
+            // weakest-link bottleneck.
+            "--ulimit".into(),
+            "nofile=1048576:1048576".into(),
         ];
         // Unbounded tiers (e.g. `max`) run without resource caps — the host
         // owns all of its memory/CPU budget. Bounded tiers get explicit limits

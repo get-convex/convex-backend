@@ -167,6 +167,11 @@ pub async fn spawn_postgres_sidecar(
         "-d".into(),
         "--restart".into(),
         "unless-stopped".into(),
+        // `max_connections` for the `max` tier is 4096, and Postgres
+        // needs ~1.5× that in fds for backends + workers + WAL. Default
+        // 1024 nofile would exhaust before the pool is even full.
+        "--ulimit".into(),
+        "nofile=1048576:1048576".into(),
         "--name".into(),
         container_name.into(),
         "-v".into(),
@@ -210,6 +215,11 @@ pub async fn spawn_minio_sidecar(
         "-d".into(),
         "--restart".into(),
         "unless-stopped".into(),
+        // MinIO opens an fd per concurrent multipart upload + per
+        // connection from the backend's S3 client. Match the rest of
+        // the stack so MinIO isn't the next bottleneck.
+        "--ulimit".into(),
+        "nofile=1048576:1048576".into(),
         "--name".into(),
         container_name.into(),
         "-v".into(),
