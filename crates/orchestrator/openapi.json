@@ -4082,7 +4082,7 @@
           },
           "force": {
             "type": ["boolean", "null"],
-            "description": "Bypass the host-capacity 409 when the projected allocation would\nexceed 100%. Operators set this to intentionally over-commit a host."
+            "description": "Legacy client hint. Host allocation can be overprovisioned, so the\norchestrator no longer requires this to exceed current host capacity."
           },
           "kind": {
             "type": "string"
@@ -4262,7 +4262,7 @@
           },
           "tier": {
             "type": "string",
-            "description": "Resource tier (S4/S8/S16/S32/S64/S128/S256/max) snapshotted on the\ndeployment row at provision time. Surfaced so the dashboard can\ndisplay the tier badge without an extra request to settings."
+            "description": "Resource tier (S4/S8/S16/S32/S64/S128/S256 or custom:<memoryMb>:<cpus>)\nsnapshotted on the\ndeployment row at provision time. Surfaced so the dashboard can\ndisplay the tier badge without an extra request to settings."
           },
           "url": {
             "type": "string"
@@ -4601,7 +4601,7 @@
         "properties": {
           "force": {
             "type": ["boolean", "null"],
-            "description": "Bypass the host-capacity 409 when the projected allocation would\nexceed 100%. Operators set this to intentionally over-commit a host."
+            "description": "Legacy client hint. Host allocation can be overprovisioned, so the\norchestrator no longer requires this to exceed current host capacity."
           }
         }
       },

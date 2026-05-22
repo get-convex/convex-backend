@@ -59,7 +59,8 @@ pub struct PlatformDeploymentResponse {
     pub creation_time: f64,
     pub region: Option<String>,
     pub preview_identifier: Option<String>,
-    /// Resource tier (S4/S8/S16/S32/S64/S128/S256/max) snapshotted on the
+    /// Resource tier (S4/S8/S16/S32/S64/S128/S256 or custom:<memoryMb>:<cpus>)
+    /// snapshotted on the
     /// deployment row at provision time. Surfaced so the dashboard can
     /// display the tier badge without an extra request to settings.
     #[serde(default)]
@@ -87,8 +88,8 @@ pub struct PlatformCreateDeploymentArgs {
     /// `knob_overrides`. Empty omitted.
     #[serde(default)]
     pub knob_overrides: Option<std::collections::BTreeMap<String, String>>,
-    /// Bypass the host-capacity 409 when the projected allocation would
-    /// exceed 100%. Operators set this to intentionally over-commit a host.
+    /// Legacy client hint. Host allocation can be overprovisioned, so the
+    /// orchestrator no longer requires this to exceed current host capacity.
     #[serde(default)]
     pub force: Option<bool>,
 }
@@ -399,8 +400,8 @@ pub struct UpdateDeploymentSettingsArgs {
 #[derive(Debug, Default, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RestartDeploymentArgs {
-    /// Bypass the host-capacity 409 when the projected allocation would
-    /// exceed 100%. Operators set this to intentionally over-commit a host.
+    /// Legacy client hint. Host allocation can be overprovisioned, so the
+    /// orchestrator no longer requires this to exceed current host capacity.
     #[serde(default)]
     pub force: Option<bool>,
 }

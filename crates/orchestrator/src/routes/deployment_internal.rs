@@ -278,9 +278,7 @@ pub(crate) async fn create_project(
         .tier
         .as_deref()
         .unwrap_or(crate::provisioner::tiers::DEFAULT_TIER);
-    if crate::provisioner::tiers::lookup(tier).is_none() {
-        return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
-    }
+    crate::routes::management::deployments::ensure_host_capacity(&state, tier, false).await?;
     let mut overrides = args.knob_overrides.clone().unwrap_or_default();
     let backend_infrastructure =
         crate::provisioner::backend_config::backend_infrastructure_from_overrides(
@@ -316,7 +314,6 @@ pub(crate) async fn create_project(
         let dt: DeploymentType = dt_str
             .parse()
             .map_err(|_| ApiError::BadRequest(format!("unknown deployment type {dt_str}")))?;
-        crate::routes::management::deployments::ensure_host_capacity(&state, tier, false).await?;
         let name = crate::ids::random_deployment_name();
         let result = state
             .provisioner

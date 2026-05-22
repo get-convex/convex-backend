@@ -126,7 +126,7 @@ pub(crate) async fn create_deployment(
         .map_err(ApiError::Internal)?
         .ok_or_else(|| ApiError::NotFound(format!("project {project_id}")))?;
     let tier = args.tier.as_deref().unwrap_or(&project.tier).to_string();
-    if crate::provisioner::tiers::lookup(&tier).is_none() {
+    if crate::provisioner::tiers::resolve(&tier).is_none() {
         return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
     }
     ensure_host_capacity(&state, &tier, args.force.unwrap_or(false)).await?;
@@ -497,55 +497,36 @@ pub(crate) async fn transfer_deployment(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Check that provisioning a deployment of the given tier would not push
-/// total allocated memory past the host's physical limit.
+/// Validate that the requested tier is known. Custom tiers are additionally
+/// clamped to this host's own maximum RAM/CPU so one deployment cannot ask
+/// Docker for a limit larger than the machine itself.
 ///
 /// Called from `create_deployment` and, via `pub(crate)`, from
 /// `deployment_internal::create_project`'s auto-provision path.
 ///
-/// When `force` is `true`, the memory-budget check is skipped so operators
-/// can intentionally over-commit a host. Tier validation still runs.
 pub(crate) async fn ensure_host_capacity(
     state: &crate::state::OrchestratorState,
     tier_name: &str,
-    force: bool,
+    _force: bool,
 ) -> crate::errors::ApiResult<()> {
-    let tier = crate::provisioner::tiers::lookup(tier_name)
-        .ok_or_else(|| ApiError::BadRequest(format!("unknown tier {tier_name}")))?;
-    if force {
-        return Ok(());
-    }
     let host = state.host_capacity.read();
-    let tiers = state
-        .storage
-        .list_deployment_tiers()
-        .await
-        .map_err(ApiError::Internal)?;
-    let allocated_mb: u64 = tiers
-        .iter()
-        .filter_map(|t| crate::provisioner::tiers::lookup(t))
-        .map(|tt| {
-            if tt.unbounded {
-                host.total_memory_mb
-            } else {
-                u64::from(tt.memory_mb)
-            }
-        })
-        .sum();
-    // An unbounded tier claims the full host; project it as total+1 to
-    // guarantee the `projected > total` check fires when anything is already
-    // allocated. On an empty host `0 + total == total` so it passes.
-    let new_tier_mb = if tier.unbounded {
-        host.total_memory_mb
-    } else {
-        u64::from(tier.memory_mb)
-    };
-    let projected = allocated_mb + new_tier_mb;
-    if projected > host.total_memory_mb {
-        return Err(ApiError::HostCapacityExceeded {
-            needed_mb: new_tier_mb,
-            free_mb: host.total_memory_mb.saturating_sub(allocated_mb),
-        });
+    validate_tier_with_host_capacity(tier_name, host)
+}
+
+fn validate_tier_with_host_capacity(
+    tier_name: &str,
+    host: crate::host_capacity::HostCapacity,
+) -> crate::errors::ApiResult<()> {
+    let tier = crate::provisioner::tiers::resolve(tier_name)
+        .ok_or_else(|| ApiError::BadRequest(format!("unknown tier {tier_name}")))?;
+    if tier.custom
+        && (u64::from(tier.memory_mb) > host.total_memory_mb || tier.cpus > host.total_cpus as f32)
+    {
+        return Err(ApiError::BadRequest(format!(
+            "custom tier exceeds host maximum (requested {} MB / {:.2} CPUs, host has {} MB / {} \
+             CPUs)",
+            tier.memory_mb, tier.cpus, host.total_memory_mb, host.total_cpus
+        )));
     }
     Ok(())
 }
@@ -575,51 +556,18 @@ async fn _update_deployment(
     Ok(StatusCode::OK)
 }
 
-/// Like `ensure_host_capacity` but excludes the deployment identified by
-/// `deployment_id` from the current-allocation sum. Used for restarts so a
-/// tier-unchanged restart doesn't falsely report "insufficient capacity"
-/// (the deployment's own row already counts toward the total).
+/// Like `ensure_host_capacity`, kept as a separate restart hook for the
+/// existing callsites. Overprovisioning across deployments is allowed; this
+/// only rejects unknown tiers and custom per-deployment limits above the
+/// machine maximum.
 pub(crate) async fn ensure_host_capacity_for_restart(
     state: &crate::state::OrchestratorState,
-    deployment_id: i64,
+    _deployment_id: i64,
     tier_name: &str,
-    force: bool,
+    _force: bool,
 ) -> crate::errors::ApiResult<()> {
-    let tier = crate::provisioner::tiers::lookup(tier_name)
-        .ok_or_else(|| ApiError::BadRequest(format!("unknown tier {tier_name}")))?;
-    if force {
-        return Ok(());
-    }
     let host = state.host_capacity.read();
-    let tiers = state
-        .storage
-        .list_deployment_tiers_excluding(deployment_id)
-        .await
-        .map_err(ApiError::Internal)?;
-    let allocated_mb: u64 = tiers
-        .iter()
-        .filter_map(|t| crate::provisioner::tiers::lookup(t))
-        .map(|tt| {
-            if tt.unbounded {
-                host.total_memory_mb
-            } else {
-                u64::from(tt.memory_mb)
-            }
-        })
-        .sum();
-    let new_tier_mb = if tier.unbounded {
-        host.total_memory_mb
-    } else {
-        u64::from(tier.memory_mb)
-    };
-    let projected = allocated_mb + new_tier_mb;
-    if projected > host.total_memory_mb {
-        return Err(ApiError::HostCapacityExceeded {
-            needed_mb: new_tier_mb,
-            free_mb: host.total_memory_mb.saturating_sub(allocated_mb),
-        });
-    }
-    Ok(())
+    validate_tier_with_host_capacity(tier_name, host)
 }
 
 fn json_object_to_btree(v: &serde_json::Value) -> std::collections::BTreeMap<String, String> {
@@ -701,9 +649,7 @@ pub(crate) async fn patch_deployment_settings(
 
     // Validate desired_tier if provided.
     if let Some(Some(ref tier)) = args.desired_tier {
-        if crate::provisioner::tiers::lookup(tier).is_none() {
-            return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
-        }
+        ensure_host_capacity(&state, tier, false).await?;
     }
 
     // Merge desired_overrides patch into the current desired_overrides.
@@ -908,4 +854,34 @@ pub(crate) async fn restart_deployment(
     Ok(Json(crate::routes::helpers::deployment_to_platform(
         &updated,
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tiny_host() -> crate::host_capacity::HostCapacity {
+        crate::host_capacity::HostCapacity {
+            total_memory_mb: 1024,
+            total_cpus: 1,
+        }
+    }
+
+    #[test]
+    fn preset_tiers_can_exceed_host_capacity_for_overprovisioning() {
+        validate_tier_with_host_capacity("S256", tiny_host()).unwrap();
+    }
+
+    #[test]
+    fn custom_tiers_are_capped_at_host_maximum() {
+        assert!(matches!(
+            validate_tier_with_host_capacity("custom:2048:1", tiny_host()),
+            Err(ApiError::BadRequest(_))
+        ));
+        assert!(matches!(
+            validate_tier_with_host_capacity("custom:1024:2", tiny_host()),
+            Err(ApiError::BadRequest(_))
+        ));
+        validate_tier_with_host_capacity("custom:1024:1", tiny_host()).unwrap();
+    }
 }

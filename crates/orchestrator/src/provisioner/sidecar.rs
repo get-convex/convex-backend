@@ -618,9 +618,9 @@ mod tests {
 
     #[test]
     fn sidecar_resources_scale_with_backend_tier() {
-        let s4 = SidecarResources::for_tier(crate::provisioner::tiers::lookup("S4").unwrap());
-        let s16 = SidecarResources::for_tier(crate::provisioner::tiers::lookup("S16").unwrap());
-        let s64 = SidecarResources::for_tier(crate::provisioner::tiers::lookup("S64").unwrap());
+        let s4 = SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S4").unwrap());
+        let s16 = SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S16").unwrap());
+        let s64 = SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S64").unwrap());
 
         assert!(s4.postgres.memory_mb < s16.postgres.memory_mb);
         assert!(s16.postgres.memory_mb < s64.postgres.memory_mb);
@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn sidecar_docker_args_include_tier_limits_for_bounded_tiers() {
         let resources =
-            SidecarResources::for_tier(crate::provisioner::tiers::lookup("S16").unwrap());
+            SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S16").unwrap());
 
         let pg_args = build_postgres_run_args(
             "pg-dep",
@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn sidecar_docker_args_omit_limits_for_unbounded_tier() {
         let resources =
-            SidecarResources::for_tier(crate::provisioner::tiers::lookup("max").unwrap());
+            SidecarResources::for_tier(&crate::provisioner::tiers::lookup("max").unwrap());
 
         let pg_args = build_postgres_run_args(
             "pg-dep",

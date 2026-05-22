@@ -1,150 +1,123 @@
-//! Hardcoded resource tiers for backend deployments.
+//! Resource tiers for backend deployments.
 //!
 //! Each `Tier` declares a Docker `--memory` / `--cpus` budget and a
-//! coordinated bundle of backend env-var defaults that scale with that
-//! budget. `S16` is the default; its cache + concurrency knobs are
-//! bit-exact upstream defaults so existing deployments don't regress on
-//! upgrade. The lone exception is `RUNTIME_WORKER_THREADS`, which we
-//! pin to `4` (upstream's `0` means "use all host cores", which varies
-//! across heterogeneous hosts — pinning a fixed worker count keeps
-//! behavior predictable from one host to another).
+//! coordinated bundle of backend env-var defaults calculated from that
+//! budget. `S16` is the default; its cache + concurrency knobs are the
+//! formula baseline and remain bit-exact upstream defaults. The lone
+//! exception is `RUNTIME_WORKER_THREADS`, which we pin to `4` (upstream's
+//! `0` means "use all host cores", which varies across heterogeneous hosts —
+//! pinning a fixed worker count keeps behavior predictable from one host to
+//! another).
 //!
-//! `max` is an unbounded tier: `docker run` skips `--memory`/`--cpus`
-//! flags entirely, and the host-capacity check treats it as consuming the
-//! whole host so subsequent deployments hit 409. Intended for single-tenant
-//! hosts where one deployment should own all resources.
+//! Custom tiers use the string form `custom:<memory_mb>:<cpus>`, for example
+//! `custom:12288:6.5`. They use explicit Docker resource caps and the same
+//! generous dynamic knob formula as named tiers.
+
+use std::borrow::Cow;
 
 /// Default tier assigned to projects + deployments when nothing is specified.
 pub const DEFAULT_TIER: &str = "S16";
+const BASE_MEMORY_MB: u32 = 4096;
+const BASE_CPUS: f32 = 2.0;
+const MIN_KNOB_SCALE: f64 = 0.25;
+const LEGACY_MAX_KNOB_MEMORY_MB: u32 = 131_072;
+const LEGACY_MAX_KNOB_CPUS: f32 = 64.0;
 
-#[derive(Debug, Clone, Copy)]
+const BASE_KNOB_DEFAULTS: &[(&str, u128)] = &[
+    ("RUNTIME_WORKER_THREADS", 4),
+    ("UDF_CACHE_MAX_SIZE", 104_857_600),
+    ("FUNRUN_INDEX_CACHE_SIZE", 50_000_000),
+    ("FUNRUN_MODULE_CACHE_SIZE", 250_000_000),
+    ("FUNRUN_CODE_CACHE_SIZE", 500_000_000),
+    ("FUNRUN_MAX_ISOLATE_WORKERS", 128),
+    ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", 1024),
+    ("POSTGRES_MAX_CONNECTIONS", 128),
+];
+
+#[derive(Debug, Clone)]
 pub struct Tier {
-    pub name: &'static str,
+    pub name: Cow<'static, str>,
     pub memory_mb: u32,
     pub cpus: f32,
-    pub knob_defaults: &'static [(&'static str, &'static str)],
+    pub knob_defaults: Vec<(&'static str, String)>,
     /// When `true`, provisioner skips `--memory`/`--cpus` docker flags and
-    /// the host-capacity check treats this tier as consuming the entire host.
+    /// runs without an orchestrator-imposed resource cap.
     pub unbounded: bool,
+    /// True for `custom:<memory_mb>:<cpus>` values.
+    pub custom: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TierPreset {
+    name: &'static str,
+    memory_mb: u32,
+    cpus: f32,
+    unbounded: bool,
+}
+
+impl TierPreset {
+    fn resolve(&self) -> Tier {
+        let (knob_memory_mb, knob_cpus) = if self.unbounded {
+            (LEGACY_MAX_KNOB_MEMORY_MB, LEGACY_MAX_KNOB_CPUS)
+        } else {
+            (self.memory_mb, self.cpus)
+        };
+        Tier {
+            name: Cow::Borrowed(self.name),
+            memory_mb: self.memory_mb,
+            cpus: self.cpus,
+            knob_defaults: knob_defaults_for_resources(knob_memory_mb, knob_cpus),
+            unbounded: self.unbounded,
+            custom: false,
+        }
+    }
 }
 
 /// Tier ladder, in increasing resource order.
-pub const TIERS: &[Tier] = &[
-    Tier {
+const TIER_PRESETS: &[TierPreset] = &[
+    TierPreset {
         name: "S4",
         memory_mb: 1024,
         cpus: 0.5,
         unbounded: false,
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "1"),
-            ("UDF_CACHE_MAX_SIZE", "26214400"), // ¼ × 104,857,600
-            ("FUNRUN_INDEX_CACHE_SIZE", "12500000"), // ¼ × 50,000,000
-            ("FUNRUN_MODULE_CACHE_SIZE", "62500000"), // ¼ × 250,000,000
-            ("FUNRUN_CODE_CACHE_SIZE", "125000000"), // ¼ × 500,000,000
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "32"), // ¼ × 128
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "256"),
-            ("POSTGRES_MAX_CONNECTIONS", "32"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "S8",
         memory_mb: 2048,
         cpus: 1.0,
         unbounded: false,
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "2"),
-            ("UDF_CACHE_MAX_SIZE", "52428800"), // ½ × 104,857,600
-            ("FUNRUN_INDEX_CACHE_SIZE", "25000000"), // ½ × 50,000,000
-            ("FUNRUN_MODULE_CACHE_SIZE", "125000000"), // ½ × 250,000,000
-            ("FUNRUN_CODE_CACHE_SIZE", "250000000"), // ½ × 500,000,000
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "64"), // ½ × 128
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "512"),
-            ("POSTGRES_MAX_CONNECTIONS", "64"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "S16",
         memory_mb: 4096,
         cpus: 2.0,
         unbounded: false,
-        // S16 = upstream defaults verbatim. Do not change these without
-        // breaking the "no regression on upgrade" guarantee from the spec.
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "4"), // upstream is 0 (= host cores); pin for predictability
-            ("UDF_CACHE_MAX_SIZE", "104857600"),
-            ("FUNRUN_INDEX_CACHE_SIZE", "50000000"),
-            ("FUNRUN_MODULE_CACHE_SIZE", "250000000"),
-            ("FUNRUN_CODE_CACHE_SIZE", "500000000"),
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "128"),
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "1024"),
-            ("POSTGRES_MAX_CONNECTIONS", "128"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "S32",
         memory_mb: 8192,
         cpus: 4.0,
         unbounded: false,
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "8"),
-            ("UDF_CACHE_MAX_SIZE", "209715200"), // 2 × 104,857,600
-            ("FUNRUN_INDEX_CACHE_SIZE", "100000000"),
-            ("FUNRUN_MODULE_CACHE_SIZE", "500000000"),
-            ("FUNRUN_CODE_CACHE_SIZE", "1000000000"),
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "256"),
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "2048"),
-            ("POSTGRES_MAX_CONNECTIONS", "256"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "S64",
         memory_mb: 16384,
         cpus: 8.0,
         unbounded: false,
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "16"),
-            ("UDF_CACHE_MAX_SIZE", "419430400"), // 4 × 104,857,600
-            ("FUNRUN_INDEX_CACHE_SIZE", "200000000"),
-            ("FUNRUN_MODULE_CACHE_SIZE", "1000000000"),
-            ("FUNRUN_CODE_CACHE_SIZE", "2000000000"),
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "512"),
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "4096"),
-            ("POSTGRES_MAX_CONNECTIONS", "512"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "S128",
         memory_mb: 32768,
         cpus: 16.0,
         unbounded: false,
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "32"),
-            ("UDF_CACHE_MAX_SIZE", "838860800"), // 8 × 104,857,600
-            ("FUNRUN_INDEX_CACHE_SIZE", "400000000"),
-            ("FUNRUN_MODULE_CACHE_SIZE", "2000000000"),
-            ("FUNRUN_CODE_CACHE_SIZE", "4000000000"),
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "1024"),
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "8192"),
-            ("POSTGRES_MAX_CONNECTIONS", "1024"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "S256",
         memory_mb: 65536,
         cpus: 32.0,
         unbounded: false,
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "64"),
-            ("UDF_CACHE_MAX_SIZE", "1677721600"), // 16 × 104,857,600
-            ("FUNRUN_INDEX_CACHE_SIZE", "800000000"),
-            ("FUNRUN_MODULE_CACHE_SIZE", "4000000000"),
-            ("FUNRUN_CODE_CACHE_SIZE", "8000000000"),
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "2048"),
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "16384"),
-            ("POSTGRES_MAX_CONNECTIONS", "2048"),
-        ],
     },
-    Tier {
+    TierPreset {
         name: "max",
         // memory_mb and cpus are unused when unbounded=true; docker run
         // skips --memory/--cpus. Use 0 as a sentinel so arithmetic on
@@ -152,31 +125,77 @@ pub const TIERS: &[Tier] = &[
         memory_mb: 0,
         cpus: 0.0,
         unbounded: true,
-        // max reuses S256's knob defaults so cache sizes don't blow up.
-        knob_defaults: &[
-            ("RUNTIME_WORKER_THREADS", "64"),
-            ("UDF_CACHE_MAX_SIZE", "1677721600"),
-            ("FUNRUN_INDEX_CACHE_SIZE", "800000000"),
-            ("FUNRUN_MODULE_CACHE_SIZE", "4000000000"),
-            ("FUNRUN_CODE_CACHE_SIZE", "8000000000"),
-            ("FUNRUN_MAX_ISOLATE_WORKERS", "2048"),
-            ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", "16384"),
-            ("POSTGRES_MAX_CONNECTIONS", "4096"),
-        ],
     },
 ];
 
-pub fn lookup(name: &str) -> Option<&'static Tier> {
-    TIERS.iter().find(|t| t.name == name)
+pub fn lookup(name: &str) -> Option<Tier> {
+    TIER_PRESETS
+        .iter()
+        .find(|t| t.name == name)
+        .map(TierPreset::resolve)
+}
+
+pub fn resolve(name: &str) -> Option<Tier> {
+    lookup(name).or_else(|| parse_custom(name))
 }
 
 pub fn all_tier_names() -> impl Iterator<Item = &'static str> {
-    TIERS.iter().map(|t| t.name)
+    TIER_PRESETS.iter().map(|t| t.name)
+}
+
+fn parse_custom(name: &str) -> Option<Tier> {
+    let rest = name.strip_prefix("custom:")?;
+    let (memory_mb, cpus) = rest.split_once(':')?;
+    if cpus.contains(':') {
+        return None;
+    }
+    let memory_mb = memory_mb.parse::<u32>().ok()?;
+    let cpus = cpus.parse::<f32>().ok()?;
+    if memory_mb == 0 || !cpus.is_finite() || cpus <= 0.0 {
+        return None;
+    }
+    Some(Tier {
+        name: Cow::Owned(name.to_string()),
+        memory_mb,
+        cpus,
+        knob_defaults: knob_defaults_for_resources(memory_mb, cpus),
+        unbounded: false,
+        custom: true,
+    })
+}
+
+fn knob_defaults_for_resources(
+    memory_mb: u32,
+    cpus: f32,
+) -> Vec<(&'static str, String)> {
+    let scale = resource_knob_scale(memory_mb, cpus);
+    BASE_KNOB_DEFAULTS
+        .iter()
+        .map(|(key, value)| {
+            let scaled = ((*value as f64) * scale).ceil() as u128;
+            (*key, scaled)
+        })
+        .map(|(key, value)| (key, value.to_string()))
+        .collect()
+}
+
+fn resource_knob_scale(memory_mb: u32, cpus: f32) -> f64 {
+    let raw = (memory_mb as f64 / BASE_MEMORY_MB as f64)
+        .max(cpus as f64 / BASE_CPUS as f64)
+        .max(MIN_KNOB_SCALE);
+    if raw > 1.0 { raw.ceil() } else { raw }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pairs(tier: &Tier) -> std::collections::HashMap<&'static str, &str> {
+        tier.knob_defaults
+            .iter()
+            .map(|(key, value)| (*key, value.as_str()))
+            .collect()
+    }
 
     #[test]
     fn default_tier_resolves() {
@@ -197,30 +216,68 @@ mod tests {
     }
 
     #[test]
+    fn custom_tier_resolves_resource_limits() {
+        let custom = resolve("custom:12288:6.5").unwrap();
+        assert_eq!(custom.name, "custom:12288:6.5");
+        assert_eq!(custom.memory_mb, 12288);
+        assert_eq!(custom.cpus, 6.5);
+        assert!(!custom.unbounded);
+
+        let defaults = pairs(&custom);
+        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "512");
+    }
+
+    #[test]
+    fn custom_tier_calculates_generous_knobs_from_memory_or_cpu() {
+        let cpu_heavy = resolve("custom:1024:6.5").unwrap();
+        let cpu_defaults = pairs(&cpu_heavy);
+        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "512");
+        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "16");
+
+        let mid_ladder = resolve("custom:9000:4.1").unwrap();
+        let mid_ladder_defaults = pairs(&mid_ladder);
+        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "384");
+        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "12");
+
+        let above_ladder = resolve("custom:65536:48").unwrap();
+        let above_ladder_defaults = pairs(&above_ladder);
+        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "3072");
+        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "96");
+    }
+
+    #[test]
+    fn custom_tier_rejects_invalid_resources() {
+        assert!(resolve("custom:0:1").is_none());
+        assert!(resolve("custom:1024:0").is_none());
+        assert!(resolve("custom:1024:NaN").is_none());
+        assert!(resolve("custom:1024:not-a-cpu").is_none());
+    }
+
+    #[test]
     fn s16_matches_upstream_defaults() {
         let s16 = lookup("S16").unwrap();
         // These four are the spec's "bit-exact upstream defaults" guarantee.
         // If upstream changes them, update both knobs.rs and this test.
-        let pairs: std::collections::HashMap<_, _> = s16.knob_defaults.iter().copied().collect();
-        assert_eq!(pairs["UDF_CACHE_MAX_SIZE"], "104857600");
-        assert_eq!(pairs["FUNRUN_INDEX_CACHE_SIZE"], "50000000");
-        assert_eq!(pairs["FUNRUN_MODULE_CACHE_SIZE"], "250000000");
-        assert_eq!(pairs["FUNRUN_CODE_CACHE_SIZE"], "500000000");
-        assert_eq!(pairs["FUNRUN_MAX_ISOLATE_WORKERS"], "128");
-        assert_eq!(pairs["HTTP_SERVER_MAX_CONCURRENT_REQUESTS"], "1024");
+        let defaults = pairs(&s16);
+        assert_eq!(defaults["UDF_CACHE_MAX_SIZE"], "104857600");
+        assert_eq!(defaults["FUNRUN_INDEX_CACHE_SIZE"], "50000000");
+        assert_eq!(defaults["FUNRUN_MODULE_CACHE_SIZE"], "250000000");
+        assert_eq!(defaults["FUNRUN_CODE_CACHE_SIZE"], "500000000");
+        assert_eq!(defaults["FUNRUN_MAX_ISOLATE_WORKERS"], "128");
+        assert_eq!(defaults["HTTP_SERVER_MAX_CONCURRENT_REQUESTS"], "1024");
         // RUNTIME_WORKER_THREADS is intentionally pinned to "4" — upstream
         // default is "0" (= number of host cores). See module doc.
-        assert_eq!(pairs["RUNTIME_WORKER_THREADS"], "4");
+        assert_eq!(defaults["RUNTIME_WORKER_THREADS"], "4");
         // POSTGRES_MAX_CONNECTIONS — upstream default for Postgres clients
         // (matches `crates/common/src/knobs.rs:934`).
-        assert_eq!(pairs["POSTGRES_MAX_CONNECTIONS"], "128");
+        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "128");
     }
 
     #[test]
     fn memory_strictly_increases_through_ladder() {
         // Unbounded tiers (e.g. `max`) don't have a real memory_mb value;
         // exclude them from the monotonicity check.
-        let mems: Vec<_> = TIERS
+        let mems: Vec<_> = TIER_PRESETS
             .iter()
             .filter(|t| !t.unbounded)
             .map(|t| t.memory_mb)
@@ -256,7 +313,7 @@ mod tests {
                 .knob_defaults
                 .iter()
                 .find(|(k, _)| *k == "POSTGRES_MAX_CONNECTIONS")
-                .map(|(_, v)| *v)
+                .map(|(_, v)| v.as_str())
                 .unwrap_or("MISSING");
             assert_eq!(
                 got, *want,
