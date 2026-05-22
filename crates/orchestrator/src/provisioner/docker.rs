@@ -221,7 +221,7 @@ impl Provisioner for DockerProvisioner {
                 .collect()
         };
 
-        let tier = crate::provisioner::tiers::lookup(&req.tier).ok_or_else(|| {
+        let tier = crate::provisioner::tiers::resolve(&req.tier).ok_or_else(|| {
             anyhow::anyhow!(
                 "unknown tier {} (known: {:?})",
                 req.tier,
@@ -249,7 +249,7 @@ impl Provisioner for DockerProvisioner {
                     .and_then(|(_, v)| v.parse::<u32>().ok())
                     .unwrap_or(128);
                 let sidecar_resources =
-                    crate::provisioner::sidecar::SidecarResources::for_tier(tier);
+                    crate::provisioner::sidecar::SidecarResources::for_tier(&tier);
                 let (env, creds) = self
                     .bring_up_sidecars(
                         &req.deployment_name,
@@ -273,12 +273,17 @@ impl Provisioner for DockerProvisioner {
             ("DO_NOT_REQUIRE_SSL", "true".into()),
             ("DOCUMENT_RETENTION_DELAY", "172800".into()),
         ];
+        let tier_defaults: Vec<_> = tier
+            .knob_defaults
+            .iter()
+            .map(|(k, v)| (*k, v.as_str()))
+            .collect();
         let env = crate::provisioner::env::compose_env(
             base_env
                 .iter()
                 .map(|(k, v)| (*k, v.as_str()))
                 .chain(strategy_env.iter().map(|(k, v)| (*k, v.as_str()))),
-            tier.knob_defaults,
+            &tier_defaults,
             req.knob_overrides
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone())),
@@ -351,7 +356,7 @@ impl Provisioner for DockerProvisioner {
             "--label".into(),
             format!("orchestrator.project_id={}", req.project_id),
             "--label".into(),
-            format!("orchestrator.tier={}", tier.name),
+            format!("orchestrator.tier={}", tier.name.as_ref()),
         ]);
         match &self.strategy {
             crate::provisioner::ProvisioningStrategy::VolumeSqlite => {

@@ -2,8 +2,7 @@
 //!
 //! Returns the host's total memory + CPU plus what's currently allocated
 //! by summing the tier of every running deployment. Dashboard uses this
-//! to render the capacity strip + warn before tier picks that would
-//! exceed the host.
+//! to render allocation context; overprovisioning is allowed.
 
 use axum::{
     extract::State,
@@ -51,7 +50,7 @@ pub(crate) async fn host_capacity(
     let mut allocated_memory: u64 = 0;
     let mut allocated_cpus: f32 = 0.0;
     for t in &tiers {
-        if let Some(tier) = crate::provisioner::tiers::lookup(t) {
+        if let Some(tier) = crate::provisioner::tiers::resolve(t) {
             // Unbounded tiers consume the entire host; reflect that in the
             // dashboard strip so it shows "fully booked" when a max-tier
             // deployment exists.

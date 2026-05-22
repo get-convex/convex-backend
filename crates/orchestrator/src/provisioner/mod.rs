@@ -62,8 +62,8 @@ pub struct ProvisionRequest {
     pub deployment_name: String,
     pub deployment_type: DeploymentType,
     pub project_id: i64,
-    /// Tier name e.g. "S4" | "S8" | "S16" | "S32". Caller resolves the
-    /// project's tier before calling.
+    /// Tier name e.g. "S4" | "S8" | "S16" | "custom:12288:6.5".
+    /// Caller resolves the project's tier before calling.
     pub tier: String,
     /// Per-project knob overrides layered on top of the tier defaults.
     pub knob_overrides: BTreeMap<String, String>,

@@ -243,9 +243,7 @@ pub(crate) async fn patch_project_settings(
     Json(args): Json<UpdateProjectSettingsArgs>,
 ) -> ApiResult<Json<ProjectSettingsResponse>> {
     if let Some(tier) = args.tier.as_deref() {
-        if crate::provisioner::tiers::lookup(tier).is_none() {
-            return Err(ApiError::BadRequest(format!("unknown tier {tier}")));
-        }
+        crate::routes::management::deployments::ensure_host_capacity(&state, tier, false).await?;
     }
     let new_overrides = if let Some(patch) = &args.knob_overrides {
         let existing = state
