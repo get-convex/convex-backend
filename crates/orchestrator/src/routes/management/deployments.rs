@@ -862,7 +862,7 @@ pub(crate) async fn restart_deployment(
             deployment_type: deployment.deployment_type,
             project_id: deployment.project_id,
             tier: effective_tier.clone(),
-            knob_overrides: overrides,
+            knob_overrides: overrides.clone(),
             // Reuse the 64-hex INSTANCE_SECRET we persisted at provision
             // time. For legacy rows (column NULL because they predate
             // this hotfix), pass None — the provisioner mints a fresh
@@ -874,8 +874,14 @@ pub(crate) async fn restart_deployment(
         .await
         .map_err(ApiError::Internal)?;
 
-    let resolved_overrides =
-        serde_json::to_value(&result.resolved_env).map_err(|e| ApiError::Internal(e.into()))?;
+    // Snapshot JUST the merged overrides (project + deployment), not the
+    // full resolved env from `result.resolved_env`. The dashboard's drift
+    // check compares this column against the same merge, so storing the
+    // full env (which also includes tier knob_defaults + base env) would
+    // never match and would leave "Saved changes haven't been applied"
+    // showing forever.
+    let snapshot_overrides =
+        serde_json::to_value(&overrides).map_err(|e| ApiError::Internal(e.into()))?;
 
     // For LEGACY rows (where backend_instance_secret was NULL), the
     // provisioner minted a fresh INSTANCE_SECRET — the previously-stored
@@ -897,10 +903,10 @@ pub(crate) async fn restart_deployment(
             .map_err(ApiError::Internal)?;
     }
 
-    // Snapshot the new tier + resolved env back into the audit columns.
+    // Snapshot the new tier + merged overrides into the audit columns.
     state
         .storage
-        .update_deployment_snapshot(deployment.id, &effective_tier, &resolved_overrides)
+        .update_deployment_snapshot(deployment.id, &effective_tier, &snapshot_overrides)
         .await
         .map_err(ApiError::Internal)?;
 
