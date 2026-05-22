@@ -21,12 +21,20 @@ export function BackendSettingsForm({
   registry,
   capacity,
   tierDefaults,
+  currentTier,
   initial,
   onChange,
 }: {
   registry: KnobEntry[] | undefined;
   capacity: HostCapacity | undefined;
   tierDefaults: Record<string, string>;
+  /**
+   * When set (deployment settings page), the capacity strip subtracts
+   * this tier's slice from the host total before projecting the
+   * selected tier — avoids double-counting the deployment being resized.
+   * Leave undefined for the project-creation flow (new deployment).
+   */
+  currentTier?: string;
   initial: BackendSettingsDraft;
   onChange: (next: BackendSettingsDraft) => void;
 }) {
@@ -49,6 +57,7 @@ export function BackendSettingsForm({
         <CapacityStrip
           capacity={capacity}
           selectedTier={draft.tier}
+          currentTier={currentTier}
           force={draft.force}
           onForceChange={(f) => update({ ...draft, force: f })}
         />

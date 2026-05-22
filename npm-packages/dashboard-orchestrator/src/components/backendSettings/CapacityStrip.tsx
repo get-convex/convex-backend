@@ -5,11 +5,20 @@ import { lookupTier } from "./tiers";
 export function CapacityStrip({
   capacity,
   selectedTier,
+  currentTier,
   force,
   onForceChange,
 }: {
   capacity: HostCapacity | undefined;
   selectedTier: string;
+  /**
+   * When set, the strip subtracts this tier's memory from
+   * `capacity.allocatedMemoryMb` before projecting the selected tier.
+   * Used on the per-deployment settings page so resizing an existing
+   * deployment doesn't double-count its own current allocation.
+   * Leave undefined for the project-creation flow (new deployment).
+   */
+  currentTier?: string;
   force?: boolean;
   onForceChange?: (force: boolean) => void;
 }) {
@@ -17,13 +26,24 @@ export function CapacityStrip({
     return null;
   }
   const selected = lookupTier(selectedTier);
+  const current = currentTier ? lookupTier(currentTier) : undefined;
+  // Subtract the existing deployment's own slice (if any) from the host
+  // total so a resize doesn't compare the new tier against its own
+  // allocation. Unbounded current tiers consume the whole host — pretend
+  // they don't, since they're being replaced.
+  const baselineAllocatedMb =
+    current && !current.unbounded
+      ? Math.max(0, capacity.allocatedMemoryMb - current.memoryMb)
+      : current?.unbounded
+        ? 0
+        : capacity.allocatedMemoryMb;
 
   // Unbounded tier consumes all host capacity.
   if (selected?.unbounded) {
     const currentPct = Math.round(
-      (capacity.allocatedMemoryMb / capacity.totalMemoryMb) * 100,
+      (baselineAllocatedMb / capacity.totalMemoryMb) * 100,
     );
-    const isOver = capacity.allocatedMemoryMb > 0;
+    const isOver = baselineAllocatedMb > 0;
     /* eslint-disable no-restricted-syntax -- progress bar fill; bg-content-* is appropriate for small indicator fills */
     const fillColor = isOver ? "bg-content-error" : "bg-content-warning";
     /* eslint-enable no-restricted-syntax */
@@ -31,8 +51,9 @@ export function CapacityStrip({
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-xs text-content-secondary">
           <span>
-            Host capacity {(capacity.allocatedMemoryMb / 1024).toFixed(1)} /{" "}
+            Host capacity {(baselineAllocatedMb / 1024).toFixed(1)} /{" "}
             {(capacity.totalMemoryMb / 1024).toFixed(1)} GB allocated
+            {currentTier ? " (excluding this deployment)" : ""}
           </span>
           <span className="font-mono">{currentPct}%</span>
         </div>
@@ -58,13 +79,13 @@ export function CapacityStrip({
     );
   }
 
-  const projectedMb = capacity.allocatedMemoryMb + (selected?.memoryMb ?? 0);
+  const projectedMb = baselineAllocatedMb + (selected?.memoryMb ?? 0);
   const projectedPct = Math.min(
     100,
     Math.round((projectedMb / capacity.totalMemoryMb) * 100),
   );
   const currentPct = Math.round(
-    (capacity.allocatedMemoryMb / capacity.totalMemoryMb) * 100,
+    (baselineAllocatedMb / capacity.totalMemoryMb) * 100,
   );
   const over = projectedMb > capacity.totalMemoryMb;
   const warn = !over && projectedPct >= 80;
@@ -80,8 +101,9 @@ export function CapacityStrip({
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs text-content-secondary">
         <span>
-          Host capacity {(capacity.allocatedMemoryMb / 1024).toFixed(1)} /{" "}
+          Host capacity {(baselineAllocatedMb / 1024).toFixed(1)} /{" "}
           {(capacity.totalMemoryMb / 1024).toFixed(1)} GB allocated
+          {currentTier ? " (excluding this deployment)" : ""}
         </span>
         <span className="font-mono">{currentPct}%</span>
       </div>

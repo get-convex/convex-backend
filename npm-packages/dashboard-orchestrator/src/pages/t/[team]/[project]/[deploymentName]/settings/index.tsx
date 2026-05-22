@@ -185,6 +185,7 @@ function DeploymentBackendSection({
         registry={registry}
         capacity={capacity}
         tierDefaults={tierDefaults}
+        currentTier={settings.runningTier}
         initial={{
           tier: settings.desiredTier ?? settings.effectiveTier,
           overrides: settings.desiredOverrides,
