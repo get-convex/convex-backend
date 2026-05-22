@@ -659,6 +659,30 @@ async function handleRefInProject(
   projectSelection: ProjectSelection,
 ): Promise<DeploymentAuthResponse> {
   switch (selector.kind) {
+    case "local": {
+      // The mismatch check for `[team:project:]local` has already happened in
+      // `_getDeploymentSelection`, so we only need to load credentials here.
+      const localConfig = loadProjectLocalConfig(ctx);
+      if (localConfig === null) {
+        return ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
+        });
+      }
+      const credentials = await loadLocalDeploymentCredentials(
+        ctx,
+        localConfig.deploymentName,
+      );
+      return {
+        deploymentName: localConfig.deploymentName,
+        adminKey: credentials.adminKey,
+        url: credentials.deploymentUrl,
+        deploymentType: "local",
+        reference: null,
+        isDefault: false,
+      };
+    }
     case "dev": {
       const access = await checkAccessToSelectedProject(ctx, projectSelection);
       if (access.kind !== "hasAccess") {
@@ -720,28 +744,6 @@ async function handleDeploymentSelector(
         parsed.deploymentName,
         projectSelection,
       );
-    case "local": {
-      const localConfig = loadProjectLocalConfig(ctx);
-      if (localConfig === null) {
-        return ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
-        });
-      }
-      const credentials = await loadLocalDeploymentCredentials(
-        ctx,
-        localConfig.deploymentName,
-      );
-      return {
-        deploymentName: localConfig.deploymentName,
-        adminKey: credentials.adminKey,
-        url: credentials.deploymentUrl,
-        deploymentType: "local",
-        reference: null,
-        isDefault: false,
-      };
-    }
     case "inCurrentProject":
       return await handleRefInProject(ctx, parsed.selector, projectSelection);
     case "inProject": {
