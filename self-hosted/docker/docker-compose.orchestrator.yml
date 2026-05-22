@@ -34,8 +34,8 @@ services:
     # so the orchestrator doesn't `accept()` into `Too many open files`.
     ulimits:
       nofile:
-        soft: 65536
-        hard: 65536
+        soft: 1048576
+        hard: 1048576
     depends_on:
       postgres:
         condition: service_healthy
