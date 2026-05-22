@@ -877,19 +877,25 @@ pub(crate) async fn restart_deployment(
     let resolved_overrides =
         serde_json::to_value(&result.resolved_env).map_err(|e| ApiError::Internal(e.into()))?;
 
-    // Persist the (possibly fresh) INSTANCE_SECRET and the matching
-    // admin key. For non-legacy rows this is a no-op write of the same
-    // values; for legacy rows it backfills the new column and updates
-    // `instance_secret` so the dashboard sees the new admin key.
-    state
-        .storage
-        .update_deployment_secrets(
-            deployment.id,
-            &result.instance_secret,
-            &result.backend_instance_secret,
-        )
-        .await
-        .map_err(ApiError::Internal)?;
+    // For LEGACY rows (where backend_instance_secret was NULL), the
+    // provisioner minted a fresh INSTANCE_SECRET — the previously-stored
+    // admin key no longer decrypts with it, so we must persist the new
+    // pair. For NORMAL rows we already had the secret stored; the backend
+    // reused it and `generate_admin_key.sh` minted yet-another valid admin
+    // key, but the originally-stored one still works — overwriting it
+    // every restart would rotate the dashboard's ephemeral admin key
+    // every time, which is unhelpful churn.
+    if deployment.backend_instance_secret.is_none() {
+        state
+            .storage
+            .update_deployment_secrets(
+                deployment.id,
+                &result.instance_secret,
+                &result.backend_instance_secret,
+            )
+            .await
+            .map_err(ApiError::Internal)?;
+    }
 
     // Snapshot the new tier + resolved env back into the audit columns.
     state
