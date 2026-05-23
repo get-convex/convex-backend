@@ -90,6 +90,7 @@ services:
       - CONVEX_ORCHESTRATOR_DATA_ROOT=${CONVEX_ORCHESTRATOR_DATA_ROOT:-/convex/data}
       - CONVEX_ORCHESTRATOR_BOOTSTRAP_TOKEN=${BOOTSTRAP_TOKEN:-orchestrator-bootstrap-token-change-me}
       - CONVEX_ORCHESTRATOR_SERVICE_KEY=${SERVICE_KEY:-orchestrator-service-key-change-me}
+      - CONVEX_ORCHESTRATOR_DEFAULT_TEAM_NAME=${DEFAULT_TEAM_NAME:-Self-Hosted}
       - CONVEX_ORCHESTRATOR_ADMIN_EMAILS=${ADMIN_EMAILS:-admin@example.com}
       - CONVEX_ORCHESTRATOR_REGISTRATION=${REGISTRATION_MODE:-allowlist}
       - RUST_LOG=${RUST_LOG:-orchestrator=info,tower_http=warn}
@@ -121,6 +122,7 @@ services:
       # local dev. PUBLIC_*_URL overrides take precedence for operators
       # who want non-https schemes or explicit port-suffixed URLs.
       - PUBLIC_ORCHESTRATOR_URL=${PUBLIC_ORCHESTRATOR_URL:-${ORCHESTRATOR_HOST:+https://}${ORCHESTRATOR_HOST:-http://localhost:${ORCHESTRATOR_PORT:-8050}}}
+      - PUBLIC_ORCHESTRATOR_REGION_NAME=${PUBLIC_ORCHESTRATOR_REGION_NAME:-${ORCHESTRATOR_REGION_NAME:-Self-Hosted}}
       - BETTER_AUTH_DATABASE_URL=${BETTER_AUTH_DATABASE_URL:-postgres://${POSTGRES_USER:-orchestrator}:${POSTGRES_PASSWORD:-orchestrator}@postgres:5432/${POSTGRES_DB:-orchestrator}}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-${PUBLIC_DASHBOARD_URL:-${DASHBOARD_HOST:+https://}${DASHBOARD_HOST:-http://localhost:${DASHBOARD_ORCHESTRATOR_PORT:-6793}}}}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-better-auth-secret-change-me}
