@@ -154,19 +154,21 @@ impl DockerProvisioner {
     /// Format a browser-facing deployment URL. Omits the port when it's
     /// the default for the scheme so URLs stay clean behind TLS.
     fn deployment_url(&self, host_prefix: &str) -> String {
-        let default_port = match self.router_public_scheme.as_str() {
+        let scheme = if self.router_public_scheme == "http" && self.router_public_port == 443 {
+            "https"
+        } else {
+            self.router_public_scheme.as_str()
+        };
+        let default_port = match scheme {
             "https" => 443,
             _ => 80,
         };
         if self.router_public_port == default_port {
-            format!(
-                "{}://{}.{}",
-                self.router_public_scheme, host_prefix, self.router_host
-            )
+            format!("{}://{}.{}", scheme, host_prefix, self.router_host)
         } else {
             format!(
                 "{}://{}.{}:{}",
-                self.router_public_scheme, host_prefix, self.router_host, self.router_public_port
+                scheme, host_prefix, self.router_host, self.router_public_port
             )
         }
     }
@@ -553,4 +555,11 @@ async fn wait_for_admin_key(container_name: &str) -> anyhow::Result<String> {
         }
     }
     anyhow::bail!("backend never produced an admin key (last error: {last_err})")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
 }
