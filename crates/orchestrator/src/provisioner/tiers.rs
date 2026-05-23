@@ -33,7 +33,15 @@ const BASE_KNOB_DEFAULTS: &[(&str, u128)] = &[
     ("FUNRUN_MODULE_CACHE_SIZE", 250_000_000),
     ("FUNRUN_CODE_CACHE_SIZE", 500_000_000),
     ("FUNRUN_MAX_ISOLATE_WORKERS", 128),
+    ("HTTP_SERVER_TCP_BACKLOG", 256),
     ("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", 1024),
+    ("APPLICATION_MAX_CONCURRENT_QUERIES", 16),
+    ("APPLICATION_MAX_CONCURRENT_MUTATIONS", 16),
+    ("APPLICATION_MAX_CONCURRENT_V8_ACTIONS", 64),
+    ("APPLICATION_MAX_CONCURRENT_NODE_ACTIONS", 64),
+    ("MAX_CONCURRENT_ACTION_OPS", 8),
+    ("COMMITTER_QUEUE_SIZE", 128),
+    ("MAX_BYTES_WRITTEN_PER_SECOND", 4_194_304),
     ("POSTGRES_MAX_CONNECTIONS", 128),
 ];
 
@@ -273,7 +281,15 @@ mod tests {
         assert_eq!(defaults["FUNRUN_MODULE_CACHE_SIZE"], "250000000");
         assert_eq!(defaults["FUNRUN_CODE_CACHE_SIZE"], "500000000");
         assert_eq!(defaults["FUNRUN_MAX_ISOLATE_WORKERS"], "128");
+        assert_eq!(defaults["HTTP_SERVER_TCP_BACKLOG"], "256");
         assert_eq!(defaults["HTTP_SERVER_MAX_CONCURRENT_REQUESTS"], "1024");
+        assert_eq!(defaults["APPLICATION_MAX_CONCURRENT_QUERIES"], "16");
+        assert_eq!(defaults["APPLICATION_MAX_CONCURRENT_MUTATIONS"], "16");
+        assert_eq!(defaults["APPLICATION_MAX_CONCURRENT_V8_ACTIONS"], "64");
+        assert_eq!(defaults["APPLICATION_MAX_CONCURRENT_NODE_ACTIONS"], "64");
+        assert_eq!(defaults["MAX_CONCURRENT_ACTION_OPS"], "8");
+        assert_eq!(defaults["COMMITTER_QUEUE_SIZE"], "128");
+        assert_eq!(defaults["MAX_BYTES_WRITTEN_PER_SECOND"], "4194304");
         // RUNTIME_WORKER_THREADS is intentionally pinned to "4" — upstream
         // default is "0" (= number of host cores). See module doc.
         assert_eq!(defaults["RUNTIME_WORKER_THREADS"], "4");
@@ -329,5 +345,30 @@ mod tests {
                 "tier {tier_name} POSTGRES_MAX_CONNECTIONS = {got:?}, want {want:?}",
             );
         }
+    }
+
+    #[test]
+    fn throughput_knobs_scale_with_tier_headroom() {
+        let s128 = lookup("S128").unwrap();
+        let s128_defaults = pairs(&s128);
+        assert_eq!(s128_defaults["HTTP_SERVER_TCP_BACKLOG"], "6144");
+        assert_eq!(s128_defaults["APPLICATION_MAX_CONCURRENT_QUERIES"], "384");
+        assert_eq!(s128_defaults["APPLICATION_MAX_CONCURRENT_MUTATIONS"], "384");
+        assert_eq!(s128_defaults["APPLICATION_MAX_CONCURRENT_V8_ACTIONS"], "1536");
+        assert_eq!(s128_defaults["APPLICATION_MAX_CONCURRENT_NODE_ACTIONS"], "1536");
+        assert_eq!(s128_defaults["MAX_CONCURRENT_ACTION_OPS"], "192");
+        assert_eq!(s128_defaults["COMMITTER_QUEUE_SIZE"], "3072");
+        assert_eq!(s128_defaults["MAX_BYTES_WRITTEN_PER_SECOND"], "100663296");
+
+        let s256 = lookup("S256").unwrap();
+        let s256_defaults = pairs(&s256);
+        assert_eq!(s256_defaults["HTTP_SERVER_TCP_BACKLOG"], "12288");
+        assert_eq!(s256_defaults["APPLICATION_MAX_CONCURRENT_QUERIES"], "768");
+        assert_eq!(s256_defaults["APPLICATION_MAX_CONCURRENT_MUTATIONS"], "768");
+        assert_eq!(s256_defaults["APPLICATION_MAX_CONCURRENT_V8_ACTIONS"], "3072");
+        assert_eq!(s256_defaults["APPLICATION_MAX_CONCURRENT_NODE_ACTIONS"], "3072");
+        assert_eq!(s256_defaults["MAX_CONCURRENT_ACTION_OPS"], "384");
+        assert_eq!(s256_defaults["COMMITTER_QUEUE_SIZE"], "6144");
+        assert_eq!(s256_defaults["MAX_BYTES_WRITTEN_PER_SECOND"], "201326592");
     }
 }
