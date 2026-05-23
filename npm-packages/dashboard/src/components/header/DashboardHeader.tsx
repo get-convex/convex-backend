@@ -95,15 +95,17 @@ function DashboardHeaderWhenLoggedIn() {
     }
     if (router.route === "/profile") {
       return (
-        <div className="flex items-center gap-2">
-          <Link
-            href="/"
-            className="flex items-center gap-1 rounded-sm px-1 py-1.5 text-xs text-content-secondary hover:bg-background-tertiary"
-          >
-            <ChevronLeftIcon />
-            Back
+        <div className="flex h-full gap-2">
+          <Link href="/" className="group flex h-full items-center">
+            <div className="flex items-center gap-1 rounded-sm px-1 py-1.5 text-xs text-content-secondary group-hover:bg-background-tertiary">
+              <ChevronLeftIcon />
+              Back
+            </div>
           </Link>
-          <BreadcrumbLink href="/profile" className="truncate">
+          <BreadcrumbLink
+            href="/profile"
+            className="flex items-center truncate"
+          >
             Profile Settings
           </BreadcrumbLink>
         </div>
@@ -117,15 +119,11 @@ function DashboardHeaderWhenLoggedIn() {
       router.route.includes(`/[project]/${PROVISION_PROD_PAGE_NAME}`) ||
       router.route.includes(`/[project]/${PROVISION_DEV_PAGE_NAME}`)
     ) {
-      return (
-        <div className="flex items-center gap-4">
-          {selectedProject && projectSelector}
-        </div>
-      );
+      return selectedProject && projectSelector;
     }
 
     return (
-      <div className="flex items-center gap-6">
+      <div className="flex h-full gap-6">
         {projectSelector}
         <NavBar
           items={[

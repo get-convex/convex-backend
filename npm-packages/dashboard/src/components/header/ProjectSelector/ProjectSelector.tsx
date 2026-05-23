@@ -15,7 +15,6 @@ import { TeamMenuOptions } from "./TeamMenuOptions";
 
 export function ProjectSelector({
   teams,
-  className,
   selectedTeamSlug,
   selectedProject,
   onCreateProjectClick,
@@ -24,7 +23,6 @@ export function ProjectSelector({
   teams?: TeamResponse[];
   selectedTeamSlug?: string;
   selectedProject?: ProjectDetails;
-  className?: string;
   onCreateTeamClick: () => void;
   onCreateProjectClick: (team: TeamResponse) => void;
 }) {
@@ -68,21 +66,27 @@ export function ProjectSelector({
       variant="unstyled"
       type="button"
       className={classNames(
-        "items-center h-10",
-        "px-3 py-2 w-fit flex gap-2 select-none",
-        ...(className !== undefined
-          ? [className]
-          : ["text-content-primary", "hover:bg-background-tertiary"]),
-        "rounded-full",
+        "flex items-center h-full",
+        "w-fit select-none",
+        "text-content-primary group",
         "cursor-pointer",
-        "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-selected",
+        "outline-none",
+        "min-h-[calc(56px-1px)]", // navbar height - border
       )}
       onClick={() => {
         logEvent("click project selector");
       }}
     >
-      {selected}
-      <CaretSortIcon className="size-5" />
+      <div
+        className={classNames(
+          "flex h-10 items-center px-3 py-2 rounded-full gap-2",
+          "bg-(--project-selector-bg) group-hover:bg-background-tertiary",
+          "group-focus-visible:ring-2 group-focus-visible:ring-inset group-focus-visible:ring-border-selected",
+        )}
+      >
+        {selected}
+        <CaretSortIcon className="size-5" />
+      </div>
     </Button>
   );
 
@@ -90,10 +94,10 @@ export function ProjectSelector({
     <Popover
       padding={false}
       focus
-      className="-mt-0.5"
+      className="-mt-2.5"
       portal
       placement="bottom-start"
-      openButtonClassName="bg-background-tertiary rounded-full"
+      openButtonClassName="[--project-selector-bg:var(--background-tertiary)]"
       button={button}
     >
       {({ close }) => (
