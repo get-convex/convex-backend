@@ -4,11 +4,12 @@
 //! coordinated bundle of backend env-var defaults calculated from that
 //! budget. `S16` is the default; its cache + concurrency knobs are the
 //! formula baseline and remain bit-exact upstream defaults. Other resource
-//! sizes get extra headroom so the knobs are intentionally more generous than
-//! the raw resource ratio. The lone exception is `RUNTIME_WORKER_THREADS`,
-//! which we pin to `4` at the S16 baseline (upstream's `0` means "use all
-//! host cores", which varies across heterogeneous hosts — pinning a fixed
-//! worker count keeps behavior predictable from one host to another).
+//! sizes get aggressive headroom so the knobs are intentionally much more
+//! generous than the raw resource ratio. The lone exception is
+//! `RUNTIME_WORKER_THREADS`, which we pin to `4` at the S16 baseline
+//! (upstream's `0` means "use all host cores", which varies across
+//! heterogeneous hosts — pinning a fixed worker count keeps behavior
+//! predictable from one host to another).
 //!
 //! Custom tiers use the string form `custom:<memory_mb>:<cpus>`, for example
 //! `custom:12288:6.5`. They use explicit Docker resource caps and the same
@@ -21,7 +22,7 @@ pub const DEFAULT_TIER: &str = "S16";
 const BASE_MEMORY_MB: u32 = 4096;
 const BASE_CPUS: f32 = 2.0;
 const MIN_KNOB_SCALE: f64 = 0.25;
-const KNOB_HEADROOM_MULTIPLIER: f64 = 1.5;
+const KNOB_HEADROOM_MULTIPLIER: f64 = 3.0;
 const LEGACY_MAX_KNOB_MEMORY_MB: u32 = 131_072;
 const LEGACY_MAX_KNOB_CPUS: f32 = 64.0;
 
@@ -232,25 +233,25 @@ mod tests {
         assert!(!custom.unbounded);
 
         let defaults = pairs(&custom);
-        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "640");
+        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "1280");
     }
 
     #[test]
     fn custom_tier_calculates_generous_knobs_from_memory_or_cpu() {
         let cpu_heavy = resolve("custom:1024:6.5").unwrap();
         let cpu_defaults = pairs(&cpu_heavy);
-        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "640");
-        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "20");
+        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "1280");
+        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "40");
 
         let mid_ladder = resolve("custom:9000:4.1").unwrap();
         let mid_ladder_defaults = pairs(&mid_ladder);
-        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "512");
-        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "16");
+        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "896");
+        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "28");
 
         let above_ladder = resolve("custom:65536:48").unwrap();
         let above_ladder_defaults = pairs(&above_ladder);
-        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "4608");
-        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "144");
+        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "9216");
+        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "288");
     }
 
     #[test]
@@ -304,16 +305,16 @@ mod tests {
     }
 
     #[test]
-    fn postgres_max_connections_include_headroom_per_tier() {
+    fn postgres_max_connections_include_aggressive_headroom_per_tier() {
         let expected: &[(&str, &str)] = &[
-            ("S4", "48"),
-            ("S8", "96"),
+            ("S4", "96"),
+            ("S8", "128"),
             ("S16", "128"),
-            ("S32", "384"),
-            ("S64", "768"),
-            ("S128", "1536"),
-            ("S256", "3072"),
-            ("max", "6144"),
+            ("S32", "768"),
+            ("S64", "1536"),
+            ("S128", "3072"),
+            ("S256", "6144"),
+            ("max", "12288"),
         ];
         for (tier_name, want) in expected {
             let tier = lookup(tier_name).expect("tier present");
