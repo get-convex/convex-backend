@@ -102,7 +102,7 @@ pub(crate) async fn exchange_session(
         .await
         .map_err(ApiError::Internal)?;
 
-    // Default-team bootstrap. The "Self-Hosted" team is auto-created on
+    // Default-team bootstrap. The `self-hosted` team is auto-created on
     // first registration and is the operator-managed root team.
     let team = match state
         .storage
@@ -113,7 +113,11 @@ pub(crate) async fn exchange_session(
         Some(t) => t,
         None => state
             .storage
-            .create_team("Self-Hosted", "self-hosted", Some(member.id))
+            .create_team(
+                state.config.default_team_display_name(),
+                "self-hosted",
+                Some(member.id),
+            )
             .await
             .map_err(ApiError::Internal)?,
     };

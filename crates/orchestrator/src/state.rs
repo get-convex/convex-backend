@@ -114,7 +114,11 @@ impl OrchestratorState {
             Some(t) => t,
             None => {
                 self.storage
-                    .create_team("Self-Hosted", "self-hosted", Some(member.id))
+                    .create_team(
+                        self.config.default_team_display_name(),
+                        "self-hosted",
+                        Some(member.id),
+                    )
                     .await?
             },
         };

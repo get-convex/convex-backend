@@ -130,6 +130,15 @@ struct Args {
     #[arg(long, env = "CONVEX_ORCHESTRATOR_ADMIN_EMAILS", value_delimiter = ',')]
     admin_emails: Vec<String>,
 
+    /// Human-facing name for the auto-created default team. The slug remains
+    /// `self-hosted`.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_DEFAULT_TEAM_NAME",
+        default_value = "Self-Hosted"
+    )]
+    default_team_name: String,
+
     /// First-run registration policy: `allowlist` (default) | `open` |
     /// `invite-only`.
     #[arg(
@@ -200,6 +209,7 @@ async fn main() -> anyhow::Result<()> {
         provisioner_mode: args.provisioner.parse()?,
         service_key: args.service_key,
         admin_emails: args.admin_emails,
+        default_team_name: args.default_team_name,
         registration_mode: args.registration.parse()?,
         backend_image: args.backend_image,
         backend_network: args.backend_network,
