@@ -129,6 +129,12 @@ ROUTER_PUBLIC_PORT='443'
 # PUBLIC_ORCHESTRATOR_URL='https://api.convex.my-domain.com'
 # PUBLIC_ORIGIN='https://convex.my-domain.com'
 
+# Optional display labels.
+# ORCHESTRATOR_REGION_NAME appears in deployment status cards.
+# DEFAULT_TEAM_NAME is used when the `self-hosted` team is auto-created.
+ORCHESTRATOR_REGION_NAME='Self-Hosted'
+DEFAULT_TEAM_NAME='Self-Hosted'
+
 # First admin email + signup policy. `allowlist` = only ADMIN_EMAILS can
 # sign up; `open` = anyone; `closed` = no signup (invite-only).
 ADMIN_EMAILS='you@my-domain.com'
@@ -230,6 +236,8 @@ instead.
 | `PUBLIC_ORIGIN`                                                                                                      | `http://localhost`                                                                 | Stamped into URLs the orchestrator returns to clients.                                                                                |
 | `PUBLIC_DASHBOARD_URL`                                                                                               | `http://localhost:6793`                                                            | Browser URL of the platform UI; also `BETTER_AUTH_URL` and the inner dashboard's `TRUSTED_PARENT_ORIGINS`.                            |
 | `PUBLIC_ORCHESTRATOR_URL`                                                                                            | `http://localhost:8050`                                                            | Browser-facing orchestrator URL. Read by the dashboard server at request time and injected into the page; no image rebuild required.  |
+| `ORCHESTRATOR_REGION_NAME` / `PUBLIC_ORCHESTRATOR_REGION_NAME`                                                       | `Self-Hosted`                                                                      | Display label for orchestrated deployments' region in the dashboard status card.                                                      |
+| `DEFAULT_TEAM_NAME`                                                                                                  | `Self-Hosted`                                                                      | Human-facing name for the auto-created default team. The stable slug remains `self-hosted`. Existing teams are not renamed.           |
 | `ROUTER_HOST`                                                                                                        | `localhost`                                                                        | Suffix host for spawned-deployment subdomains.                                                                                        |
 | `DASHBOARD_HOST` / `ORCHESTRATOR_HOST`                                                                               | unset (sentinels)                                                                  | Hostnames for Traefik `Host(\`...\`)`matchers. Required when using`--profile tls`.                                                    |
 | `LETSENCRYPT_EMAIL`                                                                                                  | unset                                                                              | Email registered with Let's Encrypt (renewal warnings only). Required when using `--profile tls`.                                     |
@@ -261,7 +269,8 @@ cargo build --release -p orchestrator
 # Run, pointing at your Postgres
 export CONVEX_ORCHESTRATOR_DATABASE_URL="postgres://user:pass@host:5432/orchestrator?sslmode=require"
 ./target/release/convex-orchestrator \
-  --bootstrap-token "$(openssl rand -hex 32)"
+  --bootstrap-token "$(openssl rand -hex 32)" \
+  --default-team-name "Self-Hosted"
 ```
 
 The orchestrator runs its schema migrations automatically on startup. For
@@ -270,9 +279,12 @@ the connection URL — the orchestrator reads it and wraps the connection with
 rustls.
 
 The orchestrator listens on `0.0.0.0:8050` (BigBrain's historical port). On
-first start with `--bootstrap-token` set, it creates an owner member
-`admin@self-hosted.local`, a default team `self-hosted`, and registers the
-bootstrap token as a Personal Access Token for that member.
+first start with `--bootstrap-token` set, it creates a synthetic bootstrap
+member, auto-creates the default team with slug `self-hosted`, and registers the
+bootstrap token as a Personal Access Token for that member. The default team's
+display name comes from `--default-team-name` /
+`CONVEX_ORCHESTRATOR_DEFAULT_TEAM_NAME` and defaults to `Self-Hosted`; existing
+teams keep their current name.
 
 You can then point the CLI at the orchestrator:
 
