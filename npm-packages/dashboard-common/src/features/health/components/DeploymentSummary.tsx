@@ -34,6 +34,7 @@ import {
   DeploymentInfoContext,
   PermissionsContext,
 } from "@common/lib/deploymentContext";
+import { deploymentUrlForBrowser } from "@common/lib/deploymentUrl";
 import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 
 export function useLatestConvexVersion(currentVersion: string | undefined) {
@@ -184,6 +185,12 @@ export function DeploymentSummary({
   );
 
   const backupSettingsUrl = `/t/${teamSlug}/${projectSlug}/${deployment.name}/settings/backups`;
+  const browserConvexCloudUrl = convexCloudUrl
+    ? deploymentUrlForBrowser(convexCloudUrl)
+    : convexCloudUrl;
+  const browserConvexSiteUrl = convexSiteUrl
+    ? deploymentUrlForBrowser(convexSiteUrl)
+    : convexSiteUrl;
 
   // Get display name for region
   const regionDisplayName =
@@ -486,13 +493,13 @@ export function DeploymentSummary({
                 Cloud URL
               </span>
               <Link
-                href={convexCloudUrl!}
+                href={browserConvexCloudUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-xs break-all"
                 noUnderline
               >
-                {convexCloudUrl}
+                {browserConvexCloudUrl}
               </Link>
             </div>
             <div className="flex flex-col gap-1">
@@ -500,13 +507,13 @@ export function DeploymentSummary({
                 HTTP Actions URL
               </span>
               <Link
-                href={convexSiteUrl!}
+                href={browserConvexSiteUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-xs break-all"
                 noUnderline
               >
-                {convexSiteUrl}
+                {browserConvexSiteUrl}
               </Link>
             </div>
           </div>
