@@ -333,15 +333,16 @@ impl Provisioner for DockerProvisioner {
         let mut args: Vec<String> = vec![
             "run".into(),
             "-d".into(),
-            "--restart".into(),
-            "unless-stopped".into(),
+        ];
+        push_backend_lifecycle_args(&mut args);
+        args.extend([
             // Each backend's Postgres pool + WebSocket client connections
             // + action subprocess fds routinely exceed docker's default
             // 1024 nofile cap. Match the orchestrator/traefik ceiling so
             // backends aren't the weakest-link bottleneck.
             "--ulimit".into(),
             "nofile=1048576:1048576".into(),
-        ];
+        ]);
         // Unbounded tiers (e.g. `max`) run without resource caps — the host
         // owns all of its memory/CPU budget. Bounded tiers get explicit limits
         // so noisy neighbours can't crowd each other out.
@@ -457,10 +458,7 @@ impl Provisioner for DockerProvisioner {
         // the volume already exists). The new container reattaches to the
         // same volume and picks up the new INSTANCE_SECRET env var.
         let container_name = self.container_name(&req.deployment_name);
-        let _ = Command::new("docker")
-            .args(["rm", "-f", &container_name])
-            .output()
-            .await; // best-effort; container may be gone already
+        let _ = stop_and_remove_container(&container_name, "respawn backend").await;
         self.provision(req).await
     }
 
@@ -527,6 +525,56 @@ impl Provisioner for DockerProvisioner {
     }
 }
 
+fn push_backend_lifecycle_args(args: &mut Vec<String>) {
+    args.extend([
+        "--restart".into(),
+        "unless-stopped".into(),
+        "--stop-signal".into(),
+        "SIGINT".into(),
+        "--stop-timeout".into(),
+        "10".into(),
+    ]);
+}
+
+async fn stop_and_remove_container(container_name: &str, desc: &str) -> anyhow::Result<()> {
+    let stop_output = Command::new("docker")
+        .args(["stop", "--time", "10", container_name])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker stop failed during {desc}: {e}"))?;
+    if !stop_output.status.success() {
+        let stderr = String::from_utf8_lossy(&stop_output.stderr);
+        tracing::debug!(
+            container = %container_name,
+            stderr = %stderr.trim(),
+            "docker stop reported non-zero during {desc}; falling back to remove",
+        );
+    }
+
+    let rm_output = Command::new("docker")
+        .args(["rm", container_name])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker rm failed during {desc}: {e}"))?;
+    if rm_output.status.success() {
+        return Ok(());
+    }
+
+    let rm_force_output = Command::new("docker")
+        .args(["rm", "-f", container_name])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker rm -f failed during {desc}: {e}"))?;
+    if rm_force_output.status.success() {
+        return Ok(());
+    }
+
+    anyhow::bail!(
+        "docker remove failed during {desc}: {}",
+        String::from_utf8_lossy(&rm_force_output.stderr).trim()
+    )
+}
+
 /// Poll the spawned backend container's `generate_admin_key.sh` until it
 /// produces an admin key. The script reads INSTANCE_NAME/INSTANCE_SECRET
 /// (which we set as env vars on `docker run`) and shells out to the
@@ -562,5 +610,13 @@ async fn wait_for_admin_key(container_name: &str) -> anyhow::Result<String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn backend_run_args_include_graceful_stop_contract() {
+        let mut args = Vec::new();
+        push_backend_lifecycle_args(&mut args);
 
+        assert!(args.windows(2).any(|w| w == ["--restart", "unless-stopped"]));
+        assert!(args.windows(2).any(|w| w == ["--stop-signal", "SIGINT"]));
+        assert!(args.windows(2).any(|w| w == ["--stop-timeout", "10"]));
+    }
 }

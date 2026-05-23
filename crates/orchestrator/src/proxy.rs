@@ -17,6 +17,8 @@
 
 use std::{
     convert::Infallible,
+    fmt,
+    io,
     net::SocketAddr,
     sync::Arc,
 };
@@ -47,11 +49,19 @@ use hyper_util::{
     server::conn::auto,
 };
 use tokio::{
-    io::AsyncWriteExt,
-    net::TcpListener,
+    io::{
+        AsyncReadExt,
+        AsyncWriteExt,
+    },
+    net::{
+        TcpListener,
+        TcpStream,
+    },
 };
 
 use crate::state::OrchestratorState;
+
+const WS_UPSTREAM_RETRY_DELAYS_MS: &[u64] = &[25, 50, 100, 200, 400, 800];
 
 /// Settings shared by every proxied request.
 #[derive(Clone)]
@@ -327,59 +337,29 @@ async fn upgrade_proxy(
     target: RouteTarget,
     mut req: Request<Incoming>,
 ) -> Response<Full<Bytes>> {
-    use tokio::{
-        io::AsyncReadExt,
-        net::TcpStream,
-    };
-
-    let mut upstream = match TcpStream::connect(format!(
-        "{}:{}",
-        target.upstream_host, target.upstream_port
-    ))
-    .await
-    {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!(
-                deployment = %target.deployment_name,
-                error = %e,
-                "proxy: WS upstream connect failed",
-            );
-            return text(StatusCode::BAD_GATEWAY, "proxy: upstream unreachable");
-        },
-    };
-
     let raw_request = serialize_http1_request(&req, &target);
-    if let Err(e) = upstream.write_all(&raw_request).await {
-        tracing::warn!(error = %e, "proxy: WS upstream write failed");
-        return text(StatusCode::BAD_GATEWAY, "proxy: upstream write failed");
-    }
 
-    // Read upstream's response headers byte-by-byte until the \r\n\r\n
-    // terminator. A real WS handshake is small (a few hundred bytes), so
-    // 8KB is plenty.
-    let mut buf = vec![0u8; 8192];
-    let mut total = 0usize;
-    let header_end = loop {
-        if total == buf.len() {
-            tracing::warn!("proxy: upstream upgrade response headers too large");
-            return text(StatusCode::BAD_GATEWAY, "proxy: upstream upgrade headers too big");
-        }
-        let n = match upstream.read(&mut buf[total..]).await {
-            Ok(0) => {
-                tracing::warn!("proxy: upstream closed during upgrade handshake");
-                return text(StatusCode::BAD_GATEWAY, "proxy: upstream closed early");
+    let mut attempt = 0usize;
+    let (mut upstream, buf, total, header_end) = loop {
+        match open_upstream_upgrade(&target, &raw_request).await {
+            Ok(handshake) => break handshake,
+            Err(e) if e.is_transient() && attempt < WS_UPSTREAM_RETRY_DELAYS_MS.len() => {
+                let delay_ms = WS_UPSTREAM_RETRY_DELAYS_MS[attempt];
+                attempt += 1;
+                tracing::debug!(
+                    deployment = %target.deployment_name,
+                    attempt,
+                    delay_ms,
+                    error = %e,
+                    "proxy: transient WS upstream handshake failed; retrying",
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
             },
-            Ok(n) => n,
             Err(e) => {
-                tracing::warn!(error = %e, "proxy: upstream upgrade read failed");
-                return text(StatusCode::BAD_GATEWAY, "proxy: upstream read failed");
+                e.log(&target);
+                return e.response();
             },
         };
-        total += n;
-        if let Some(idx) = buf[..total].windows(4).position(|w| w == b"\r\n\r\n") {
-            break idx + 4;
-        }
     };
     let leftover = buf[header_end..total].to_vec();
 
@@ -467,6 +447,132 @@ async fn upgrade_proxy(
     })
 }
 
+enum UpgradeHandshakeError {
+    Connect(io::Error),
+    Write(io::Error),
+    ClosedEarly,
+    Read(io::Error),
+    HeadersTooLarge,
+}
+
+impl UpgradeHandshakeError {
+    fn is_transient(&self) -> bool {
+        match self {
+            Self::Connect(e) | Self::Write(e) | Self::Read(e) => is_transient_upstream_error(e),
+            Self::ClosedEarly => true,
+            Self::HeadersTooLarge => false,
+        }
+    }
+
+    fn log(&self, target: &RouteTarget) {
+        match self {
+            Self::Connect(e) => tracing::warn!(
+                deployment = %target.deployment_name,
+                error = %e,
+                "proxy: WS upstream connect failed",
+            ),
+            Self::Write(e) => tracing::warn!(
+                deployment = %target.deployment_name,
+                error = %e,
+                "proxy: WS upstream write failed",
+            ),
+            Self::ClosedEarly => tracing::warn!(
+                deployment = %target.deployment_name,
+                "proxy: upstream closed during upgrade handshake",
+            ),
+            Self::Read(e) => tracing::warn!(
+                deployment = %target.deployment_name,
+                error = %e,
+                "proxy: upstream upgrade read failed",
+            ),
+            Self::HeadersTooLarge => tracing::warn!(
+                deployment = %target.deployment_name,
+                "proxy: upstream upgrade response headers too large",
+            ),
+        }
+    }
+
+    fn response(&self) -> Response<Full<Bytes>> {
+        match self {
+            Self::Connect(_) => transient_upstream("proxy: upstream unreachable"),
+            Self::Write(_) => transient_upstream("proxy: upstream write failed"),
+            Self::ClosedEarly => transient_upstream("proxy: upstream closed early"),
+            Self::Read(_) => transient_upstream("proxy: upstream read failed"),
+            Self::HeadersTooLarge => {
+                text(StatusCode::BAD_GATEWAY, "proxy: upstream upgrade headers too big")
+            },
+        }
+    }
+}
+
+impl fmt::Display for UpgradeHandshakeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Connect(e) => write!(f, "connect failed: {e}"),
+            Self::Write(e) => write!(f, "write failed: {e}"),
+            Self::ClosedEarly => write!(f, "upstream closed during handshake"),
+            Self::Read(e) => write!(f, "read failed: {e}"),
+            Self::HeadersTooLarge => write!(f, "headers too large"),
+        }
+    }
+}
+
+async fn open_upstream_upgrade(
+    target: &RouteTarget,
+    raw_request: &[u8],
+) -> Result<(TcpStream, Vec<u8>, usize, usize), UpgradeHandshakeError> {
+    let mut upstream = TcpStream::connect(format!(
+        "{}:{}",
+        target.upstream_host, target.upstream_port
+    ))
+    .await
+    .map_err(UpgradeHandshakeError::Connect)?;
+
+    upstream
+        .write_all(raw_request)
+        .await
+        .map_err(UpgradeHandshakeError::Write)?;
+
+    // Read upstream's response headers until the \r\n\r\n terminator. A real
+    // WS handshake is small, so 8KB is plenty.
+    let mut buf = vec![0u8; 8192];
+    let mut total = 0usize;
+    loop {
+        if total == buf.len() {
+            return Err(UpgradeHandshakeError::HeadersTooLarge);
+        }
+        let n = match upstream.read(&mut buf[total..]).await {
+            Ok(0) => return Err(UpgradeHandshakeError::ClosedEarly),
+            Ok(n) => n,
+            Err(e) => return Err(UpgradeHandshakeError::Read(e)),
+        };
+        total += n;
+        if let Some(idx) = buf[..total].windows(4).position(|w| w == b"\r\n\r\n") {
+            return Ok((upstream, buf, total, idx + 4));
+        }
+    }
+}
+
+fn is_transient_upstream_error(e: &io::Error) -> bool {
+    if matches!(
+        e.kind(),
+        io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::ConnectionRefused
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::Interrupted
+            | io::ErrorKind::NotConnected
+            | io::ErrorKind::TimedOut
+            | io::ErrorKind::WouldBlock
+            | io::ErrorKind::BrokenPipe
+    ) {
+        return true;
+    }
+    let msg = e.to_string().to_ascii_lowercase();
+    msg.contains("temporary failure in name resolution")
+        || msg.contains("failed to lookup address information")
+        || msg.contains("name or service not known")
+}
+
 fn serialize_http1_request(req: &Request<Incoming>, target: &RouteTarget) -> Vec<u8> {
     use std::fmt::Write;
     let path_and_query = req
@@ -501,6 +607,15 @@ fn text(status: StatusCode, body: &'static str) -> Response<Full<Bytes>> {
         .unwrap()
 }
 
+fn transient_upstream(body: &'static str) -> Response<Full<Bytes>> {
+    Response::builder()
+        .status(StatusCode::SERVICE_UNAVAILABLE)
+        .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+        .header(header::RETRY_AFTER, "1")
+        .body(Full::new(Bytes::from_static(body.as_bytes())))
+        .unwrap()
+}
+
 fn is_hop_by_hop(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
@@ -513,4 +628,31 @@ fn is_hop_by_hop(name: &str) -> bool {
             | "transfer-encoding"
             | "upgrade"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use super::*;
+
+    #[test]
+    fn websocket_upstream_transients_match_restart_errors() {
+        assert!(is_transient_upstream_error(&io::Error::new(
+            io::ErrorKind::ConnectionReset,
+            "Connection reset by peer (os error 104)",
+        )));
+        assert!(is_transient_upstream_error(&io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            "Connection refused (os error 111)",
+        )));
+        assert!(is_transient_upstream_error(&io::Error::new(
+            io::ErrorKind::Other,
+            "failed to lookup address information: Temporary failure in name resolution",
+        )));
+        assert!(!is_transient_upstream_error(&io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "permission denied",
+        )));
+    }
 }
