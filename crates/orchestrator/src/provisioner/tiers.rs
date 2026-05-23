@@ -3,11 +3,12 @@
 //! Each `Tier` declares a Docker `--memory` / `--cpus` budget and a
 //! coordinated bundle of backend env-var defaults calculated from that
 //! budget. `S16` is the default; its cache + concurrency knobs are the
-//! formula baseline and remain bit-exact upstream defaults. The lone
-//! exception is `RUNTIME_WORKER_THREADS`, which we pin to `4` (upstream's
-//! `0` means "use all host cores", which varies across heterogeneous hosts —
-//! pinning a fixed worker count keeps behavior predictable from one host to
-//! another).
+//! formula baseline and remain bit-exact upstream defaults. Other resource
+//! sizes get extra headroom so the knobs are intentionally more generous than
+//! the raw resource ratio. The lone exception is `RUNTIME_WORKER_THREADS`,
+//! which we pin to `4` at the S16 baseline (upstream's `0` means "use all
+//! host cores", which varies across heterogeneous hosts — pinning a fixed
+//! worker count keeps behavior predictable from one host to another).
 //!
 //! Custom tiers use the string form `custom:<memory_mb>:<cpus>`, for example
 //! `custom:12288:6.5`. They use explicit Docker resource caps and the same
@@ -20,6 +21,7 @@ pub const DEFAULT_TIER: &str = "S16";
 const BASE_MEMORY_MB: u32 = 4096;
 const BASE_CPUS: f32 = 2.0;
 const MIN_KNOB_SCALE: f64 = 0.25;
+const KNOB_HEADROOM_MULTIPLIER: f64 = 1.5;
 const LEGACY_MAX_KNOB_MEMORY_MB: u32 = 131_072;
 const LEGACY_MAX_KNOB_CPUS: f32 = 64.0;
 
@@ -183,7 +185,13 @@ fn resource_knob_scale(memory_mb: u32, cpus: f32) -> f64 {
     let raw = (memory_mb as f64 / BASE_MEMORY_MB as f64)
         .max(cpus as f64 / BASE_CPUS as f64)
         .max(MIN_KNOB_SCALE);
-    if raw > 1.0 { raw.ceil() } else { raw }
+    if raw > 1.0 {
+        (raw * KNOB_HEADROOM_MULTIPLIER).ceil()
+    } else if raw < 1.0 {
+        (raw * KNOB_HEADROOM_MULTIPLIER).min(1.0)
+    } else {
+        raw
+    }
 }
 
 #[cfg(test)]
@@ -224,25 +232,25 @@ mod tests {
         assert!(!custom.unbounded);
 
         let defaults = pairs(&custom);
-        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "512");
+        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "640");
     }
 
     #[test]
     fn custom_tier_calculates_generous_knobs_from_memory_or_cpu() {
         let cpu_heavy = resolve("custom:1024:6.5").unwrap();
         let cpu_defaults = pairs(&cpu_heavy);
-        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "512");
-        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "16");
+        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "640");
+        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "20");
 
         let mid_ladder = resolve("custom:9000:4.1").unwrap();
         let mid_ladder_defaults = pairs(&mid_ladder);
-        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "384");
-        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "12");
+        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "512");
+        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "16");
 
         let above_ladder = resolve("custom:65536:48").unwrap();
         let above_ladder_defaults = pairs(&above_ladder);
-        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "3072");
-        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "96");
+        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "4608");
+        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "144");
     }
 
     #[test]
@@ -296,16 +304,16 @@ mod tests {
     }
 
     #[test]
-    fn postgres_max_connections_doubles_per_tier() {
+    fn postgres_max_connections_include_headroom_per_tier() {
         let expected: &[(&str, &str)] = &[
-            ("S4", "32"),
-            ("S8", "64"),
+            ("S4", "48"),
+            ("S8", "96"),
             ("S16", "128"),
-            ("S32", "256"),
-            ("S64", "512"),
-            ("S128", "1024"),
-            ("S256", "2048"),
-            ("max", "4096"),
+            ("S32", "384"),
+            ("S64", "768"),
+            ("S128", "1536"),
+            ("S256", "3072"),
+            ("max", "6144"),
         ];
         for (tier_name, want) in expected {
             let tier = lookup(tier_name).expect("tier present");
