@@ -328,6 +328,7 @@ async fn deployment_internal_flow_against_real_db() {
         provisioner_mode: ProvisionerMode::External,
         service_key: None,
         admin_emails: Vec::new(),
+        default_team_name: "Self-Hosted".into(),
         registration_mode: RegistrationMode::Allowlist,
         backend_image: "irrelevant".into(),
         backend_network: None,

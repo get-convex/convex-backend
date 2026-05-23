@@ -5,6 +5,8 @@ use std::{
 
 use crate::provisioner::ProvisioningStrategy;
 
+pub const DEFAULT_TEAM_NAME: &str = "Self-Hosted";
+
 #[derive(Debug, Clone)]
 pub struct OrchestratorConfig {
     pub database_url: String,
@@ -19,6 +21,9 @@ pub struct OrchestratorConfig {
     /// Comma-separated list of email addresses that are auto-promoted to
     /// admin on first registration.
     pub admin_emails: Vec<String>,
+    /// Human-facing name for the auto-created default team. The slug remains
+    /// `self-hosted` for stable CLI/dashboard lookups.
+    pub default_team_name: String,
     /// First-run registration policy.
     pub registration_mode: RegistrationMode,
     /// Image tag the docker provisioner pulls/runs for each deployment.
@@ -49,6 +54,15 @@ pub struct OrchestratorConfig {
 }
 
 impl OrchestratorConfig {
+    pub fn default_team_display_name(&self) -> &str {
+        let name = self.default_team_name.trim();
+        if name.is_empty() {
+            DEFAULT_TEAM_NAME
+        } else {
+            name
+        }
+    }
+
     /// Resolve the v3 docker provisioning strategy from the flag bundle.
     /// `enable_sidecars=true` → Sidecar with the two image refs;
     /// `enable_sidecars=false` → VolumeSqlite (v2 escape hatch).
@@ -135,6 +149,7 @@ mod tests {
             provisioner_mode: ProvisionerMode::External,
             service_key: None,
             admin_emails: Vec::new(),
+            default_team_name: "Self-Hosted".into(),
             registration_mode: RegistrationMode::Allowlist,
             backend_image: "irrelevant".into(),
             backend_network: None,
@@ -181,5 +196,17 @@ mod tests {
             },
             other => panic!("expected Sidecar, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn default_team_name_is_configurable() {
+        let mut cfg = test_config(true);
+        cfg.default_team_name = "  Defy Works  ".into();
+
+        assert_eq!(cfg.default_team_display_name(), "Defy Works");
+
+        cfg.default_team_name = "".into();
+
+        assert_eq!(cfg.default_team_display_name(), "Self-Hosted");
     }
 }
