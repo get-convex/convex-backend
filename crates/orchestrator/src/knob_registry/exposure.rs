@@ -44,7 +44,16 @@ pub const TIER_TUNED: &[&str] = &[
     "FUNRUN_INDEX_CACHE_SIZE",
     "FUNRUN_MODULE_CACHE_SIZE",
     "FUNRUN_CODE_CACHE_SIZE",
+    "HTTP_SERVER_TCP_BACKLOG",
     "HTTP_SERVER_MAX_CONCURRENT_REQUESTS",
+    "APPLICATION_MAX_CONCURRENT_QUERIES",
+    "APPLICATION_MAX_CONCURRENT_MUTATIONS",
+    "APPLICATION_MAX_CONCURRENT_V8_ACTIONS",
+    "APPLICATION_MAX_CONCURRENT_NODE_ACTIONS",
+    "MAX_CONCURRENT_ACTION_OPS",
+    "COMMITTER_QUEUE_SIZE",
+    "MAX_BYTES_WRITTEN_PER_SECOND",
+    "POSTGRES_MAX_CONNECTIONS",
 ];
 
 pub fn classify(env_var: &str) -> Exposure {
@@ -69,6 +78,16 @@ mod tests {
     fn classification_buckets() {
         assert_eq!(classify("ACTIONS_USER_TIMEOUT_SECS"), Exposure::Curated);
         assert_eq!(classify("UDF_CACHE_MAX_SIZE"), Exposure::TierTuned);
+        assert_eq!(
+            classify("APPLICATION_MAX_CONCURRENT_MUTATIONS"),
+            Exposure::TierTuned
+        );
+        assert_eq!(classify("COMMITTER_QUEUE_SIZE"), Exposure::TierTuned);
+        assert_eq!(
+            classify("MAX_BYTES_WRITTEN_PER_SECOND"),
+            Exposure::TierTuned
+        );
+        assert_eq!(classify("POSTGRES_MAX_CONNECTIONS"), Exposure::TierTuned);
         assert_eq!(classify("DOCUMENT_DELTAS_LIMIT"), Exposure::Advanced);
     }
 

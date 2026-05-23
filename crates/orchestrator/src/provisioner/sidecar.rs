@@ -207,8 +207,8 @@ fn build_postgres_run_args(
         "-d".into(),
         "--restart".into(),
         "unless-stopped".into(),
-        // `max_connections` for the `max` tier is 4096, and Postgres
-        // needs ~1.5x that in fds for backends + workers + WAL. Default
+        // `max_connections` can climb into five digits, and Postgres
+        // needs extra fds for backends + workers + WAL. Default
         // 1024 nofile would exhaust before the pool is even full.
         "--ulimit".into(),
         "nofile=1048576:1048576".into(),
