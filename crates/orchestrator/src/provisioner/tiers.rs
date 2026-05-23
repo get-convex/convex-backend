@@ -4,12 +4,12 @@
 //! coordinated bundle of backend env-var defaults calculated from that
 //! budget. `S16` is the default; its cache + concurrency knobs are the
 //! formula baseline and remain bit-exact upstream defaults. Other resource
-//! sizes get aggressive headroom so the knobs are intentionally much more
-//! generous than the raw resource ratio. The lone exception is
-//! `RUNTIME_WORKER_THREADS`, which we pin to `4` at the S16 baseline
-//! (upstream's `0` means "use all host cores", which varies across
-//! heterogeneous hosts — pinning a fixed worker count keeps behavior
-//! predictable from one host to another).
+//! sizes get aggressive headroom so most knobs are intentionally much more
+//! generous than the raw resource ratio. Two knobs are deliberately gentler:
+//! `RUNTIME_WORKER_THREADS` follows the CPU cap without headroom so Tokio
+//! doesn't oversubscribe the container, and `POSTGRES_MAX_CONNECTIONS` uses a
+//! softer curve so large tiers don't ask Postgres to manage thousands of idle
+//! backends before the workload needs them.
 //!
 //! Custom tiers use the string form `custom:<memory_mb>:<cpus>`, for example
 //! `custom:12288:6.5`. They use explicit Docker resource caps and the same
@@ -77,7 +77,7 @@ impl TierPreset {
             name: Cow::Borrowed(self.name),
             memory_mb: self.memory_mb,
             cpus: self.cpus,
-            knob_defaults: knob_defaults_for_resources(knob_memory_mb, knob_cpus),
+            knob_defaults: knob_defaults_for_resources(knob_memory_mb, knob_cpus, self.unbounded),
             unbounded: self.unbounded,
             custom: false,
         }
@@ -169,7 +169,7 @@ fn parse_custom(name: &str) -> Option<Tier> {
         name: Cow::Owned(name.to_string()),
         memory_mb,
         cpus,
-        knob_defaults: knob_defaults_for_resources(memory_mb, cpus),
+        knob_defaults: knob_defaults_for_resources(memory_mb, cpus, false),
         unbounded: false,
         custom: true,
     })
@@ -178,12 +178,19 @@ fn parse_custom(name: &str) -> Option<Tier> {
 fn knob_defaults_for_resources(
     memory_mb: u32,
     cpus: f32,
+    unbounded: bool,
 ) -> Vec<(&'static str, String)> {
     let scale = resource_knob_scale(memory_mb, cpus);
     BASE_KNOB_DEFAULTS
         .iter()
         .map(|(key, value)| {
-            let scaled = ((*value as f64) * scale).ceil() as u128;
+            let scaled = match *key {
+                "RUNTIME_WORKER_THREADS" => runtime_worker_threads_for_resources(cpus, unbounded),
+                "POSTGRES_MAX_CONNECTIONS" => {
+                    ((*value as f64) * postgres_connection_scale(memory_mb, cpus)).ceil() as u128
+                },
+                _ => ((*value as f64) * scale).ceil() as u128,
+            };
             (*key, scaled)
         })
         .map(|(key, value)| (key, value.to_string()))
@@ -191,9 +198,7 @@ fn knob_defaults_for_resources(
 }
 
 fn resource_knob_scale(memory_mb: u32, cpus: f32) -> f64 {
-    let raw = (memory_mb as f64 / BASE_MEMORY_MB as f64)
-        .max(cpus as f64 / BASE_CPUS as f64)
-        .max(MIN_KNOB_SCALE);
+    let raw = raw_resource_scale(memory_mb, cpus);
     if raw > 1.0 {
         (raw * KNOB_HEADROOM_MULTIPLIER).ceil()
     } else if raw < 1.0 {
@@ -201,6 +206,31 @@ fn resource_knob_scale(memory_mb: u32, cpus: f32) -> f64 {
     } else {
         raw
     }
+}
+
+fn raw_resource_scale(memory_mb: u32, cpus: f32) -> f64 {
+    (memory_mb as f64 / BASE_MEMORY_MB as f64)
+        .max(cpus as f64 / BASE_CPUS as f64)
+        .max(MIN_KNOB_SCALE)
+}
+
+fn postgres_connection_scale(memory_mb: u32, cpus: f32) -> f64 {
+    let raw = raw_resource_scale(memory_mb, cpus);
+    if raw > 1.0 {
+        (raw.sqrt() * KNOB_HEADROOM_MULTIPLIER).ceil()
+    } else if raw < 1.0 {
+        (raw * KNOB_HEADROOM_MULTIPLIER).min(1.0)
+    } else {
+        raw
+    }
+}
+
+fn runtime_worker_threads_for_resources(cpus: f32, unbounded: bool) -> u128 {
+    if unbounded {
+        // Match bare-metal behavior: let Tokio choose from the actual host.
+        return 0;
+    }
+    (cpus as f64).ceil().clamp(1.0, 64.0) as u128
 }
 
 #[cfg(test)]
@@ -241,25 +271,26 @@ mod tests {
         assert!(!custom.unbounded);
 
         let defaults = pairs(&custom);
-        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "1280");
+        assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "768");
+        assert_eq!(defaults["RUNTIME_WORKER_THREADS"], "7");
     }
 
     #[test]
     fn custom_tier_calculates_generous_knobs_from_memory_or_cpu() {
         let cpu_heavy = resolve("custom:1024:6.5").unwrap();
         let cpu_defaults = pairs(&cpu_heavy);
-        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "1280");
-        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "40");
+        assert_eq!(cpu_defaults["POSTGRES_MAX_CONNECTIONS"], "768");
+        assert_eq!(cpu_defaults["RUNTIME_WORKER_THREADS"], "7");
 
         let mid_ladder = resolve("custom:9000:4.1").unwrap();
         let mid_ladder_defaults = pairs(&mid_ladder);
-        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "896");
-        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "28");
+        assert_eq!(mid_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "640");
+        assert_eq!(mid_ladder_defaults["RUNTIME_WORKER_THREADS"], "5");
 
         let above_ladder = resolve("custom:65536:48").unwrap();
         let above_ladder_defaults = pairs(&above_ladder);
-        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "9216");
-        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "288");
+        assert_eq!(above_ladder_defaults["POSTGRES_MAX_CONNECTIONS"], "1920");
+        assert_eq!(above_ladder_defaults["RUNTIME_WORKER_THREADS"], "48");
     }
 
     #[test]
@@ -290,9 +321,9 @@ mod tests {
         assert_eq!(defaults["MAX_CONCURRENT_ACTION_OPS"], "8");
         assert_eq!(defaults["COMMITTER_QUEUE_SIZE"], "128");
         assert_eq!(defaults["MAX_BYTES_WRITTEN_PER_SECOND"], "4194304");
-        // RUNTIME_WORKER_THREADS is intentionally pinned to "4" — upstream
-        // default is "0" (= number of host cores). See module doc.
-        assert_eq!(defaults["RUNTIME_WORKER_THREADS"], "4");
+        // RUNTIME_WORKER_THREADS follows the explicit CPU cap without the
+        // generous headroom multiplier used for throughput queues.
+        assert_eq!(defaults["RUNTIME_WORKER_THREADS"], "2");
         // POSTGRES_MAX_CONNECTIONS — upstream default for Postgres clients
         // (matches `crates/common/src/knobs.rs:934`).
         assert_eq!(defaults["POSTGRES_MAX_CONNECTIONS"], "128");
@@ -326,11 +357,11 @@ mod tests {
             ("S4", "96"),
             ("S8", "128"),
             ("S16", "128"),
-            ("S32", "768"),
-            ("S64", "1536"),
-            ("S128", "3072"),
-            ("S256", "6144"),
-            ("max", "12288"),
+            ("S32", "640"),
+            ("S64", "768"),
+            ("S128", "1152"),
+            ("S256", "1536"),
+            ("max", "2176"),
         ];
         for (tier_name, want) in expected {
             let tier = lookup(tier_name).expect("tier present");
@@ -370,5 +401,32 @@ mod tests {
         assert_eq!(s256_defaults["MAX_CONCURRENT_ACTION_OPS"], "384");
         assert_eq!(s256_defaults["COMMITTER_QUEUE_SIZE"], "6144");
         assert_eq!(s256_defaults["MAX_BYTES_WRITTEN_PER_SECOND"], "201326592");
+    }
+
+    #[test]
+    fn runtime_worker_threads_do_not_use_throughput_headroom() {
+        let expected: &[(&str, &str)] = &[
+            ("S4", "1"),
+            ("S8", "1"),
+            ("S16", "2"),
+            ("S32", "4"),
+            ("S64", "8"),
+            ("S128", "16"),
+            ("S256", "32"),
+            ("max", "0"),
+        ];
+        for (tier_name, want) in expected {
+            let tier = lookup(tier_name).expect("tier present");
+            let got = tier
+                .knob_defaults
+                .iter()
+                .find(|(k, _)| *k == "RUNTIME_WORKER_THREADS")
+                .map(|(_, v)| v.as_str())
+                .unwrap_or("MISSING");
+            assert_eq!(
+                got, *want,
+                "tier {tier_name} RUNTIME_WORKER_THREADS = {got:?}, want {want:?}",
+            );
+        }
     }
 }

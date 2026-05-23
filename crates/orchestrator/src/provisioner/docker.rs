@@ -232,9 +232,11 @@ impl Provisioner for DockerProvisioner {
         })?;
 
         // Branch on the configured strategy. In `Sidecar` mode we spawn
-        // pg+minio sidecars now (idempotent — restart reuses existing ones)
-        // and layer their connection env into the backend's docker-run
-        // flags. `VolumeSqlite` is a no-op here and keeps v2 behavior.
+        // pg+minio sidecars now, updating or replacing the sidecar
+        // containers when the tier/image/command changes while preserving
+        // their volumes, and layer their connection env into the backend's
+        // docker-run flags. `VolumeSqlite` is a no-op here and keeps v2
+        // behavior.
         let (strategy_env, sidecar_credentials_for_result): (
             Vec<(&'static str, String)>,
             Option<crate::provisioner::SidecarCredentials>,
@@ -333,11 +335,10 @@ impl Provisioner for DockerProvisioner {
             "-d".into(),
             "--restart".into(),
             "unless-stopped".into(),
-            // Each backend's Postgres pool (up to 4096 entries at the `max`
-            // tier) + WebSocket client connections + action subprocess fds
-            // routinely exceed docker's default 1024 nofile cap. Match the
-            // orchestrator/traefik ceiling so backends aren't the
-            // weakest-link bottleneck.
+            // Each backend's Postgres pool + WebSocket client connections
+            // + action subprocess fds routinely exceed docker's default
+            // 1024 nofile cap. Match the orchestrator/traefik ceiling so
+            // backends aren't the weakest-link bottleneck.
             "--ulimit".into(),
             "nofile=1048576:1048576".into(),
         ];

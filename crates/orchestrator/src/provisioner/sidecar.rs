@@ -21,11 +21,33 @@ pub const BUCKET_NAMES: [&str; 5] = [
     "convex-search",
 ];
 
+const POSTGRES_UNBOUNDED_TUNING_MEMORY_MB: u32 = 32 * 1024;
+const BYTES_PER_MB: u64 = 1024 * 1024;
+const NANO_CPUS_PER_CPU: f64 = 1_000_000_000.0;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SidecarContainerResources {
     pub memory_mb: u32,
     pub cpus: f32,
     pub unbounded: bool,
+}
+
+impl SidecarContainerResources {
+    fn desired_memory_bytes(self) -> u64 {
+        if self.unbounded {
+            0
+        } else {
+            self.memory_mb as u64 * BYTES_PER_MB
+        }
+    }
+
+    fn desired_nano_cpus(self) -> u64 {
+        if self.unbounded {
+            0
+        } else {
+            (self.cpus as f64 * NANO_CPUS_PER_CPU).round() as u64
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -193,6 +215,75 @@ fn push_resource_args(args: &mut Vec<String>, resources: SidecarContainerResourc
     args.push(format!("{:.2}", resources.cpus));
 }
 
+fn format_pg_memory(mb: u32) -> String {
+    if mb >= 1024 && mb % 1024 == 0 {
+        format!("{}GB", mb / 1024)
+    } else {
+        format!("{mb}MB")
+    }
+}
+
+fn postgres_tuning_memory_mb(resources: SidecarContainerResources) -> u32 {
+    if resources.unbounded || resources.memory_mb == 0 {
+        POSTGRES_UNBOUNDED_TUNING_MEMORY_MB
+    } else {
+        resources.memory_mb
+    }
+}
+
+fn postgres_settings(
+    max_connections: u32,
+    resources: SidecarContainerResources,
+) -> Vec<(&'static str, String)> {
+    let memory_mb = postgres_tuning_memory_mb(resources);
+    let shared_buffers_mb = (memory_mb / 4).clamp(128, 8192);
+    let effective_cache_min_mb = memory_mb.min(1024);
+    let effective_cache_size_mb = ((memory_mb * 3) / 4).clamp(effective_cache_min_mb, 24576);
+    let per_connection_work_mem_mb =
+        (memory_mb as u64 / max_connections.max(1) as u64 / 16) as u32;
+    let work_mem_mb = per_connection_work_mem_mb.clamp(4, 64);
+    let maintenance_work_mem_mb = (memory_mb / 16).clamp(64, 2048);
+    let wal_buffers_mb = (shared_buffers_mb / 32).clamp(16, 256);
+    let max_wal_size_mb = (memory_mb / 4).clamp(1024, 8192);
+    let min_wal_size_mb = (max_wal_size_mb / 16).clamp(80, 1024);
+
+    vec![
+        ("max_connections", max_connections.to_string()),
+        ("shared_buffers", format_pg_memory(shared_buffers_mb)),
+        (
+            "effective_cache_size",
+            format_pg_memory(effective_cache_size_mb),
+        ),
+        ("work_mem", format_pg_memory(work_mem_mb)),
+        (
+            "maintenance_work_mem",
+            format_pg_memory(maintenance_work_mem_mb),
+        ),
+        ("random_page_cost", "1.1".into()),
+        ("effective_io_concurrency", "200".into()),
+        ("wal_buffers", format_pg_memory(wal_buffers_mb)),
+        ("checkpoint_completion_target", "0.9".into()),
+        ("max_wal_size", format_pg_memory(max_wal_size_mb)),
+        ("min_wal_size", format_pg_memory(min_wal_size_mb)),
+    ]
+}
+
+fn postgres_start_command(
+    max_connections: u32,
+    resources: SidecarContainerResources,
+) -> Vec<String> {
+    let mut command = Vec::new();
+    for (key, value) in postgres_settings(max_connections, resources) {
+        command.push("-c".into());
+        command.push(format!("{key}={value}"));
+    }
+    command
+}
+
+fn minio_start_command() -> Vec<String> {
+    vec!["server".into(), "/data".into()]
+}
+
 fn build_postgres_run_args(
     container_name: &str,
     volume_name: &str,
@@ -207,9 +298,8 @@ fn build_postgres_run_args(
         "-d".into(),
         "--restart".into(),
         "unless-stopped".into(),
-        // `max_connections` can climb into five digits, and Postgres
-        // needs extra fds for backends + workers + WAL. Default
-        // 1024 nofile would exhaust before the pool is even full.
+        // Postgres needs extra fds for backends + workers + WAL. Default
+        // 1024 nofile is too tight once large tiers open big pools.
         "--ulimit".into(),
         "nofile=1048576:1048576".into(),
     ];
@@ -234,8 +324,7 @@ fn build_postgres_run_args(
     }
     args.push(image.into());
     // Server-side max_connections must match the backend's pool ceiling.
-    args.push("-c".into());
-    args.push(format!("max_connections={max_connections}"));
+    args.extend(postgres_start_command(max_connections, resources));
     args
 }
 
@@ -277,13 +366,11 @@ fn build_minio_run_args(
         args.push(net.into());
     }
     args.push(image.into());
-    args.push("server".into());
-    args.push("/data".into());
+    args.extend(minio_start_command());
     args
 }
 
-/// Spawn the Postgres sidecar. Idempotent on the container — if a
-/// container with this name already exists, this is a no-op success.
+/// Spawn or update the Postgres sidecar while preserving its data volume.
 pub async fn spawn_postgres_sidecar(
     container_name: &str,
     volume_name: &str,
@@ -294,7 +381,21 @@ pub async fn spawn_postgres_sidecar(
     resources: SidecarContainerResources,
 ) -> anyhow::Result<()> {
     if container_exists(container_name).await? {
-        return Ok(());
+        let desired_command = postgres_start_command(max_connections, resources);
+        if container_image_matches(container_name, image).await?
+            && container_command_matches(container_name, &desired_command).await?
+        {
+            if container_resources_match(container_name, resources).await? {
+                return Ok(());
+            }
+            if !resources.unbounded {
+                update_container_resources(container_name, resources).await?;
+                return Ok(());
+            }
+            remove_container(container_name, "replace postgres sidecar resources").await?;
+        } else {
+            remove_container(container_name, "replace postgres sidecar").await?;
+        }
     }
     ensure_volume(volume_name).await?;
     let args = build_postgres_run_args(
@@ -310,7 +411,7 @@ pub async fn spawn_postgres_sidecar(
     Ok(())
 }
 
-/// Spawn the MinIO sidecar. Idempotent on the container.
+/// Spawn or update the MinIO sidecar while preserving its data volume.
 pub async fn spawn_minio_sidecar(
     container_name: &str,
     volume_name: &str,
@@ -321,7 +422,21 @@ pub async fn spawn_minio_sidecar(
     resources: SidecarContainerResources,
 ) -> anyhow::Result<()> {
     if container_exists(container_name).await? {
-        return Ok(());
+        let desired_command = minio_start_command();
+        if container_image_matches(container_name, image).await?
+            && container_command_matches(container_name, &desired_command).await?
+        {
+            if container_resources_match(container_name, resources).await? {
+                return Ok(());
+            }
+            if !resources.unbounded {
+                update_container_resources(container_name, resources).await?;
+                return Ok(());
+            }
+            remove_container(container_name, "replace minio sidecar resources").await?;
+        } else {
+            remove_container(container_name, "replace minio sidecar").await?;
+        }
     }
     ensure_volume(volume_name).await?;
     let args = build_minio_run_args(
@@ -463,6 +578,101 @@ async fn container_exists(name: &str) -> anyhow::Result<bool> {
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     Ok(stdout.lines().any(|l| l == name))
+}
+
+async fn container_image_matches(container_name: &str, image: &str) -> anyhow::Result<bool> {
+    let output = Command::new("docker")
+        .args(["inspect", "--format", "{{.Config.Image}}", container_name])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker inspect image {container_name}: {e}"))?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "docker inspect image {container_name} failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim() == image)
+}
+
+async fn container_command_matches(
+    container_name: &str,
+    desired_command: &[String],
+) -> anyhow::Result<bool> {
+    let output = Command::new("docker")
+        .args([
+            "inspect",
+            "--format",
+            "{{json .Config.Cmd}}",
+            container_name,
+        ])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker inspect command {container_name}: {e}"))?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "docker inspect command {container_name} failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    let current: Vec<String> = serde_json::from_slice(&output.stdout).map_err(|e| {
+        anyhow::anyhow!(
+            "parsing docker command for {container_name} failed: {e}; stdout: {}",
+            String::from_utf8_lossy(&output.stdout).trim()
+        )
+    })?;
+    Ok(current == desired_command)
+}
+
+async fn container_resources_match(
+    container_name: &str,
+    resources: SidecarContainerResources,
+) -> anyhow::Result<bool> {
+    let output = Command::new("docker")
+        .args([
+            "inspect",
+            "--format",
+            "{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}",
+            container_name,
+        ])
+        .output()
+        .await
+        .map_err(|e| anyhow::anyhow!("docker inspect resources {container_name}: {e}"))?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "docker inspect resources {container_name} failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut fields = stdout.split_whitespace();
+    let memory = fields
+        .next()
+        .and_then(|v| v.parse::<u64>().ok())
+        .ok_or_else(|| anyhow::anyhow!("docker inspect resources missing memory"))?;
+    let nano_cpus = fields
+        .next()
+        .and_then(|v| v.parse::<u64>().ok())
+        .ok_or_else(|| anyhow::anyhow!("docker inspect resources missing nano cpus"))?;
+    Ok(memory == resources.desired_memory_bytes() && nano_cpus == resources.desired_nano_cpus())
+}
+
+async fn update_container_resources(
+    container_name: &str,
+    resources: SidecarContainerResources,
+) -> anyhow::Result<()> {
+    let mut args = vec!["update".into()];
+    args.push("--memory".into());
+    args.push(resources.desired_memory_bytes().to_string());
+    args.push("--cpus".into());
+    args.push(format!("{:.2}", resources.desired_nano_cpus() as f64 / NANO_CPUS_PER_CPU));
+    args.push(container_name.into());
+    run_docker(&args, "update sidecar resources").await
+}
+
+async fn remove_container(container_name: &str, desc: &str) -> anyhow::Result<()> {
+    let args = vec!["rm".into(), "-f".into(), container_name.into()];
+    run_docker(&args, desc).await
 }
 
 async fn run_docker(args: &[String], desc: &str) -> anyhow::Result<()> {
@@ -652,6 +862,34 @@ mod tests {
         assert!(pg_args
             .windows(2)
             .any(|w| w == ["-c", "max_connections=128"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "shared_buffers=256MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "effective_cache_size=1GB"]));
+        assert!(pg_args.windows(2).any(|w| w == ["-c", "work_mem=4MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "maintenance_work_mem=64MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "random_page_cost=1.1"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "effective_io_concurrency=200"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "wal_buffers=16MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "checkpoint_completion_target=0.9"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "max_wal_size=1GB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "min_wal_size=80MB"]));
 
         let minio_args = build_minio_run_args(
             "minio-dep",
@@ -664,6 +902,41 @@ mod tests {
         );
         assert!(minio_args.windows(2).any(|w| w == ["--memory", "512m"]));
         assert!(minio_args.windows(2).any(|w| w == ["--cpus", "0.25"]));
+    }
+
+    #[test]
+    fn postgres_tuning_scales_with_sidecar_resources() {
+        let resources =
+            SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S128").unwrap());
+
+        let pg_args = build_postgres_run_args(
+            "pg-dep",
+            "pgdata-dep",
+            Some("orch-net"),
+            "postgres:17",
+            "secret",
+            1152,
+            resources.postgres,
+        );
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "shared_buffers=2GB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "effective_cache_size=6GB"]));
+        assert!(pg_args.windows(2).any(|w| w == ["-c", "work_mem=4MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "maintenance_work_mem=512MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "wal_buffers=64MB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "max_wal_size=2GB"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["-c", "min_wal_size=128MB"]));
     }
 
     #[test]
