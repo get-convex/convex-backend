@@ -88,9 +88,10 @@ export const deploymentCreate = new Command("create")
       envFile: undefined,
     });
 
-    // Handle `deployment create local`
+    // Handle `deployment create [team:project:]local`
     if (refParam !== undefined) {
-      if (refParam === "local") {
+      const localTarget = parseLocalCreateTarget(refParam);
+      if (localTarget !== null) {
         const cloudOnlyFlags = ["type", "region", "class", "default"] as const;
         for (const flag of cloudOnlyFlags) {
           if (options[flag]) {
@@ -108,10 +109,24 @@ export const deploymentCreate = new Command("create")
             printedMessage: `--expiration cannot be used when creating a local deployment`,
           });
         }
+        if (localTarget.kind === "needsTeam") {
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage:
+              "Please use `team:project:local` to specify the team when creating a local deployment in a different project.",
+          });
+        }
         await createLocalDeployment(
           ctx,
           currentDeployment,
           options.select ?? false,
+          localTarget.kind === "inTeamProject"
+            ? {
+                teamSlug: localTarget.teamSlug,
+                projectSlug: localTarget.projectSlug,
+              }
+            : null,
         );
         return;
       }
@@ -222,6 +237,7 @@ export async function createLocalDeployment(
   ctx: Context,
   currentDeployment: DeploymentSelection,
   select: boolean,
+  baseDeployment: { teamSlug: string; projectSlug: string } | null,
 ): Promise<void> {
   const existing = loadProjectLocalConfig(ctx);
   if (existing) {
@@ -236,7 +252,13 @@ export async function createLocalDeployment(
     teamSlug,
     slug: projectSlug,
     id: cloudProjectId,
-  } = await resolveProject(ctx, currentDeployment);
+  } = baseDeployment
+    ? await getProjectDetails(ctx, {
+        kind: "teamAndProjectSlugs",
+        teamSlug: baseDeployment.teamSlug,
+        projectSlug: baseDeployment.projectSlug,
+      })
+    : await resolveProject(ctx, currentDeployment);
 
   showSpinner("Downloading local backend...");
   const { version } = await ensureBackendBinaryDownloaded(ctx, {
@@ -535,11 +557,6 @@ function parseSelectorForNewDeployment(
 ): NewDeploymentSelectorResult {
   const selector = parseDeploymentSelector(selectorString);
   switch (selector.kind) {
-    case "local":
-      return {
-        kind: "invalid",
-        message: `"local" is reserved as an alias for your local deployment. To create one, run ${chalkStderr.bold("npx convex deployment create local")}`,
-      };
     case "deploymentName":
       return {
         kind: "invalid",
@@ -557,6 +574,12 @@ function parseSelectorForNewDeployment(
         return {
           kind: "invalid",
           message: `"prod" is reserved as an alias for your default production deployment.`,
+        };
+      }
+      if (inner.kind === "local") {
+        return {
+          kind: "invalid",
+          message: `"local" is reserved as an alias for your local deployment. To create one, run ${chalkStderr.bold("npx convex deployment create local")}`,
         };
       }
       return { kind: "valid", ref: inner.reference };
@@ -581,6 +604,12 @@ function parseSelectorForNewDeployment(
           message: `"prod" is reserved as an alias for your default production deployment.`,
         };
       }
+      if (inner.kind === "local") {
+        return {
+          kind: "invalid",
+          message: `"local" is reserved as an alias for your local deployment. To create one, run ${chalkStderr.bold(`npx convex deployment create ${selector.teamSlug}:${selector.projectSlug}:local`)}`,
+        };
+      }
       return {
         kind: "valid",
         ref: inner.reference,
@@ -597,6 +626,38 @@ function parseSelectorForNewDeployment(
         message: "Unknown state. This is a bug in Convex.",
       };
   }
+}
+
+/**
+ * Detect whether the user is creating a local deployment.
+ * Returns:
+ *   - `null` if `refParam` is not a local-deployment selector
+ *   - `inCurrentProject` for plain `local`
+ *   - `needsTeam` for `project:local` (which we reject — same rule as cloud)
+ *   - `inTeamProject` for `team:project:local`
+ */
+function parseLocalCreateTarget(
+  refParam: string,
+):
+  | null
+  | { kind: "inCurrentProject" }
+  | { kind: "needsTeam" }
+  | { kind: "inTeamProject"; teamSlug: string; projectSlug: string } {
+  const parsed = parseDeploymentSelector(refParam);
+  if (parsed.kind === "inCurrentProject" && parsed.selector.kind === "local") {
+    return { kind: "inCurrentProject" };
+  }
+  if (parsed.kind === "inProject" && parsed.selector.kind === "local") {
+    return { kind: "needsTeam" };
+  }
+  if (parsed.kind === "inTeamProject" && parsed.selector.kind === "local") {
+    return {
+      kind: "inTeamProject",
+      teamSlug: parsed.teamSlug,
+      projectSlug: parsed.projectSlug,
+    };
+  }
+  return null;
 }
 
 async function resolveProject(

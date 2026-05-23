@@ -179,14 +179,18 @@ impl<RT: Runtime> ActionPhase<RT> {
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
         let import_time_unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let (module_metadata, source_package) = timeout
+        let module_metadata = timeout
             .with_release_permit(PauseReason::LoadResources, async {
+                let mut modules = Vec::new();
                 let module_metadata = ModuleModel::new(&mut tx)
                     .get_all_metadata(component_id)
                     .await?;
-                let source_package = SourcePackageModel::new(&mut tx, component_id.into())
-                    .get_latest()
-                    .await?;
+                for module in module_metadata {
+                    let source_package = SourcePackageModel::new(&mut tx, component_id.into())
+                        .get(module.source_package_id)
+                        .await?;
+                    modules.push((module, source_package));
+                }
                 let loaded_resources = ComponentsModel::new(&mut tx)
                     .preload_resources(component_id)
                     .await?;
@@ -194,25 +198,20 @@ impl<RT: Runtime> ActionPhase<RT> {
                     let mut resources = resources.lock();
                     *resources = loaded_resources;
                 }
-                Ok((module_metadata, source_package))
+                Ok(modules)
             })
             .await?;
 
         let modules = timeout
             .with_release_permit(PauseReason::LoadModuleSource, async {
                 let mut modules = BTreeMap::new();
-                for metadata in module_metadata {
+                for (metadata, source_package) in module_metadata {
                     if metadata.path.is_system() {
                         continue;
                     }
                     let path = metadata.path.clone();
                     let module = module_loader
-                        .get_module_with_metadata(
-                            &metadata,
-                            source_package
-                                .as_ref()
-                                .context("source package not found")?,
-                        )
+                        .get_module_with_metadata(&metadata, &source_package)
                         .await?;
                     modules.insert(path, (metadata.into_value(), module));
                 }

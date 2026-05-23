@@ -61,10 +61,7 @@ use crate::{
             ModuleDiff,
         },
     },
-    source_packages::{
-        types::SourcePackageId,
-        SourcePackageModel,
-    },
+    source_packages::types::SourcePackageId,
     SystemIndex,
     SystemTable,
 };
@@ -339,32 +336,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         };
         let module_id = match module_id {
             Some(module_id) => {
-                let current = self
-                    .tx
-                    .get_system::<ModulesTable>(path.component.into(), module_id.developer_id)
-                    .await?;
-
-                // Doesn't change the source package id if the contents are identical to what is
-                // already deployed
-                if let Some(metadata) = current
-                    && metadata.matches_module_contents(&new_metadata)
-                {
-                    let current_src_pkg = SourcePackageModel::new(self.tx, path.component.into())
-                        .get(metadata.source_package_id)
-                        .await?;
-                    let new_src_pkg = SourcePackageModel::new(self.tx, path.component.into())
-                        .get(new_metadata.source_package_id)
-                        .await?;
-
-                    // Checking the timestamp maintains the invariant that the source package id
-                    // with the highest creation time is valid to read all
-                    // modules at
-                    if new_src_pkg.creation_time() > current_src_pkg.creation_time()
-                        && current_src_pkg.metadata_matches(&new_src_pkg)
-                    {
-                        return Ok(module_id);
-                    }
-                }
                 SystemMetadataModel::new(self.tx, path.component.into())
                     .replace(module_id, new_metadata.try_into()?)
                     .await?;

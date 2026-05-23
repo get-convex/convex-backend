@@ -21,8 +21,15 @@ import {
   isProjectKey,
   stripDeploymentTypePrefix,
 } from "./deployment.js";
-import { parseDeploymentSelector } from "./deploymentSelector.js";
+import {
+  parseDeploymentSelector,
+  ParsedDeploymentSelector,
+} from "./deploymentSelector.js";
 import { loadProjectLocalConfig } from "./localDeployment/filePaths.js";
+import {
+  checkLocalConfigMatchesProject,
+  targetProjectForLocalSelector,
+} from "./localDeployment/projectMismatch.js";
 import { chalkStderr } from "chalk";
 import { getBuildEnvironment } from "./envvars.js";
 import { readGlobalConfig } from "./utils/globalConfig.js";
@@ -387,12 +394,12 @@ async function _getDeploymentSelection(
     };
   }
 
-  // If --deployment is a fully qualified selector (team:project:ref,
-  // deployment name, or "local"), we don't need a current project context
-  // → handle it before env var resolution.
+  // If --deployment is a fully qualified selector (team:project:ref or
+  // deployment name), we don't need a current project context → handle it
+  // before env var resolution.
   if (cliArgs.deployment !== undefined) {
     const parsed = parseDeploymentSelector(cliArgs.deployment);
-    if (parsed.kind === "inTeamProject") {
+    if (parsed.kind === "inTeamProject" && parsed.selector.kind !== "local") {
       return {
         kind: "deploymentWithinProject",
         targetProject: {
@@ -420,27 +427,50 @@ async function _getDeploymentSelection(
         },
       };
     }
-    if (parsed.kind === "local") {
-      const localConfig = loadProjectLocalConfig(ctx);
-      if (localConfig !== null) {
-        return {
-          kind: "deploymentWithinProject",
-          targetProject: {
-            kind: "deploymentName",
-            deploymentName: localConfig.deploymentName,
-            deploymentType: "local",
-          },
-          selectionWithinProject,
-        };
-      }
-      return ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
-      });
+    if (parsed.kind === "inTeamProject" && parsed.selector.kind === "local") {
+      // team:project:local — we have the cloud project context up front and
+      // don't need to consult env vars at all.
+      return await resolveLocalDeploymentSelection(
+        ctx,
+        parsed,
+        selectionWithinProject,
+        null,
+      );
     }
   }
 
+  const baseSelection = await resolveBaseDeploymentSelection(
+    ctx,
+    cliArgs,
+    selectionWithinProject,
+  );
+
+  // If --deployment is a project-scoped local selector (`local` or
+  // `project:local`), override the env-var-derived selection with the local
+  // deployment after performing a cloud-project-mismatch check.
+  if (cliArgs.deployment !== undefined) {
+    const parsed = parseDeploymentSelector(cliArgs.deployment);
+    if (
+      (parsed.kind === "inCurrentProject" || parsed.kind === "inProject") &&
+      parsed.selector.kind === "local"
+    ) {
+      return await resolveLocalDeploymentSelection(
+        ctx,
+        parsed,
+        selectionWithinProject,
+        baseSelection,
+      );
+    }
+  }
+
+  return baseSelection;
+}
+
+async function resolveBaseDeploymentSelection(
+  ctx: Context,
+  cliArgs: DeploymentSelectionOptions,
+  selectionWithinProject: DeploymentSelectionWithinProject,
+): Promise<DeploymentSelection> {
   if (cliArgs.envFile !== undefined) {
     // If an `--env-file` is specified, it must contain enough information for both auth and deployment selection.
     logVerbose(`Checking env file: ${cliArgs.envFile}`);
@@ -510,6 +540,63 @@ async function _getDeploymentSelection(
   // Choose a project interactively later
   return {
     kind: "chooseProject",
+    selectionWithinProject,
+  };
+}
+
+/**
+ * Handles the `[team:project:]local` selector. Loads the on-disk local config
+ * and (if the config has a `cloudProjectId`) verifies it matches the cloud
+ * project the user is asking about. Crashes on mismatch.
+ */
+async function resolveLocalDeploymentSelection(
+  ctx: Context,
+  parsed: ParsedDeploymentSelector,
+  selectionWithinProject: DeploymentSelectionWithinProject,
+  currentSelection: DeploymentSelection | null,
+): Promise<DeploymentSelection> {
+  const localConfig = loadProjectLocalConfig(ctx);
+  if (localConfig === null) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
+    });
+  }
+  // Only resolve the target cloud project if the on-disk config has a
+  // `cloudProjectId` to compare against — this avoids unnecessary platform
+  // calls for older configs and anonymous mode.
+  if (localConfig.config.cloudProjectId !== undefined) {
+    const target = await targetProjectForLocalSelector(
+      ctx,
+      parsed,
+      currentSelection ?? { kind: "chooseProject", selectionWithinProject },
+    );
+    if (target !== null) {
+      const match = checkLocalConfigMatchesProject(
+        ctx,
+        localConfig.config,
+        target,
+      );
+      if (match === "mismatch") {
+        const newSelector = `${target.teamSlug}:${target.slug}:local`;
+        return ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            `The local deployment in this directory is in a different project than \`${target.teamSlug}:${target.slug}\`. ` +
+            `\n${chalkStderr.dim(`${chalkStderr.bold("Hint")}: If you want to move the local deployment to this project, run ${chalkStderr.bold(`npx convex deployment select ${newSelector}`)}`)}`,
+        });
+      }
+    }
+  }
+  return {
+    kind: "deploymentWithinProject",
+    targetProject: {
+      kind: "deploymentName",
+      deploymentName: localConfig.deploymentName,
+      deploymentType: "local",
+    },
     selectionWithinProject,
   };
 }

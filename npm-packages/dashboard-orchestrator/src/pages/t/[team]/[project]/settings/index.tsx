@@ -13,6 +13,7 @@ import {
   listProjects,
   listTeams,
   Project,
+  restartDeployment,
   Team,
 } from "../../../../../lib/orchestratorApi";
 import { useAccessToken } from "../../../../../lib/useOrchestratorToken";
@@ -798,7 +799,7 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
   // when an operator changes the project tier to resize prod. Falls back
   // to undefined (no subtraction) if the project has no prod deployment
   // yet or while the list is loading.
-  const { data: deployments } = useSWR(
+  const { data: deployments, mutate: mutateDeployments } = useSWR(
     token ? ["deployments", project.id, token] : null,
     () => listDeployments(url, token!, project.id),
   );
@@ -811,6 +812,9 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [restartMessage, setRestartMessage] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [draft, setDraft] = useState<BackendSettingsDraft | null>(null);
 
@@ -833,6 +837,7 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
   const onSave = async () => {
     if (!draft) return;
     setError(null);
+    setRestartMessage(null);
     setSaving(true);
     try {
       const patch: Record<string, string | null> = { ...draft.overrides };
@@ -847,6 +852,28 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
       setError((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onRestartDeployments = async () => {
+    if (!token || !deployments?.length) return;
+    setError(null);
+    setRestartMessage(null);
+    setRestarting(true);
+    try {
+      for (const deployment of deployments) {
+        await restartDeployment(url, token, deployment.name);
+      }
+      await mutateDeployments();
+      setRestartMessage(
+        `Restart requested for ${deployments.length} deployment${
+          deployments.length === 1 ? "" : "s"
+        }.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRestarting(false);
     }
   };
 
@@ -871,11 +898,34 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
         onChange={setDraft}
       />
       {savedAt && !dirty && (
-        <p className="mt-3 text-xs text-content-secondary">
-          Saved. Applies to new deployments only. Existing deployments keep
-          their current settings — re-create them to pick up the changes (clears
-          their data, backends have no persistent volumes).
-        </p>
+        <div className="mt-3 text-xs text-content-secondary">
+          <p>
+            Saved. New deployments will use these settings. Existing deployments
+            keep running with their current container settings until restarted.
+          </p>
+          {!!deployments?.length && (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Restart existing deployment containers to apply the new
+                settings. Each deployment will be offline for the duration of
+                its restart.
+              </p>
+              <Button
+                size="xs"
+                variant="neutral"
+                onClick={() => setRestartOpen(true)}
+                disabled={restarting}
+              >
+                {restarting ? "Restarting…" : "Restart deployments"}
+              </Button>
+            </div>
+          )}
+          {restartMessage && (
+            <p className="mt-2 text-content-success" role="status">
+              {restartMessage}
+            </p>
+          )}
+        </div>
       )}
       {error && (
         <div className="mt-2 text-xs text-content-error" role="alert">
@@ -892,6 +942,26 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
           {saving ? "Saving…" : "Save"}
         </Button>
       </div>
+      {restartOpen && (
+        <ConfirmationDialog
+          dialogTitle="Restart deployments"
+          dialogBody={
+            <>
+              <p className="text-sm">
+                Restarting will recreate the existing deployment containers with
+                the saved backend settings.
+              </p>
+              <p className="mt-3 text-sm font-semibold">
+                Each deployment will be offline for the duration of its restart.
+              </p>
+            </>
+          }
+          confirmText="Restart deployments"
+          onClose={() => setRestartOpen(false)}
+          onConfirm={onRestartDeployments}
+          variant="primary"
+        />
+      )}
     </Sheet>
   );
 }
