@@ -66,18 +66,18 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
         "flex justify-between min-h-[56px] overflow-x-auto scrollbar-none bg-background-secondary border-b",
       )}
     >
-      <div className="flex items-center bg-background-secondary px-2">
-        <div className="rounded-full p-2 transition-colors hover:bg-background-tertiary">
-          <Link
-            href={logoLink}
-            passHref
-            className="flex min-h-[28px] min-w-[28px] rounded-full"
-            data-testid="home-link"
-          >
+      <div className="flex items-center bg-background-secondary pr-2">
+        <Link
+          href={logoLink}
+          passHref
+          className="group flex h-full items-center pl-2"
+          data-testid="home-link"
+        >
+          <div className="rounded-full p-2 transition-colors group-hover:bg-background-tertiary">
             <ConvexLogo />
-          </Link>
-        </div>
-        <div>{children}</div>
+          </div>
+        </Link>
+        <div className="h-full">{children}</div>
       </div>
       {project && <DeploymentDisplay project={project} />}
       <div className="flex items-center bg-background-secondary px-2">
