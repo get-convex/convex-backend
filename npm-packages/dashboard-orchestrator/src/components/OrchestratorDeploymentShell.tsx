@@ -18,14 +18,14 @@ import {
   DeploymentInfoContext,
   WaitForDeploymentApi,
 } from "@common/lib/deploymentContext";
+import { deploymentUrlForBrowser } from "@common/lib/deploymentUrl";
 import udfs from "@common/udfs";
 import { useQuery } from "convex/react";
 import { Tooltip } from "@ui/Tooltip";
 import Link from "next/link";
 import { LoadingLogo } from "@ui/Loading";
 import { useAccessToken } from "../lib/useOrchestratorToken";
-import { orchestratorUrl } from "../lib/config";
-import { deploymentUrlForBrowser } from "../lib/deploymentUrl";
+import { orchestratorRegionName, orchestratorUrl } from "../lib/config";
 import {
   fetchDeploymentAuth,
   listDeployments,
@@ -45,6 +45,7 @@ export function OrchestratorDeploymentShell({
   const deploymentName = router.query.deploymentName as string | undefined;
   const token = useAccessToken();
   const url = orchestratorUrl();
+  const regionName = orchestratorRegionName();
 
   const { data: teams } = useSWR(token ? ["teams", token] : null, () =>
     listTeams(url, token!),
@@ -155,7 +156,7 @@ export function OrchestratorDeploymentShell({
         class: deployment.tier ?? "S16",
         deploymentUrl: browserDeploymentUrl,
         createTime: deployment.creationTime,
-        region: deployment.region ?? "",
+        region: regionName,
         isDefault: true,
         previewIdentifier: deployment.previewIdentifier ?? null,
         // PlatformDeploymentResponse has more optional fields the dashboard

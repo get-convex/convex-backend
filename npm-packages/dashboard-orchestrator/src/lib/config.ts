@@ -7,9 +7,11 @@
 // callers (API routes, getServerSideProps) read process.env directly.
 
 const DEFAULT_ORCHESTRATOR_URL = "http://localhost:8050";
+const DEFAULT_ORCHESTRATOR_REGION_NAME = "Self-Hosted";
 
 export type RuntimeConfig = {
   orchestratorUrl: string;
+  orchestratorRegionName: string;
 };
 
 declare global {
@@ -28,6 +30,9 @@ export function getServerRuntimeConfig(): RuntimeConfig {
     orchestratorUrl: stripTrailingSlash(
       process.env.PUBLIC_ORCHESTRATOR_URL || DEFAULT_ORCHESTRATOR_URL,
     ),
+    orchestratorRegionName:
+      process.env.PUBLIC_ORCHESTRATOR_REGION_NAME ||
+      DEFAULT_ORCHESTRATOR_REGION_NAME,
   };
 }
 
@@ -42,6 +47,16 @@ export function orchestratorUrl(): string {
     return window.__CONVEX_CONFIG__.orchestratorUrl;
   }
   return getServerRuntimeConfig().orchestratorUrl;
+}
+
+export function orchestratorRegionName(): string {
+  if (typeof window !== "undefined" && window.__CONVEX_CONFIG__) {
+    return (
+      window.__CONVEX_CONFIG__.orchestratorRegionName ||
+      DEFAULT_ORCHESTRATOR_REGION_NAME
+    );
+  }
+  return getServerRuntimeConfig().orchestratorRegionName;
 }
 
 function stripTrailingSlash(s: string): string {
