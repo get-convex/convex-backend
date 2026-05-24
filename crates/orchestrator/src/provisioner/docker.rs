@@ -5,9 +5,9 @@
 //! Each container:
 //! - is named `<container_prefix><deployment_name>` so we can target it for
 //!   teardown without tracking IDs in our storage layer
-//! - publishes its API + HTTP-actions ports on host ports allocated from
-//!   the `next_port` atomic (v1 starts at 9100; restarts re-seed from the
-//!   max `backend_port` already in the orchestrator's `deployments` table)
+//! - records unique bookkeeping ports from `next_port` but does not publish
+//!   them on the host; Traefik reaches labeled containers directly and the
+//!   in-orchestrator proxy remains as a wildcard fallback
 //! - gets a stable `INSTANCE_NAME` (= deployment name) and a fresh
 //!   `INSTANCE_SECRET` so the orchestrator can mint matching admin keys
 //! - uses `--restart unless-stopped` so it survives orchestrator restarts
@@ -41,6 +41,9 @@ pub struct DockerProvisioner {
     /// front of the orchestrator (Traefik, etc.) so the browser doesn't
     /// hit mixed-content blocks on the Convex client's WebSocket.
     router_public_scheme: String,
+    /// Enables exact-host Traefik labels on spawned backend containers so
+    /// data-plane traffic bypasses the in-orchestrator wildcard proxy.
+    direct_backend_routing: bool,
     /// Strategy decided at orchestrator startup. Each `provision()` branches
     /// on this — `VolumeSqlite` keeps v2 behavior (named `/convex/data`
     /// volume); `Sidecar { .. }` spawns pg+minio sidecars and layers their
@@ -56,6 +59,7 @@ impl DockerProvisioner {
         router_host: String,
         router_public_port: u16,
         router_public_scheme: String,
+        direct_backend_routing: bool,
         strategy: crate::provisioner::ProvisioningStrategy,
     ) -> Self {
         Self {
@@ -66,6 +70,7 @@ impl DockerProvisioner {
             router_host,
             router_public_port,
             router_public_scheme,
+            direct_backend_routing,
             strategy,
         }
     }
@@ -188,6 +193,17 @@ impl DockerProvisioner {
     fn volume_name(&self, deployment_name: &str) -> String {
         format!("{}{}", self.container_prefix, deployment_name)
     }
+
+    fn push_backend_routing_labels(&self, args: &mut Vec<String>, deployment_name: &str) {
+        if self.direct_backend_routing {
+            push_direct_backend_routing_labels(
+                args,
+                deployment_name,
+                &self.router_host,
+                self.network.as_deref(),
+            );
+        }
+    }
 }
 
 #[async_trait]
@@ -195,9 +211,9 @@ impl Provisioner for DockerProvisioner {
     async fn provision(&self, req: ProvisionRequest) -> anyhow::Result<ProvisionResult> {
         let api_port = self.next_port.fetch_add(2, Ordering::SeqCst);
         let site_port = api_port + 1;
-        // Browser-facing URLs go through the reverse proxy. `*.localhost`
-        // resolves to the loopback in modern browsers; the proxy parses
-        // `Host` and forwards to the docker-DNS hostname.
+        // Browser-facing URLs are stable regardless of whether Traefik
+        // routes directly to the backend container or falls back through the
+        // in-orchestrator wildcard proxy.
         let url = self.deployment_url(&req.deployment_name);
         let site_url = self.deployment_url(&format!("{}-site", req.deployment_name));
 
@@ -326,10 +342,10 @@ impl Provisioner for DockerProvisioner {
             },
         }
 
-        // Note: no `-p` mappings. The proxy reaches each backend over the
-        // shared docker network via DNS hostname. Removing host ports lets
-        // us spawn hundreds of deployments without exhausting the host's
-        // ephemeral port range.
+        // Note: no `-p` mappings. Traefik and the fallback proxy reach each
+        // backend over the shared docker network via DNS hostname. Removing
+        // host ports lets us spawn hundreds of deployments without
+        // exhausting the host's ephemeral port range.
         let mut args: Vec<String> = vec![
             "run".into(),
             "-d".into(),
@@ -362,6 +378,7 @@ impl Provisioner for DockerProvisioner {
             "--label".into(),
             format!("orchestrator.tier={}", tier.name.as_ref()),
         ]);
+        self.push_backend_routing_labels(&mut args, &req.deployment_name);
         match &self.strategy {
             crate::provisioner::ProvisioningStrategy::VolumeSqlite => {
                 args.push("-v".into());
@@ -534,6 +551,72 @@ fn push_backend_lifecycle_args(args: &mut Vec<String>) {
         "--stop-timeout".into(),
         "10".into(),
     ]);
+}
+
+fn push_direct_backend_routing_labels(
+    args: &mut Vec<String>,
+    deployment_name: &str,
+    router_host: &str,
+    docker_network: Option<&str>,
+) {
+    push_label(args, "traefik.enable=true");
+    if let Some(network) = docker_network
+        && !network.trim().is_empty()
+    {
+        push_label(args, &format!("traefik.docker.network={network}"));
+    }
+
+    let safe_name = deployment_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    push_traefik_route(
+        args,
+        &format!("convex-backend-{safe_name}-api"),
+        &format!("{deployment_name}.{router_host}"),
+        3210,
+    );
+    push_traefik_route(
+        args,
+        &format!("convex-backend-{safe_name}-site"),
+        &format!("{deployment_name}-site.{router_host}"),
+        3211,
+    );
+}
+
+fn push_traefik_route(args: &mut Vec<String>, name: &str, host: &str, port: u16) {
+    let service = name;
+    push_label(
+        args,
+        &format!("traefik.http.routers.{name}.rule=Host(`{host}`)"),
+    );
+    push_label(
+        args,
+        &format!("traefik.http.routers.{name}.priority=50"),
+    );
+    push_label(
+        args,
+        &format!("traefik.http.routers.{name}.entrypoints=websecure"),
+    );
+    push_label(args, &format!("traefik.http.routers.{name}.tls=true"));
+    push_label(
+        args,
+        &format!("traefik.http.routers.{name}.service={service}"),
+    );
+    push_label(
+        args,
+        &format!("traefik.http.services.{service}.loadbalancer.server.port={port}"),
+    );
+}
+
+fn push_label(args: &mut Vec<String>, label: &str) {
+    args.extend(["--label".into(), label.into()]);
 }
 
 async fn stop_and_remove_container(container_name: &str, desc: &str) -> anyhow::Result<()> {

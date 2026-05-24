@@ -336,6 +336,7 @@ async fn deployment_internal_flow_against_real_db() {
         router_host: "localhost".into(),
         router_public_port: 9000,
         router_public_scheme: "http".into(),
+        direct_backend_routing: true,
         enable_sidecars: false,
         postgres_image: "postgres:16-alpine".into(),
         minio_image: "quay.io/minio/minio:latest".into(),

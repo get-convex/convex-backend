@@ -42,6 +42,10 @@ pub struct OrchestratorConfig {
     /// terminating TLS in front of the orchestrator (Traefik etc.), set to
     /// `https`. Default `http` for raw-port local dev.
     pub router_public_scheme: String,
+    /// When true, spawned backend containers get exact-host Traefik labels
+    /// so browser traffic goes straight Traefik -> backend. The
+    /// in-orchestrator proxy remains as a wildcard fallback.
+    pub direct_backend_routing: bool,
     /// When true, new deployments spawn Postgres + MinIO sidecar containers
     /// alongside the backend. When false, new deployments use the v2
     /// volume+sqlite path. Existing deployments keep whatever `storage_mode`
@@ -157,6 +161,7 @@ mod tests {
             router_host: "localhost".into(),
             router_public_port: 9000,
             router_public_scheme: "http".into(),
+            direct_backend_routing: true,
             enable_sidecars,
             postgres_image: "postgres:16-alpine".into(),
             minio_image: "quay.io/minio/minio:latest".into(),
@@ -208,5 +213,12 @@ mod tests {
         cfg.default_team_name = "".into();
 
         assert_eq!(cfg.default_team_display_name(), "Self-Hosted");
+    }
+
+    #[test]
+    fn direct_backend_routing_defaults_on_in_test_config() {
+        let cfg = test_config(true);
+
+        assert!(cfg.direct_backend_routing);
     }
 }

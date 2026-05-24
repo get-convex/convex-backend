@@ -119,6 +119,16 @@ struct Args {
     )]
     router_public_scheme: String,
 
+    /// When true, spawned backend containers get direct Traefik routers for
+    /// their API and site hosts. The in-orchestrator proxy remains a
+    /// wildcard fallback for unlabeled deployments.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_DIRECT_BACKEND_ROUTING",
+        default_value_t = true
+    )]
+    direct_backend_routing: bool,
+
     /// Shared secret the dashboard-orchestrator uses to call internal
     /// PAT-minting endpoints after BetterAuth authenticates a user.
     #[arg(long, env = "CONVEX_ORCHESTRATOR_SERVICE_KEY")]
@@ -217,6 +227,7 @@ async fn main() -> anyhow::Result<()> {
         router_host: args.router_host.clone(),
         router_public_port: args.router_public_port,
         router_public_scheme: args.router_public_scheme.clone(),
+        direct_backend_routing: args.direct_backend_routing,
         enable_sidecars: args.enable_sidecars,
         postgres_image: args.postgres_image,
         minio_image: args.minio_image,

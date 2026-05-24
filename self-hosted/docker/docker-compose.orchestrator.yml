@@ -56,10 +56,11 @@ services:
       - "traefik.http.routers.orchestrator-api.tls.certresolver=le"
       - "traefik.http.routers.orchestrator-api.service=orchestrator-api"
       - "traefik.http.services.orchestrator-api.loadbalancer.server.port=8050"
-      # Spawned-deployment subdomains route to the in-orchestrator
-      # router at :9000. The wildcard cert (main + *.ROUTER_HOST SANs)
-      # covers any number of deployments. Lower priority so specific
-      # Host() routers above win for known hosts.
+      # Fallback route for spawned-deployment subdomains. New backend
+      # containers normally get exact Host() Traefik labels and bypass this
+      # in-orchestrator proxy, but the wildcard route still covers legacy or
+      # unlabeled containers. The wildcard cert (main + *.ROUTER_HOST SANs)
+      # covers any number of deployments.
       - "traefik.http.routers.orchestrator-router.rule=HostRegexp(`.+\\.${ROUTER_HOST:-router-host-not-set.invalid}$$`)"
       - "traefik.http.routers.orchestrator-router.priority=1"
       - "traefik.http.routers.orchestrator-router.entrypoints=websecure"
@@ -83,6 +84,10 @@ services:
       # orchestrator (Traefik) — otherwise the dashboard's WebSocket
       # subscription hits a mixed-content block.
       - CONVEX_ORCHESTRATOR_ROUTER_PUBLIC_SCHEME=${ROUTER_PUBLIC_SCHEME:-http}
+      # When Traefik is enabled, route deployment hosts straight to their
+      # backend containers. The orchestrator proxy remains as a fallback
+      # wildcard for unlabeled or legacy containers.
+      - CONVEX_ORCHESTRATOR_DIRECT_BACKEND_ROUTING=${DIRECT_BACKEND_ROUTING:-true}
       - CONVEX_ORCHESTRATOR_PROVISIONER=${PROVISIONER:-docker}
       - CONVEX_ORCHESTRATOR_BACKEND_IMAGE=${BACKEND_IMAGE:-ghcr.io/defy-works/convex-backend:latest}
       - CONVEX_ORCHESTRATOR_BACKEND_CONTAINER_PREFIX=${BACKEND_CONTAINER_PREFIX:-convex-orchestrator-deployment-}
@@ -153,10 +158,9 @@ services:
     profiles: [tls]
     restart: unless-stopped
     stop_grace_period: 10s
-    # Traefik fronts every browser connection, then opens an upstream
-    # socket per request to the orchestrator/dashboard/spawned-backend.
-    # Roughly 2× the fd count of the orchestrator service, so match its
-    # ulimit so Traefik isn't the choke point.
+    # Traefik fronts every browser connection, then opens upstream sockets
+    # to the dashboard, orchestrator API, or directly labeled backends.
+    # Keep a generous fd ceiling so Traefik isn't the choke point.
     ulimits:
       nofile:
         soft: 1048576
