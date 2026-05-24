@@ -1,5 +1,6 @@
 import {
   DocumentByInfo,
+  GenericDocument,
   GenericTableInfo,
   IndexNames,
   NamedIndex,
@@ -7,9 +8,17 @@ import {
   SearchIndexNames,
 } from "./data_model.js";
 import { ExpressionOrValue, FilterBuilder } from "./filter_builder.js";
-import { IndexRange, IndexRangeBuilder } from "./index_range_builder.js";
+import {
+  IndexRange,
+  IndexRangeBuilder,
+  ResultDocumentFromIndexRange,
+} from "./index_range_builder.js";
 import { PaginationResult, PaginationOptions } from "./pagination.js";
-import { SearchFilter, SearchFilterBuilder } from "./search_filter_builder.js";
+import {
+  SearchFilter,
+  SearchFilterBuilder,
+  ResultDocumentFromSearchFilter,
+} from "./search_filter_builder.js";
 
 /**
  * The {@link QueryInitializer} interface is the entry point for building a {@link Query}
@@ -26,8 +35,9 @@ import { SearchFilter, SearchFilterBuilder } from "./search_filter_builder.js";
  *
  * @public
  */
-export interface QueryInitializer<TableInfo extends GenericTableInfo>
-  extends Query<TableInfo> {
+export interface QueryInitializer<
+  TableInfo extends GenericTableInfo,
+> extends Query<TableInfo> {
   /**
    * Query by reading all of the values out of this table.
    *
@@ -58,13 +68,17 @@ export interface QueryInitializer<TableInfo extends GenericTableInfo>
    */
   withIndex<IndexName extends IndexNames<TableInfo>>(
     indexName: IndexName,
-    indexRange?: (
+  ): Query<TableInfo>;
+
+  withIndex<IndexName extends IndexNames<TableInfo>, Range extends IndexRange>(
+    indexName: IndexName,
+    indexRange: (
       q: IndexRangeBuilder<
         DocumentByInfo<TableInfo>,
         NamedIndex<TableInfo, IndexName>
       >,
-    ) => IndexRange,
-  ): Query<TableInfo>;
+    ) => Range,
+  ): Query<TableInfo, ResultDocumentFromIndexRange<Range>>;
 
   /**
    * Query by running a full text search against a search index.
@@ -85,15 +99,18 @@ export interface QueryInitializer<TableInfo extends GenericTableInfo>
    * @returns - A query that searches for matching documents, returning them
    * in relevancy order.
    */
-  withSearchIndex<IndexName extends SearchIndexNames<TableInfo>>(
+  withSearchIndex<
+    IndexName extends SearchIndexNames<TableInfo>,
+    Filter extends SearchFilter,
+  >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
         DocumentByInfo<TableInfo>,
         NamedSearchIndex<TableInfo, IndexName>
       >,
-    ) => SearchFilter,
-  ): OrderedQuery<TableInfo>;
+    ) => Filter,
+  ): OrderedQuery<TableInfo, ResultDocumentFromSearchFilter<Filter>>;
 
   /**
    * The number of documents in the table.
@@ -163,15 +180,17 @@ export interface QueryInitializer<TableInfo extends GenericTableInfo>
  *
  * @public
  */
-export interface Query<TableInfo extends GenericTableInfo>
-  extends OrderedQuery<TableInfo> {
+export interface Query<
+  TableInfo extends GenericTableInfo,
+  ResultDocument extends GenericDocument = DocumentByInfo<TableInfo>,
+> extends OrderedQuery<TableInfo, ResultDocument> {
   /**
    * Define the order of the query output.
    *
    * Use `"asc"` for an ascending order and `"desc"` for a descending order. If not specified, the order defaults to ascending.
    * @param order - The order to return results in.
    */
-  order(order: "asc" | "desc"): OrderedQuery<TableInfo>;
+  order(order: "asc" | "desc"): OrderedQuery<TableInfo, ResultDocument>;
 }
 
 /**
@@ -179,8 +198,10 @@ export interface Query<TableInfo extends GenericTableInfo>
  *
  * @public
  */
-export interface OrderedQuery<TableInfo extends GenericTableInfo>
-  extends AsyncIterable<DocumentByInfo<TableInfo>> {
+export interface OrderedQuery<
+  TableInfo extends GenericTableInfo,
+  ResultDocument extends GenericDocument = DocumentByInfo<TableInfo>,
+> extends AsyncIterable<ResultDocument> {
   /**
    * Filter the query output, returning only the values for which `predicate` evaluates to true.
    *
@@ -223,7 +244,7 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
    */
   paginate(
     paginationOpts: PaginationOptions,
-  ): Promise<PaginationResult<DocumentByInfo<TableInfo>>>;
+  ): Promise<PaginationResult<ResultDocument>>;
 
   /**
    * Execute the query and return all of the results as an array.
@@ -240,7 +261,7 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
    *
    * @returns - An array of all of the query's results.
    */
-  collect(): Promise<Array<DocumentByInfo<TableInfo>>>;
+  collect(): Promise<Array<ResultDocument>>;
 
   /**
    * Execute the query and return the first `n` results.
@@ -249,14 +270,14 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
    * @returns - An array of the first `n` results of the query (or less if the
    * query doesn't have `n` results).
    */
-  take(n: number): Promise<Array<DocumentByInfo<TableInfo>>>;
+  take(n: number): Promise<Array<ResultDocument>>;
 
   /**
    * Execute the query and return the first result if there is one.
    *
    * @returns - The first value of the query or `null` if the query returned no results.
    * */
-  first(): Promise<DocumentByInfo<TableInfo> | null>;
+  first(): Promise<ResultDocument | null>;
 
   /**
    * Execute the query and return the singular result if there is one.
@@ -276,5 +297,5 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
    * @returns - The single result returned from the query or null if none exists.
    * @throws Will throw an error if the query returns more than one result.
    */
-  unique(): Promise<DocumentByInfo<TableInfo> | null>;
+  unique(): Promise<ResultDocument | null>;
 }

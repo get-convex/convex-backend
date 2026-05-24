@@ -16,6 +16,7 @@ import {
   SearchFilterBuilderImpl,
   SerializedSearchFilter,
 } from "./search_filter_builder_impl.js";
+import type { SearchFilter } from "../search_filter_builder.js";
 import { validateArg, validateArgIsNonNegativeInteger } from "./validate.js";
 import { version } from "../../index.js";
 
@@ -41,9 +42,7 @@ type SerializedQuery = {
   operators: Array<QueryOperator>;
 };
 
-export class QueryInitializerImpl
-  implements QueryInitializer<GenericTableInfo>
-{
+export class QueryInitializerImpl implements QueryInitializer<GenericTableInfo> {
   private tableName: string;
 
   constructor(tableName: string) {
@@ -70,9 +69,9 @@ export class QueryInitializerImpl
     });
   }
 
-  withSearchIndex(
+  withSearchIndex<Filter extends SearchFilter>(
     indexName: string,
-    searchFilter: (q: SearchFilterBuilderImpl) => SearchFilterBuilderImpl,
+    searchFilter: (q: SearchFilterBuilderImpl) => Filter,
   ): QueryImpl {
     validateArg(indexName, 1, "withSearchIndex", "indexName");
     validateArg(searchFilter, 2, "withSearchIndex", "searchFilter");
@@ -81,7 +80,11 @@ export class QueryInitializerImpl
       source: {
         type: "Search",
         indexName: this.tableName + "." + indexName,
-        filters: searchFilter(searchFilterBuilder).export(),
+        filters: (
+          searchFilter(
+            searchFilterBuilder,
+          ) as unknown as SearchFilterBuilderImpl
+        ).export(),
       },
       operators: [],
     });

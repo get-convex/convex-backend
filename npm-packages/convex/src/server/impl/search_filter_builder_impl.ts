@@ -3,6 +3,7 @@ import {
   FieldTypeFromFieldPath,
   GenericDocument,
   GenericSearchIndexConfig,
+  NarrowedDocumentByEquality,
 } from "../data_model.js";
 import {
   SearchFilter,
@@ -65,10 +66,16 @@ export class SearchFilterBuilderImpl
       }),
     );
   }
-  eq<FieldName extends string>(
+  eq<
+    FieldName extends string,
+    Value extends FieldTypeFromFieldPath<GenericDocument, FieldName>,
+  >(
     fieldName: FieldName,
-    value: FieldTypeFromFieldPath<GenericDocument, FieldName>,
-  ): SearchFilterFinalizer<GenericDocument, GenericSearchIndexConfig> {
+    value: Value,
+  ): SearchFilterFinalizer<
+    NarrowedDocumentByEquality<GenericDocument, FieldName, Value>,
+    GenericSearchIndexConfig
+  > {
     validateArg(fieldName, 1, "eq", "fieldName");
     // when `undefined` is passed explicitly, it is allowed.
     if (arguments.length !== 2) {
@@ -81,7 +88,10 @@ export class SearchFilterBuilderImpl
         fieldPath: fieldName,
         value: convexOrUndefinedToJson(value),
       }),
-    );
+    ) as unknown as SearchFilterFinalizer<
+      NarrowedDocumentByEquality<GenericDocument, FieldName, Value>,
+      GenericSearchIndexConfig
+    >;
   }
 
   export() {

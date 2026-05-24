@@ -197,6 +197,7 @@
     "test": "vitest --silent",
     "test-not-silent": "vitest",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
+    "typecheck:type-tests": "tsc -p tsconfig.type-tests.json",
     "test-esm": "node ./scripts/test-esm.mjs && ./scripts/checkdeps.mjs && ./scripts/checkimports.mjs",
     "compare-codegen": "node scripts/compare-codegen.mjs",
     "generateApiSpec": "npm run generateManagementApiSpec && npm run generateFunctionLogsApiSpec",

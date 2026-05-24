@@ -2,7 +2,17 @@ import {
   GenericIndexFields,
   GenericDocument,
   FieldTypeFromFieldPath,
+  NarrowedDocumentByEquality,
 } from "./data_model.js";
+
+declare const indexRangeResultDocument: unique symbol;
+
+/**
+ * Extract the document type carried by an {@link IndexRange}.
+ * @public
+ */
+export type ResultDocumentFromIndexRange<Range extends IndexRange> =
+  Range[typeof indexRangeResultDocument];
 
 /**
  * A type that adds 1 to a number literal type (up to 14).
@@ -73,10 +83,14 @@ export interface IndexRangeBuilder<
    * in the index.
    * @param value - The value to compare against.
    */
-  eq(
+  eq<Value extends FieldTypeFromFieldPath<Document, IndexFields[FieldNum]>>(
     fieldName: IndexFields[FieldNum],
-    value: FieldTypeFromFieldPath<Document, IndexFields[FieldNum]>,
-  ): NextIndexRangeBuilder<Document, IndexFields, FieldNum>;
+    value: Value,
+  ): NextIndexRangeBuilder<
+    NarrowedDocumentByEquality<Document, IndexFields[FieldNum], Value>,
+    IndexFields,
+    FieldNum
+  >;
 }
 
 /**
@@ -139,7 +153,7 @@ export interface LowerBoundIndexRangeBuilder<
 export interface UpperBoundIndexRangeBuilder<
   Document extends GenericDocument,
   IndexFieldName extends string,
-> extends IndexRange {
+> extends IndexRange<Document> {
   /**
    * Restrict this range to documents where `doc[fieldName] < value`.
    *
@@ -151,7 +165,7 @@ export interface UpperBoundIndexRangeBuilder<
   lt(
     fieldName: IndexFieldName,
     value: FieldTypeFromFieldPath<Document, IndexFieldName>,
-  ): IndexRange;
+  ): IndexRange<Document>;
 
   /**
    * Restrict this range to documents where `doc[fieldName] <= value`.
@@ -164,7 +178,7 @@ export interface UpperBoundIndexRangeBuilder<
   lte(
     fieldName: IndexFieldName,
     value: FieldTypeFromFieldPath<Document, IndexFieldName>,
-  ): IndexRange;
+  ): IndexRange<Document>;
 }
 
 /**
@@ -172,9 +186,12 @@ export interface UpperBoundIndexRangeBuilder<
  * {@link IndexRangeBuilder}.
  * @public
  */
-export abstract class IndexRange {
+export abstract class IndexRange<
+  ResultDocument extends GenericDocument = GenericDocument,
+> {
   // Property for nominal type support.
   private _isIndexRange: undefined;
+  declare readonly [indexRangeResultDocument]: ResultDocument;
 
   /**
    * @internal
