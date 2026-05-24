@@ -25,10 +25,10 @@ use futures::{
 use local_backend::{
     config::LocalConfig,
     make_app,
+    max_concurrent_requests,
     proxy::dev_site_proxy,
     router::router,
     HttpActionRouteMapper,
-    MAX_CONCURRENT_REQUESTS,
 };
 use runtime::prod::ProdRuntime;
 use tokio::{
@@ -130,11 +130,12 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
     .await?;
     let router = router(st.clone());
     let mut shutdown_rx_ = shutdown_rx.clone();
+    let max_concurrent_requests = max_concurrent_requests();
     let http_service = ConvexHttpService::new(
         router,
         "backend",
         SERVER_VERSION_STR.to_string(),
-        MAX_CONCURRENT_REQUESTS,
+        max_concurrent_requests,
         *HTTP_SERVER_TIMEOUT_DURATION,
         HttpActionRouteMapper,
     );

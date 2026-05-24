@@ -22,6 +22,10 @@ pub const BUCKET_NAMES: [&str; 5] = [
 ];
 
 const POSTGRES_UNBOUNDED_TUNING_MEMORY_MB: u32 = 32 * 1024;
+const MIN_POSTGRES_MEMORY_MB: u32 = 512;
+const MIN_POSTGRES_CPUS: f32 = 1.0;
+const MIN_MINIO_MEMORY_MB: u32 = 256;
+const MIN_MINIO_CPUS: f32 = 0.5;
 const BYTES_PER_MB: u64 = 1024 * 1024;
 const NANO_CPUS_PER_CPU: f64 = 1_000_000_000.0;
 
@@ -70,17 +74,19 @@ impl SidecarResources {
             };
         }
 
-        // Sidecars share the host with the backend. Keep caps below the
-        // backend tier while still scaling them up with larger deployments.
+        // Sidecars share the host with the backend, but the orchestrator allows
+        // overprovisioning. Give Postgres enough headroom to avoid becoming the
+        // first limiter on larger tiers; Docker caps are limits, not reserved
+        // capacity.
         Self {
             postgres: SidecarContainerResources {
-                memory_mb: (tier.memory_mb / 4).max(256),
-                cpus: (tier.cpus / 4.0).max(0.25),
+                memory_mb: tier.memory_mb.max(MIN_POSTGRES_MEMORY_MB),
+                cpus: tier.cpus.max(MIN_POSTGRES_CPUS),
                 unbounded: false,
             },
             minio: SidecarContainerResources {
-                memory_mb: (tier.memory_mb / 8).max(128),
-                cpus: (tier.cpus / 8.0).max(0.10),
+                memory_mb: (tier.memory_mb / 2).max(MIN_MINIO_MEMORY_MB),
+                cpus: (tier.cpus / 2.0).max(MIN_MINIO_CPUS),
                 unbounded: false,
             },
         }
@@ -844,6 +850,17 @@ mod tests {
     }
 
     #[test]
+    fn custom_sidecars_are_aggressively_overprovisioned() {
+        let custom = crate::provisioner::tiers::resolve("custom:125760:32").unwrap();
+        let resources = SidecarResources::for_tier(&custom);
+
+        assert_eq!(resources.postgres.memory_mb, 125760);
+        assert_eq!(resources.postgres.cpus, 32.0);
+        assert_eq!(resources.minio.memory_mb, 62880);
+        assert_eq!(resources.minio.cpus, 16.0);
+    }
+
+    #[test]
     fn sidecar_docker_args_include_tier_limits_for_bounded_tiers() {
         let resources =
             SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S16").unwrap());
@@ -857,21 +874,21 @@ mod tests {
             128,
             resources.postgres,
         );
-        assert!(pg_args.windows(2).any(|w| w == ["--memory", "1024m"]));
-        assert!(pg_args.windows(2).any(|w| w == ["--cpus", "0.50"]));
+        assert!(pg_args.windows(2).any(|w| w == ["--memory", "4096m"]));
+        assert!(pg_args.windows(2).any(|w| w == ["--cpus", "2.00"]));
         assert!(pg_args
             .windows(2)
             .any(|w| w == ["-c", "max_connections=128"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "shared_buffers=256MB"]));
+            .any(|w| w == ["-c", "shared_buffers=1GB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "effective_cache_size=1GB"]));
+            .any(|w| w == ["-c", "effective_cache_size=3GB"]));
         assert!(pg_args.windows(2).any(|w| w == ["-c", "work_mem=4MB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "maintenance_work_mem=64MB"]));
+            .any(|w| w == ["-c", "maintenance_work_mem=256MB"]));
         assert!(pg_args
             .windows(2)
             .any(|w| w == ["-c", "random_page_cost=1.1"]));
@@ -880,7 +897,7 @@ mod tests {
             .any(|w| w == ["-c", "effective_io_concurrency=200"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "wal_buffers=16MB"]));
+            .any(|w| w == ["-c", "wal_buffers=32MB"]));
         assert!(pg_args
             .windows(2)
             .any(|w| w == ["-c", "checkpoint_completion_target=0.9"]));
@@ -900,8 +917,8 @@ mod tests {
             "secret",
             resources.minio,
         );
-        assert!(minio_args.windows(2).any(|w| w == ["--memory", "512m"]));
-        assert!(minio_args.windows(2).any(|w| w == ["--cpus", "0.25"]));
+        assert!(minio_args.windows(2).any(|w| w == ["--memory", "2048m"]));
+        assert!(minio_args.windows(2).any(|w| w == ["--cpus", "1.00"]));
     }
 
     #[test]
@@ -920,23 +937,23 @@ mod tests {
         );
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "shared_buffers=2GB"]));
+            .any(|w| w == ["-c", "shared_buffers=8GB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "effective_cache_size=6GB"]));
+            .any(|w| w == ["-c", "effective_cache_size=24GB"]));
         assert!(pg_args.windows(2).any(|w| w == ["-c", "work_mem=4MB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "maintenance_work_mem=512MB"]));
+            .any(|w| w == ["-c", "maintenance_work_mem=2GB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "wal_buffers=64MB"]));
+            .any(|w| w == ["-c", "wal_buffers=256MB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "max_wal_size=2GB"]));
+            .any(|w| w == ["-c", "max_wal_size=8GB"]));
         assert!(pg_args
             .windows(2)
-            .any(|w| w == ["-c", "min_wal_size=128MB"]));
+            .any(|w| w == ["-c", "min_wal_size=512MB"]));
     }
 
     #[test]

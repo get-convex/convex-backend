@@ -112,6 +112,58 @@ pub mod streaming_export;
 pub mod streaming_import;
 pub mod subs;
 pub const MAX_CONCURRENT_REQUESTS: usize = 128;
+const HTTP_SERVER_MAX_CONCURRENT_REQUESTS_ENV: &str = "HTTP_SERVER_MAX_CONCURRENT_REQUESTS";
+
+pub fn max_concurrent_requests() -> usize {
+    max_concurrent_requests_from_env_value(
+        std::env::var(HTTP_SERVER_MAX_CONCURRENT_REQUESTS_ENV)
+            .ok()
+            .as_deref(),
+    )
+}
+
+fn max_concurrent_requests_from_env_value(raw: Option<&str>) -> usize {
+    let Some(raw) = raw else {
+        return MAX_CONCURRENT_REQUESTS;
+    };
+
+    match raw.parse::<usize>() {
+        Ok(value) if value > 0 => {
+            if value != MAX_CONCURRENT_REQUESTS {
+                tracing::info!(
+                    "Overriding {HTTP_SERVER_MAX_CONCURRENT_REQUESTS_ENV} to {value} from \
+                     environment"
+                );
+            }
+            value
+        },
+        Ok(_) | Err(_) => {
+            tracing::warn!(
+                "Invalid value {raw} for {HTTP_SERVER_MAX_CONCURRENT_REQUESTS_ENV}, falling \
+                 back to {MAX_CONCURRENT_REQUESTS}."
+            );
+            MAX_CONCURRENT_REQUESTS
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        max_concurrent_requests_from_env_value,
+        MAX_CONCURRENT_REQUESTS,
+    };
+
+    #[test]
+    fn max_concurrent_requests_uses_env_override() {
+        assert_eq!(max_concurrent_requests_from_env_value(Some("4096")), 4096);
+    }
+
+    #[test]
+    fn max_concurrent_requests_keeps_legacy_default_without_override() {
+        assert_eq!(max_concurrent_requests_from_env_value(None), MAX_CONCURRENT_REQUESTS);
+    }
+}
 
 #[derive(Clone)]
 pub struct LocalAppState {
