@@ -45,6 +45,14 @@ impl SidecarContainerResources {
         }
     }
 
+    fn desired_memory_swap_bytes(self) -> i64 {
+        if self.unbounded {
+            0
+        } else {
+            (self.desired_memory_bytes() * 2) as i64
+        }
+    }
+
     fn desired_nano_cpus(self) -> u64 {
         if self.unbounded {
             0
@@ -217,6 +225,8 @@ fn push_resource_args(args: &mut Vec<String>, resources: SidecarContainerResourc
     }
     args.push("--memory".into());
     args.push(format!("{}m", resources.memory_mb));
+    args.push("--memory-swap".into());
+    args.push(resources.desired_memory_swap_bytes().to_string());
     args.push("--cpus".into());
     args.push(format!("{:.2}", resources.cpus));
 }
@@ -638,7 +648,7 @@ async fn container_resources_match(
         .args([
             "inspect",
             "--format",
-            "{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}",
+            "{{.HostConfig.Memory}} {{.HostConfig.MemorySwap}} {{.HostConfig.NanoCpus}}",
             container_name,
         ])
         .output()
@@ -656,23 +666,39 @@ async fn container_resources_match(
         .next()
         .and_then(|v| v.parse::<u64>().ok())
         .ok_or_else(|| anyhow::anyhow!("docker inspect resources missing memory"))?;
+    let memory_swap = fields
+        .next()
+        .and_then(|v| v.parse::<i64>().ok())
+        .ok_or_else(|| anyhow::anyhow!("docker inspect resources missing memory swap"))?;
     let nano_cpus = fields
         .next()
         .and_then(|v| v.parse::<u64>().ok())
         .ok_or_else(|| anyhow::anyhow!("docker inspect resources missing nano cpus"))?;
-    Ok(memory == resources.desired_memory_bytes() && nano_cpus == resources.desired_nano_cpus())
+    Ok(memory == resources.desired_memory_bytes()
+        && memory_swap == resources.desired_memory_swap_bytes()
+        && nano_cpus == resources.desired_nano_cpus())
+}
+
+fn build_update_container_resource_args(
+    container_name: &str,
+    resources: SidecarContainerResources,
+) -> Vec<String> {
+    let mut args = vec!["update".into()];
+    args.push("--memory".into());
+    args.push(resources.desired_memory_bytes().to_string());
+    args.push("--memory-swap".into());
+    args.push(resources.desired_memory_swap_bytes().to_string());
+    args.push("--cpus".into());
+    args.push(format!("{:.2}", resources.desired_nano_cpus() as f64 / NANO_CPUS_PER_CPU));
+    args.push(container_name.into());
+    args
 }
 
 async fn update_container_resources(
     container_name: &str,
     resources: SidecarContainerResources,
 ) -> anyhow::Result<()> {
-    let mut args = vec!["update".into()];
-    args.push("--memory".into());
-    args.push(resources.desired_memory_bytes().to_string());
-    args.push("--cpus".into());
-    args.push(format!("{:.2}", resources.desired_nano_cpus() as f64 / NANO_CPUS_PER_CPU));
-    args.push(container_name.into());
+    let args = build_update_container_resource_args(container_name, resources);
     run_docker(&args, "update sidecar resources").await
 }
 
@@ -875,6 +901,9 @@ mod tests {
             resources.postgres,
         );
         assert!(pg_args.windows(2).any(|w| w == ["--memory", "4096m"]));
+        assert!(pg_args
+            .windows(2)
+            .any(|w| w == ["--memory-swap", "8589934592"]));
         assert!(pg_args.windows(2).any(|w| w == ["--cpus", "2.00"]));
         assert!(pg_args
             .windows(2)
@@ -918,7 +947,24 @@ mod tests {
             resources.minio,
         );
         assert!(minio_args.windows(2).any(|w| w == ["--memory", "2048m"]));
+        assert!(minio_args
+            .windows(2)
+            .any(|w| w == ["--memory-swap", "4294967296"]));
         assert!(minio_args.windows(2).any(|w| w == ["--cpus", "1.00"]));
+    }
+
+    #[test]
+    fn sidecar_resource_updates_include_memory_swap_with_memory() {
+        let resources =
+            SidecarResources::for_tier(&crate::provisioner::tiers::lookup("S16").unwrap());
+
+        let args = build_update_container_resource_args("pg-dep", resources.postgres);
+
+        assert!(args.windows(2).any(|w| w == ["--memory", "4294967296"]));
+        assert!(args
+            .windows(2)
+            .any(|w| w == ["--memory-swap", "8589934592"]));
+        assert!(args.windows(2).any(|w| w == ["--cpus", "2.00"]));
     }
 
     #[test]
