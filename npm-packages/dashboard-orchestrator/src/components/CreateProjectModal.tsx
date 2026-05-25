@@ -14,7 +14,7 @@ import {
   DEFAULT_INFRASTRUCTURE,
   infrastructureOverrides,
 } from "./backendSettings/backendInfrastructure";
-import { DEFAULT_TIER } from "./backendSettings/tiers";
+import { DEFAULT_TIER, tierDefaultsForName } from "./backendSettings/tiers";
 import { useHostCapacity } from "../hooks/useHostCapacity";
 import { useKnobRegistry } from "../hooks/useKnobRegistry";
 
@@ -41,16 +41,8 @@ export function CreateProjectModal({
     infrastructure: DEFAULT_INFRASTRUCTURE,
   });
 
-  // Tier defaults map (env-var → value) for the currently selected tier.
-  // The orchestrator owns the actual tier table; this is a thin client
-  // mirror used only to display "Tier default" provenance for curated
-  // knobs that the tier explicitly tunes. v1 keeps Create-time provenance
-  // to "Override vs upstream Default" only.
-  // draft.tier intentionally listed so this memo updates when tier changes;
-  // body is a stub returning {} until the orchestrator exposes tier tables.
   const tierDefaults = useMemo<Record<string, string>>(
-    () => ({}),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => tierDefaultsForName(draft.tier),
     [draft.tier],
   );
 

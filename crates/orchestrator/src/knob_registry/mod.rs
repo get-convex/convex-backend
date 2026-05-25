@@ -11,6 +11,7 @@ pub struct KnobMeta {
     pub env_var: &'static str,
     pub description: &'static str,
     pub category: &'static str,
+    pub default_value: Option<&'static str>,
 }
 
 /// Build-time-generated. Do not hand-edit `$OUT_DIR/known_knobs.rs`.
@@ -108,6 +109,22 @@ mod tests {
     #[test]
     fn validate_known_accepted() {
         assert!(validate("UDF_USE_FUNRUN", "true").is_ok());
+    }
+
+    #[test]
+    fn extracts_default_values_for_common_knobs() {
+        assert_eq!(
+            find("UDF_CACHE_MAX_SIZE").and_then(|k| k.default_value),
+            Some("104857600"),
+        );
+        assert_eq!(
+            find("UDF_USE_FUNRUN").and_then(|k| k.default_value),
+            Some("true"),
+        );
+        assert_eq!(
+            find("FUNCTION_MAX_ARGS_SIZE").and_then(|k| k.default_value),
+            Some("16777216"),
+        );
     }
 
     #[test]

@@ -14,6 +14,14 @@ import { useHostCapacity } from "../../../../../hooks/useHostCapacity";
 import { useKnobRegistry } from "../../../../../hooks/useKnobRegistry";
 import { useProjectSettings } from "../../../../../hooks/useProjectSettings";
 import { KnobRow } from "../../../../../components/backendSettings/KnobRow";
+import { clearVisibleOverrides } from "../../../../../components/backendSettings/knobOverrides";
+import { tierDefaultsForName } from "../../../../../components/backendSettings/tiers";
+import {
+  advancedKnobRowState,
+  filterAdvancedKnobs,
+  visibleOverrideCount,
+  type AdvancedKnobShowFilter,
+} from "./advancedKnobs";
 
 export default function AdvancedKnobsPage() {
   const router = useRouter();
@@ -44,9 +52,7 @@ export default function AdvancedKnobsPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("ALL");
-  const [show, setShow] = useState<"all" | "overridden" | "curated" | "tier">(
-    "all",
-  );
+  const [show, setShow] = useState<AdvancedKnobShowFilter>("all");
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,21 +68,25 @@ export default function AdvancedKnobsPage() {
     return ["ALL", ...Array.from(set).sort()];
   }, [registry]);
 
+  const settingsTier = settings?.tier;
+  const tierDefaults = useMemo(
+    () => (settingsTier ? tierDefaultsForName(settingsTier) : {}),
+    [settingsTier],
+  );
+
   const filtered = useMemo(() => {
     if (!registry) return [];
-    return registry.filter((k) => {
-      if (search && !k.envVar.toLowerCase().includes(search.toLowerCase())) {
-        return false;
-      }
-      if (category !== "ALL" && k.category !== category) return false;
-      if (show === "curated" && k.exposure !== "curated") return false;
-      if (show === "tier" && k.exposure !== "tierTuned") return false;
-      if (show === "overridden" && !(draft && k.envVar in draft)) return false;
-      return true;
+    return filterAdvancedKnobs({
+      registry,
+      overrides: draft ?? {},
+      search,
+      category,
+      show,
     });
   }, [registry, search, category, show, draft]);
 
-  const overriddenCount = draft ? Object.keys(draft).length : 0;
+  const overriddenCount =
+    draft && registry ? visibleOverrideCount(draft, registry) : 0;
   const dirty =
     !!settings &&
     !!draft &&
@@ -149,6 +159,19 @@ export default function AdvancedKnobsPage() {
               <option value="curated">Curated</option>
               <option value="tier">Tier-tuned</option>
             </select>
+            {overriddenCount > 0 && (
+              <Button
+                variant="neutral"
+                size="xs"
+                onClick={() =>
+                  setDraft((d) =>
+                    registry ? clearVisibleOverrides(d ?? {}, registry) : d,
+                  )
+                }
+              >
+                Revert all to defaults
+              </Button>
+            )}
           </div>
           <div className="mb-2 text-xs text-content-secondary">
             Showing {filtered.length} of {registry?.length ?? 0} ·{" "}
@@ -156,19 +179,18 @@ export default function AdvancedKnobsPage() {
           </div>
           <div className="divide-y">
             {filtered.map((knob) => {
-              const overrideValue = draft?.[knob.envVar];
-              const source: "override" | "tier" | "default" = overrideValue
-                ? "override"
-                : knob.exposure === "tierTuned"
-                  ? "tier"
-                  : "default";
+              const rowState = advancedKnobRowState(
+                knob,
+                draft ?? {},
+                tierDefaults,
+              );
               return (
                 <KnobRow
                   key={knob.envVar}
                   knob={knob}
-                  source={source}
-                  effectiveValue={overrideValue ?? ""}
-                  overrideValue={overrideValue ?? ""}
+                  source={rowState.source}
+                  effectiveValue={rowState.effectiveValue}
+                  overrideValue={rowState.overrideValue}
                   onOverride={(next) =>
                     setDraft((d) => ({ ...(d ?? {}), [knob.envVar]: next }))
                   }

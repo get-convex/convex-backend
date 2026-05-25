@@ -43,13 +43,13 @@ export function KnobRow({
         <div className="grow">
           <KnobInput
             knob={knob}
-            value={overrideValue || effectiveValue}
+            value={overridden ? overrideValue : effectiveValue}
             onChange={onOverride}
           />
         </div>
         {overridden && (
           <Button variant="neutral" size="xs" onClick={onReset}>
-            Reset
+            Revert to default
           </Button>
         )}
       </div>

@@ -3,6 +3,7 @@ import {
   encodeCustomTier,
   parseCustomTier,
   TIERS,
+  tierDefaultsForName,
 } from "./tiers";
 
 describe("backend tier helpers", () => {
@@ -32,5 +33,19 @@ describe("backend tier helpers", () => {
         { totalMemoryMb: 49152, totalCpus: 16 },
       ),
     ).toEqual({ memoryMb: 49152, cpus: 16 });
+  });
+
+  test("tier defaults mirror orchestrator knob tuning", () => {
+    expect(tierDefaultsForName("S16")).toMatchObject({
+      UDF_CACHE_MAX_SIZE: "104857600",
+      FUNRUN_INDEX_CACHE_SIZE: "50000000",
+      RUNTIME_WORKER_THREADS: "2",
+      POSTGRES_MAX_CONNECTIONS: "128",
+    });
+
+    expect(tierDefaultsForName("custom:12288:6.5")).toMatchObject({
+      RUNTIME_WORKER_THREADS: "7",
+      POSTGRES_MAX_CONNECTIONS: "768",
+    });
   });
 });

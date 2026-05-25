@@ -28,6 +28,7 @@ pub struct KnobEntry {
     pub category: String,
     pub exposure: &'static str,
     pub display_name: Option<String>,
+    pub default_value: Option<String>,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -57,6 +58,7 @@ pub(crate) async fn knob_registry(
                 Exposure::Advanced => "advanced",
             },
             display_name: curated_display_name(k.env_var).map(String::from),
+            default_value: k.default_value.map(String::from),
         })
         .collect();
     Ok(Json(KnobRegistryResponse { knobs }))

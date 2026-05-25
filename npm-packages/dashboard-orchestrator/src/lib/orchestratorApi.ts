@@ -345,6 +345,11 @@ export const knobEntrySchema = z.object({
   category: z.string(),
   exposure: z.enum(["curated", "tierTuned", "advanced"]),
   displayName: z.string().nullable(),
+  defaultValue: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
 });
 export type KnobEntry = z.infer<typeof knobEntrySchema>;
 

@@ -1,4 +1,5 @@
 import type { KnobEntry } from "../../lib/orchestratorApi";
+import { knobRowState } from "./knobOverrides";
 import { KnobRow } from "./KnobRow";
 
 export function CuratedKnobs({
@@ -18,21 +19,14 @@ export function CuratedKnobs({
   return (
     <div className="flex flex-col divide-y">
       {curated.map((knob) => {
-        const override = overrides[knob.envVar];
-        const tierDefault = tierDefaults[knob.envVar];
-        const source: "override" | "tier" | "default" = override
-          ? "override"
-          : tierDefault
-            ? "tier"
-            : "default";
-        const effective = override ?? tierDefault ?? "";
+        const rowState = knobRowState(knob, overrides, tierDefaults);
         return (
           <KnobRow
             key={knob.envVar}
             knob={knob}
-            source={source}
-            effectiveValue={effective}
-            overrideValue={override ?? ""}
+            source={rowState.source}
+            effectiveValue={rowState.effectiveValue}
+            overrideValue={rowState.overrideValue}
             onOverride={(next) => onOverride(knob.envVar, next)}
             onReset={() => onReset(knob.envVar)}
           />

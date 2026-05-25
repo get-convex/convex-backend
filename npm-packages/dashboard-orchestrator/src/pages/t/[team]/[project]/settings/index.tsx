@@ -22,6 +22,7 @@ import {
   BackendSettingsForm,
   type BackendSettingsDraft,
 } from "../../../../../components/backendSettings/BackendSettingsForm";
+import { tierDefaultsForName } from "../../../../../components/backendSettings/tiers";
 import { useHostCapacity } from "../../../../../hooks/useHostCapacity";
 import { useKnobRegistry } from "../../../../../hooks/useKnobRegistry";
 import { useProjectSettings } from "../../../../../hooks/useProjectSettings";
@@ -833,6 +834,11 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
     (draft.tier !== settings.tier ||
       JSON.stringify(draft.overrides) !==
         JSON.stringify(settings.knobOverrides));
+  const draftTier = draft?.tier;
+  const tierDefaults = useMemo(
+    () => (draftTier ? tierDefaultsForName(draftTier) : {}),
+    [draftTier],
+  );
 
   const onSave = async () => {
     if (!draft) return;
@@ -892,7 +898,7 @@ function BackendSection({ team, project }: { team: Team; project: Project }) {
       <BackendSettingsForm
         registry={registry}
         capacity={capacity}
-        tierDefaults={{}}
+        tierDefaults={tierDefaults}
         currentTier={productionDeployment?.tier}
         initial={draft}
         onChange={setDraft}

@@ -4,6 +4,7 @@ import {
   DisclosurePanel,
 } from "@headlessui/react";
 import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import { Button } from "@ui/Button";
 import { useState } from "react";
 import type { HostCapacity, KnobEntry } from "../../lib/orchestratorApi";
 import { BackendInfrastructureForm } from "./BackendInfrastructureForm";
@@ -13,6 +14,7 @@ import {
 } from "./backendInfrastructure";
 import { CapacityStrip } from "./CapacityStrip";
 import { CuratedKnobs } from "./CuratedKnobs";
+import { clearVisibleOverrides, visibleOverrideCount } from "./knobOverrides";
 import { TierSelector } from "./TierSelector";
 
 export type BackendSettingsDraft = {
@@ -50,6 +52,17 @@ export function BackendSettingsForm({
     setDraft(next);
     onChange(next);
   };
+  const customizedCount = registry
+    ? visibleOverrideCount(draft.overrides, registry)
+    : 0;
+
+  const revertVisibleOverrides = () => {
+    if (!registry) return;
+    update({
+      ...draft,
+      overrides: clearVisibleOverrides(draft.overrides, registry),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,11 +82,21 @@ export function BackendSettingsForm({
       <Disclosure>
         {({ open }) => (
           <>
-            <DisclosureButton className="flex w-full items-center gap-1 text-left text-sm font-medium text-content-primary">
-              {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-              Backend settings ({Object.keys(draft.overrides).length}{" "}
-              customized)
-            </DisclosureButton>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <DisclosureButton className="flex items-center gap-1 text-left text-sm font-medium text-content-primary">
+                {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                Backend settings ({customizedCount} customized)
+              </DisclosureButton>
+              {customizedCount > 0 && (
+                <Button
+                  variant="neutral"
+                  size="xs"
+                  onClick={revertVisibleOverrides}
+                >
+                  Revert knobs to defaults
+                </Button>
+              )}
+            </div>
             <DisclosurePanel className="pt-2">
               {showInfrastructure && (
                 <div className="mb-4 border-b border-border-transparent pb-4">
