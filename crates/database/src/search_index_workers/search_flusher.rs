@@ -300,11 +300,11 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     ..
                 } => {
                     let ts = IndexWorkerMetadataModel::new(&mut tx)
-                        .get_fast_forward_ts(*ts, index_id.internal_id())
+                        .get_fast_forward_ts(*ts, index_id.internal_id().into())
                         .await?;
 
                     let index_size = ready_index_sizes
-                        .get(&index_id.internal_id())
+                        .get(&index_id.internal_id().into())
                         .cloned()
                         .unwrap_or(0);
 
@@ -350,8 +350,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     .await?;
                 let job = IndexBuild {
                     index_name: name.clone(),
-                    index_id: index_id.internal_id(),
-                    by_id: by_id_metadata.id().internal_id(),
+                    index_id: index_id.internal_id().into(),
+                    by_id: by_id_metadata.id().internal_id().into(),
                     index_config: config,
                     metadata_id: index_id,
                     build_reason,

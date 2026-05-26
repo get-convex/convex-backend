@@ -193,7 +193,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     .await?;
                 let backfill_cursor =
                     backfill_metadata.and_then(|metadata| metadata.cursor.clone());
-                let index_id = index_metadata.id().internal_id();
+                let index_id = index_metadata.id().internal_id().into();
                 let tablet_id = *index_metadata.name.table();
                 if !self.in_progress_index_ids.contains(&index_id)
                     && !self
@@ -493,7 +493,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_doc = tx
             .get(ResolvedDocumentId::new(
                 index_table_id.tablet_id,
-                DeveloperDocumentId::new(index_table_id.table_number, index_id),
+                DeveloperDocumentId::new(index_table_id.table_number, index_id.0),
             ))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
@@ -531,7 +531,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_doc = tx
             .get(ResolvedDocumentId::new(
                 index_table_id.tablet_id,
-                DeveloperDocumentId::new(index_table_id.table_number, index_id),
+                DeveloperDocumentId::new(index_table_id.table_number, index_id.0),
             ))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
@@ -580,7 +580,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_table_id = tx.bootstrap_tables().index_id;
         let full_index_id = ResolvedDocumentId::new(
             index_table_id.tablet_id,
-            DeveloperDocumentId::new(index_table_id.table_number, index_id),
+            DeveloperDocumentId::new(index_table_id.table_number, index_id.0),
         );
         let index_doc = tx
             .get(full_index_id)

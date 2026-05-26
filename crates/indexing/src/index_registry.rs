@@ -56,7 +56,6 @@ use value::{
     ConvexString,
     ConvexValue,
     FieldPath,
-    InternalId,
     ResolvedDocumentId,
     TableMapping,
     TableNamespace,
@@ -467,7 +466,7 @@ impl IndexRegistry {
         existing: Option<&Index>,
         updated: &ParsedDocument<TabletIndexMetadata>,
     ) -> bool {
-        existing.is_none() || existing.unwrap().id() == updated.id().internal_id()
+        existing.is_none() || existing.unwrap().id() == updated.id().internal_id().into()
     }
 
     // Applies an already verified update. Should call verify_update beforehand
@@ -537,13 +536,13 @@ impl IndexRegistry {
             .collect()
     }
 
-    pub fn enabled_index_by_index_id(&self, index_id: &InternalId) -> Option<&Index> {
+    pub fn enabled_index_by_index_id(&self, index_id: &IndexId) -> Option<&Index> {
         self.enabled_indexes
             .values()
             .find(|index| *index_id == index.id())
     }
 
-    pub fn pending_index_by_index_id(&self, index_id: &InternalId) -> Option<&Index> {
+    pub fn pending_index_by_index_id(&self, index_id: &IndexId) -> Option<&Index> {
         self.pending_indexes
             .values()
             .find(|index| *index_id == index.id())
@@ -561,7 +560,7 @@ impl IndexRegistry {
     ) -> BTreeMap<IndexId, (TabletIndexName, IndexedFields)> {
         self.all_indexes()
             .filter_map(|index| {
-                let index_id = index.id().internal_id();
+                let index_id = index.id().internal_id().into();
                 let index_name = index.name.clone();
                 match &index.config {
                     IndexConfig::Database { spec, .. } => {
@@ -605,7 +604,7 @@ impl IndexRegistry {
         self.all_enabled_indexes()
             .into_iter()
             .filter(|index| index.name.is_by_id())
-            .map(|index| (*index.name.table(), index.id().internal_id()))
+            .map(|index| (*index.name.table(), index.id().internal_id().into()))
             .collect()
     }
 
@@ -706,7 +705,7 @@ impl IndexRegistry {
         };
         let removed = remove_from.remove(&to_remove.name);
         if let Some(removed) = removed {
-            if removed.id() != to_remove.id().internal_id() {
+            if removed.id() != to_remove.id().internal_id().into() {
                 panic!("Tried to remove a different index with the same name");
             }
         } else {
@@ -722,20 +721,6 @@ impl IndexRegistry {
             .collect()
     }
 
-    /// Returns true if the same indexes are present in this registry and in
-    /// `other`.
-    ///
-    /// Index state (ie pending/enabled) may not be identical even if this
-    /// method returns true.
-    pub fn same_indexes<'a>(&'a self, other: &'a Self) -> bool {
-        // The implementation of this method assumes that index definitions cannot be
-        // mutated. Updating or removing and re-adding an index must result in a
-        // new index ID being created for this implementation to work correctly.
-        vec![self, other]
-            .into_iter()
-            .map(|registry: &IndexRegistry| registry.index_ids())
-            .all_equal()
-    }
 }
 
 pub trait IndexedDocument {
@@ -778,7 +763,7 @@ impl Index {
     }
 
     pub fn id(&self) -> IndexId {
-        self.metadata.id().internal_id()
+        self.metadata.id().internal_id().into()
     }
 
     pub fn name(&self) -> TabletIndexName {

@@ -333,7 +333,40 @@ impl IndexName {
     }
 }
 
-pub type IndexId = InternalId;
+/// The ID of an index is the internal ID of its index metadata document's ID
+/// (the document in the `_index` table).
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    derive_more::From,
+    derive_more::Display,
+)]
+pub struct IndexId(pub InternalId);
+impl IndexId {
+    pub fn size(&self) -> usize {
+        self.0.size()
+    }
+}
+
+// TODO: this encoding is rarely used and confusing
+impl From<IndexId> for String {
+    fn from(index_id: IndexId) -> String {
+        index_id.0.into()
+    }
+}
+impl FromStr for IndexId {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.parse()?))
+    }
+}
 
 #[derive(Eq, PartialEq, Clone, Debug, Ord, PartialOrd)]
 pub struct DatabaseIndexUpdate {

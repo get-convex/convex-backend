@@ -9,12 +9,14 @@ use value::{
     id_v6::DeveloperDocumentId,
     sha256::Sha256,
     ConvexValue,
-    InternalId,
     Size,
 };
 
 use crate::{
-    types::Timestamp,
+    types::{
+        IndexId,
+        Timestamp,
+    },
     value::values_to_bytes,
 };
 
@@ -47,7 +49,7 @@ impl SplitKey {
 pub struct IndexEntry {
     // Ordering these fields is important for derived Ord.
     // The first four fields are the primary key in `indexes` table.
-    pub index_id: InternalId,
+    pub index_id: IndexId,
     pub key_prefix: Vec<u8>,
     pub key_sha256: Vec<u8>,
     pub ts: Timestamp,
@@ -59,7 +61,7 @@ pub struct IndexEntry {
 impl IndexEntry {
     pub fn from_index_key(
         index_key: IndexKeyBytes,
-        index_id: InternalId,
+        index_id: IndexId,
         ts: Timestamp,
         deleted: bool,
     ) -> Self {

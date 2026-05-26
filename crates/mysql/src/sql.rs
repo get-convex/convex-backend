@@ -1054,7 +1054,7 @@ pub fn index_query(
     if multitenant {
         all_params.push((&instance_name.raw).into());
     }
-    all_params.push(internal_id_param(index_id).into());
+    all_params.push(internal_id_param(index_id.0).into());
     all_params.push(i64::from(read_timestamp).into());
     for param in params {
         all_params.push(param.into());

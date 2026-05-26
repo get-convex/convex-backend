@@ -1269,7 +1269,7 @@ impl<RT: Runtime> Database<RT> {
         while let Some(index_doc) = stream.try_next().await? {
             let index_doc = TabletIndexMetadata::from_document(index_doc.value)?;
             if index_doc.name.is_by_id() {
-                by_id_indexes.insert(*index_doc.name.table(), index_doc.id().internal_id());
+                by_id_indexes.insert(*index_doc.name.table(), index_doc.id().internal_id().into());
             }
         }
         Ok(by_id_indexes)

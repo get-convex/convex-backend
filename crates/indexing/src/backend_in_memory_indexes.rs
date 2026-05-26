@@ -409,7 +409,7 @@ impl BackendInMemoryIndexes {
         indexes.retain(|index| {
             !self
                 .in_memory_indexes
-                .contains_key(&index.id().internal_id())
+                .contains_key(&index.id().internal_id().into())
         });
         if indexes.is_empty() {
             // Already loaded in memory.
@@ -440,7 +440,7 @@ impl BackendInMemoryIndexes {
         // Read the table using an arbitrary index from the list
         let entries: Vec<_> = snapshot
             .index_scan(
-                indexes[0].id().internal_id(),
+                indexes[0].id().internal_id().into(),
                 tablet_id,
                 &Interval::all(),
                 Order::Asc,
@@ -472,7 +472,7 @@ impl BackendInMemoryIndexes {
 
         for (index, index_map) in indexes.iter().zip(index_maps) {
             self.in_memory_indexes
-                .insert(index.id().internal_id(), index_map);
+                .insert(index.id().internal_id().into(), index_map);
         }
         Ok((num_keys, total_size))
     }
@@ -519,7 +519,7 @@ impl BackendInMemoryIndexes {
         {
             // Drop the index from memory.
             self.in_memory_indexes
-                .remove(&old_document.id().internal_id());
+                .remove(&old_document.id().internal_id().into());
         }
 
         // Build up the list of updates to apply to all database indexes.

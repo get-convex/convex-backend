@@ -68,7 +68,6 @@ use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
-    InternalId,
     TableName,
     TableNamespace,
     TabletId,
@@ -122,7 +121,7 @@ fn make_transaction<RT: Runtime>(
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 struct IndexCacheKey {
     deployment_name: String,
-    index_id: InternalId,
+    index_id: IndexId,
     last_modified: Timestamp,
 }
 

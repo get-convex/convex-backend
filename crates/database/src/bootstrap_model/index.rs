@@ -862,7 +862,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         let all_indexes = self.get_all_indexes()?;
         Ok(all_indexes
             .filter(|index| index.name.is_by_id())
-            .map(|index| (*index.name.table(), index.id().internal_id()))
+            .map(|index| (*index.name.table(), index.id().internal_id().into()))
             .collect())
     }
 
