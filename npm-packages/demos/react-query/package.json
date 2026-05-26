@@ -12,8 +12,8 @@
     "react-dom": "^18.0.0",
     "prettier": "3.8.1",
     "@convex-dev/react-query": "workspace:*",
-    "@tanstack/react-query": "^5.90.2",
-    "@tanstack/react-query-devtools": "^5.90.2"
+    "@tanstack/react-query": "^5.100.11",
+    "@tanstack/react-query-devtools": "^5.100.11"
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.0",

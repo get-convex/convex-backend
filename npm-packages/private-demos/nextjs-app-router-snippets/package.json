@@ -28,7 +28,7 @@
     "clsx": "2.1.1",
     "eslint": "^9.37.0",
     "eslint-config-next": "^15.5.4",
-    "postcss": "^8.4.19",
+    "postcss": "^8.5.10",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "tailwindcss": "^4.1.11",
