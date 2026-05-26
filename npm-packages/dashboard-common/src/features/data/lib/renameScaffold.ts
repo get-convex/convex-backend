@@ -11,8 +11,8 @@ export function generateColumnRenameScaffold({
 }): { mutationCode: string; schemaDiff: string } {
   const schemaDiff = `// convex/schema.ts
 ${propertyKey(tableName)}: defineTable({
--  ${propertyKey(oldColumnName)}: v.string(),
-+  ${propertyKey(newColumnName)}: v.string(),
+-  ${propertyKey(oldColumnName)}: /* existing validator */,
++  ${propertyKey(newColumnName)}: /* existing validator */,
   // ...
 }),`;
 
@@ -61,6 +61,10 @@ export function generateTableRenameScaffold({
 
   return {
     mutationCode: `// convex/migrations.ts
+// WARNING: This migration assigns new document IDs to renamed rows.
+// References to this table (v.id("${oldTableName}")) from other tables will break.
+// Before running: either rename columns instead of the whole table,
+// or update all referencing fields in the same migration.
 import { internalMutation } from "./_generated/server";
 
 export const rename${pascalCase(oldTableName)}To${pascalCase(newTableName)} = internalMutation({

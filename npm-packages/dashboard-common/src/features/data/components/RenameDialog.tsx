@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CopyIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
+import { Callout } from "@ui/Callout";
 import { Checkbox } from "@ui/Checkbox";
 import { Modal } from "@ui/Modal";
 import { TextInput } from "@ui/TextInput";
@@ -83,7 +84,17 @@ export function RenameDialog({
           This does not apply a migration. Apply by adding the mutation to your{" "}
           <code>convex/</code> folder and updating <code>convex/schema.ts</code>{" "}
           as shown, then run <code>npx convex dev</code>.
+          {mode === "column" &&
+            " Schema diff shows the rename only; preserve your existing validator type for the column."}
         </div>
+
+        {mode === "table" && (
+          <Callout variant="error">
+            Renaming a table assigns new document IDs. Any v.id() references to
+            this table from other tables will need to be updated in the same
+            migration.
+          </Callout>
+        )}
 
         <ScaffoldPreview
           title="Mutation"
