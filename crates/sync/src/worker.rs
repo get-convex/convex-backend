@@ -798,11 +798,11 @@ impl<RT: Runtime> SyncWorker<RT> {
         let timer = metrics::update_queries_timer(self.partition_id);
         let current_version = self.state.current_version();
 
-        let (modifications, new_query_version, pending_identity, new_identity_version) =
+        let (modifications, new_query_version, new_identity_version) =
             self.state.take_modifications();
 
         let mut identity_version = current_version.identity;
-        if let Some(new_identity) = pending_identity {
+        if new_identity_version > identity_version {
             // If the identity version has changed, invalidate all existing tokens.
             // TODO(CX-737): Don't invalidate queries that don't examine auth state.
             // TODO(CX-737): Don't invalidate the queries if the User the is the same
@@ -812,7 +812,6 @@ impl<RT: Runtime> SyncWorker<RT> {
             // validate auth tokens. Alternatively, we make Usher be able to validate tokens
             // long term.
             self.state.take_subscriptions();
-            self.state.insert_identity(new_identity);
             identity_version = new_identity_version;
         }
         let identity = self.state.identity(self.rt.system_time())?;

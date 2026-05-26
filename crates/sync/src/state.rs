@@ -141,7 +141,6 @@ pub struct SyncState {
     /// client since the last transition began computing.
     /// These are emptied before computing a new transition.
     pending_query_updates: Vec<QuerySetModification>,
-    pending_identity: Option<Identity>,
     /// These are the query set version and identity according to the client.
     received_client_version: ClientVersion,
 
@@ -161,7 +160,6 @@ impl SyncState {
             refill_needed: false,
 
             pending_query_updates: vec![],
-            pending_identity: None,
             received_client_version: ClientVersion::initial(),
 
             partition_id,
@@ -229,16 +227,10 @@ impl SyncState {
 
     pub fn take_modifications(
         &mut self,
-    ) -> (
-        Vec<QuerySetModification>,
-        QuerySetVersion,
-        Option<Identity>,
-        IdentityVersion,
-    ) {
+    ) -> (Vec<QuerySetModification>, QuerySetVersion, IdentityVersion) {
         (
             mem::take(&mut self.pending_query_updates),
             self.received_client_version.query_set,
-            self.pending_identity.take(),
             self.received_client_version.identity,
         )
     }
@@ -251,24 +243,16 @@ impl SyncState {
         base_version: IdentityVersion,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(self.received_client_version.identity == base_version);
-        self.pending_identity = Some(new_identity);
+        self.identity = new_identity;
         self.received_client_version.identity.incr();
         Ok(())
-    }
-
-    /// Immediately set the current identity.
-    pub fn insert_identity(&mut self, identity: Identity) {
-        self.identity = identity;
     }
 
     // Returns the current session identity. If the identity is a user ID
     // token, also validates using the current SystemTime that it hasn't expired.
     // If there is a pending update to the identity, use that instead.
     pub fn identity(&self, current_time: SystemTime) -> anyhow::Result<Identity> {
-        let identity = self
-            .pending_identity
-            .clone()
-            .unwrap_or_else(|| self.identity.clone());
+        let identity = self.identity.clone();
         if let Identity::User(user) = &identity {
             anyhow::ensure!(
                 !user.is_expired(current_time),
