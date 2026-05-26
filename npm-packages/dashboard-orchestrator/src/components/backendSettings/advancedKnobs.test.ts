@@ -1,4 +1,4 @@
-import type { KnobEntry } from "../../../../../lib/orchestratorApi";
+import type { KnobEntry } from "../../lib/orchestratorApi";
 import {
   advancedKnobRowState,
   filterAdvancedKnobs,

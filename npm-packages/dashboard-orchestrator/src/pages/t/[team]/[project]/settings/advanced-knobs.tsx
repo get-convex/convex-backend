@@ -21,7 +21,7 @@ import {
   filterAdvancedKnobs,
   visibleOverrideCount,
   type AdvancedKnobShowFilter,
-} from "./advancedKnobs";
+} from "../../../../../components/backendSettings/advancedKnobs";
 
 export default function AdvancedKnobsPage() {
   const router = useRouter();

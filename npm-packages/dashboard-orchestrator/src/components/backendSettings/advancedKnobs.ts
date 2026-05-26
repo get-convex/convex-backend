@@ -1,10 +1,10 @@
-import type { KnobEntry } from "../../../../../lib/orchestratorApi";
+import type { KnobEntry } from "../../lib/orchestratorApi";
 import {
   hasExplicitOverride,
   knobRowState,
   visibleOverrideCount,
   type KnobRowSource,
-} from "../../../../../components/backendSettings/knobOverrides";
+} from "./knobOverrides";
 
 export type AdvancedKnobShowFilter = "all" | "overridden" | "curated" | "tier";
 export type { KnobRowSource };
