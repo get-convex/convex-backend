@@ -275,7 +275,7 @@ impl IndexReader for IndexCacheReader {
             order,
             max_results,
         );
-        if let Some(cached_page) = maybe_page
+        if let Some((cached_page, cache_ts)) = maybe_page
             && cached_page != index_page
         {
             self.handle
