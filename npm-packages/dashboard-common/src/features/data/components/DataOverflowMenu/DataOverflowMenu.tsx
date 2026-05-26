@@ -5,6 +5,7 @@ import {
   DotsVerticalIcon,
   CodeIcon,
   CubeIcon,
+  Pencil1Icon,
 } from "@radix-ui/react-icons";
 import { useContext } from "react";
 import { PermissionsContext } from "@common/lib/deploymentContext";
@@ -20,6 +21,7 @@ export function DataOverflowMenu({
   onClickClearTable,
   onClickSchema,
   onClickIndexes,
+  onClickRenameTable,
   onClickMetrics,
   onClickDeleteTable,
 }: {
@@ -29,6 +31,7 @@ export function DataOverflowMenu({
   onClickClearTable: () => void;
   onClickSchema: () => void;
   onClickIndexes: () => void;
+  onClickRenameTable: () => void;
   onClickMetrics: () => void;
   onClickDeleteTable: () => void;
 }) {
@@ -69,6 +72,10 @@ export function DataOverflowMenu({
       <MenuItem action={onClickIndexes}>
         <FingerPrintIcon className="size-4" />
         Indexes
+      </MenuItem>
+      <MenuItem action={onClickRenameTable}>
+        <Pencil1Icon />
+        Rename table...
       </MenuItem>
       <MenuItem action={onClickMetrics}>
         <BarChartIcon />

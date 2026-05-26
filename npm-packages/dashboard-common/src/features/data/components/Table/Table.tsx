@@ -83,6 +83,7 @@ export function Table({
   sort,
   hiddenColumns,
   onColumnOrderChange,
+  onClickRenameColumn,
 }: {
   activeSchema: SchemaJson | null;
   areEditsAuthorized: boolean;
@@ -110,6 +111,7 @@ export function Table({
   };
   hiddenColumns: string[];
   onColumnOrderChange?: (newOrder: string[]) => void;
+  onClickRenameColumn: (columnName: string) => void;
 }) {
   const [pageSize] = useDataPageSize(componentId, tableName);
   const { useIsOperationAllowed } = useContext(PermissionsContext);
@@ -387,6 +389,7 @@ export function Table({
                   resetColumnWidths();
                 }}
                 isProtectedDeployment={isProtectedDeployment}
+                onClickRenameColumn={onClickRenameColumn}
               />
             </div>
           </SortableContext>

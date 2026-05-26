@@ -45,6 +45,7 @@ import {
 import { useQueryFilteredTable } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
 import { useSingleTableSchemaStatus } from "@common/features/data/components/TableSchema";
 import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
+import { RenameDialog } from "@common/features/data/components/RenameDialog";
 import { useTableFields } from "@common/features/data/components/Table/utils/useTableFields";
 import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
 import {
@@ -80,6 +81,10 @@ export function DataContent({
 
   const [draftFilters, setDraftFilters] = useState(filters);
   const [showFilters, setShowFilters] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{
+    mode: "column" | "table";
+    currentName: string;
+  } | null>(null);
   useEffect(() => {
     setDraftFilters(filters);
   }, [filters]);
@@ -339,6 +344,9 @@ export function DataContent({
           tableSchemaStatus={tableSchemaStatus}
           tableName={tableName}
           isLoadingMore={isLoading && !isPaused}
+          onClickRenameTable={() =>
+            setRenameTarget({ mode: "table", currentName: tableName })
+          }
         />
 
         <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded-b-lg">
@@ -423,6 +431,12 @@ export function DataContent({
                     defaultDocument={defaultDocument}
                     hiddenColumns={hiddenColumns}
                     onColumnOrderChange={setColumnOrder}
+                    onClickRenameColumn={(columnName) =>
+                      setRenameTarget({
+                        mode: "column",
+                        currentName: columnName,
+                      })
+                    }
                     onAddDraftFilter={(filter: Filter) => {
                       setDraftFilters((prev) =>
                         prev
@@ -492,6 +506,14 @@ export function DataContent({
         </div>
       </Panel>
       {popupEl}
+      {renameTarget && (
+        <RenameDialog
+          mode={renameTarget.mode}
+          tableName={tableName}
+          currentName={renameTarget.currentName}
+          onClose={() => setRenameTarget(null)}
+        />
+      )}
     </PanelGroup>
   );
 }
