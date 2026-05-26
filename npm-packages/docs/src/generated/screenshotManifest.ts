@@ -185,6 +185,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/TransferProject",
+    "light": {
+      "filename": "components_transfer_project_light.webp",
+      "width": 1856,
+      "height": 548
+    },
+    "dark": {
+      "filename": "components_transfer_project_dark.webp",
+      "width": 1856,
+      "height": 548
+    }
+  },
+  {
     "storyTitle": "docs/components/UsageByProjectChart",
     "light": {
       "filename": "components_usage_by_project_chart_light.webp",
