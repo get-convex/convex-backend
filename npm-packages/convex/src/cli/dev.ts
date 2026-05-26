@@ -2,6 +2,7 @@ import { Command, Option } from "@commander-js/extra-typings";
 import { chalkStderr } from "chalk";
 import { installSigintHandler, oneoffContext } from "../bundler/context.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
+import { announceDeploymentTarget } from "./lib/announceDeploymentTarget.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { normalizeDevOptions } from "./lib/command.js";
 import { devAgainstDeployment } from "./lib/dev.js";
@@ -255,6 +256,8 @@ Same format as .env.local or .env files, and overrides them.`,
         localOptions,
       },
     );
+
+    announceDeploymentTarget("Developing against deployment:", credentials);
 
     await Promise.all([
       ...(!cmdOptions.skipPush

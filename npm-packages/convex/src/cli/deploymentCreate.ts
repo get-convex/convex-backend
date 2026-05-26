@@ -42,6 +42,7 @@ import {
 import { bigBrainStart } from "./lib/localDeployment/bigBrain.js";
 import { importDefaultEnvVars } from "./lib/localDeployment/localDeployment.js";
 import { localDeploymentUrl } from "./lib/localDeployment/run.js";
+import { announceDeploymentTarget } from "./lib/announceDeploymentTarget.js";
 
 const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 
@@ -194,10 +195,24 @@ export const deploymentCreate = new Command("create")
       });
     }
 
+    logFinishedStep(
+      options.select
+        ? `Created and selected new ${created.deploymentType} deployment:`
+        : `Created new ${created.isDefault ? "default " : ""}${created.deploymentType} deployment:`,
+    );
+    announceDeploymentTarget(null, {
+      url: created.deploymentUrl,
+      deploymentFields: {
+        deploymentName: created.name,
+        deploymentType: created.deploymentType,
+        teamSlug,
+        projectSlug,
+        reference: created.reference,
+        isDefault: created.isDefault,
+      },
+    });
+
     if (!options.select) {
-      logFinishedStep(
-        `Provisioned a ${created.isDefault ? "default " : ""}${created.deploymentType} deployment.`,
-      );
       if (type !== "prod") {
         const selectRef = `${teamSlug}:${projectSlug}:${created.reference}`;
         logMessage(
@@ -209,9 +224,7 @@ export const deploymentCreate = new Command("create")
           ),
         );
       }
-    }
-
-    if (options.select) {
+    } else {
       const selection: DeploymentSelection = {
         kind: "deploymentWithinProject",
         targetProject: {
@@ -283,7 +296,23 @@ export async function createLocalDeployment(
     cloudProjectId,
   });
 
-  logFinishedStep("Created local deployment.");
+  logFinishedStep(
+    select
+      ? "Created and selected local deployment:"
+      : "Created local deployment:",
+  );
+
+  announceDeploymentTarget(null, {
+    url: `http://127.0.0.1:${cloudPort}`,
+    deploymentFields: {
+      deploymentName,
+      deploymentType: "local",
+      teamSlug,
+      projectSlug,
+      reference: null,
+      isDefault: false,
+    },
+  });
 
   await importDefaultEnvVars(ctx, {
     teamSlug,

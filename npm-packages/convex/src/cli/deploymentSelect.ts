@@ -1,6 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { loadSelectedDeploymentCredentials } from "./lib/api.js";
+import { logFinishedStep } from "../bundler/log.js";
+import { announceDeploymentTarget } from "./lib/announceDeploymentTarget.js";
 import {
   DeploymentSelection,
   getDeploymentSelection,
@@ -82,12 +84,14 @@ export const deploymentSelect = new Command("select")
       deployment: selector,
     });
 
-    await saveSelectedDeployment(
+    const deployment = await saveSelectedDeployment(
       ctx,
       selector,
       newSelection,
       deploymentNameFromSelection(currentSelection),
     );
+    logFinishedStep("Selected deployment:");
+    announceDeploymentTarget(null, deployment);
   });
 
 function isLocalDeploymentSelector(parsed: ParsedDeploymentSelector): boolean {
@@ -236,7 +240,7 @@ export async function saveSelectedDeployment(
   selector: string,
   selection: DeploymentSelection,
   previousDeploymentName: string | null,
-): Promise<void> {
+) {
   const deployment = await loadSelectedDeploymentCredentials(ctx, selection, {
     ensureLocalRunning: false,
   });
@@ -280,4 +284,6 @@ export async function saveSelectedDeployment(
     },
     previousDeploymentName,
   );
+
+  return deployment;
 }

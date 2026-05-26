@@ -523,8 +523,8 @@ async function handlePreview(
 ): Promise<DeploymentAuthResponse & { deploymentType: "preview" }> {
   switch (projectSelection.kind) {
     case "deploymentName":
-    case "teamAndProjectSlugs":
-      return await bigBrainAPI({
+    case "teamAndProjectSlugs": {
+      const credentials = await bigBrainAPI({
         ctx,
         method: "POST",
         path: "deployment/authorize_preview",
@@ -533,6 +533,8 @@ async function handlePreview(
           projectSelection: projectSelection,
         },
       });
+      return credentials;
+    }
 
     case "projectDeployKey":
       // TODO -- this should be supported
@@ -552,8 +554,8 @@ async function handleDeploymentName(
 ): Promise<DeploymentAuthResponse> {
   switch (projectSelection.kind) {
     case "deploymentName":
-    case "teamAndProjectSlugs":
-      return await bigBrainAPI({
+    case "teamAndProjectSlugs": {
+      const credentials = await bigBrainAPI({
         ctx,
         method: "POST",
         path: "deployment/authorize_within_current_project",
@@ -562,6 +564,8 @@ async function handleDeploymentName(
           projectSelection: projectSelection,
         },
       });
+      return credentials;
+    }
     case "projectDeployKey":
       // TODO -- this should be supported
       return await ctx.crash({
@@ -807,7 +811,6 @@ async function _loadExistingDeploymentCredentialsForProject(
       deploymentType: result.deploymentType,
       reference: result.reference,
       isDefault: result.isDefault,
-
       projectSlug:
         accessResult.kind === "hasAccess" ? accessResult.projectSlug : null,
       teamSlug:

@@ -5,6 +5,7 @@ import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { logsForDeployment } from "./lib/logs.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import { announceDeploymentTarget } from "./lib/announceDeploymentTarget.js";
 
 export const logs = new Command("logs")
   .summary("Watch logs from your deployment")
@@ -23,6 +24,7 @@ export const logs = new Command("logs")
       ctx,
       deploymentSelection,
     );
+    announceDeploymentTarget("Showing logs of deployment:", deployment);
     const deploymentName = deployment.deploymentFields?.deploymentName
       ? ` ${deployment.deploymentFields.deploymentName}`
       : "";
