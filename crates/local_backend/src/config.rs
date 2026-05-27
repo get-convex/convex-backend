@@ -3,7 +3,11 @@ use std::{
     net::SocketAddr,
 };
 
-use clap::Parser;
+use clap::{
+    Args,
+    Parser,
+    Subcommand as ClapSubcommand,
+};
 use clusters::DbDriverTag;
 use common::types::{
     ConvexOrigin,
@@ -129,6 +133,35 @@ pub struct LocalConfig {
     /// of log integrations (eg axiom/datadog).
     #[clap(long)]
     pub local_log_sink: Option<String>,
+
+    #[clap(subcommand)]
+    pub subcommand: Option<Subcommand>,
+}
+
+#[derive(ClapSubcommand, Clone)]
+pub enum Subcommand {
+    /// Generate keys without starting the server.
+    Keygen {
+        #[clap(subcommand)]
+        kind: KeygenCommand,
+    },
+}
+
+#[derive(ClapSubcommand, Clone)]
+pub enum KeygenCommand {
+    /// Print an admin key for the given instance to stdout.
+    AdminKey(AdminKeyArgs),
+}
+
+#[derive(Args, Clone)]
+pub struct AdminKeyArgs {
+    /// Instance name for this backend.
+    #[clap(long)]
+    pub instance_name: String,
+
+    /// Instance secret for this backend.
+    #[clap(long)]
+    pub instance_secret: String,
 }
 
 impl fmt::Debug for LocalConfig {

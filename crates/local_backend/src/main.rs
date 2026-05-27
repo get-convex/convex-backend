@@ -1,7 +1,10 @@
 use std::time::Duration;
 
 use clap::Parser;
-use cmd_util::env::config_service;
+use cmd_util::env::{
+    config_service,
+    config_tool,
+};
 use common::{
     errors::MainError,
     http::ConvexHttpService,
@@ -9,6 +12,7 @@ use common::{
     runtime::Runtime,
     sentry::set_sentry_tags,
     shutdown::ShutdownSignal,
+    types::MemberId,
     version::SERVER_VERSION_STR,
 };
 use db_connection::{
@@ -22,8 +26,17 @@ use futures::{
     },
     FutureExt,
 };
+use keybroker::{
+    DeploymentSecret,
+    KeyBroker,
+};
 use local_backend::{
-    config::LocalConfig,
+    config::{
+        AdminKeyArgs,
+        KeygenCommand,
+        LocalConfig,
+        Subcommand,
+    },
     make_app,
     proxy::dev_site_proxy,
     router::router,
@@ -39,8 +52,14 @@ use tokio::{
 };
 
 fn main() -> Result<(), MainError> {
-    let _guard = config_service();
     let config = LocalConfig::parse();
+    if let Some(subcommand) = &config.subcommand {
+        // Subcommands produce machine-parseable output on stdout, so configure
+        // tracing to write to stderr (at ERROR level) to avoid contaminating it.
+        let _guard = config_tool();
+        return run_subcommand(subcommand);
+    }
+    let _guard = config_service();
     tracing::info!("Starting a Convex backend");
     if !config.disable_beacon {
         tracing::info!(
@@ -85,6 +104,22 @@ fn main() -> Result<(), MainError> {
     };
 
     runtime.block_on("main", server_future)
+}
+
+fn run_subcommand(command: &Subcommand) -> Result<(), MainError> {
+    match command {
+        Subcommand::Keygen {
+            kind: KeygenCommand::AdminKey(args),
+        } => generate_admin_key(args),
+    }
+}
+
+fn generate_admin_key(args: &AdminKeyArgs) -> Result<(), MainError> {
+    let secret = DeploymentSecret::try_from(args.instance_secret.as_str())?;
+    let broker = KeyBroker::new(&args.instance_name, secret)?;
+    let admin_key = broker.issue_admin_key(MemberId(0));
+    println!("{}", admin_key.as_str());
+    Ok(())
 }
 
 async fn run_server(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result<()> {
