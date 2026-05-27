@@ -90,7 +90,7 @@ export function AuditLogToolbar({
   const beforeMinDateTooltip =
     auditLogRetentionDays === -1
       ? null
-      : `Deployment history is preserved for ${auditLogRetentionDays} days.`;
+      : `Audit logs are preserved for ${auditLogRetentionDays} days.`;
   const maxEndDate = endOfToday();
 
   const startDate =
