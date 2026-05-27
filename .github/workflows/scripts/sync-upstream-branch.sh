@@ -99,7 +99,7 @@ if [ -n "${OPENROUTER_API_KEY:-}" ]; then
       echo "LLM resolution left unmerged paths; falling back to PR." >&2
       git merge --abort
     else
-      llm_model_used="${LLM_MODEL:-google/gemini-3.1-pro-preview}"
+      llm_model_used="${LLM_MODEL:-anthropic/claude-sonnet-4.6}"
       file_list="$(printf '%s\n' "${conflicted_files}" | sed 's|^|- |')"
       git commit --no-edit -m "Merge remote-tracking branch 'upstream/${UPSTREAM_BRANCH}' into ${TARGET_BRANCH}
 

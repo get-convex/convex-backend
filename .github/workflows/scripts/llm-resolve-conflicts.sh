@@ -13,13 +13,13 @@
 # Required env:
 #   OPENROUTER_API_KEY
 # Optional env:
-#   LLM_MODEL          default google/gemini-3.1-pro-preview
+#   LLM_MODEL          default anthropic/claude-sonnet-4.6
 #   LLM_MAX_FILE_BYTES default 200000
 
 set -euo pipefail
 
 : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}"
-MODEL="${LLM_MODEL:-google/gemini-3.1-pro-preview}"
+MODEL="${LLM_MODEL:-anthropic/claude-sonnet-4.6}"
 MAX_BYTES="${LLM_MAX_FILE_BYTES:-200000}"
 
 if [ "$#" -eq 0 ]; then
