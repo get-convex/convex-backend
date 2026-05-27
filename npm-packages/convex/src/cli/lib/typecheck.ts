@@ -3,6 +3,7 @@ import path from "path";
 import { performance } from "perf_hooks";
 import { Context } from "../../bundler/context.js";
 import {
+  changeSpinner,
   logError,
   logFailure,
   logMessage,
@@ -22,7 +23,7 @@ export type TypescriptCompiler = "tsc" | "tsgo";
 
 const SLOW_TYPECHECK_THRESHOLD_MS = 10_000;
 const SLOW_TYPECHECK_DOCS_URL =
-  "https://docs.convex.dev/production/project-configuration#configuring-the-typescript-compiler";
+  "https://docs.convex.dev/cli/troubleshooting/typecheck-performance";
 
 /**
  * Resolves the TypeScript compiler to use based on CLI flag, config file, and default.
@@ -64,43 +65,48 @@ export async function typeCheckFunctionsInMode(
   }
   const typescriptCompiler = await resolveTypescriptCompiler(ctx);
   const typecheckStart = performance.now();
-  await typeCheckFunctions(
-    ctx,
-    typescriptCompiler,
-    functionsDir,
-    async (result, logSpecificError, runOnError) => {
-      if (
-        (result === "cantTypeCheck" && typeCheckMode === "enable") ||
-        result === "typecheckFailed"
-      ) {
-        logSpecificError?.();
-        logError(
-          chalkStderr.gray(
-            "To ignore failing typecheck, use `--typecheck=disable`.",
-          ),
-        );
-        try {
-          const result = await runOnError?.();
-          // Concurrent change invalidated the error, don't fail
-          if (result === "success") {
-            return;
+  const slowTypecheckTimeout = setTimeout(() => {
+    changeSpinner(
+      `Still running TypeScript... see ${SLOW_TYPECHECK_DOCS_URL} to troubleshoot.`,
+    );
+  }, SLOW_TYPECHECK_THRESHOLD_MS);
+  try {
+    await typeCheckFunctions(
+      ctx,
+      typescriptCompiler,
+      functionsDir,
+      async (result, logSpecificError, runOnError) => {
+        if (
+          (result === "cantTypeCheck" && typeCheckMode === "enable") ||
+          result === "typecheckFailed"
+        ) {
+          logSpecificError?.();
+          logError(
+            chalkStderr.gray(
+              "To ignore failing typecheck, use `--typecheck=disable`.",
+            ),
+          );
+          try {
+            const result = await runOnError?.();
+            // Concurrent change invalidated the error, don't fail
+            if (result === "success") {
+              return;
+            }
+          } catch {
+            // As expected, `runOnError` threw
           }
-        } catch {
-          // As expected, `runOnError` threw
+          await ctx.crash({
+            exitCode: 1,
+            errorType: "invalid filesystem data",
+            printedMessage: null,
+          });
         }
-        await ctx.crash({
-          exitCode: 1,
-          errorType: "invalid filesystem data",
-          printedMessage: null,
-        });
-      }
-    },
-  );
-  maybeLogSlowTypecheckSuggestion(
-    ctx,
-    performance.now() - typecheckStart,
-    typescriptCompiler,
-  );
+      },
+    );
+  } finally {
+    clearTimeout(slowTypecheckTimeout);
+  }
+  maybeLogSlowTypecheckSuggestion(ctx, performance.now() - typecheckStart);
 }
 
 // Runs TypeScript compiler to typecheck Convex query and mutation functions.
@@ -262,18 +268,11 @@ async function runTscInner(
   );
 }
 
-function maybeLogSlowTypecheckSuggestion(
-  ctx: Context,
-  durationMs: number,
-  typescriptCompiler: TypescriptCompiler,
-) {
+function maybeLogSlowTypecheckSuggestion(ctx: Context, durationMs: number) {
   if (!(ctx instanceof WatchContext)) {
     return;
   }
   if (!ctx.isFirstPush) {
-    return;
-  }
-  if (typescriptCompiler === "tsgo") {
     return;
   }
   if (durationMs <= SLOW_TYPECHECK_THRESHOLD_MS) {
@@ -282,7 +281,7 @@ function maybeLogSlowTypecheckSuggestion(
   const formattedDuration = formatDuration(durationMs);
   logMessage(
     chalkStderr.gray(
-      `Typechecking took ${formattedDuration}. For faster iteration, consider enabling the TypeScript 7 compiler (tsgo) in your project configuration: ${SLOW_TYPECHECK_DOCS_URL}`,
+      `Typechecking took ${formattedDuration}. For faster iteration, see ${SLOW_TYPECHECK_DOCS_URL} to troubleshoot typecheck performance.`,
     ),
   );
 }

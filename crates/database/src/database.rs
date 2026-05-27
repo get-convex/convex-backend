@@ -80,6 +80,7 @@ use common::{
         Order,
     },
     runtime::{
+        tokio_spawn,
         RateLimiter,
         Runtime,
         SpawnHandle,
@@ -113,11 +114,15 @@ use errors::{
     OccInfo,
 };
 use futures::{
-    future::Either,
+    future::{
+        BoxFuture,
+        Either,
+    },
     pin_mut,
     stream::BoxStream,
     FutureExt,
     StreamExt,
+    TryFutureExt as _,
     TryStreamExt,
 };
 use imbl::OrdMap;
@@ -133,7 +138,6 @@ use indexing::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
-use parking_lot::Mutex;
 use search::{
     query::RevisionWithKeys,
     Searcher,
@@ -148,6 +152,7 @@ use tokio::{
     task,
     time::Instant,
 };
+use tokio_util::task::AbortOnDropHandle;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -299,18 +304,21 @@ pub struct Database<RT: Runtime> {
     table_mapping_snapshot_cache: AsyncLru<RT, Timestamp, TableMapping>,
     by_id_indexes_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<TabletId, IndexId>>,
     component_paths_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<ComponentId, ComponentPath>>,
-    list_snapshot_table_iterator_cache: Arc<
-        Mutex<
-            Option<(
-                ListSnapshotTableIteratorCacheEntry,
-                BoxStream<'static, anyhow::Result<Either<LatestDocument, MultiTableIterator<RT>>>>,
-            )>,
+    list_snapshot_table_iterator_cache:
+        Arc<tokio::sync::Mutex<Option<ListSnapshotTableIteratorCacheEntry<RT>>>>,
+}
+
+struct ListSnapshotTableIteratorCacheEntry<RT: Runtime> {
+    cache_key: ListSnapshotTableIteratorCacheKey,
+    iterator: BoxFuture<
+        'static,
+        anyhow::Result<
+            BoxStream<'static, anyhow::Result<Either<LatestDocument, MultiTableIterator<RT>>>>,
         >,
     >,
 }
-
 #[derive(PartialEq, Eq)]
-struct ListSnapshotTableIteratorCacheEntry {
+struct ListSnapshotTableIteratorCacheKey {
     snapshot: Timestamp,
     tablet_ids: Vec<TabletId>,
     by_id: IndexId,
@@ -1036,7 +1044,7 @@ impl<RT: Runtime> Database<RT> {
             AsyncLru::new(runtime.clone(), 20, 2, "by_id_indexes_snapshot");
         let component_paths_snapshot_cache =
             AsyncLru::new(runtime.clone(), 20, 2, "component_paths_snapshot");
-        let list_snapshot_table_iterator_cache = Arc::new(Mutex::new(None));
+        let list_snapshot_table_iterator_cache = Arc::new(tokio::sync::Mutex::new(None));
         let database = Self {
             committer,
             subscriptions,
@@ -2187,32 +2195,68 @@ impl<RT: Runtime> Database<RT> {
             .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id index for {tablet_id:?} missing"))?;
         let mut document_stream = {
-            let expected_cache_key = ListSnapshotTableIteratorCacheEntry {
+            let expected_cache_key = ListSnapshotTableIteratorCacheKey {
                 snapshot: *snapshot,
                 tablet_ids: tablet_ids.clone(),
                 by_id,
                 cursor,
             };
-            if let Some((_key, ds)) = self
-                .list_snapshot_table_iterator_cache
-                .lock()
-                .take_if(|(cache_key, _)| *cache_key == expected_cache_key)
-            {
-                ds
-            } else {
-                if let Fault::Error(e) = self
-                    .runtime
-                    .pause_client()
-                    .wait("list_snapshot_new_iterator")
-                    .await
-                {
-                    return Err(e);
-                }
-                let table_iterator = self.table_iterator(snapshot, 100).multi(tablet_ids.clone());
-                table_iterator
-                    .into_stream_documents_in_table(tablet_id, by_id, cursor)
-                    .boxed()
-            }
+            // NOTE: this implies that only one list_snapshot call can be initializing at a
+            // time, which is de-facto true anyway
+            let mut cache = self.list_snapshot_table_iterator_cache.lock().await;
+            let iterator_future = match *cache {
+                Some(ref mut entry) if entry.cache_key == expected_cache_key => {
+                    tracing::info!("Resuming cached list_snapshot iterator");
+                    &mut entry.iterator
+                },
+                _ => {
+                    if let Fault::Error(e) = self
+                        .runtime
+                        .pause_client()
+                        .wait("list_snapshot_new_iterator")
+                        .await
+                    {
+                        return Err(e);
+                    }
+                    tracing::info!(
+                        ?snapshot,
+                        ?tablet_ids,
+                        ?cursor,
+                        "Initializing a new list_snapshot iterator"
+                    );
+                    let table_iterator =
+                        self.table_iterator(snapshot, 100).multi(tablet_ids.clone());
+                    &mut cache
+                        .insert(ListSnapshotTableIteratorCacheEntry {
+                            cache_key: expected_cache_key,
+                            iterator: AbortOnDropHandle::new(tokio_spawn(
+                                "init_list_snapshot_iterator",
+                                async move {
+                                    let mut stream = Box::pin(
+                                        table_iterator
+                                            .into_stream_documents_in_table(
+                                                tablet_id, by_id, cursor,
+                                            )
+                                            .peekable(),
+                                    );
+                                    // Wait for the iterator to initialize by peeking the first
+                                    // element
+                                    _ = stream.as_mut().peek().await;
+                                    tracing::info!("Finished initializing list_snapshot iterator");
+                                    stream as _
+                                },
+                            ))
+                            .map_err(|e| anyhow::anyhow!(e))
+                            .boxed(),
+                        })
+                        .iterator
+                },
+            };
+            let iterator = iterator_future.await;
+            // Always clear the cache if `iterator_future` yielded to avoid panicking on
+            // polling after completion
+            *cache = None;
+            iterator?
         };
 
         enum PageResult<RT: Runtime> {
@@ -2294,15 +2338,15 @@ impl<RT: Runtime> Database<RT> {
                 document_stream,
             } => (
                 Some(new_cursor),
-                Some((
-                    ListSnapshotTableIteratorCacheEntry {
+                Some(ListSnapshotTableIteratorCacheEntry {
+                    cache_key: ListSnapshotTableIteratorCacheKey {
                         snapshot: *snapshot,
                         tablet_ids,
                         by_id,
                         cursor: Some(new_cursor),
                     },
-                    document_stream,
-                )),
+                    iterator: Box::pin(async move { Ok(document_stream) }),
+                }),
             ),
             PageResult::TableDone(table_iterator) => match tablet_ids.get(1) {
                 Some(&next_tablet_id) => {
@@ -2320,22 +2364,22 @@ impl<RT: Runtime> Database<RT> {
                         .boxed();
                     (
                         Some(next_cursor),
-                        Some((
-                            ListSnapshotTableIteratorCacheEntry {
+                        Some(ListSnapshotTableIteratorCacheEntry {
+                            cache_key: ListSnapshotTableIteratorCacheKey {
                                 snapshot: *snapshot,
                                 tablet_ids: tablet_ids[1..].to_vec(),
                                 by_id: next_by_id,
                                 cursor: Some(next_cursor),
                             },
-                            next_document_stream,
-                        )),
+                            iterator: Box::pin(async move { Ok(next_document_stream) }),
+                        }),
                     )
                 },
                 None => (None, None),
             },
         };
         if let Some(kv) = next_cache_kv {
-            *self.list_snapshot_table_iterator_cache.lock() = Some(kv);
+            *self.list_snapshot_table_iterator_cache.lock().await = Some(kv);
         }
         let has_more = new_cursor.is_some();
         metrics::log_list_snapshot_page_documents(documents.len());
