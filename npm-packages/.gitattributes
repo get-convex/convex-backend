@@ -1,6 +1,6 @@
 # Don't allow people to merge changes to these generated files, because the result
 # may be invalid.  You need to run "rush update" again.
-pnpm-lock.yaml               merge=ours
+pnpm-lock.yaml               merge=theirs
 shrinkwrap.yaml              merge=ours
 npm-shrinkwrap.json          merge=ours
 yarn.lock                    merge=ours

@@ -64,7 +64,7 @@ jobs:
 
       - name: Sync enhanced
         env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
+          GH_TOKEN: ${{ github.token }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TARGET_BRANCH: enhanced
           UPSTREAM_BRANCH: main
@@ -102,7 +102,7 @@ jobs:
 
       - name: Sync release
         env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
+          GH_TOKEN: ${{ github.token }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TARGET_BRANCH: release
           UPSTREAM_BRANCH: release
