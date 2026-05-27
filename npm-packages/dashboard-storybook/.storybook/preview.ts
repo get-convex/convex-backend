@@ -21,6 +21,7 @@ sb.mock(import("../../dashboard/src/api/accessTokens.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/personalAccessTokens.ts"), {
   spy: true,
 });
+sb.mock(import("../../dashboard/src/api/discord.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/backups.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/vanityDomains.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/environmentVariables.ts"), {

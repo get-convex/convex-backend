@@ -2,7 +2,7 @@
   "name": "convex",
   "private": true,
   "devDependencies": {
-    "@microsoft/rush": "5.173.0",
+    "@microsoft/rush": "5.175.1",
     "dprint": "0.52.0",
     "pnpm": "10.33.0"
   },

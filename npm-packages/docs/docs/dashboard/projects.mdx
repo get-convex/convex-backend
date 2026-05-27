@@ -47,7 +47,30 @@ you can:
 
 <Screenshot story="docs/pages/project/ProjectSettings" alt="Project settings" />
 
-## Deleting projects
+## Transferring a project to another team
+
+You can move a project to another team you’re a member of from the
+[Project Settings page](https://dashboard.convex.dev/project/settings#transfer-project).
+The project keeps its slug, deployments, data, environment variables, and deploy
+keys — only its owning team changes.
+
+After the transfer, the project URL changes from
+`https://dashboard.convex.dev/t/<old-team>/<project>` to
+`https://dashboard.convex.dev/t/<new-team>/<project>`. Members of the source
+team lose access to the project, unless they have permissions on the new team
+allowing them to see the project.
+
+<Screenshot story="docs/components/TransferProject" alt="Transfer project" />
+
+To transfer a project:
+
+- You need to be an admin on the **source team** (or have the `project:transfer`
+  permission if using [custom roles](/team-management/custom-roles.mdx))
+- You also need to be an admin on the **destination team** (or have the
+  `project:receive` permission if using
+  [custom roles](/team-management/custom-roles.mdx)).
+
+## Deleting a projects
 
 To delete a project, click on the triple-dot `⋮` button on the Project card and
 select "Delete". You may also delete your project from the Project Settings

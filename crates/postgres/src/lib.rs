@@ -1354,7 +1354,7 @@ impl PostgresReader {
     fn _index_cursor_params(cursor: Option<&IndexEntry>) -> anyhow::Result<Vec<Param>> {
         match cursor {
             Some(cursor) => {
-                let last_id_param = Param::Bytes(cursor.index_id.into());
+                let last_id_param = Param::Bytes(cursor.index_id.0.into());
                 let last_key_prefix = Param::Bytes(cursor.key_prefix.clone());
                 let last_sha256 = Param::Bytes(cursor.key_sha256.clone());
                 let last_ts = Param::Ts(cursor.ts.into());
@@ -1394,8 +1394,9 @@ enum IndexScanResult {
 
 fn parse_row(row: &Row) -> anyhow::Result<IndexEntry> {
     let bytes: Vec<u8> = row.get(0);
-    let index_id =
-        InternalId::try_from(bytes).map_err(|_| anyhow::anyhow!("index_id wrong size"))?;
+    let index_id = InternalId::try_from(bytes)
+        .map_err(|_| anyhow::anyhow!("index_id wrong size"))?
+        .into();
 
     let key_prefix: Vec<u8> = row.get(1);
     let key_sha256: Vec<u8> = row.get(2);
@@ -1933,7 +1934,7 @@ fn index_params(update: &PersistenceIndexEntry) -> [Param; NUM_INDEX_PARAMS] {
         ),
     };
     [
-        internal_id_param(update.index_id),
+        internal_id_param(update.index_id.0),
         Param::Ts(i64::from(update.ts)),
         Param::Bytes(key.prefix),
         match key.suffix {
@@ -2059,7 +2060,7 @@ fn index_query(
     instance_name: &PgInstanceName,
 ) -> (&'static str, Vec<Param>) {
     let mut params: Vec<Param> = vec![
-        internal_id_param(index_id),
+        internal_id_param(index_id.0),
         Param::Ts(read_timestamp.into()),
     ];
 

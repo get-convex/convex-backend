@@ -128,7 +128,7 @@ impl SqlitePersistence {
         order: Order,
     ) -> anyhow::Result<Vec<anyhow::Result<(IndexKeyBytes, LatestDocument)>>> {
         let interval = interval.clone();
-        let index_id = &index_id[..];
+        let index_id = &index_id.0[..];
         let read_timestamp: u64 = read_timestamp.into();
 
         let mut params = params![index_id, read_timestamp].to_vec();
@@ -300,7 +300,7 @@ impl Persistence for SqlitePersistence {
             match update.value {
                 None => {
                     insert_index_query.execute(params![
-                        &index_id[..],
+                        &index_id.0[..],
                         &u64::from(update.ts),
                         key,
                         &1,
@@ -310,7 +310,7 @@ impl Persistence for SqlitePersistence {
                 },
                 Some(doc_id) => {
                     insert_index_query.execute(params![
-                        &index_id[..],
+                        &index_id.0[..],
                         &u64::from(update.ts),
                         key,
                         &0,
@@ -359,7 +359,7 @@ impl Persistence for SqlitePersistence {
             .map(|row| {
                 let (index_id, key, ts, deleted) = row?;
                 let index_row = IndexEntry {
-                    index_id: index_id.try_into()?,
+                    index_id: IndexId(index_id.try_into()?),
                     key_prefix: key.clone(),
                     key_suffix: None,
                     key_sha256: key,
@@ -394,7 +394,8 @@ impl Persistence for SqlitePersistence {
         } in expired_rows
         {
             count_deleted +=
-                delete_index_query.execute(params![&index_id[..], &u64::from(ts), key_prefix,])?;
+                delete_index_query
+                    .execute(params![&index_id.0[..], &u64::from(ts), key_prefix,])?;
         }
         drop(delete_index_query);
         tx.commit()?;

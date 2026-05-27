@@ -138,7 +138,7 @@ impl IndexSelector {
             Self::All(index_registry) => index_registry
                 .all_database_indexes()
                 .into_iter()
-                .map(|doc| doc.id().internal_id())
+                .map(|doc| doc.id().internal_id().into())
                 .collect(),
             Self::ManyIndexes { indexes, .. } => indexes.keys().copied().collect(),
         };

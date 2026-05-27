@@ -616,7 +616,7 @@ impl TransactionIndex {
             // name->index mapping to depend only on index id, we rely
             // on index name being immutable.
             Some(index) => {
-                let full_index_id = DeveloperDocumentId::new(index_table_number, index.id());
+                let full_index_id = DeveloperDocumentId::new(index_table_number, index.id().0);
                 let index_key = IndexKey::new(vec![], full_index_id);
                 Interval::prefix(index_key.to_bytes().into())
             },

@@ -152,7 +152,7 @@ impl SystemTable for IndexWorkerMetadataTable {
 /// implementation detail of how the index is built.
 #[derive(Debug, Clone)]
 pub struct IndexWorkerMetadataRecord {
-    index_id: InternalId,
+    index_id: IndexId,
     pub index_metadata: IndexWorkerMetadata,
 }
 
@@ -180,7 +180,7 @@ impl TryFrom<SerializedIndexWorkerMetadataRecord> for IndexWorkerMetadataRecord 
     type Error = anyhow::Error;
 
     fn try_from(value: SerializedIndexWorkerMetadataRecord) -> Result<Self, Self::Error> {
-        let index_id = InternalId::from_str(&value.index_id)?;
+        let index_id = InternalId::from_str(&value.index_id)?.into();
         let index_metadata = IndexWorkerMetadata::try_from(value.index_metadata)?;
         Ok(IndexWorkerMetadataRecord {
             index_id,

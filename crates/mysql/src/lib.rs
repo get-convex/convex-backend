@@ -1129,7 +1129,7 @@ impl<RT: Runtime> MySqlReader<RT> {
         let execute_timer =
             metrics::query_index_point_sql_execute_timer(self.read_pool.cluster_name());
         let mut params: Vec<mysql_async::Value> = vec![
-            internal_id_param(index_id).into(),
+            internal_id_param(index_id.0).into(),
             key_prefix.into(),
             key_sha256.to_vec().into(),
             i64::from(read_timestamp).into(),
@@ -1171,7 +1171,7 @@ impl<RT: Runtime> MySqlReader<RT> {
             u64,
         ) = match cursor {
             Some(cursor) => (
-                cursor.index_id.into(),
+                cursor.index_id.0.into(),
                 cursor.key_prefix.clone(),
                 cursor.key_sha256.clone(),
                 cursor.ts.into(),
@@ -1190,7 +1190,7 @@ impl<RT: Runtime> MySqlReader<RT> {
     }
 
     fn _index_delete_params(query: &mut Vec<mysql_async::Value>, entry: &IndexEntry) {
-        let last_id_param: Vec<u8> = entry.index_id.into();
+        let last_id_param: Vec<u8> = entry.index_id.0.into();
         let last_key_prefix: Vec<u8> = entry.key_prefix.clone();
         let last_sha256: Vec<u8> = entry.key_sha256.clone();
         let last_ts: u64 = entry.ts.into();
@@ -1215,7 +1215,9 @@ impl<RT: Runtime> MySqlReader<RT> {
 
 /// Takes the key columns out of the `Row`
 fn parse_row(row: &mut Row) -> anyhow::Result<IndexEntry> {
-    let index_id = InternalId::try_from(bytes_col(row, 0)?).context("index_id wrong size")?;
+    let index_id = InternalId::try_from(bytes_col(row, 0)?)
+        .context("index_id wrong size")?
+        .into();
 
     let key_prefix: Vec<u8> = row.take_opt(1).context("row[1]")??;
     let key_sha256: Vec<u8> = row.take_opt(2).context("row[2]")??;
@@ -1775,7 +1777,7 @@ fn index_params(query: &mut Vec<mysql_async::Value>, update: &PersistenceIndexEn
             Some(internal_doc_id_param(*doc_id)),
         ),
     };
-    query.push(internal_id_param(update.index_id).into());
+    query.push(internal_id_param(update.index_id.0).into());
     query.push(i64::from(update.ts).into());
     query.push(key.prefix.into());
     query.push(

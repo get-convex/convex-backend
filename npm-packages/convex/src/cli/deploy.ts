@@ -3,6 +3,7 @@ import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logFinishedStep, logMessage, showSpinner } from "../bundler/log.js";
 import { loadSelectedDeploymentCredentials } from "./lib/api.js";
+import { announceDeploymentTarget } from "./lib/announceDeploymentTarget.js";
 import {
   getDefaultDeployMessage,
   gitBranchFromEnvironment,
@@ -267,6 +268,19 @@ async function deployToNewPreviewDeployment(
   // Extract deployment name from URL for WorkOS provisioning
   const deploymentNameForWorkOS = extractDeploymentNameForWorkOS(previewUrl);
 
+  announceDeploymentTarget("Deploying code on deployment:", {
+    url: previewUrl,
+    deploymentFields: {
+      deploymentName: data.deploymentName,
+      deploymentType: "preview",
+      teamSlug: deploymentSelection.projectSelection.teamSlug,
+      projectSlug: deploymentSelection.projectSelection.projectSlug,
+      reference: data.reference,
+      // Preview deployments are never default
+      isDefault: false,
+    },
+  });
+
   // Provision WorkOS before building the client bundle (if configured)
   const { projectConfig } = await readProjectConfig(ctx);
   const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
@@ -353,6 +367,7 @@ async function deployToExistingDeployment(
     ctx,
     deploymentSelection,
   );
+  announceDeploymentTarget("Deploying code on deployment:", deploymentToActOn);
   const { deploymentFields } = deploymentToActOn;
 
   const configuredDeployment =

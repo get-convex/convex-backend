@@ -71,7 +71,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
 
     fn index_id_as_developer_id(&mut self, index_id: IndexId) -> DeveloperDocumentId {
         let index_table_id = self.tx.bootstrap_tables().index_id;
-        DeveloperDocumentId::new(index_table_id.table_number, index_id)
+        DeveloperDocumentId::new(index_table_id.table_number, index_id.0)
     }
 
     #[fastrace::trace]

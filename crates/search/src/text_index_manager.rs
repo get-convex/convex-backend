@@ -326,7 +326,7 @@ impl TextIndexManager {
                         };
                         let memory_index = MemoryTextIndex::new(ts);
                         let index = TextIndex::Backfilling { memory_index };
-                        indexes.insert(insertion.id().internal_id(), index);
+                        indexes.insert(insertion.id().internal_id().into(), index);
 
                         metrics::log_index_created();
                     }
@@ -446,7 +446,7 @@ impl TextIndexManager {
                         };
 
                         if is_newly_enabled || is_updated_snapshot {
-                            let mut entry = match indexes.entry(id.internal_id()) {
+                            let mut entry = match indexes.entry(id.internal_id().into()) {
                                 Entry::Occupied(e) => e,
                                 Entry::Vacant(..) => anyhow::bail!("Missing index for {id}"),
                             };
@@ -498,7 +498,7 @@ impl TextIndexManager {
                 (Some(deletion), None) => {
                     let metadata: ParsedDocument<IndexMetadata<_>> = deletion.parse()?;
                     if metadata.is_text_index() {
-                        indexes.remove(&deletion.id().internal_id());
+                        indexes.remove(&deletion.id().internal_id().into());
                         metrics::log_index_deleted();
                     }
                 },

@@ -387,7 +387,7 @@ impl IndexCacheHandle {
         ts: RepeatableTimestamp,
         order: Order,
         max_size: usize,
-    ) -> Option<IndexPage> {
+    ) -> Option<(IndexPage, RepeatableTimestamp)> {
         let mut timer = index_cache_get_timer();
         let key = CacheKey {
             deployment_id: self.deployment_id,
@@ -401,7 +401,7 @@ impl IndexCacheHandle {
             .cache
             .get(&key)
             .and_then(|cached_interval| cached_interval.index_page_at_ts(ts));
-        if result.is_some() {
+        if let Some((ref _index_page, cache_ts)) = result {
             // A ready entry must have its interval tracked so apply_writes can invalidate
             // it. If the interval is missing, this entry is a zombie that would serve
             // stale data — remove it and treat as a miss.
@@ -424,7 +424,8 @@ impl IndexCacheHandle {
                 IntervalStatus::IntervalMissing => {
                     tracing::error!(
                         "IndexCache: ready entry found but interval not tracked — invalidating \
-                         zombie entry (deployment_id={:?}, index_id={index_id:?})",
+                         zombie entry (deployment_id={:?}, index_id={index_id:?}, \
+                         cache_ts={cache_ts})",
                         self.deployment_id
                     );
                     self.cache.cache.remove(key);
@@ -688,7 +689,10 @@ pub struct CachedInterval {
 }
 
 impl CachedInterval {
-    fn index_page_at_ts(&self, ts: RepeatableTimestamp) -> Option<IndexPage> {
+    fn index_page_at_ts(
+        &self,
+        ts: RepeatableTimestamp,
+    ) -> Option<(IndexPage, RepeatableTimestamp)> {
         if !self.is_ready {
             return None;
         }
@@ -699,10 +703,13 @@ impl CachedInterval {
         // are always from the original populate snapshot, valid at any ts >=
         // begin_ts. The cursor is also from the original page.
         let entries = self.order.apply(self.entries.iter().cloned()).collect();
-        Some(IndexPage {
-            entries,
-            cursor: self.cursor.clone(),
-        })
+        Some((
+            IndexPage {
+                entries,
+                cursor: self.cursor.clone(),
+            },
+            self.begin_ts,
+        ))
     }
 
     fn size(&self) -> usize {

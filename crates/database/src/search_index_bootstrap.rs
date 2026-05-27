@@ -140,7 +140,7 @@ impl IndexesToBootstrap {
                         VectorIndexState::Backfilling(_) => upper_bound.succ()?,
                     };
                     let vector_index_bootstrap_data = VectorIndexBootstrapData {
-                        index_id: index_id.internal_id(),
+                        index_id: index_id.internal_id().into(),
                         on_disk_state,
                         memory_index: MemoryVectorIndex::new(WriteTimestamp::Committed(ts.succ()?)),
                         qdrant_schema,
@@ -207,7 +207,7 @@ impl IndexesToBootstrap {
                     };
                     let tantivy_schema = TantivySearchIndexSchema::new(spec);
                     let text_index_bootstrap_data = TextIndexBootstrapData {
-                        index_id: index_id.internal_id(),
+                        index_id: index_id.internal_id().into(),
                         text_index,
                         tantivy_schema,
                     };

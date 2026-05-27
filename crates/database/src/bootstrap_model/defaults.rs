@@ -119,7 +119,7 @@ impl BootstrapTableIds {
     pub fn index_resolved_doc_id(&self, index_id: IndexId) -> ResolvedDocumentId {
         ResolvedDocumentId::new(
             self.index_id.tablet_id,
-            DeveloperDocumentId::new(self.index_id.table_number, index_id),
+            DeveloperDocumentId::new(self.index_id.table_number, index_id.0),
         )
     }
 

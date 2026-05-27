@@ -34,7 +34,6 @@ use common::{
         SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD,
         SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
         SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD,
-        SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD,
     },
     runtime::{
         block_in_place,
@@ -517,7 +516,6 @@ impl SubscriptionManager {
                                 to_notify,
                                 num_index_updates,
                                 index_name,
-                                next_ts,
                                 |notify, num_index_updates| {
                                     Self::overlapping_database(
                                         interval_map,
@@ -537,7 +535,6 @@ impl SubscriptionManager {
                                 to_notify,
                                 num_index_updates,
                                 index_name,
-                                next_ts,
                                 |notify, num_index_updates| {
                                     self.overlapping_text(
                                         text_subscription,
@@ -731,13 +728,11 @@ impl SubscriptionManager {
         to_notify: &mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
         num_index_updates: &mut usize,
         index_name: &TabletIndexName,
-        next_ts: Timestamp,
         overlap_fn: impl FnOnce(
             &mut dyn FnMut(SubscriberId, Timestamp, Option<WriteSource>),
             &mut usize,
         ),
     ) {
-        let process_log_timer = metrics::subscription_process_write_log_entry_timer();
         let tablet_id = *index_name.table();
         let mut notify = |subscriber_id, write_ts, write_source: Option<WriteSource>| {
             // Always take the earliest matching write_ts.
@@ -753,14 +748,6 @@ impl SubscriptionManager {
                 .or_insert_with(|| (write_ts, write_source.clone(), tablet_id));
         };
         overlap_fn(&mut notify, num_index_updates);
-        if process_log_timer.elapsed()
-            > Duration::from_secs(*SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD)
-        {
-            tracing::info!(
-                "[{next_ts}: advance_log] simple commit took {:?}, affected tablet: {tablet_id:?}",
-                process_log_timer.elapsed()
-            );
-        }
     }
 
     fn get_subscriber(&self, key: SubscriptionKey) -> Option<&Subscriber> {

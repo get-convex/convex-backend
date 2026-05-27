@@ -194,7 +194,7 @@ impl FastForwardIndexWorker {
         IndexModel::new(&mut tx).take_indexes_dependency()?;
         for index_doc in tx.index.index_registry().clone().all_indexes() {
             let index_id = index_doc.id();
-            let internal_id = index_id.internal_id();
+            let internal_id = index_id.internal_id().into();
 
             let TabletIndexMetadata { name, config } = &**index_doc;
 
@@ -222,7 +222,7 @@ impl FastForwardIndexWorker {
 
             let index_worker_meta = Worker::get_or_create_worker_meta(
                 IndexWorkerMetadataModel::new(&mut tx),
-                index_id.internal_id(),
+                index_id.internal_id().into(),
             )
             .await?;
 

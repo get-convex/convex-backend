@@ -54,16 +54,6 @@ export async function finalizeConfiguration(
   if (options.wroteToGitIgnore) {
     logMessage(chalkStderr.gray(`  Added ".env.local" to .gitignore`));
   }
-  if (
-    options.deploymentType === "anonymous" &&
-    process.env.CONVEX_AGENT_MODE !== "anonymous" &&
-    ctx.bigBrainAuth() === null
-  ) {
-    logMessage(
-      `Run \`npx convex login\` at any time to create an account and link this deployment.`,
-    );
-  }
-
   const anyChanges =
     options.wroteToGitIgnore ||
     options.changedDeploymentEnvVar ||

@@ -136,10 +136,7 @@ use tokio::{
     },
     time::MissedTickBehavior,
 };
-use value::{
-    InternalDocumentId,
-    InternalId,
-};
+use value::InternalDocumentId;
 
 use crate::{
     metrics::{
@@ -471,7 +468,7 @@ impl LeaderRetentionWorkers {
     /// they were marked `Deleting`
     fn tablets_to_delete(
         snapshot: Snapshot,
-        tables_by_id: InternalId,
+        tables_by_id: IndexId,
     ) -> anyhow::Result<BTreeMap<TabletId, Timestamp>> {
         let range_docs = snapshot
             .in_memory_indexes
@@ -1621,7 +1618,7 @@ impl LeaderRetentionWorkers {
         doc: ResolvedDocument,
         all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
     ) -> anyhow::Result<()> {
-        let index_id = doc.id().internal_id();
+        let index_id = doc.id().internal_id().into();
         let index: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
         let index = index.into_value();
         let IndexConfig::Database {

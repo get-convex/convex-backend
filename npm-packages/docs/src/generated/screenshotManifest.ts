@@ -185,6 +185,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/TransferProject",
+    "light": {
+      "filename": "components_transfer_project_light.webp",
+      "width": 1856,
+      "height": 548
+    },
+    "dark": {
+      "filename": "components_transfer_project_dark.webp",
+      "width": 1856,
+      "height": 548
+    }
+  },
+  {
     "storyTitle": "docs/components/UsageByProjectChart",
     "light": {
       "filename": "components_usage_by_project_chart_light.webp",
@@ -195,6 +208,19 @@ export const screenshots = [
       "filename": "components_usage_by_project_chart_dark.webp",
       "width": 2048,
       "height": 918
+    }
+  },
+  {
+    "storyTitle": "docs/pages/Profile",
+    "light": {
+      "filename": "pages_profile_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_profile_dark.webp",
+      "width": 2048,
+      "height": 1400
     }
   },
   {

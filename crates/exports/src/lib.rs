@@ -68,7 +68,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    InternalId,
     TableNamespace,
     TableNumber,
     TabletId,
@@ -250,7 +249,7 @@ pub async fn write_table<'a, 'b: 'a, F, Fut, RT: Runtime>(
     component_path: &ComponentPath,
     tablet_id: &TabletId,
     table_name: TableName,
-    by_id: &InternalId,
+    by_id: &IndexId,
     usage: &FunctionUsageTracker,
     update_progress: &F,
     table_total_docs: u64,

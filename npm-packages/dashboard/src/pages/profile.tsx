@@ -25,7 +25,7 @@ import { PersonalAccessTokens } from "components/profile/PersonalAccessTokens";
 
 export { getServerSideProps } from "lib/ssr";
 
-function Profile() {
+export function Profile() {
   const profile = useProfile();
   const emails = useProfileEmails();
 
