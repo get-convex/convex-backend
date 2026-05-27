@@ -113,22 +113,26 @@ pub async fn document_deltas_post(
 
 pub async fn _document_deltas(
     st: LocalAppState,
-    args: DocumentDeltasArgs,
+    DocumentDeltasArgs {
+        cursor,
+        selection,
+        format,
+    }: DocumentDeltasArgs,
     identity: Identity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("Got document deltas call with cursor={cursor:?}");
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
-    let cursor = args
-        .cursor
+    let cursor = cursor
         .context(ErrorMetadata::bad_request(
             "DocumentDeltasCursorRequired",
             "/api/document_deltas requires a cursor",
         ))?
         .try_into()?;
 
-    let selection = Selection::from(args.selection);
+    let selection = Selection::from(selection);
     let selection = StreamingExportSelection::try_from(selection)?;
 
     let DocumentDeltas {
@@ -140,8 +144,7 @@ pub async fn _document_deltas(
         .application
         .document_deltas(identity, cursor, selection)
         .await?;
-    let value_format = args
-        .format
+    let value_format = format
         .map(|f| f.parse())
         .transpose()?
         .unwrap_or(ValueFormat::ConvexCleanJSON);
@@ -220,14 +223,20 @@ pub async fn list_snapshot_post(
 
 async fn _list_snapshot(
     st: LocalAppState,
-    args: ListSnapshotArgs,
+    ListSnapshotArgs {
+        snapshot,
+        cursor,
+        selection,
+        format,
+    }: ListSnapshotArgs,
     identity: Identity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("Received call to list_snapshot with snapshot={snapshot:?} cursor={cursor:?}");
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
-    let snapshot = args.snapshot.map(Timestamp::try_from).transpose()?;
+    let snapshot = snapshot.map(Timestamp::try_from).transpose()?;
 
     #[derive(Serialize, Deserialize)]
     struct ListSnapshotCursor {
@@ -235,8 +244,7 @@ async fn _list_snapshot(
         id: String,
     }
 
-    let cursor: Option<ResolvedDocumentId> = args
-        .cursor
+    let cursor: Option<ResolvedDocumentId> = cursor
         .map(|cursor| -> anyhow::Result<_> {
             let list_snapshot_cursor = serde_json::from_str::<ListSnapshotCursor>(&cursor)?;
             Ok(ResolvedDocumentId {
@@ -249,7 +257,7 @@ async fn _list_snapshot(
         })
         .transpose()?;
 
-    let selection = Selection::from(args.selection);
+    let selection = Selection::from(selection);
     let selection = StreamingExportSelection::try_from(selection)?;
 
     let SnapshotPage {
@@ -262,8 +270,7 @@ async fn _list_snapshot(
         .application
         .list_snapshot(identity.clone(), snapshot, cursor, selection)
         .await?;
-    let value_format = args
-        .format
+    let value_format = format
         .map(|f| f.parse())
         .transpose()?
         .unwrap_or(ValueFormat::ConvexCleanJSON);
