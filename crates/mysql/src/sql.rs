@@ -131,25 +131,25 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
         ) ROW_FORMAT=DYNAMIC;
         CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
             {instance_col_def}
-            `key` VARCHAR(255) NOT NULL,
+            `key` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
             json_value LONGBLOB NOT NULL,
 
             PRIMARY KEY ({instance_col} `key`)
         ) ROW_FORMAT=DYNAMIC;"#,
             instance_col_def = if multitenant {
-                "instance_name VARCHAR(64) NOT NULL,"
+                "instance_name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,"
             } else {
                 ""
             },
             instance_col = if multitenant { "instance_name," } else { "" },
             lease_col_def = if multitenant {
-                "instance_name VARCHAR(64) NOT NULL"
+                "instance_name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL"
             } else {
                 "id BIGINT NOT NULL"
             },
             lease_pk = if multitenant { "instance_name" } else { "id" },
             read_only_col_def = if multitenant {
-                "instance_name VARCHAR(64) NOT NULL"
+                "instance_name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL"
             } else {
                 "id BIGINT NOT NULL"
             },
