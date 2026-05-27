@@ -206,8 +206,7 @@ impl LocalNodeExecutor {
                         let chunk = chunk?;
                         match chunk {
                             Some(chunk) => {
-                                let chunk_vec = chunk.to_vec();
-                                anyhow::Ok(NodeExecutorStreamPart::Chunk(chunk_vec))
+                                anyhow::Ok(NodeExecutorStreamPart::Chunk(chunk))
                             }
                             None => {
                                 anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(Ok(())))

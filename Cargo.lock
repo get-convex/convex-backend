@@ -6396,6 +6396,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "cmd_util",
  "common",
  "convex_macro",
@@ -6408,6 +6409,7 @@ dependencies = [
  "isolate",
  "keybroker",
  "maplit",
+ "memchr",
  "metrics",
  "model",
  "rand 0.9.4",
