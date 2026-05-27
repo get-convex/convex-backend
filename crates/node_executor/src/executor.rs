@@ -11,6 +11,10 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use bytes::{
+    Buf,
+    Bytes,
+};
 use common::{
     backoff::Backoff,
     errors::{
@@ -975,7 +979,7 @@ fn parse_streamed_response(s: &str) -> anyhow::Result<Vec<ResponsePart>> {
 }
 
 pub enum NodeExecutorStreamPart {
-    Chunk(Vec<u8>),
+    Chunk(Bytes),
     InvokeComplete(Result<(), InvokeResponse>),
 }
 
@@ -983,24 +987,35 @@ pub async fn handle_node_executor_stream(
     log_line_sender: mpsc::UnboundedSender<LogLine>,
     mut stream: impl Stream<Item = anyhow::Result<NodeExecutorStreamPart>> + Unpin,
 ) -> anyhow::Result<Result<JsonValue, InvokeResponse>> {
-    let mut remaining_chunk: Vec<u8> = vec![];
+    let mut remaining_chunks: Vec<Bytes> = vec![];
     let mut result_values = vec![];
     while let Some(part) = stream.next().await {
         let part = part.with_context(|| "Error in node executor stream")?;
         match part {
-            NodeExecutorStreamPart::Chunk(chunk) => {
-                let mut bytes: &[u8] = &[remaining_chunk, chunk].concat();
+            NodeExecutorStreamPart::Chunk(mut chunk) => {
                 // Split any bytes from the previous chunk + the body of this chunk
                 // into new lines and parse them as JSON objects.
                 loop {
-                    match bytes.split_once(|b| b == &b'\n') {
+                    match memchr::memchr(b'\n', &chunk) {
                         None => {
-                            remaining_chunk = bytes.to_vec();
+                            if !chunk.is_empty() {
+                                remaining_chunks.push(chunk);
+                            }
                             break;
                         },
-                        Some((line, rest)) => {
-                            let decoded_str = String::from_utf8(line.to_vec())?;
-                            let parts = parse_streamed_response(&decoded_str)?;
+                        Some(pos) => {
+                            let before_newline = &chunk[..pos];
+                            let combined;
+                            let line = if remaining_chunks.is_empty() {
+                                before_newline
+                            } else {
+                                remaining_chunks.push(chunk.slice_ref(before_newline));
+                                combined = remaining_chunks.concat();
+                                remaining_chunks.clear();
+                                &combined
+                            };
+                            let decoded_str = str::from_utf8(line)?;
+                            let parts = parse_streamed_response(decoded_str)?;
                             for part in parts {
                                 match part {
                                     ResponsePart::LogLine(log_line) => {
@@ -1009,7 +1024,7 @@ pub async fn handle_node_executor_stream(
                                     ResponsePart::Result(result) => result_values.push(result),
                                 };
                             }
-                            bytes = rest;
+                            chunk.advance(pos + 1);
                         },
                     }
                 }
@@ -1018,7 +1033,7 @@ pub async fn handle_node_executor_stream(
                 if let Err(e) = result {
                     return Ok(Err(e));
                 }
-                let decoded_str = String::from_utf8(remaining_chunk.to_vec())?;
+                let decoded_str = String::from_utf8(remaining_chunks.concat())?;
                 let parts = parse_streamed_response(&decoded_str)?;
                 for part in parts {
                     match part {
