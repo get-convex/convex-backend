@@ -42,7 +42,11 @@ function addEnvDefaultOptions<T extends Command<any, any>>(cmd: T): T {
 const envDefaultSet = addEnvDefaultOptions(
   new Command("set")
     .usage("[options] <name> <value>")
-    .arguments("[name] [value]")
+    .argument("[name]", "The name of the default environment variable to set.")
+    .argument(
+      "[value]",
+      "The value to set the variable to. Omit to set it interactively.",
+    )
     .summary("Set a default variable")
     .description(
       "Set default environment variables for your project's deployment type.\n\n" +
@@ -83,7 +87,10 @@ const envDefaultSet = addEnvDefaultOptions(
 
 const envDefaultGet = addEnvDefaultOptions(
   new Command("get")
-    .arguments("<name>")
+    .argument(
+      "<name>",
+      "The name of the default environment variable to print.",
+    )
     .summary("Print a default variable's value")
     .description(
       "Print a default variable's value: `npx convex env default get NAME`\n" +
@@ -103,7 +110,10 @@ const envDefaultRemove = addEnvDefaultOptions(
   new Command("remove")
     .alias("rm")
     .alias("unset")
-    .arguments("<name>")
+    .argument(
+      "<name>",
+      "The name of the default environment variable to unset.",
+    )
     .summary("Unset a default variable")
     .description(
       "Unset a default variable: `npx convex env default remove NAME`\n" +

@@ -22,7 +22,11 @@ import { envDefault } from "./envDefault.js";
 const envSetCmd = new Command("set")
   // Pretend value is required
   .usage("[options] <name> <value>")
-  .arguments("[name] [value]")
+  .argument("[name]", "The name of the environment variable to set.")
+  .argument(
+    "[value]",
+    "The value to set the variable to. Omit to set it interactively.",
+  )
   .summary("Set a variable")
   .description(
     "Set environment variables on your deployment.\n\n" +
@@ -107,7 +111,7 @@ export async function selectEnvDeployment(
 }
 
 const envGetCmd = new Command("get")
-  .arguments("<name>")
+  .argument("<name>", "The name of the environment variable to print.")
   .summary("Print a variable's value")
   .description("Print a variable's value: `npx convex env get NAME`")
   .configureHelp({ showGlobalOptions: true })
@@ -129,7 +133,7 @@ const envGetCmd = new Command("get")
 const envRemoveCmd = new Command("remove")
   .alias("rm")
   .alias("unset")
-  .arguments("<name>")
+  .argument("<name>", "The name of the environment variable to unset.")
   .summary("Unset a variable")
   .description(
     "Unset a variable: `npx convex env remove NAME`\n" +
