@@ -22,6 +22,7 @@ parking_lot = { workspace = true }
 paste = { workspace = true }
 prometheus = { workspace = true }
 sentry = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 
 [lints]

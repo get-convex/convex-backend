@@ -12,6 +12,7 @@ use std::{
     },
 };
 
+mod eviction;
 mod labels;
 mod macros;
 mod metrics;
@@ -20,6 +21,14 @@ mod reporting;
 mod timer;
 
 pub use crate::{
+    eviction::{
+        register_evictable,
+        spawn_sweep_task,
+        sweep_now,
+        ttl_from_env,
+        DEFAULT_SWEEP_INTERVAL,
+        DEFAULT_TTL,
+    },
     labels::*,
     macros::*,
     metrics::*,

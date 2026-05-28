@@ -5990,6 +5990,7 @@ dependencies = [
  "paste",
  "prometheus",
  "sentry",
+ "tokio",
  "tracing",
 ]
 
@@ -7416,7 +7417,7 @@ dependencies = [
 [[package]]
 name = "prometheus"
 version = "0.14.0"
-source = "git+https://github.com/get-convex/rust-prometheus?rev=8794d2bbf2a5a9adc501067ee4440dde6b5e6e25#8794d2bbf2a5a9adc501067ee4440dde6b5e6e25"
+source = "git+https://github.com/get-convex/rust-prometheus?rev=367f80d0d3678ed7989814fd5864598746a3b946#367f80d0d3678ed7989814fd5864598746a3b946"
 dependencies = [
  "cfg-if",
  "fnv",

@@ -158,7 +158,7 @@ pkcs8 = "0.10.2"
 postgres = { path = "crates/postgres" }
 postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
-prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
+prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "367f80d0d3678ed7989814fd5864598746a3b946" }
 proptest = "1"
 proptest-derive = "0.5.0"
 proptest-http = { git = "https://github.com/nipunn1313/proptest-http", rev = "0e658bd4f6dbb73bdd3be66f0d2c34c00cc3a446" }
@@ -270,7 +270,7 @@ inherits = "release"
 strip = "debuginfo"
 
 [patch.crates-io]
-prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
+prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "367f80d0d3678ed7989814fd5864598746a3b946" }
 tokio-postgres = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
 postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
 tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
