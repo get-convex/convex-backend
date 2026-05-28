@@ -19,14 +19,12 @@ use model::{
         module_versions::FullModuleSource,
         types::ModuleMetadata,
     },
-    source_packages::types::{
-        SourcePackage,
-        SourcePackageId,
-    },
+    source_packages::types::SourcePackage,
 };
 use moka::sync::Cache;
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
+use value::sha256::Sha256Digest;
 
 use crate::record_module_sizes;
 
@@ -34,7 +32,7 @@ use crate::record_module_sizes;
 pub(crate) struct ModuleCacheKey {
     deployment_name: String,
     module_path: CanonicalizedModulePath,
-    source_package_id: SourcePackageId,
+    sha256: Sha256Digest,
 }
 
 #[derive(Clone)]
@@ -76,7 +74,7 @@ impl<RT: Runtime> FunctionRunnerModuleLoader<RT> {
         ModuleCacheKey {
             deployment_name: self.deployment_name.clone(),
             module_path: module_metadata.path.clone(),
-            source_package_id: module_metadata.source_package_id,
+            sha256: module_metadata.sha256.clone(),
         }
     }
 }
@@ -105,12 +103,12 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
                             .await;
                     modules
                         .into_iter()
-                        .map(move |((module_path, source_package_id), source)| {
+                        .map(move |((module_path, sha256), source)| {
                             (
                                 ModuleCacheKey {
                                     deployment_name: deployment_name.clone(),
                                     module_path,
-                                    source_package_id,
+                                    sha256,
                                 },
                                 source,
                             )

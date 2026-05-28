@@ -54,7 +54,13 @@ export const deploymentCreate = new Command("create")
       "  Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`\n" +
       "  Create a local deployment:                `npx convex deployment create local`\n",
   )
-  .argument("[ref]")
+  .argument(
+    "[ref]",
+    "The reference for the new deployment, e.g. `staging` or `dev/my-feature`. \n" +
+      "Use `local` to create a local deployment. \n" +
+      "You can specify a team and project with `team-slug:project-slug:ref` (e.g. `my-team:my-project:staging` or `my-team:my-project:local`). \n" +
+      "Can be omitted when using `--default`.",
+  )
   .allowExcessArguments(false)
   .addOption(
     new Option("--type <type>", "Deployment type").choices(SUPPORTED_TYPES),

@@ -8,19 +8,18 @@ use common::document::ParsedDocument;
 use deno_core::ModuleSpecifier;
 use model::{
     modules::{
+        hash_module_source,
         module_versions::FullModuleSource,
         types::ModuleMetadata,
     },
     source_packages::{
-        types::{
-            SourcePackage,
-            SourcePackageId,
-        },
+        types::SourcePackage,
         upload_download::download_package,
     },
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
+use value::sha256::Sha256Digest;
 
 use crate::{
     isolate::CONVEX_SCHEME,
@@ -32,7 +31,7 @@ pub async fn get_module_and_prefetch(
     modules_storage: Arc<dyn Storage>,
     module_metadata: &ParsedDocument<ModuleMetadata>,
     source_package: &ParsedDocument<SourcePackage>,
-) -> HashMap<(CanonicalizedModulePath, SourcePackageId), anyhow::Result<Arc<FullModuleSource>>> {
+) -> HashMap<(CanonicalizedModulePath, Sha256Digest), anyhow::Result<Arc<FullModuleSource>>> {
     let _timer = module_load_timer("package");
     let all_source_result =
         download_module_source_from_package(modules_storage, source_package).await;
@@ -40,10 +39,7 @@ pub async fn get_module_and_prefetch(
         Err(e) => {
             let mut result = HashMap::new();
             result.insert(
-                (
-                    module_metadata.path.clone(),
-                    module_metadata.source_package_id,
-                ),
+                (module_metadata.path.clone(), module_metadata.sha256.clone()),
                 Err(e),
             );
             result
@@ -59,7 +55,7 @@ pub async fn get_module_and_prefetch(
 async fn download_module_source_from_package(
     modules_storage: Arc<dyn Storage>,
     source_package: &ParsedDocument<SourcePackage>,
-) -> anyhow::Result<HashMap<(CanonicalizedModulePath, SourcePackageId), FullModuleSource>> {
+) -> anyhow::Result<HashMap<(CanonicalizedModulePath, Sha256Digest), FullModuleSource>> {
     let mut result = HashMap::new();
     let package = download_package(
         modules_storage,
@@ -67,10 +63,12 @@ async fn download_module_source_from_package(
         source_package.sha256.clone(),
     )
     .await?;
-    let source_package_id: SourcePackageId = source_package.developer_id().into();
     for (module_path, module_config) in package {
         result.insert(
-            (module_path, source_package_id),
+            (
+                module_path,
+                hash_module_source(&module_config.source, module_config.source_map.as_ref()),
+            ),
             FullModuleSource {
                 source: module_config.source,
                 source_map: module_config.source_map,

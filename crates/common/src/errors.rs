@@ -799,4 +799,3 @@ pub fn is_transient_db_error(e: &anyhow::Error) -> bool {
 }
 
 pub const AUTH_ERROR: &str = "AuthError";
-pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";

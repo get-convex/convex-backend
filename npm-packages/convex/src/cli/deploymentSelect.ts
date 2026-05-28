@@ -36,11 +36,11 @@ export const deploymentSelect = new Command("select")
     "Select the deployment to use when running commands.\n\n" +
       "The deployment will be used by all `npx convex` commands, except `npx convex deploy`. You can also run individual commands on another deployment by using the --deployment flag on that command.\n\n" +
       "Examples:\n" +
-      "  npx convex select dev                              # Select your personal cloud dev deployment in the current project\n" +
-      "  npx convex select local                            # Select your local deployment\n" +
-      "  npx convex select dev/james                        # Select a deployment in the same project by its reference\n" +
-      "  npx convex select some-project:dev/james           # Select a deployment in another project in the same team\n" +
-      "  npx convex select some-team:some-project:dev/james # Select a deployment in a particular team/project\n",
+      "  npx convex deployment select dev                              # Select your personal cloud dev deployment in the current project\n" +
+      "  npx convex deployment select local                            # Select your local deployment\n" +
+      "  npx convex deployment select dev/james                        # Select a deployment in the same project by its reference\n" +
+      "  npx convex deployment select some-project:dev/james           # Select a deployment in another project in the same team\n" +
+      "  npx convex deployment select some-team:some-project:dev/james # Select a deployment in a particular team/project\n",
   )
   .argument("<deployment>", "The deployment to use")
   .allowExcessArguments(false)

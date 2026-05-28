@@ -22,6 +22,10 @@ use crate::{
 
 #[async_trait]
 pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
+    /// The passed in [`SourcePackage`] is the source package that we would like
+    /// to load the given [`ModuleMetadata`] from. Thus, it is valid to pass in
+    /// a different source package than the one specified in [`ModuleMetadata`]
+    /// since later source packages can contain the same module.
     async fn get_module_with_metadata(
         &self,
         module_metadata: &ParsedDocument<ModuleMetadata>,
