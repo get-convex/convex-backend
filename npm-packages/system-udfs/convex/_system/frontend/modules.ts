@@ -1,4 +1,5 @@
 import {
+  AnalyzedModuleFunction,
   CronSpec,
   Module,
   ResolvedSourcePos,
@@ -118,11 +119,12 @@ function processFunction(f: {
   udfType: UdfType;
   visibility?: Visibility | null;
   args?: string;
-}) {
+}): AnalyzedModuleFunction {
   const lineno = f.pos?.start_lineno ?? f.lineno;
   return {
-    ...f,
+    name: f.name,
     lineno: lineno ? Number(lineno) : undefined,
+    udfType: f.udfType,
     visibility: f.visibility ?? { kind: "public" },
     argsValidator: f.args || DEFAULT_ARGS_VALIDATOR,
   };
