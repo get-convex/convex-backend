@@ -18,13 +18,11 @@ use model::{
         module_versions::FullModuleSource,
         types::ModuleMetadata,
     },
-    source_packages::types::{
-        SourcePackage,
-        SourcePackageId,
-    },
+    source_packages::types::SourcePackage,
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
+use value::sha256::Sha256Digest;
 
 mod metrics;
 
@@ -32,7 +30,7 @@ mod metrics;
 pub struct ModuleCache<RT: Runtime> {
     modules_storage: Arc<dyn Storage>,
 
-    cache: AsyncLru<RT, (CanonicalizedModulePath, SourcePackageId), FullModuleSource>,
+    cache: AsyncLru<RT, (CanonicalizedModulePath, Sha256Digest), FullModuleSource>,
 }
 
 impl<RT: Runtime> ModuleCache<RT> {
@@ -61,10 +59,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
     ) -> anyhow::Result<Arc<FullModuleSource>> {
         let timer = metrics::module_cache_get_module_timer();
 
-        let key = (
-            module_metadata.path.clone(),
-            module_metadata.source_package_id,
-        );
+        let key = (module_metadata.path.clone(), module_metadata.sha256.clone());
         let modules_storage = self.modules_storage.clone();
         let module_metadata = module_metadata.clone();
         let source_package = source_package.clone();

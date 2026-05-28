@@ -17,7 +17,7 @@ use sha2::Digest;
 use crate::ConvexValue;
 
 #[must_use]
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Sha256Digest([u8; 32]);
 
 impl Sha256Digest {
