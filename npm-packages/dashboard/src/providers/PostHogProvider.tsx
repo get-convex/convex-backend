@@ -1,8 +1,8 @@
+import { useProfile } from "api/profile";
 import { Router } from "next/router";
-import React, { useEffect } from "react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { useProfile } from "api/profile";
+import React, { useEffect, useState } from "react";
 
 export function PostHogProvider({
   children,
@@ -10,6 +10,7 @@ export function PostHogProvider({
   children: React.ReactElement;
 }) {
   const profile = useProfile();
+  const [postHogReady, setPostHogReady] = useState(() => posthog.__loaded);
 
   useEffect(() => {
     const isProduction = process.env.NODE_ENV === "production";
@@ -38,6 +39,9 @@ export function PostHogProvider({
         maskTextSelector: "*", // Masks all text elements (not including inputs)
         maskAllInputs: true, // Masks all input elements
       },
+      loaded() {
+        setPostHogReady(true);
+      },
     });
 
     // Capture pageview events on route change.
@@ -49,12 +53,24 @@ export function PostHogProvider({
     };
   }, []);
 
-  // Identify the user with their profile details.
+  // We wait for PostHog so it can read the shared subdomain cookie first, which
+  // may contain an anonymous ID from an earlier visit to the website, docs,
+  // Stack, etc. Calling identify() before that loads would skip the merge and
+  // we'd lose $anon_distinct_id on this person.
   useEffect(() => {
-    if (profile) {
-      posthog?.identify(profile.id.toString());
+    if (!profile || !postHogReady) {
+      return;
     }
-  }, [profile]);
+
+    const profileId = profile.id.toString();
+    const postHogId = posthog.get_distinct_id();
+    if (postHogId === profileId) {
+      // This user has already been identified.
+      return;
+    }
+
+    posthog.identify(profileId);
+  }, [profile, postHogReady]);
 
   return <PHProvider client={posthog}>{children}</PHProvider>;
 }
