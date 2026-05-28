@@ -107,11 +107,9 @@ impl<RT: Runtime> MultiTypeAsyncLru<RT> {
                     let mut hashmap = HashMap::new();
                     hashmap.insert(
                         Box::new(key) as GenericKey,
-                        value_generator
-                            .await
-                            .map(|v| <Arc<Key::Value>>::from(v) as Arc<dyn BaseLruValue>),
+                        <Arc<Key::Value>>::from(value_generator.await?) as Arc<dyn BaseLruValue>,
                     );
-                    hashmap
+                    Ok(hashmap)
                 }),
             )
             .await?;
