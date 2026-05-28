@@ -24,6 +24,7 @@ use metrics::{
     log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
+    register_convex_gauge_evictable,
     register_convex_histogram,
     CancelableTimer,
     IntoLabel,
@@ -55,7 +56,9 @@ pub fn execute_timer(udf_type: &UdfType, npm_version: &Option<Version>) -> Statu
     t
 }
 
-register_convex_gauge!(
+// `client_id` is unbounded and a client that disconnects stops updating this
+// gauge, leaving a stale frozen value, so evict label sets that go idle.
+register_convex_gauge_evictable!(
     ISOLATE_POOL_RUNNING_COUNT_INFO,
     "How many isolate workers are currently running work",
     &["pool_name", "client_id"]

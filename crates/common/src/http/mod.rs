@@ -1369,6 +1369,8 @@ pub async fn metrics() -> Result<impl IntoResponse, HttpResponseError> {
         ))
         .into());
     }
+    // Idempotent; starts the sweeper on the first scrape.
+    ::metrics::spawn_sweep_task(None);
     let encoder = TextEncoder::new();
     let metrics = CONVEX_METRICS_REGISTRY.gather();
     let output = encoder
