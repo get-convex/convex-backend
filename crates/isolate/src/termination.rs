@@ -239,7 +239,9 @@ impl IsolateHandle {
                 .context_stack
                 .last()
                 .is_some_and(|id| *id == handle.context_id),
-            "pop_context called out of order"
+            "pop_context({}) called out of order. Stack: {:?}",
+            handle.context_id,
+            inner.context_stack,
         );
         inner.context_stack.pop();
         if let Some(TerminationReason::Context(reason)) = &inner.reason {
