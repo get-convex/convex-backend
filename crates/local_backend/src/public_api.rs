@@ -36,7 +36,10 @@ use common::{
     version::ClientVersion,
     RequestContext,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use isolate::UdfArgsJson;
 use serde::{
     Deserialize,
@@ -368,7 +371,10 @@ pub fn export_value(
     if format == ValueFormat::ConvexEncodedJSON {
         value.to_raw_value()
     } else {
-        Ok(serde_json::from_value(value.unpack()?.export(format))?)
+        let unpacked = value.unpack().map_err(|e| {
+            e.wrap_error_message(|msg| format!("Function return value invalid: {msg}"))
+        })?;
+        Ok(serde_json::from_value(unpacked.export(format))?)
     }
 }
 

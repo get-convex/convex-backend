@@ -1075,6 +1075,7 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
         rng_seed: [u8; 32],
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
+        let subquery_path = udf_request.path_and_args.path().clone();
         let (tx, outcome) = self
             .execute_udf(
                 udf_request.udf_type,
@@ -1101,7 +1102,14 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
                     audit_log_lines: outcome.audit_log_lines,
                     journal: outcome.journal,
                     result: match outcome.result {
-                        Ok(t) => Ok(t.unpack()?),
+                        Ok(t) => Ok(t.unpack().map_err(|e| {
+                            e.wrap_error_message(|msg| {
+                                format!(
+                                    "Subquery {} return value invalid: {msg}",
+                                    subquery_path.for_logging().debug_str(),
+                                )
+                            })
+                        })?),
                         Err(e) => Err(e),
                     },
                     syscall_trace: outcome.syscall_trace,

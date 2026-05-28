@@ -631,7 +631,14 @@ impl<RT: Runtime> CacheManager<RT> {
                         if let Ok(json_packed_value) = &query_outcome.result
                             && returns_validator.needs_validation()
                         {
-                            let output: ConvexValue = json_packed_value.unpack()?;
+                            let output: ConvexValue = json_packed_value.unpack().map_err(|e| {
+                                e.wrap_error_message(|msg| {
+                                    format!(
+                                        "Function {} return value invalid: {msg}",
+                                        query_outcome.path.debug_str(),
+                                    )
+                                })
+                            })?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(
