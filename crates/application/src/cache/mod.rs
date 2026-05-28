@@ -120,18 +120,18 @@ pub struct CacheManager<RT: Runtime> {
     udf_execution: FunctionExecutionLog<RT>,
     audit_log_client: AuditLogClient,
 
-    deployment_id: DeploymentId,
+    tenant_id: QueryCacheTenantId,
     cache: QueryCache,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-struct DeploymentId(u32);
-impl DeploymentId {
+struct QueryCacheTenantId(u32);
+impl QueryCacheTenantId {
     fn allocate() -> Self {
-        static NEXT_DEPLOYMENT_ID: AtomicU32 = AtomicU32::new(0);
-        let id = NEXT_DEPLOYMENT_ID.fetch_add(1, Ordering::SeqCst);
-        assert_ne!(id, u32::MAX, "deployment id overflow");
-        DeploymentId(id)
+        static NEXT_ID: AtomicU32 = AtomicU32::new(0);
+        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+        assert_ne!(id, u32::MAX, "tenant id overflow");
+        QueryCacheTenantId(id)
     }
 }
 
@@ -142,7 +142,7 @@ impl DeploymentId {
 /// contains the identity, but `StoredCacheKey` does not.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct RequestedCacheKey {
-    deployment: DeploymentId,
+    tenant_id: QueryCacheTenantId,
     path: PublicFunctionPath,
     args: SerializedArgs,
     identity: IdentityCacheKey,
@@ -156,7 +156,7 @@ impl RequestedCacheKey {
         vec![
             self.precise_cache_key(),
             StoredCacheKey {
-                deployment: self.deployment,
+                tenant_id: self.tenant_id,
                 path: self.path.clone(),
                 args: self.args.clone(),
                 // Include queries that did not read `ctx.auth`.
@@ -169,7 +169,7 @@ impl RequestedCacheKey {
 
     fn precise_cache_key(&self) -> StoredCacheKey {
         StoredCacheKey {
-            deployment: self.deployment,
+            tenant_id: self.tenant_id,
             path: self.path.clone(),
             args: self.args.clone(),
             identity: Some(self.identity.clone()),
@@ -203,7 +203,7 @@ impl RequestedCacheKey {
             None
         };
         let key = StoredCacheKey {
-            deployment: self.deployment,
+            tenant_id: self.tenant_id,
             path: self.path.clone(),
             args: self.args.clone(),
             identity,
@@ -240,7 +240,7 @@ impl RequestedCacheKey {
 /// A cache key representing a persisted query result.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct StoredCacheKey {
-    deployment: DeploymentId,
+    tenant_id: QueryCacheTenantId,
     path: PublicFunctionPath,
     args: SerializedArgs,
     // None means that the query did not read `ctx.auth`.
@@ -309,16 +309,16 @@ impl<RT: Runtime> CacheManager<RT> {
         audit_log_client: AuditLogClient,
         cache: QueryCache,
     ) -> Self {
-        // each `CacheManager` (for a different deployment) gets its own cache key space
-        // within `Cache`, which has a _global_ size-limit
-        let deployment_id = DeploymentId::allocate();
+        // each `CacheManager` (for a different deployment) gets its own tenant
+        // ID within `Cache`, which has a _global_ size-limit
+        let tenant_id = QueryCacheTenantId::allocate();
         Self {
             rt,
             database,
             function_router,
             udf_execution,
             audit_log_client,
-            deployment_id,
+            tenant_id,
             cache,
         }
     }
@@ -381,7 +381,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
         let requested_key = RequestedCacheKey {
-            deployment: self.deployment_id,
+            tenant_id: self.tenant_id,
             path,
             args,
             identity: identity_cache_key,
