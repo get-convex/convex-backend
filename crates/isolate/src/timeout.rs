@@ -11,7 +11,6 @@ use std::{
 use anyhow::Context as _;
 use async_broadcast::broadcast;
 use common::{
-    errors::TIMEOUT_ERROR_MESSAGE,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -39,6 +38,9 @@ use crate::{
     },
     ConcurrencyPermit,
 };
+
+pub const SYSTEM_TIMEOUT_ERROR_MESSAGE: &str =
+    "Your request timed out performing too many system operations.";
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PauseReason {
@@ -293,9 +295,9 @@ impl<RT: Runtime> Timeout<RT> {
         };
         let result = timeout(f(&mut pause_guard))
             .await
-            .context(ErrorMetadata::overloaded(
+            .context(ErrorMetadata::bad_request(
                 "SystemTimeoutError",
-                TIMEOUT_ERROR_MESSAGE,
+                SYSTEM_TIMEOUT_ERROR_MESSAGE,
             ))?;
         let suspended_permit = pause_guard
             .suspended_permit
@@ -316,9 +318,9 @@ impl<RT: Runtime> Timeout<RT> {
         let permit =
             timeout(suspended_permit.acquire())
                 .await
-                .context(ErrorMetadata::overloaded(
+                .context(ErrorMetadata::bad_request(
                     "SystemTimeoutError",
-                    TIMEOUT_ERROR_MESSAGE,
+                    SYSTEM_TIMEOUT_ERROR_MESSAGE,
                 ))?;
         drop(pause_guard);
         self.permit = Some(permit);

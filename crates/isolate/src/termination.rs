@@ -6,7 +6,6 @@ use std::{
 use common::errors::{
     report_error_sync,
     JsError,
-    TIMEOUT_ERROR_MESSAGE,
 };
 use deno_core::v8;
 use errors::ErrorMetadata;
@@ -16,6 +15,7 @@ use thiserror::Error;
 use crate::{
     isolate::IsolateNotClean,
     metrics::log_isolate_out_of_memory,
+    timeout::SYSTEM_TIMEOUT_ERROR_MESSAGE,
     IsolateHeapStats,
 };
 
@@ -177,9 +177,15 @@ impl IsolateHandle {
                 IsolateTerminationReason::SystemTimeout(max_duration) => Err(anyhow::anyhow!(
                     "Hit maximum total syscall duration (maximum duration: {max_duration:?})"
                 )
-                .context(ErrorMetadata::overloaded(
+                .context(ErrorMetadata::bad_request(
+                    // Ideally, requests would *always* hit a limit OR a user timeout, and never a
+                    // system timeout. It is non-deterministic, and not necessarily the user's
+                    // fault. However, in practice, we haven't had time to prioritize that, and we
+                    // have users hitting system timeouts deterministically, so just
+                    // compromising and making the system timeout a "bad_request". Perhaps one day
+                    // this can become a retriable overloaded error again.
                     "SystemTimeoutError",
-                    TIMEOUT_ERROR_MESSAGE,
+                    SYSTEM_TIMEOUT_ERROR_MESSAGE,
                 ))),
                 // OutOfMemory and timeout errors are always the user's fault.
                 IsolateTerminationReason::UserTimeout(max_duration) => Ok(Err(
