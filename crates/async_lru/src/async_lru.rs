@@ -80,7 +80,7 @@ pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized> {
 }
 
 pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
-pub type ValueGenerator<Key, Value> = BoxFuture<'static, HashMap<Key, anyhow::Result<Arc<Value>>>>;
+pub type ValueGenerator<Key, Value> = BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>;
 
 impl<RT: Runtime, Key, Value: ?Sized> Clone for AsyncLru<RT, Key, Value> {
     fn clone(&self) -> Self {
@@ -264,35 +264,25 @@ impl<
     }
 
     fn update_value(
-        rt: RT,
-        inner: Arc<Mutex<Inner<RT, Key, Value>>>,
+        rt: &RT,
+        inner: &Arc<Mutex<Inner<RT, Key, Value>>>,
         key: Key,
-        value: anyhow::Result<Arc<Value>>,
-    ) -> anyhow::Result<Arc<Value>> {
+        result: &Arc<Value>,
+    ) {
         let mut inner = inner.lock();
-        match value {
-            Ok(result) => {
-                let new_value = CacheResult::Ready {
-                    size: result.size(),
-                    value: result.clone(),
-                    added: rt.monotonic_now(),
-                };
-                inner.current_size += new_value.size();
-                // Ideally we'd not change the LRU order by putting here...
-                if let Some(old_value) = inner.cache.put(key, new_value) {
-                    // Allow overwriting entries (Waiting or Ready) which may have been populated
-                    // by racing requests with prefetches.
-                    inner.current_size -= old_value.size();
-                }
-                Self::trim_to_size(&mut inner);
-
-                Ok(result)
-            },
-            Err(e) => {
-                inner.cache.pop(&key);
-                Err(e)
-            },
+        let new_value = CacheResult::Ready {
+            size: result.size(),
+            value: result.clone(),
+            added: rt.monotonic_now(),
+        };
+        inner.current_size += new_value.size();
+        // Ideally we'd not change the LRU order by putting here...
+        if let Some(old_value) = inner.cache.put(key, new_value) {
+            // Allow overwriting entries (Waiting or Ready) which may have been populated
+            // by racing requests with prefetches.
+            inner.current_size -= old_value.size();
         }
+        Self::trim_to_size(&mut inner);
     }
 
     // This may evict 'waiting' entries under high load. That will
@@ -360,8 +350,8 @@ impl<
                 &key_,
                 Box::pin(async move {
                     let mut hashmap = HashMap::new();
-                    hashmap.insert(key, value_generator.await.map(<Arc<Value>>::from));
-                    hashmap
+                    hashmap.insert(key, <Arc<Value>>::from(value_generator.await?));
+                    Ok(hashmap)
                 }),
             )
             .await;
@@ -473,15 +463,20 @@ impl<
                     return;
                 }
 
-                let values = generator.await;
-
-                for (k, value) in values {
-                    let is_requested_key = k == key;
-                    let to_broadcast =
-                        Self::update_value(rt.clone(), inner.clone(), k, value).map_err(Arc::new);
-                    if is_requested_key {
-                        let _ = tx.broadcast(to_broadcast).await;
-                    }
+                match generator.await {
+                    Ok(values) => {
+                        for (k, value) in values {
+                            let is_requested_key = k == key;
+                            Self::update_value(&rt, &inner, k, &value);
+                            if is_requested_key {
+                                let _ = tx.broadcast(Ok(value)).await;
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        Self::drop_waiting(inner, &key);
+                        _ = tx.broadcast(Err(Arc::new(e))).await;
+                    },
                 }
             }
         })

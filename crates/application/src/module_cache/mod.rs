@@ -11,7 +11,7 @@ use common::{
     runtime::Runtime,
 };
 use futures::FutureExt;
-use isolate::environment::helpers::module_loader::get_module_and_prefetch;
+use isolate::environment::helpers::module_loader::get_modules_and_prefetch;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
@@ -61,17 +61,13 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
 
         let key = (module_metadata.path.clone(), module_metadata.sha256.clone());
         let modules_storage = self.modules_storage.clone();
-        let module_metadata = module_metadata.clone();
         let source_package = source_package.clone();
         let result = self
             .cache
             .get_and_prepopulate(
                 key,
-                async move {
-                    get_module_and_prefetch(modules_storage, &module_metadata, &source_package)
-                        .await
-                }
-                .boxed(),
+                async move { get_modules_and_prefetch(modules_storage, &source_package).await }
+                    .boxed(),
             )
             .await?;
 

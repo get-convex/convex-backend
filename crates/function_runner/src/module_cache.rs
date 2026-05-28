@@ -12,7 +12,7 @@ use common::{
     runtime::Runtime,
 };
 use futures::FutureExt;
-use isolate::environment::helpers::module_loader::get_module_and_prefetch;
+use isolate::environment::helpers::module_loader::get_modules_and_prefetch;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
@@ -90,7 +90,6 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         let deployment_name = self.deployment_name.clone();
         let key = self.cache_key(module_metadata);
         let modules_storage = self.modules_storage.clone();
-        let module_metadata = module_metadata.clone();
         let source_package = source_package.clone();
         let result = self
             .cache
@@ -99,9 +98,8 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
                 key.clone(),
                 async move {
                     let modules =
-                        get_module_and_prefetch(modules_storage, &module_metadata, &source_package)
-                            .await;
-                    modules
+                        get_modules_and_prefetch(modules_storage, &source_package).await?;
+                    Ok(modules
                         .into_iter()
                         .map(move |((module_path, sha256), source)| {
                             (
@@ -113,7 +111,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
                                 source,
                             )
                         })
-                        .collect()
+                        .collect())
                 }
                 .boxed(),
             )

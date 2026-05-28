@@ -38,7 +38,10 @@ use database::{
     BootstrapComponentsModel,
     Transaction,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use keybroker::{
     DeploymentOp,
     Identity,
@@ -877,7 +880,13 @@ impl ValidatedUdfOutcome {
             let returns: ConvexValue = match &validated.result {
                 Ok(json_packed_value) => match json_packed_value.unpack() {
                     Ok(v) => v,
-                    Err(mut e) => {
+                    Err(e) => {
+                        let mut e = e.wrap_error_message(|msg| {
+                            format!(
+                                "Function {} return value invalid: {msg}",
+                                validated.path.debug_str(),
+                            )
+                        });
                         report_error_sync(&mut e);
                         return validated;
                     },
@@ -943,7 +952,13 @@ impl ValidatedActionOutcome {
                         validated.result = Err(js_err);
                     }
                 },
-                Err(mut e) => {
+                Err(e) => {
+                    let mut e = e.wrap_error_message(|msg| {
+                        format!(
+                            "Action {} return value invalid: {msg}",
+                            validated.path.debug_str(),
+                        )
+                    });
                     report_error_sync(&mut e);
                 },
             }

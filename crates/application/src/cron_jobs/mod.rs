@@ -350,8 +350,16 @@ impl<RT: Runtime> CronJobContext<RT> {
         Ok(job_id)
     }
 
-    fn truncate_result(&self, result: JsonPackedValue) -> anyhow::Result<CronJobResult> {
-        let value = result.unpack()?;
+    fn truncate_result(
+        &self,
+        result: JsonPackedValue,
+        udf_path: &CanonicalizedComponentFunctionPath,
+    ) -> anyhow::Result<CronJobResult> {
+        let value = result.unpack().map_err(|e| {
+            e.wrap_error_message(|msg| {
+                format!("Cron job {} result invalid: {msg}", udf_path.debug_str())
+            })
+        })?;
         let mut value_str = value.to_string();
         if value_str.len() <= CRON_LOG_MAX_RESULT_LENGTH {
             Ok(CronJobResult::Default(value))
@@ -477,7 +485,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         let truncated_log_lines = self.truncate_log_lines(outcome.log_lines.clone());
 
         if let Ok(ref result) = outcome.result {
-            let truncated_result = self.truncate_result(result.clone())?;
+            let truncated_result = self.truncate_result(result.clone(), &path)?;
             let status = CronJobStatus::Success(truncated_result);
             CronModel::new(&mut tx, component)
                 .insert_cron_job_log(
@@ -634,7 +642,8 @@ impl<RT: Runtime> CronJobContext<RT> {
 
                 let status = match completion.outcome.result.clone() {
                     Ok(result) => {
-                        let truncated_result = self.truncate_result(result)?;
+                        let truncated_result =
+                            self.truncate_result(result, &completion.outcome.path)?;
                         CronJobStatus::Success(truncated_result)
                     },
                     Err(e) => CronJobStatus::Err(e.to_string()),

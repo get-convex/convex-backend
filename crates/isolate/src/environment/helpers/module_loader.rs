@@ -10,7 +10,6 @@ use model::{
     modules::{
         hash_module_source,
         module_versions::FullModuleSource,
-        types::ModuleMetadata,
     },
     source_packages::{
         types::SourcePackage,
@@ -27,28 +26,16 @@ use crate::{
 };
 
 #[fastrace::trace]
-pub async fn get_module_and_prefetch(
+pub async fn get_modules_and_prefetch(
     modules_storage: Arc<dyn Storage>,
-    module_metadata: &ParsedDocument<ModuleMetadata>,
     source_package: &ParsedDocument<SourcePackage>,
-) -> HashMap<(CanonicalizedModulePath, Sha256Digest), anyhow::Result<Arc<FullModuleSource>>> {
+) -> anyhow::Result<HashMap<(CanonicalizedModulePath, Sha256Digest), Arc<FullModuleSource>>> {
     let _timer = module_load_timer("package");
-    let all_source_result =
-        download_module_source_from_package(modules_storage, source_package).await;
-    match all_source_result {
-        Err(e) => {
-            let mut result = HashMap::new();
-            result.insert(
-                (module_metadata.path.clone(), module_metadata.sha256.clone()),
-                Err(e),
-            );
-            result
-        },
-        Ok(all_source) => all_source
-            .into_iter()
-            .map(|(path, source)| (path, Ok(Arc::new(source))))
-            .collect(),
-    }
+    let all_source = download_module_source_from_package(modules_storage, source_package).await?;
+    Ok(all_source
+        .into_iter()
+        .map(|(path, source)| (path, Arc::new(source)))
+        .collect())
 }
 
 #[fastrace::trace]
