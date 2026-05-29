@@ -108,6 +108,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn require_operation(&mut self, op: DeploymentOp) -> anyhow::Result<()> {
+        self.phase.observe_identity()?;
         self.phase.tx()?.identity().require_operation(op)
     }
 }
