@@ -719,15 +719,22 @@ fn binary_arithmetic<I, F>(
     do_floats: F,
 ) -> anyhow::Result<ConvexValue>
 where
-    I: FnOnce(i64, i64) -> i64,
+    I: FnOnce(i64, i64) -> Option<i64>,
     F: FnOnce(f64, f64) -> f64,
 {
     let l = l_expr.eval(environ)?;
     let r = r_expr.eval(environ)?;
 
     let result = match (&l.0, &r.0) {
-        (Some(ConvexValue::Int64(l)), Some(ConvexValue::Int64(r))) => {
-            val!(do_ints(*l, *r))
+        (Some(ConvexValue::Int64(l)), Some(ConvexValue::Int64(r))) => match do_ints(*l, *r) {
+            Some(v) => val!(v),
+            // `checked_*` returns None on integer overflow (e.g. i64::MIN) and on
+            // division/remainder by zero. Fail soft with EvalError like the
+            // type-mismatch and float paths, instead of panicking the process.
+            None => anyhow::bail!(ErrorMetadata::bad_request(
+                "EvalError",
+                format!("Cannot {name} {l} and {r}: integer overflow or division by zero"),
+            )),
         },
         (Some(ConvexValue::Float64(l)), Some(ConvexValue::Float64(r))) => {
             val!(do_floats(*l, *r))
@@ -796,15 +803,20 @@ impl Expression {
             },
             // Arithmetic operations only work on Int64 and Float64, so we don't have to worry about
             // mapping those from table names to table IDs.
-            Expression::Add(l_expr, r_expr) => {
-                binary_arithmetic("add", environ, l_expr, r_expr, |l, r| l + r, |l, r| l + r)?
-            },
+            Expression::Add(l_expr, r_expr) => binary_arithmetic(
+                "add",
+                environ,
+                l_expr,
+                r_expr,
+                |l, r| l.checked_add(r),
+                |l, r| l + r,
+            )?,
             Expression::Sub(l_expr, r_expr) => binary_arithmetic(
                 "subtract",
                 environ,
                 l_expr,
                 r_expr,
-                |l, r| l - r,
+                |l, r| l.checked_sub(r),
                 |l, r| l - r,
             )?,
             Expression::Mul(l_expr, r_expr) => binary_arithmetic(
@@ -812,7 +824,7 @@ impl Expression {
                 environ,
                 l_expr,
                 r_expr,
-                |l, r| l * r,
+                |l, r| l.checked_mul(r),
                 |l, r| l * r,
             )?,
             Expression::Div(l_expr, r_expr) => binary_arithmetic(
@@ -820,16 +832,27 @@ impl Expression {
                 environ,
                 l_expr,
                 r_expr,
-                |l, r| l / r,
+                |l, r| l.checked_div(r),
                 |l, r| l / r,
             )?,
-            Expression::Mod(l_expr, r_expr) => {
-                binary_arithmetic("mod", environ, l_expr, r_expr, |l, r| l % r, |l, r| l % r)?
-            },
+            Expression::Mod(l_expr, r_expr) => binary_arithmetic(
+                "mod",
+                environ,
+                l_expr,
+                r_expr,
+                |l, r| l.checked_rem(r),
+                |l, r| l % r,
+            )?,
             Expression::Neg(x_expr) => {
                 let x = x_expr.eval(environ)?;
                 match &x.0 {
-                    Some(ConvexValue::Int64(x)) => ConvexValue::from(-*x),
+                    Some(ConvexValue::Int64(x)) => match x.checked_neg() {
+                        Some(v) => ConvexValue::from(v),
+                        None => anyhow::bail!(ErrorMetadata::bad_request(
+                            "EvalError",
+                            format!("Cannot negate {x}: integer overflow"),
+                        )),
+                    },
                     Some(ConvexValue::Float64(x)) => ConvexValue::from(-*x),
                     _ => anyhow::bail!(ErrorMetadata::bad_request(
                         "EvalError",
