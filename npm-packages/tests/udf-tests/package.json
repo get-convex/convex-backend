@@ -7,6 +7,8 @@
     "id-encoding": "workspace:*",
     "chai": "~6.2.0",
     "chai-as-promised": "~8.0.0",
+    "effect3": "npm:effect@3.21.2",
+    "effect4": "npm:effect@4.0.0-beta.74",
     "@types/chai-as-promised": "~8.0.0",
     "prettier": "3.8.1",
     "udf-syscall-ffi": "workspace:*"
