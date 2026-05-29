@@ -6607,12 +6607,16 @@
           "previewDeploymentRetentionDays",
           "deploymentClassSelectionEnabled",
           "teamMaxSearchQueries",
-          "customRolesEnabled"
+          "customRolesEnabled",
+          "customAuditLogsInLogStreamsConfigEnabled"
         ],
         "properties": {
           "auditLogRetentionDays": {
             "type": "integer",
             "format": "int64"
+          },
+          "customAuditLogsInLogStreamsConfigEnabled": {
+            "type": "boolean"
           },
           "customDomainsEnabled": {
             "type": "boolean"

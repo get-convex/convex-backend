@@ -63,7 +63,7 @@ export function CustomDomains({
               <LocalDevCallout
                 className="flex-col"
                 tipText="Tip: Run this to enable custom domains locally:"
-                command={`just big-brain-tool-dev entitlement grant --team-entitlement custom_domains_enabled --team-id ${team.id} --reason "local" true --for-real`}
+                command={`just big-brain-tool-dev entitlement grant add --team-entitlement custom_domains_enabled --team-id ${team.id} --reason "local" true --for-real`}
               />
             </>
           )}

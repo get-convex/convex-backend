@@ -68,8 +68,14 @@ export const deploy = new Command("deploy")
   )
   .addOption(
     new Option(
+      "--preview-name <name>",
+      "The name to associate with this preview deployment. Defaults to the current Git branch name in Vercel, Netlify, Cloudflare Pages and GitHub CI. Reuses the existing deployment if one exists.",
+    ).conflicts("preview-create"),
+  )
+  .addOption(
+    new Option(
       "--preview-create <name>",
-      "The name to associate with this deployment if deploying to a newly created preview deployment. Defaults to the current Git branch name in Vercel, Netlify, Cloudflare Pages and GitHub CI. This parameter can only be used with a preview deploy key (when used with another type of key, the command will return an error).",
+      "Like --preview-name, but deletes and recreates an existing preview deployment with the same name. This parameter can only be used with a preview deploy key (when used with another type of key, the command will return an error).",
     ).conflicts("preview-name"),
   )
   .addOption(
@@ -84,12 +90,6 @@ export const deploy = new Command("deploy")
   // Hidden options to pass in admin key and url for tests and local development
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
-  .addOption(
-    new Option(
-      "--preview-name <name>",
-      "The name of the preview deployment to deploy to. Reuses the existing deployment if one exists.",
-    ).conflicts("preview-create"),
-  )
   .addOption(
     new Option(
       "--env-file <envFile>",

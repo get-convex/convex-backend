@@ -52,6 +52,7 @@ export const Primary: Story = {
       logStreamingEnabled: true,
       customDomainsEnabled: true,
       customRolesEnabled: true,
+      customAuditLogsInLogStreamsConfigEnabled: true,
       streamingExportEnabled: true,
       periodicBackupsEnabled: true,
       maxCloudBackups: 50,

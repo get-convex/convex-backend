@@ -8,6 +8,10 @@ use std::{
     env,
     pin::pin,
     sync::{
+        atomic::{
+            AtomicUsize,
+            Ordering,
+        },
         Arc,
         Once,
     },
@@ -450,6 +454,8 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
             sender: self.sender.clone(),
             concurrency_logger: self.concurrency_logger.clone(),
             concurrency_limiter: self.concurrency_limiter.clone(),
+            active_workers: self.active_workers.clone(),
+            max_workers: self.max_workers,
         }
     }
 }
@@ -534,6 +540,10 @@ pub struct IsolateClient<RT: Runtime> {
     sender: CoDelQueueSender<RT, Request<RT>>,
     concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     concurrency_limiter: ConcurrencyLimiter,
+    /// Shared with the scheduler. Tracks the total number of in-progress
+    /// workers across all clients.
+    active_workers: Arc<AtomicUsize>,
+    max_workers: usize,
 }
 
 impl<RT: Runtime> IsolateClient<RT> {
@@ -563,6 +573,8 @@ impl<RT: Runtime> IsolateClient<RT> {
             new_codel_queue_async::<_, Request<_>>(rt.clone(), *ISOLATE_QUEUE_SIZE);
         let handles = Arc::new(Mutex::new(Vec::new()));
         let handles_clone = handles.clone();
+        let active_workers = Arc::new(AtomicUsize::new(0));
+        let _active_workers = active_workers.clone();
         let rt_clone = rt.clone();
         let scheduler = rt.spawn("shared_isolate_scheduler", async move {
             // The scheduler thread pops a worker from available_workers and
@@ -575,6 +587,7 @@ impl<RT: Runtime> IsolateClient<RT> {
                 max_isolate_workers,
                 handles_clone,
                 max_percent_per_client,
+                _active_workers,
             );
             scheduler.run(receiver).await
         });
@@ -585,11 +598,25 @@ impl<RT: Runtime> IsolateClient<RT> {
             concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
             handles,
             concurrency_limiter,
+            active_workers,
+            max_workers: max_isolate_workers,
         })
     }
 
     pub fn concurrency_limiter(&self) -> &ConcurrencyLimiter {
         &self.concurrency_limiter
+    }
+
+    /// Returns the total number of isolate workers currently servicing a
+    /// request across all clients.
+    pub fn active_workers(&self) -> usize {
+        self.active_workers.load(Ordering::Relaxed)
+    }
+
+    /// Returns the maximum number of isolate workers this client's scheduler
+    /// is permitted to create.
+    pub fn max_workers(&self) -> usize {
+        self.max_workers
     }
 
     pub fn aggregate_heap_stats(&self) -> IsolateHeapStats {
@@ -1147,6 +1174,8 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     /// Counts the number of active workers per client. Should only contain a
     /// key if the value is greater than 0.
     in_progress_count: HashMap<String, usize>,
+    /// Total number of in-progress workers across all clients.
+    active_workers: Arc<AtomicUsize>,
     /// The max number of workers this scheduler is permitted to create.
     max_workers: usize,
     handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
@@ -1169,6 +1198,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         max_workers: usize,
         handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
         max_percent_per_client: usize,
+        active_workers: Arc<AtomicUsize>,
     ) -> Self {
         Self {
             rt,
@@ -1176,6 +1206,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             worker_senders: Vec::new(),
             in_progress_workers: FuturesUnordered::new(),
             in_progress_count: HashMap::new(),
+            active_workers,
             available_workers: HashMap::new(),
             max_workers,
             handles,
@@ -1202,6 +1233,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 completed_worker.client_id
             ),
         };
+        self.active_workers.fetch_sub(1, Ordering::Relaxed);
         log_pool_running_count(
             self.worker.config().name,
             new_count,
@@ -1250,6 +1282,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         .entry(request.client_id.clone())
                         .or_default();
                     *entry += 1;
+                    self.active_workers.fetch_add(1, Ordering::Relaxed);
                     log_pool_running_count(
                         self.worker.config().name,
                         *entry,

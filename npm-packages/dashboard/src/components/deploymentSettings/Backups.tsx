@@ -242,14 +242,14 @@ function BackupProCallouts({
         <LocalDevCallout
           className="mt-6 flex-col"
           tipText="Tip: Run this to enable automatic backups locally:"
-          command={`just big-brain-tool-dev entitlement grant --team-entitlement periodic_backups_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+          command={`just big-brain-tool-dev entitlement grant add --team-entitlement periodic_backups_enabled --team-id ${team?.id} --reason "local" true --for-real`}
         />
       )}
       {maxCloudBackups <= 2 && (
         <LocalDevCallout
           className="mt-6 flex-col"
           tipText="Tip: Run this to increase the backup limit locally:"
-          command={`just big-brain-tool-dev entitlement grant --team-entitlement max_cloud_backups --team-id ${team?.id} --reason "local" 50 --for-real`}
+          command={`just big-brain-tool-dev entitlement grant add --team-entitlement max_cloud_backups --team-id ${team?.id} --reason "local" 50 --for-real`}
         />
       )}
     </>
