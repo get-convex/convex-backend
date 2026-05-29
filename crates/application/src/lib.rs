@@ -593,7 +593,7 @@ pub struct Application<RT: Runtime> {
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
     system_env_var_names: HashSet<EnvVarName>,
-    app_auth: Arc<ApplicationAuth>,
+    app_auth: Arc<ApplicationAuth<RT>>,
     log_manager_client: LogManagerClient,
     audit_log_client: AuditLogClient,
     oidc_http_client: CachedHttpClient,
@@ -684,7 +684,7 @@ impl<RT: Runtime> Application<RT> {
         persistence: Arc<dyn Persistence>,
         node_actions: Actions<RT>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
-        app_auth: Arc<ApplicationAuth>,
+        app_auth: Arc<ApplicationAuth<RT>>,
         cache: QueryCache,
         fetch_client: Arc<dyn FetchClient>,
         local_log_sink: Option<String>,
@@ -1030,7 +1030,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.latest_snapshot()
     }
 
-    pub fn app_auth(&self) -> &Arc<ApplicationAuth> {
+    pub fn app_auth(&self) -> &Arc<ApplicationAuth<RT>> {
         &self.app_auth
     }
 
@@ -3002,7 +3002,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn authenticate(
         &self,
         token: AuthenticationToken,
-        system_time: SystemTime,
+        validate_time: SystemTime,
     ) -> anyhow::Result<Identity> {
         let identity = match token {
             AuthenticationToken::Admin(token, acting_as) => {
@@ -3046,7 +3046,7 @@ impl<RT: Runtime> Application<RT> {
                         .clone()
                         .for_purpose(ClientPurpose::ProviderMetadata),
                     auth_info_values,
-                    system_time,
+                    validate_time,
                     should_redact_errors,
                 )
                 .await;

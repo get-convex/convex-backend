@@ -258,6 +258,7 @@ pub async fn make_app(
         Arc::new(ApplicationAuth::new(
             key_broker.clone(),
             Arc::new(NullAccessTokenAuth),
+            runtime.clone(),
         )),
         QueryCache::new(*UDF_CACHE_MAX_SIZE),
         fetch_client,

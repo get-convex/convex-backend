@@ -639,6 +639,7 @@ dependencies = [
  "mime",
  "oauth2",
  "openidconnect",
+ "parking_lot",
  "serde",
  "serde_json",
  "tokio",
