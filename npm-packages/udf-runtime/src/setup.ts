@@ -54,7 +54,8 @@ export function setup(global: any) {
   setupRequest(global);
   setupResponse(global);
   setupFetch(global);
-  setupPerformance(global);
+
+  global.Convex.setupPerformance = () => setupPerformance(global);
 
   global.Convex.jsSyscall = (op: string, args: Record<string, any>) => {
     switch (op) {
