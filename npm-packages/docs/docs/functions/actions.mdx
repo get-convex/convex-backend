@@ -86,10 +86,10 @@ do:
   same file.
 
 - To generate upload URLs for storing files use the `storage` field. Read on
-  about [File Storage](/file-storage.mdx).
+  about [File Storage](/file-storage/overview.mdx).
 - To check user authentication use the `auth` field. Auth is propagated
   automatically when calling queries and mutations from the action. Read on
-  about [Authentication](/auth.mdx).
+  about [Authentication](/auth/overview.mdx).
 - To schedule functions to run in the future, use the `scheduler` field. Read on
   about [Scheduled Functions](/scheduling/scheduled-functions.mdx).
 - To search a vector index, use the `vectorSearch` field. Read on about
@@ -179,14 +179,14 @@ Learn more about the two [Convex Runtimes](/functions/runtimes.mdx).
   reuse logic across multiple Convex functions.
 
 But note that the [ActionCtx](/api/interfaces/server.GenericActionCtx) only has
-the `auth` field in common with [QueryCtx](/generated-api/server.md#queryctx)
-and [MutationCtx](/generated-api/server.md#mutationctx).
+the `auth` field in common with [QueryCtx](/generated-api/server.mdx#queryctx)
+and [MutationCtx](/generated-api/server.mdx#mutationctx).
 
 </>
 
 ## Calling actions from clients
 
-To call an action from [React](/client/react.mdx) use the
+To call an action from [React](/client/react/overview.mdx) use the
 [`useAction`](/api/modules/react#useaction) hook along with the generated
 [`api`](/generated-api/api) object.
 
@@ -216,7 +216,7 @@ executing the same action twice.
 Actions time out after 10 minutes.
 [Node.js](/functions/runtimes.mdx#nodejs-runtime) and
 [Convex runtime](/functions/runtimes.mdx#default-convex-runtime) have 512MB and
-64MB memory limit respectively. Please [contact us](/production/contact.md) if
+64MB memory limit respectively. Please [contact us](/production/contact.mdx) if
 you have a use case that requires configuring higher limits.
 
 Actions can do up to 1000 concurrent operations, such as executing queries,

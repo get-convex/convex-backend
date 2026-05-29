@@ -617,6 +617,13 @@ a.pagination-nav__link .pagination-nav__label {
   font-weight: 400;
 }
 
+a.pagination-nav__link .pagination-nav__section-label {
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+
 /* Pagination doc name hover style */
 a.pagination-nav__link .pagination-nav__label:hover {
   color: var(--ifm-color-primary-darkest);

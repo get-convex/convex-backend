@@ -16,7 +16,7 @@ import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts"
 
 The [`convex-test`](https://www.npmjs.com/package/convex-test) library provides
 a mock implementation of the Convex backend in JavaScript. It enables fast
-automated testing of the logic in your [functions](/functions.mdx).
+automated testing of the logic in your [functions](/functions/overview.mdx).
 
 ## Example
 
@@ -242,8 +242,8 @@ If you don't have a schema, call `convexTest()` with no argument.
 
 ### Call functions
 
-Your test can call public and internal Convex [functions](/functions.mdx) in
-your project:
+Your test can call public and internal Convex
+[functions](/functions/overview.mdx) in your project:
 
 ```ts title="convex/myFunctions.test.ts"
 import { convexTest } from "convex-test";
@@ -264,10 +264,10 @@ test("functions", async () => {
 ### Modify data outside of functions
 
 Sometimes you might want to directly [write](/database/writing-data.mdx) to the
-mock database or [file storage](/file-storage.mdx) from your test, without
-needing a declared function in your project. You can use the `t.run` method
-which takes a handler that is given a `ctx` that allows reading from and writing
-to the mock backend:
+mock database or [file storage](/file-storage/overview.mdx) from your test,
+without needing a declared function in your project. You can use the `t.run`
+method which takes a handler that is given a `ctx` that allows reading from and
+writing to the mock backend:
 
 <Snippet
   title="convex/tasks.test.ts"
@@ -345,8 +345,9 @@ Check out more examples in
 
 ### Authentication
 
-To test functions which depend on the current [authenticated](/auth.mdx) user
-identity you can create a version of the `t` accessor with given
+To test functions which depend on the current
+[authenticated](/auth/overview.mdx) user identity you can create a version of
+the `t` accessor with given
 [user identity attributes](/api/interfaces/server.UserIdentity). If you don't
 provide them, `issuer`, `subject` and `tokenIdentifier` will be generated
 automatically:
@@ -435,9 +436,9 @@ Some of the ways the mock differs:
   runtime. You should always test new code manually to make sure it doesn't use
   built-ins not available in the Convex runtime.
 - Some features have only simplified semantics, namely:
-  - [Text search](/search.mdx) returns all documents that include a word for
-    which at least one word in the searched string is a prefix. It does not sort
-    the results by relevance.
+  - [Text search](/search/overview.mdx) returns all documents that include a
+    word for which at least one word in the searched string is a prefix. It does
+    not sort the results by relevance.
   - [Vector search](/search/vector-search.mdx) returns results sorted by cosine
     similarity, but doesn't use an efficient vector index in its implementation.
   - There is no support for [cron jobs](/scheduling/cron-jobs.mdx), you should

@@ -8,7 +8,7 @@ description: "Declare, store, and access environment variables in Convex"
 Environment variables are key-value pairs that are useful for storing values you
 wouldn't want to put in code or in a table, such as an API key. You can set
 environment variables in Convex through the dashboard and access them in
-[functions](/functions.mdx).
+[functions](/functions/overview.mdx).
 
 For the best experience, [declare your environment variables](#declaring) in
 `convex/convex.config.ts` to get type-safe access via the generated `env`
@@ -39,7 +39,7 @@ You can modify environment variables using the pencil icon button:
 />
 
 Environment variables can also be viewed and modified from the
-[command line](/cli.md#read-and-write-environment-variables).
+[command line](/cli/overview.mdx#read-and-write-environment-variables).
 
 ```sh
 npx convex env list
@@ -135,9 +135,9 @@ value they contain.
 
 ### Passing environment variables to components \{#component-env-vars}
 
-[Components](/components.mdx) are isolated from the app's environment variables.
-When a component declares environment variables in its `convex.config.ts`, you
-can provide environment variables when installing it:
+[Components](/components/overview.mdx) are isolated from the app's environment
+variables. When a component declares environment variables in its
+`convex.config.ts`, you can provide environment variables when installing it:
 
 ```ts title="convex/convex.config.ts"
 import { defineApp } from "convex/server";

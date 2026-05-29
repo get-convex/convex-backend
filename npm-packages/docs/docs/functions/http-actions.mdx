@@ -91,9 +91,9 @@ curl -d '{ "author": "User 123", "body": "Hello world" }' \
 ```
 
 Like other Convex functions, you can view your HTTP actions in the
-[Functions view](/dashboard/deployments/functions.md) of
+[Functions view](/dashboard/deployments/functions.mdx) of
 [your dashboard](https://dashboard.convex.dev/) and view logs produced by them
-in the [Logs view](/dashboard/deployments/logs.md).
+in the [Logs view](/dashboard/deployments/logs.mdx).
 
 ## Routing with `httpPrefix`
 
@@ -111,8 +111,8 @@ export default app;
 With this configuration, a route defined for `/hello` in `convex/http.ts` will
 be accessible at `/app/hello`.
 
-[Components](/components.mdx) can also define their own HTTP routes that are
-mounted under a prefix you choose. See
+[Components](/components/overview.mdx) can also define their own HTTP routes
+that are mounted under a prefix you choose. See
 [Using Components: HTTP Routes](/components/using.mdx#http-routes) for details.
 
 ## Limits
@@ -134,7 +134,7 @@ HTTP actions support request and response body types of `.text()`, `.json()`,
 Note that you don't need to define an HTTP action to call your queries,
 mutations and actions over HTTP if you control the caller, since you can use use
 the JavaScript [`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) or
-the [Python client](/client/python.md) to call these functions directly.
+the [Python client](/client/python.mdx) to call these functions directly.
 
 ## Debugging
 
@@ -225,8 +225,8 @@ Here's an example of handling a pre-flight `OPTIONS` request:
 
 ### Authentication
 
-You can leverage Convex's built-in [authentication](/auth.mdx) integration and
-access a user identity from
+You can leverage Convex's built-in [authentication](/auth/overview.mdx)
+integration and access a user identity from
 [`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity). To
 do this call your endpoint with an `Authorization` header including a JWT token:
 

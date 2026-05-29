@@ -23,7 +23,7 @@ also give you end-to-end type safety throughout your app.
 
 We recommend beginning your project without a schema for rapid prototyping and
 then adding a schema once you've solidified your plan. To learn more see our
-[Schema Philosophy](/database/advanced/schema-philosophy.md).
+[Schema Philosophy](/database/advanced/schema-philosophy.mdx).
 
 **Example:**
 [TypeScript and Schemas](https://github.com/get-convex/convex-demos/tree/main/typescript)
@@ -42,7 +42,7 @@ has 2 tables: messages and users. Each table is defined using the
 the document type is defined using the validator builder,
 [`v`](/api/modules/values#v). In addition to the fields listed, Convex will also
 automatically add `_id` and `_creationTime` fields. To learn more, see
-[System Fields](/database/types.md#system-fields).
+[System Fields](/database/types.mdx#system-fields).
 
 <Admonition type="tip" title="Generating a Schema">
 
@@ -270,8 +270,8 @@ won't be validated).
 ## Schema validation
 
 Schemas are pushed automatically in
-[`npx convex dev`](/cli.md#run-the-convex-dev-server) and
-[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
+[`npx convex dev`](/cli/overview.mdx#run-the-convex-dev-server) and
+[`npx convex deploy`](/cli/overview.mdx#deploy-convex-functions-to-production).
 
 The first push after a schema is added or modified will validate that all
 existing documents match the schema. If there are documents that fail
@@ -333,14 +333,14 @@ document, then set the reference on the preferences document:
 
 <Snippet title="convex/users.ts" source={circularExample} />
 
-[Let us know](/production/contact.md) if you need better support for circular
+[Let us know](/production/contact.mdx) if you need better support for circular
 references.
 
 ## TypeScript types
 
 Once you've defined a schema,
-[`npx convex dev`](/cli.md#run-the-convex-dev-server) will produce new versions
-of [`dataModel.d.ts`](/generated-api/data-model) and
+[`npx convex dev`](/cli/overview.mdx#run-the-convex-dev-server) will produce new
+versions of [`dataModel.d.ts`](/generated-api/data-model) and
 [`server.d.ts`](/generated-api/server) with types based on your schema.
 
 ### `Doc<TableName>`
