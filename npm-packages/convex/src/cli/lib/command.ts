@@ -463,7 +463,7 @@ Command.prototype.addRunOptions = function () {
       .addOption(
         new Option(
           "--component <path>",
-          "Path to the component in the component tree defined in convex.config.ts.",
+          'Path to the component (e.g. "workflow" or "workflow/workpool")',
         ),
       )
       .addOption(new Option("--live-component-sources").hideHelp())
@@ -518,7 +518,7 @@ Command.prototype.addImportOptions = function () {
     .addOption(
       new Option(
         "--component <path>",
-        "Path to the component in the component tree defined in convex.config.ts.",
+        'Path to the component (e.g. "workflow" or "workflow/workpool")',
       ),
     );
 };
@@ -555,7 +555,7 @@ Command.prototype.addDataOptions = function () {
     .addOption(
       new Option(
         "--component <path>",
-        "Path to the component in the component tree defined in convex.config.ts.",
+        'Path to the component (e.g. "workflow" or "workflow/workpool")',
       ),
     )
     .addOption(
