@@ -70,7 +70,7 @@ You can download your manual and periodic backups from the dashboard via the
 download button in the menu.
 
 Alternatively, you can generate an export in the same format with the
-[command line](/cli.md#export-data-to-a-file):
+[command line](/cli/overview.mdx#export-data-to-a-file):
 
 ```sh
 npx convex export --path ~/Downloads
@@ -83,9 +83,9 @@ The ZIP file's name has the format `snapshot_{ts}.zip` where `ts` is a UNIX
 timestamp of the snapshot in nanoseconds. The export ZIP file contains documents
 for each table at `<table_name>/documents.jsonl`, with one document per line.
 
-Exported ZIP files that include [file storage](/file-storage) will contain
-storage data in a `_storage` folder, with metadata like IDs and checksums in
-`_storage/documents.jsonl` and each file as `_storage/<id>`.
+Exported ZIP files that include [file storage](/file-storage/overview) will
+contain storage data in a `_storage` folder, with metadata like IDs and
+checksums in `_storage/documents.jsonl` and each file as `_storage/<id>`.
 
 ### Using the downloaded backup
 

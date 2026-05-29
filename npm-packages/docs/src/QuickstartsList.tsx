@@ -225,7 +225,7 @@ export function QuickLanguagesList() {
       items={[
         {
           icon: <JsLogo height={40} />,
-          href: "/client/javascript",
+          href: "/client/javascript/overview",
           docId: "client/javascript",
           label: "JavaScript",
         },

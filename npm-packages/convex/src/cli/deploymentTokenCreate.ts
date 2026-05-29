@@ -16,11 +16,14 @@ import {
 export const deploymentTokenCreate = new Command("create")
   .summary("Create an access token")
   .description(
-    `Creates a deploy key that, when set as ${chalkStderr.bold(CONVEX_DEPLOY_KEY_ENV_VAR_NAME)}, scopes all commands to the target deployment. Defaults to the current deployment if '--deployment' isn't passed\n\n` +
-      "  Print a new deploy key to stdout:           `npx convex deployment token create my-token`\n" +
-      `  Save a new deploy key in ${ENV_VAR_FILE_PATH}:        \`npx convex deployment token create my-token --save-env\`\n` +
-      "  Save a new deploy key in a custom env file: `npx convex deployment token create ci-token --save-env .env.production`\n" +
-      "  Create a key for the project's prod:        `npx convex deployment token create ci-token --deployment prod`\n",
+    [
+      `Creates a deploy key that, when set as \`${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}\`, scopes all commands to the target deployment.`,
+      "",
+      "- Print a new deploy key to stdout: `npx convex deployment token create my-token`",
+      `- Save a new deploy key in \`${ENV_VAR_FILE_PATH}\`: \`npx convex deployment token create my-token --save-env\``,
+      "- Save a new deploy key in a custom env file: `npx convex deployment token create ci-token --save-env .env.production`",
+      "- Create a key for the project's prod: `npx convex deployment token create ci-token --deployment prod`",
+    ].join("\n"),
   )
   .argument("<name>", "Name for the new deploy key")
   .allowExcessArguments(false)

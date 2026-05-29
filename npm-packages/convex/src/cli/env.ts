@@ -29,14 +29,22 @@ const envSetCmd = new Command("set")
   )
   .summary("Set a variable")
   .description(
-    "Set environment variables on your deployment.\n\n" +
-      "  npx convex env set NAME 'value'\n" +
-      "  npx convex env set NAME # omit a value to set one interactively\n" +
-      "  npx convex env set NAME --from-file value.txt\n" +
-      "  npx convex env set --from-file .env.defaults\n" +
-      "When setting multiple values, it will refuse all changes if any " +
-      "variables are already set to different values by default. " +
-      "Pass --force to overwrite the provided values.\n",
+    [
+      "Set environment variables on your deployment.",
+      "",
+      "- `npx convex env set NAME 'value'`",
+      "- `npx convex env set NAME # omit a value to set one interactively`",
+      "- `npx convex env set NAME --from-file value.txt`",
+      "- `npx convex env set --from-file .env.defaults`",
+      "",
+      "When setting multiple values, it will refuse all changes if any variables are already set to different values by default. Pass --force to overwrite the provided values.",
+      "",
+      "To keep secrets out of your shell history, omit the value to pipe it in via stdin, for instance:",
+      "- `pbpaste | npx convex env set API_KEY` (macOS)",
+      "- `Get-Clipboard | npx convex env set API_KEY` (Windows PowerShell)",
+      "",
+      "To update many variables at once, save them with `npx convex env list > .env.convex`, edit the file, then reapply the changes with `npx convex env set --force < .env.convex`.",
+    ].join("\n"),
   )
   .option(
     "--from-file <file>",
@@ -157,7 +165,13 @@ const envRemoveCmd = new Command("remove")
 
 const envListCmd = new Command("list")
   .summary("List all variables")
-  .description("List all variables: `npx convex env list`")
+  .description(
+    [
+      "- List all variables: `npx convex env list`",
+      "- Save all variables to a file: `npx convex env list > .env.convex`",
+      "- Append to a file: `npx convex env list >> .env.convex`",
+    ].join("\n"),
+  )
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (_options, cmd) => {
@@ -177,14 +191,20 @@ const envListCmd = new Command("list")
 export const env = new Command("env")
   .summary("Set and view environment variables")
   .description(
-    "Set and view environment variables on your deployment\n\n" +
-      "  Set a variable: `npx convex env set NAME 'value'`\n" +
-      "  Set interactively: `npx convex env set NAME`\n" +
-      "  Set multiple from file: `npx convex env set --from-file .env`\n" +
-      "  Unset a variable: `npx convex env remove NAME`\n" +
-      "  List all variables: `npx convex env list`\n" +
-      "  Print a variable's value: `npx convex env get NAME`\n\n" +
+    [
+      "Set and view environment variables on your deployment",
+      "",
+      "- Set a variable: `npx convex env set NAME 'value'`",
+      "- Set interactively: `npx convex env set NAME`",
+      "- Set multiple from file: `npx convex env set --from-file .env`",
+      "- Unset a variable: `npx convex env remove NAME`",
+      "- List all variables: `npx convex env list`",
+      "- Print a variable's value: `npx convex env get NAME`",
+      "",
       "By default, this sets and views variables on your dev deployment.",
+      "",
+      "See the environment variables guide (https://docs.convex.dev/production/environment-variables) to learn more.",
+    ].join("\n"),
   )
   .addCommand(envSetCmd)
   .addCommand(envGetCmd)

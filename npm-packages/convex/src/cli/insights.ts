@@ -88,9 +88,16 @@ function formatInsight(insight: Insight, details: boolean): string {
 export const insights = new Command("insights")
   .summary("Show health insights for your deployment")
   .description(
-    "Show health insights for a Convex deployment over the last 72 hours.\n" +
-      "Displays OCC conflicts and resource limit issues that may indicate performance problems.\n\n" +
+    [
+      "Show health insights for a Convex deployment over the last 72 hours.",
+      "Displays OCC conflicts and resource limit issues that may indicate performance problems.",
+      "",
+      "- Show insights: `npx convex insights`",
+      "- Include recent events for each insight: `npx convex insights --details`",
+      "- Check the production deployment: `npx convex insights --prod`",
+      "",
       "Only available for cloud deployments with user-level authentication.",
+    ].join("\n"),
   )
   .allowExcessArguments(false)
   .option("--details", "Show recent events for each insight", false)

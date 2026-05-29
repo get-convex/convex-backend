@@ -26,6 +26,8 @@ import {
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { deploymentResource } from "lib/permissions";
+import { useIsOperationAllowed } from "hooks/useDeploymentPermissions";
+import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { Link } from "@ui/Link";
 import { useState, useMemo, ReactNode } from "react";
@@ -61,6 +63,8 @@ export function CustomDomains({
     hasEntitlement ? deployment.name : undefined,
   );
 
+  const canViewData = useIsOperationAllowed("ViewData");
+
   return (
     <div className="flex flex-col gap-4">
       <CustomDomainsForm
@@ -70,10 +74,19 @@ export function CustomDomains({
         hasEntitlement={hasEntitlement}
       />
 
-      <CanonicalDomainForm
-        deploymentName={deployment.name}
-        vanityDomains={vanityDomains}
-      />
+      {canViewData === false ? (
+        <Sheet>
+          <NoPermissionMessage
+            message="You do not have permission to view canonical URL overrides."
+            missingPermission="deployment:data:view"
+          />
+        </Sheet>
+      ) : (
+        <CanonicalDomainForm
+          deploymentName={deployment.name}
+          vanityDomains={vanityDomains}
+        />
+      )}
     </div>
   );
 }

@@ -35,10 +35,28 @@ import { DASHBOARD_HOST } from "./lib/dashboard.js";
 import { extractDeploymentNameForWorkOS } from "./lib/extractDeploymentNameForWorkOS.js";
 
 export const deploy = new Command("deploy")
-  .summary("Deploy to your prod deployment")
+  .summary("Deploy to a production or preview deployment")
   .description(
-    "Deploy to your deployment. By default, this deploys to your prod deployment.\n\n" +
-      `Deploys to a preview deployment if the \`${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}\` environment variable is set to a Preview Deploy Key.`,
+    [
+      "Deploys code to a deployment.",
+      "This is typically used for deploying to a prod or preview deployment manually or from CI; to deploy to your dev deployment when developing, use `npx convex dev`.",
+      "",
+      "The target deployment is chosen like this:",
+      `- If the \`${CONVEX_DEPLOYMENT_ENV_VAR_NAME}\` environment variable is set (typical during local development), the target is the project’s default production deployment.`,
+      `- If the \`${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}\` environment variable is set (typical in CI), it is the deployment associated with that key.`,
+      `  - When it’s set to a preview deploy key, it will deploy to a preview deployment:`,
+      `    - with the name of the current Git branch when running in CI (Vercel, Netlify, Cloudflare Pages, GitHub)`,
+      `    - or with the name specified by the \`--preview-name\` or \`--preview-create\` flags`,
+      "",
+      "`npx convex deploy` will:",
+      "  1. Run a command if specified with `--cmd`, with the deployment URL available as an environment variable.",
+      "  2. Typecheck your Convex functions.",
+      "  3. Regenerate the generated code in the `convex/_generated` directory.",
+      "  4. Bundle your Convex functions and their dependencies.",
+      "  5. Push your functions, indexes, and schema to the deployment.",
+      "  6. When deploying to a preview deployment, it runs the function specified by `--preview-run`.",
+      "If any step fails, the next steps do not run.",
+    ].join("\n"),
   )
   .allowExcessArguments(false)
   .addDeployOptions()
