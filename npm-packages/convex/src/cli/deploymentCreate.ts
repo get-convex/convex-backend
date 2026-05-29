@@ -49,13 +49,15 @@ const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 export const deploymentCreate = new Command("create")
   .summary("Create a new deployment for a project")
   .description(
-    "Create a new deployment for a project.\n\n" +
-      "  Create a dev deployment and select it:    `npx convex deployment create dev/my-new-feature --type dev --select`\n" +
-      "  Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`\n" +
-      "  Create a local deployment:                `npx convex deployment create local`\n",
+    [
+      "Create a new deployment for a project.",
+      "",
+      "- Create a dev deployment and select it: `npx convex deployment create dev/my-new-feature --type dev --select`",
+      "- Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`",
+    ].join("\n"),
   )
   .argument(
-    "[ref]",
+    "[reference]",
     "The reference for the new deployment, e.g. `staging` or `dev/my-feature`. \n" +
       "Use `local` to create a local deployment. \n" +
       "You can specify a team and project with `team-slug:project-slug:ref` (e.g. `my-team:my-project:staging` or `my-team:my-project:local`). \n" +

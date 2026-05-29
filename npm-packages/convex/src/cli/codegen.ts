@@ -10,7 +10,13 @@ import { withRunningBackend } from "./lib/localDeployment/run.js";
 export const codegen = new Command("codegen")
   .summary("Generate backend type definitions")
   .description(
-    "Generate code in `convex/_generated/` based on the current contents of `convex/`.",
+    [
+      "Generate code in `convex/_generated/` based on the current contents of `convex/`.",
+      "",
+      "This code is generated automatically while running `npx convex dev` and should be committed to the repo (your code won't typecheck without it!). Regenerating it explicitly is rarely needed (e.g. in CI to ensure the correct code was checked in).",
+      "",
+      "This doesn't modify the code running on the deployment.",
+    ].join("\n"),
   )
   .allowExcessArguments(false)
   .option(
