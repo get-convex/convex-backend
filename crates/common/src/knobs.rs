@@ -1115,6 +1115,11 @@ pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
 pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 100)));
 
+/// Isolate worker usage at which the funrun load reporter's
+/// `effective_load` saturates to 1.0.
+pub static FUNRUN_TARGET_ISOLATE_WORKER_USAGE: LazyLock<f64> =
+    LazyLock::new(|| env_config("FUNRUN_TARGET_CPU_USAGE", 0.75));
+
 /// CPU utilization at which the funrun load reporter's
 /// `effective_load` saturates to 1.0.
 pub static FUNRUN_TARGET_CPU_USAGE: LazyLock<f64> =
