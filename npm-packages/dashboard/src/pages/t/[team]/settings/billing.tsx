@@ -140,7 +140,7 @@ function Billing({ team }: { team: TeamResponse }) {
                   />
                   <LocalDevCallout
                     tipText="Tip: Run this to enable audit logs locally:"
-                    command={`just big-brain-tool-dev entitlement grant --team-entitlement audit_log_retention_days --team-id ${team.id} --reason "local" 90 --for-real`}
+                    command={`just big-brain-tool-dev entitlement grant add --team-entitlement audit_log_retention_days --team-id ${team.id} --reason "local" 90 --for-real`}
                   />
                 </div>
               </div>

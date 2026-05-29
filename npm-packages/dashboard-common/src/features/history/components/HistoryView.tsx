@@ -120,7 +120,7 @@ function History() {
             <LocalDevCallout
               className="mt-6 flex-col"
               tipText="Tip: Run this to enable the deployment history locally:"
-              command={`just big-brain-tool-dev entitlement grant --team-entitlement audit_log_retention_days --team-id ${team?.id} --reason "local" 90 --for-real`}
+              command={`just big-brain-tool-dev entitlement grant add --team-entitlement audit_log_retention_days --team-id ${team?.id} --reason "local" 90 --for-real`}
             />
           </Sheet>
         </div>
