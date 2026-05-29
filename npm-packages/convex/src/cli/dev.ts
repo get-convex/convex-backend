@@ -85,7 +85,7 @@ export const dev = new Command("dev")
   )
   .option(
     "--run-component <functionName>",
-    "If --run is used and the function is in a component, the path the component tree defined in convex.config.ts. " +
+    'If --run is used and the function is in a component, the path to the component (e.g. "workflow" or "workflow/workpool"). ' +
       "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
   )
   .addOption(

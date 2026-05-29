@@ -96,7 +96,7 @@ export const insights = new Command("insights")
       "- Include recent events for each insight: `npx convex insights --details`",
       "- Check the production deployment: `npx convex insights --prod`",
       "",
-      "Only available for cloud deployments with user-level authentication.",
+      "This command is only available for Convex cloud deployments when logged in as a user.",
     ].join("\n"),
   )
   .allowExcessArguments(false)
@@ -132,7 +132,7 @@ export const insights = new Command("insights")
         exitCode: 1,
         errorType: "fatal",
         printedMessage:
-          "Insights require user-level authentication. Deploy keys and project keys cannot access team usage data.",
+          "Insights require to be logged in as a user. Deploy keys and project keys cannot access team usage data.",
       });
     }
 
