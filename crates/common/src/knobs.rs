@@ -13,6 +13,10 @@
 #![deny(missing_docs)]
 
 use std::{
+    cmp::{
+        max,
+        min,
+    },
     num::{
         NonZeroU32,
         NonZeroUsize,
@@ -716,6 +720,10 @@ pub static ISOLATE_ANALYZE_USER_TIMEOUT: LazyLock<Duration> =
 /// increase this is memory usage from the UDF arguments.
 pub static ISOLATE_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_QUEUE_SIZE", 2000));
+
+/// Maximum number of isolate worker threads in a function runner process.
+pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_ISOLATE_WORKERS", 300));
 
 /// The size of the pending commits in the committer queue. This is a FIFO
 /// queue, so if the queue is too large, we run into a risk of all requests
@@ -1677,3 +1685,22 @@ pub static INDEX_CACHE_SIZE: LazyLock<u64> =
 /// timeout elapses and the commit queue is still full.
 pub static SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS", 500)));
+
+/// Admin identities expire after this delay. Then they need revalidation. This
+/// needs to be longer than the longest living sessions that maintain a single
+/// Identity. Notably ACTION_USER_TIMEOUT.
+pub static ADMIN_IDENTITY_EXPIRATION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
+    max(
+        *ACTION_USER_TIMEOUT,
+        Duration::from_secs(env_config("ADMIN_IDENTITY_EXPIRATION_DELAY_SECS", 900)),
+    )
+});
+
+/// Admin identities should consider revalidating after this delay. This number
+/// must be smaller than ADMIN_IDENTITY_EXPIRATION_DELAY
+pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
+    min(
+        *ADMIN_IDENTITY_EXPIRATION_DELAY,
+        Duration::from_secs(env_config("ADMIN_IDENTITY_REVALIDATION_DELAY_SECS", 60)),
+    )
+});

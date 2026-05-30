@@ -43,6 +43,7 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 sodium_secretbox = { workspace = true }
 sync_types = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

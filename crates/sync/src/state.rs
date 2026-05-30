@@ -33,8 +33,12 @@ use futures::{
     FutureExt,
     StreamExt,
 };
-use keybroker::Identity;
+use keybroker::{
+    Identity,
+    IdentityValidity,
+};
 use sync_types::{
+    AuthenticationToken,
     IdentityVersion,
     Query,
     QueryId,
@@ -94,6 +98,9 @@ impl ClientVersion {
     }
 }
 
+/// Indicates that the protocol needs auth revalidation, providing the token
+pub struct NeedsAuthRevalidation(pub AuthenticationToken);
+
 /// Current state for the sync protocol's worker.
 ///
 /// Fundamentally, the state is determined by the current `StateVersion`, which
@@ -130,7 +137,6 @@ pub struct SyncState {
     queries: BTreeMap<QueryId, SyncedQuery>,
     /// Queries being computed for the next transition.
     in_progress_queries: BTreeMap<QueryId, Query>,
-    identity: Identity,
 
     // If this is true, it means we have invalidated but have not yet refilled
     // some query subscription. `next_invalidated_query` blocks forever until
@@ -145,6 +151,9 @@ pub struct SyncState {
     received_client_version: ClientVersion,
 
     partition_id: u64,
+
+    auth_token: AuthenticationToken,
+    identity: Identity,
 }
 
 impl SyncState {
@@ -156,6 +165,7 @@ impl SyncState {
             queries: BTreeMap::new(),
             in_progress_queries: BTreeMap::new(),
             identity: Identity::Unknown(None),
+            auth_token: AuthenticationToken::None,
 
             refill_needed: false,
 
@@ -240,18 +250,43 @@ impl SyncState {
     pub fn modify_identity(
         &mut self,
         new_identity: Identity,
+        new_auth_token: AuthenticationToken,
         base_version: IdentityVersion,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(self.received_client_version.identity == base_version);
         self.identity = new_identity;
+        self.auth_token = new_auth_token;
         self.received_client_version.identity.incr();
         Ok(())
+    }
+
+    /// Set the pending identity for the current sync session, bumping the
+    /// pending identity version.
+    pub fn update_revalidated_identity(&mut self, new_identity: Identity) {
+        self.identity = new_identity;
     }
 
     // Returns the current session identity. If the identity is a user ID
     // token, also validates using the current SystemTime that it hasn't expired.
     // If there is a pending update to the identity, use that instead.
-    pub fn identity(&self, current_time: SystemTime) -> anyhow::Result<Identity> {
+    //
+    // If it's an expired admin identity, instead return the authentication token as
+    // an error - for revalidation.
+    pub fn identity(
+        &self,
+        current_time: SystemTime,
+    ) -> anyhow::Result<Result<Identity, NeedsAuthRevalidation>> {
+        // Make sure identity is still valid, and valid a little bit into the future too
+        match self.identity.check_valid(current_time) {
+            IdentityValidity::Valid {
+                needs_revalidation_soon: false,
+            } => (),
+            IdentityValidity::Invalid
+            | IdentityValidity::Valid {
+                needs_revalidation_soon: true,
+            } => return Ok(Err(NeedsAuthRevalidation(self.auth_token.clone()))),
+        }
+
         let identity = self.identity.clone();
         if let Identity::User(user) = &identity {
             anyhow::ensure!(
@@ -259,7 +294,8 @@ impl SyncState {
                 ErrorMetadata::unauthenticated("TokenExpired", "Convex token identity expired")
             );
         }
-        Ok(identity)
+
+        Ok(Ok(identity))
     }
 
     /// Wait on the next invalidated query future to break.

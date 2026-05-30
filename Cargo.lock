@@ -5389,6 +5389,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sodium_secretbox",
+ "thiserror 2.0.17",
  "tracing",
 ]
 

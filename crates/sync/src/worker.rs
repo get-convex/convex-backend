@@ -83,6 +83,7 @@ use futures::{
 use keybroker::Identity;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
+    AuthenticationToken,
     ClientMessage,
     IdentityVersion,
     Query,
@@ -116,7 +117,10 @@ use crate::{
         mutation_queue_timer,
         TypedClientEvent,
     },
-    state::SyncState,
+    state::{
+        NeedsAuthRevalidation,
+        SyncState,
+    },
     ServerMessage,
 };
 
@@ -431,8 +435,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 && self.tx.transition_count() < *SYNC_MAX_SEND_TRANSITION_COUNT
                 && self.transition_future.is_none()
             {
+                let identity = self.revalidate_identity().await?;
                 let new_transition_future =
-                    self.begin_update_queries(subscription_client.clone())?;
+                    self.begin_update_queries(identity, subscription_client.clone())?;
                 self.transition_future = Some(new_transition_future.boxed().fuse());
                 self.update_scheduled = false;
             }
@@ -534,7 +539,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 component_path,
             } => {
                 log_mutation_args_size(self.partition_id, args.get().len());
-                let identity = self.state.identity(self.rt.system_time())?;
+                let identity = self.revalidate_identity().await?;
                 let mutation_identifier =
                     self.state.session_id().map(|id| SessionRequestIdentifier {
                         session_id: id,
@@ -643,7 +648,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 component_path,
             } => {
                 log_action_args_size(self.partition_id, args.get().len());
-                let identity = self.state.identity(self.rt.system_time())?;
+                let identity = self.revalidate_identity().await?;
 
                 let api = self.api.clone();
                 let host = self.host.clone();
@@ -723,26 +728,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 token: auth_token,
                 base_version,
             } => {
-                let identity_result = self
-                    .api
-                    .authenticate(
-                        &self.host,
-                        RequestContext::new(RequestId::new(), self.request_metadata.clone()),
-                        auth_token,
-                    )
-                    .await;
-                let identity = match identity_result {
-                    Ok(identity) => identity,
-                    Err(e) => {
-                        let short_msg = e.short_msg().to_string();
-                        let msg = e.msg().to_string();
-                        // If the auth token is invalid, we want to signal the client
-                        // that we tried to update the auth token but failed, which will
-                        // prompt the client to not try the same token again.
-                        return Err(ErrorMetadata::auth_update_failed(short_msg, msg).into());
-                    },
-                };
-                self.state.modify_identity(identity, base_version)?;
+                let identity = self.fetch_identity(auth_token.clone()).await?;
+                self.state
+                    .modify_identity(identity, auth_token, base_version)?;
                 self.schedule_update();
             },
             ClientMessage::Event(client_event) => {
@@ -784,8 +772,46 @@ impl<RT: Runtime> SyncWorker<RT> {
         Ok(())
     }
 
+    async fn revalidate_identity(&mut self) -> anyhow::Result<Identity> {
+        match self.state.identity(self.rt.system_time())? {
+            Ok(identity) => Ok(identity),
+            Err(NeedsAuthRevalidation(auth_token)) => {
+                let identity = self.fetch_identity(auth_token).await?;
+                self.state.update_revalidated_identity(identity.clone());
+                Ok(identity)
+            },
+        }
+    }
+
+    async fn fetch_identity(
+        &mut self,
+        auth_token: AuthenticationToken,
+    ) -> anyhow::Result<Identity> {
+        let identity_result = self
+            .api
+            .authenticate(
+                &self.host,
+                RequestContext::new(RequestId::new(), self.request_metadata.clone()),
+                auth_token,
+            )
+            .await;
+        let identity = match identity_result {
+            Ok(identity) => identity,
+            Err(e) => {
+                let short_msg = e.short_msg().to_string();
+                let msg = e.msg().to_string();
+                // If the auth token is invalid, we want to signal the client
+                // that we tried to update the auth token but failed, which will
+                // prompt the client to not try the same token again.
+                return Err(ErrorMetadata::auth_update_failed(short_msg, msg).into());
+            },
+        };
+        Ok(identity)
+    }
+
     fn begin_update_queries(
         &mut self,
+        identity: Identity,
         subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>> + use<RT>> {
         let root = get_sampled_span(
@@ -814,7 +840,6 @@ impl<RT: Runtime> SyncWorker<RT> {
             self.state.take_subscriptions();
             identity_version = new_identity_version;
         }
-        let identity = self.state.identity(self.rt.system_time())?;
 
         // Step 1: Add or remove queries from our query set.
         let mut state_modifications = BTreeMap::new();
