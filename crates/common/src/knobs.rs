@@ -717,6 +717,10 @@ pub static ISOLATE_ANALYZE_USER_TIMEOUT: LazyLock<Duration> =
 pub static ISOLATE_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_QUEUE_SIZE", 2000));
 
+/// Maximum number of isolate worker threads in a function runner process.
+pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_ISOLATE_WORKERS", 300));
+
 /// The size of the pending commits in the committer queue. This is a FIFO
 /// queue, so if the queue is too large, we run into a risk of all requests
 /// waiting too long and no requests going through during overload. The size of

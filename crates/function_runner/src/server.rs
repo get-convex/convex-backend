@@ -23,6 +23,7 @@ use common::{
         fetch::FetchClient,
         RoutedHttpPath,
     },
+    knobs::MAX_ISOLATE_WORKERS,
     log_lines::LogLine,
     persistence::RetentionValidator,
     query_journal::QueryJournal,
@@ -110,8 +111,6 @@ use crate::{
     FunctionFinalTransaction,
     FunctionWrites,
 };
-
-const MAX_ISOLATE_WORKERS: usize = 128;
 
 pub struct RunRequestArgs {
     pub key_broker: FunctionRunnerKeyBroker,
@@ -224,7 +223,7 @@ pub async fn validate_run_function_result(
 
 impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
     pub fn new(rt: RT, storage: S, max_percent_per_client: usize) -> anyhow::Result<Self> {
-        Self::_new(rt, storage, max_percent_per_client, MAX_ISOLATE_WORKERS)
+        Self::_new(rt, storage, max_percent_per_client, *MAX_ISOLATE_WORKERS)
     }
 
     fn _new(
