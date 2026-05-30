@@ -20,6 +20,7 @@ pub use self::{
         FunctionRunnerKeyBroker,
         GetFileAuthorization,
         Identity,
+        IdentityValidity,
         KeyBroker,
         StoreFileAuthorization,
         SystemKey,

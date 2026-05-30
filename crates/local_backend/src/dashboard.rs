@@ -243,7 +243,10 @@ pub async fn check_admin_key(
             );
         },
     };
-    let allowed_ops = admin.allowed_ops().to_vec();
+    let allowed_ops = admin
+        .allowed_ops()
+        .map_err(|e| anyhow::anyhow!(e))?
+        .to_vec();
     let is_read_only = admin.is_read_only();
     let serialized_ops: Vec<serde_json::Value> = allowed_ops
         .iter()

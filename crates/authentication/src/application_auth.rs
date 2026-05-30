@@ -43,7 +43,7 @@ impl<RT: Runtime> ApplicationAuth<RT> {
             // assume this is a legacy Deploy Key
             let result = self
                 .key_broker
-                .check_admin_key(&admin_key_or_access_token)
+                .check_admin_key(&admin_key_or_access_token, self.rt.system_time())
                 .context(ErrorMetadata::unauthenticated(
                     "BadAdminKey",
                     "The provided admin key was invalid for this instance",

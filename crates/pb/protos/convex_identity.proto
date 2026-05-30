@@ -72,6 +72,7 @@ message AdminIdentity {
   bool is_read_only = 6;
   // Operations this identity is allowed to perform.
   repeated DeploymentOperation allowed_operations = 7;
+  optional google.protobuf.Timestamp validated_at = 8;
 }
 
 message UserIdentity {

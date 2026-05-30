@@ -13,6 +13,10 @@
 #![deny(missing_docs)]
 
 use std::{
+    cmp::{
+        max,
+        min,
+    },
     num::{
         NonZeroU32,
         NonZeroUsize,
@@ -1677,3 +1681,22 @@ pub static INDEX_CACHE_SIZE: LazyLock<u64> =
 /// timeout elapses and the commit queue is still full.
 pub static SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS", 500)));
+
+/// Admin identities expire after this delay. Then they need revalidation. This
+/// needs to be longer than the longest living sessions that maintain a single
+/// Identity. Notably ACTION_USER_TIMEOUT.
+pub static ADMIN_IDENTITY_EXPIRATION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
+    max(
+        *ACTION_USER_TIMEOUT,
+        Duration::from_secs(env_config("ADMIN_IDENTITY_EXPIRATION_DELAY_SECS", 900)),
+    )
+});
+
+/// Admin identities should consider revalidating after this delay. This number
+/// must be smaller than ADMIN_IDENTITY_EXPIRATION_DELAY
+pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
+    min(
+        *ADMIN_IDENTITY_EXPIRATION_DELAY,
+        Duration::from_secs(env_config("ADMIN_IDENTITY_REVALIDATION_DELAY_SECS", 60)),
+    )
+});

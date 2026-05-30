@@ -21,6 +21,10 @@ use common::{
         InertIdentity,
     },
     index::IndexKeyBytes,
+    knobs::{
+        ADMIN_IDENTITY_EXPIRATION_DELAY,
+        ADMIN_IDENTITY_REVALIDATION_DELAY,
+    },
     query::{
         Cursor,
         CursorPosition,
@@ -104,6 +108,7 @@ use crate::{
     },
     operations::{
         bad_admin_key_error,
+        operations_for_deploy_key,
         DeploymentOp,
     },
     secret::DeploymentSecret,
@@ -162,11 +167,13 @@ impl From<Identity> for AuthenticationToken {
     }
 }
 
-impl From<Identity> for pb::convex_identity::UncheckedIdentity {
-    fn from(i: Identity) -> Self {
+impl TryFrom<Identity> for pb::convex_identity::UncheckedIdentity {
+    type Error = anyhow::Error;
+
+    fn try_from(i: Identity) -> anyhow::Result<Self> {
         let identity = match i {
             Identity::DeploymentAdmin(admin_identity) => {
-                UncheckedIdentityProto::AdminIdentity(admin_identity.into())
+                UncheckedIdentityProto::AdminIdentity(admin_identity.try_into()?)
             },
             Identity::System(_) => UncheckedIdentityProto::System(()),
             Identity::User(user_identity) => {
@@ -174,7 +181,7 @@ impl From<Identity> for pb::convex_identity::UncheckedIdentity {
             },
             Identity::ActingUser(admin_identity, attributes) => {
                 UncheckedIdentityProto::ActingUser(ActingUser {
-                    admin_identity: Some(admin_identity.into()),
+                    admin_identity: Some(admin_identity.try_into()?),
                     attributes: Some(attributes.into()),
                 })
             },
@@ -182,10 +189,20 @@ impl From<Identity> for pb::convex_identity::UncheckedIdentity {
                 error_message: error_message.map(|e| e.into()),
             }),
         };
-        Self {
+        Ok(Self {
             identity: Some(identity),
-        }
+        })
     }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum IdentityValidity {
+    /// Identity is valid
+    Valid {
+        /// Identity is valid, but needs revalidation soon
+        needs_revalidation_soon: bool,
+    },
+    Invalid,
 }
 
 impl Identity {
@@ -222,6 +239,29 @@ impl Identity {
 
     pub fn tag(&self) -> StaticMetricLabel {
         InertIdentity::from(self.clone()).tag()
+    }
+
+    pub fn check_valid(&self, check_at: SystemTime) -> IdentityValidity {
+        match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                if admin_identity.check_expired(check_at) == Err(AdminIdentityExpired) {
+                    IdentityValidity::Invalid
+                } else {
+                    let needs_revalidation_soon = admin_identity.check_expired(
+                        check_at + *ADMIN_IDENTITY_EXPIRATION_DELAY
+                            - *ADMIN_IDENTITY_REVALIDATION_DELAY,
+                    ) == Err(AdminIdentityExpired);
+                    IdentityValidity::Valid {
+                        needs_revalidation_soon,
+                    }
+                }
+            },
+            Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => {
+                IdentityValidity::Valid {
+                    needs_revalidation_soon: false,
+                }
+            },
+        }
     }
 }
 
@@ -360,7 +400,7 @@ impl Identity {
                 return Err(bad_admin_key_error(self.instance_name()).into());
             },
         };
-        if !admin_identity.is_operation_allowed(operation) {
+        if !admin_identity.is_operation_allowed(operation)? {
             anyhow::bail!(ErrorMetadata::forbidden(
                 "Unauthorized",
                 format!("You do not have permission to perform this operation ({operation:?})."),
@@ -600,13 +640,17 @@ fn extract_custom_jwt_claims(
     result
 }
 
-use crate::operations::operations_for_deploy_key;
-
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub enum AdminIdentityPrincipal {
     Member(MemberId),
     Team(TeamId),
 }
+
+/// AdminIdentityExpired - means that the identity has been around for too long
+/// and its claims are no longer valid.
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+#[error("AdminIdentityExpired")]
+pub struct AdminIdentityExpired;
 
 // Token indicating the possessor has authenticated as the admin for an
 // instance.
@@ -622,19 +666,24 @@ pub struct AdminIdentity {
     is_read_only: bool,
     // Operations this identity is allowed to perform. Empty means all operations allowed.
     allowed_ops: Vec<DeploymentOp>,
+    validated_at: SystemTime,
 }
 
-impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
-    fn from(
-        AdminIdentity {
+impl TryFrom<AdminIdentity> for pb::convex_identity::AdminIdentity {
+    type Error = anyhow::Error;
+
+    fn try_from(identity: AdminIdentity) -> Result<Self, Self::Error> {
+        // Refuse to serialize an expired identity
+        identity.check_expired(SystemTime::now())?;
+        let AdminIdentity {
             deployment_name: instance_name,
             principal,
             key,
             is_read_only,
             allowed_ops,
-        }: AdminIdentity,
-    ) -> Self {
-        Self {
+            validated_at,
+        } = identity;
+        Ok(Self {
             instance_name: Some(instance_name),
             principal: match principal {
                 AdminIdentityPrincipal::Member(member_id) => Some(
@@ -650,16 +699,25 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
                 .into_iter()
                 .map(|op| ProtoDeploymentOperation::from(op) as i32)
                 .collect(),
-        }
+            validated_at: Some(validated_at.into()),
+        })
     }
 }
 
 impl AdminIdentity {
-    pub fn from_proto_unchecked(msg: pb::convex_identity::AdminIdentity) -> anyhow::Result<Self> {
-        let instance_name = msg
-            .instance_name
-            .ok_or_else(|| anyhow::anyhow!("Missing instance_name"))?;
-        let principal = match msg.principal {
+    pub fn from_proto_unchecked(
+        pb::convex_identity::AdminIdentity {
+            instance_name,
+            key,
+            is_read_only,
+            allowed_operations,
+            validated_at,
+            principal,
+        }: pb::convex_identity::AdminIdentity,
+    ) -> anyhow::Result<Self> {
+        let instance_name =
+            instance_name.ok_or_else(|| anyhow::anyhow!("Missing instance_name"))?;
+        let principal = match principal {
             Some(pb::convex_identity::admin_identity::Principal::MemberId(id)) => {
                 AdminIdentityPrincipal::Member(id.into())
             },
@@ -668,22 +726,26 @@ impl AdminIdentity {
             },
             None => anyhow::bail!("Missing principal"),
         };
-        let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
-        let is_read_only: bool = msg.is_read_only;
-        let allowed_ops: Vec<DeploymentOp> = msg
-            .allowed_operations
+        let key = key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
+        let is_read_only: bool = is_read_only;
+        let allowed_ops: Vec<DeploymentOp> = allowed_operations
             .into_iter()
             .map(|i| match ProtoDeploymentOperation::try_from(i) {
                 Ok(proto) => DeploymentOp::from(proto),
                 Err(_) => DeploymentOp::Unknown,
             })
             .collect();
+        // TODO(nipunn) remove the `unwrap_or_else` once services push
+        let validated_at = validated_at
+            .unwrap_or_else(|| SystemTime::now().into())
+            .try_into()?;
         Ok(Self {
             deployment_name: instance_name,
             principal,
             key,
             is_read_only,
             allowed_ops,
+            validated_at,
         })
     }
 
@@ -693,6 +755,7 @@ impl AdminIdentity {
         access_token: String,
         is_read_only: bool,
         allowed_ops: Vec<DeploymentOp>,
+        validated_at: SystemTime,
     ) -> Self {
         Self {
             deployment_name,
@@ -700,6 +763,7 @@ impl AdminIdentity {
             key: access_token,
             is_read_only,
             allowed_ops,
+            validated_at,
         }
     }
 
@@ -715,14 +779,29 @@ impl AdminIdentity {
         self.is_read_only
     }
 
-    pub fn allowed_ops(&self) -> &[DeploymentOp] {
-        &self.allowed_ops
+    fn check_expired(&self, check_at: SystemTime) -> Result<(), AdminIdentityExpired> {
+        let diff = check_at.duration_since(self.validated_at);
+        if let Ok(diff) = diff
+            && diff > *ADMIN_IDENTITY_EXPIRATION_DELAY
+        {
+            return Err(AdminIdentityExpired);
+        }
+        Ok(())
+    }
+
+    pub fn allowed_ops(&self) -> Result<&[DeploymentOp], AdminIdentityExpired> {
+        self.check_expired(SystemTime::now())?;
+        Ok(&self.allowed_ops)
     }
 
     /// Check whether this identity is allowed to perform a specific operation.
     /// Empty `allowed_ops` means all operations are allowed.
-    pub fn is_operation_allowed(&self, operation: DeploymentOp) -> bool {
-        self.allowed_ops.is_empty() || self.allowed_ops.contains(&operation)
+    pub fn is_operation_allowed(
+        &self,
+        operation: DeploymentOp,
+    ) -> Result<bool, AdminIdentityExpired> {
+        self.check_expired(SystemTime::now())?;
+        Ok(self.allowed_ops.is_empty() || self.allowed_ops.contains(&operation))
     }
 }
 
@@ -731,10 +810,7 @@ impl fmt::Debug for AdminIdentity {
         write!(
             f,
             "{}/{:?}/{}/{:?}",
-            self.deployment_name,
-            self.principal,
-            self.key,
-            self.allowed_ops()
+            self.deployment_name, self.principal, self.key, self.allowed_ops,
         )
     }
 }
@@ -872,7 +948,7 @@ impl KeyBroker {
         admin_key.is_ok()
     }
 
-    pub fn check_admin_key(&self, key: &str) -> anyhow::Result<Identity> {
+    pub fn check_admin_key(&self, key: &str, now: SystemTime) -> anyhow::Result<Identity> {
         let (instance_name, encrypted_part) = split_admin_key(key)
             .map(|(name, key)| (Some(remove_type_prefix_from_deployment_name(name)), key))
             .unwrap_or((None, key));
@@ -916,6 +992,7 @@ impl KeyBroker {
                 key: key.to_string(),
                 is_read_only,
                 allowed_ops: operations_for_deploy_key(is_read_only),
+                validated_at: now,
             }),
             AdminIdentityProto::System(()) => Identity::system(),
         })
