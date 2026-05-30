@@ -286,7 +286,7 @@ async function deployToNewPreviewDeployment(
   // Extract deployment name from URL for WorkOS provisioning
   const deploymentNameForWorkOS = extractDeploymentNameForWorkOS(previewUrl);
 
-  announceDeploymentTarget("Deploying code on deployment:", {
+  announceDeploymentTarget("Deploying code to deployment:", {
     url: previewUrl,
     deploymentFields: {
       deploymentName: data.deploymentName,
@@ -385,7 +385,7 @@ async function deployToExistingDeployment(
     ctx,
     deploymentSelection,
   );
-  announceDeploymentTarget("Deploying code on deployment:", deploymentToActOn);
+  announceDeploymentTarget("Deploying code to deployment:", deploymentToActOn);
   const { deploymentFields } = deploymentToActOn;
 
   const configuredDeployment =
