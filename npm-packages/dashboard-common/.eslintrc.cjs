@@ -10,8 +10,7 @@ module.exports = {
     "next/core-web-vitals",
     "plugin:jsx-a11y/recommended",
     "prettier",
-    "plugin:better-tailwindcss/recommended-warn",
-    "plugin:better-tailwindcss/recommended-error",
+    "plugin:better-tailwindcss/legacy-recommended-error",
     "plugin:jest/recommended",
     "plugin:storybook/recommended",
   ],
@@ -166,7 +165,11 @@ module.exports = {
     "@typescript-eslint/no-floating-promises": "error",
     // Disable enforce-consistent-line-wrapping temporarily (will enable later + blame-ignore diff)
     "better-tailwindcss/enforce-consistent-line-wrapping": "off",
-    "better-tailwindcss/no-unregistered-classes": [
+    // New rules added to `recommended` in v4. Disable for now to keep the
+    // upgrade scoped; we can enable + autofix these later.
+    "better-tailwindcss/enforce-canonical-classes": "off",
+    "better-tailwindcss/no-deprecated-classes": "off",
+    "better-tailwindcss/no-unknown-classes": [
       "error",
       {
         ignore: [
