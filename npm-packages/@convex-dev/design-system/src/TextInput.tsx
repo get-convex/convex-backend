@@ -149,7 +149,7 @@ export const TextInput = forwardRef<
             <Button
               size="sm"
               onClick={action}
-              className="float-right mr-1.5 ml-[-2.375rem]"
+              className="float-right mr-1.5 -ml-9.5"
               variant={error ? "danger" : "neutral"}
               inline
               icon={<Icon className="size-3.5" />}
@@ -159,7 +159,7 @@ export const TextInput = forwardRef<
         </div>
         {error && (
           <p
-            className="flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words text-content-errorSecondary"
+            className="flex max-w-full animate-fadeInFromLoading gap-1 text-xs wrap-break-word text-content-errorSecondary"
             role="alert"
           >
             {error}

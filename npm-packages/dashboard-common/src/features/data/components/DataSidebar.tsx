@@ -90,7 +90,7 @@ export function DataSidebar({
       </div>
       <div className="flex justify-around border-t pt-4">
         {showSchema === undefined ? (
-          <Loading className="h-[2.25rem]" fullHeight={false} />
+          <Loading className="h-9" fullHeight={false} />
         ) : (
           <Button
             variant="neutral"

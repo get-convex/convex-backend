@@ -381,7 +381,7 @@ export function GenerateDeployKeyWithNameButton({
                                   <label
                                     key={op.key}
                                     htmlFor={`op-${op.key}`}
-                                    className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-background-secondary"
+                                    className="flex cursor-pointer items-center gap-2 rounded-sm p-1 text-xs hover:bg-background-secondary"
                                   >
                                     <Checkbox
                                       id={`op-${op.key}`}
@@ -412,7 +412,7 @@ export function GenerateDeployKeyWithNameButton({
                 </div>
               )}
               {error !== null && (
-                <Callout variant="error" className="text-xs break-words">
+                <Callout variant="error" className="text-xs wrap-break-word">
                   <ExclamationTriangleIcon className="mt-0.5 mr-1 min-w-4" />
                   {error}
                 </Callout>
@@ -479,14 +479,14 @@ export function GenerateDeployKeyButton({
   return (
     <>
       {deployKey ? (
-        <div className="flex max-w-[32rem] flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Callout variant="instructions">
             This key enables reading and writing data to your deployment without
             needing to log in, so it should not be shared or committed to git.
           </Callout>
           <CopyTextButton
             text={deployKey}
-            className="block max-w-[30rem] truncate font-mono text-sm font-normal"
+            className="block max-w-120 truncate font-mono text-sm font-normal"
           />
         </div>
       ) : (

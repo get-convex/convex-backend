@@ -48,7 +48,7 @@ export function ProjectSelector({
         ) : null}
         {selectedProject ? null : (
           <div
-            className="flex max-w-[14rem] items-center gap-2"
+            className="flex max-w-56 items-center gap-2"
             style={{
               maxWidth: width > 1024 ? "14rem" : width > 640 ? "10rem" : "6rem",
             }}
@@ -132,7 +132,7 @@ function ProjectSelectorPanel({
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div role="dialog">
       {team && (
-        <div className="flex max-h-[calc(100vh-3.625rem)] w-[12rem] flex-col py-2 sm:h-fit sm:w-[21.5rem]">
+        <div className="flex max-h-[calc(100vh-3.625rem)] w-48 flex-col py-2 sm:h-fit sm:w-86">
           <div className="my-0.5 flex w-full items-center justify-between gap-2 px-0.5">
             <h5 className="mb-1 flex h-fit items-center gap-1 truncate">
               {switchingTeams ? (
@@ -146,11 +146,11 @@ function ProjectSelectorPanel({
                   tipSide="right"
                 >
                   <Avatar name={team.name} hashKey={team.id.toString()} />
-                  <span className="max-w-[12rem] truncate">{team.name}</span>
+                  <span className="max-w-48 truncate">{team.name}</span>
                   <CaretSortIcon
                     className={cn(
                       "text-content-primary",
-                      "min-h-[1rem] min-w-[1rem] rounded-full",
+                      "min-h-4 min-w-4 rounded-full",
                     )}
                   />
                 </Button>

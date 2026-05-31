@@ -162,7 +162,7 @@ function TeamContent({
         </div>
         {!isDeploymentsView && (
           <div className="mt-1 flex items-center gap-2">
-            <div className="min-w-[13rem] shrink-0">
+            <div className="min-w-52 shrink-0">
               <TextInput
                 placeholder="Search projects"
                 value={projectQuery}
@@ -400,7 +400,7 @@ function ProjectGrid({
 
       {/* Bottom pagination controls */}
       {projects.length > 0 && (
-        <div className="mt-4 mb-4 flex w-full justify-end">
+        <div className="my-4 flex w-full justify-end">
           <PaginationControls
             showPageSize
             isCursorBasedPagination

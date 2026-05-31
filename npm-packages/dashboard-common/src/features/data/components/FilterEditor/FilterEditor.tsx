@@ -182,7 +182,7 @@ export function FilterEditor({
         size="xs"
         variant="neutral"
         onClick={onDelete}
-        className="ml-[-1px] rounded-l-none"
+        className="-ml-px rounded-l-none"
         aria-label={`Delete filter ${id}`}
         icon={<BackspaceIcon className="size-4" />}
       />
@@ -219,7 +219,7 @@ function ValueEditor({
   const [innerText, setInnerText] = useState("");
 
   return (
-    <div className="ml-[-1px] min-w-0 grow focus-within:z-20">
+    <div className="-ml-px min-w-0 grow focus-within:z-20">
       {isTypeFilterOp(state.op) ? (
         <Combobox
           searchPlaceholder="Search types..."

@@ -279,7 +279,7 @@ export function DeploymentLabel({
         id="select-deployment"
         data-testid="select-deployment"
         className={cn(
-          "flex h-[2.3125rem] items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
+          "flex h-9.25 items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",
           "focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden",
           deploymentTypeColorClasses(deployment.deploymentType),
@@ -396,7 +396,7 @@ export function DeploymentLabelProjectSettings({
       <Button
         variant="unstyled"
         className={cn(
-          "flex h-[2.3125rem] items-center gap-2 rounded-full px-3",
+          "flex h-9.25 items-center gap-2 rounded-full px-3",
           "border bg-background-secondary text-content-primary",
           "truncate text-sm font-medium transition-opacity hover:bg-background-tertiary",
           menuTarget && "border-border-selected bg-background-tertiary",
@@ -448,7 +448,7 @@ export function DeploymentLabelProvisionDeployment({
       <Button
         variant="unstyled"
         className={cn(
-          "flex h-[2.3125rem] items-center gap-2 rounded-full px-3",
+          "flex h-9.25 items-center gap-2 rounded-full px-3",
           "border border-dashed",
           "truncate text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",

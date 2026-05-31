@@ -166,7 +166,7 @@ export function DeployKeyListItem({
                       {groupOps.map((op) => (
                         <label
                           key={op.key}
-                          className="flex items-center gap-2 rounded-sm px-1 py-1 text-xs"
+                          className="flex items-center gap-2 rounded-sm p-1 text-xs"
                         >
                           <Checkbox checked disabled onChange={() => {}} />
                           {op.label}
@@ -186,7 +186,7 @@ export function DeployKeyListItem({
                     {unknownOperations.map((op) => (
                       <label
                         key={op}
-                        className="flex items-center gap-2 rounded-sm px-1 py-1 text-xs"
+                        className="flex items-center gap-2 rounded-sm p-1 text-xs"
                       >
                         <Checkbox checked disabled onChange={() => {}} />
                         {formatOperationName(op)}

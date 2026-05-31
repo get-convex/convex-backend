@@ -105,7 +105,7 @@ export function SearchIndexFilterEditor({
         >
           <div
             className={cn(
-              "flex h-full max-w-[12rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
+              "flex h-full max-w-48 min-w-4 cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
               filter.enabled
                 ? "bg-background-secondary"
                 : "bg-background-tertiary text-content-secondary",
@@ -123,7 +123,7 @@ export function SearchIndexFilterEditor({
         >
           <div
             className={cn(
-              "ml-[-1px] flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
+              "-ml-px flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
               filter.enabled
                 ? "bg-background-secondary"
                 : "bg-background-tertiary text-content-secondary",
@@ -134,7 +134,7 @@ export function SearchIndexFilterEditor({
         </Tooltip>
 
         {/* Render the appropriate value editor */}
-        <div className="ml-[-1px] min-w-0 flex-1">
+        <div className="-ml-px min-w-0 flex-1">
           {isCreationTimeField ? (
             <DateTimePicker
               date={getTimestampValue(filter.value)}

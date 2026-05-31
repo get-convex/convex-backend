@@ -47,7 +47,7 @@ function InvoicesTable({
 }) {
   return (
     <div
-      className="scrollbar max-h-[30rem] overflow-y-auto rounded-sm border"
+      className="scrollbar max-h-120 overflow-y-auto rounded-sm border"
       // Allow scrollable zone to be focused
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- https://dequeuniversity.com/rules/axe/4.11/scrollable-region-focusable?application=axeAPI
       tabIndex={0}

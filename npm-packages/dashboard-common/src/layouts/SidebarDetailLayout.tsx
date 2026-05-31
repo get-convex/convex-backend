@@ -191,7 +191,7 @@ export function ResizeHandle({
             dragging && "border-4 border-util-accent text-content-primary",
             direction === "right"
               ? "rounded-r-md border-l-0"
-              : "ml-[-1.25rem] rounded-l-md border-r-0",
+              : "-ml-5 rounded-l-md border-r-0",
           )}
           icon={<DragHandleDots2Icon className="text-content-secondary" />}
         >

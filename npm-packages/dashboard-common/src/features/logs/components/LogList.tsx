@@ -544,7 +544,7 @@ function LogListHeader({
 
 function TimestampColumn() {
   return (
-    <div className="flex min-w-[9.25rem] items-center gap-1">
+    <div className="flex min-w-37 items-center gap-1">
       Timestamp
       <Tooltip tip="Logs are sorted by timestamp, with the most recent logs appearing first.">
         <CaretDownIcon />
@@ -557,5 +557,5 @@ function FunctionColumn() {
 }
 
 function StatusColumn() {
-  return <div className="min-w-[7rem]">Status</div>;
+  return <div className="min-w-28">Status</div>;
 }

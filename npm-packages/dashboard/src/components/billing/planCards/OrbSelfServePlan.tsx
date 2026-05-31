@@ -89,7 +89,7 @@ export function OrbSelfServePlan({
         action={
           orbSub?.plan.planType === plan.planType ||
           orbSub?.plan.id === plan.id ? (
-            <p className="flex h-[2.125rem] items-center px-2 font-semibold">
+            <p className="flex h-8.5 items-center px-2 font-semibold">
               Current Plan
             </p>
           ) : orbSub ? (

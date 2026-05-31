@@ -59,7 +59,7 @@ export function Profile() {
       >
         {emails && profile && (
           <div className="scrollbar w-full overflow-auto">
-            <div className="mx-auto flex max-w-prose min-w-[22rem] flex-col justify-center gap-4 p-4">
+            <div className="mx-auto flex max-w-prose min-w-88 flex-col justify-center gap-4 p-4">
               <Sheet className="flex w-full flex-col gap-4">
                 <h3>Profile information</h3>
                 <ProfileForm profile={profile} />

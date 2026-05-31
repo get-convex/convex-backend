@@ -202,7 +202,7 @@ const button = tv({
       xs: "p-1",
       sm: "p-1.5",
       md: "px-4 py-3",
-      lg: "rounded-lg px-6 py-[1.125rem]",
+      lg: "rounded-lg px-6 py-4.5",
     },
   },
   compoundVariants: [

@@ -618,7 +618,7 @@ export function DisplayVanityDomain({
         <div
           className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
         >
-          <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
+          <div className="flex h-9.5 items-center truncate text-content-primary md:col-span-1">
             {vanityDomain.domain}
             {vanityDomain.verificationTime && (
               <Tooltip
@@ -631,7 +631,7 @@ export function DisplayVanityDomain({
           </div>
         </div>
 
-        <div className="flex h-[2.375rem] items-center gap-1">
+        <div className="flex h-9.5 items-center gap-1">
           <span className="truncate text-content-primary">
             {vanityDomain.requestDestination === "convexCloud"
               ? "Convex API"
@@ -686,21 +686,21 @@ export function DisplayVanityDomain({
                 </div>
               ))}
 
-              <code className="truncate font-bold break-words md:font-normal">
+              <code className="truncate font-bold wrap-break-word md:font-normal">
                 CNAME
               </code>
-              <code className="truncate break-words">
+              <code className="truncate wrap-break-word">
                 {vanityDomain.domain}
               </code>
-              <code className="truncate break-words">convex.domains</code>
+              <code className="truncate wrap-break-word">convex.domains</code>
 
-              <code className="truncate font-bold break-words md:font-normal">
+              <code className="truncate font-bold wrap-break-word md:font-normal">
                 TXT
               </code>
-              <code className="truncate break-words">
+              <code className="truncate wrap-break-word">
                 _convex_domains.{vanityDomain.domain}
               </code>
-              <code className="truncate break-words">
+              <code className="truncate wrap-break-word">
                 {vanityDomain.deploymentName}
               </code>
             </div>

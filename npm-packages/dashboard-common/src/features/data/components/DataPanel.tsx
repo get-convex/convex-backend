@@ -20,7 +20,7 @@ export function DataPanel({
     <>
       <ResizeHandle direction="left" collapsed={false} className="ml-6" />
       <Panel
-        className="z-40 flex h-full max-w-[42rem] min-w-[14rem] shrink overflow-x-auto"
+        className="z-40 flex h-full max-w-2xl min-w-56 shrink overflow-x-auto"
         defaultSize={20}
       >
         <div
@@ -30,7 +30,7 @@ export function DataPanel({
           <div className="flex h-full max-h-full flex-col">
             <div className="mb-1 px-4 pt-6 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-4 gap-y-2">
-                <h4 className="flex-1 break-words">{title}</h4>
+                <h4 className="flex-1 wrap-break-word">{title}</h4>
                 <ClosePanelButton onClose={onClose} className="ml-auto" />
               </div>
             </div>

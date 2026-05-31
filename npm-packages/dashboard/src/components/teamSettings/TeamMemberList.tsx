@@ -104,7 +104,7 @@ export function TeamMemberList({
       <Sheet className="min-w-[20rem]">
         <div className="mb-4 flex w-full items-center justify-between gap-2">
           <h3 className="grow">Team Members</h3>
-          <div className="w-[12rem]">
+          <div className="w-48">
             <TextInput
               type="search"
               id="memberSearch"
@@ -177,7 +177,7 @@ export function TeamMemberList({
         <Sheet>
           <div className="mb-4 flex w-full items-center justify-between gap-2">
             <h3 className="grow">Pending Invitations</h3>
-            <div className="w-[12rem]">
+            <div className="w-48">
               <TextInput
                 type="search"
                 id="inviteSearch"

@@ -46,7 +46,7 @@ export function TableHeader({
           {...omit(headerGroup.getHeaderGroupProps(), "key")}
           // The FixedSizeList controlling the table width somehow adds an extra pixel to the data rows,
           // so add one here too.
-          className="mr-[1px] border-x border-x-transparent"
+          className="mr-px border-x border-x-transparent"
         >
           {headerGroup.headers.map((column, columnIndex) => (
             <ColumnHeader

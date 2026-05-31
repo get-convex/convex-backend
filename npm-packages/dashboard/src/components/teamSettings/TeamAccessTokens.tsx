@@ -65,7 +65,7 @@ export function TeamAccessTokens({
           </div>
           <span className="font-mono">{team?.id}</span>
         </div>
-        <div className="mt-2 mb-2 text-sm text-content-primary">
+        <div className="my-2 text-sm text-content-primary">
           <span className="font-semibold">What can team access tokens do?</span>
           <ul className="mt-1 list-disc pl-4">
             <li>Create new projects</li>

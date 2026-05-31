@@ -228,7 +228,7 @@ export function Logs({
       : latestAuditLog?._creationTime;
 
   return (
-    <div className="flex size-full min-w-[48rem] flex-col overflow-hidden p-6 py-4">
+    <div className="flex size-full min-w-3xl flex-col overflow-hidden p-6 py-4">
       <div className="flex shrink-0 flex-col gap-4">
         <LogToolbar
           firstItem={<LogsHeader />}

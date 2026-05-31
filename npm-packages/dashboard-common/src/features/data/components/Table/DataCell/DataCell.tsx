@@ -344,7 +344,7 @@ function DataCellImpl({
               ...editorStyles.popper,
               width,
             }}
-            className="z-50 ml-[-1px] min-w-[24rem] animate-fadeInFromLoading"
+            className="z-50 -ml-px min-w-[24rem] animate-fadeInFromLoading"
             data-testid="cell-editor-popper"
             tabIndex={-1}
             onBlur={(e) => {

@@ -97,7 +97,7 @@ function ExecutionTreeNode({
             Array.from({ length: level }).map((_, index) => (
               <div
                 key={index}
-                className="mr-4 h-full w-[1px] shrink-0 bg-border-transparent"
+                className="mr-4 h-full w-px shrink-0 bg-border-transparent"
               />
             ))}
         </div>

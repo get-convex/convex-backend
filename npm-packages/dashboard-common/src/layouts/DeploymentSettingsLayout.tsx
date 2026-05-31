@@ -50,8 +50,8 @@ export function DeploymentSettingsLayout({
         {/* Make space for the header above */}
         <div className="flex size-full overflow-y-hidden">
           {isWide && sidebar}
-          <div className="scrollbar flex w-full min-w-[22rem] grow overflow-auto">
-            <div className="flex h-fit grow flex-col gap-6 p-6 sm:max-w-[65rem]">
+          <div className="scrollbar flex w-full min-w-88 grow overflow-auto">
+            <div className="flex h-fit grow flex-col gap-6 p-6 sm:max-w-260">
               <ErrorBoundary key={page}>{children}</ErrorBoundary>
             </div>
           </div>
@@ -64,7 +64,7 @@ export function DeploymentSettingsLayout({
 function SettingsMenuHeader({ isMenu = false }: { isMenu?: boolean }) {
   return (
     <h2 className="flex w-full items-center gap-2 border-b bg-background-secondary p-4">
-      {isMenu ? <HamburgerMenuIcon className="mt-0.5 min-w-[1rem]" /> : null}
+      {isMenu ? <HamburgerMenuIcon className="mt-0.5 min-w-4" /> : null}
       <span className="truncate">
         <DeploymentSettingsText />
       </span>
