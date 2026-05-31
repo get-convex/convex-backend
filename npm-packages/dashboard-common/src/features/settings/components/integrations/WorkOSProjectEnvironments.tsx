@@ -91,7 +91,7 @@ function EnvironmentListItem({
             rel="noopener noreferrer"
             className="text-content-tertiary hover:text-content-secondary"
           >
-            <ExternalLinkIcon className="h-3.5 w-3.5" />
+            <ExternalLinkIcon className="size-3.5" />
           </a>
         </div>
         <div className="flex items-center gap-1">
@@ -107,7 +107,7 @@ function EnvironmentListItem({
             variant="danger"
             onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
           >
-            <TrashIcon className="h-4 w-4" />
+            <TrashIcon className="size-4" />
           </Button>
         </div>
       </div>

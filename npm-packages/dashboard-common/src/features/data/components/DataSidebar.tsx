@@ -224,5 +224,5 @@ export function CreateNewTable({
 }
 
 export function DataSideBarSkeleton() {
-  return <div className="h-full w-full bg-background-secondary" />;
+  return <div className="size-full bg-background-secondary" />;
 }

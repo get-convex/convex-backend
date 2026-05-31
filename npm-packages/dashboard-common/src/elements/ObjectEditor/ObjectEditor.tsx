@@ -204,7 +204,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
       className={cn(
         // Setting a min-h makes sure the editor is able to properly resize when the
         // parent is resized.
-        "relative h-full min-h-4 w-full max-w-full rounded-sm border",
+        "relative size-full min-h-4 max-w-full rounded-sm border",
         className,
         disabled && "cursor-not-allowed bg-background-tertiary",
         numLines > 2 && multilineClasses,
@@ -217,7 +217,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
       onScroll={(e) => e.stopPropagation()}
     >
       {disabled && (
-        <div className="absolute z-10 h-full w-full cursor-not-allowed bg-background-tertiary/20" />
+        <div className="absolute z-10 size-full cursor-not-allowed bg-background-tertiary/20" />
       )}
       <Editor
         height="100%"

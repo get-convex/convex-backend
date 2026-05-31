@@ -80,7 +80,7 @@ export function LogDrilldown({
   }
 
   if (selectedLog.kind === "ClearedLogs") {
-    return <div className="h-full w-full border-l bg-background-primary/70" />;
+    return <div className="size-full border-l bg-background-primary/70" />;
   }
 
   return (

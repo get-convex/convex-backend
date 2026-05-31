@@ -25,7 +25,7 @@ export function InsightSummaryBreakdown({
   );
   if (!insight) {
     return (
-      <Sheet className="flex h-full w-full items-center justify-center text-content-secondary">
+      <Sheet className="flex size-full items-center justify-center text-content-secondary">
         {insight === null ? (
           "Insight not found."
         ) : (

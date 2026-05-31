@@ -482,7 +482,7 @@ export function BackupScheduleSelector({
           </span>
           <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
             <ChevronDownIcon
-              className="h-5 w-5 text-content-tertiary"
+              className="size-5 text-content-tertiary"
               aria-hidden="true"
             />
           </span>

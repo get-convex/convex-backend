@@ -78,7 +78,7 @@ export function EmptyDataContent({
   }
 
   return (
-    <div className="relative h-full w-full animate-fadeIn">
+    <div className="relative size-full animate-fadeIn">
       {/* Background table example */}
       {sized}
       <div
@@ -88,7 +88,7 @@ export function EmptyDataContent({
             "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgb(0,0,0,0.3) 30%, transparent 85%)",
         }}
       >
-        <div className="flex h-full w-full flex-col">
+        <div className="flex size-full flex-col">
           {/* Example DataToolbar */}
           {noTables && (
             <div className="mb-2 flex flex-col" inert>
@@ -145,11 +145,11 @@ export function EmptyDataContent({
 
           {/* Table */}
           <div
-            className="flex h-full w-full flex-col overflow-hidden rounded-sm rounded-t-none border bg-background-secondary"
+            className="flex size-full flex-col overflow-hidden rounded-sm rounded-t-none border bg-background-secondary"
             inert
             ref={tableContainerRef}
           >
-            <table className="h-full w-full table-fixed">
+            <table className="size-full table-fixed">
               <thead>
                 <tr className="border-b bg-background-secondary">
                   {EXAMPLE_COLUMNS.map((col) => (
@@ -193,7 +193,7 @@ export function EmptyDataContent({
         <Sheet
           padding={false}
           className={cn(
-            "h-fit w-fit bg-background-secondary/90 backdrop-blur-[2px]",
+            "size-fit bg-background-secondary/90 backdrop-blur-[2px]",
             width > 320 ? "m-6 p-2" : "m-0 p-0",
           )}
         >

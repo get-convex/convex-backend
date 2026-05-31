@@ -236,7 +236,7 @@ export function GlobalFunctionTester({
           />
         </Tooltip>
       </div>
-      <div className="flex h-full w-full flex-col">
+      <div className="flex size-full flex-col">
         <div
           className={classNames(
             "flex h-full w-full items-start",
@@ -395,7 +395,7 @@ export function GlobalFunctionTester({
           {isVertical && (
             <>
               {selectedItem?.fn.type === "customQuery" ? (
-                <div className="flex h-full w-full flex-col gap-4 px-4 pt-4 pb-6">
+                <div className="flex size-full flex-col gap-4 px-4 pt-4 pb-6">
                   {queryEditor}
                   {runCustomQueryButton}
                 </div>

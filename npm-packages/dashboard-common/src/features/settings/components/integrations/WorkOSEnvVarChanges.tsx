@@ -42,7 +42,7 @@ export function EnvVarChangeRow({ change }: { change: EnvVarChange }) {
         {isNew ? (
           <>
             <div className="flex-1 text-content-secondary">Not set</div>
-            <ArrowRightIcon className="h-3 w-3 shrink-0 text-content-secondary" />
+            <ArrowRightIcon className="size-3 shrink-0 text-content-secondary" />
             <div className="flex-1 overflow-x-auto text-content-success">
               <div className="inline-block min-w-0 whitespace-nowrap">
                 {shouldShowNewValue ? change.newValue : "•••••••••"}
@@ -56,7 +56,7 @@ export function EnvVarChangeRow({ change }: { change: EnvVarChange }) {
                 {shouldShowCurrentValue ? change.currentValue : "•••••••••"}
               </div>
             </div>
-            <ArrowRightIcon className="h-3 w-3 shrink-0 text-content-secondary" />
+            <ArrowRightIcon className="size-3 shrink-0 text-content-secondary" />
             <div className="flex-1 overflow-x-auto text-content-success">
               <div className="inline-block min-w-0 whitespace-nowrap">
                 {shouldShowNewValue ? change.newValue : "•••••••••"}

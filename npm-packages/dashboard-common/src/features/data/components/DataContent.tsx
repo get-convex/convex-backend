@@ -314,7 +314,7 @@ export function DataContent({
     <PanelGroup
       direction="horizontal"
       className={cn(
-        "scrollbar flex h-full w-full min-w-[20rem] overflow-x-auto pl-6",
+        "scrollbar flex size-full min-w-[20rem] overflow-x-auto pl-6",
         popupEl ? "pr-0" : "pr-6",
       )}
       autoSaveId="data-content"

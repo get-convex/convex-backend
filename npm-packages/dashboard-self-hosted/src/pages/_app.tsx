@@ -489,7 +489,7 @@ function Header({ onLogout }: { onLogout: () => void }) {
       <Menu
         buttonProps={{
           icon: (
-            <GearIcon className="h-7 w-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
+            <GearIcon className="size-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
           ),
           variant: "unstyled",
           "aria-label": "Dashboard Settings",

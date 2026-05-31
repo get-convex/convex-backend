@@ -61,7 +61,7 @@ export function CellEditor({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
-      className="flex h-full w-full flex-col items-end justify-between gap-1 border border-border-selected bg-background-secondary text-xs text-content-primary"
+      className="flex size-full flex-col items-end justify-between gap-1 border border-border-selected bg-background-secondary text-xs text-content-primary"
       style={{
         paddingLeft: densityValues.paddingX,
         paddingTop: densityValues.paddingY,

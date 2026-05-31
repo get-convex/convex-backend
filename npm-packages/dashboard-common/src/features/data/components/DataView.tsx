@@ -144,7 +144,7 @@ export function DataView({
       <LoadingTransition
         loadingProps={{ shimmer: false }}
         loadingState={
-          <div className="h-full w-full">
+          <div className="size-full">
             <div className="flex h-full">
               <SidebarDetailLayout
                 resizeHandleTitle="Tables"

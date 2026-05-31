@@ -107,7 +107,7 @@ export function DeploymentMenuOptions({
       {/* No prod deployments: show option to create one */}
       {prods.length === 0 && (
         <ContextMenu.Item
-          icon={<SignalIcon className="h-4 w-4" />}
+          icon={<SignalIcon className="size-4" />}
           label={
             <DeploymentOption
               name="Select to create a Prod deployment"
@@ -122,7 +122,7 @@ export function DeploymentMenuOptions({
       {/* Single default prod: show as single item */}
       {singleDefaultProd && (
         <ContextMenu.Item
-          icon={<SignalIcon className="h-4 w-4" />}
+          icon={<SignalIcon className="size-4" />}
           label={
             <DeploymentOption
               name={singleDefaultProd.name}
@@ -145,7 +145,7 @@ export function DeploymentMenuOptions({
               </span>
             </p>
           }
-          icon={<SignalIcon className="h-4 w-4" />}
+          icon={<SignalIcon className="size-4" />}
         >
           {prods.map((prodDeployment) => (
             <ContextMenu.Item
@@ -175,7 +175,7 @@ export function DeploymentMenuOptions({
       />
       {previews.length === 0 && (
         <ContextMenu.Item
-          icon={<Pencil2Icon className="h-4 w-4" />}
+          icon={<Pencil2Icon className="size-4" />}
           label={
             <div className="flex flex-col">
               Preview Deployments
@@ -198,7 +198,7 @@ export function DeploymentMenuOptions({
               </span>
             </p>
           }
-          icon={<Pencil2Icon className="h-4 w-4" />}
+          icon={<Pencil2Icon className="size-4" />}
         >
           {previews
             .sort(
@@ -235,7 +235,7 @@ export function DeploymentMenuOptions({
               </span>
             </p>
           }
-          icon={<WrenchIcon className="h-4 w-4" />}
+          icon={<WrenchIcon className="size-4" />}
         >
           {custom.map((customDeployment) => (
             <ContextMenu.Item
@@ -346,7 +346,7 @@ function MainMenuDevItems({
     <>
       {personalDevs.length === 0 && (
         <ContextMenu.Item
-          icon={<CommandLineIcon className="h-4 w-4" />}
+          icon={<CommandLineIcon className="size-4" />}
           label={
             <DeploymentOption
               name="Select to create your dev deployment."
@@ -363,9 +363,9 @@ function MainMenuDevItems({
           key={d.name}
           icon={
             d.kind === "local" ? (
-              <CommandLineIcon className="h-4 w-4" />
+              <CommandLineIcon className="size-4" />
             ) : (
-              <GlobeIcon className="h-4 w-4" />
+              <GlobeIcon className="size-4" />
             )
           }
           shortcut={

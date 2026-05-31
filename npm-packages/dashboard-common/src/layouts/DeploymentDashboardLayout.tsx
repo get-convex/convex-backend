@@ -178,8 +178,8 @@ export function DeploymentDashboardLayout({
               <div
                 className={
                   isRunnerExpanded && isGlobalRunnerShown
-                    ? "h-0 w-0"
-                    : "scrollbar h-full w-full overflow-x-auto"
+                    ? "size-0"
+                    : "scrollbar size-full overflow-x-auto"
                 }
               >
                 {children}
@@ -248,7 +248,7 @@ function MobileBanner() {
   return (
     <div className="flex items-center justify-between gap-2 border-b bg-util-accent/10 px-4 py-2 text-sm dark:bg-util-accent/30">
       <div className="flex items-center gap-2">
-        <InfoCircledIcon className="h-4 w-4 shrink-0" />
+        <InfoCircledIcon className="size-4 shrink-0" />
         <p>
           The Convex dashboard is designed for desktop. We recommend using a
           desktop browser for the best experience.

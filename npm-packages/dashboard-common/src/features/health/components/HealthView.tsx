@@ -174,7 +174,7 @@ export function DisclosureSection({
         >
           <ChevronDownIcon
             className={cn(
-              "h-4 w-4 text-content-secondary transition-transform",
+              "size-4 text-content-secondary transition-transform",
               isOpen && "rotate-180",
             )}
           />

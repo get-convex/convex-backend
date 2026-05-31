@@ -200,7 +200,7 @@ function DataCellImpl({
           }
           hotkeyRefs(r);
         }}
-        className="relative flex h-full w-full items-center hover:bg-background-tertiary/75"
+        className="relative flex size-full items-center hover:bg-background-tertiary/75"
         style={{ width }}
         onMouseEnter={() => setIsHoveringCell(true)}
         onMouseLeave={() => setIsHoveringCell(false)}

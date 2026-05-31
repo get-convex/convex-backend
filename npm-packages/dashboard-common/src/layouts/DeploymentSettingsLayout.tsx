@@ -32,7 +32,7 @@ export function DeploymentSettingsLayout({
   return (
     <PageContent>
       <div
-        className="flex h-full max-h-full w-full flex-col overflow-y-hidden"
+        className="flex size-full max-h-full flex-col overflow-y-hidden"
         ref={ref}
       >
         {isWide ? (
@@ -48,7 +48,7 @@ export function DeploymentSettingsLayout({
           </Popover>
         )}
         {/* Make space for the header above */}
-        <div className="flex h-full w-full overflow-y-hidden">
+        <div className="flex size-full overflow-y-hidden">
           {isWide && sidebar}
           <div className="scrollbar flex w-full min-w-[22rem] grow overflow-auto">
             <div className="flex h-fit grow flex-col gap-6 p-6 sm:max-w-[65rem]">

@@ -328,7 +328,7 @@ function ChartRow({
   const linkContents = (
     <div className="group relative flex h-10 py-1">
       <div role="cell" className="relative flex grow">
-        <div className="absolute top-0 left-0 flex h-full w-full items-center">
+        <div className="absolute top-0 left-0 flex size-full items-center">
           {nonZeroValues.map(([value, index], i) => (
             <div
               className={classNames(
@@ -345,7 +345,7 @@ function ChartRow({
           ))}
         </div>
 
-        <div className="absolute top-0 left-0 flex h-full w-full items-center text-sm">
+        <div className="absolute top-0 left-0 flex size-full items-center text-sm">
           <div className="truncate px-4">
             {systemKind !== null ? (
               renderSystemRowLabel(systemKind)

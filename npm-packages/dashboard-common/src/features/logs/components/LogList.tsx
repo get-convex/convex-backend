@@ -171,14 +171,10 @@ export function LogList({
   );
 
   return (
-    <Sheet
-      className="h-full w-full overflow-hidden"
-      padding={false}
-      ref={sheetRef}
-    >
+    <Sheet className="size-full overflow-hidden" padding={false} ref={sheetRef}>
       <PanelGroup
         direction="horizontal"
-        className="flex h-full w-full flex-auto overflow-hidden"
+        className="flex size-full flex-auto overflow-hidden"
         autoSaveId="logs-content"
       >
         <Panel

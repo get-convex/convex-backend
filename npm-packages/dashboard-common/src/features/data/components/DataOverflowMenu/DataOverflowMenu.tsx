@@ -92,7 +92,7 @@ export function DataOverflowMenu({
         action={onClickClearTable}
         disabled={numRows === 0 || !canManageTable || isInUnmountedComponent}
       >
-        <BackspaceIcon className="h-4 w-4" />
+        <BackspaceIcon className="size-4" />
         Clear Table
       </MenuItem>
       <MenuItem

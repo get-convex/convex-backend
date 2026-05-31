@@ -218,7 +218,7 @@ function RestoreFromDropdown({
               )}
               <span className="pointer-events-none flex items-center">
                 <CaretSortIcon
-                  className={cn("text-content-primary", "ml-auto h-5 w-5")}
+                  className={cn("text-content-primary", "ml-auto size-5")}
                   aria-hidden="true"
                 />
               </span>

@@ -336,7 +336,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   // While permissions are loading, show a loading indicator to avoid flashing a "no permission" view while permissions are stil loading.
   if (canViewDataCached === undefined) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
+      <div className="flex size-full items-center justify-center">
         <LoadingLogo />
       </div>
     );
@@ -609,10 +609,7 @@ export function WaitForDeploymentApi({
   if (loading) {
     return (
       <div
-        className={cn(
-          "flex h-full w-full items-center justify-center",
-          sizeClass,
-        )}
+        className={cn("flex size-full items-center justify-center", sizeClass)}
       >
         <LoadingLogo />
       </div>

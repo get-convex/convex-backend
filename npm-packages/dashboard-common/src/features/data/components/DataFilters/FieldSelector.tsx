@@ -227,7 +227,7 @@ export function FieldSelector({
         <div className="flex max-h-96 flex-col">
           {/* Search bar */}
           <div className="flex items-center gap-2 rounded-t-md border-b bg-background-secondary px-3 py-2">
-            <MagnifyingGlassIcon className="h-4 w-4 text-content-secondary" />
+            <MagnifyingGlassIcon className="size-4 text-content-secondary" />
             <input
               autoFocus
               ref={searchInputRef}
@@ -416,7 +416,7 @@ function FieldItem({
       >
         <Switch.Thumb
           className={cn(
-            "my-0.5 block h-2 w-2 rounded-full bg-white shadow-sm transition-transform",
+            "my-0.5 block size-2 rounded-full bg-white shadow-sm transition-transform",
             isVisible ? "translate-x-[10px]" : "translate-x-[2px]",
           )}
         />

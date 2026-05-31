@@ -356,7 +356,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
                 setShowProjectForm(true);
                 setSelectedProjectId(null);
               }}
-              icon={<PlusIcon className="h-4 w-4" />}
+              icon={<PlusIcon className="size-4" />}
             >
               Create a new project
             </Button>
