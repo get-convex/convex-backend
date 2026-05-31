@@ -321,7 +321,7 @@ export function DeploymentToolbar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="min-w-[13rem] shrink-0">
+      <div className="min-w-52 shrink-0">
         <TextInput
           placeholder="Search deployments"
           value={filters.searchQuery}

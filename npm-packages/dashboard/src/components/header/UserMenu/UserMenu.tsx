@@ -26,7 +26,7 @@ export function UserMenu() {
             alt="User profile image"
             width={32}
             height={32}
-            className="min-h-[2rem] min-w-[2rem] rounded-full"
+            className="min-h-8 min-w-8 rounded-full"
           />
         ) : (
           <GearIcon className="size-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
@@ -78,7 +78,7 @@ export function UserMenu() {
             <MenuLink href="/team/settings" disabled={isAcceptingOptions}>
               <div className="flex w-full items-center justify-between gap-1">
                 Team Settings
-                <span className="max-w-[6rem] truncate text-xs text-content-secondary">
+                <span className="max-w-24 truncate text-xs text-content-secondary">
                   {team.name}
                 </span>
               </div>
@@ -93,7 +93,7 @@ export function UserMenu() {
               <MenuLink href={`/t/${team.slug}/${project.slug}/settings`}>
                 <div className="flex w-full items-center justify-between">
                   Project Settings
-                  <span className="max-w-[6rem] truncate text-xs text-content-secondary">
+                  <span className="max-w-24 truncate text-xs text-content-secondary">
                     {project.name}
                   </span>
                 </div>

@@ -618,7 +618,7 @@ export function DisplayVanityDomain({
         <div
           className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
         >
-          <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
+          <div className="flex h-9.5 items-center truncate text-content-primary md:col-span-1">
             {vanityDomain.domain}
             {vanityDomain.verificationTime && (
               <Tooltip
@@ -631,7 +631,7 @@ export function DisplayVanityDomain({
           </div>
         </div>
 
-        <div className="flex h-[2.375rem] items-center gap-1">
+        <div className="flex h-9.5 items-center gap-1">
           <span className="truncate text-content-primary">
             {vanityDomain.requestDestination === "convexCloud"
               ? "Convex API"

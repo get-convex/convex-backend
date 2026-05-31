@@ -301,7 +301,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     !isBusinessPlanType;
 
   return (
-    <div className="flex min-w-[40rem] flex-col gap-2 [--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">
+    <div className="flex min-w-160 flex-col gap-2 [--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">
       <div className="flex justify-between">
         <h2 className="flex items-center gap-2">
           {section ? (

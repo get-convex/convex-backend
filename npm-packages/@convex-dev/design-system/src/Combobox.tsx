@@ -278,7 +278,7 @@ export function Combobox<T>({
                       modal={false}
                       static
                       className={cn(
-                        "mt-1 scrollbar max-h-[14.75rem] overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm",
+                        "mt-1 scrollbar max-h-59 overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm",
                       )}
                       ref={(el) => {
                         el?.scrollTo?.(0, 0);

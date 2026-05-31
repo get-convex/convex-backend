@@ -479,14 +479,14 @@ export function GenerateDeployKeyButton({
   return (
     <>
       {deployKey ? (
-        <div className="flex max-w-[32rem] flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Callout variant="instructions">
             This key enables reading and writing data to your deployment without
             needing to log in, so it should not be shared or committed to git.
           </Callout>
           <CopyTextButton
             text={deployKey}
-            className="block max-w-[30rem] truncate font-mono text-sm font-normal"
+            className="block max-w-120 truncate font-mono text-sm font-normal"
           />
         </div>
       ) : (

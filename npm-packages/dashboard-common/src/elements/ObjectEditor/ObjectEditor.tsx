@@ -225,7 +225,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
         className={cn(
           padding && "pt-2",
           editorClassname,
-          size === "sm" && "mt-[1px]",
+          size === "sm" && "mt-px",
           disabled &&
             "disabled cursor-not-allowed bg-background-tertiary text-content-secondary",
         )}

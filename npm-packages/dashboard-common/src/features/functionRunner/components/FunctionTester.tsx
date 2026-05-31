@@ -644,7 +644,7 @@ export function useFunctionTester({
   const args = (
     <div className="scrollbar grid h-full gap-2 overflow-y-auto">
       <div className="px-4">
-        <div className="flex max-w-[48rem] items-end justify-between">
+        <div className="flex max-w-3xl items-end justify-between">
           <h5 className="text-xs text-content-secondary">Arguments</h5>
           {setRunHistoryItem && moduleFunction?.udfType !== "Query" && (
             <RunHistory
@@ -662,7 +662,7 @@ export function useFunctionTester({
       </div>
       <div className="relative min-h-28 grow overflow-y-auto px-4">
         <ObjectEditor
-          className="max-w-[48rem] animate-fadeInFromLoading"
+          className="max-w-3xl animate-fadeInFromLoading"
           key={
             (moduleFunction?.identifier || "") +
             (moduleFunction?.componentId || "") +
@@ -744,11 +744,11 @@ export function useFunctionTester({
               </span>
             </label>
           </Tooltip>
-          <div className="flex max-h-[8rem] w-full flex-col gap-1">
+          <div className="flex max-h-32 w-full flex-col gap-1">
             {isImpersonating && (
               <ObjectEditor
                 key={runHistoryItem?.startedAt || ""}
-                className="w-full max-w-[48rem] animate-fadeInFromLoading"
+                className="w-full max-w-3xl animate-fadeInFromLoading"
                 defaultValue={
                   runHistoryItem?.type === "arguments"
                     ? runHistoryItem.user

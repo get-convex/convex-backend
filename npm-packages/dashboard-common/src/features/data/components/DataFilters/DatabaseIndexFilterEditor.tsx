@@ -462,7 +462,7 @@ export function DatabaseIndexFilterEditor({
     // Regular filter (equals)
     if (filter.type === "indexEq") {
       return (
-        <div className="ml-[-1px] min-w-0 flex-1">
+        <div className="-ml-px min-w-0 flex-1">
           {isCreationTimeField ? (
             renderDateTimePicker(
               filter.value,
@@ -507,7 +507,7 @@ export function DatabaseIndexFilterEditor({
           : handleLowerValueChange;
 
       return (
-        <div className="ml-[-1px] flex-1">
+        <div className="-ml-px flex-1">
           {isCreationTimeField ? (
             renderDateTimePicker(
               value,
@@ -535,7 +535,7 @@ export function DatabaseIndexFilterEditor({
     // Between range filter
     if (isRangeFilter && currentOperator === "between") {
       return (
-        <div className="ml-[-1px] flex w-full min-w-0 flex-1 grow flex-col items-center">
+        <div className="-ml-px flex w-full min-w-0 flex-1 grow flex-col items-center">
           {/* Lower bound value */}
           <div className="w-full flex-1">
             {isCreationTimeField ? (
@@ -623,7 +623,7 @@ export function DatabaseIndexFilterEditor({
         >
           <div
             className={cn(
-              "flex h-full max-w-[12rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
+              "flex h-full max-w-48 min-w-4 cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
               filter.enabled
                 ? "bg-background-secondary"
                 : "bg-background-tertiary text-content-secondary",
@@ -655,7 +655,7 @@ export function DatabaseIndexFilterEditor({
           >
             <div
               className={cn(
-                "ml-[-1px] flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
+                "-ml-px flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
                 filter.enabled
                   ? "bg-background-secondary"
                   : "bg-background-tertiary text-content-secondary",

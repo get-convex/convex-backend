@@ -137,7 +137,7 @@ function ImportStateBody({
         <div>
           <Tooltip tip={completedDate.toLocaleString()}>
             <div className="flex items-center gap-1 border p-1 text-sm text-content-primary">
-              <CheckCircledIcon className="min-w-[1rem] text-util-success" />
+              <CheckCircledIcon className="min-w-4 text-util-success" />
               {`Completed ${formatDistanceStrict(completedDate, new Date(), {
                 addSuffix: true,
               })}`}
@@ -149,7 +149,7 @@ function ImportStateBody({
     case "failed":
       return (
         <div className="flex w-fit items-center gap-1 rounded-sm border p-1 text-sm">
-          <CrossCircledIcon className="min-w-[1rem] text-content-errorSecondary" />
+          <CrossCircledIcon className="min-w-4 text-content-errorSecondary" />
           {snapshotImport.state.error_message}
         </div>
       );

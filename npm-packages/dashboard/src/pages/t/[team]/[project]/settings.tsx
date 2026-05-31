@@ -420,7 +420,7 @@ function ProjectSettings() {
                     />
                   </div>
                 ) : (
-                  <Loading className="h-[50rem]" fullHeight={false} />
+                  <Loading className="h-200" fullHeight={false} />
                 )}
                 <div id={SECTION_IDS.projectRoles}>
                   <MemberProjectRoles />

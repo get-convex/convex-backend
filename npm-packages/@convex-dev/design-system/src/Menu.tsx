@@ -73,7 +73,7 @@ export function Menu({
               ref={setPopperElement}
               style={styles.popper}
               {...attributes.popper}
-              className="z-50 flex max-h-[20rem] flex-col gap-1 overflow-auto rounded-lg border bg-background-secondary py-2 text-sm whitespace-nowrap shadow-md"
+              className="z-50 flex max-h-80 flex-col gap-1 overflow-auto rounded-lg border bg-background-secondary py-2 text-sm whitespace-nowrap shadow-md"
             >
               {children}
             </HeadlessMenuItems>

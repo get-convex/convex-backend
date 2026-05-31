@@ -321,7 +321,7 @@ export function Table({
                 {/* Body */}
                 <div
                   {...getTableBodyProps()}
-                  className="mt-[-1px] w-full flex-auto"
+                  className="-mt-px w-full flex-auto"
                   id="dataTable"
                 >
                   <InfiniteScrollList
@@ -447,7 +447,7 @@ export function Table({
             ref={panelRef}
             className={cn(
               "max-h-full overflow-x-auto bg-background-primary",
-              !collapsed && "min-w-[14rem]",
+              !collapsed && "min-w-56",
             )}
           >
             <ViewDocument

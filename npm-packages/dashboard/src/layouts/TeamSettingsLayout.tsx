@@ -110,11 +110,11 @@ export function TeamSettingsLayout({
             )}
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
-            <div className="flex h-full max-w-[80rem] flex-col gap-6 p-6">
+            <div className="flex h-full max-w-7xl flex-col gap-6 p-6">
               {selectedTeam ? (
                 <Component team={selectedTeam} key={selectedTeam.id} />
               ) : (
-                <Loading className="h-[50rem]" fullHeight={false} />
+                <Loading className="h-200" fullHeight={false} />
               )}
             </div>
           </div>

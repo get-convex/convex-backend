@@ -205,7 +205,7 @@ export function DeploymentSummary({
   if (isLoading) {
     return (
       <Sheet className="flex w-fit flex-col bg-transparent" padding={false}>
-        <div className="flex min-h-[7.5rem] min-w-[32rem] items-center justify-center rounded-lg bg-background-secondary p-2 py-3">
+        <div className="flex min-h-30 min-w-lg items-center justify-center rounded-lg bg-background-secondary p-2 py-3">
           <div>
             <Spinner className="size-8" />
           </div>
@@ -351,7 +351,7 @@ export function DeploymentSummary({
                       href="https://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog"
                       target="_blank"
                       // eslint-disable-next-line no-restricted-syntax -- manual Link-Button hybrid implementation
-                      className="h-[1.25rem] text-content-link"
+                      className="h-5 text-content-link"
                     >
                       <div>({latestVersion} available)</div>
                     </Button>

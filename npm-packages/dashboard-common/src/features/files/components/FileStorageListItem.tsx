@@ -84,7 +84,7 @@ export function FileStorageListItemInner({
   return (
     <div
       style={style}
-      className={`min-w-[36.25rem] ${FILE_STORAGE_LIST_GRID_CLASSES} items-center gap-2 border-b bg-background-secondary px-2 py-1 text-xs last:border-b-0`}
+      className={`min-w-145 ${FILE_STORAGE_LIST_GRID_CLASSES} items-center gap-2 border-b bg-background-secondary px-2 py-1 text-xs last:border-b-0`}
       data-testid="filerow"
     >
       {/* Checkbox column */}

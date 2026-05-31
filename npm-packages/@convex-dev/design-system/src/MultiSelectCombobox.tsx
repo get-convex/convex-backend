@@ -305,11 +305,11 @@ function ComboboxOption({
         <>
           {selected ? (
             <CheckIcon
-              className="h-4 min-w-[1rem] text-neutral-7 dark:text-neutral-4"
+              className="h-4 min-w-4 text-neutral-7 dark:text-neutral-4"
               aria-hidden="true"
             />
           ) : (
-            <span className="min-w-[1rem]" />
+            <span className="min-w-4" />
           )}
           <span
             className={classNames(

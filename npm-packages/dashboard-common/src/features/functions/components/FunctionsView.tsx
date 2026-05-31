@@ -94,7 +94,7 @@ function Functions() {
             </div>
           </div>
 
-          <HeadlessTabPanels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow flex-col overflow-x-auto p-6">
+          <HeadlessTabPanels className="scrollbar flex w-full max-w-440 min-w-0 grow flex-col overflow-x-auto p-6">
             <HeadlessTabPanel className="grow">
               <PerformanceGraphs />
             </HeadlessTabPanel>

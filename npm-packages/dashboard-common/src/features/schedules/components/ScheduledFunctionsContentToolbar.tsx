@@ -64,8 +64,8 @@ export function ScheduledFunctionsContentToolbar({
       <div className="flex w-full flex-wrap gap-4">
         <Combobox
           label="Filter scheduled runs by function"
-          className="w-[22rem]"
-          buttonClasses="w-[22rem]"
+          className="w-88"
+          buttonClasses="w-88"
           optionsWidth="full"
           searchPlaceholder="Search functions..."
           selectedOption={

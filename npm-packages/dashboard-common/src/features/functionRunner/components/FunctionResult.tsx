@@ -225,7 +225,7 @@ export function useFunctionResult({
             ) : undefined
           }
           size="sm"
-          className="w-full max-w-[48rem] items-center justify-center"
+          className="w-full max-w-3xl items-center justify-center"
           disabled={disabled || !areEditsAuthorized || !canRunFunction}
           loading={isInFlight}
           onClick={runFunction}

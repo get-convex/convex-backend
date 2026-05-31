@@ -106,7 +106,7 @@ export function TeamUsageToolbar({
       />
 
       <Tooltip
-        className="w-[12rem] animate-fadeInFromLoading"
+        className="w-48 animate-fadeInFromLoading"
         tip={
           <div className="flex flex-col gap-1">
             <p>

@@ -79,7 +79,7 @@ export function NentNameOption({
       )}
     >
       <div className="flex items-center gap-1 truncate">
-        {inButton && <PuzzlePieceIcon className="mt-[1px] min-w-[13px]" />}
+        {inButton && <PuzzlePieceIcon className="mt-px min-w-[13px]" />}
         <span className="truncate">
           {label === NENT_APP_PLACEHOLDER ? "app" : label}
           {value && value.state !== "active" && "*"}

@@ -58,7 +58,7 @@ export function DeploymentEventListItem({
         }}
         tabIndex={0}
       >
-        <div className="min-w-[9.25rem] pl-3 text-left font-mono whitespace-nowrap text-content-primary">
+        <div className="min-w-37 pl-3 text-left font-mono whitespace-nowrap text-content-primary">
           {timestamp}
           <span className="text-content-secondary">
             .
@@ -69,7 +69,7 @@ export function DeploymentEventListItem({
           </span>
         </div>
 
-        <hr className="min-w-[10.375rem] bg-background-tertiary" />
+        <hr className="min-w-41.5 bg-background-tertiary" />
 
         <div className="flex h-6 items-center gap-2 truncate">
           <GearIcon className="shrink-0" />

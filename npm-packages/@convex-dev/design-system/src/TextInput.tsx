@@ -149,7 +149,7 @@ export const TextInput = forwardRef<
             <Button
               size="sm"
               onClick={action}
-              className="float-right mr-1.5 ml-[-2.375rem]"
+              className="float-right mr-1.5 -ml-9.5"
               variant={error ? "danger" : "neutral"}
               inline
               icon={<Icon className="size-3.5" />}

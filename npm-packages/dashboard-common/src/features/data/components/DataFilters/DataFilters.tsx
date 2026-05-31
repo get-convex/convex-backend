@@ -178,7 +178,7 @@ export function DataFilters({
                   className={cn(
                     "rounded-r-none border-0 border-border-transparent dark:border-border-transparent",
                   )}
-                  icon={<ArrowLeftIcon className="my-[1px]" />}
+                  icon={<ArrowLeftIcon className="my-px" />}
                   inline
                   tip="Previous Filters"
                   disabled={currentIdx + 1 >= filterHistory.length}
@@ -194,7 +194,7 @@ export function DataFilters({
                   className={cn(
                     "rounded-none border-0 dark:border-border-transparent",
                   )}
-                  icon={<ArrowRightIcon className="my-[1px]" />}
+                  icon={<ArrowRightIcon className="my-px" />}
                   tip="Next Filters"
                   inline
                   disabled={currentIdx <= 0}

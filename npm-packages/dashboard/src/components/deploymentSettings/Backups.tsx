@@ -131,7 +131,7 @@ export function Backups({
               className="flex items-center gap-3"
             >
               <label className="flex cursor-not-allowed items-start gap-2 text-start text-sm">
-                <div className="flex min-h-[1lh] items-center">
+                <div className="flex min-h-lh items-center">
                   <Checkbox disabled checked={false} onChange={() => {}} />
                 </div>
                 <span>Backup automatically</span>

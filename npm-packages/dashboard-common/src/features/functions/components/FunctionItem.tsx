@@ -110,7 +110,7 @@ export function DirectoryItem({
           Array.from({ length: nestingLevel }).map((_, index) => (
             <div
               key={index}
-              className="h-full w-[1px] shrink-0 bg-border-transparent"
+              className="h-full w-px shrink-0 bg-border-transparent"
             />
           ))}
       </div>

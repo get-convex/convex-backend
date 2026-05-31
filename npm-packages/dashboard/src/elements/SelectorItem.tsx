@@ -69,7 +69,7 @@ export function SelectorItem({
       {children}
       {selected && (
         <Tooltip tip="You are here." side="right" className="ml-auto">
-          <SewingPinFilledIcon className="min-h-[1rem] min-w-[1rem]" />
+          <SewingPinFilledIcon className="min-h-4 min-w-4" />
         </Tooltip>
       )}
     </Link>

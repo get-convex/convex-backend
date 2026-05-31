@@ -136,7 +136,7 @@ export function AccessTokenListItem({
                   ? `${tokenPrefix}|${token.serializedAccessToken}`
                   : token.serializedAccessToken
               }
-              className="block max-w-[30rem] truncate font-mono text-sm font-normal"
+              className="block max-w-120 truncate font-mono text-sm font-normal"
             />
           </div>
         )}

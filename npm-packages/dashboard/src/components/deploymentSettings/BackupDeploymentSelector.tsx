@@ -301,7 +301,7 @@ function RestoreFromDropdown({
                                     side="right"
                                     className="ml-auto"
                                   >
-                                    <SewingPinFilledIcon className="min-h-[1rem] min-w-[1rem]" />
+                                    <SewingPinFilledIcon className="min-h-4 min-w-4" />
                                   </Tooltip>
                                 </ListboxOption>
                               )}
@@ -332,7 +332,7 @@ function RestoreFromDropdown({
                                         key={`loading-${i}`}
                                         className="p-2 text-sm"
                                       >
-                                        <Loading className="h-[1lh]" />
+                                        <Loading className="h-lh" />
                                       </div>
                                     ),
                                   )}
