@@ -1168,7 +1168,7 @@ function EnvVarValueInput({
       {hint && (
         <p
           className={cn(
-            "mt-1 flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words",
+            "mt-1 flex max-w-full animate-fadeInFromLoading gap-1 text-xs wrap-break-word",
             hintStyle === "error"
               ? "text-content-errorSecondary"
               : "text-content-warning",

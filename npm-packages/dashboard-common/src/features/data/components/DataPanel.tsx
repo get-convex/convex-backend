@@ -30,7 +30,7 @@ export function DataPanel({
           <div className="flex h-full max-h-full flex-col">
             <div className="mb-1 px-4 pt-6 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-4 gap-y-2">
-                <h4 className="flex-1 break-words">{title}</h4>
+                <h4 className="flex-1 wrap-break-word">{title}</h4>
                 <ClosePanelButton onClose={onClose} className="ml-auto" />
               </div>
             </div>

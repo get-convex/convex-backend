@@ -21,7 +21,7 @@ export function Loading({
         "before:absolute before:inset-0",
         "before:-translate-x-full",
         shimmer && "before:animate-loading",
-        "before:bg-gradient-to-r before:from-transparent",
+        "before:bg-linear-to-r before:from-transparent",
         "before:via-neutral-3/30",
         "before:to-transparent",
         fullHeight && "h-full",

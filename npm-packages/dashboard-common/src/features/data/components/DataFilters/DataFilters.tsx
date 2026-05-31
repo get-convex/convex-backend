@@ -376,7 +376,7 @@ export function DataFilters({
                 )}
                 {dataFetchErrors && dataFetchErrors.length > 0 && (
                   <p
-                    className="h-4 text-xs break-words text-content-errorSecondary"
+                    className="h-4 text-xs wrap-break-word text-content-errorSecondary"
                     role="alert"
                   >
                     {dataFetchErrors[0].error}

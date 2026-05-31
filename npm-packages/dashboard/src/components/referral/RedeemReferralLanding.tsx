@@ -65,7 +65,7 @@ function LogInButton({ code, isChef }: { code: string; isChef: boolean }) {
     // to GitHub when following the link.
     <a
       className={cn(
-        "group z-10 my-2 inline-flex rounded-full bg-gradient-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-display shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow",
+        "group z-10 my-2 inline-flex rounded-full bg-linear-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-display shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow",
         !clicked && "hover:shadow-[rgba(111,0,255,0.5)]",
         clicked && "cursor-progress opacity-80",
       )}

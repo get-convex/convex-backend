@@ -402,7 +402,7 @@ function DeploymentTypeCheckboxes({
 
       {error && (
         <p
-          className="flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words text-content-errorSecondary"
+          className="flex max-w-full animate-fadeInFromLoading gap-1 text-xs wrap-break-word text-content-errorSecondary"
           role="alert"
         >
           {error}

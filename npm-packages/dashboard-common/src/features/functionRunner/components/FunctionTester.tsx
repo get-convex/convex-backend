@@ -763,7 +763,7 @@ export function useFunctionTester({
             )}
             {impersonatedUserError && (
               <p
-                className="mt-1 h-4 text-xs break-words text-content-errorSecondary"
+                className="mt-1 h-4 text-xs wrap-break-word text-content-errorSecondary"
                 role="alert"
               >
                 {impersonatedUserError}

@@ -412,7 +412,7 @@ export function GenerateDeployKeyWithNameButton({
                 </div>
               )}
               {error !== null && (
-                <Callout variant="error" className="text-xs break-words">
+                <Callout variant="error" className="text-xs wrap-break-word">
                   <ExclamationTriangleIcon className="mt-0.5 mr-1 min-w-4" />
                   {error}
                 </Callout>

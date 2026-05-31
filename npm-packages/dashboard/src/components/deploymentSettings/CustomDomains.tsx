@@ -686,21 +686,21 @@ export function DisplayVanityDomain({
                 </div>
               ))}
 
-              <code className="truncate font-bold break-words md:font-normal">
+              <code className="truncate font-bold wrap-break-word md:font-normal">
                 CNAME
               </code>
-              <code className="truncate break-words">
+              <code className="truncate wrap-break-word">
                 {vanityDomain.domain}
               </code>
-              <code className="truncate break-words">convex.domains</code>
+              <code className="truncate wrap-break-word">convex.domains</code>
 
-              <code className="truncate font-bold break-words md:font-normal">
+              <code className="truncate font-bold wrap-break-word md:font-normal">
                 TXT
               </code>
-              <code className="truncate break-words">
+              <code className="truncate wrap-break-word">
                 _convex_domains.{vanityDomain.domain}
               </code>
-              <code className="truncate break-words">
+              <code className="truncate wrap-break-word">
                 {vanityDomain.deploymentName}
               </code>
             </div>

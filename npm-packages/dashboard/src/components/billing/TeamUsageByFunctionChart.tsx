@@ -263,7 +263,7 @@ export function TeamUsageByFunctionChart({
 
         {numShown < nonZeroRows.length && (
           <div className="h-4">
-            <div className="bottom-four pointer-events-none absolute h-24 w-full bg-gradient-to-b from-transparent to-background-secondary" />
+            <div className="bottom-four pointer-events-none absolute h-24 w-full bg-linear-to-b from-transparent to-background-secondary" />
             <div className="absolute bottom-0 left-[50%]">
               <Button
                 className="-translate-x-1/2"
