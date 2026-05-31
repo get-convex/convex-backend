@@ -103,7 +103,7 @@ function SettingsNavigation() {
             <a
               href={`#${id}`}
               className={cn(
-                "block rounded-sm px-2 py-2 transition-all duration-200",
+                "block rounded-sm p-2 transition-all duration-200",
                 "text-content-primary hover:bg-background-secondary",
               )}
               onClick={(e) => {
@@ -302,7 +302,7 @@ function ProjectSettings() {
         These 3rd-party applications have been authorized to access this project
         on your behalf.
       </p>
-      <div className="mt-2 mb-2 text-sm text-content-primary">
+      <div className="my-2 text-sm text-content-primary">
         <span className="font-semibold">
           What can authorized applications do?
         </span>
@@ -401,7 +401,7 @@ function ProjectSettings() {
 
               <div
                 data-settings-content
-                className="flex w-full grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3"
+                className="flex w-full grow flex-col gap-6 pr-2 pb-6 *:scroll-mt-3 md:pt-20"
               >
                 {team && project ? (
                   <div id={SECTION_IDS.projectForm}>

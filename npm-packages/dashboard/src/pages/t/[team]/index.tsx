@@ -400,7 +400,7 @@ function ProjectGrid({
 
       {/* Bottom pagination controls */}
       {projects.length > 0 && (
-        <div className="mt-4 mb-4 flex w-full justify-end">
+        <div className="my-4 flex w-full justify-end">
           <PaginationControls
             showPageSize
             isCursorBasedPagination

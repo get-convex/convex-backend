@@ -99,7 +99,7 @@ export function SegmentedControl<T extends string>({
       {highlightStyle && (
         <div
           className={cn(
-            "absolute top-1 bottom-1 rounded-full bg-background-secondary shadow-sm",
+            "absolute inset-y-1 rounded-full bg-background-secondary shadow-sm",
             animate && "transition-all duration-200 ease-in-out",
           )}
           style={{

@@ -90,7 +90,7 @@ export function DirectoryItem({
       font: "mono",
       small: true,
     }),
-    "h-[30px] w-full max-w-full min-w-full truncate px-0 py-0 pr-2",
+    "h-[30px] w-full max-w-full min-w-full truncate p-0 pr-2",
     "rounded-none",
     isActive &&
       "bg-util-accent/30 font-normal outline outline-util-accent/40 hover:bg-util-accent/30",

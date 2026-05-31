@@ -159,7 +159,7 @@ export function ChartForFunctionRate({
     {} as Record<string, { hour: string; timestamp: number }[]>,
   );
   return (
-    <div className="size-full min-h-52 [&_*]:!outline-none">
+    <div className="size-full min-h-52 **:outline-none!">
       <LoadingTransition
         loadingProps={{
           fullHeight: false,

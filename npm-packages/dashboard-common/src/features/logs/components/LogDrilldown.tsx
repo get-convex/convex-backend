@@ -86,7 +86,7 @@ export function LogDrilldown({
   return (
     <div className="flex h-full max-h-full flex-col overflow-hidden border-l bg-background-primary/70">
       {/* Header */}
-      <div className="border-b bg-background-secondary px-2 pt-4 pb-4">
+      <div className="border-b bg-background-secondary px-2 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h4 className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -713,7 +713,7 @@ function LogContentLayout({
       {/* Deployment Event Content */}
       {selectedLog.kind === "DeploymentEvent" && (
         <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-secondary">
-          <div className="px-2 pt-2 pb-2">
+          <div className="p-2">
             <p className="mb-1 text-xs font-semibold">Deployment Event</p>
             <DeploymentEventContent
               event={selectedLog.deploymentEvent}

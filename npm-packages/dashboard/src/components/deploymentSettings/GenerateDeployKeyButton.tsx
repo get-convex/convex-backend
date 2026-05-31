@@ -381,7 +381,7 @@ export function GenerateDeployKeyWithNameButton({
                                   <label
                                     key={op.key}
                                     htmlFor={`op-${op.key}`}
-                                    className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-background-secondary"
+                                    className="flex cursor-pointer items-center gap-2 rounded-sm p-1 text-xs hover:bg-background-secondary"
                                   >
                                     <Checkbox
                                       id={`op-${op.key}`}
