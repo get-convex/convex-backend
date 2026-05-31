@@ -87,7 +87,7 @@ function History() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 p-6 py-4">
+    <div className="flex size-full flex-col gap-4 p-6 py-4">
       <h3>Deployment History</h3>
       {auditLogsEnabled ? (
         <>

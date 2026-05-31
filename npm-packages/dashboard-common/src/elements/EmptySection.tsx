@@ -39,7 +39,7 @@ export function EmptySection({
               color === "none" && "bg-transparent shadow-none",
             )}
           >
-            <Icon className="h-6 w-6 text-white" />
+            <Icon className="size-6 text-white" />
           </div>
         )}
         <h2 className="mx-2 mb-2">{header}</h2>

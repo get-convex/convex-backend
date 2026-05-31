@@ -53,7 +53,7 @@ export function LoadingTransition({
 
 export function LoadingLogo() {
   return (
-    <div className="h-20 w-20 animate-fadeIn">
+    <div className="size-20 animate-fadeIn">
       <svg
         width="100%"
         height="100%"

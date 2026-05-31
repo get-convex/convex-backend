@@ -52,9 +52,9 @@ export function ConvexCloudReminderToast() {
           >
             <div className="flex items-center gap-2">
               {isExpanded ? (
-                <ChevronDownIcon className="h-4 w-4" />
+                <ChevronDownIcon className="size-4" />
               ) : (
-                <ChevronRightIcon className="h-4 w-4" />
+                <ChevronRightIcon className="size-4" />
               )}
               <span>Enjoying Convex? Ready to deploy your app?</span>
             </div>
@@ -67,7 +67,7 @@ export function ConvexCloudReminderToast() {
               }}
               aria-label="Dismiss"
             >
-              <Cross2Icon className="h-4 w-4" />
+              <Cross2Icon className="size-4" />
             </Button>
           </Button>
         </div>

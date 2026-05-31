@@ -159,7 +159,7 @@ export function ChartForFunctionRate({
     {} as Record<string, { hour: string; timestamp: number }[]>,
   );
   return (
-    <div className="h-full min-h-52 w-full [&_*]:!outline-none">
+    <div className="size-full min-h-52 [&_*]:!outline-none">
       <LoadingTransition
         loadingProps={{
           fullHeight: false,
@@ -167,7 +167,7 @@ export function ChartForFunctionRate({
           shimmer: false,
         }}
         loadingState={
-          <div className="flex h-full w-full items-center justify-center">
+          <div className="flex size-full items-center justify-center">
             <Spinner className="m-auto size-12" />
           </div>
         }

@@ -130,7 +130,7 @@ function IdentityCard({
       </div>
 
       {/* Unlink button */}
-      <div className="flex-shrink-0">
+      <div className="shrink-0">
         <Button
           variant="danger"
           size="xs"

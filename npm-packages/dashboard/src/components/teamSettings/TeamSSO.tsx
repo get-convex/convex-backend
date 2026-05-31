@@ -472,7 +472,7 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
                             tip="Require that team members log in with SSO to access the team."
                             side="right"
                           >
-                            <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
+                            <QuestionMarkCircledIcon className="size-4 text-content-secondary" />
                           </Tooltip>
                         </span>
                       </label>

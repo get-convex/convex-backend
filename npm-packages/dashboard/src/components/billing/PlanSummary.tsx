@@ -846,7 +846,7 @@ export function PlanSummaryForTeam({
 function PlanSummaryError() {
   return (
     <div className="flex h-56 flex-col items-center justify-center p-4 text-center">
-      <CrossCircledIcon className="h-6 w-6 text-content-error" />
+      <CrossCircledIcon className="size-6 text-content-error" />
       <h5 className="mt-2">Error fetching Usage summary data</h5>
       <p className="mt-1 text-sm text-content-secondary">
         An error occurred while fetching usage summary data. Please try again

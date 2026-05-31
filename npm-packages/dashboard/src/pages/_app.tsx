@@ -123,7 +123,7 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                 <DashboardHeader />
                 {!!ssoLoginRequired &&
                 ssoLoginRequired === router.query.team ? (
-                  <div className="flex h-full w-full items-center justify-center">
+                  <div className="flex size-full items-center justify-center">
                     <Sheet className="flex max-w-prose flex-col gap-4">
                       <div className="flex items-center gap-2">
                         <LockClosedIcon className="size-8" />

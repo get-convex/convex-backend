@@ -171,7 +171,7 @@ export function FunctionRateHeatmapView({
       ? { ...data, rows: data.rows.filter((r) => r.key !== "_rest") }
       : data;
   return (
-    <div ref={containerRef} className="flex h-full w-full">
+    <div ref={containerRef} className="flex size-full">
       <CategoricalHeatmap
         data={displayData}
         kind={METRIC_TO_HEATMAP_KIND[metricKind]}
@@ -196,7 +196,7 @@ export function CategoricalHeatmap({
 }) {
   const config = KIND_CONFIG[kind];
   return (
-    <div className="flex h-full min-h-52 w-full flex-col">
+    <div className="flex size-full min-h-52 flex-col">
       <LoadingTransition
         loadingProps={{
           fullHeight: false,
@@ -204,13 +204,13 @@ export function CategoricalHeatmap({
           shimmer: false,
         }}
         loadingState={
-          <div className="flex h-full w-full items-center justify-center">
+          <div className="flex size-full items-center justify-center">
             <Spinner className="m-auto size-12" />
           </div>
         }
       >
         {data === null ? (
-          <div className="flex h-full w-full items-center justify-center px-12 text-center text-sm text-content-secondary">
+          <div className="flex size-full items-center justify-center px-12 text-center text-sm text-content-secondary">
             {config.emptyMessage}
           </div>
         ) : data === undefined ? null : (
@@ -338,7 +338,7 @@ function HeatmapGrid({
   return (
     <div
       ref={containerRef}
-      className="flex h-full w-full flex-col gap-1 px-2 pt-1 pb-2"
+      className="flex size-full flex-col gap-1 px-2 pt-1 pb-2"
     >
       <div
         ref={scrollRef}

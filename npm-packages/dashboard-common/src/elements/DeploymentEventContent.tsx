@@ -944,7 +944,7 @@ function PushContentForComponents({
 function Added() {
   return (
     <div className="flex items-center gap-1 text-sm">
-      <PlusIcon className="h-3 w-3 text-content-primary" />
+      <PlusIcon className="size-3 text-content-primary" />
       added
     </div>
   );
@@ -962,7 +962,7 @@ function Updated() {
 function Deleted() {
   return (
     <div className="flex items-center gap-1 text-sm">
-      <TrashIcon className="h-3 w-3 text-content-primary" />
+      <TrashIcon className="size-3 text-content-primary" />
       deleted
     </div>
   );
@@ -1035,11 +1035,11 @@ function SnapshotImportIntoTable({
   let action = "";
   switch (import_mode) {
     case "RequireEmpty":
-      icon = <PlusIcon className="h-3 w-3 text-content-primary" />;
+      icon = <PlusIcon className="size-3 text-content-primary" />;
       action = "created";
       break;
     case "Append":
-      icon = <PlusIcon className="h-3 w-3 text-content-primary" />;
+      icon = <PlusIcon className="size-3 text-content-primary" />;
       action = "appended to";
       break;
     case "Replace":

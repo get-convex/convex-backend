@@ -104,7 +104,7 @@ function Billing({ team }: { team: TeamResponse }) {
           {!isOrbSubLoading && orbSub !== undefined ? (
             <div
               className={cn(
-                "flex h-full min-h-0 w-full gap-6 transition-transform duration-500 motion-reduce:transition-none",
+                "flex size-full min-h-0 gap-6 transition-transform duration-500 motion-reduce:transition-none",
                 showUpgrade
                   ? "-translate-x-[calc(100%+1.5rem)]"
                   : "translate-x-0",
@@ -180,7 +180,7 @@ function Billing({ team }: { team: TeamResponse }) {
               </div>
             </div>
           ) : (
-            <Loading className="mx-6 h-full w-full" />
+            <Loading className="mx-6 size-full" />
           )}
         </div>
       </ErrorBoundary>

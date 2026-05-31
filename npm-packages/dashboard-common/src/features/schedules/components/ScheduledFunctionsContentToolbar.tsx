@@ -179,7 +179,7 @@ export function ScheduledFunctionsContentToolbar({
                   className={cn(
                     "flex cursor-pointer items-center gap-2",
                     currentOpenFunction &&
-                      "w-fit cursor-not-allowed rounded bg-background-tertiary p-2 text-content-secondary",
+                      "w-fit cursor-not-allowed rounded-sm bg-background-tertiary p-2 text-content-secondary",
                   )}
                 >
                   <Checkbox

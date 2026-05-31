@@ -294,7 +294,7 @@ export function DeploymentLabel({
           if (e.key === "Enter" || e.key === " ") openMenu(e as any);
         }}
       >
-        <div className="flex h-full w-full animate-fadeInFromLoading cursor-pointer items-center gap-1 px-4">
+        <div className="flex size-full animate-fadeInFromLoading cursor-pointer items-center gap-1 px-4">
           {showType && (
             <>
               {deployment.deploymentType === "dev" ? (

@@ -70,7 +70,7 @@ export function ViewDocument({
   const shouldSurfaceValidatorErrors = activeSchema?.schemaValidation;
 
   return (
-    <div className="flex h-full w-full min-w-[10rem] flex-col items-start overflow-y-hidden rounded-r border-l bg-background-secondary/70">
+    <div className="flex size-full min-w-[10rem] flex-col items-start overflow-y-hidden rounded-r border-l bg-background-secondary/70">
       {showAuthorizeEditsModalColumn && (
         <AuthorizeEditsConfirmationDialog
           onClose={() => {

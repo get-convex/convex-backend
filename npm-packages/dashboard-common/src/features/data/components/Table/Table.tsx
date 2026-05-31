@@ -417,7 +417,7 @@ export function Table({
 
               return (
                 <div
-                  className="pointer-events-none absolute top-0 rounded border border-border-selected bg-background-primary/50 shadow-lg"
+                  className="pointer-events-none absolute top-0 rounded-sm border border-border-selected bg-background-primary/50 shadow-lg"
                   style={{
                     left,
                     width: columnWidth,

@@ -80,7 +80,7 @@ export function LogDrilldown({
   }
 
   if (selectedLog.kind === "ClearedLogs") {
-    return <div className="h-full w-full border-l bg-background-primary/70" />;
+    return <div className="size-full border-l bg-background-primary/70" />;
   }
 
   return (
@@ -680,7 +680,7 @@ function LogContentLayout({
           </HeadlessTabList>
         </div>
 
-        <div className="mx-2 h-full min-h-0 overflow-hidden rounded rounded-t-none border border-t-0 bg-background-secondary">
+        <div className="mx-2 h-full min-h-0 overflow-hidden rounded-sm rounded-t-none border border-t-0 bg-background-secondary">
           <div className="scrollbar flex h-full flex-col gap-2 overflow-y-auto">
             <HeadlessTabPanels>
               <HeadlessTabPanel>

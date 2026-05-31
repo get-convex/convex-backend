@@ -227,7 +227,7 @@ export function FieldSelector({
         <div className="flex max-h-96 flex-col">
           {/* Search bar */}
           <div className="flex items-center gap-2 rounded-t-md border-b bg-background-secondary px-3 py-2">
-            <MagnifyingGlassIcon className="h-4 w-4 text-content-secondary" />
+            <MagnifyingGlassIcon className="size-4 text-content-secondary" />
             <input
               autoFocus
               ref={searchInputRef}
@@ -395,7 +395,7 @@ function FieldItem({
       onFocus={() => setFocusedIndex(index)}
       onKeyDown={handleKeyDown}
       className={cn(
-        "mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors",
+        "mx-1 flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors",
         "hover:bg-background-tertiary",
         "focus:outline-none focus-visible:bg-background-tertiary focus-visible:ring-2 focus-visible:ring-border-selected",
         isDragging && "cursor-grabbing opacity-50",
@@ -416,7 +416,7 @@ function FieldItem({
       >
         <Switch.Thumb
           className={cn(
-            "my-0.5 block h-2 w-2 rounded-full bg-white shadow-sm transition-transform",
+            "my-0.5 block size-2 rounded-full bg-white shadow-sm transition-transform",
             isVisible ? "translate-x-[10px]" : "translate-x-[2px]",
           )}
         />

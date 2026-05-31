@@ -170,13 +170,13 @@ function ImportStatePill({
     case "uploaded":
     case "waiting_for_confirmation":
       return (
-        <span className="h-fit w-fit rounded-sm bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
+        <span className="size-fit rounded-sm bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
           pending confirmation
         </span>
       );
     case "in_progress":
       return (
-        <span className="h-fit w-fit rounded-sm bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
+        <span className="size-fit rounded-sm bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
           in progress
         </span>
       );

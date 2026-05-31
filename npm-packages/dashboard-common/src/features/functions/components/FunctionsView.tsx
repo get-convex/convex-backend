@@ -65,8 +65,8 @@ function Functions() {
   let content: React.ReactNode;
   if (!currentOpenFunction) {
     content = (
-      <div className="flex h-full w-full items-center justify-center">
-        <Sheet className="m-8 flex h-fit w-fit max-w-[48ch] items-center gap-4 text-balance">
+      <div className="flex size-full items-center justify-center">
+        <Sheet className="m-8 flex size-fit max-w-[48ch] items-center gap-4 text-balance">
           <ArrowLeftIcon
             className="size-8 min-w-8 text-content-primary"
             aria-hidden
@@ -124,7 +124,7 @@ function Functions() {
 
 export function EmptyFunctions() {
   return (
-    <div className="relative h-full w-full animate-fadeIn overflow-hidden">
+    <div className="relative size-full animate-fadeIn overflow-hidden">
       {/* Background example */}
       <div
         className="pointer-events-none absolute inset-0 select-none"
@@ -134,7 +134,7 @@ export function EmptyFunctions() {
         }}
         inert
       >
-        <div className="flex h-full w-full flex-col">
+        <div className="flex size-full flex-col">
           {/* Example Function Summary */}
           <div className="sticky top-0 z-10 mb-6 bg-background-secondary">
             <div className="flex-none px-6 pt-4">
@@ -318,7 +318,7 @@ export function EmptyFunctions() {
 
       {/* Main content */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <Sheet className="m-6 h-fit w-fit bg-background-secondary/90 p-2 backdrop-blur-[2px]">
+        <Sheet className="m-6 size-fit bg-background-secondary/90 p-2 backdrop-blur-[2px]">
           <EmptySection
             Icon={CodeIcon}
             color="yellow"
