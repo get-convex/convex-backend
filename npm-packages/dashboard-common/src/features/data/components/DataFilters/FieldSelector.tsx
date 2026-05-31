@@ -395,7 +395,7 @@ function FieldItem({
       onFocus={() => setFocusedIndex(index)}
       onKeyDown={handleKeyDown}
       className={cn(
-        "mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors",
+        "mx-1 flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors",
         "hover:bg-background-tertiary",
         "focus:outline-none focus-visible:bg-background-tertiary focus-visible:ring-2 focus-visible:ring-border-selected",
         isDragging && "cursor-grabbing opacity-50",

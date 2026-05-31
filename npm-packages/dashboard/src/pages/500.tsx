@@ -112,7 +112,7 @@ function PermissionDeniedFallback({
           {missingAction && (
             <p className="text-xs text-content-tertiary">
               Missing permission:{" "}
-              <code className="rounded bg-background-tertiary px-1 py-0.5 font-mono">
+              <code className="rounded-sm bg-background-tertiary px-1 py-0.5 font-mono">
                 {missingAction}
               </code>
             </p>

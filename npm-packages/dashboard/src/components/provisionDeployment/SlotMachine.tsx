@@ -869,7 +869,7 @@ function SlotMachineAnimated({
         >
           {/* Reel window area — overflow hidden here clips 3D content at the machine edge */}
           <div
-            className="relative flex items-stretch overflow-hidden rounded"
+            className="relative flex items-stretch overflow-hidden rounded-sm"
             style={{
               background: isDark ? "#080808" : "#ffffff",
             }}

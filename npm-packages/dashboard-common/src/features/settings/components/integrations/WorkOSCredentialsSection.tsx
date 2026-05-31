@@ -67,7 +67,7 @@ export function WorkOSCredentialsSection({
         <div className="space-y-2">
           {/* Basic credentials with copy button */}
           <div className="relative">
-            <div className="overflow-hidden rounded border bg-background-primary">
+            <div className="overflow-hidden rounded-sm border bg-background-primary">
               <div className="flex items-center justify-between border-b bg-background-secondary px-3 py-2">
                 <span className="text-xs font-medium text-content-secondary">
                   Environment Variables

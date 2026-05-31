@@ -353,7 +353,7 @@ export function WorkOSProjectEnvironments({
               value={newEnvironmentName}
               onChange={(e) => setNewEnvironmentName(e.target.value)}
               placeholder="e.g., Preview Deployments, Staging"
-              className="w-full rounded border bg-background-primary px-3 py-2 text-sm"
+              className="w-full rounded-sm border bg-background-primary px-3 py-2 text-sm"
               maxLength={64}
               autoFocus
             />

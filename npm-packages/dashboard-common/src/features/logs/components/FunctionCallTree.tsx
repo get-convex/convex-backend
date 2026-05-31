@@ -89,7 +89,7 @@ function ExecutionTreeNode({
         ref={nodeRef}
         className={cn(
           "flex h-[30px] w-full items-center rounded-md pr-2 pl-4",
-          isCurrent && "-ml-px rounded border bg-background-highlight",
+          isCurrent && "-ml-px rounded-sm border bg-background-highlight",
         )}
       >
         <div className="flex h-full items-center">

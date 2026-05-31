@@ -611,7 +611,7 @@ function CustomRoleForm({
           </label>
           <textarea
             id="role-description"
-            className="min-h-[60px] w-full rounded border bg-background-secondary px-3 py-2 text-sm text-content-primary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary"
+            className="min-h-[60px] w-full rounded-sm border bg-background-secondary px-3 py-2 text-sm text-content-primary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary"
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);
@@ -626,7 +626,7 @@ function CustomRoleForm({
           <div className="text-left text-sm text-content-primary">
             Statements
           </div>
-          <div className="min-h-48 flex-1 overflow-hidden rounded border">
+          <div className="min-h-48 flex-1 overflow-hidden rounded-sm border">
             {overflowWidgetsNode && (
               <Editor
                 path={STATEMENTS_EDITOR_PATH}

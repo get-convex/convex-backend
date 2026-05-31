@@ -334,7 +334,7 @@ function VerificationRequestForm({
             )}
           </label>
 
-          <div className="rounded border bg-blue-50 p-3 dark:bg-blue-900/20">
+          <div className="rounded-sm border bg-blue-50 p-3 dark:bg-blue-900/20">
             <p className="text-sm text-content-secondary">
               <strong>Note:</strong> The Convex team will review your request
               and respond to you at{" "}
@@ -615,7 +615,7 @@ function OauthAppListItem({
   const [regenerateSecretError, setRegenerateSecretError] = useState("");
 
   return (
-    <div className="scrollbar flex w-full flex-col gap-2 overflow-x-auto rounded border bg-background-secondary p-3">
+    <div className="scrollbar flex w-full flex-col gap-2 overflow-x-auto rounded-sm border bg-background-secondary p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <h4>{app.appName}</h4>

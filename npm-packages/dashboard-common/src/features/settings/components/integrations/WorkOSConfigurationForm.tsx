@@ -648,7 +648,7 @@ function WorkOSTeamSection({
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-content-secondary">
-                <ExclamationTriangleIcon className="h-4 w-4 flex-shrink-0 text-content-warning" />
+                <ExclamationTriangleIcon className="h-4 w-4 shrink-0 text-content-warning" />
                 <span>
                   <Link
                     href="https://dashboard.workos.com/settings/billing"

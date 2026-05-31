@@ -50,7 +50,7 @@ export function Calendar({
           ),
           day_button: cn(
             "size-full p-0 aria-selected:opacity-100",
-            "hover:rounded hover:bg-background-primary",
+            "hover:rounded-sm hover:bg-background-primary",
           ),
           selected: "bg-background-tertiary border-y",
           range_start: "rounded-l bg-background-tertiary border",

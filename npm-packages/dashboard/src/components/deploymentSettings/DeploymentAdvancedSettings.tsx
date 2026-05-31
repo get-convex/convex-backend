@@ -124,7 +124,7 @@ function TriStateRadioGroup({
             className={cn(
               "flex items-center gap-2 text-sm",
               disabled ? "cursor-not-allowed" : "cursor-pointer",
-              "rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-util-accent",
+              "rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-util-accent",
             )}
           >
             <div

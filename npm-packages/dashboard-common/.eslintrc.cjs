@@ -168,7 +168,6 @@ module.exports = {
     // New rules added to `recommended` in v4. Disable for now to keep the
     // upgrade scoped; we can enable + autofix these later.
     "better-tailwindcss/enforce-canonical-classes": "off",
-    "better-tailwindcss/no-deprecated-classes": "off",
     "better-tailwindcss/no-unknown-classes": [
       "error",
       {

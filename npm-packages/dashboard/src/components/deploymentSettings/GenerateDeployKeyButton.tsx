@@ -261,7 +261,7 @@ export function GenerateDeployKeyWithNameButton({
                 again.
               </p>
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded bg-background-tertiary px-2 py-1 text-sm">
+                <code className="min-w-0 flex-1 truncate rounded-sm bg-background-tertiary px-2 py-1 text-sm">
                   {createdKey}
                 </code>
                 <CopyButton text={createdKey} />
@@ -381,7 +381,7 @@ export function GenerateDeployKeyWithNameButton({
                                   <label
                                     key={op.key}
                                     htmlFor={`op-${op.key}`}
-                                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs hover:bg-background-secondary"
+                                    className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-background-secondary"
                                   >
                                     <Checkbox
                                       id={`op-${op.key}`}
