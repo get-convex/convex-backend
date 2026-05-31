@@ -37,7 +37,7 @@
     "@workos-inc/authkit-nextjs": "~2.17.0",
     "@workos-inc/node": "~7.69.0",
     "chalk": "5",
-    "eslint-plugin-better-tailwindcss": "^3.8.0",
+    "eslint-plugin-better-tailwindcss": "^4.5.0",
     "get-port": "~7.1.0",
     "ora": "^9.0.0",
     "pixelmatch": "^7.0.0",

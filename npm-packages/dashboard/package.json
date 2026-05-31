@@ -97,7 +97,7 @@
     "eslint": "^9.37.0",
     "eslint-config-next": "^15.5.4",
     "eslint-config-prettier": "^10.0.0",
-    "eslint-plugin-better-tailwindcss": "^3.8.0",
+    "eslint-plugin-better-tailwindcss": "^4.5.0",
     "eslint-plugin-import": "^2.30.0",
     "eslint-plugin-jsx-a11y": "^6.6.0",
     "eslint-plugin-react": "^7.37.5",

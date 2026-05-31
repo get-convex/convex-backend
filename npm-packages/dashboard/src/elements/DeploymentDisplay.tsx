@@ -452,6 +452,7 @@ export function DeploymentLabelProvisionDeployment({
           "border border-dashed",
           "truncate text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",
+          // eslint-disable-next-line better-tailwindcss/no-unknown-classes -- eslint-plugin-better-tailwindcss v4 incorrectly identifies "prod"/"dev" as class names
           deploymentTypeColorClasses(isProvisionProd ? "prod" : "dev"),
           "[--bg-opacity:50%]",
         )}
