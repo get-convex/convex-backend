@@ -23,6 +23,7 @@ use common::{
     interval::Interval,
     knobs::{
         FUNRUN_INDEX_CACHE_CONCURRENCY,
+        FUNRUN_INDEX_CACHE_QUEUE_SIZE,
         FUNRUN_INDEX_CACHE_SIZE,
     },
     query::Order,
@@ -220,6 +221,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 rt.clone(),
                 *FUNRUN_INDEX_CACHE_SIZE,
                 *FUNRUN_INDEX_CACHE_CONCURRENCY,
+                *FUNRUN_INDEX_CACHE_QUEUE_SIZE,
                 "funrun_index_cache",
             ),
             rt,

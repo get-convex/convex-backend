@@ -1037,7 +1037,11 @@ pub static FUNRUN_INDEX_CACHE_SIZE: LazyLock<u64> =
 
 /// The maximum number of concurrent index cache requests in Funrun.
 pub static FUNRUN_INDEX_CACHE_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("FUNRUN_INDEX_CACHE_CONCURRENCY", 100));
+    LazyLock::new(|| env_config("FUNRUN_INDEX_CACHE_CONCURRENCY", 200));
+
+/// The maximum number of queued index cache requests in funrun.
+pub static FUNRUN_INDEX_CACHE_QUEUE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("FUNRUN_INDEX_CACHE_QUEUE_SIZE", 400));
 
 /// The maximum size of the module cache in Funrun in bytes.
 pub static FUNRUN_MODULE_CACHE_SIZE: LazyLock<u64> =
@@ -1045,7 +1049,11 @@ pub static FUNRUN_MODULE_CACHE_SIZE: LazyLock<u64> =
 
 /// The maximum number of concurrent module cache requests in Funrun.
 pub static FUNRUN_MODULE_MAX_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("FUNRUN_MODULE_MAX_CONCURRENCY", 100));
+    LazyLock::new(|| env_config("FUNRUN_MODULE_MAX_CONCURRENCY", 200));
+
+/// The maximum number of queued module cache requests in funrun.
+pub static FUNRUN_MODULE_QUEUE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("FUNRUN_MODULE_QUEUE_SIZE", 400));
 
 /// The maximum size of the module code cache in Funrun in bytes.
 pub static FUNRUN_CODE_CACHE_SIZE: LazyLock<u64> =

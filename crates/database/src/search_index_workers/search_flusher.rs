@@ -25,7 +25,6 @@ use common::{
     },
     persistence::{
         DocumentLogEntry,
-        LatestDocument,
         PersistenceReader,
         PersistenceSnapshot,
         RepeatablePersistence,
@@ -49,8 +48,10 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
+use futures_async_stream::try_stream;
 use governor::Quota;
 use keybroker::Identity;
+use parking_lot::Mutex;
 use search::metrics::SearchType;
 use storage::Storage;
 use sync_types::Timestamp;
@@ -394,10 +395,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     ///   ts
     ///
     ///  Each segment has two parts:
-    ///    - incremental_table_scan(): Scans the by_id index from
-    ///      cursor forward (the squares along the diagonal),
-    ///      accumulating documents until
-    ///      incremental_multipart_threshold_bytes is reached.
+    ///    - incremental_table_scan_stream(): Scans the by_id index from
+    ///      cursor forward (the squares along the diagonal), streaming
+    ///      documents until incremental_multipart_threshold_bytes is
+    ///      reached.
     ///    - walk_document_log_for_updates(): Reads the doc
     ///      log for (prev_ts, new_ts], filtered to doc IDs <=
     ///      cursor start (the rectangles below the diagonal).
@@ -411,7 +412,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     /// ```
     ///
     /// Steps per iteration:
-    /// 1. [`incremental_table_scan`]: scan by_id from cursor, up to threshold
+    /// 1. [`incremental_table_scan_stream`]: scan by_id from cursor, up to
+    ///    threshold
     /// 2. [`build_incremental_doc_stream`]: chain table scan docs with doc log
     ///    updates
     /// 3. [`build_disk_index`]: build new segment, apply deletes to prior ones
@@ -607,9 +609,16 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         // Actually create the persistence after new_ts is determined so it covers the
         // full range for incremental doc log walks.
         let persistence;
+        // The snapshot the incremental table scan reads from. Declared here so it
+        // outlives the lazy document stream that borrows it.
+        let table_scan_snapshot;
+        // The incremental table scan streams documents lazily rather than
+        // materializing them all in memory, so it reports its resume cursor here
+        // once it has been fully drained by `build_disk_index` below.
+        let new_cursor = Mutex::new(TableScanCursor::default());
 
         let lower_bound_ts: Option<Timestamp>;
-        let (documents, previous_segments, backfill_result) = match build_type {
+        let (documents, incremental_new_ts) = match build_type {
             MultipartBuildType::Partial(last_ts) => {
                 lower_bound_ts = Some(*last_ts);
                 let range =
@@ -621,7 +630,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     T::partial_document_order(),
                     &row_rate_limiter,
                 );
-                (documents, previous_segments, None)
+                (documents, None)
             },
             MultipartBuildType::IncrementalComplete {
                 start_cursor,
@@ -637,36 +646,24 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     new_ts,
                     params.database.retention_validator(),
                 );
-
-                let IncrementalTableScanResult {
-                    documents,
-                    new_cursor,
-                } = incremental_table_scan::<T>(
-                    &persistence.read_snapshot(new_ts)?,
-                    start_cursor.clone(),
-                    by_id,
-                    tablet_id,
-                    &qdrant_schema,
-                    params.limits.incremental_multipart_threshold_bytes,
-                )
-                .await?;
+                table_scan_snapshot = persistence.read_snapshot(new_ts)?;
 
                 let doc_stream = build_incremental_doc_stream::<T>(
                     &persistence,
+                    &table_scan_snapshot,
                     last_segment_ts,
                     new_ts,
                     table_number,
                     tablet_id,
-                    documents,
+                    by_id,
+                    &qdrant_schema,
+                    params.limits.incremental_multipart_threshold_bytes,
                     start_cursor,
+                    &new_cursor,
                 );
 
                 lower_bound_ts = Some(*last_segment_ts);
-                (
-                    doc_stream,
-                    previous_segments,
-                    Some(MultiSegmentBackfillResult { new_cursor, new_ts }),
-                )
+                (doc_stream, Some(new_ts))
             },
         };
 
@@ -685,6 +682,13 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
 
         let updated_previous_segments =
             T::upload_previous_segments(params.storage, mutable_previous_segments).await?;
+
+        // `build_disk_index` has now fully drained the document stream, so the
+        // incremental table scan has recorded where to resume in `new_cursor`.
+        let backfill_result = incremental_new_ts.map(|new_ts| MultiSegmentBackfillResult {
+            new_cursor: new_cursor.into_inner(),
+            new_ts,
+        });
 
         Ok(MultiSegmentBuildResult {
             new_segment,
@@ -708,22 +712,26 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     }
 }
 
-pub(crate) struct IncrementalTableScanResult {
-    pub documents: Vec<(IndexKeyBytes, LatestDocument)>,
-    pub new_cursor: TableScanCursor,
-}
-
-pub(crate) async fn incremental_table_scan<T: SearchIndex>(
-    reader: &PersistenceSnapshot,
+/// Lazily scan the `by_id` index from `start_cursor` forward, yielding
+/// documents until their estimated size reaches `threshold_bytes`.
+///
+/// Documents are streamed one page at a time rather than collected into a
+/// `Vec`, so building a segment only ever holds a single page of documents in
+/// memory instead of an entire segment's worth. Once the stream has been fully
+/// drained, the cursor to resume the next segment from is written to
+/// `new_cursor`.
+#[try_stream(ok = DocumentLogEntry, error = anyhow::Error)]
+async fn incremental_table_scan_stream<'a, T: SearchIndex>(
+    reader: &'a PersistenceSnapshot,
     start_cursor: Option<IndexKeyBytes>,
     by_id: IndexId,
     tablet_id: TabletId,
-    schema: &T::Schema,
+    schema: &'a T::Schema,
     threshold_bytes: usize,
-) -> anyhow::Result<IncrementalTableScanResult> {
+    new_cursor: &'a Mutex<TableScanCursor>,
+) {
     let page_size = *VECTOR_INDEX_WORKER_PAGE_SIZE;
     let mut total_size = 0u64;
-    let mut all_documents = Vec::new();
     let mut cursor = TableScanCursor {
         index_key: start_cursor.map(CursorPosition::After),
     };
@@ -741,12 +749,17 @@ pub(crate) async fn incremental_table_scan<T: SearchIndex>(
         }
 
         let page_len = page.len();
-        for (i, (index_key, latest_doc)) in page.into_iter().enumerate() {
+        for (i, (_index_key, latest_doc)) in page.into_iter().enumerate() {
             let developer_doc_id = latest_doc.value.id().developer_id;
-            let size = T::estimate_document_size(schema, &latest_doc.value);
-            total_size += size;
+            total_size += T::estimate_document_size(schema, &latest_doc.value);
 
-            all_documents.push((index_key, latest_doc));
+            yield DocumentLogEntry {
+                ts: latest_doc.ts,
+                id: latest_doc.value.id_with_table_id(),
+                value: Some(latest_doc.value),
+                prev_ts: latest_doc.prev_ts,
+            };
+
             if total_size >= threshold_bytes as u64 {
                 // Reset the cursor to be in the middle of the page we just interrupted
                 // processing because we exceeded the size limit for the segment unless we just
@@ -764,36 +777,42 @@ pub(crate) async fn incremental_table_scan<T: SearchIndex>(
         }
     }
 
-    Ok(IncrementalTableScanResult {
-        documents: all_documents,
-        new_cursor: cursor,
-    })
+    // Report where to resume now that the scan is exhausted. This runs once the
+    // consumer drains the stream past the final yielded document.
+    *new_cursor.lock() = cursor;
 }
 
-/// Build the document stream for incremental backfill from table scan
-/// results and chains in the doc log for updates to previously-scanned
-/// documents if `start_cursor` is present (we're not building the first
-/// segment).
+/// Build the document stream for incremental backfill: a lazy table scan
+/// (bounded by `threshold_bytes`) chained with the doc log for updates to
+/// previously-scanned documents if `start_cursor` is present (we're not
+/// building the first segment).
+///
+/// The cursor to resume the table scan from is written to `new_cursor` once
+/// the returned stream has been fully consumed.
+#[allow(clippy::too_many_arguments)]
 fn build_incremental_doc_stream<'a, T: SearchIndex>(
     reader: &'a RepeatablePersistence,
+    snapshot: &'a PersistenceSnapshot,
     previous_ts: RepeatableTimestamp,
     new_ts: RepeatableTimestamp,
     table_number: TableNumber,
     tablet_id: TabletId,
-    documents: Vec<(IndexKeyBytes, LatestDocument)>,
+    by_id: IndexId,
+    schema: &'a T::Schema,
+    threshold_bytes: usize,
     start_cursor: Option<IndexKeyBytes>,
+    new_cursor: &'a Mutex<TableScanCursor>,
 ) -> T::DocStream<'a> {
-    // Convert Vec<(IndexKeyBytes, LatestDocument)> into a DocumentStream
-    let document_stream =
-        futures::stream::iter(documents.into_iter().map(|(_index_key, latest_doc)| {
-            Ok(DocumentLogEntry {
-                ts: latest_doc.ts,
-                id: latest_doc.value.id_with_table_id(),
-                value: Some(latest_doc.value),
-                prev_ts: latest_doc.prev_ts,
-            })
-        }))
-        .boxed();
+    let document_stream = incremental_table_scan_stream::<T>(
+        snapshot,
+        start_cursor.clone(),
+        by_id,
+        tablet_id,
+        schema,
+        threshold_bytes,
+        new_cursor,
+    )
+    .boxed();
 
     let scan_doc_stream = T::table_scan_stream_to_doc_stream(document_stream);
 

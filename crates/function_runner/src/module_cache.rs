@@ -8,6 +8,7 @@ use common::{
         FUNRUN_CODE_CACHE_SIZE,
         FUNRUN_MODULE_CACHE_SIZE,
         FUNRUN_MODULE_MAX_CONCURRENCY,
+        FUNRUN_MODULE_QUEUE_SIZE,
     },
     runtime::Runtime,
 };
@@ -44,6 +45,7 @@ impl<RT: Runtime> ModuleCache<RT> {
             rt,
             *FUNRUN_MODULE_CACHE_SIZE,
             *FUNRUN_MODULE_MAX_CONCURRENCY,
+            *FUNRUN_MODULE_QUEUE_SIZE,
             "function_runner_module_cache",
         ))
     }

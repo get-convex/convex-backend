@@ -329,7 +329,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         rt: RT,
     ) -> anyhow::Result<Self> {
         let cleaner = CacheCleaner::new(rt.clone());
-        let cache = AsyncLru::new(rt.clone(), max_size, max_concurrent_fetches, "cache");
+        let cache = AsyncLru::new(rt.clone(), max_size, max_concurrent_fetches, 200, "cache");
         let this = Self {
             path: local_storage_path.as_ref().to_owned(),
             max_size,
