@@ -54,7 +54,7 @@ export const getByAuthor = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("messages")
-      .filter((q) => q.eq(q.field("author"), args.authorId))
+      .withIndex("by_author", (q) => q.eq("author", args.authorId))
       .collect();
   },
 });
