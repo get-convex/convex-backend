@@ -17,6 +17,9 @@ export type Nent = {
   state?: "active" | "unmounted";
 };
 
+// Using a stable reference to avoid rerenders
+const EMPTY_ARRAY = [] as const;
+
 export function useNents(): {
   nents?: Nent[];
   selectedNent: Nent | null;
@@ -30,7 +33,9 @@ export function useNents(): {
     api._system.frontend.components.list,
     canViewDataCached ? {} : "skip",
   );
-  const allComponents = canViewDataCached ? allComponentsOrSkipped : [];
+  const allComponents = canViewDataCached
+    ? allComponentsOrSkipped
+    : EMPTY_ARRAY;
 
   // Ensure the selected component is in the list of all components
   if (allComponents !== undefined && typeof query.component === "string") {
