@@ -222,9 +222,17 @@ impl<
     /// if no value is present.
     /// concurrency - The number of values that can be concurrently generated.
     /// This should be set based on system values.
-    pub fn new(rt: RT, max_size: u64, concurrency: usize, label: &'static str) -> Self {
+    /// queue_size - The size of the CoDel queue used to buffer pending value
+    /// generation requests.
+    pub fn new(
+        rt: RT,
+        max_size: u64,
+        concurrency: usize,
+        queue_size: usize,
+        label: &'static str,
+    ) -> Self {
         Self::_new(
-            CoDelQueue::new(rt.clone(), 200),
+            CoDelQueue::new(rt.clone(), queue_size),
             rt,
             LruCache::unbounded(),
             max_size,

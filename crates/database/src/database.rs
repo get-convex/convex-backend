@@ -1039,11 +1039,11 @@ impl<RT: Runtime> Database<RT> {
             index_cache_handle.clone(),
         );
         let table_mapping_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, 200, "table_mapping_snapshot");
         let by_id_indexes_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 20, 2, "by_id_indexes_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, 200, "by_id_indexes_snapshot");
         let component_paths_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 20, 2, "component_paths_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, 200, "component_paths_snapshot");
         let list_snapshot_table_iterator_cache = Arc::new(tokio::sync::Mutex::new(None));
         let database = Self {
             committer,

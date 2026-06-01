@@ -80,9 +80,15 @@ pub struct MultiTypeAsyncLru<RT: Runtime> {
 }
 
 impl<RT: Runtime> MultiTypeAsyncLru<RT> {
-    pub fn new(rt: RT, max_size: u64, concurrency: usize, label: &'static str) -> Self {
+    pub fn new(
+        rt: RT,
+        max_size: u64,
+        concurrency: usize,
+        queue_size: usize,
+        label: &'static str,
+    ) -> Self {
         Self {
-            inner: AsyncLru::new(rt, max_size, concurrency, label),
+            inner: AsyncLru::new(rt, max_size, concurrency, queue_size, label),
         }
     }
 

@@ -39,6 +39,7 @@ impl<RT: Runtime> ModuleCache<RT> {
             rt,
             *MODULE_CACHE_MAX_SIZE_BYTES,
             *MODULE_CACHE_MAX_CONCURRENCY,
+            200,
             "module_cache",
         );
 

@@ -74,7 +74,13 @@ impl<RT: Runtime> VectorSegmentCache<RT> {
         max_concurrent_searches: usize,
     ) -> Self {
         Self {
-            lru: AsyncLru::new(rt, size, max_concurrent_searches, "vector_segment_cache"),
+            lru: AsyncLru::new(
+                rt,
+                size,
+                max_concurrent_searches,
+                200,
+                "vector_segment_cache",
+            ),
             segment_generator: VectorSegmentGenerator { thread_pool },
         }
     }
@@ -167,7 +173,7 @@ impl<RT: Runtime> TextSegmentCache<RT> {
         max_concurrent_searches: usize,
     ) -> Self {
         Self {
-            lru: AsyncLru::new(rt, size, max_concurrent_searches, "text_segment_cache"),
+            lru: AsyncLru::new(rt, size, max_concurrent_searches, 200, "text_segment_cache"),
             text_segment_generator: TextSegmentGenerator { thread_pool },
         }
     }
