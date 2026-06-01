@@ -70,7 +70,6 @@ export function useMaintainScrollPositionOnChange<T>(
     }
 
     ignoreScrollEvent.current = true;
-    // eslint-disable-next-line no-param-reassign
     scrollRef.current.scrollTop =
       newTopmostRowIndex * rowHeight +
       (scrollRef.current.scrollTop % rowHeight);

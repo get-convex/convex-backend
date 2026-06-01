@@ -25,5 +25,4 @@ const customJestConfig = {
 
 const config = createJestConfig(customJestConfig);
 
-// eslint-disable-next-line import/no-default-export
 export default config;

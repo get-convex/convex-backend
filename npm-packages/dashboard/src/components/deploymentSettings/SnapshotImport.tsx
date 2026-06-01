@@ -213,7 +213,6 @@ function snapshotImportFormatToText(
     case "zip":
       return "ZIP";
     default: {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       format satisfies never;
       return "";
     }

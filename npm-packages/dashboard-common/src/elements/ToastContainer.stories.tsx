@@ -49,7 +49,6 @@ function ToastDemo() {
             ))}
           </div>
 
-          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label>
             <input
               className="mr-1"

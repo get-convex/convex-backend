@@ -32,7 +32,6 @@ function statusToColors(
         darkTextColor: "dark:text-slate-200",
       };
     default:
-      // eslint-disable-next-line no-case-declarations
       status satisfies never;
       throw new Error(`Unrecognized health status ${status}`);
   }

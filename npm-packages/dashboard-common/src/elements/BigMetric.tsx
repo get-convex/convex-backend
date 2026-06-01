@@ -14,7 +14,6 @@ export function BigMetric({
 }) {
   return (
     <div className="flex h-52 animate-fadeInFromLoading flex-col items-center justify-center gap-2 px-2 pb-2">
-      {/* eslint-disable-next-line no-restricted-syntax */}
       <div
         className={cn(
           // eslint-disable-next-line no-restricted-syntax

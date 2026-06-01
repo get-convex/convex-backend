@@ -284,7 +284,6 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
         size: 0.07,
       })),
       onRender: (state) => {
-        /* eslint-disable no-param-reassign */
         state.phi = currentPhi;
         state.theta = currentTheta;
         const [focusPhi, focusTheta] = focusRef.current;

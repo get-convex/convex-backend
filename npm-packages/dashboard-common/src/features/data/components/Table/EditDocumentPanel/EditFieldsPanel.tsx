@@ -27,7 +27,6 @@ export function EditFieldsPanel({
 
   const closeWithConfirmation = () => {
     if (isDirty) {
-      // eslint-disable-next-line no-alert
       const shouldClose = window.confirm(
         `You have unsaved changes.
 Press "Cancel" to return to the editor, or "OK" to discard unsaved changes.`,

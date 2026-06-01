@@ -93,7 +93,6 @@ export function EditDocumentPanel({
     // We only need to confirm closing the dialog if the user is editing a document. When the user adds documents, we store them as a draft.
     if (editing) {
       if (isDirty) {
-        // eslint-disable-next-line no-alert
         const shouldClose = window.confirm(
           `You have unsaved changes.
   Press "Cancel" to return to the editor, or "OK" to discard unsaved changes.`,

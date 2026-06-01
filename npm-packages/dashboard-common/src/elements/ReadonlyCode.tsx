@@ -88,7 +88,6 @@ function setupAutoHeight(
     }
     const contentHeight = Math.min(maxHeight, editor.getContentHeight());
 
-    // eslint-disable-next-line no-param-reassign
     ref.current.style.height = `${contentHeight}px`;
     editor.layout({
       height: contentHeight,

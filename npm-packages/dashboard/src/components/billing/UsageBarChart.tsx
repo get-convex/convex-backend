@@ -182,7 +182,6 @@ export function UsageStackedBarChart({
                 }
               }}
               shape={(props: any) => {
-                // eslint-disable-next-line react/prop-types
                 const { dateNumeric, name: categoryName } = props;
                 if (
                   typeof dateNumeric !== "number" ||

@@ -169,7 +169,6 @@ export function EmptyDataContent({
                 {Array.from({ length: fakeRowsCount }).map((_, i) => (
                   <tr key={i} className="group">
                     {EXAMPLE_COLUMNS.map((col) => (
-                      // eslint-disable-next-line jsx-a11y/control-has-associated-label
                       <td
                         key={col}
                         className="border-r px-2.5 group-last:border-b-0 last:border-r-0"
