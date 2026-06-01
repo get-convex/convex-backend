@@ -39,7 +39,6 @@ const referenceValidationSchema = Yup.object().shape({
     )
     .test(
       "not-reserved",
-      // eslint-disable-next-line no-template-curly-in-string -- Yup error template
       '"${value}" is reserved as a deployment alias and can\'t be used as a reference.',
       (value) => {
         if (!value) return true;

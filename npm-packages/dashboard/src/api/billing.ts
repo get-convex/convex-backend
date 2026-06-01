@@ -216,7 +216,6 @@ export function useListPlans(teamId?: number) {
     swrOptions: { refreshInterval: 0 },
   });
   if (error) {
-    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw error;
   }
   return { plans: data?.plans, isLoading };

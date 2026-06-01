@@ -102,8 +102,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
         mode,
         validator,
         "allowTopLevelUndefined" in props
-          ? // eslint-disable-next-line react/destructuring-assignment
-            !!props.allowTopLevelUndefined
+          ? !!props.allowTopLevelUndefined
           : false,
         shouldSurfaceValidatorErrors,
         handleError,
@@ -172,8 +171,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
         mode,
         validator,
         "allowTopLevelUndefined" in props
-          ? // eslint-disable-next-line react/destructuring-assignment
-            !!props.allowTopLevelUndefined
+          ? !!props.allowTopLevelUndefined
           : false,
         shouldSurfaceValidatorErrors,
         handleError,

@@ -127,7 +127,6 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
       {/* eslint-disable-next-line react/forbid-elements */}
       <button
         id={id}
-        // eslint-disable-next-line react/button-has-type
         type={type ?? "button"}
         tabIndex={0}
         onClick={onClick}

@@ -35,7 +35,6 @@ export function ClearTableConfirmation({
 
   const closeWithConfirmation = () => {
     if (isClearing) {
-      // eslint-disable-next-line no-alert
       const shouldClose = window.confirm(
         "Closing the popup will cancel the clear table operation with the table partially cleared. Are you sure you want to continue?",
       );

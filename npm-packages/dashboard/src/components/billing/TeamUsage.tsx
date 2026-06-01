@@ -359,7 +359,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                 </Link>
               </div>
             </span>
-            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- custom toggle switch */}
             <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
               <span>Preview new usage metrics</span>
               {/* eslint-disable-next-line react/forbid-elements -- custom toggle switch, not a standard button */}

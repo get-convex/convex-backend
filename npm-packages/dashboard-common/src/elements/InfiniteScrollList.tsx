@@ -130,7 +130,6 @@ const List = forwardRef<
         ref(node);
       }
       if (listRef) {
-        // eslint-disable-next-line no-param-reassign
         listRef.current = node;
       }
     },

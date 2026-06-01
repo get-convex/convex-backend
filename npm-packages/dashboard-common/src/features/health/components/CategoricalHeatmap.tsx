@@ -305,7 +305,6 @@ function HeatmapGrid({
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedRows.length]);
   // On mount (and whenever row count changes), scroll to the bottom so the
   // user sees the last (worst-performing) rows first. Without this, the
@@ -317,7 +316,6 @@ function HeatmapGrid({
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     recomputeFade(el);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedRows.length]);
   // Fade to a translucent-black endpoint (rather than fully transparent) for a
   // softer affordance. 12px tall on a 144px container is ~8%.
@@ -520,7 +518,6 @@ function Legend({ config }: { config: KindConfig }) {
               ? VIRIDIS_STOPS
               : [...VIRIDIS_STOPS].reverse();
           return stops.map((color, i) => (
-            // eslint-disable-next-line react/no-array-index-key
             <div key={i} className="flex-1" style={{ background: color }} />
           ));
         })()}

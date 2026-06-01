@@ -152,7 +152,6 @@ export const DATABASE_IO_CATEGORIES = {
   },
   ingress: {
     name: "Writes",
-    // eslint-disable-next-line no-restricted-syntax
     color: "fill-chart-line-2",
   },
 };
@@ -160,7 +159,6 @@ export const DATABASE_IO_CATEGORIES = {
 export const COMPUTE_CATEGORIES_SELF_SERVE = {
   actionConvex: {
     name: "Action",
-    // eslint-disable-next-line no-restricted-syntax
     color: "fill-chart-line-1",
   },
   actionNode: {
@@ -176,7 +174,6 @@ export const COMPUTE_CATEGORIES = {
   },
   actionConvex: {
     name: "Action",
-    // eslint-disable-next-line no-restricted-syntax
     color: "fill-chart-line-2",
   },
   actionNode: {

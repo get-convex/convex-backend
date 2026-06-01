@@ -14,7 +14,6 @@ let isOnlineCache = {
 let statusCheckIntervalId: NodeJS.Timeout | null = null;
 
 // Promise-based mutex to prevent concurrent checks
-// eslint-disable-next-line import/no-mutable-exports
 export let checkMutex: Promise<boolean> | null = null;
 
 // Track retry count for backoff and toast display

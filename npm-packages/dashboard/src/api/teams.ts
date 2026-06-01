@@ -132,7 +132,6 @@ export function useRemoveTeamMember(teamId: number) {
       await mutateMgmt([
         "/teams/{team_id}/list_members",
         { params: { path: { team_id: teamId.toString() } } },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
       return result;
     },

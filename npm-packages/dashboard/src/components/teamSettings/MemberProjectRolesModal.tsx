@@ -118,7 +118,6 @@ export function MemberProjectRolesModal({
 
   const closeWithConfirmation = () => {
     if (addedProjects.length > 0 || removedProjects.length > 0) {
-      // eslint-disable-next-line no-alert
       const shouldClose = window.confirm(
         "Closing the popup will clear your unsaved changes. Are you sure you want to continue?",
       );

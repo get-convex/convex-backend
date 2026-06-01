@@ -215,7 +215,6 @@ export function useCreateProject(teamId?: number) {
       await mutateBB([
         "/teams/{team_id}/projects",
         { params: { path: { team_id: teamIdStr } } },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
       return result;
     },

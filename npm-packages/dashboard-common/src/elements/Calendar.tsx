@@ -74,7 +74,7 @@ export function Calendar({
               tip={buttonProps["aria-disabled"] === true && beforeStartTooltip}
               asChild
             >
-              {/* eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker */}
+              {/* eslint-disable-next-line react/forbid-elements -- Component managed by react-day-picker */}
               <button {...buttonProps}>
                 <ChevronLeftIcon className="size-4" />
               </button>
@@ -87,7 +87,7 @@ export function Calendar({
           ...buttonProps
         }: NextMonthButtonProps) {
           return (
-            // eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker
+            // eslint-disable-next-line react/forbid-elements -- Component managed by react-day-picker
             <button {...buttonProps}>
               <ChevronRightIcon className="size-4" />
             </button>
@@ -107,7 +107,7 @@ export function Calendar({
               if (modifiers.focused) localRef.current?.focus();
             }, [modifiers.focused]);
 
-            // eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker
+            // eslint-disable-next-line react/forbid-elements -- Component managed by react-day-picker
             return <button ref={localRef} {...buttonProps} />;
           },
         ) as typeof DayButton, // need `as` here since `DayButton` isn’t

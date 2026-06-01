@@ -237,7 +237,6 @@ export function integrationUsingLegacyFormat(
     case "postHogErrorTracking":
       return false;
     default: {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       config satisfies never;
       return false;
     }
@@ -355,7 +354,6 @@ export function configToUrl(config: IntegrationConfig): string {
       return `${etHost}/error_tracking`;
     }
     default:
-      // eslint-disable-next-line no-case-declarations
       kind satisfies never;
       throw new Error(`Unrecognized integration type ${kind}`);
   }

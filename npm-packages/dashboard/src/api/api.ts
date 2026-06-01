@@ -325,7 +325,6 @@ export function useBBMutation<
 
       if (!response.ok && error) {
         handleMutationError(method, path, error, toastOnError);
-        // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw error;
       }
 
@@ -493,7 +492,6 @@ export function useManagementApiMutation<
 
       if (!response.ok && error) {
         handleMutationError(method, path, error, toastOnError);
-        // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw error;
       }
 

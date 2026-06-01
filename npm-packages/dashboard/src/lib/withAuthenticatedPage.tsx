@@ -14,7 +14,6 @@ import { useWorkOS } from "hooks/useWorkOS";
 import { User } from "@workos-inc/node";
 
 interface UserProps {
-  // eslint-disable-next-line react/no-unused-prop-types
   user: User;
 }
 

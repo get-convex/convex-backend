@@ -200,7 +200,6 @@ export function useDateFilters(router: NextRouter) {
   const checkAndSetStartDate = React.useCallback(
     async (date: Date) => {
       const start = startOfDay(date);
-      // eslint-disable-next-line no-param-reassign
       router.query.startDate = format(start, DATE_FORMAT);
       await router.replace({
         query: router.query,
@@ -212,7 +211,6 @@ export function useDateFilters(router: NextRouter) {
   const checkAndSetEndDate = React.useCallback(
     async (date: Date) => {
       const end = startOfDay(date);
-      // eslint-disable-next-line no-param-reassign
       router.query.endDate = format(end, DATE_FORMAT);
       await router.replace({
         query: router.query,

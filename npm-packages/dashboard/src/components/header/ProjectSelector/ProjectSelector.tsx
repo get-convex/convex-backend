@@ -129,7 +129,6 @@ function ProjectSelectorPanel({
   const [switchingTeams, setSwitchingTeams] = useState(false);
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div role="dialog">
       {team && (
         <div className="flex max-h-[calc(100vh-3.625rem)] w-48 flex-col py-2 sm:h-fit sm:w-86">
