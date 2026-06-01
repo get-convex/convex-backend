@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.40.0
+- You can now create a local deployment in a specific Convex cloud project with
+  `npx convex deployment create team-slug:project-slug:local`.
+- You can now move a local deployment to another cloud project
+  using `npx convex deployment select team-slug:project-slug:local`. This command warns
+  when it moves the deployment to another project.
+- The CLI now shows more clearly which deployment is targeted when running commands
+  such as `npx convex dev` and `npx convex deploy`.
+- Added a new `<AuthRefreshing />` helper component, used to show indicators when
+  function calls are paused because the authentication token is refreshing.
+- Removed `--local` and `--cloud` flags from `npx convex dev`. The behavior of these flags
+  was misleading when a deployment was already selected. Instead, use
+  `npx convex deployment select local` to use a local deployment, and
+  `npx convex deployment select dev` to use your personal cloud dev deployment.
+- The CLI now provides guidance when TypeScript type checking is taking too long.
+- Improved the CLI command documentation to include more details and examples.
+- `npx convex logs`: `--tail` is now accepted as an alias for the `--history` flag.
+- When creating a local deployment, the CLI now skips importing the default environment variables
+  from the Convex cloud project if you don’t have permission to view the default environment
+  variables instead of crashing.
+
 ## 1.39.1
 
 - Fixes package.json `bin` entrypoint bug in 1.39.0.
@@ -9,7 +30,7 @@
 - Apps and components may now declare typesafe env vars that they require. Both `defineApp`
   and `defineComponent` now accept an `env` object with string keys and validator values.
   Declared environment variables must be present and match the validators before deployment.
-- Allow `--local-cloud-port`, `--local-site-port`, `--local-backend-version` and 
+- Allow `--local-cloud-port`, `--local-site-port`, `--local-backend-version` and
   `--local-force-upgrade` options to `npx convex dev` to be used whenever using a local deployment.
 - The `AsyncLocalStorage` and `AsyncResource` APIs from `node:async_hooks` are now available
   in the standard Convex runtime. Note that stored values will not be threaded through calls to
