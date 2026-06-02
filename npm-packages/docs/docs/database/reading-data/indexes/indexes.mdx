@@ -51,9 +51,8 @@ which is added to all indexes automatically.
 By contrast, the `by_channel_user` index orders messages in the same `channel`
 by the `user` who sent them, and only then by `_creationTime`.
 
-Indexes are created in
-[`npx convex dev`](/cli/overview.mdx#run-the-convex-dev-server) and
-[`npx convex deploy`](/cli/overview.mdx#deploy-convex-functions-to-production).
+Indexes are created in [`npx convex dev`](/cli/reference/dev.mdx) and
+[`npx convex deploy`](/cli/reference/deploy.mdx).
 
 You may notice that the first deploy that defines an index is a bit slower than
 normal. This is because Convex needs to _backfill_ your index. The more data in

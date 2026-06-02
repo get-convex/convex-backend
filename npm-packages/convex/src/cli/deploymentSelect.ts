@@ -38,11 +38,11 @@ export const deploymentSelect = new Command("select")
       "",
       "The deployment will be used by all `npx convex` commands, except `npx convex deploy`. You can also run individual commands on another deployment by using the --deployment flag on that command.",
       "",
-      "- Select your personal cloud dev deployment in the current project: `npx convex deployment select dev`",
-      "- Select your local deployment: `npx convex deployment select local`",
-      "- Select a deployment in the same project by its reference: `npx convex deployment select dev/james`",
-      "- Select a deployment in another project in the same team: `npx convex deployment select some-project:dev/james`",
-      "- Select a deployment in a particular team/project: `npx convex deployment select some-team:some-project:dev/james`",
+      "• Select your personal cloud dev deployment in the current project: `npx convex deployment select dev`",
+      "• Select your local deployment: `npx convex deployment select local`",
+      "• Select a deployment in the same project by its reference: `npx convex deployment select dev/james`",
+      "• Select a deployment in another project in the same team: `npx convex deployment select some-project:dev/james`",
+      "• Select a deployment in a particular team/project: `npx convex deployment select some-team:some-project:dev/james`",
     ].join("\n"),
   )
   .argument("<deployment>", "The deployment to use")

@@ -52,8 +52,8 @@ export const deploymentCreate = new Command("create")
     [
       "Create a new deployment for a project.",
       "",
-      "- Create a dev deployment and select it: `npx convex deployment create dev/my-new-feature --type dev --select`",
-      "- Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`",
+      "• Create a dev deployment and select it: `npx convex deployment create dev/my-new-feature --type dev --select`",
+      "• Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`",
     ].join("\n"),
   )
   .argument(

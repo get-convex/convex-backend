@@ -495,8 +495,8 @@ Command.prototype.addImportOptions = function () {
       new Option(
         "--replace-all",
         "Replace all existing data in the deployment with the imported tables,\n" +
-          "  deleting tables that don't appear in the import file or the schema,\n" +
-          "  and clearing tables that appear in the schema but not in the import file",
+          "deleting tables that don't appear in the import file or the schema,\n" +
+          "and clearing tables that appear in the schema but not in the import file",
       )
         .conflicts("--append")
         .conflicts("--replace"),

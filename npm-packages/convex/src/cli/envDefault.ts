@@ -52,10 +52,10 @@ const envDefaultSet = addEnvDefaultOptions(
       [
         "Set default environment variables for your project's deployment type.",
         "",
-        "- `npx convex env default set NAME 'value'`",
-        "- `npx convex env default set NAME # omit a value to set one interactively`",
-        "- `npx convex env default set NAME --from-file value.txt`",
-        "- `npx convex env default set --from-file .env.defaults`",
+        "• `npx convex env default set NAME 'value'`",
+        "• `npx convex env default set NAME # omit a value to set one interactively`",
+        "• `npx convex env default set NAME --from-file value.txt`",
+        "• `npx convex env default set --from-file .env.defaults`",
         "",
         "When setting multiple values, it will refuse all changes if any variables are already set to different values by default. Pass --force to overwrite the provided values.",
         "",
@@ -122,7 +122,7 @@ const envDefaultRemove = addEnvDefaultOptions(
       [
         "Unset a default variable.",
         "",
-        "- `npx convex env default remove NAME`",
+        "• `npx convex env default remove NAME`",
         "",
         "If the variable doesn't exist, the command doesn't do anything and succeeds.",
         "",
@@ -146,7 +146,7 @@ const envDefaultList = addEnvDefaultOptions(
       [
         "List all default variables.",
         "",
-        "- `npx convex env default list`",
+        "• `npx convex env default list`",
         "",
         "The deployment type is determined by the current deployment (local maps to dev), or by --type if provided.",
       ].join("\n"),
@@ -169,10 +169,10 @@ export const envDefault = new Command("default")
       "",
       "The default environment variables read and written to by this command are the ones for the deployment type of the current deployment (i.e. dev in most cases), unless --type is provided.",
       "",
-      "- Set a default variable: `npx convex env default set NAME 'value'`",
-      "- Unset a default variable: `npx convex env default remove NAME`",
-      "- List all default variables: `npx convex env default list`",
-      "- Print a default variable's value: `npx convex env default get NAME`",
+      "• Set a default variable: `npx convex env default set NAME 'value'`",
+      "• Unset a default variable: `npx convex env default remove NAME`",
+      "• List all default variables: `npx convex env default list`",
+      "• Print a default variable's value: `npx convex env default get NAME`",
     ].join("\n"),
   )
   .addCommand(envDefaultSet)

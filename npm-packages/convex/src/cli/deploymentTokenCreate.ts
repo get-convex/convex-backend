@@ -19,10 +19,10 @@ export const deploymentTokenCreate = new Command("create")
     [
       `Creates a deploy key that, when set as \`${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}\`, scopes all commands to the target deployment.`,
       "",
-      "- Print a new deploy key to stdout: `npx convex deployment token create my-token`",
-      `- Save a new deploy key in \`${ENV_VAR_FILE_PATH}\`: \`npx convex deployment token create my-token --save-env\``,
-      "- Save a new deploy key in a custom env file: `npx convex deployment token create ci-token --save-env .env.production`",
-      "- Create a key for the project's prod: `npx convex deployment token create ci-token --deployment prod`",
+      "• Print a new deploy key to stdout: `npx convex deployment token create my-token`",
+      `• Save a new deploy key in \`${ENV_VAR_FILE_PATH}\`: \`npx convex deployment token create my-token --save-env\``,
+      "• Save a new deploy key in a custom env file: `npx convex deployment token create ci-token --save-env .env.production`",
+      "• Create a key for the project's prod: `npx convex deployment token create ci-token --deployment prod`",
     ].join("\n"),
   )
   .argument("<name>", "Name for the new deploy key")
