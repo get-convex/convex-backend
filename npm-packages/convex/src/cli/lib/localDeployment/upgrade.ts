@@ -32,7 +32,8 @@ import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { recursivelyDelete } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
-export async function handlePotentialUpgrade(
+
+export async function handlePotentialUpgradeAndStart(
   ctx: Context,
   args: {
     deploymentKind: LocalDeploymentKind;

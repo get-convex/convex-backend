@@ -692,10 +692,7 @@ async function ensureDeploymentProvisioned(
           },
           options.deploymentOptions.kind,
         );
-      return {
-        ...credentials,
-        onActivity: null,
-      };
+      return credentials;
     }
     case "local": {
       const credentials = await handleLocalDeployment(ctx, {

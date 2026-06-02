@@ -80,11 +80,6 @@ export async function chooseLocalBackendPorts(
   return { cloudPort, sitePort };
 }
 
-export async function isOffline(): Promise<boolean> {
-  // TODO(ENG-7080) -- implement this for real
-  return false;
-}
-
 export function printLocalDeploymentWelcomeMessage() {
   logMessage(
     chalkStderr.cyan("You're trying out the beta local deployment feature!"),

@@ -753,7 +753,7 @@ impl<RT: Runtime> Application<RT> {
                         let prev_node_version = SourcePackageModel::new(tx, TableNamespace::Global)
                             .get_latest()
                             .await?
-                            .and_then(|p| p.into_value().node_version);
+                            .and_then(|p| p.node_version);
 
                         // Diff the component definitions.
                         let (definition_diffs, modules_by_definition, udf_config_by_definition) =
@@ -778,7 +778,7 @@ impl<RT: Runtime> Application<RT> {
                         let next_node_version = SourcePackageModel::new(tx, TableNamespace::Global)
                             .get_latest()
                             .await?
-                            .and_then(|p| p.into_value().node_version);
+                            .and_then(|p| p.node_version);
 
                         let node_version_diff =
                             (prev_node_version != next_node_version).then_some(NodeVersionDiff {

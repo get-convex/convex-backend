@@ -37,17 +37,17 @@ impl From<ExternalDepsPackageId> for DeveloperDocumentId {
     }
 }
 
-impl From<ExternalDepsPackageId> for ConvexValue {
+impl From<ExternalDepsPackageId> for String {
     fn from(value: ExternalDepsPackageId) -> Self {
         value.0.into()
     }
 }
 
-impl TryFrom<ConvexValue> for ExternalDepsPackageId {
+impl TryFrom<String> for ExternalDepsPackageId {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        let id: DeveloperDocumentId = value.try_into()?;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let id = DeveloperDocumentId::decode(&value)?;
         Ok(Self(id))
     }
 }

@@ -1403,8 +1403,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 let source_package_id = module.source_package_id;
                 let source_package = SourcePackageModel::new(&mut tx, component.into())
                     .get(source_package_id)
-                    .await?
-                    .into_value();
+                    .await?;
                 let mut environment_variables =
                     system_env_vars(&mut tx, self.default_system_env_vars.clone()).await?;
                 let user_environment_variables =
@@ -1416,10 +1415,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .modules_storage
                     .signed_url(source_package.storage_key.clone(), Duration::from_secs(60));
                 let (source_uri, external_deps_package) = if let Some(external_deps_package_id) =
-                    source_package.external_deps_package_id
+                    &source_package.external_deps_package_id
                 {
                     let pkg = ExternalPackagesModel::new(&mut tx)
-                        .get(external_deps_package_id)
+                        .get(external_deps_package_id.clone())
                         .await?
                         .into_value();
                     let external_uri_future = self
@@ -1446,8 +1445,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     source_package: node_executor::SourcePackage {
                         bundled_source: node_executor::Package {
                             uri: source_uri,
-                            key: source_package.storage_key,
-                            sha256: source_package.sha256,
+                            key: source_package.storage_key.clone(),
+                            sha256: source_package.sha256.clone(),
                         },
                         external_deps: external_deps_package,
                     },

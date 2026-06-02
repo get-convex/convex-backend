@@ -1,3 +1,5 @@
+#![feature(cfg_select)]
+#![feature(portable_simd)]
 #![feature(try_blocks)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(never_type)]
