@@ -29,7 +29,7 @@ import {
 import { rootDeploymentStateDir } from "./filePaths.js";
 import { LocalDeploymentConfig } from "./filePaths.js";
 import { ensureBackendStopped, localDeploymentUrl } from "./run.js";
-import { handlePotentialUpgrade } from "./upgrade.js";
+import { handlePotentialUpgradeAndStart } from "./upgrade.js";
 import {
   generateInstanceSecret,
   chooseLocalBackendPorts,
@@ -140,7 +140,7 @@ export async function handleAnonymousDeployment(
       deployment.kind === "existing" ? deployment.config.ports : undefined,
   });
 
-  const { cleanupHandle } = await handlePotentialUpgrade(ctx, {
+  const { cleanupHandle } = await handlePotentialUpgradeAndStart(ctx, {
     deploymentName: deployment.deploymentName,
     deploymentKind: "anonymous",
     oldVersion:

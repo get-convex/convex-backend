@@ -25,7 +25,7 @@ import {
   localDeploymentUrl,
   withRunningBackend,
 } from "./run.js";
-import { handlePotentialUpgrade } from "./upgrade.js";
+import { handlePotentialUpgradeAndStart } from "./upgrade.js";
 import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
 import {
   chooseLocalBackendPorts,
@@ -99,7 +99,7 @@ export async function handleLocalDeployment(
     instanceName: existingDeploymentForProject?.deploymentName ?? null,
   });
 
-  const { cleanupHandle } = await handlePotentialUpgrade(ctx, {
+  const { cleanupHandle } = await handlePotentialUpgradeAndStart(ctx, {
     deploymentKind: "local",
     deploymentName,
     oldVersion: existingDeploymentForProject?.config.backendVersion ?? null,
