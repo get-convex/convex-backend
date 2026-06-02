@@ -3101,8 +3101,8 @@ importers:
         specifier: ~5.0.0
         version: 5.0.0(@docusaurus/plugin-content-docs@3.10.0(@docusaurus/faster@3.10.0(@docusaurus/types@3.10.0(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/helpers@0.5.15))(@mdx-js/react@3.1.1(@types/react@18.3.26)(react@18.3.1))(@rspack/core@1.7.11(@swc/helpers@0.5.15))(@swc/core@1.15.8(@swc/helpers@0.5.15))(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4))(@docusaurus/utils-validation@3.10.0(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@docusaurus/utils@3.10.0(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/json-schema@7.0.15)(react@18.3.1)
       docusaurus-theme-openapi-docs:
-        specifier: ~5.0.0
-        version: 5.0.0(f2d709538a8874668e5fd30571714c75)
+        specifier: 5.0.2
+        version: 5.0.2(f2d709538a8874668e5fd30571714c75)
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -18219,8 +18219,8 @@ packages:
       '@docusaurus/core': ^2.0.0-beta || ^3.0.0-alpha
       sass: ^1.30.0
 
-  docusaurus-theme-openapi-docs@5.0.0:
-    resolution: {integrity: sha512-5JXaBUCopCFsq0rpcl79UFziHuj7+FhhYxuqwf0GsyDa513Ns7db3d5ULUgfUg1qehCj9jJ9JIQpZUQEnX7aJw==}
+  docusaurus-theme-openapi-docs@5.0.2:
+    resolution: {integrity: sha512-BD6WhbunR6kXqtoUUDlhxO4HlCNM2nYENGr/TbiTEknkgXYKQz+FEIhY4Hyz5GSLpuhPih0CDuNl7Xkfpcz0Yw==}
     engines: {node: '>=14'}
     peerDependencies:
       '@docusaurus/theme-common': ^3.10.0
@@ -46111,7 +46111,7 @@ snapshots:
       - sass-embedded
       - webpack
 
-  docusaurus-theme-openapi-docs@5.0.0(f2d709538a8874668e5fd30571714c75):
+  docusaurus-theme-openapi-docs@5.0.2(f2d709538a8874668e5fd30571714c75):
     dependencies:
       '@docusaurus/theme-common': 3.10.0(@docusaurus/plugin-content-docs@3.10.0(@docusaurus/faster@3.10.0(@docusaurus/types@3.10.0(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/helpers@0.5.15))(@mdx-js/react@3.1.1(@types/react@18.3.26)(react@18.3.1))(@rspack/core@1.7.11(@swc/helpers@0.5.15))(@swc/core@1.15.8(@swc/helpers@0.5.15))(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4))(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@hookform/error-message': 2.0.1(react-dom@18.3.1(react@18.3.1))(react-hook-form@7.66.0(react@18.3.1))(react@18.3.1)

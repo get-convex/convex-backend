@@ -50,7 +50,7 @@
     "copy-text-to-clipboard": "^3.2.0",
     "degit": "^2.8.4",
     "docusaurus-plugin-openapi-docs": "~5.0.0",
-    "docusaurus-theme-openapi-docs": "~5.0.0",
+    "docusaurus-theme-openapi-docs": "5.0.2",
     "sonner": "^2.0.0"
   },
   "devDependencies": {
