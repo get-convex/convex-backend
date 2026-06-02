@@ -594,12 +594,14 @@ impl UsageCounter {
             });
         }
 
-        usage_metrics.push(UsageEvent::AuditLogBandwidth {
-            id: execution_id.to_string(),
-            component_path: global_component_path.clone(),
-            udf_id: udf_id.clone(),
-            egress: stats.audit_log_egress,
-        });
+        if stats.audit_log_egress > 0 {
+            usage_metrics.push(UsageEvent::AuditLogBandwidth {
+                id: execution_id.to_string(),
+                component_path: global_component_path.clone(),
+                udf_id: udf_id.clone(),
+                egress: stats.audit_log_egress,
+            });
+        }
     }
 }
 
