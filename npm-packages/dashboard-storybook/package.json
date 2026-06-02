@@ -33,7 +33,7 @@
     "@tailwindcss/forms": "^0.5.10",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
-    "@vitest/browser-playwright": "4.0.18",
+    "@vitest/browser-playwright": "^4.1.0",
     "@workos-inc/authkit-nextjs": "~2.17.0",
     "@workos-inc/node": "~7.69.0",
     "chalk": "5",
@@ -47,6 +47,6 @@
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.1.11",
     "tsx": "^4.19.4",
-    "vitest": "4.0.18"
+    "vitest": "^4.1.0"
   }
 }

@@ -17,6 +17,6 @@
     "verdaccio": "^6.0.5",
     "verdaccio-auth-memory": "~10.2.2",
     "verdaccio-memory": "~10.4.0",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   }
 }

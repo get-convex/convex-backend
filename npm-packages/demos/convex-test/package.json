@@ -19,7 +19,7 @@
     "convex-test": "^0.0.41",
     "globals": "~17.4.0",
     "typescript": "^5.9.2",
-    "vitest": "4.0.18",
+    "vitest": "^4.1.0",
     "vite": "^6.4.2"
   }
 }
