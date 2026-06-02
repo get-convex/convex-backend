@@ -164,7 +164,9 @@ function renderCommand(
   const display = displayName(path);
   const description = renderCopyableCommands(
     escapeMdx(
-      formatExampleLines(command.description() || command.summary() || ""),
+      formatExampleLines(
+        replaceBullets(command.description() || command.summary() || ""),
+      ),
     ),
   );
 
@@ -205,7 +207,7 @@ function renderCommand(
     lines.push("<dl>");
     for (const arg of args) {
       const name = arg.required ? `<${arg._name}>` : `[${arg._name}]`;
-      const desc = escapeMdx(arg.description || "");
+      const desc = escapeMdx(replaceBullets(arg.description || ""));
       lines.push(`<dt>\`${name}\`</dt>`);
       lines.push(`<dd>`);
       lines.push("");
@@ -224,7 +226,7 @@ function renderCommand(
     lines.push("<dl>");
     for (const opt of opts) {
       const flags = (opt as any).flags as string;
-      const desc = escapeMdx(opt.description || "");
+      const desc = escapeMdx(replaceBullets(opt.description || ""));
       lines.push(`<dt>\`${flags}\`</dt>`);
       lines.push(`<dd>`);
       lines.push("");
@@ -304,6 +306,14 @@ function renderCopyableCommands(text: string): string {
         : line,
     )
     .join("\n");
+}
+
+// Replace "•" bullet points with markdown "-" bullet points. Every line that is
+// (maybe leading spaces +) "• " becomes the same spaces + "- ". This runs before
+// formatExampleLines and renderCopyableCommands so that `npx convex ...` commands
+// in bulleted help text are recognized as list items and get a copy button.
+export function replaceBullets(text: string): string {
+  return text.replace(/^( *)• /gm, "$1- ");
 }
 
 // Convert indented example lines (e.g., from CLI help text) into markdown lists

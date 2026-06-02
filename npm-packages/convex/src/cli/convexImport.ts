@@ -14,8 +14,8 @@ export const convexImport = new Command("import")
     [
       "Import data from a file to your Convex deployment.",
       "",
-      "- From a snapshot: `npx convex import snapshot.zip`",
-      "- For a single table: `npx convex import --table tableName file.json`",
+      "• From a snapshot: `npx convex import snapshot.zip`",
+      "• For a single table: `npx convex import --table tableName file.json`",
       "",
       "By default, this imports into your dev deployment.",
       "",

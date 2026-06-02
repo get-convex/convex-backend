@@ -93,9 +93,9 @@ export const dev = new Command("dev")
       "--tail-logs [mode]",
       [
         "Choose whether to tail Convex function logs in this terminal: ",
-        "- `always` shows logs continuously",
-        "- `pause-on-deploy` (the default) pauses logs during deploys so you can spot sync issues",
-        "- `disable` hides logs while developing.",
+        "• `always` shows logs continuously",
+        "• `pause-on-deploy` (the default) pauses logs during deploys so you can spot sync issues",
+        "• `disable` hides logs while developing.",
       ].join("\n"),
     )
       .choices(["always", "pause-on-deploy", "disable"] as const)

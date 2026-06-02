@@ -13,9 +13,9 @@ export const convexExport = new Command("export")
     [
       "Export data, and optionally file storage, from your Convex deployment to a ZIP file.",
       "",
-      "- Export to a directory: `npx convex export --path dir/`",
-      "- Export to a ZIP file: `npx convex export --path snapshot.zip`",
-      "- Include file storage: `npx convex export --include-file-storage --path dir/`",
+      "• Export to a directory: `npx convex export --path dir/`",
+      "• Export to a ZIP file: `npx convex export --path snapshot.zip`",
+      "• Include file storage: `npx convex export --include-file-storage --path dir/`",
       "",
       "By default, this exports from your dev deployment.",
       "",

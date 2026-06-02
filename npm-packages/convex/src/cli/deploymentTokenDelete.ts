@@ -19,9 +19,9 @@ export const deploymentTokenDelete = new Command("delete")
       "",
       "The positional `<nameOrToken>` can be the unique name of the deploy key (as passed to `token create`) or the deploy key value itself. The target deployment defaults to the currently-selected one; pass `--deployment` to target a different deployment.",
       "",
-      "- Delete by name: `npx convex deployment token delete my-token`",
-      "- Delete by value: `npx convex deployment token delete 'dev:happy-animal-123|ey...'`",
-      "- Target prod: `npx convex deployment token delete ci-token --deployment prod`",
+      "• Delete by name: `npx convex deployment token delete my-token`",
+      "• Delete by value: `npx convex deployment token delete 'dev:happy-animal-123|ey...'`",
+      "• Target prod: `npx convex deployment token delete ci-token --deployment prod`",
     ].join("\n"),
   )
   .argument(

@@ -12,8 +12,8 @@ export const data = new Command("data")
     [
       "Inspect your Convex deployment's database.",
       "",
-      "- List tables: `npx convex data`",
-      "- List documents in a table: `npx convex data tableName`",
+      "• List tables: `npx convex data`",
+      "• List documents in a table: `npx convex data tableName`",
       "",
       "By default, this inspects your dev deployment.",
       "",

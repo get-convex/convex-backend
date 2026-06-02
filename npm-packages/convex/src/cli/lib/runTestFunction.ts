@@ -15,9 +15,9 @@ export const INLINE_QUERY_DESCRIPTION = [
   "Use `--component` to target a mounted component.",
   "",
   "To format the query:",
-  '- Simple expressions are returned automatically, for example: `await ctx.db.query("messages").take(5)`.',
-  '- For multi-statement queries, use an explicit return, for example: `const firstMessage = await ctx.db.query("messages").first(); console.log(firstMessage?._id); return firstMessage;`.',
-  '- For full control, pass a module source that exports a default query, for example: `export default query({ handler: async (ctx) => { return await ctx.db.query("messages").take(10); } })`.',
+  '• Simple expressions are returned automatically, for example: `await ctx.db.query("messages").take(5)`.',
+  '• For multi-statement queries, use an explicit return, for example: `const firstMessage = await ctx.db.query("messages").first(); console.log(firstMessage?._id); return firstMessage;`.',
+  '• For full control, pass a module source that exports a default query, for example: `export default query({ handler: async (ctx) => { return await ctx.db.query("messages").take(10); } })`.',
 ].join("\n");
 
 export type RunTestFunctionQuerySuccess = {
