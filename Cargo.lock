@@ -448,6 +448,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assoc"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfdc70193dadb9d7287fa4b633f15f90c876915b31f6af17da307fc59c9859a8"
+
+[[package]]
 name = "async-broadcast"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1330,7 +1336,7 @@ dependencies = [
  "getrandom 0.2.15",
  "instant",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand 0.8.6",
  "tokio",
 ]
 
@@ -2256,6 +2262,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "const-siphasher"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03efed02df0504d71e44bfd51d3329f401b8303a2fd14254acf05c95a0af0153"
+
+[[package]]
 name = "const_format"
 version = "0.2.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2410,6 +2422,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "corosensei"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6886a0c0f263965933c438626e7179139a62b978a33aa18281cbf0cd5a975f34"
+dependencies = [
+ "autocfg",
+ "cfg-if",
+ "libc",
+ "scopeguard",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "cow-utils"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2527,15 +2552,11 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.14"
+version = "0.9.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46bd5f3f85273295a9d14aedfb86f6aadbff6d8f5295c4a9edb08e819dcf5695"
+checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
 dependencies = [
- "autocfg",
- "cfg-if",
  "crossbeam-utils",
- "memoffset",
- "scopeguard",
 ]
 
 [[package]]
@@ -3102,6 +3123,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "deterministic_collections"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "serde",
+ "siphasher 1.0.3",
+]
+
+[[package]]
 name = "deunicode"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3455,7 +3485,7 @@ checksum = "fe5e43d0f78a42ad591453aedb1d7ae631ce7ee445c7643691055a9ed8d3b01c"
 dependencies = [
  "log",
  "once_cell",
- "rand 0.8.5",
+ "rand 0.8.6",
 ]
 
 [[package]]
@@ -5020,6 +5050,9 @@ dependencies = [
  "must-let",
  "parking_lot",
  "runtime",
+ "shuttle",
+ "shuttle-dashmap",
+ "shuttle-parking_lot",
  "tracing",
  "value",
 ]
@@ -5952,15 +5985,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "memoffset"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
-dependencies = [
- "autocfg",
-]
-
-[[package]]
 name = "memory"
 version = "0.0.0"
 source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
@@ -6184,23 +6208,21 @@ dependencies = [
 
 [[package]]
 name = "moka"
-version = "0.12.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9321642ca94a4282428e6ea4af8cc2ca4eac48ac7a6a4ea8f33f76d0ce70926"
+version = "0.12.15"
+source = "git+https://github.com/get-convex/moka?rev=abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04#abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04"
 dependencies = [
  "async-lock",
  "crossbeam-channel",
  "crossbeam-epoch",
  "crossbeam-utils",
+ "equivalent",
  "event-listener",
  "futures-util",
- "loom",
- "parking_lot",
  "portable-atomic",
- "rustc_version",
+ "shuttle",
+ "shuttle-parking_lot",
  "smallvec",
  "tagptr",
- "thiserror 1.0.59",
  "uuid",
 ]
 
@@ -6502,7 +6524,7 @@ checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
 dependencies = [
  "num-integer",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
 ]
 
 [[package]]
@@ -6516,7 +6538,7 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
  "smallvec",
  "zeroize",
 ]
@@ -6635,7 +6657,7 @@ dependencies = [
  "chrono",
  "getrandom 0.2.15",
  "http 1.3.1",
- "rand 0.8.5",
+ "rand 0.8.6",
  "reqwest",
  "serde",
  "serde_json",
@@ -6697,7 +6719,7 @@ dependencies = [
  "itertools 0.10.5",
  "log",
  "oauth2",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rustls-pemfile",
  "serde",
  "serde-value",
@@ -6842,6 +6864,12 @@ source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea6
 dependencies = [
  "stable_deref_trait",
 ]
+
+[[package]]
+name = "owo-colors"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
 name = "p256"
@@ -7073,7 +7101,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1181c94580fa345f50f19d738aaa39c0ed30a600d95cb2d3e23f94266f14fbf"
 dependencies = [
  "phf_shared 0.11.2",
- "rand 0.8.5",
+ "rand 0.8.6",
 ]
 
 [[package]]
@@ -7441,7 +7469,7 @@ dependencies = [
  "bitflags 2.10.0",
  "lazy_static",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_chacha 0.3.1",
  "rand_xorshift",
  "regex-syntax 0.8.5",
@@ -7636,7 +7664,7 @@ source = "git+https://github.com/qdrant/quantization.git?rev=939fdb627a8edcf92fd
 dependencies = [
  "cc",
  "permutation_iterator",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "serde",
  "serde_json",
@@ -7684,9 +7712,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
@@ -7785,6 +7813,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
+]
+
+[[package]]
+name = "rand_pcg"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59cad018caf63deb318e5a4586d99a24424a364f40f1e5778c29aca23f4fc73e"
+dependencies = [
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -8424,9 +8461,9 @@ checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
 
 [[package]]
 name = "scopeguard"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "scratch"
@@ -8582,7 +8619,7 @@ dependencies = [
  "procfs",
  "qdrant_common",
  "quantization",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "rocksdb",
  "schemars 0.8.22",
@@ -9006,6 +9043,109 @@ dependencies = [
 ]
 
 [[package]]
+name = "shuttle"
+version = "0.9.1"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "bitvec",
+ "cfg-if",
+ "const-siphasher",
+ "corosensei",
+ "hex",
+ "owo-colors",
+ "rand 0.8.6",
+ "rand_core 0.6.4",
+ "rand_pcg",
+ "scoped-tls",
+ "shuttle-core",
+ "shuttle-schedulers",
+ "shuttle-std",
+ "tracing",
+]
+
+[[package]]
+name = "shuttle-core"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "assoc",
+ "bitvec",
+ "cfg-if",
+ "const-siphasher",
+ "corosensei",
+ "hex",
+ "owo-colors",
+ "rand 0.8.6",
+ "rand_core 0.6.4",
+ "rand_pcg",
+ "scoped-tls",
+ "smallvec",
+ "tracing",
+]
+
+[[package]]
+name = "shuttle-dashmap"
+version = "6.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "cfg-if",
+ "dashmap",
+ "shuttle-dashmap-impl",
+]
+
+[[package]]
+name = "shuttle-dashmap-impl"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "deterministic_collections",
+ "shuttle",
+]
+
+[[package]]
+name = "shuttle-parking_lot"
+version = "0.12.5"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "cfg-if",
+ "parking_lot",
+ "shuttle-parking_lot-impl",
+]
+
+[[package]]
+name = "shuttle-parking_lot-impl"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "shuttle",
+ "tracing",
+]
+
+[[package]]
+name = "shuttle-schedulers"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "rand 0.8.6",
+ "rand_pcg",
+ "shuttle-core",
+ "smallvec",
+ "tracing",
+]
+
+[[package]]
+name = "shuttle-std"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+dependencies = [
+ "assoc",
+ "owo-colors",
+ "shuttle-core",
+ "smallvec",
+ "tracing",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9166,7 +9306,7 @@ dependencies = [
  "ordered-float 4.2.0",
  "parking_lot",
  "qdrant_common",
- "rand 0.8.5",
+ "rand 0.8.6",
  "schemars 0.8.22",
  "serde",
  "tempfile",
@@ -10841,7 +10981,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
 dependencies = [
  "getrandom 0.2.15",
- "rand 0.8.5",
+ "rand 0.8.6",
  "serde",
 ]
 
@@ -11971,7 +12111,7 @@ version = "0.8.1"
 source = "git+https://github.com/sujayakar/xorf.git?rev=62a32de47bb3ad8b34d6d4feac034a24be2c881a#62a32de47bb3ad8b34d6d4feac034a24be2c881a"
 dependencies = [
  "libm",
- "rand 0.8.5",
+ "rand 0.8.6",
 ]
 
 [[package]]

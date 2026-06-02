@@ -29,6 +29,7 @@ use common::{
         Timestamp,
     },
 };
+#[cfg(not(feature = "shuttle-testing"))]
 use dashmap::DashMap;
 use imbl::{
     OrdSet,
@@ -43,7 +44,12 @@ use moka::{
         Op,
     },
 };
+#[cfg(not(feature = "shuttle-testing"))]
 use parking_lot::Mutex;
+#[cfg(feature = "shuttle-testing")]
+use shuttle_dashmap::DashMap;
+#[cfg(feature = "shuttle-testing")]
+use shuttle_parking_lot::Mutex;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,
@@ -716,3 +722,16 @@ impl CachedInterval {
         std::mem::size_of::<Self>() + self.entries_size + self.cursor.heap_size()
     }
 }
+
+// These tests are compiled (so rust-analyzer resolves them) under both the
+// regular and `shuttle-testing` configs, but each `#[test]` is `#[ignore]`d
+// under `shuttle-testing`: that feature swaps in shuttle's synchronization
+// primitives crate-wide, which panic when used outside a shuttle runner. The
+// shuttle suite itself lives in `index_cache/shuttle_tests.rs`.
+//
+// NOTE: any new test added here must carry the same
+// `#[cfg_attr(feature = "shuttle-testing", ignore = ...)]` attribute, or it
+// will panic under `cargo test --features shuttle-testing`.
+/// Shuttle-based concurrency tests. See `index_cache/shuttle_tests.rs`.
+#[cfg(all(test, feature = "shuttle-testing"))]
+mod shuttle_tests;
