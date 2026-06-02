@@ -1,9 +1,8 @@
 // Sign-in / sign-up page styled after Convex Cloud's auth.convex.dev:
-// orb logo, email-first card, "Continue" button reveals the password field,
-// then a horizontal OR divider with social-login buttons (Google + GitHub)
-// and a "Last used" pill on whichever the user last picked. Mirrors the
-// reference shot the user supplied so the orchestrator's auth screen feels
-// indistinguishable from cloud's.
+// orb logo, credential form, then a horizontal OR divider with social-login
+// buttons (Google + GitHub) and a "Last used" pill on whichever the user last
+// picked. Mirrors the reference shot the user supplied so the orchestrator's
+// auth screen feels indistinguishable from cloud's.
 
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
@@ -15,7 +14,7 @@ import {
 } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { ConvexOrb } from "../components/ConvexOrb";
 
@@ -38,7 +37,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -57,15 +55,6 @@ export default function LoginPage() {
     }
   }, []);
 
-  const canSubmit = useMemo(() => {
-    if (submitting) return false;
-    if (!email) return false;
-    if (!showPassword) return true;
-    if (!password) return false;
-    if (mode === "signup" && password.length < 8) return false;
-    return true;
-  }, [email, password, mode, submitting, showPassword]);
-
   const remember = (provider: string) => {
     if (typeof window === "undefined") return;
     try {
@@ -75,24 +64,40 @@ export default function LoginPage() {
     }
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!showPassword) {
-      // First step: email gathered, reveal the password field.
-      setShowPassword(true);
+    const formData = new FormData(e.currentTarget);
+    const submittedEmail = String(formData.get("email") ?? "").trim();
+    const submittedPassword = String(formData.get("password") ?? "");
+    const submittedName = String(formData.get("name") ?? "").trim();
+
+    setError(null);
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
+    setName(submittedName);
+
+    if (!submittedEmail || !submittedPassword) {
+      setError("Email and password are required.");
       return;
     }
-    setError(null);
+    if (mode === "signup" && submittedPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (mode === "signin") {
-        const res = await authClient.signIn.email({ email, password });
+        const res = await authClient.signIn.email({
+          email: submittedEmail,
+          password: submittedPassword,
+        });
         if (res.error) throw new Error(res.error.message ?? "sign-in failed");
       } else {
         const res = await authClient.signUp.email({
-          email,
-          password,
-          name: name || email.split("@")[0],
+          email: submittedEmail,
+          password: submittedPassword,
+          name: submittedName || submittedEmail.split("@")[0],
         });
         if (res.error) throw new Error(res.error.message ?? "sign-up failed");
       }
@@ -115,7 +120,6 @@ export default function LoginPage() {
     }
   };
 
-  const continueLabel = mode === "signin" ? "Continue" : "Continue";
   const submitLabel = mode === "signin" ? "Sign in" : "Create account";
 
   return (
@@ -132,15 +136,12 @@ export default function LoginPage() {
             label="Email"
             type="email"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (showPassword) setShowPassword(false);
-            }}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="Your email address"
-            autoComplete="email"
+            autoComplete={mode === "signin" ? "username" : "email"}
             autoFocus
           />
-          {showPassword && mode === "signup" && (
+          {mode === "signup" && (
             <TextInput
               id="name"
               label="Name (optional)"
@@ -151,23 +152,21 @@ export default function LoginPage() {
               autoComplete="name"
             />
           )}
-          {showPassword && (
-            <TextInput
-              id="password"
-              label="Password"
-              type={showSecret ? "text" : "password"}
-              Icon={showSecret ? EyeNoneIcon : EyeOpenIcon}
-              value={password}
-              action={() => setShowSecret(!showSecret)}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === "signin" ? "current-password" : "new-password"
-              }
-              description={
-                mode === "signup" ? "Minimum 8 characters." : undefined
-              }
-            />
-          )}
+          <TextInput
+            id="password"
+            label="Password"
+            type={showSecret ? "text" : "password"}
+            Icon={showSecret ? EyeNoneIcon : EyeOpenIcon}
+            value={password}
+            action={() => setShowSecret(!showSecret)}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={
+              mode === "signin" ? "current-password" : "new-password"
+            }
+            description={
+              mode === "signup" ? "Minimum 8 characters." : undefined
+            }
+          />
           {error && (
             <div className="text-xs text-content-error" role="alert">
               {error}
@@ -176,13 +175,13 @@ export default function LoginPage() {
           <Button
             type="submit"
             variant="neutral"
-            icon={showPassword ? <EnterIcon /> : undefined}
-            disabled={!canSubmit}
+            icon={<EnterIcon />}
+            disabled={submitting}
             className="w-full"
           >
-            {showPassword ? submitLabel : continueLabel}
+            {submitLabel}
           </Button>
-          {showPassword && mode === "signin" && (
+          {mode === "signin" && (
             <Link
               href="/forgot-password"
               className="self-end text-xs text-content-secondary underline hover:text-content-primary"
@@ -227,7 +226,8 @@ export default function LoginPage() {
               type="button"
               onClick={() => {
                 setMode("signup");
-                setShowPassword(true);
+                setError(null);
+                setPassword("");
               }}
               // eslint-disable-next-line no-restricted-syntax -- styled as a link inline; @ui/Link doesn't support button semantics
               className="text-content-link underline"
@@ -243,7 +243,8 @@ export default function LoginPage() {
               type="button"
               onClick={() => {
                 setMode("signin");
-                setShowPassword(false);
+                setError(null);
+                setPassword("");
               }}
               // eslint-disable-next-line no-restricted-syntax -- styled as a link inline; @ui/Link doesn't support button semantics
               className="text-content-link underline"
