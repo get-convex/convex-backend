@@ -19,7 +19,6 @@ use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
-    ConvexValue,
 };
 
 use crate::external_packages::types::ExternalDepsPackageId;
@@ -228,18 +227,17 @@ impl From<DeveloperDocumentId> for SourcePackageId {
     }
 }
 
-impl From<SourcePackageId> for ConvexValue {
+impl From<SourcePackageId> for String {
     fn from(value: SourcePackageId) -> Self {
         let id: DeveloperDocumentId = value.into();
         id.into()
     }
 }
-
-impl TryFrom<ConvexValue> for SourcePackageId {
+impl TryFrom<String> for SourcePackageId {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        let id: DeveloperDocumentId = value.try_into()?;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let id = DeveloperDocumentId::decode(&value)?;
         Ok(SourcePackageId(id))
     }
 }
