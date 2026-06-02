@@ -1,5 +1,6 @@
 use std::{
     ffi,
+    mem::ManuallyDrop,
     ptr,
     sync::Arc,
     time::Duration,
@@ -39,6 +40,7 @@ use crate::{
     helpers::pump_message_loop,
     metrics::{
         create_isolate_timer,
+        destroy_isolate_timer,
         log_heap_statistics,
     },
     request_scope::RequestState,
@@ -58,7 +60,7 @@ pub const SETUP_URL: &str = "convex:/_system/setup.js";
 /// configuration.
 pub struct Isolate<RT: Runtime> {
     rt: RT,
-    v8_isolate: v8::OwnedIsolate,
+    v8_isolate: ManuallyDrop<v8::OwnedIsolate>,
     handle: IsolateHandle,
     // Typically, the user timeout is configured based on environment. This
     // allows us to set an upper bound to it that we use for tests.
@@ -205,7 +207,7 @@ impl<RT: Runtime> Isolate<RT> {
         Self {
             created: rt.monotonic_now(),
             rt,
-            v8_isolate,
+            v8_isolate: ManuallyDrop::new(v8_isolate),
             handle,
             heap_ctx_ptr,
             max_user_timeout,
@@ -343,6 +345,7 @@ impl<RT: Runtime> Isolate<RT> {
 
 impl<RT: Runtime> Drop for Isolate<RT> {
     fn drop(&mut self) {
+        let _timer = destroy_isolate_timer();
         if !self.heap_ctx_ptr.is_null() {
             // First remove the callback, so V8 can no longer invoke it.
             self.v8_isolate
@@ -360,6 +363,9 @@ impl<RT: Runtime> Drop for Isolate<RT> {
         // going to leak. Before that happens, let's pump the message loop to at
         // least drain all the tasks from it.
         pump_message_loop(&self.v8_isolate);
+        // SAFETY: `self` is about to be destroyed and we are not going to use
+        // v8_isolate again
+        unsafe { ManuallyDrop::drop(&mut self.v8_isolate) };
     }
 }
 
