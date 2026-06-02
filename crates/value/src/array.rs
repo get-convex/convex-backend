@@ -19,6 +19,8 @@ use crate::{
     utils::display_sequence,
     walk::ConvexValueType,
     ConvexValue,
+    MAX_NESTING,
+    MAX_SIZE,
 };
 
 const MAX_ARRAY_LEN: usize = 8192;
@@ -27,9 +29,9 @@ const MAX_ARRAY_LEN: usize = 8192;
 #[derive(Clone)]
 pub struct ConvexArray {
     // Precomputed `1 + size(v1) + ... + size(vN) + 1`
-    size: usize,
+    size: u32,
     // Precomputed `1 + max(nesting(v1), ..., nesting(vN))`.
-    nesting: usize,
+    nesting: u8,
 
     items: Vec<ConvexValue>,
 }
@@ -86,9 +88,13 @@ impl TryFrom<Vec<ConvexValue>> for ConvexArray {
         check_system_size(size)?;
         let nesting = 1 + items.iter().map(|v| v.nesting()).max().unwrap_or(0);
         check_nesting(nesting)?;
+        const {
+            assert!(MAX_SIZE <= u32::MAX as usize);
+            assert!(MAX_NESTING <= u8::MAX as usize);
+        }
         Ok(Self {
-            size,
-            nesting,
+            size: size as u32,
+            nesting: nesting as u8,
             items,
         })
     }
@@ -145,11 +151,11 @@ impl Eq for ConvexArray {}
 
 impl Size for ConvexArray {
     fn size(&self) -> usize {
-        self.size
+        self.size as usize
     }
 
     fn nesting(&self) -> usize {
-        self.nesting
+        self.nesting as usize
     }
 }
 

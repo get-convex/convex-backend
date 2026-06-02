@@ -21,6 +21,8 @@ use crate::{
     ConvexValue,
     FieldName,
     Namespace,
+    MAX_NESTING,
+    MAX_SIZE,
 };
 
 pub const MAX_OBJECT_FIELDS: usize = 1024;
@@ -34,9 +36,9 @@ pub const MAX_OBJECT_FIELDS: usize = 1024;
 #[derive(Clone, Debug)]
 pub struct ConvexObject {
     // Precomputed 1 + (len(field1) + 1) + size(v1) + ... + (len(fieldN) + 1) + size(vN) + 1
-    size: usize,
+    size: u32,
     // Precomputed 1 + max(nesting(v1), ..., nesting(vN))
-    nesting: usize,
+    nesting: u8,
 
     fields: BTreeMap<FieldName, ConvexValue>,
 }
@@ -78,9 +80,13 @@ impl TryFrom<BTreeMap<FieldName, ConvexValue>> for ConvexObject {
         check_system_size(size)?;
         let nesting = 1 + fields.values().map(|v| v.nesting()).max().unwrap_or(0);
         check_nesting(nesting)?;
+        const {
+            assert!(MAX_SIZE <= u32::MAX as usize);
+            assert!(MAX_NESTING <= u8::MAX as usize);
+        }
         Ok(Self {
-            size,
-            nesting,
+            size: size as u32,
+            nesting: nesting as u8,
             fields,
         })
     }
@@ -329,11 +335,11 @@ pub fn remove_nullable_vec_of_strings(
 
 impl Size for ConvexObject {
     fn size(&self) -> usize {
-        self.size
+        self.size as usize
     }
 
     fn nesting(&self) -> usize {
-        self.nesting
+        self.nesting as usize
     }
 }
 
