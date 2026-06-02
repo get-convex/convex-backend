@@ -217,11 +217,11 @@ Command.prototype.addDeploymentSelectionOptions = function (
         "--deployment <deployment>",
         action +
           " a specific deployment. Accepts:\n" +
-          "- a deployment name (e.g. joyful-capybara-123)\n" +
-          "- a deployment reference (e.g. dev/james, staging)\n" +
-          "- `dev` (for your personal dev deployment)\n" +
-          "- `prod` (for your project’s default production deployment)\n" +
-          "- `local` (for your local dev deployment)." +
+          "• a deployment name (e.g. joyful-capybara-123)\n" +
+          "• a deployment reference (e.g. dev/james, staging)\n" +
+          "• `dev` (for your personal dev deployment)\n" +
+          "• `prod` (for your project’s default production deployment)\n" +
+          "• `local` (for your local dev deployment)." +
           "\nYou can also select deployments in other projects with `project-slug:reference` or `team-slug:project-slug:reference`.",
       ).conflicts(["--prod", "--preview-name", "--deployment-name", "--url"]),
     )
