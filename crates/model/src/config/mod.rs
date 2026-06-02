@@ -1,7 +1,10 @@
 pub mod module_loader;
 pub mod types;
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use common::{
     components::ComponentId,
@@ -156,7 +159,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         &mut self,
     ) -> anyhow::Result<(
         ConfigMetadata,
-        Vec<ParsedDocument<ModuleMetadata>>,
+        Vec<Arc<ParsedDocument<ModuleMetadata>>>,
         Option<UdfConfig>,
     )> {
         // TODO: Move to `application/`.

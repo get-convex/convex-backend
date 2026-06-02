@@ -2179,7 +2179,7 @@ impl<RT: Runtime> Application<RT> {
 
                 let module_metadata: BTreeMap<
                     CanonicalizedModulePath,
-                    ParsedDocument<ModuleMetadata>,
+                    Arc<ParsedDocument<ModuleMetadata>>,
                 > = ModuleModel::new(&mut tx)
                     .get_all_metadata(ComponentId::Root)
                     .await?

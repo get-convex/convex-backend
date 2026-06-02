@@ -21,8 +21,8 @@ use crate::modules::module_versions::{
     Visibility,
 };
 
-pub fn file_based_exports(
-    functions: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+pub fn file_based_exports<'a>(
+    functions: impl IntoIterator<Item = (&'a CanonicalizedModulePath, &'a AnalyzedModule)>,
 ) -> anyhow::Result<BTreeMap<PathComponent, ComponentExport>> {
     let mut exports = BTreeMap::new();
     for (module_path, module) in functions {
