@@ -87,7 +87,6 @@ struct Ctx {
     index_id: IndexId,
     index_name: TabletIndexName,
     registry: Arc<IndexRegistry>,
-    /// A key guaranteed to be inside `Interval::all()`.
     write_key: IndexKeyBytes,
     dummy_doc_id: ResolvedDocumentId,
 }
