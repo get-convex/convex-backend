@@ -1,10 +1,9 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use common::{
     components::ComponentId,
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
+    document::ParsedDocument,
     runtime::Runtime,
 };
 use database::{
@@ -67,18 +66,20 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
     pub async fn get(
         &mut self,
         source_package_id: SourcePackageId,
-    ) -> anyhow::Result<ParsedDocument<SourcePackage>> {
-        let id: DeveloperDocumentId = source_package_id.into();
-        let document_id = self.tx.resolve_developer_id(&id, self.namespace)?;
+    ) -> anyhow::Result<Arc<ParsedDocument<SourcePackage>>> {
         self.tx
-            .get(document_id)
+            .get_system::<SourcePackagesTable>(
+                self.namespace,
+                DeveloperDocumentId::from(source_package_id),
+            )
             .await?
-            .context("Couldn't find source package")?
-            .parse()
+            .context("Couldn't find source package")
     }
 
-    pub async fn get_latest(&mut self) -> anyhow::Result<Option<ParsedDocument<SourcePackage>>> {
-        let mut latest_source_pkg: Option<ParsedDocument<SourcePackage>> = None;
+    pub async fn get_latest(
+        &mut self,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<SourcePackage>>>> {
+        let mut latest_source_pkg: Option<Arc<ParsedDocument<SourcePackage>>> = None;
 
         // TODO(lee) pass component down, instead of deriving it from the tablet.
         let component = match self.namespace {
