@@ -169,17 +169,16 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         component_id: ComponentId,
     ) -> anyhow::Result<BTreeMap<PathComponent, ComponentExport>> {
         let mut modules = BTreeMap::new();
-        for module in ModuleModel::new(self.tx)
+        let metadata = ModuleModel::new(self.tx)
             .get_all_metadata(component_id)
-            .await?
-        {
-            let module = module.into_value();
-            let Some(analyze_result) = module.analyze_result else {
+            .await?;
+        for module in &metadata {
+            let Some(analyze_result) = &module.analyze_result else {
                 continue;
             };
-            modules.insert(module.path, analyze_result);
+            modules.insert(&module.path, analyze_result);
         }
-        file_based_exports(&modules)
+        file_based_exports(modules)
     }
 
     #[async_recursion]

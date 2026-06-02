@@ -184,7 +184,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn get_all_metadata(
         &mut self,
         component: ComponentId,
-    ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
+    ) -> anyhow::Result<Vec<Arc<ParsedDocument<ModuleMetadata>>>> {
         // Hacky: It's important that we scan the _by_id index instead of the
         // _by_creation_time index (which is used by `Query::full_table_scan`).
         // This prevents creating too many read ranges in the transaction later
@@ -194,14 +194,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             .query_system(component.into(), &SystemIndex::<ModulesTable>::by_id())?
             .all()
             .await?;
-        // TODO: thread Arc out of this function
-        Ok(modules.into_iter().map(Arc::unwrap_or_clone).collect())
+        Ok(modules)
     }
 
     pub async fn get_application_metadata(
         &mut self,
         component: ComponentId,
-    ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
+    ) -> anyhow::Result<Vec<Arc<ParsedDocument<ModuleMetadata>>>> {
         let modules = self
             .get_all_metadata(component)
             .await?

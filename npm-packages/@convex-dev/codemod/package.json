@@ -30,7 +30,7 @@
     "@types/progress": "~2.0.7",
     "@types/semver": "^7.3.13",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.0",
     "zshy": "0.7.0"
   },
   "dependencies": {

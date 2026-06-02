@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::LazyLock,
-};
+use std::collections::BTreeMap;
 
 use common::bootstrap_model::index::database_index::IndexedFields;
 use const_format::formatcp;
@@ -35,7 +32,7 @@ const CDC_DELETED_FIELD: FieldName =
     FieldName::const_new(formatcp!("{IDENTIFIER_PREFIX}ab_cdc_deleted_at"));
 
 /// Airbyte fields that are related to CDC are prefixed with `_ab_cdc`
-static CDC_PREFIX: LazyLock<String> = LazyLock::new(|| format!("{IDENTIFIER_PREFIX}ab_cdc"));
+static CDC_PREFIX: &str = formatcp!("{IDENTIFIER_PREFIX}ab_cdc");
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AirbyteRecord {
@@ -117,7 +114,7 @@ impl TryFrom<AirbyteRecordMessage> for AirbyteRecord {
         // underscore are system fields in Convex).
         let fields_and_values: BTreeMap<FieldName, ConvexValue> = object
             .into_iter()
-            .filter(|(field_name, _value)| !field_name.starts_with(&CDC_PREFIX.clone()))
+            .filter(|(field_name, _value)| !field_name.starts_with(CDC_PREFIX))
             .collect();
         let record: ConvexObject = fields_and_values.try_into()?;
         Ok(Self {

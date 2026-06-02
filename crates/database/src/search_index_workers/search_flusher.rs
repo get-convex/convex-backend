@@ -51,7 +51,6 @@ use futures::{
 use futures_async_stream::try_stream;
 use governor::Quota;
 use keybroker::Identity;
-use parking_lot::Mutex;
 use search::metrics::SearchType;
 use storage::Storage;
 use sync_types::Timestamp;
@@ -615,7 +614,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         // The incremental table scan streams documents lazily rather than
         // materializing them all in memory, so it reports its resume cursor here
         // once it has been fully drained by `build_disk_index` below.
-        let new_cursor = Mutex::new(TableScanCursor::default());
+        let mut new_cursor = None;
 
         let lower_bound_ts: Option<Timestamp>;
         let (documents, incremental_new_ts) = match build_type {
@@ -659,7 +658,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     &qdrant_schema,
                     params.limits.incremental_multipart_threshold_bytes,
                     start_cursor,
-                    &new_cursor,
+                    &mut new_cursor,
                 );
 
                 lower_bound_ts = Some(*last_segment_ts);
@@ -685,10 +684,13 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
 
         // `build_disk_index` has now fully drained the document stream, so the
         // incremental table scan has recorded where to resume in `new_cursor`.
-        let backfill_result = incremental_new_ts.map(|new_ts| MultiSegmentBackfillResult {
-            new_cursor: new_cursor.into_inner(),
-            new_ts,
-        });
+        let backfill_result = match incremental_new_ts {
+            Some(new_ts) => Some(MultiSegmentBackfillResult {
+                new_cursor: new_cursor.context("new_cursor not set?")?,
+                new_ts,
+            }),
+            None => None,
+        };
 
         Ok(MultiSegmentBuildResult {
             new_segment,
@@ -728,7 +730,7 @@ async fn incremental_table_scan_stream<'a, T: SearchIndex>(
     tablet_id: TabletId,
     schema: &'a T::Schema,
     threshold_bytes: usize,
-    new_cursor: &'a Mutex<TableScanCursor>,
+    new_cursor: &'a mut Option<TableScanCursor>,
 ) {
     let page_size = *VECTOR_INDEX_WORKER_PAGE_SIZE;
     let mut total_size = 0u64;
@@ -779,7 +781,7 @@ async fn incremental_table_scan_stream<'a, T: SearchIndex>(
 
     // Report where to resume now that the scan is exhausted. This runs once the
     // consumer drains the stream past the final yielded document.
-    *new_cursor.lock() = cursor;
+    *new_cursor = Some(cursor);
 }
 
 /// Build the document stream for incremental backfill: a lazy table scan
@@ -801,7 +803,7 @@ fn build_incremental_doc_stream<'a, T: SearchIndex>(
     schema: &'a T::Schema,
     threshold_bytes: usize,
     start_cursor: Option<IndexKeyBytes>,
-    new_cursor: &'a Mutex<TableScanCursor>,
+    new_cursor: &'a mut Option<TableScanCursor>,
 ) -> T::DocStream<'a> {
     let document_stream = incremental_table_scan_stream::<T>(
         snapshot,

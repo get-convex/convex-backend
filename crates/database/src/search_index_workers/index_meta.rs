@@ -133,6 +133,8 @@ pub trait SearchIndex: Clone + Debug {
         filter_id_range: RangeToInclusive<IndexKeyBytes>,
     ) -> Self::DocStream<'a>;
 
+    /// Build a new segment from `documents`. This method must fully exhaust the
+    /// DocStream.
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,

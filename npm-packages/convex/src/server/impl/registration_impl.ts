@@ -62,8 +62,6 @@ async function invokeMutation<
 
     runQuery: (reference: any, args?: any, options?: any) =>
       runUdf("query", reference, args, options?.transactionLimits),
-    runSnapshotQuery: (reference: any, args?: any, options?: any) =>
-      runUdf("snapshotQuery", reference, args, options?.transactionLimits),
     runMutation: (reference: any, args?: any, options?: any) =>
       runUdf("mutation", reference, args, options?.transactionLimits),
   };

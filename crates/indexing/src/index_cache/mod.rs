@@ -8,6 +8,7 @@ use std::{
     sync::{
         atomic::{
             AtomicU32,
+            AtomicU64,
             Ordering,
         },
         Arc,
@@ -29,6 +30,7 @@ use common::{
         Timestamp,
     },
 };
+#[cfg(not(feature = "shuttle-testing"))]
 use dashmap::DashMap;
 use imbl::{
     OrdSet,
@@ -43,7 +45,12 @@ use moka::{
         Op,
     },
 };
+#[cfg(not(feature = "shuttle-testing"))]
 use parking_lot::Mutex;
+#[cfg(feature = "shuttle-testing")]
+use shuttle_dashmap::DashMap;
+#[cfg(feature = "shuttle-testing")]
+use shuttle_parking_lot::Mutex;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,
@@ -234,6 +241,13 @@ pub struct IndexCache {
     /// lock) before acquiring the moka cache lock to avoid deadlocks.
     index_to_intervals: Arc<DashMap<DeploymentId, DashMap<IndexId, IndexIntervals>>>,
     next_deployment_id: Arc<AtomicU32>,
+    /// Monotonic id stamped on each `populate`'s Phase-1 entry so that Phase 2
+    /// only marks ready the entry THIS call inserted and validated. Without it,
+    /// a populate could mark ready an entry that a concurrent populate
+    /// re-created for the same key (after this one's entry was
+    /// evicted/invalidated), applying a stale write-log validation —
+    /// serving stale reads.
+    next_populate_id: Arc<AtomicU64>,
 }
 
 impl IndexCache {
@@ -275,6 +289,7 @@ impl IndexCache {
             cache: AtomicCache::new(cache),
             index_to_intervals,
             next_deployment_id: Arc::new(AtomicU32::new(0)),
+            next_populate_id: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -468,6 +483,7 @@ impl IndexCacheHandle {
         index_registry: &IndexRegistry,
     ) {
         let deployment_id = self.deployment_id;
+        let populate_id = self.cache.next_populate_id.fetch_add(1, Ordering::Relaxed);
         let mut timer = index_cache_populate_timer();
         let key = CacheKey {
             deployment_id,
@@ -501,6 +517,7 @@ impl IndexCacheHandle {
             cursor: index_page.cursor,
             entries_size,
             begin_ts: ts,
+            populate_id,
         };
         let result = self.cache.cache.compute(key.clone(), |maybe_entry| {
             // Only insert if there's no existing entry — a prior entry with an earlier
@@ -592,6 +609,14 @@ impl IndexCacheHandle {
                         return Op::Remove;
                     },
                 }
+                // Make sure we only mark our own entry as ready.
+                let is_own = entry.value().populate_id == populate_id;
+                if !is_own {
+                    timer.add_label(StaticMetricLabel::new("result", "foreign_entry"));
+                    return Op::Nop;
+                }
+                // Tripwire for if we failed to check `is_own`. Unreachable here, used for
+                // regression test.
                 let mut value = entry.into_value();
                 value.is_ready = true;
                 timer.add_label(StaticMetricLabel::new("result", "populated"));
@@ -686,6 +711,11 @@ pub struct CachedInterval {
     cursor: CursorPosition,
     entries_size: usize,
     begin_ts: RepeatableTimestamp,
+    /// Identifies the `populate` call that inserted this entry. Phase 2 only
+    /// marks ready the entry whose `populate_id` matches the current call, so a
+    /// populate never marks an entry as ready that was created by a
+    /// different populate
+    populate_id: u64,
 }
 
 impl CachedInterval {
@@ -716,3 +746,16 @@ impl CachedInterval {
         std::mem::size_of::<Self>() + self.entries_size + self.cursor.heap_size()
     }
 }
+
+// These tests are compiled (so rust-analyzer resolves them) under both the
+// regular and `shuttle-testing` configs, but each `#[test]` is `#[ignore]`d
+// under `shuttle-testing`: that feature swaps in shuttle's synchronization
+// primitives crate-wide, which panic when used outside a shuttle runner. The
+// shuttle suite itself lives in `index_cache/shuttle_tests.rs`.
+//
+// NOTE: any new test added here must carry the same
+// `#[cfg_attr(feature = "shuttle-testing", ignore = ...)]` attribute, or it
+// will panic under `cargo test --features shuttle-testing`.
+/// Shuttle-based concurrency tests. See `index_cache/shuttle_tests.rs`.
+#[cfg(all(test, feature = "shuttle-testing"))]
+mod shuttle_tests;

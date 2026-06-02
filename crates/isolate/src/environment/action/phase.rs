@@ -14,6 +14,7 @@ use common::{
         Reference,
         Resource,
     },
+    document::ParsedDocument,
     http::RequestDestination,
     runtime::{
         Runtime,
@@ -115,7 +116,10 @@ enum ActionPreloaded<RT: Runtime> {
     Preloading,
     Ready {
         module_loader: Arc<dyn ModuleCache<RT>>,
-        modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<FullModuleSource>)>,
+        modules: BTreeMap<
+            CanonicalizedModulePath,
+            (Arc<ParsedDocument<ModuleMetadata>>, Arc<FullModuleSource>),
+        >,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
         component_env: Option<ComponentEnvCtx>,
@@ -214,7 +218,7 @@ impl<RT: Runtime> ActionPhase<RT> {
                                 .context("source package not found")?,
                         )
                         .await?;
-                    modules.insert(path, (metadata.into_value(), module));
+                    modules.insert(path, (metadata, module));
                 }
                 Ok(modules)
             })
