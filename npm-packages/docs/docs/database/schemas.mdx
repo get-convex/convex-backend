@@ -269,9 +269,8 @@ won't be validated).
 
 ## Schema validation
 
-Schemas are pushed automatically in
-[`npx convex dev`](/cli/overview.mdx#run-the-convex-dev-server) and
-[`npx convex deploy`](/cli/overview.mdx#deploy-convex-functions-to-production).
+Schemas are pushed automatically in [`npx convex dev`](/cli/reference/dev.mdx)
+and [`npx convex deploy`](/cli/reference/deploy.mdx).
 
 The first push after a schema is added or modified will validate that all
 existing documents match the schema. If there are documents that fail
@@ -338,9 +337,8 @@ references.
 
 ## TypeScript types
 
-Once you've defined a schema,
-[`npx convex dev`](/cli/overview.mdx#run-the-convex-dev-server) will produce new
-versions of [`dataModel.d.ts`](/generated-api/data-model) and
+Once you've defined a schema, [`npx convex dev`](/cli/reference/dev.mdx) will
+produce new versions of [`dataModel.d.ts`](/generated-api/data-model) and
 [`server.d.ts`](/generated-api/server) with types based on your schema.
 
 ### `Doc<TableName>`

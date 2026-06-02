@@ -66,7 +66,7 @@ export const dev = new Command("dev")
   .addOption(
     new Option(
       "--start <command>",
-      "Start a long-running command alongside `convex dev`, like a frontend " +
+      "Start a long-running command alongside `npx convex dev`, like a frontend " +
         "dev server. The command inherits stdin/stdout so you can interact " +
         "with it directly. Example: npx convex dev --start 'vite --open'",
     ).conflicts(["--run", "--run-sh"]),
