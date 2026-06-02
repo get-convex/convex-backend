@@ -28,12 +28,9 @@ import {
 } from "./filePaths.js";
 import { rootDeploymentStateDir } from "./filePaths.js";
 import { LocalDeploymentConfig } from "./filePaths.js";
-import { DeploymentDetails } from "./localDeployment.js";
 import { ensureBackendStopped, localDeploymentUrl } from "./run.js";
-import { ensureBackendRunning } from "./run.js";
 import { handlePotentialUpgrade } from "./upgrade.js";
 import {
-  isOffline,
   generateInstanceSecret,
   chooseLocalBackendPorts,
   LOCAL_BACKEND_INSTANCE_SECRET,
@@ -41,7 +38,7 @@ import {
 import { handleDashboard } from "./dashboard.js";
 import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
-import { isAnonymousDeployment } from "../deployment.js";
+import { DeploymentDetails, isAnonymousDeployment } from "../deployment.js";
 import { createProject } from "../api.js";
 import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
@@ -64,14 +61,6 @@ export async function handleAnonymousDeployment(
     chosenConfiguration: "new" | "existing" | "ask" | null;
   },
 ): Promise<DeploymentDetails> {
-  if (await isOffline()) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: "Cannot run a local deployment while offline",
-    });
-  }
-
   const deployment = await chooseDeployment(ctx, {
     deploymentName: options.deploymentName,
     chosenConfiguration: options.chosenConfiguration,
@@ -150,16 +139,6 @@ export async function handleAnonymousDeployment(
     suggestedPorts:
       deployment.kind === "existing" ? deployment.config.ports : undefined,
   });
-  const onActivity = async (isOffline: boolean, _wasOffline: boolean) => {
-    await ensureBackendRunning(ctx, {
-      cloudPort,
-      deploymentName: deployment.deploymentName,
-      maxTimeSecs: 5,
-    });
-    if (isOffline) {
-      return;
-    }
-  };
 
   const { cleanupHandle } = await handlePotentialUpgrade(ctx, {
     deploymentName: deployment.deploymentName,
@@ -201,7 +180,6 @@ export async function handleAnonymousDeployment(
     deploymentUrl: localDeploymentUrl(cloudPort),
     reference: null,
     isDefault: false,
-    onActivity,
   };
 }
 
