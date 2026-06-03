@@ -508,6 +508,11 @@ pub fn create_isolate_timer() -> Timer<prometheus::VMHistogram> {
     Timer::new(&CREATE_ISOLATE_SECONDS)
 }
 
+register_convex_histogram!(DESTROY_ISOLATE_SECONDS, "Time to destroy an isolate");
+pub fn destroy_isolate_timer() -> Timer<prometheus::VMHistogram> {
+    Timer::new(&DESTROY_ISOLATE_SECONDS)
+}
+
 register_convex_histogram!(CREATE_CONTEXT_SECONDS, "Time to create a new V8 context");
 pub fn create_context_timer() -> Timer<prometheus::VMHistogram> {
     Timer::new(&CREATE_CONTEXT_SECONDS)

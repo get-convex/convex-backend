@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.interval(
   "audit-logged cron",
-  { minutes: 10 },
+  { seconds: 1 },
   api.mutations.loggedMutation,
 );
 
