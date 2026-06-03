@@ -30,6 +30,7 @@ pub struct BackendInfo {
     pub log_streaming_enabled: Option<bool>,
     pub audit_log_retention_days: Option<i64>,
     pub send_logs_to_client: Option<bool>,
+    pub custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
 }
 
 impl BackendInfo {
@@ -49,6 +50,7 @@ impl BackendInfo {
             log_streaming_enabled,
             audit_log_retention_days,
             send_logs_to_client,
+            custom_audit_logs_in_log_streams_config_enabled,
         } = other;
         if self.team_id != *team_id {
             return Some("backend_info.team_id");
@@ -86,6 +88,11 @@ impl BackendInfo {
         }
         if self.send_logs_to_client != *send_logs_to_client {
             return Some("backend_info.send_logs_to_client");
+        }
+        if self.custom_audit_logs_in_log_streams_config_enabled
+            != *custom_audit_logs_in_log_streams_config_enabled
+        {
+            return Some("backend_info.custom_audit_logs_in_log_streams_config_enabled");
         }
         None
     }

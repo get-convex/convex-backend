@@ -93,7 +93,6 @@ const scheduleNextOfflineCheck = () => {
   // Use (retryCount - 1) because the first retry should use a base value of 0
   const backoffTime = backoffWithJitter(Math.max(0, retryCount - 1));
 
-  // eslint-disable-next-line no-console
   console.log(
     `Disconnected from Dashboard server, retrying in ${backoffTime}ms`,
   );

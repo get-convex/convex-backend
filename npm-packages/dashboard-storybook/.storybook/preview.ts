@@ -7,62 +7,61 @@ import { sb } from "storybook/test";
 
 // Register modules for mocking in stories
 // Note: paths must be relative to this file and include extensions for Node.js resolution
-sb.mock(import("../../dashboard/src/api/teams.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/projects.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/profile.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/deployments.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/roles.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/hooks/useDeploymentPermissions.ts"), {
+sb.mock(import("dashboard/src/api/teams.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/projects.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/profile.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/deployments.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/roles.ts"), { spy: true });
+sb.mock(import("dashboard/src/hooks/useDeploymentPermissions.ts"), {
   spy: true,
 });
-sb.mock(import("../../dashboard/src/api/invitations.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/billing.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/accessTokens.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/personalAccessTokens.ts"), {
+sb.mock(import("dashboard/src/api/invitations.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/billing.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/accessTokens.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/personalAccessTokens.ts"), {
   spy: true,
 });
-sb.mock(import("../../dashboard/src/api/discord.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/backups.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/vanityDomains.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/environmentVariables.ts"), {
+sb.mock(import("dashboard/src/api/discord.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/backups.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/vanityDomains.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/environmentVariables.ts"), {
   spy: true,
 });
-sb.mock(import("../../dashboard/src/api/optins.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/api.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/hooks/useLaunchDarkly.tsx"), { spy: true });
-sb.mock(import("../../dashboard/src/hooks/usePostHog.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/hooks/useServerSideData.ts"), {
+sb.mock(import("dashboard/src/api/optins.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/api.ts"), { spy: true });
+sb.mock(import("dashboard/src/hooks/useLaunchDarkly.tsx"), { spy: true });
+sb.mock(import("dashboard/src/hooks/usePostHog.ts"), { spy: true });
+sb.mock(import("dashboard/src/hooks/useServerSideData.ts"), {
   spy: true,
 });
-sb.mock(import("../../dashboard/src/api/usage.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/auditLog.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/oauth.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/api/referrals.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/lib/deploymentAuth.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/hooks/usageMetrics.ts"), { spy: true });
-sb.mock(import("../../dashboard/src/hooks/usageMetricsV2.ts"), { spy: true });
-sb.mock(import("../../dashboard-common/src/elements/LocalDevCallout.tsx"), {
+sb.mock(import("dashboard/src/api/usage.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/auditLog.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/oauth.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/referrals.ts"), { spy: true });
+sb.mock(import("dashboard/src/lib/deploymentAuth.ts"), { spy: true });
+sb.mock(import("dashboard/src/hooks/usageMetrics.ts"), { spy: true });
+sb.mock(import("dashboard/src/hooks/usageMetricsV2.ts"), { spy: true });
+sb.mock(import("dashboard-common/src/elements/LocalDevCallout.tsx"), {
   spy: true,
 });
 sb.mock(
   import(
-    "../../dashboard-common/src/features/disconnectOverlay/CloudDisconnectOverlay.tsx"
+    "dashboard-common/src/features/disconnectOverlay/CloudDisconnectOverlay.tsx"
   ),
   {
     spy: true,
   },
 );
-sb.mock(
-  import("../../dashboard/src/components/projectSettings/CustomDomains.tsx"),
-  { spy: true },
-);
-sb.mock(import("../../dashboard-common/src/lib/deploymentApi.ts"), {
+sb.mock(import("dashboard/src/components/projectSettings/CustomDomains.tsx"), {
   spy: true,
 });
-sb.mock(import("../../dashboard-common/src/lib/appMetrics.ts"), {
+sb.mock(import("dashboard-common/src/lib/deploymentApi.ts"), {
   spy: true,
 });
-sb.mock(import("../../dashboard/src/hooks/useStripe.ts"));
+sb.mock(import("dashboard-common/src/lib/appMetrics.ts"), {
+  spy: true,
+});
+sb.mock(import("dashboard/src/hooks/useStripe.ts"));
 sb.mock(import("@stripe/react-stripe-js"), { spy: true });
 
 const preview: Preview = {

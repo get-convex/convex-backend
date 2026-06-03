@@ -29,6 +29,7 @@ pub struct BackendInfoPersisted {
     pub log_streaming_enabled: bool,
     pub audit_log_retention_days: i64,
     pub send_logs_to_client: Option<bool>,
+    pub custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
 }
 
 impl From<BackendInfoPersisted> for BackendInfo {
@@ -46,6 +47,8 @@ impl From<BackendInfoPersisted> for BackendInfo {
             log_streaming_enabled: Some(bi.log_streaming_enabled),
             audit_log_retention_days: Some(bi.audit_log_retention_days),
             send_logs_to_client: bi.send_logs_to_client,
+            custom_audit_logs_in_log_streams_config_enabled: bi
+                .custom_audit_logs_in_log_streams_config_enabled,
         }
     }
 }
@@ -67,6 +70,8 @@ impl From<BackendInfo> for BackendInfoPersisted {
             log_streaming_enabled: bi.log_streaming_enabled.unwrap_or_default(),
             audit_log_retention_days: bi.audit_log_retention_days.unwrap_or_default(),
             send_logs_to_client: bi.send_logs_to_client,
+            custom_audit_logs_in_log_streams_config_enabled: bi
+                .custom_audit_logs_in_log_streams_config_enabled,
         }
     }
 }
@@ -92,6 +97,8 @@ pub struct SerializedBackendInfo {
     audit_log_retention_days: i64,
     #[serde(default)]
     send_logs_to_client: Option<bool>,
+    #[serde(default)]
+    custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
 }
 
 impl From<BackendInfoPersisted> for SerializedBackendInfo {
@@ -114,6 +121,8 @@ impl From<BackendInfoPersisted> for SerializedBackendInfo {
             project_slug: b.project_slug,
             audit_log_retention_days: b.audit_log_retention_days,
             send_logs_to_client: b.send_logs_to_client,
+            custom_audit_logs_in_log_streams_config_enabled: b
+                .custom_audit_logs_in_log_streams_config_enabled,
         }
     }
 }
@@ -136,6 +145,8 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
         let project_slug = o.project_slug;
         let audit_log_retention_days = o.audit_log_retention_days;
         let send_logs_to_client = o.send_logs_to_client;
+        let custom_audit_logs_in_log_streams_config_enabled =
+            o.custom_audit_logs_in_log_streams_config_enabled;
 
         Ok(Self {
             team,
@@ -150,6 +161,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
             log_streaming_enabled,
             audit_log_retention_days,
             send_logs_to_client,
+            custom_audit_logs_in_log_streams_config_enabled,
         })
     }
 }
