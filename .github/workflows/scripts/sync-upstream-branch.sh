@@ -41,6 +41,33 @@ reconcile_cargo_lock() {
   fi
 }
 
+# Reconcile Rush's generated pnpm-lock.yaml against the merged workspace.
+# The upstream lockfile can be correct for upstream while stale for this fork's
+# extra dashboard packages, so regenerate it before pushing sync commits.
+reconcile_rush_shrinkwrap() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "node not on PATH; skipping Rush shrinkwrap reconciliation" >&2
+    return 0
+  fi
+  if [ ! -f npm-packages/rush.json ]; then
+    return 0
+  fi
+  (
+    cd npm-packages
+    node common/scripts/install-run-rush.js update
+  ) 2>&1 | sed 's/^/  /'
+  if ! git diff --quiet -- npm-packages/common/config/rush/pnpm-lock.yaml; then
+    git add npm-packages/common/config/rush/pnpm-lock.yaml
+    git commit --amend --no-edit
+    echo "Amended merge commit with regenerated Rush shrinkwrap"
+  fi
+}
+
+reconcile_generated_locks() {
+  reconcile_cargo_lock
+  reconcile_rush_shrinkwrap
+}
+
 git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git" 2>/dev/null || true
 git fetch --no-tags origin "${TARGET_BRANCH}" || true
 git fetch --no-tags upstream "${UPSTREAM_BRANCH}"
@@ -64,7 +91,7 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
   if [ "$before" = "$after" ]; then
     echo "${TARGET_BRANCH} is already up to date with upstream/${UPSTREAM_BRANCH}"
   else
-    reconcile_cargo_lock
+    reconcile_generated_locks
     git push origin "HEAD:${TARGET_BRANCH}"
   fi
 
@@ -107,7 +134,7 @@ LLM-auto-resolved conflicts via ${llm_model_used}:
 ${file_list}
 
 Workflow run: ${run_url}"
-      reconcile_cargo_lock
+      reconcile_generated_locks
       git push origin "HEAD:${TARGET_BRANCH}"
 
       # Close any stale sync PR — we just merged cleanly.
