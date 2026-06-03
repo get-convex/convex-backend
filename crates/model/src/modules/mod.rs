@@ -507,6 +507,12 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 /// the CLI to determine if a module has changed. Therefore this algorithm
 /// can never be changed (if you want a new algorithm, we need a new API
 /// endpoint and a new CLI version to call it).
+///
+/// NOTE: the original algorithm is not sound because there is no delimiter or
+/// length marker to distinguish the end of `source` from the beginning of
+/// `source_map`. As such the final hash should be treated with suspicion for
+/// any security-relevant purpose. In practice a collision should never happen
+/// for a well-behaving client.
 pub fn hash_module_source(source: &ModuleSource, source_map: Option<&SourceMap>) -> Sha256Digest {
     let mut hasher = Sha256::new();
     hasher.update(source.as_bytes());
