@@ -29,7 +29,7 @@ export function CreateAdminKeyModal({
             Copy your new admin key now. You won&apos;t be able to see it again.
           </p>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-background-tertiary px-2 py-1 text-sm">
+            <code className="min-w-0 flex-1 truncate rounded-sm bg-background-tertiary px-2 py-1 text-sm">
               {created.adminKey}
             </code>
             <CopyButton text={created.adminKey} />

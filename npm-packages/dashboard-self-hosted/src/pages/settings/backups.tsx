@@ -119,7 +119,7 @@ function BackupsLayout({
         <span className="text-sm">
           Trigger a snapshot of this deployment from the dashboard. To restore,
           run{" "}
-          <code className="rounded bg-background-tertiary px-1 text-xs">
+          <code className="rounded-sm bg-background-tertiary px-1 text-xs">
             npx convex import --replace-all backup.zip
           </code>
           {" — "}
@@ -315,7 +315,7 @@ function RestoreOngoing({
           {message}
         </div>
       </div>
-      <div className="h-1 w-full overflow-hidden rounded bg-background-tertiary">
+      <div className="h-1 w-full overflow-hidden rounded-sm bg-background-tertiary">
         <div className="h-full w-1/3 animate-pulse bg-content-link" />
       </div>
     </div>

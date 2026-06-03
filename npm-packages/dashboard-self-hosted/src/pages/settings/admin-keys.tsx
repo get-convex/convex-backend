@@ -72,7 +72,7 @@ function AdminKeysPageBody({
         Convex CLI. Use them in CI environments, hosting integrations, or to log
         additional people into this dashboard. Any key first seen by the backend
         — including those minted by{" "}
-        <code className="rounded bg-background-tertiary px-1 text-xs">
+        <code className="rounded-sm bg-background-tertiary px-1 text-xs">
           generate_admin_key.sh
         </code>{" "}
         — is automatically tracked here so you can revoke it later.

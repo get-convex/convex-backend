@@ -17,11 +17,11 @@ export default function CustomDomainsPage() {
         <p className="mt-2 max-w-prose text-content-primary">
           On self-hosted deployments, custom domains are configured at the
           backend process level via the{" "}
-          <code className="rounded bg-background-tertiary px-1 text-xs">
+          <code className="rounded-sm bg-background-tertiary px-1 text-xs">
             CONVEX_CLOUD_ORIGIN
           </code>{" "}
           and{" "}
-          <code className="rounded bg-background-tertiary px-1 text-xs">
+          <code className="rounded-sm bg-background-tertiary px-1 text-xs">
             CONVEX_SITE_ORIGIN
           </code>{" "}
           environment variables. To change either, update the environment in
@@ -73,7 +73,7 @@ function UrlRow({
         <Spinner className="size-4" />
       ) : (
         <div className="flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate rounded bg-background-tertiary px-2 py-1 font-mono text-sm">
+          <code className="min-w-0 flex-1 truncate rounded-sm bg-background-tertiary px-2 py-1 font-mono text-sm">
             {value}
           </code>
           <CopyButton text={value} />

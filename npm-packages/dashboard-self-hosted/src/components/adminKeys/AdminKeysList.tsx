@@ -85,7 +85,7 @@ function AdminKeyListItem({
           <div className="flex items-center gap-2">
             <span>{adminKey.name}</span>
             {adminKey.isCurrent && (
-              <span className="rounded bg-background-tertiary px-1.5 py-0.5 text-xs text-content-secondary">
+              <span className="rounded-sm bg-background-tertiary px-1.5 py-0.5 text-xs text-content-secondary">
                 This key
               </span>
             )}
@@ -155,7 +155,7 @@ function AdminKeyListItem({
                   )}{" "}
                   will immediately log you out of the dashboard. You&apos;ll
                   need another admin key, or to run{" "}
-                  <code className="rounded bg-background-tertiary px-1 text-xs">
+                  <code className="rounded-sm bg-background-tertiary px-1 text-xs">
                     generate_admin_key.sh
                   </code>{" "}
                   again, to log back in.
