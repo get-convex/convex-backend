@@ -106,6 +106,7 @@ export {
 export type {
   TransactionMetric,
   TransactionMetrics,
+  TransactionLimits,
   FunctionMetadata,
   DeploymentMetadata,
   RequestMetadata,

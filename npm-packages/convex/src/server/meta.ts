@@ -29,6 +29,23 @@ export type TransactionMetrics = {
 };
 
 /**
+ * Custom limits for a nested transaction. Each field specifies the absolute
+ * maximum allowed for the nested function call. Values are capped at the
+ * global transaction limits, so they can only lower limits, never raise them.
+ *
+ * @public
+ */
+export interface TransactionLimits {
+  bytesRead?: number;
+  bytesWritten?: number;
+  databaseQueries?: number;
+  documentsRead?: number;
+  documentsWritten?: number;
+  functionsScheduled?: number;
+  scheduledFunctionArgsBytes?: number;
+}
+
+/**
  * Metadata about the currently executing Convex function.
  *
  * @public
