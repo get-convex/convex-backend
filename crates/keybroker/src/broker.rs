@@ -311,7 +311,13 @@ impl Eq for Identity {}
 impl Identity {
     pub fn cache_key(&self) -> IdentityCacheKey {
         match self.clone() {
-            Identity::DeploymentAdmin(i) => IdentityCacheKey::DeploymentAdmin(i.deployment_name),
+            Identity::DeploymentAdmin(i) => IdentityCacheKey::DeploymentAdmin {
+                deployment_name: i.deployment_name,
+                // Include the allowed operations so that admins with different
+                // operation scopes don't share cached query results. `{op:?}`
+                // yields the stable variant name (e.g. "ViewBackups").
+                allowed_ops: i.allowed_ops.iter().map(|op| format!("{op:?}")).collect(),
+            },
             Identity::System(_) => IdentityCacheKey::System,
             Identity::Unknown(error_message) => {
                 IdentityCacheKey::Unknown(error_message.map(|e| e.to_string()))
