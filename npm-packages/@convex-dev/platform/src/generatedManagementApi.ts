@@ -1037,6 +1037,7 @@ export interface components {
             ssoTeamId?: null | components["schemas"]["TeamId"];
         };
         PlatformCreateDeployKeyArgs: {
+            allowedActions?: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view")[];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deploy key will expire. Must be
@@ -1164,6 +1165,7 @@ export interface components {
             id: string;
         };
         PlatformDeployKeyResponse: {
+            allowedActions: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view")[];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was created.
