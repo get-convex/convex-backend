@@ -2200,6 +2200,11 @@
   },
   "components": {
     "schemas": {
+      "AccessTokenId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
@@ -2703,6 +2708,7 @@
       "PersonalAccessTokenResponse": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "creationTime"
         ],
@@ -2717,6 +2723,10 @@
               "null"
             ],
             "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this access token."
           },
           "lastUsedTime": {
             "type": [
@@ -3030,6 +3040,7 @@
       "PlatformDeployKeyResponse": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "creationTime"
         ],
@@ -3057,6 +3068,10 @@
             ],
             "format": "int64",
             "description": "Timestamp in milliseconds when this deploy key will expire."
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this deploy key."
           },
           "lastUsedTime": {
             "type": [
@@ -3370,6 +3385,7 @@
           {
             "type": "object",
             "required": [
+              "id",
               "teamId",
               "name",
               "createTime",
@@ -3380,6 +3396,10 @@
                 "type": "integer",
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this token was created."
+              },
+              "id": {
+                "$ref": "#/components/schemas/AccessTokenId",
+                "description": "Stable identifier for this access token."
               },
               "name": {
                 "$ref": "#/components/schemas/DeviceName",
@@ -3400,6 +3420,7 @@
           {
             "type": "object",
             "required": [
+              "id",
               "projectId",
               "name",
               "createTime",
@@ -3410,6 +3431,10 @@
                 "type": "integer",
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this token was created."
+              },
+              "id": {
+                "$ref": "#/components/schemas/AccessTokenId",
+                "description": "Stable identifier for this access token."
               },
               "name": {
                 "$ref": "#/components/schemas/DeviceName",

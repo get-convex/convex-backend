@@ -29,6 +29,7 @@ const mockProjectRoles = [
 ];
 
 const mockDeployKey: PlatformDeployKeyResponse = {
+  id: 1,
   name: "storybook-preview-key",
   creator: 1,
   creationTime: Date.now() - 1000 * 60 * 60,
@@ -38,6 +39,7 @@ const mockDeployKey: PlatformDeployKeyResponse = {
 const mockAppToken: NonNullable<
   ReturnType<typeof useProjectAppAccessTokens>
 >[number] = {
+  id: 2,
   appClientId: "storybook-app-client-id",
   appName: "Storybook OAuth App",
   name: "storybook-preview-key",

@@ -3298,6 +3298,11 @@
   },
   "components": {
     "schemas": {
+      "AccessTokenId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "ActionOnAccessTokenArgs": {
         "type": "object",
         "required": [
@@ -3357,6 +3362,7 @@
       "AppAccessTokenResponse": {
         "type": "object",
         "required": [
+          "id",
           "name",
           "appName",
           "appClientId",
@@ -3372,6 +3378,10 @@
           "creationTime": {
             "type": "integer",
             "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this access token."
           },
           "lastUsedTime": {
             "type": [
@@ -6513,6 +6523,7 @@
       "TeamAccessTokenResponse": {
         "type": "object",
         "required": [
+          "id",
           "accessToken",
           "name",
           "creationTime",
@@ -6542,6 +6553,10 @@
               "null"
             ],
             "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this access token."
           },
           "lastUsedTime": {
             "type": [

@@ -51,11 +51,13 @@ const meta = {
       data: {
         items: [
           {
+            id: 1,
             name: "ci-deploy",
             creationTime: now - 30 * oneDay,
             lastUsedTime: now - 2 * oneDay,
           },
           {
+            id: 2,
             name: "local-dev",
             creationTime: now - 7 * oneDay,
             lastUsedTime: null,
