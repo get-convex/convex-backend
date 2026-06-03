@@ -68,6 +68,22 @@ reconcile_generated_locks() {
   reconcile_rush_shrinkwrap
 }
 
+# Release pushes publish the self-hosted dashboard image, so block automated
+# upstream syncs before they update origin/release if that build is broken.
+validate_release_build() {
+  if [ "${TARGET_BRANCH}" != "release" ]; then
+    return 0
+  fi
+  if [ ! -f npm-packages/rush.json ]; then
+    return 0
+  fi
+  (
+    cd npm-packages
+    node common/scripts/install-run-rush.js install
+    RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-self-hosted
+  ) 2>&1 | sed 's/^/  /'
+}
+
 git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git" 2>/dev/null || true
 git fetch --no-tags origin "${TARGET_BRANCH}" || true
 git fetch --no-tags upstream "${UPSTREAM_BRANCH}"
@@ -92,6 +108,7 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
     echo "${TARGET_BRANCH} is already up to date with upstream/${UPSTREAM_BRANCH}"
   else
     reconcile_generated_locks
+    validate_release_build
     git push origin "HEAD:${TARGET_BRANCH}"
   fi
 
@@ -135,6 +152,7 @@ ${file_list}
 
 Workflow run: ${run_url}"
       reconcile_generated_locks
+      validate_release_build
       git push origin "HEAD:${TARGET_BRANCH}"
 
       # Close any stale sync PR — we just merged cleanly.
