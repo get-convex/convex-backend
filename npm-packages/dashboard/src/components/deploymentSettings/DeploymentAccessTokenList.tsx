@@ -1,11 +1,16 @@
 import { PlatformDeployKeyResponse } from "@convex-dev/platform/managementApi";
 
 import { LoadingTransition } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { PlusIcon } from "@radix-ui/react-icons";
+import { useState } from "react";
 import { DeployKeyListItem } from "components/DeployKeyListItem";
 import {
-  GenerateDeployKeyWithNameButton,
-  GenerateDeployKeyWithNameButtonProps,
+  CreateDeployKeyForm,
+  CreateDeployKeyFormProps,
   DeployKeyGenerationDisabledReason,
+  DEPLOY_KEY_GENERATION_DISABLED_REASONS,
+  getGenerateButtonText,
 } from "./GenerateDeployKeyButton";
 
 export function DeploymentAccessTokenList({
@@ -24,17 +29,33 @@ export function DeploymentAccessTokenList({
   canDelete?: boolean;
   deployKeys: PlatformDeployKeyResponse[] | undefined;
   disabledReason: DeployKeyGenerationDisabledReason | null;
-  buttonProps: GenerateDeployKeyWithNameButtonProps;
+  buttonProps: CreateDeployKeyFormProps;
   header: string;
   description: React.ReactNode;
   headingLevel?: "h3" | "h4";
 }) {
   const HeadingTag = (headingLevel ?? "h4") as keyof JSX.IntrinsicElements;
+  // When set, the create-deploy-key flow opens in a right-hand side panel
+  // (`CreateDeployKeyForm` renders a `DetailPanel`) rather than a modal.
+  const [showForm, setShowForm] = useState(false);
   return (
     <>
       <div className="mb-2 flex w-full items-center justify-between">
         <HeadingTag>{header}</HeadingTag>
-        <GenerateDeployKeyWithNameButton {...buttonProps} />
+        <Button
+          disabled={buttonProps.disabledReason !== null}
+          tip={
+            buttonProps.disabledReason === null
+              ? undefined
+              : DEPLOY_KEY_GENERATION_DISABLED_REASONS[
+                  buttonProps.disabledReason
+                ]
+          }
+          onClick={() => setShowForm(true)}
+          icon={<PlusIcon />}
+        >
+          {getGenerateButtonText(buttonProps.deploymentType)}
+        </Button>
       </div>
       {description}
       {/* Local deployments don't have remote deploy keys, so the list
@@ -68,6 +89,12 @@ export function DeploymentAccessTokenList({
             </div>
           )}
         </LoadingTransition>
+      )}
+      {showForm && (
+        <CreateDeployKeyForm
+          {...buttonProps}
+          onClose={() => setShowForm(false)}
+        />
       )}
     </>
   );
