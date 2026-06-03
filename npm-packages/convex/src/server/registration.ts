@@ -8,8 +8,14 @@ import {
   StorageReader,
   StorageWriter,
 } from "./index.js";
-import { ActionMeta, MutationMeta, QueryMeta } from "./meta.js";
 import {
+  ActionMeta,
+  MutationMeta,
+  QueryMeta,
+  TransactionLimits,
+} from "./meta.js";
+import {
+  ArgsAndOptions,
   FunctionReference,
   FunctionReturnType,
   OptionalRestArgs,
@@ -129,7 +135,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, { transactionLimits?: TransactionLimits }>
   ) => Promise<FunctionReturnType<Query>>;
 
   /**
@@ -146,7 +152,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
     Mutation extends FunctionReference<"mutation", "public" | "internal">,
   >(
     mutation: Mutation,
-    ...args: OptionalRestArgs<Mutation>
+    ...args: ArgsAndOptions<Mutation, { transactionLimits?: TransactionLimits }>
   ) => Promise<FunctionReturnType<Mutation>>;
 
   meta: MutationMeta;
@@ -239,7 +245,7 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
-    ...args: OptionalRestArgs<Query>
+    ...args: ArgsAndOptions<Query, { transactionLimits?: TransactionLimits }>
   ) => Promise<FunctionReturnType<Query>>;
 
   meta: QueryMeta;

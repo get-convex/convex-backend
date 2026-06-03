@@ -24,6 +24,18 @@ export default defineSchema({
     created: v.optional(v.string()),
     duration: v.optional(v.number()),
     authorId: v.optional(v.id("users")),
+    result: v.optional(
+      v.union(
+        v.object({
+          kind: v.literal("success"),
+          result: v.any(),
+        }),
+        v.object({
+          kind: v.literal("error"),
+          error: v.optional(v.string()),
+        }),
+      ),
+    ),
   })
     .index("by_task_list_id", ["taskListId"])
     .index("by_status", ["status"]),
