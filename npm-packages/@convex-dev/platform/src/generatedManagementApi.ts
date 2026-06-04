@@ -880,6 +880,8 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Format: int64 */
+        AccessTokenId: number;
         /** @description Encrypted admin key */
         AdminKey: string;
         CancelInvitationArgs: {
@@ -1027,12 +1029,15 @@ export interface components {
             creationTime: number;
             /** Format: int64 */
             expiresAt?: number | null;
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
             ssoTeamId?: null | components["schemas"]["TeamId"];
         };
         PlatformCreateDeployKeyArgs: {
+            allowedActions?: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view")[];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deploy key will expire. Must be
@@ -1160,6 +1165,7 @@ export interface components {
             id: string;
         };
         PlatformDeployKeyResponse: {
+            allowedActions: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view")[];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was created.
@@ -1171,6 +1177,8 @@ export interface components {
              * @description Timestamp in milliseconds when this deploy key will expire.
              */
             expiresAt?: number | null;
+            /** @description Stable identifier for this deploy key. */
+            id: components["schemas"]["AccessTokenId"];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was last used (if ever).
@@ -1298,6 +1306,8 @@ export interface components {
              * @description Timestamp in milliseconds when this token was created.
              */
             createTime: number;
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
             /** @description The name given to the token at creation. */
             name: components["schemas"]["DeviceName"];
             /** @description The team ID this token is associated with. */
@@ -1310,6 +1320,8 @@ export interface components {
              * @description Timestamp in milliseconds when this token was created.
              */
             createTime: number;
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
             /** @description The name given to the token at creation. */
             name: components["schemas"]["DeviceName"];
             /** @description The project ID this token is associated with. */
@@ -1464,6 +1476,7 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AccessTokenId = components['schemas']['AccessTokenId'];
 export type AdminKey = components['schemas']['AdminKey'];
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
 export type CreateCustomRoleArgs = components['schemas']['CreateCustomRoleArgs'];

@@ -1853,6 +1853,8 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Format: int64 */
+        AccessTokenId: number;
         ActionOnAccessTokenArgs: {
             accessToken: string;
         };
@@ -1871,6 +1873,8 @@ export interface components {
             appName: components["schemas"]["AppName"];
             /** Format: int64 */
             creationTime: number;
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
@@ -2725,6 +2729,8 @@ export interface components {
             creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
             expiresAt?: number | null;
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
@@ -2927,6 +2933,7 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AccessTokenId = components['schemas']['AccessTokenId'];
 export type ActionOnAccessTokenArgs = components['schemas']['ActionOnAccessTokenArgs'];
 export type Address = components['schemas']['Address'];
 export type AdminKey = components['schemas']['AdminKey'];

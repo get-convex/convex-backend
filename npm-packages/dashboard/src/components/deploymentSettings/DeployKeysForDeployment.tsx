@@ -16,6 +16,7 @@ import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { Link } from "@ui/Link";
 
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
+import { DeployKeyAction } from "./GenerateDeployKeyButton";
 
 export function DeployKeysForDeployment() {
   const project = useCurrentProject();
@@ -155,14 +156,13 @@ export function DeployKeysForDeployment() {
             deploymentType,
             getAdminKey: async (
               name: string,
-              allowedOperations: string[] | undefined,
+              allowedActions: DeployKeyAction[] | undefined,
               expiresAt: number | undefined,
             ) => {
               try {
                 const result = await createDeployKey({
                   name,
-                  // @ts-expect-error allowedOperations is not in the public API spec yet
-                  allowedOperations,
+                  allowedActions,
                   ...(expiresAt !== undefined && { expiresAt }),
                 });
                 if (!result)

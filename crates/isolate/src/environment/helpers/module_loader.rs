@@ -31,18 +31,6 @@ pub async fn get_modules_and_prefetch(
     source_package: &ParsedDocument<SourcePackage>,
 ) -> anyhow::Result<HashMap<(CanonicalizedModulePath, Sha256Digest), Arc<FullModuleSource>>> {
     let _timer = module_load_timer("package");
-    let all_source = download_module_source_from_package(modules_storage, source_package).await?;
-    Ok(all_source
-        .into_iter()
-        .map(|(path, source)| (path, Arc::new(source)))
-        .collect())
-}
-
-#[fastrace::trace]
-async fn download_module_source_from_package(
-    modules_storage: Arc<dyn Storage>,
-    source_package: &ParsedDocument<SourcePackage>,
-) -> anyhow::Result<HashMap<(CanonicalizedModulePath, Sha256Digest), FullModuleSource>> {
     let mut result = HashMap::new();
     let package = download_package(
         modules_storage,
@@ -56,10 +44,10 @@ async fn download_module_source_from_package(
                 module_path,
                 hash_module_source(&module_config.source, module_config.source_map.as_ref()),
             ),
-            FullModuleSource {
+            Arc::new(FullModuleSource {
                 source: module_config.source,
                 source_map: module_config.source_map,
-            },
+            }),
         );
     }
     Ok(result)

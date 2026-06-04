@@ -709,7 +709,7 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
               showCustomPermissions: false,
               getAdminKey: async (
                 name: string,
-                _allowedOperations: string[] | undefined,
+                _allowedActions: string[] | undefined,
                 expiresAt: number | undefined,
               ) => {
                 try {
