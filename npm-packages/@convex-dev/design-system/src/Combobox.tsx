@@ -166,7 +166,7 @@ export function Combobox<T>({
   return (
     <HeadlessCombobox
       value={
-        options.find((o) => isEqual(selectedOption, o.value))?.value || null
+        selectedOptionData ? selectedOptionData.value : (selectedOption ?? null)
       }
       onChange={(option) => {
         setSelectedOption(option);
@@ -232,21 +232,23 @@ export function Combobox<T>({
                   >
                     {icon}
                     <div className="truncate">
-                      {!!Option && !!selectedOptionData ? (
-                        <Option
-                          inButton
-                          label={selectedOptionData.label}
-                          value={selectedOptionData.value}
-                          disabled={selectedOptionData.disabled}
-                        />
-                      ) : (
-                        selectedOptionData?.label || (
-                          <span className="text-content-tertiary">
-                            {selectedOption && unknownLabel(selectedOption)}
-                          </span>
+                      {selectedOptionData ? (
+                        Option ? (
+                          <Option
+                            inButton
+                            label={selectedOptionData.label}
+                            value={selectedOptionData.value}
+                            disabled={selectedOptionData.disabled}
+                          />
+                        ) : (
+                          selectedOptionData.label
                         )
-                      )}
-                      {!selectedOptionData && (
+                      ) : selectedOption !== null &&
+                        selectedOption !== undefined ? (
+                        <span className="text-content-tertiary">
+                          {unknownLabel(selectedOption)}
+                        </span>
+                      ) : (
                         <span className="text-content-tertiary">
                           {placeholder}
                         </span>

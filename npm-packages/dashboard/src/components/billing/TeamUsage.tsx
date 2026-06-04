@@ -406,6 +406,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
               currentBillingPeriod,
               teamId: team.id,
               projectId,
+              selectedProject: project ?? null,
             }}
           />
 

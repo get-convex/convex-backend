@@ -1,5 +1,5 @@
 import { useTeams } from "api/teams";
-import { usePaginatedProjects } from "api/projects";
+import { usePaginatedProjects, useProjectById } from "api/projects";
 import Head from "next/head";
 import { Button } from "@ui/Button";
 import { Combobox, MAX_DISPLAYED_OPTIONS } from "@ui/Combobox";
@@ -86,6 +86,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
   // Project selection logic (only used for project scope)
   const {
     projects,
+    selectedProject,
     selectedProjectId,
     setSelectedProjectId,
     projectQuery,
@@ -101,14 +102,25 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
       nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
     });
 
-    return (
+    const options =
       projects?.map((p) => {
         const isDuplicate = (nameCountMap.get(p.name) || 0) > 1;
         const label = isDuplicate && p.slug ? `${p.name} (${p.slug})` : p.name;
         return { label, value: p.id };
-      }) ?? []
-    );
-  }, [projects]);
+      }) ?? [];
+
+    // Ensure the selected project is always an option, even when it's filtered
+    // out of the paginated list, so its label survives in the button and
+    // blurring the combobox doesn't deselect it.
+    if (
+      selectedProject &&
+      !options.some((o) => o.value === selectedProject.id)
+    ) {
+      options.push({ label: selectedProject.name, value: selectedProject.id });
+    }
+
+    return options;
+  }, [projects, selectedProject]);
 
   // Auto-show create project form if team has no projects
   useEffect(() => {
@@ -622,8 +634,15 @@ function useProjectSelection(team?: { id: number }) {
   const projects = paginatedData ? paginatedData.items : undefined;
   const isLoading = paginatedData === undefined;
 
+  // Fetch the selected project directly so its label survives even when it's
+  // filtered out of the paginated list.
+  const { project: selectedProject } = useProjectById(
+    selectedProjectId ?? undefined,
+  );
+
   return {
     projects,
+    selectedProject: selectedProject ?? null,
     selectedProjectId,
     setSelectedProjectId,
     projectQuery,
