@@ -22,16 +22,24 @@ use serde::{
 use utoipa::ToSchema;
 
 use crate::types::AccessToken;
-pub use crate::types::{
-    CloudBackupId,
-    PartitionId,
-    PlanId,
-    ProjectName,
-    ProjectSlug,
-    SubscriptionId,
-    TeamName,
-    TeamSlug,
+pub use crate::{
+    slugs::{
+        validate_slug,
+        validate_team_slug,
+    },
+    types::{
+        CloudBackupId,
+        PartitionId,
+        PlanId,
+        ProjectName,
+        ProjectSlug,
+        SubscriptionId,
+        TeamName,
+        TeamSlug,
+    },
 };
+
+pub mod slugs;
 
 pub mod types;
 

@@ -1434,9 +1434,11 @@ dependencies = [
  "anyhow",
  "common",
  "derive_more",
+ "errors",
  "keybroker",
  "proptest",
  "proptest-derive",
+ "regex",
  "serde",
  "serde_json",
  "strum 0.28.0",
@@ -8135,6 +8137,20 @@ checksum = "6bd13e55d6d7b8cd0ea569161127567cd587676c99f4472f779a0279aa60a7a7"
 dependencies = [
  "libc",
  "librocksdb-sys",
+]
+
+[[package]]
+name = "roles"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "big_brain_private_api_types",
+ "common",
+ "keybroker",
+ "serde",
+ "serde_json",
+ "strum 0.28.0",
+ "utoipa",
 ]
 
 [[package]]
