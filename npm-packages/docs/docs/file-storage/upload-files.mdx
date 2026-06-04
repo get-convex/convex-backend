@@ -80,7 +80,6 @@ persist it in the database via another mutation:
   source={Messages}
   prefix={`import { mutation } from "./_generated/server";\n`}
   snippet="saveStorageId"
-  highlightPatterns={["storage.generateUploadUrl"]}
 />
 
 ### Limits
@@ -138,9 +137,4 @@ To confirm success back to your hosted website, you will need to set the right
 
 You also need to handle the pre-flight `OPTIONS` request:
 
-<Snippet
-  title="convex/http.ts"
-  source={HttpAction}
-  snippet="preflight"
-  highlightPatterns={["storage.store"]}
-/>
+<Snippet title="convex/http.ts" source={HttpAction} snippet="preflight" />
