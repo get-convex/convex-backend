@@ -11,7 +11,11 @@ import {
   useHasCustomRolePermission,
   useHasProjectAdminPermissions,
 } from "api/roles";
-import { usePaginatedProjects, useCurrentProject } from "api/projects";
+import {
+  usePaginatedProjects,
+  useCurrentProject,
+  useProjectById,
+} from "api/projects";
 import { useCurrentTeam } from "api/teams";
 import { deploymentResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
@@ -67,6 +71,15 @@ export function TransferDeployment() {
 
   const projects = paginatedProjects?.items;
 
+  const [destinationProjectId, setDestinationProjectId] = useState<
+    number | null
+  >(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  const { project: destinationProject } = useProjectById(
+    destinationProjectId ?? undefined,
+  );
+
   // Filter out the current project and prepare options with duplicate name handling
   const { projectOptions, slugByProjectId } = useMemo(() => {
     const otherProjects =
@@ -87,19 +100,22 @@ export function TransferDeployment() {
       return { label, value: p.id };
     });
 
-    return { projectOptions: options, slugByProjectId: slugMap };
-  }, [projects, deployment?.projectId]);
+    // Ensure the selected destination is always an option, even when it's
+    // filtered out of the paginated list, so its label survives in the button.
+    if (
+      destinationProject &&
+      !options.some((o) => o.value === destinationProject.id)
+    ) {
+      options.push({
+        label: destinationProject.name,
+        value: destinationProject.id,
+      });
+    }
 
-  const [destinationProjectId, setDestinationProjectId] = useState<
-    number | null
-  >(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+    return { projectOptions: options, slugByProjectId: slugMap };
+  }, [projects, deployment?.projectId, destinationProject]);
 
   const transferDeployment = useTransferDeployment(deployment?.name ?? "");
-
-  const destinationProject = projects?.find(
-    (p) => p.id === destinationProjectId,
-  );
 
   const canTransfer = hasAdminPermissions || canTransferCustom === true;
 

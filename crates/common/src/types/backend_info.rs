@@ -89,11 +89,8 @@ impl BackendInfo {
         if self.send_logs_to_client != *send_logs_to_client {
             return Some("backend_info.send_logs_to_client");
         }
-        if self.custom_audit_logs_in_log_streams_config_enabled
-            != *custom_audit_logs_in_log_streams_config_enabled
-        {
-            return Some("backend_info.custom_audit_logs_in_log_streams_config_enabled");
-        }
+        // TODO(reece): enable when all conductors have this field
+        let _ = custom_audit_logs_in_log_streams_config_enabled;
         None
     }
 }

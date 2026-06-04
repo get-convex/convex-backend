@@ -17,7 +17,7 @@ import { setupFetch } from "./26_fetch.js";
 import { setupPerformance } from "./27_performance.js";
 import { setupSourceMapping } from "./errors.js";
 import { throwUncatchableDeveloperError } from "./helpers.js";
-import { getBlob, getResponse, storeBlob, storeRequest } from "./storage.js";
+import { getBlob, storeBlob } from "./storage.js";
 import { performOp } from "udf-syscall-ffi";
 import { setupStructuredClone } from "./02_structured_clone.js";
 
@@ -67,11 +67,6 @@ export function setup(global: any) {
         return storeBlob(args as any);
       case "storage/getBlob":
         return getBlob(args as any);
-      // Deprecated APIs, used prior to Convex 0.13.0
-      case "storage/storeFile":
-        return storeRequest(args as any);
-      case "storage/getFile":
-        return getResponse(args as any);
       default:
         return throwUncatchableDeveloperError(`Unknown JS syscall: ${op}`);
     }
