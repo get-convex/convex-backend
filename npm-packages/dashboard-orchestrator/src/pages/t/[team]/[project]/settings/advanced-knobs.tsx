@@ -116,7 +116,7 @@ export default function AdvancedKnobsPage() {
       <Head>
         <title>Advanced backend settings | {project.name}</title>
       </Head>
-      <div className="m-auto flex max-w-(--container-width) flex-col gap-4 px-6 py-6 [--container-width:80rem]">
+      <div className="m-auto flex max-w-(--container-width) flex-col gap-4 p-6 [--container-width:80rem]">
         <UiLink href={`/t/${team.slug}/${project.slug}/settings#backend`}>
           ← Project settings
         </UiLink>
@@ -136,7 +136,7 @@ export default function AdvancedKnobsPage() {
                 placeholder="Search knobs…"
               />
             </div>
-            {/* eslint-disable-next-line react/forbid-elements */}
+            {}
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -148,7 +148,7 @@ export default function AdvancedKnobsPage() {
                 </option>
               ))}
             </select>
-            {/* eslint-disable-next-line react/forbid-elements */}
+            {}
             <select
               value={show}
               onChange={(e) => setShow(e.target.value as typeof show)}

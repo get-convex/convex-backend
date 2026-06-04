@@ -39,6 +39,7 @@ const npmPackagesDir = path.join(__dirname, "..");
 const dashboardPackages = [
   "dashboard",
   "dashboard-self-hosted",
+  "dashboard-orchestrator",
   "dashboard-common",
   "dashboard-storybook",
   "@convex-dev/design-system",
@@ -161,6 +162,7 @@ const config = [
       // FIXME: make this stricter
       "npm-packages/dashboard/**",
       "npm-packages/dashboard-self-hosted/**",
+      "npm-packages/dashboard-orchestrator/**",
       "npm-packages/dashboard-common/**",
       "npm-packages/dashboard-storybook/**",
     ],
@@ -185,6 +187,7 @@ const config = [
     "components/ratelimiter",
     "dashboard",
     "dashboard-self-hosted",
+    "dashboard-orchestrator",
     "dashboard-common",
     "dashboard-storybook",
     "@convex-dev/design-system",
@@ -515,6 +518,7 @@ const config = [
         rootDir: [
           path.join(npmPackagesDir, "dashboard"),
           path.join(npmPackagesDir, "dashboard-self-hosted"),
+          path.join(npmPackagesDir, "dashboard-orchestrator"),
         ],
       },
     },

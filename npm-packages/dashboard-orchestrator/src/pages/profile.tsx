@@ -79,7 +79,7 @@ export default function ProfilePage() {
         <title>Profile | Convex Orchestrator</title>
       </Head>
       <main className="min-h-screen w-full overflow-auto bg-background-primary">
-        <div className="mx-auto flex max-w-prose min-w-[22rem] flex-col gap-4 p-6">
+        <div className="mx-auto flex max-w-prose min-w-88 flex-col gap-4 p-6">
           <Sheet className="flex flex-col gap-4">
             <h3>Profile information</h3>
             <form className="flex flex-col gap-1" onSubmit={onSave}>

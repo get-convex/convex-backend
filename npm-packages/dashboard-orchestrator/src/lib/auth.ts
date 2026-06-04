@@ -27,7 +27,6 @@ async function sendAuthEmail(opts: {
 }): Promise<void> {
   const smtpUrl = process.env.BETTER_AUTH_SMTP_URL;
   if (!smtpUrl) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[dashboard-orchestrator] No BETTER_AUTH_SMTP_URL set; emailing ${opts.to} via console:\n${opts.subject}\n${opts.text}`,
     );
@@ -38,7 +37,6 @@ async function sendAuthEmail(opts: {
     // package is optional — operators install it locally when they want
     // SMTP delivery — so we cast through any to avoid forcing every build
     // to install the @types/nodemailer types.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mod = (await import(
       /* webpackIgnore: true */ "nodemailer" as any
     )) as {
@@ -63,7 +61,6 @@ async function sendAuthEmail(opts: {
     // No-op consumer of nodemailer.createTransport's return so eslint
     // doesn't flag the ignored unused identifier.
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("[dashboard-orchestrator] SMTP send failed", err);
   }
 }

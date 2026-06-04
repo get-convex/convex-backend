@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import LoginPage from "./login";
+import LoginPage from "../pages/login";
 
 const mockReplace = jest.fn();
 const mockUseRouter = jest.fn();

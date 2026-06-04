@@ -15,7 +15,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
     return { error: e };
   }
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // eslint-disable-next-line no-console
     console.error("Uncaught error:", error, info);
   }
   render() {
@@ -33,7 +32,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
         >
           Reload
         </Button>
-        <Sheet className="max-h-[50vh] w-[50rem] max-w-[80vw] overflow-auto font-mono text-sm">
+        <Sheet className="max-h-[50vh] w-200 max-w-[80vw] overflow-auto font-mono text-sm">
           <div>{error.message}</div>
           <pre className="mt-2 text-xs">
             <code>{error.stack}</code>

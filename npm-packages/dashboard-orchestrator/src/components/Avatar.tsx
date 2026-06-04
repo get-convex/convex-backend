@@ -85,7 +85,7 @@ export function Avatar({
   return (
     <span
       className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full select-none ${
-        size === "large" ? "h-12 w-12" : "h-7 w-7"
+        size === "large" ? "size-12" : "size-7"
       }`}
       style={{ backgroundImage: gradient, backgroundSize: "cover" }}
     >

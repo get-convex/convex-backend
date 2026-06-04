@@ -29,22 +29,22 @@ export function CreateAdminKeyModal({
             Copy your new admin key now. You won&apos;t be able to see it again.
           </p>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-background-tertiary px-2 py-1 text-sm">
+            <code className="min-w-0 flex-1 truncate rounded-sm bg-background-tertiary px-2 py-1 text-sm">
               {created.adminKey}
             </code>
             <CopyButton text={created.adminKey} />
           </div>
           <p className="text-xs text-content-secondary">
             Use this with{" "}
-            <code className="rounded bg-background-tertiary px-1">
+            <code className="rounded-sm bg-background-tertiary px-1">
               CONVEX_SELF_HOSTED_ADMIN_KEY
             </code>{" "}
             (alongside{" "}
-            <code className="rounded bg-background-tertiary px-1">
+            <code className="rounded-sm bg-background-tertiary px-1">
               CONVEX_SELF_HOSTED_URL
             </code>{" "}
             pointed at this deployment) when running{" "}
-            <code className="rounded bg-background-tertiary px-1">
+            <code className="rounded-sm bg-background-tertiary px-1">
               npx convex deploy
             </code>
             .

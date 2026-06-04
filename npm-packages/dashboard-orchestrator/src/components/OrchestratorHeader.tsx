@@ -178,12 +178,12 @@ function ProjectSelector({
         {project ? (
           <>
             <span className="text-content-secondary">/</span>
-            <span className="max-w-[14rem] truncate text-sm font-semibold">
+            <span className="max-w-56 truncate text-sm font-semibold">
               {project.name}
             </span>
           </>
         ) : (
-          <span className="max-w-[14rem] truncate text-sm font-semibold">
+          <span className="max-w-56 truncate text-sm font-semibold">
             {team.name}
           </span>
         )}
@@ -228,7 +228,7 @@ function ProjectSelectorPanel({
     <>
       <div
         role="dialog"
-        className="flex max-h-[calc(100vh-3.625rem)] w-[21.5rem] flex-col py-2"
+        className="flex max-h-[calc(100vh-3.625rem)] w-86 flex-col py-2"
       >
         <div className="my-0.5 flex w-full items-center justify-between gap-2 px-0.5">
           <h5 className="mb-1 flex h-fit items-center gap-1 truncate">
@@ -243,8 +243,8 @@ function ProjectSelectorPanel({
                 className="mx-1.5 flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-1 hover:bg-background-tertiary"
               >
                 <Avatar name={team.name} hashKey={team.id.toString()} />
-                <span className="max-w-[12rem] truncate">{team.name}</span>
-                <CaretSortIcon className="min-h-[1rem] min-w-[1rem] rounded-full text-content-primary" />
+                <span className="max-w-48 truncate">{team.name}</span>
+                <CaretSortIcon className="min-h-4 min-w-4 rounded-full text-content-primary" />
               </button>
             )}
           </h5>
@@ -334,7 +334,7 @@ function ProjectMenuOptions({
         Projects
       </div>
       <div
-        className="scrollbar flex max-h-[22rem] w-full flex-col overflow-y-auto p-0.5"
+        className="scrollbar flex max-h-88 w-full flex-col overflow-y-auto p-0.5"
         role="menu"
       >
         {sorted.length === 0 ? (
@@ -591,7 +591,7 @@ function DeploymentMenuRow({
       onClick={close}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className={`mx-1 flex items-center gap-3 rounded-sm px-2 py-2 text-sm hover:bg-background-tertiary ${
+      className={`mx-1 flex items-center gap-3 rounded-sm p-2 text-sm hover:bg-background-tertiary ${
         selected ? "bg-background-tertiary/60" : ""
       }`}
     >
@@ -642,7 +642,7 @@ function ColoredPill({
       aria-label={ariaLabel}
       variant="unstyled"
       type="button"
-      className={`flex h-[2.3125rem] w-fit cursor-pointer items-center gap-2 rounded-full border px-3 text-sm font-medium transition-opacity select-none hover:opacity-80 focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden ${deploymentTypeColorClasses(
+      className={`flex h-9.25 w-fit cursor-pointer items-center gap-2 rounded-full border px-3 text-sm font-medium transition-opacity select-none hover:opacity-80 focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden ${deploymentTypeColorClasses(
         (kind === "prod" || kind === "preview" || kind === "custom"
           ? kind
           : "dev") as "prod" | "preview" | "dev" | "custom",
@@ -744,7 +744,7 @@ function UserMenu({
             <MenuLink href={`/t/${team.slug}/settings`}>
               <div className="flex w-full items-center justify-between gap-1">
                 Team Settings
-                <span className="max-w-[6rem] truncate text-xs text-content-secondary">
+                <span className="max-w-24 truncate text-xs text-content-secondary">
                   {team.name}
                 </span>
               </div>
@@ -758,7 +758,7 @@ function UserMenu({
               <MenuLink href={`/t/${team.slug}/${project.slug}/settings`}>
                 <div className="flex w-full items-center justify-between">
                   Project Settings
-                  <span className="max-w-[6rem] truncate text-xs text-content-secondary">
+                  <span className="max-w-24 truncate text-xs text-content-secondary">
                     {project.name}
                   </span>
                 </div>

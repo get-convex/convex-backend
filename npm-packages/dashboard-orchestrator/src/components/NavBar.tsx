@@ -30,7 +30,7 @@ export function NavBar({ items }: { items: NavBarItem[] }) {
             {active && (
               <span
                 aria-hidden
-                className="absolute right-1.5 bottom-0 left-1.5 h-0.5 bg-content-primary"
+                className="absolute inset-x-1.5 bottom-0 h-0.5 bg-content-primary"
               />
             )}
           </Link>

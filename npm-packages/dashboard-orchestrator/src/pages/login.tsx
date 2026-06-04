@@ -221,7 +221,7 @@ export default function LoginPage() {
         {mode === "signin" ? (
           <>
             Don&apos;t have an account?{" "}
-            {/* eslint-disable-next-line react/forbid-elements, no-restricted-syntax -- inline mode toggle styled as a hyperlink, intentional plain <button> */}
+            {/* eslint-disable-next-line react/forbid-elements -- inline mode toggle styled as a hyperlink, intentional plain <button> */}
             <button
               type="button"
               onClick={() => {
@@ -238,7 +238,7 @@ export default function LoginPage() {
         ) : (
           <>
             Already have an account?{" "}
-            {/* eslint-disable-next-line react/forbid-elements, no-restricted-syntax -- inline mode toggle styled as a hyperlink, intentional plain <button> */}
+            {/* eslint-disable-next-line react/forbid-elements -- inline mode toggle styled as a hyperlink, intentional plain <button> */}
             <button
               type="button"
               onClick={() => {

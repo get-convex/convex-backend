@@ -13,7 +13,6 @@ const ORCHESTRATOR_URL =
 
 const SERVICE_KEY = process.env.CONVEX_ORCHESTRATOR_SERVICE_KEY;
 
-// eslint-disable-next-line import/no-default-export -- Next.js API routes require a default export
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,

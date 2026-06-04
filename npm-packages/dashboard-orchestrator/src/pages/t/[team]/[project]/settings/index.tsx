@@ -126,7 +126,7 @@ export default function ProjectSettingsPage() {
               </div>
               <div
                 data-settings-content
-                className="flex w-full grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3"
+                className="flex w-full grow flex-col gap-6 pr-2 pb-6 *:scroll-mt-3 md:pt-20"
               >
                 <div id={SECTION_IDS.projectForm}>
                   <EditProjectSection
@@ -196,7 +196,7 @@ function SettingsNavigation() {
           <li key={id} className="py-px">
             <a
               href={`#${id}`}
-              className="block rounded-sm px-2 py-2 text-content-primary transition-all hover:bg-background-secondary"
+              className="block rounded-sm p-2 text-content-primary transition-all hover:bg-background-secondary"
               onClick={(e) => {
                 e.preventDefault();
                 const el = document.getElementById(id);

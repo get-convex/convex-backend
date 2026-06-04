@@ -59,7 +59,7 @@ export function TeamSettingsLayout({
         <h1 className="mb-6 text-xl font-semibold text-content-primary">
           {title}
         </h1>
-        <div className="max-w-[60rem] space-y-4">{children}</div>
+        <div className="max-w-240 space-y-4">{children}</div>
       </main>
     </div>
   );

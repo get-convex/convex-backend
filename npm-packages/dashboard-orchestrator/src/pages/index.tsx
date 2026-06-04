@@ -39,7 +39,7 @@ export default function IndexPage() {
   }, [isLoading, sessionError, session, teams, teamsError, router]);
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-4">
+    <div className="flex size-full flex-col items-center justify-center gap-4">
       <ConvexLogo />
       <p className="text-sm text-content-secondary">
         {teams && teams.length === 0 ? "No teams yet." : "Connecting…"}

@@ -7,8 +7,8 @@
     "build": "next build",
     "build:export": "BUILD_TYPE=export npm run build",
     "start": "next start -p 6793",
-    "lint": "bash ../dashboard-common/scripts/checkNode22.sh && ESLINT_USE_FLAT_CONFIG=false next lint --max-warnings 0 --dir src/ && tsc",
-    "lint:fix": "bash ../dashboard-common/scripts/checkNode22.sh && ESLINT_USE_FLAT_CONFIG=false next lint --fix --max-warnings 0 --dir src/",
+    "lint": "bash ../dashboard-common/scripts/checkNode22.sh && npx --prefix ../lint eslint . --config ../lint/eslint.config.mjs --cache && tsc",
+    "lint:fix": "bash ../dashboard-common/scripts/checkNode22.sh && npx --prefix ../lint eslint --fix . --config ../lint/eslint.config.mjs --cache",
     "test": "jest"
   },
   "dependencies": {

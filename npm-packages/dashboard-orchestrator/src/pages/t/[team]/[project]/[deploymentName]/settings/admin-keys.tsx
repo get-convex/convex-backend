@@ -76,15 +76,15 @@ function AdminKeysPageBody({
       <p className="mb-2 max-w-prose text-content-primary">
         Admin keys grant full access to this deployment via the dashboard or the
         Convex CLI. Paste them into{" "}
-        <code className="rounded bg-background-tertiary px-1 text-xs">
+        <code className="rounded-sm bg-background-tertiary px-1 text-xs">
           CONVEX_SELF_HOSTED_ADMIN_KEY
         </code>{" "}
         (with{" "}
-        <code className="rounded bg-background-tertiary px-1 text-xs">
+        <code className="rounded-sm bg-background-tertiary px-1 text-xs">
           CONVEX_SELF_HOSTED_URL={deploymentUrl}
         </code>
         ) for{" "}
-        <code className="rounded bg-background-tertiary px-1 text-xs">
+        <code className="rounded-sm bg-background-tertiary px-1 text-xs">
           npx convex deploy
         </code>{" "}
         in CI or hosting integrations.

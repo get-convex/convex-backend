@@ -80,7 +80,7 @@ export default function TeamHomePage() {
 
   return (
     <main className="flex flex-1 flex-col overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-[80rem] flex-col gap-4 px-6 py-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
         <div className="flex w-full animate-fadeInFromLoading flex-col gap-3">
           <div className="flex items-center gap-4">
             <SegmentedControl
@@ -114,7 +114,7 @@ export default function TeamHomePage() {
           </div>
           {!isDeployments && (
             <div className="mt-1 flex items-center gap-2">
-              <div className="w-[13rem] shrink-0">
+              <div className="w-52 shrink-0">
                 <TextInput
                   id="searchProjects"
                   type="search"
@@ -725,7 +725,7 @@ function Paginator({
           aria-label="Previous page"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm hover:bg-background-tertiary disabled:opacity-40"
+          className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-background-tertiary disabled:opacity-40"
         >
           <ChevronLeftIcon className="size-4" />
         </button>
@@ -735,7 +735,7 @@ function Paginator({
           aria-label="Next page"
           disabled={page >= pageCount}
           onClick={() => onPageChange(page + 1)}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-sm hover:bg-background-tertiary disabled:opacity-40"
+          className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-background-tertiary disabled:opacity-40"
         >
           <ChevronRightIcon className="size-4" />
         </button>

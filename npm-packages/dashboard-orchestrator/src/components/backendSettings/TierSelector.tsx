@@ -98,7 +98,7 @@ export function TierSelector({
         <div className="grid gap-3 rounded-md border border-border-transparent bg-background-tertiary/30 p-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs text-content-secondary">
             RAM (GB)
-            {/* eslint-disable-next-line react/forbid-elements -- native numeric input */}
+            {}
             <input
               type="number"
               min={0.5}
@@ -111,12 +111,12 @@ export function TierSelector({
                   memoryMb: Number(e.target.value) * 1024,
                 })
               }
-              className="rounded border border-border-transparent bg-background-primary px-2 py-1 text-sm text-content-primary"
+              className="rounded-sm border border-border-transparent bg-background-primary px-2 py-1 text-sm text-content-primary"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-content-secondary">
             CPUs
-            {/* eslint-disable-next-line react/forbid-elements -- native numeric input */}
+            {}
             <input
               type="number"
               min={0.1}
@@ -129,7 +129,7 @@ export function TierSelector({
                   cpus: Number(e.target.value),
                 })
               }
-              className="rounded border border-border-transparent bg-background-primary px-2 py-1 text-sm text-content-primary"
+              className="rounded-sm border border-border-transparent bg-background-primary px-2 py-1 text-sm text-content-primary"
             />
           </label>
         </div>

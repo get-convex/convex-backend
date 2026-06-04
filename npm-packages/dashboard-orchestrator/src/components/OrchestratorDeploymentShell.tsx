@@ -79,7 +79,7 @@ export function OrchestratorDeploymentShell({
 
   if (!team || !project || !deployment || !auth || !token) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
+      <div className="flex size-full items-center justify-center">
         <LoadingLogo />
       </div>
     );
@@ -190,7 +190,6 @@ export function OrchestratorDeploymentShell({
     ),
     // DeploymentInfoContext expects a JSX-returning component, so fall back
     // to an empty fragment with a single noop child rather than `null`.
-    // eslint-disable-next-line react/jsx-no-useless-fragment -- type signature requires a non-null Element
     DisconnectOverlay: () => <>{null}</>,
     teamsURI,
     projectsURI,

@@ -68,8 +68,8 @@ reconcile_generated_locks() {
   reconcile_rush_shrinkwrap
 }
 
-# Release pushes publish the self-hosted dashboard image, so block automated
-# upstream syncs before they update origin/release if that build is broken.
+# Release pushes publish the self-hosted dashboard images, so block automated
+# upstream syncs before they update origin/release if either build is broken.
 validate_release_build() {
   if [ "${TARGET_BRANCH}" != "release" ]; then
     return 0
@@ -81,6 +81,7 @@ validate_release_build() {
     cd npm-packages
     node common/scripts/install-run-rush.js install
     RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-self-hosted
+    RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-orchestrator
   ) 2>&1 | sed 's/^/  /'
 }
 

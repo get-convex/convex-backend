@@ -12,7 +12,6 @@ export const config = {
 
 const handler = toNodeHandler(auth);
 
-// eslint-disable-next-line import/no-default-export -- Next.js API routes require a default export
 export default function authHandler(req: NextApiRequest, res: NextApiResponse) {
   return handler(req, res);
 }

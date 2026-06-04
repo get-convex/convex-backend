@@ -81,7 +81,7 @@ function AdminKeyListItem({
           <div className="flex items-center gap-2">
             <span>{adminKey.name}</span>
             {adminKey.isCurrent && (
-              <span className="rounded bg-background-tertiary px-1.5 py-0.5 text-xs text-content-secondary">
+              <span className="rounded-sm bg-background-tertiary px-1.5 py-0.5 text-xs text-content-secondary">
                 This key
               </span>
             )}

@@ -107,7 +107,7 @@ function BackupsLayout({
         <span className="text-sm">
           Trigger a snapshot of this deployment from the dashboard. To restore,
           run{" "}
-          <code className="rounded bg-background-tertiary px-1 text-xs">
+          <code className="rounded-sm bg-background-tertiary px-1 text-xs">
             npx convex import --replace-all backup.zip
           </code>
           {" — "}
