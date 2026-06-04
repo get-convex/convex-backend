@@ -785,14 +785,11 @@ impl<RT: Runtime> Application<RT> {
         } else {
             false
         };
-        let firehose_stream_name = AuditLogConfigModel::new(&mut tx)
-            .get()
-            .await?
-            .and_then(|c| c.firehose_stream_name.clone());
+        let audit_log_config = AuditLogConfigModel::new(&mut tx).get_or_create().await?;
         let audit_log_client = AuditLogClient::new(
             log_manager_client.clone(),
             is_dev_deployment,
-            firehose_stream_name,
+            audit_log_config.firehose_stream_name.clone(),
             &deployment.name,
         )
         .await?;
