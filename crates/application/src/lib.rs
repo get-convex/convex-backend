@@ -3674,6 +3674,31 @@ impl<RT: Runtime> Application<RT> {
         }
     }
 
+    pub async fn generate_udf_config(
+        &self,
+        udf_server_version: Version,
+        namespace: TableNamespace,
+        identity: &Identity,
+    ) -> anyhow::Result<UdfConfig> {
+        let mut tx = self.begin(identity.clone()).await?;
+        let udf_config = UdfConfigModel::new(&mut tx, namespace).get().await?;
+
+        // All queries subscribe to the UDF config, so changing it causes all
+        // queries to be invalidated. We only want to do this when the server version
+        // changes, not on every push.
+        if let Some(config) = udf_config
+            && config.server_version == udf_server_version
+        {
+            return Ok((**config).clone());
+        }
+
+        Ok(UdfConfig {
+            server_version: udf_server_version,
+            import_phase_rng_seed: self.runtime.rng().random(),
+            import_phase_unix_timestamp: self.runtime.unix_timestamp(),
+        })
+    }
+
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.workers.shutdown().await?;
         self.log_manager_client.shutdown().await?;

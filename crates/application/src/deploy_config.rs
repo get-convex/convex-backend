@@ -28,10 +28,7 @@ use common::{
         Resource,
     },
     errors::JsError,
-    runtime::{
-        Runtime,
-        UnixTimestamp,
-    },
+    runtime::Runtime,
     schemas::DatabaseSchema,
     types::{
         EnvVarName,
@@ -117,7 +114,6 @@ use model::{
     },
     udf_config::types::UdfConfig,
 };
-use rand::Rng;
 use serde::{
     Deserialize,
     Serialize,
@@ -232,15 +228,16 @@ impl<RT: Runtime> Application<RT> {
         &self,
         config: &ProjectConfig,
     ) -> anyhow::Result<EvaluatedPushContents> {
-        let unix_timestamp = self.runtime.unix_timestamp();
         let (external_deps_id, component_definition_packages, app_functions) =
             self.upload_packages(config).await?;
 
-        let app_udf_config = UdfConfig {
-            server_version: config.app_definition.udf_server_version.clone(),
-            import_phase_rng_seed: self.runtime.rng().random(),
-            import_phase_unix_timestamp: unix_timestamp,
-        };
+        let app_udf_config = self
+            .generate_udf_config(
+                config.app_definition.udf_server_version.clone(),
+                TableNamespace::root_component(),
+                &Identity::system(),
+            )
+            .await?;
         let app_pkg = component_definition_packages
             .get(&ComponentDefinitionPath::root())
             .context("No package for app?")?;
@@ -291,7 +288,6 @@ impl<RT: Runtime> Application<RT> {
                 &component_definition_packages,
                 app_analysis,
                 app_udf_config,
-                unix_timestamp,
                 user_environment_variables.clone(),
                 system_env_var_overrides,
             )
@@ -377,7 +373,6 @@ impl<RT: Runtime> Application<RT> {
         component_definition_packages: &BTreeMap<ComponentDefinitionPath, SourcePackage>,
         app_analysis: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
         app_udf_config: UdfConfig,
-        unix_timestamp: UnixTimestamp,
         user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>> {
@@ -391,10 +386,13 @@ impl<RT: Runtime> Application<RT> {
         let mut component_udf_config_by_def_path = BTreeMap::new();
 
         for component_def in &config.component_definitions {
+            // The rng seed and unix timestamp are tied to the root because all component
+            // definitions may not correspond to an existing `UdfConfig` yet. Instead, we
+            // use the root's values because always know it will have a defined config.
             let udf_config = UdfConfig {
                 server_version: component_def.udf_server_version.clone(),
-                import_phase_rng_seed: self.runtime.rng().random(),
-                import_phase_unix_timestamp: unix_timestamp,
+                import_phase_rng_seed: app_udf_config.import_phase_rng_seed,
+                import_phase_unix_timestamp: app_udf_config.import_phase_unix_timestamp,
             };
             component_udf_config_by_def_path
                 .insert(component_def.definition_path.clone(), udf_config.clone());
@@ -404,7 +402,7 @@ impl<RT: Runtime> Application<RT> {
                 .context("No package for component?")?;
             let component_analysis = self
                 .analyze_modules(
-                    udf_config.clone(),
+                    udf_config,
                     component_def.functions.clone(),
                     component_pkg.clone(),
                     // Component functions do not have access to environment variables.
@@ -861,12 +859,13 @@ impl<RT: Runtime> Application<RT> {
         let combined_pkg_size = source_package.package_size + external_deps_pkg_size;
         combined_pkg_size.verify_size()?;
 
-        let udf_config = UdfConfig {
-            server_version: udf_server_version,
-            // Generate a new seed and timestamp to be used at import time.
-            import_phase_rng_seed: self.runtime.rng().random(),
-            import_phase_unix_timestamp: self.runtime.unix_timestamp(),
-        };
+        let udf_config = self
+            .generate_udf_config(
+                udf_server_version,
+                TableNamespace::root_component(),
+                &Identity::system(),
+            )
+            .await?;
         let begin_analyze = Instant::now();
         // Note: This is not transactional with the rest of the deploy to avoid keeping
         // a transaction open for a long time.
