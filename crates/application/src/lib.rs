@@ -793,14 +793,11 @@ impl<RT: Runtime> Application<RT> {
         } else {
             false
         };
-        let firehose_stream_name = AuditLogConfigModel::new(&mut tx)
-            .get()
-            .await?
-            .and_then(|c| c.firehose_stream_name.clone());
+        let audit_log_config = AuditLogConfigModel::new(&mut tx).get_or_create().await?;
         let audit_log_client = AuditLogClient::new(
             log_manager_client.clone(),
             is_dev_deployment,
-            firehose_stream_name,
+            audit_log_config.firehose_stream_name.clone(),
             &deployment.name,
         )
         .await?;
@@ -3867,6 +3864,31 @@ impl<RT: Runtime> Application<RT> {
                 .subscribe_and_wait_for_invalidation(token)
                 .await?;
         }
+    }
+
+    pub async fn generate_udf_config(
+        &self,
+        udf_server_version: Version,
+        namespace: TableNamespace,
+        identity: &Identity,
+    ) -> anyhow::Result<UdfConfig> {
+        let mut tx = self.begin(identity.clone()).await?;
+        let udf_config = UdfConfigModel::new(&mut tx, namespace).get().await?;
+
+        // All queries subscribe to the UDF config, so changing it causes all
+        // queries to be invalidated. We only want to do this when the server version
+        // changes, not on every push.
+        if let Some(config) = udf_config
+            && config.server_version == udf_server_version
+        {
+            return Ok((**config).clone());
+        }
+
+        Ok(UdfConfig {
+            server_version: udf_server_version,
+            import_phase_rng_seed: self.runtime.rng().random(),
+            import_phase_unix_timestamp: self.runtime.unix_timestamp(),
+        })
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
