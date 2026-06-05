@@ -2,10 +2,7 @@ import {
   useTeamAccessTokens,
   useCreateTeamAccessToken,
 } from "api/accessTokens";
-import {
-  useHasCustomRolePermission,
-  useIsCurrentMemberTeamAdmin,
-} from "api/roles";
+import { useHasCustomRolePermission } from "api/roles";
 import { useProfile } from "api/profile";
 import { TeamResponse } from "generatedApi";
 import { TeamAccessTokens } from "components/teamSettings/TeamAccessTokens";
@@ -26,17 +23,16 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
     tokenResource,
     true,
   );
-  // Team token creation is admin-only by default; built-in developer
-  // members cannot create team access tokens unless a custom role explicitly
-  // grants `team:token:create`.
-  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
-  const canCreateCustom = useHasCustomRolePermission(
+  // Both built-in admin and developer members can create their own team
+  // access tokens; custom-role members need `team:token:create`. A team
+  // access token can only perform actions its creator is allowed to perform,
+  // so creating one never escalates the creator's privileges.
+  const canCreateTokens = useHasCustomRolePermission(
     team.id,
     "team:token:create",
     tokenResource,
-    false,
+    true,
   );
-  const canCreateTokens = isTeamAdmin || canCreateCustom === true;
   const canDeleteTokens = useHasCustomRolePermission(
     team.id,
     "team:token:delete",
