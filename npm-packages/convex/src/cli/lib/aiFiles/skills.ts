@@ -23,11 +23,11 @@ function configuredSkillAgents(
 }
 
 /**
- * Runs `npx skills add get-convex/agent-skills --yes` in the given directory.
+ * Runs `npx skills add get-convex/agent-skills --yes --copy` in the given directory.
  * Returns true on success, false if the process fails or cannot be started.
  */
 function runSkillsAdd(cwd: string, agents: string[]): Promise<boolean> {
-  const args = ["add", "get-convex/agent-skills", "--yes"];
+  const args = ["add", "get-convex/agent-skills", "--yes", "--copy"];
   for (const agent of agents) {
     args.push("--agent", agent);
   }
@@ -135,7 +135,7 @@ export async function installSkills({
   if (!skillsOk) {
     logMessage(
       chalkStderr.yellow(
-        "Could not install agent skills. You can retry manually with: npx skills add get-convex/agent-skills",
+        "Could not install agent skills. You can retry manually with: npx skills add get-convex/agent-skills --copy",
       ),
     );
     return;

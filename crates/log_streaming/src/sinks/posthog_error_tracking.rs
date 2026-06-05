@@ -187,6 +187,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                 user_identifier,
                 source,
                 udf_server_version,
+                request_metadata: _,
             } = &event.event
             else {
                 continue;

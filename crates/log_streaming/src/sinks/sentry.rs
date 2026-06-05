@@ -150,6 +150,7 @@ impl SentrySink {
                 user_identifier,
                 source,
                 udf_server_version,
+                request_metadata,
             } = &event.event
             else {
                 continue;
@@ -253,9 +254,13 @@ impl SentrySink {
                 level: Level::Error,
                 timestamp: event.timestamp.as_system_time(),
                 sdk,
-                platform: "javascript".into(),
+                platform: "node".into(),
                 user: Some(User {
                     id: user_identifier.clone().map(|i| i.to_string()),
+                    ip_address: request_metadata
+                        .ip
+                        .clone()
+                        .and_then(|ip| ip.as_str().parse().ok()),
                     ..Default::default()
                 }),
                 server_name: Some(deployment_metadata.deployment_name.clone().into()),
