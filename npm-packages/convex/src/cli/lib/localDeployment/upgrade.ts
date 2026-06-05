@@ -218,13 +218,13 @@ async function handleUpgrade(
   if (ctx.fs.exists(exportPath)) {
     ctx.fs.unlink(exportPath);
   }
-  const snaphsotExportState = await startSnapshotExport(ctx, {
+  const snapshotExportState = await startSnapshotExport(ctx, {
     deploymentUrl,
     adminKey: args.oldAdminKey,
     includeStorage: true,
     inputPath: exportPath,
   });
-  if (snaphsotExportState.state !== "completed") {
+  if (snapshotExportState.state !== "completed") {
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
@@ -232,7 +232,7 @@ async function handleUpgrade(
     });
   }
   await downloadSnapshotExport(ctx, {
-    snapshotExportTs: snaphsotExportState.start_ts,
+    snapshotExportTs: snapshotExportState.start_ts,
     inputPath: exportPath,
     adminKey: args.oldAdminKey,
     deploymentUrl,
