@@ -313,6 +313,7 @@ impl FunctionExecution {
                     user_identifier: self.identity.user_identifier().cloned(),
                     source: self.event_source(None),
                     udf_server_version: self.udf_server_version.clone(),
+                    request_metadata: self.context.request_metadata.clone(),
                 },
             });
         }

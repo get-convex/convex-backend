@@ -34,6 +34,7 @@ use crate::{
         UdfType,
         UdfTypeJson,
     },
+    RequestMetadata,
 };
 
 /// Public worker for the LogManager.
@@ -172,6 +173,7 @@ pub enum StructuredLogEvent {
         user_identifier: Option<sync_types::UserIdentifier>,
         source: FunctionEventSource,
         udf_server_version: Option<semver::Version>,
+        request_metadata: RequestMetadata,
     },
     /// Topic for deployment audit logs. These are issued when developers
     /// interact with a deployment.
@@ -355,6 +357,7 @@ impl LogEvent {
                     user_identifier,
                     source,
                     udf_server_version,
+                    request_metadata: _,
                 } => {
                     let message = &error.message;
                     let frames: Option<Vec<String>> = error
@@ -563,6 +566,7 @@ impl LogEvent {
                     user_identifier,
                     source,
                     udf_server_version,
+                    request_metadata: _,
                 } => {
                     let message = &error.message;
                     let frames: Option<Vec<String>> = error
