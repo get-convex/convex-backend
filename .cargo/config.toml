@@ -1,6 +1,10 @@
 [env]
 CARGO_WORKSPACE_ROOT = { value = "", relative = true }
 CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
+# Custom rusty_v8 build: V8 14.9.207.26 (= crate 149.2.0 + cherry-picked
+# dispatch-handle UAF fix 8e1b07549b03) to fix the funrun-pro JSDispatchTable
+# use-after-free. Built by get-convex/rusty_v8 @ tag v149.2.0.
+RUSTY_V8_MIRROR = "https://github.com/get-convex/rusty_v8/releases/download"
 
 [target.aarch64-unknown-linux-gnu]
 rustflags = ["-Ctarget-cpu=neoverse-n1", "-Cforce-frame-pointers=yes"]
