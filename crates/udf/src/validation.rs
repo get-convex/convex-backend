@@ -17,6 +17,7 @@ use common::{
         JsError,
     },
     identity::InertIdentity,
+    knobs::UDF_404_ON_BAD_PATH,
     log_lines::LogLines,
     query_journal::QueryJournal,
     runtime::{
@@ -318,11 +319,16 @@ fn require_admin_identity(
 
 fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String> {
     let path = path.debug_into_component_path();
-    Ok(format!(
-        "Could not find public function for '{}'{}. Did you forget to run `npx convex dev`?",
+    let err_str = format!(
+        "Could not find public function for '{}'{}.",
         String::from(path.udf_path.clone().strip()),
         path.component.in_component_str()
-    ))
+    );
+    if *UDF_404_ON_BAD_PATH {
+        anyhow::bail!(ErrorMetadata::not_found("FunctionPathNotFound", err_str));
+    } else {
+        Ok(err_str)
+    }
 }
 
 fn should_block_path(path: &ResolvedComponentFunctionPath) -> bool {
@@ -574,13 +580,18 @@ impl ValidatedPathAndArgs {
             return Ok(Err(js_error));
         }
         if expected_udf_type != analyzed_function.udf_type {
-            return Ok(Err(JsError::from_message(format!(
+            let err_str = format!(
                 "Trying to execute {}{} as {}, but it is defined as {}.",
                 path.udf_path,
                 path.clone().for_logging().component.in_component_str(),
                 expected_udf_type,
                 analyzed_function.udf_type
-            ))));
+            );
+            return if *UDF_404_ON_BAD_PATH {
+                anyhow::bail!(ErrorMetadata::bad_request("FunctionPathWrongType", err_str));
+            } else {
+                Ok(Err(JsError::from_message(err_str)))
+            };
         }
 
         let udf_args = match parse_udf_args(&path.udf_path, args.clone().into_args()?) {

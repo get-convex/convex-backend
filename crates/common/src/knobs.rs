@@ -1708,3 +1708,9 @@ pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new
         Duration::from_secs(env_config("ADMIN_IDENTITY_REVALIDATION_DELAY_SECS", 60)),
     )
 });
+
+/// If set, 404 on a bad path request instead of 200 + js error message
+/// temporary knob - we want to default to true, but just have the knob while
+/// we're rolling out.
+pub static UDF_404_ON_BAD_PATH: LazyLock<bool> =
+    LazyLock::new(|| env_config("UDF_404_ON_BAD_PATH", true));
