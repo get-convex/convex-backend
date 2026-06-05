@@ -65,32 +65,17 @@ export function TeamAccessTokens({
           </div>
           <span className="font-mono">{team?.id}</span>
         </div>
-        <div className="my-2 text-sm text-content-primary">
-          <span className="font-semibold">What can team access tokens do?</span>
-          <ul className="mt-1 list-disc pl-4">
-            <li>Create new projects</li>
-            <li>Create new deployments</li>
-            <li>
-              <span className="flex items-center gap-1">
-                Manage all projects on the team
-                <HelpTooltip>
-                  This includes actions like deleting projects, managing custom
-                  domains, managing project environment variable defaults, and
-                  managing cloud backups and restores.
-                </HelpTooltip>
-              </span>
-            </li>
-            <li>
-              <span className="flex items-center gap-1">
-                Read and write data in all projects
-                <HelpTooltip>
-                  Write access to Production deployments will depend on your
-                  team-level and project-level roles.
-                </HelpTooltip>
-              </span>
-            </li>
-          </ul>
-        </div>
+        <p className="my-2 text-sm text-content-primary">
+          A team access token can only perform actions you have access to on the
+          team. See{" "}
+          <Link
+            href="https://docs.convex.dev/team-management/role-actions"
+            target="_blank"
+          >
+            Role Actions
+          </Link>{" "}
+          for the full list of actions and which roles can perform them.
+        </p>
         <p className="mt-1 mb-2 text-sm text-content-primary">
           You cannot see tokens that other members of your team have created.
         </p>
