@@ -253,7 +253,7 @@ impl SentrySink {
                 level: Level::Error,
                 timestamp: event.timestamp.as_system_time(),
                 sdk,
-                platform: "javascript".into(),
+                platform: "node".into(),
                 user: Some(User {
                     id: user_identifier.clone().map(|i| i.to_string()),
                     ..Default::default()
