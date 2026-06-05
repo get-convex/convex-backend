@@ -207,12 +207,16 @@ for project-scoped, and `deployment:token:*` for deployment-scoped.
 
 ### Team-scoped tokens (resource leaf: `team:*:token:*`)
 
-| Action                                                                           | Description                       | Team Admin | Team Developer |
-| -------------------------------------------------------------------------------- | --------------------------------- | :--------: | :------------: |
-| `team:token:create`, `team:token:update`, `team:token:delete`, `team:token:view` | Manage team-scoped access tokens. |     ✓      |       ✗        |
+| Action                                                                           | Description                                                   | Team Admin | Team Developer |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------- | :--------: | :------------: |
+| `team:token:create`, `team:token:view`, `team:token:update`, `team:token:delete` | Create, view, update, and delete your own team-scoped tokens. |     ✓      |       ✓        |
 
-Members can always update or delete tokens **they personally created**,
-regardless of their team role.
+All of these actions are scoped to tokens **you personally created**.
+
+A team access token can only perform actions its creator is allowed to perform.
+If the creator has [custom roles](/team-management/custom-roles), the token is
+limited to the actions those roles allow, so issuing a token never escalates the
+creator's privileges.
 
 ### Project-scoped tokens (resource leaf: `project:…:token:*`)
 
