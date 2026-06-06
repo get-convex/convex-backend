@@ -40,8 +40,6 @@ export function SingleGraph({
     void getChartData();
   }, [dataSource]);
 
-  const force = Math.random();
-
   return (
     <HealthCard title={title}>
       <div className="h-52 min-w-0 w-full">
@@ -52,10 +50,13 @@ export function SingleGraph({
           }}
         >
           {chartData && (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              initialDimension={{ width: 384, height: 208 }}
+            >
               <LineChart
                 syncId={syncId}
-                key={force}
                 data={chartData.data}
                 style={{
                   fontSize: 11,

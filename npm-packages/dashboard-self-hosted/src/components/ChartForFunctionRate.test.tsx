@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { ConvexProvider } from "convex/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
@@ -9,11 +9,26 @@ import { ChartData } from "@common/lib/charts/types";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 import { SingleGraph } from "@common/features/functions/components/SingleGraph";
 
+let mockLineChartMounts = 0;
+let mockResponsiveContainerProps: Array<{
+  initialDimension?: { width: number; height: number };
+}> = [];
+
 jest.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  ResponsiveContainer: (props: {
+    children: ReactNode;
+    initialDimension?: { width: number; height: number };
+  }) => {
+    mockResponsiveContainerProps.push(props);
+    return <div data-testid="responsive-container">{props.children}</div>;
+  },
+  LineChart: ({ children }: { children: ReactNode }) => {
+    const React = jest.requireActual("react");
+    React.useEffect(() => {
+      mockLineChartMounts += 1;
+    }, []);
+    return <div>{children}</div>;
+  },
   XAxis: () => null,
   YAxis: () => null,
   Legend: () => null,
@@ -38,6 +53,11 @@ const chartData: ChartData = {
   lineKeys: [{ key: "query", name: "query", color: "var(--chart-line-1)" }],
 };
 
+beforeEach(() => {
+  mockLineChartMounts = 0;
+  mockResponsiveContainerProps = [];
+});
+
 describe("ChartForFunctionRate", () => {
   test("renders charts inside a positive-size frame", () => {
     const { container } = render(
@@ -50,6 +70,10 @@ describe("ChartForFunctionRate", () => {
 
     expect(screen.getByTestId("responsive-container")).toBeInTheDocument();
     expect(container.querySelector(".h-52.min-w-0.w-full")).toBeInTheDocument();
+    expect(mockResponsiveContainerProps[0].initialDimension).toEqual({
+      width: 384,
+      height: 208,
+    });
   });
 });
 
@@ -61,5 +85,28 @@ describe("SingleGraph", () => {
 
     expect(screen.getByTestId("responsive-container")).toBeInTheDocument();
     expect(container.querySelector(".h-52.min-w-0.w-full")).toBeInTheDocument();
+    expect(mockResponsiveContainerProps[0].initialDimension).toEqual({
+      width: 384,
+      height: 208,
+    });
+  });
+
+  test("keeps the chart mounted across parent rerenders", () => {
+    function Wrapper() {
+      const [, setCount] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => setCount((count) => count + 1)}>
+            rerender
+          </button>
+          <SingleGraph title="Function Calls" data={chartData} />
+        </>
+      );
+    }
+
+    render(<Wrapper />);
+    fireEvent.click(screen.getByRole("button", { name: "rerender" }));
+
+    expect(mockLineChartMounts).toBe(1);
   });
 });

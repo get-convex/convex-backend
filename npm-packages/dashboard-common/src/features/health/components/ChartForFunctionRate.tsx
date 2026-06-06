@@ -178,7 +178,11 @@ export function ChartForFunctionRate({
           </div>
         ) : chartData === undefined ? null : (
           <div ref={chartRef} className="size-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              initialDimension={{ width: 384, height: 208 }}
+            >
               <LineChart
                 data={chartData.data}
                 style={{
