@@ -1,12 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 import { clampForAuditLogRetention } from "./auditLogRetention";
 
-function dbWithAuditLogRetentionDays(auditLogRetentionDays: number) {
+function dbWithAuditLogRetentionDays(auditLogRetentionDays: number | null) {
   return {
     query: (tableName: string) => {
       expect(tableName).toBe("_backend_info");
       return {
-        first: async () => ({ auditLogRetentionDays }),
+        first: async () =>
+          auditLogRetentionDays === null ? null : { auditLogRetentionDays },
       };
     },
   };
@@ -32,5 +33,16 @@ describe("clampForAuditLogRetention", () => {
 
     expect(firstClampedMinDate).toBe(secondClampedMinDate);
     expect(firstClampedMinDate).toBe(Date.UTC(2025, 9, 16));
+  });
+
+  test("does not clamp when backend info is missing for self-hosted deployments", async () => {
+    const requestedMinDate = Date.UTC(2023, 0, 1);
+
+    const clampedMinDate = await clampForAuditLogRetention(
+      dbWithAuditLogRetentionDays(null) as any,
+      requestedMinDate,
+    );
+
+    expect(clampedMinDate).toBe(requestedMinDate);
   });
 });

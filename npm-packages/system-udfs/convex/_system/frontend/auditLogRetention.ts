@@ -7,7 +7,10 @@ export async function clampForAuditLogRetention(
   minDate: number,
 ) {
   const backendInfo = await db.query("_backend_info").first();
-  const auditLogRetentionDays = Number(backendInfo?.auditLogRetentionDays || 0);
+  if (backendInfo?.auditLogRetentionDays == null) {
+    return minDate;
+  }
+  const auditLogRetentionDays = Number(backendInfo.auditLogRetentionDays);
   // no limit if auditLogRetentionDays is -1
   if (auditLogRetentionDays === -1) {
     return minDate;
