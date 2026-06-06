@@ -44,11 +44,11 @@ export function SingleGraph({
 
   return (
     <HealthCard title={title}>
-      <div className="min-h-52 w-full">
+      <div className="h-52 min-w-0 w-full">
         <LoadingTransition
           loadingProps={{
             fullHeight: false,
-            className: "h-[13rem]",
+            className: "size-full",
           }}
         >
           {chartData && (

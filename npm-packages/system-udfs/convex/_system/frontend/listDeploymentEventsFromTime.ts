@@ -1,7 +1,7 @@
 import { Doc } from "../../_generated/dataModel";
 import { queryPrivateSystem } from "../secretSystemTables";
 import { v } from "convex/values";
-import { clampForAuditLogRetention } from "./paginatedDeploymentEvents";
+import { clampForAuditLogRetention } from "./auditLogRetention";
 
 /**
  * Get the deployment events on or after the provided timestamp from least recent

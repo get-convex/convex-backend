@@ -26,6 +26,7 @@ import Link from "next/link";
 import { LoadingLogo } from "@ui/Loading";
 import { useAccessToken } from "../lib/useOrchestratorToken";
 import { orchestratorRegionName, orchestratorUrl } from "../lib/config";
+import { shouldForwardDeploymentCaptureMessage } from "../lib/deploymentMessages";
 import {
   fetchDeploymentAuth,
   listDeployments,
@@ -112,7 +113,11 @@ export function OrchestratorDeploymentShell({
     adminKey: auth.adminKey,
     deploymentUrl: browserDeploymentUrl,
     addBreadcrumb: () => {},
-    captureMessage: console.error,
+    captureMessage: (message, severity) => {
+      if (shouldForwardDeploymentCaptureMessage(message, severity)) {
+        console.error(message, severity);
+      }
+    },
     captureException: console.error,
     reportHttpError: (method, url2, error) =>
       console.error(`HTTP ${method} ${url2}: ${error.code} ${error.message}`),

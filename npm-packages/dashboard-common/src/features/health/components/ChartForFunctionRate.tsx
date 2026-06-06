@@ -159,11 +159,11 @@ export function ChartForFunctionRate({
     {} as Record<string, { hour: string; timestamp: number }[]>,
   );
   return (
-    <div className="size-full min-h-52 **:outline-none!">
+    <div className="h-52 min-w-0 w-full **:outline-none!">
       <LoadingTransition
         loadingProps={{
           fullHeight: false,
-          className: "h-full w-full",
+          className: "size-full",
           shimmer: false,
         }}
         loadingState={
@@ -177,7 +177,7 @@ export function ChartForFunctionRate({
             {`Data will appear here as your ${kind === "cacheHitRate" ? "queries" : "functions"} are called.`}
           </div>
         ) : chartData === undefined ? null : (
-          <div ref={chartRef} style={{ width: "99%", height: "99%" }}>
+          <div ref={chartRef} className="size-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData.data}
