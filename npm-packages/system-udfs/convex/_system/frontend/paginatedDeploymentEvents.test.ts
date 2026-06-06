@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { clampForAuditLogRetention } from "./auditLogRetention";
+import { hasDeploymentEventPostFilters } from "./deploymentEventFilters";
 
 function dbWithAuditLogRetentionDays(auditLogRetentionDays: number | null) {
   return {
@@ -44,5 +45,22 @@ describe("clampForAuditLogRetention", () => {
     );
 
     expect(clampedMinDate).toBe(requestedMinDate);
+  });
+});
+
+describe("hasDeploymentEventPostFilters", () => {
+  test("skips the post-filter for date-only history queries", () => {
+    expect(hasDeploymentEventPostFilters({})).toBe(false);
+  });
+
+  test("keeps explicit post-filters for author and action filters", () => {
+    expect(hasDeploymentEventPostFilters({ authorMemberIds: [] })).toBe(true);
+    expect(hasDeploymentEventPostFilters({ actions: [] })).toBe(true);
+    expect(
+      hasDeploymentEventPostFilters({
+        authorMemberIds: [BigInt(1)],
+        actions: ["push_config"],
+      }),
+    ).toBe(true);
   });
 });
