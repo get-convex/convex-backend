@@ -28,4 +28,19 @@ describe("shouldForwardDeploymentCaptureMessage", () => {
       ),
     ).toBe(true);
   });
+
+  test("suppresses the upstream transient function tree load error", () => {
+    expect(
+      shouldForwardDeploymentCaptureMessage(
+        "File tree map called before modules or nents were loaded",
+        "error",
+      ),
+    ).toBe(false);
+  });
+
+  test("forwards unrelated errors", () => {
+    expect(
+      shouldForwardDeploymentCaptureMessage("Something else happened", "error"),
+    ).toBe(true);
+  });
 });
