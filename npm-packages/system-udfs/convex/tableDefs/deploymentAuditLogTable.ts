@@ -415,6 +415,64 @@ const generateUploadUrl = v.object({
   }),
 });
 
+const adminKeyCreated = v.object({
+  action: v.literal("admin_key_created"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    name: v.string(),
+  }),
+});
+
+const adminKeyAdopted = v.object({
+  action: v.literal("admin_key_adopted"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    name: v.string(),
+  }),
+});
+
+const adminKeyRevoked = v.object({
+  action: v.literal("admin_key_revoked"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+  }),
+});
+
+const adminKeyRenamed = v.object({
+  action: v.literal("admin_key_renamed"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    id: v.string(),
+    new_name: v.string(),
+  }),
+});
+
+const periodicBackupConfigured = v.object({
+  action: v.literal("periodic_backup_configured"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    cronspec: v.string(),
+    include_storage: v.boolean(),
+  }),
+});
+
+const periodicBackupDisabled = v.object({
+  action: v.literal("periodic_backup_disabled"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({}),
+});
+
+const periodicBackupTriggered = v.object({
+  action: v.literal("periodic_backup_triggered"),
+  member_id: v.union(v.int64(), v.null()),
+  metadata: v.object({
+    export_id: v.string(),
+  }),
+});
+
 const deploymentAuditLogTable = defineTable(
   v.union(
     createEnvironmentVariable,
@@ -449,6 +507,13 @@ const deploymentAuditLogTable = defineTable(
     createTable,
     deleteFiles,
     generateUploadUrl,
+    adminKeyCreated,
+    adminKeyAdopted,
+    adminKeyRevoked,
+    adminKeyRenamed,
+    periodicBackupConfigured,
+    periodicBackupDisabled,
+    periodicBackupTriggered,
   ),
 );
 

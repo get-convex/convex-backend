@@ -72,6 +72,13 @@ function processDeploymentAuditLogEvent(
     case "create_table":
     case "delete_files":
     case "generate_upload_url":
+    case "admin_key_created":
+    case "admin_key_adopted":
+    case "admin_key_revoked":
+    case "admin_key_renamed":
+    case "periodic_backup_configured":
+    case "periodic_backup_disabled":
+    case "periodic_backup_triggered":
       break;
     default:
       return null;
@@ -83,7 +90,7 @@ function processDeploymentAuditLogEvent(
   } as DeploymentAuditLogEvent;
 }
 
-function processDeploymentEvents(
+export function processDeploymentEvents(
   events: Doc<"_deployment_audit_log">[],
   teamMembers: {
     id: number;

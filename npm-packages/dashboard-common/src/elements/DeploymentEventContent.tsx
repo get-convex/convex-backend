@@ -118,6 +118,13 @@ export function DeploymentEventContent({
     case "create_table":
     case "delete_files":
     case "generate_upload_url":
+    case "admin_key_created":
+    case "admin_key_adopted":
+    case "admin_key_revoked":
+    case "admin_key_renamed":
+    case "periodic_backup_configured":
+    case "periodic_backup_disabled":
+    case "periodic_backup_triggered":
     default:
       body = null;
   }
@@ -566,10 +573,97 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
         </>
       );
 
+    case "admin_key_created":
+      return (
+        <>
+          <span>created admin key </span>
+          <AdminKeyName name={event.metadata.name} id={event.metadata.id} />
+        </>
+      );
+
+    case "admin_key_adopted":
+      return (
+        <>
+          <span>adopted admin key </span>
+          <AdminKeyName name={event.metadata.name} id={event.metadata.id} />
+        </>
+      );
+
+    case "admin_key_revoked":
+      return (
+        <>
+          <span>revoked </span>
+          <AdminKeyId id={event.metadata.id} />
+        </>
+      );
+
+    case "admin_key_renamed":
+      return (
+        <>
+          <span>renamed </span>
+          <AdminKeyId id={event.metadata.id} />
+          <span> to </span>
+          <span className="font-mono font-semibold">
+            {event.metadata.new_name}
+          </span>
+        </>
+      );
+
+    case "periodic_backup_configured":
+      return (
+        <>
+          <span>configured periodic backups with schedule </span>
+          <span className="font-mono font-semibold">
+            {event.metadata.cronspec}
+          </span>
+          <span>
+            {event.metadata.include_storage
+              ? " including file storage"
+              : " without file storage"}
+          </span>
+        </>
+      );
+
+    case "periodic_backup_disabled":
+      return <span>disabled periodic backups</span>;
+
+    case "periodic_backup_triggered":
+      return (
+        <>
+          <span>triggered </span>
+          <Tooltip
+            tip={<span className="font-mono">{event.metadata.export_id}</span>}
+            maxWidthClassName="max-w-md"
+          >
+            <span className="underline decoration-dotted">
+              a periodic backup export
+            </span>
+          </Tooltip>
+        </>
+      );
+
     default:
       event satisfies never;
       return null;
   }
+}
+
+function AdminKeyName({ name, id }: { name: string; id: string }) {
+  return (
+    <Tooltip tip={<span className="font-mono">{id}</span>}>
+      <span className="font-mono font-semibold underline decoration-dotted">
+        {name}
+      </span>
+    </Tooltip>
+  );
+}
+
+function AdminKeyId({ id }: { id: string }) {
+  return (
+    <Tooltip tip={<span className="font-mono">{id}</span>}>
+      <span className="underline decoration-dotted">admin key</span>
+    </Tooltip>
+  );
 }
 
 function ItemListTooltip({ items }: { items: string[] }) {
