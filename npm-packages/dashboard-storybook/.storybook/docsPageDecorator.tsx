@@ -212,6 +212,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     teamMaxFileBandwidth: 53_687_091_200,
     teamMaxFileStorage: 107_374_182_400,
     teamMaxFunctionCalls: 25_000_000,
+    teamMaxSearchQueries: 50_000,
     teamMaxVectorBandwidth: 10_737_418_240,
     teamMaxVectorStorage: 1_073_741_824,
   };
@@ -230,6 +231,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       postal_code: "94107",
       country: "US",
     },
+    hasNewBilling: true,
     nextBillingPeriodStart: new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     ).toISOString(),

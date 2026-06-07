@@ -145,7 +145,23 @@ const meta = {
       error: undefined,
     });
     mocked(useUsageTeamSummaryV2).mockReturnValue({
-      data: undefined,
+      data: [
+        {
+          deploymentClass: "s16",
+          region: "aws-us-east-1",
+          databaseStorage: 5_368_709_120,
+          databaseIO: 5_368_709_120,
+          functionCalls: 5_000_000,
+          queryMutationCompute: 10,
+          actionComputeConvex: 30,
+          actionComputeNode: 20,
+          fileStorage: 10_737_418_240,
+          searchStorage: 107_374_182,
+          dataEgress: 5_368_709_120,
+          searchQueries: 500,
+          actionComputeUser: 30,
+        },
+      ],
       error: undefined,
     });
     mocked(useUsageTeamMetricsByFunctionV2).mockReturnValue({
