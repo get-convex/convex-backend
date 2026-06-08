@@ -107,7 +107,7 @@ export async function handleAnonymousDeployment(
         }
       : { kind: "version", version: options.backendVersion },
   );
-  await handleDashboard(ctx, version);
+  await handleDashboard(ctx, version, deployment.deploymentName);
   let adminKey: string;
   let instanceSecret: string;
   if (deployment.kind === "existing") {

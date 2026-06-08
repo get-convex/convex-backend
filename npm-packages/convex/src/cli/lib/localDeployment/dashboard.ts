@@ -1,9 +1,9 @@
 import { Context } from "../../../bundler/context.js";
 import {
   dashboardOutDir,
-  loadDashboardConfig,
+  loadProjectDashboardConfig,
   loadUuidForAnonymousUser,
-  saveDashboardConfig,
+  saveProjectDashboardConfig,
 } from "./filePaths.js";
 import { choosePorts } from "./utils.js";
 import { startServer } from "./serve.js";
@@ -22,24 +22,21 @@ export const DEFAULT_LOCAL_DASHBOARD_API_PORT = 6791;
  * uses `dashboard.convex.dev`, and some of the code below is written
  * assuming this is only used for `anonymous`.
  */
-export async function handleDashboard(ctx: Context, version: string) {
+export async function handleDashboard(
+  ctx: Context,
+  version: string,
+  deploymentName: string,
+) {
   const anonymousId = loadUuidForAnonymousUser(ctx) ?? undefined;
-  const isRunning = await checkIfDashboardIsRunning(ctx);
-  if (isRunning) {
-    // It's possible this is running with a different version, but
-    // let's not worry about that for now.
-    return;
-  }
   await ensureDashboardDownloaded(ctx, version);
   const [dashboardPort, apiPort] = await choosePorts(ctx, {
     count: 2,
     startPort: DEFAULT_LOCAL_DASHBOARD_PORT,
     requestedPorts: [null, null],
   });
-  await saveDashboardConfig(ctx, {
+  saveProjectDashboardConfig(ctx, deploymentName, {
     port: dashboardPort,
     apiPort,
-    version,
   });
 
   let hasReportedSelfHostedEvent = false;
@@ -125,34 +122,8 @@ async function startServingListDeploymentsApi(ctx: Context, port: number) {
   );
 }
 
-export async function checkIfDashboardIsRunning(ctx: Context) {
-  const dashboardConfig = loadDashboardConfig(ctx);
-  if (dashboardConfig === null) {
-    return false;
-  }
-  // We're checking if the mini API server is running and has a response that
-  // looks like a list of deployments, since it's easier than checking the
-  // dashboard UI + won't trigger the event for the developer opening the dashboard.
-  let resp: Response;
-  try {
-    resp = await fetch(`http://127.0.0.1:${dashboardConfig.apiPort}`);
-  } catch {
-    return false;
-  }
-  if (!resp.ok) {
-    return false;
-  }
-  let data: { deployments: { name: string; url: string; adminKey: string }[] };
-  try {
-    data = await resp.json();
-  } catch {
-    return false;
-  }
-  return Array.isArray(data.deployments);
-}
-
 export function dashboardUrl(ctx: Context, deploymentName: string) {
-  const dashboardConfig = loadDashboardConfig(ctx);
+  const dashboardConfig = loadProjectDashboardConfig(ctx, deploymentName);
   if (dashboardConfig === null) {
     return null;
   }

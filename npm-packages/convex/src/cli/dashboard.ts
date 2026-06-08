@@ -6,7 +6,7 @@ import { logMessage, logOutput, logWarning } from "../bundler/log.js";
 import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
-import { checkIfDashboardIsRunning } from "./lib/localDeployment/dashboard.js";
+import { isLocalBackendRunning } from "./lib/localDeployment/run.js";
 import { DASHBOARD_HOST, getDashboardUrl } from "./lib/dashboard.js";
 import { isAnonymousDeployment } from "./lib/deployment.js";
 
@@ -45,8 +45,13 @@ export const dashboard = new Command("dashboard")
         logWarning(warningMessage);
         return;
       }
-      const isLocalDashboardRunning = await checkIfDashboardIsRunning(ctx);
-      if (!isLocalDashboardRunning) {
+      // The dashboard runs alongside the local dev server in anonymous mode, so
+      // it's reachable iff the local backend is running.
+      const isDevServerRunning = await isLocalBackendRunning(
+        deployment.url,
+        deployment.deploymentFields.deploymentName,
+      );
+      if (!isDevServerRunning) {
         logWarning(warningMessage);
         return;
       }
