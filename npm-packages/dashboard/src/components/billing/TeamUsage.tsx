@@ -19,7 +19,6 @@ import {
   useUsageTeamVectorBandwidthPerDayByProject,
   useUsageTeamVectorStoragePerDayByProject,
   useUsageTeamSummary,
-  useTokenUsage,
   useUsageTeamDeploymentCountPerDayByProject,
   useUsageTeamDeploymentCountByType,
   useUsageTeamDatabaseStoragePerDayByTable,
@@ -278,11 +277,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
       .reduce((sum, item) => sum + item.value, 0);
   }, [deploymentCountData]);
 
-  const { data: chefTokenUsage } = useTokenUsage(
-    team?.slug,
-    shownBillingPeriod,
-  );
-
   const entitlements = useTeamEntitlements(team?.id);
 
   const hasOrbSubscription = useHasSubscription(team?.id);
@@ -430,10 +424,8 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                 {useV2 ? (
                   <>
                     <BusinessPlanSummary
-                      hasFilter={projectId !== null || !!componentPrefix}
                       summaryV2={summaryV2}
                       deploymentCount={latestDeploymentCount}
-                      chefTokenUsage={chefTokenUsage}
                       error={summaryV2Error}
                       isBusinessPlan={isBusinessPlanType}
                       entitlements={entitlements}
@@ -451,8 +443,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                 ) : (
                   <>
                     <PlanSummary
-                      hasFilter={projectId !== null || !!componentPrefix}
-                      chefTokenUsage={chefTokenUsage}
                       teamSummary={teamSummary}
                       deploymentCount={latestDeploymentCount}
                       entitlements={entitlements}

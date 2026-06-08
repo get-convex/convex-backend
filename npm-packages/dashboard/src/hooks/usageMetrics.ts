@@ -1,11 +1,5 @@
 import { captureMessage } from "@sentry/nextjs";
-import { useBBQuery } from "api/api";
-import {
-  DatabricksQueryId,
-  DateRange,
-  USAGE_REFRESH_INTERVAL_MS,
-  useUsageQuery,
-} from "api/usage";
+import { DatabricksQueryId, DateRange, useUsageQuery } from "api/usage";
 
 const DATABRICKS_QUERY_IDS: {
   teamFunctionBreakdown: DatabricksQueryId;
@@ -50,18 +44,6 @@ const DATABRICKS_BY_TABLE_QUERY_IDS: {
   teamDatabaseStorageByTable: "9cb8c431-6fa7-40cc-8f00-8aad358b4043",
   teamDocumentCountByTable: "1e265821-c0b9-4c66-9a1f-a5eef70e4d6f",
 };
-
-export function useTokenUsage(teamSlug: string, period: DateRange | null) {
-  return useBBQuery({
-    path: "/teams/{team_slug}/usage/get_token_info",
-    pathParams: { team_slug: teamSlug },
-    queryParams: period ? { from: period.from, to: period.to } : undefined,
-    swrOptions: {
-      keepPreviousData: false,
-      refreshInterval: USAGE_REFRESH_INTERVAL_MS,
-    },
-  });
-}
 
 export function useUsageTeamSummary(
   teamId: number,

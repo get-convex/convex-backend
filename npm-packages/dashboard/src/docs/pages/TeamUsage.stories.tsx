@@ -2,7 +2,6 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
 import {
   useUsageTeamSummary,
-  useTokenUsage,
   useUsageTeamMetricsByFunction,
   useUsageTeamDailyCallsByTagByProject,
   useUsageTeamDatabaseBandwidthPerDayByProject,
@@ -64,29 +63,6 @@ const meta = {
         },
       ],
       error: undefined,
-    });
-    mocked(useTokenUsage).mockReturnValue({
-      data: {
-        centitokensUsed: 5_000_000,
-        centitokensQuota: 2_500_000_000,
-        tokensUsed: 50_000,
-        tokensQuota: 25_000_000,
-        isPaidPlan: true,
-        isTeamDisabled: false,
-        planType: "professional",
-      },
-      error: undefined,
-      isLoading: false,
-      mutate: async () => ({
-        centitokensUsed: 5_000_000,
-        centitokensQuota: 2_500_000_000,
-        tokensUsed: 50_000,
-        tokensQuota: 25_000_000,
-        isPaidPlan: true,
-        isTeamDisabled: false,
-        planType: "professional",
-      }),
-      isValidating: false,
     });
     mocked(useUsageTeamMetricsByFunction).mockReturnValue({
       data: undefined,

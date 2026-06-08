@@ -64,6 +64,5 @@ export const Primary: Story = {
       previewDeploymentRetentionDays: 1,
       deploymentClassSelectionEnabled: false,
     },
-    hasFilter: false,
   },
 };
