@@ -364,7 +364,7 @@ function DeploymentInfoProvider({
     [visiblePages],
   );
 
-  const onSubmit = useCallback(
+  const attemptLogin = useCallback(
     async ({
       submittedAdminKey,
       submittedDeploymentUrl,
@@ -394,7 +394,7 @@ function DeploymentInfoProvider({
     [setStoredAdminKey, setStoredDeploymentUrl, setStoredDeploymentName],
   );
 
-  useEmbeddedDashboardCredentials(onSubmit);
+  useEmbeddedDashboardCredentials(attemptLogin);
 
   // `undefined` while the request to /api/current_deployment is in flight,
   // `null` once it has failed (e.g. 404 → fall back to the other mechanisms).
@@ -408,7 +408,7 @@ function DeploymentInfoProvider({
     void fetchCurrentDeployment().then((deployment) => {
       setCurrentDeployment(deployment);
       if (deployment) {
-        void onSubmit({
+        void attemptLogin({
           submittedAdminKey: deployment.adminKey,
           submittedDeploymentUrl:
             normalizeUrl(deployment.url) ?? deployment.url,
@@ -416,7 +416,7 @@ function DeploymentInfoProvider({
         });
       }
     });
-  }, [onSubmit]);
+  }, [attemptLogin]);
 
   const finalValue: DeploymentInfo = useMemo(
     () =>
@@ -480,12 +480,12 @@ function DeploymentInfoProvider({
             onError={() => {
               setListDeploymentsApiUrl(null);
             }}
-            onSelect={onSubmit}
+            onSelect={attemptLogin}
             selectedDeploymentName={selectedDeploymentName}
           />
         ) : (
           <DeploymentCredentialsForm
-            onSubmit={onSubmit}
+            onSubmit={attemptLogin}
             initialAdminKey={adminKey}
             initialDeploymentUrl={deploymentUrl}
           />
@@ -552,7 +552,7 @@ function Header({ onLogout }: { onLogout: () => void }) {
  * This is used when the dashboard is embedded in another application via an iframe.
  */
 function useEmbeddedDashboardCredentials(
-  onSubmit: ({
+  attemptLogin: ({
     submittedAdminKey,
     submittedDeploymentUrl,
     submittedDeploymentName,
@@ -593,7 +593,7 @@ function useEmbeddedDashboardCredentials(
       }
 
       if (event.data.type === "dashboard-credentials") {
-        onSubmit({
+        attemptLogin({
           submittedAdminKey: event.data.adminKey,
           submittedDeploymentUrl: event.data.deploymentUrl,
           submittedDeploymentName: event.data.deploymentName,
@@ -606,5 +606,5 @@ function useEmbeddedDashboardCredentials(
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [onSubmit]);
+  }, [attemptLogin]);
 }
