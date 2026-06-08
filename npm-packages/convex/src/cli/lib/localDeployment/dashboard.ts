@@ -25,7 +25,7 @@ export const DEFAULT_LOCAL_DASHBOARD_API_PORT = 6791;
 export async function handleDashboard(
   ctx: Context,
   version: string,
-  deploymentName: string,
+  deployment: { name: string; cloudPort: number; adminKey: string },
 ) {
   const anonymousId = loadUuidForAnonymousUser(ctx) ?? undefined;
   await ensureDashboardDownloaded(ctx, version);
@@ -34,17 +34,37 @@ export async function handleDashboard(
     startPort: DEFAULT_LOCAL_DASHBOARD_PORT,
     requestedPorts: [null, null],
   });
-  saveProjectDashboardConfig(ctx, deploymentName, {
+  saveProjectDashboardConfig(ctx, deployment.name, {
     port: dashboardPort,
     apiPort,
   });
 
   let hasReportedSelfHostedEvent = false;
 
+  const serverOptions = { cors: false } as const;
   const { cleanupHandle } = await startServer(
     ctx,
     dashboardPort,
     async (request, response) => {
+      const pathname = new URL(
+        request.url ?? "/",
+        // We only want to extract the pathname so the base doesn’t matter
+        "http://localhost",
+      ).pathname;
+
+      if (pathname === "/api/current_deployment") {
+        serverOptions satisfies { cors: false };
+        response.setHeader("Content-Type", "application/json");
+        response.end(
+          JSON.stringify({
+            name: deployment.name,
+            url: localDeploymentUrl(deployment.cloudPort),
+            adminKey: deployment.adminKey,
+          }),
+        );
+        return;
+      }
+
       if (!hasReportedSelfHostedEvent) {
         hasReportedSelfHostedEvent = true;
         void reportSelfHostedEvent(ctx, {
@@ -57,7 +77,7 @@ export async function handleDashboard(
         public: dashboardOutDir(),
       });
     },
-    {},
+    serverOptions,
   );
   await startServingListDeploymentsApi(ctx, apiPort);
   return {

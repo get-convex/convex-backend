@@ -107,7 +107,6 @@ export async function handleAnonymousDeployment(
         }
       : { kind: "version", version: options.backendVersion },
   );
-  await handleDashboard(ctx, version, deployment.deploymentName);
   let adminKey: string;
   let instanceSecret: string;
   if (deployment.kind === "existing") {
@@ -138,6 +137,12 @@ export async function handleAnonymousDeployment(
     requestedPorts: options.ports,
     suggestedPorts:
       deployment.kind === "existing" ? deployment.config.ports : undefined,
+  });
+
+  await handleDashboard(ctx, version, {
+    name: deployment.deploymentName,
+    cloudPort,
+    adminKey,
   });
 
   const { cleanupHandle } = await handlePotentialUpgradeAndStart(ctx, {
