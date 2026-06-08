@@ -3507,6 +3507,16 @@
                 "properties": {
                   "member_id": {
                     "$ref": "#/components/schemas/MemberId"
+                  },
+                  "token_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/AccessTokenId"
+                      }
+                    ]
                   }
                 }
               }
@@ -3526,6 +3536,16 @@
                 "properties": {
                   "member_id": {
                     "$ref": "#/components/schemas/MemberId"
+                  },
+                  "token_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/AccessTokenId"
+                      }
+                    ]
                   }
                 }
               }
@@ -3545,6 +3565,16 @@
                 "properties": {
                   "team_id": {
                     "$ref": "#/components/schemas/TeamId"
+                  },
+                  "token_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/components/schemas/AccessTokenId"
+                      }
+                    ]
                   }
                 }
               }
