@@ -1,7 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import deploymentAuditLogTable, {
-  oldBackendState,
   systemStopState,
 } from "./tableDefs/deploymentAuditLogTable";
 import { snapshotImportsTable } from "./tableDefs/snapshotImport";
@@ -260,17 +259,10 @@ const logSinksTable = defineTable({
 
 const userStopState = v.union(v.literal("none"), v.literal("paused"));
 
-export const newBackendState = v.object({
+export const backendState = v.object({
   system: systemStopState,
   user: userStopState,
 });
-
-export const backendState = v.union(
-  // TODO(nicolas) Remove this once the migration is completed
-  v.object({ state: oldBackendState }),
-
-  newBackendState,
-);
 
 const backendStateTable = defineTable(backendState);
 

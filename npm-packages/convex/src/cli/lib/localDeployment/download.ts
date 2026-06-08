@@ -15,7 +15,8 @@ import {
   versionedBinaryDir,
   dashboardOutDir,
   resetDashboardDir,
-  loadDashboardConfig,
+  loadGlobalDashboardConfig,
+  saveGlobalDashboardConfig,
   executableName,
 } from "./filePaths.js";
 import child_process from "child_process";
@@ -298,12 +299,15 @@ async function downloadZipFile(
 }
 
 export async function ensureDashboardDownloaded(ctx: Context, version: string) {
-  const config = loadDashboardConfig(ctx);
+  const config = loadGlobalDashboardConfig(ctx);
   if (config !== null && config.version === version) {
     return;
   }
   await resetDashboardDir(ctx);
   await _ensureDashboardDownloaded(ctx, version);
+  // Record which version is now in `dashboardOutDir()`
+  // so we can skip the download next time.
+  saveGlobalDashboardConfig(ctx, { version });
 }
 async function _ensureDashboardDownloaded(ctx: Context, version: string) {
   const zipLocation = dashboardZip();

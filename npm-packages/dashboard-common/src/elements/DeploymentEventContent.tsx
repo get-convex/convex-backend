@@ -439,7 +439,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
       return (
         <>
           <span>created a </span>
-          <span className="font-mono font-semibold">{event.metadata.type}</span>
+          <IntegrationRef type={event.metadata.type} id={event.metadata.id} />
           <span> integration</span>
         </>
       );
@@ -448,7 +448,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
       return (
         <>
           <span>updated a </span>
-          <span className="font-mono font-semibold">{event.metadata.type}</span>
+          <IntegrationRef type={event.metadata.type} id={event.metadata.id} />
           <span> integration</span>
         </>
       );
@@ -457,7 +457,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
       return (
         <>
           <span>deleted a </span>
-          <span className="font-mono font-semibold">{event.metadata.type}</span>
+          <IntegrationRef type={event.metadata.type} id={event.metadata.id} />
           <span> integration</span>
         </>
       );
@@ -678,6 +678,19 @@ function ItemListTooltip({ items }: { items: string[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function IntegrationRef({ type, id }: { type: string; id: string }) {
+  return (
+    <Tooltip
+      tip={<span className="font-mono">{id}</span>}
+      maxWidthClassName="max-w-md"
+    >
+      <span className="font-mono font-semibold underline decoration-dotted">
+        {type}
+      </span>
+    </Tooltip>
   );
 }
 

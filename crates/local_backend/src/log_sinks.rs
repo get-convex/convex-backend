@@ -155,10 +155,10 @@ pub async fn delete_log_stream(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
-        .ensure_log_streaming_allowed(identity)
+        .ensure_log_streaming_allowed(identity.clone())
         .await?;
 
-    st.application.remove_log_sink_by_id(id).await?;
+    st.application.remove_log_sink_by_id(identity, id).await?;
     Ok(StatusCode::OK)
 }
 
@@ -395,7 +395,7 @@ pub async fn create_log_stream(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
-        .ensure_log_streaming_allowed(identity)
+        .ensure_log_streaming_allowed(identity.clone())
         .await?;
 
     match args {
@@ -405,7 +405,7 @@ pub async fn create_log_stream(
             let config: DatadogConfig = datadog_sink_post_args.try_into()?;
             let id = st
                 .application
-                .add_log_sink(SinkConfig::Datadog(config))
+                .add_log_sink(identity.clone(), SinkConfig::Datadog(config))
                 .await?;
             Ok(Json(CreateLogStreamResponse::Datadog {
                 id: id.to_string(),
@@ -430,7 +430,7 @@ pub async fn create_log_stream(
             };
             let id = st
                 .application
-                .add_log_sink(SinkConfig::Webhook(config))
+                .add_log_sink(identity.clone(), SinkConfig::Webhook(config))
                 .await?;
 
             Ok(Json(CreateLogStreamResponse::Webhook(
@@ -454,7 +454,7 @@ pub async fn create_log_stream(
             let config: AxiomConfig = axiom_sink_post_args.try_into()?;
             let id = st
                 .application
-                .add_log_sink(SinkConfig::Axiom(config))
+                .add_log_sink(identity.clone(), SinkConfig::Axiom(config))
                 .await?;
 
             Ok(Json(CreateLogStreamResponse::Axiom { id: id.to_string() }))
@@ -465,7 +465,7 @@ pub async fn create_log_stream(
             let config = sentry_config_args.try_into()?;
             let id = st
                 .application
-                .add_log_sink(SinkConfig::Sentry(config))
+                .add_log_sink(identity.clone(), SinkConfig::Sentry(config))
                 .await?;
             Ok(Json(CreateLogStreamResponse::Sentry { id: id.to_string() }))
         },
@@ -475,7 +475,7 @@ pub async fn create_log_stream(
             let config: PostHogLogsConfig = args.try_into()?;
             let id = st
                 .application
-                .add_log_sink(SinkConfig::PostHogLogs(config))
+                .add_log_sink(identity.clone(), SinkConfig::PostHogLogs(config))
                 .await?;
             Ok(Json(CreateLogStreamResponse::PostHogLogs {
                 id: id.to_string(),
@@ -488,7 +488,7 @@ pub async fn create_log_stream(
             let config: PostHogErrorTrackingConfig = args.try_into()?;
             let id = st
                 .application
-                .add_log_sink(SinkConfig::PostHogErrorTracking(config))
+                .add_log_sink(identity.clone(), SinkConfig::PostHogErrorTracking(config))
                 .await?;
             Ok(Json(CreateLogStreamResponse::PostHogErrorTracking {
                 id: id.to_string(),
@@ -536,7 +536,7 @@ pub async fn rotate_webhook_secret(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
-        .ensure_log_streaming_allowed(identity)
+        .ensure_log_streaming_allowed(identity.clone())
         .await?;
 
     let Some(LogSinkWithId {
@@ -561,7 +561,7 @@ pub async fn rotate_webhook_secret(
                 hmac_secret: hmac_secret.clone(),
             };
             st.application
-                .patch_log_sink_config(&id, SinkConfig::Webhook(config))
+                .patch_log_sink_config(identity.clone(), &id, SinkConfig::Webhook(config))
                 .await?;
 
             Ok(Json(RotateLogStreamSecretResponse::Webhook { hmac_secret }))
@@ -934,7 +934,7 @@ pub async fn update_log_stream(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
-        .ensure_log_streaming_allowed(identity)
+        .ensure_log_streaming_allowed(identity.clone())
         .await?;
 
     let Some(LogSinkWithId {
@@ -974,7 +974,7 @@ pub async fn update_log_stream(
             };
 
             st.application
-                .patch_log_sink_config(&id, SinkConfig::Datadog(config))
+                .patch_log_sink_config(identity.clone(), &id, SinkConfig::Datadog(config))
                 .await?;
         },
         SinkConfig::Webhook(existing_config) => {
@@ -1005,7 +1005,7 @@ pub async fn update_log_stream(
             };
 
             st.application
-                .patch_log_sink_config(&id, SinkConfig::Webhook(config))
+                .patch_log_sink_config(identity.clone(), &id, SinkConfig::Webhook(config))
                 .await?;
         },
         SinkConfig::Axiom(existing_config) => {
@@ -1046,7 +1046,7 @@ pub async fn update_log_stream(
             };
 
             st.application
-                .patch_log_sink_config(&id, SinkConfig::Axiom(config))
+                .patch_log_sink_config(identity.clone(), &id, SinkConfig::Axiom(config))
                 .await?;
         },
         SinkConfig::Sentry(existing_config) => {
@@ -1078,7 +1078,7 @@ pub async fn update_log_stream(
             };
 
             st.application
-                .patch_log_sink_config(&id, SinkConfig::Sentry(config))
+                .patch_log_sink_config(identity.clone(), &id, SinkConfig::Sentry(config))
                 .await?;
         },
         SinkConfig::PostHogLogs(existing_config) => {
@@ -1108,7 +1108,7 @@ pub async fn update_log_stream(
             };
 
             st.application
-                .patch_log_sink_config(&id, SinkConfig::PostHogLogs(config))
+                .patch_log_sink_config(identity.clone(), &id, SinkConfig::PostHogLogs(config))
                 .await?;
         },
         SinkConfig::PostHogErrorTracking(existing_config) => {
@@ -1135,7 +1135,11 @@ pub async fn update_log_stream(
             };
 
             st.application
-                .patch_log_sink_config(&id, SinkConfig::PostHogErrorTracking(config))
+                .patch_log_sink_config(
+                    identity.clone(),
+                    &id,
+                    SinkConfig::PostHogErrorTracking(config),
+                )
                 .await?;
         },
         _ => {
