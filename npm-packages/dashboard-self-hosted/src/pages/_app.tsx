@@ -130,8 +130,6 @@ function App({
 const USE_CURRENT_DEPLOYMENT_API =
   process.env.NEXT_PUBLIC_USE_CURRENT_DEPLOYMENT_API === "true";
 
-const LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM = "a";
-const SELECTED_DEPLOYMENT_NAME_QUERY_PARAM = "d";
 const SESSION_STORAGE_DEPLOYMENT_NAME_KEY = "deploymentName";
 
 function normalizeUrl(url: string) {
@@ -435,8 +433,17 @@ function DeploymentInfoProvider({
   );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Pre-1.41.0 CLI versions had a “list deployments” API server allowing the
+  // dashboard to find the list of anonymous backends and show it on screen (<DeploymentList />).
+  // URL parameters, e.g. ?a=6791&d=anonymous-projectName, were used to automatically open
+  // the dashboard for a given deployment.
+  // This workflow isn’t used in CLI versions ≥1.41.0, but we keep it for backwards compatibility.
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM = "a";
+      const SELECTED_DEPLOYMENT_NAME_QUERY_PARAM = "d";
+
       const url = new URL(window.location.href);
       const listDeploymentsApiPort = url.searchParams.get(
         LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM,
@@ -461,6 +468,7 @@ function DeploymentInfoProvider({
       }
     }
   }, [defaultListDeploymentsApiUrl]);
+
   if (!mounted) return null;
 
   if (!isValidDeploymentInfo) {

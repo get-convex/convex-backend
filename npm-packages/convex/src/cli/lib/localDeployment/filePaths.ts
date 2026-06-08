@@ -24,7 +24,7 @@ Legacy (home directory) - used for backward compatibility if data already exists
   - For "local" deployments: ~/.convex/convex-backend-state/local-{team}-{project}/
   - For "anonymous" deployments: ~/.convex/anonymous-convex-backend-state/{anonymous-deployment-name}/
 
-For anonymous deployments, the locally running dashboard's `{ port, apiPort }`
+For anonymous deployments, the locally running dashboard's `{ port }`
 is stored as `dashboard.json` next to that deployment's `config.json` (see
 `ProjectDashboardConfig`), wherever the deployment lives.
 
@@ -343,8 +343,6 @@ export type GlobalDashboardConfig = {
 
   // Previous versions of the Convex CLI would also store
   // fields here for ports. They are now in ProjectDashboardConfig.
-  // port: number;
-  // apiPort: number;
 };
 
 export function loadGlobalDashboardConfig(
@@ -381,7 +379,6 @@ export function saveGlobalDashboardConfig(
  */
 export type ProjectDashboardConfig = {
   port: number;
-  apiPort: number;
 };
 
 function dashboardConfigPath(ctx: Context, deploymentName: string) {
