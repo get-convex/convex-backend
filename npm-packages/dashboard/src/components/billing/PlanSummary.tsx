@@ -9,7 +9,7 @@ import { UsageSummary } from "hooks/usageMetrics";
 import { UsageSummaryRowV2 } from "hooks/usageMetricsV2";
 import { formatQuantity } from "./lib/formatQuantity";
 import { ReactNode } from "react";
-import { GetTokenInfoResponse, TeamEntitlementsResponse } from "generatedApi";
+import { TeamEntitlementsResponse } from "generatedApi";
 import {
   QuestionMarkCircledIcon,
   CrossCircledIcon,
@@ -60,8 +60,7 @@ type BusinessMetricKey =
   | keyof Omit<UsageSummaryRowV2, "deploymentClass" | "region">
   | "compute"
   | "actionCompute"
-  | "deploymentCount"
-  | "chefTokens";
+  | "deploymentCount";
 
 type V2Section = {
   metric: BusinessMetricKey;
@@ -130,12 +129,6 @@ const businessSections: V2Section[] = [
     format: formatNumberCompact,
     detail: "The number of deployments across all projects",
     title: "Deployments",
-  },
-  {
-    metric: "chefTokens",
-    format: (n: number) => `${formatNumberCompact(n)} Tokens`,
-    detail: "The number of Chef tokens used",
-    title: "Chef Tokens",
   },
 ];
 
@@ -208,20 +201,11 @@ const selfServeSections: V2Section[] = [
     title: "Deployments",
     noOnDemand: true,
   },
-  {
-    metric: "chefTokens",
-    entitlement: "maxChefTokens",
-    format: (n: number) => `${formatNumberCompact(n)} Tokens`,
-    detail: "The number of Chef tokens used",
-    title: "Chef Tokens",
-  },
 ];
 
 export function BusinessPlanSummary({
   summaryV2,
   deploymentCount,
-  chefTokenUsage,
-  hasFilter: _hasFilter,
   error,
   isBusinessPlan = true,
   entitlements,
@@ -230,8 +214,6 @@ export function BusinessPlanSummary({
 }: {
   summaryV2?: UsageSummaryRowV2[];
   deploymentCount?: number;
-  chefTokenUsage?: GetTokenInfoResponse;
-  hasFilter: boolean;
   error?: any;
   isBusinessPlan?: boolean;
   entitlements?: TeamEntitlementsResponse;
@@ -246,11 +228,7 @@ export function BusinessPlanSummary({
     rows.reduce(
       (acc, row) => {
         for (const section of activeSections) {
-          if (
-            section.metric === "deploymentCount" ||
-            section.metric === "chefTokens"
-          )
-            continue;
+          if (section.metric === "deploymentCount") continue;
           let value: number;
           if (section.metric === "compute") {
             value =
@@ -275,11 +253,6 @@ export function BusinessPlanSummary({
   // Add deployment count from separate data source
   if (aggregated && deploymentCount !== undefined) {
     aggregated.deploymentCount = deploymentCount;
-  }
-
-  // Add chef token usage from separate data source
-  if (aggregated && chefTokenUsage) {
-    aggregated.chefTokens = chefTokenUsage.centitokensUsed / 100;
   }
 
   // For self-serve plans, aggregate only primary region (aws-us-east-1)
@@ -408,48 +381,6 @@ export function BusinessPlanSummary({
                   ? metric - includedAmount
                   : undefined;
 
-              if (section.metric === "chefTokens") {
-                return (
-                  <div
-                    key={index}
-                    className={cn(
-                      "grid min-h-10 items-center gap-2 rounded-sm px-4 py-2 text-left transition-colors hover:bg-background-primary",
-                      hasSubscription
-                        ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
-                        : "grid-cols-[5fr_4fr_auto]",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      {showEntitlements && entitlement !== undefined && (
-                        <Tooltip
-                          side="bottom"
-                          tip={`Your team has used ${Math.floor(100 * (metric / entitlement))}% of the included amount of ${section.title}.`}
-                          className="flex animate-fadeInFromLoading items-center"
-                        >
-                          <Donut current={metric} max={entitlement} />
-                        </Tooltip>
-                      )}
-                      <SectionLabel detail={section.detail}>
-                        {section.title}
-                      </SectionLabel>
-                    </div>
-                    <div className="animate-fadeInFromLoading">
-                      <span>{section.format(metric)}</span>
-                      {showEntitlements && entitlement !== undefined && (
-                        <span> / {section.format(entitlement)}</span>
-                      )}
-                    </div>
-                    {hasSubscription && <div />}
-                    <span className="invisible flex items-center gap-1 text-xs">
-                      <span className="hidden whitespace-nowrap sm:inline">
-                        View breakdown by day
-                      </span>
-                      <ChevronRightIcon className="size-4" />
-                    </span>
-                  </div>
-                );
-              }
-
               return (
                 <Button
                   key={index}
@@ -524,33 +455,27 @@ export function BusinessPlanSummary({
 }
 
 export function PlanSummary({
-  chefTokenUsage,
   teamSummary,
   deploymentCount,
   entitlements,
   hasSubscription,
   showEntitlements,
-  hasFilter,
   error,
 }: {
-  chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary[];
   deploymentCount?: number;
   entitlements?: TeamEntitlementsResponse;
   hasSubscription: boolean;
   showEntitlements: boolean;
-  hasFilter: boolean;
   error?: any;
 }) {
   return (
     <PlanSummaryForTeam
-      chefTokenUsage={chefTokenUsage}
       teamSummary={teamSummary}
       deploymentCount={deploymentCount}
       entitlements={entitlements}
       hasSubscription={hasSubscription}
       showEntitlements={showEntitlements}
-      hasFilter={hasFilter}
       error={error}
     />
   );
@@ -566,7 +491,6 @@ const sections: {
     | "fileBandwidth"
     | "vectorStorage"
     | "vectorBandwidth"
-    | "chefTokens"
     | "deploymentCount";
   entitlement:
     | "teamMaxDatabaseStorage"
@@ -577,7 +501,6 @@ const sections: {
     | "teamMaxFileBandwidth"
     | "teamMaxVectorStorage"
     | "teamMaxVectorBandwidth"
-    | "maxChefTokens"
     | "maxDeployments";
   format: (value: number) => string;
   detail: string;
@@ -652,23 +575,14 @@ const sections: {
     title: "Deployments",
     noOnDemand: true,
   },
-  {
-    metric: "chefTokens",
-    entitlement: "maxChefTokens",
-    format: (n: number) => `${formatNumberCompact(n)} Tokens`,
-    detail: "The number of Chef tokens used",
-    title: "Chef Tokens",
-  },
 ];
 
 export type PlanSummaryForTeamProps = {
-  chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary[];
   deploymentCount?: number;
   entitlements?: TeamEntitlementsResponse;
   showEntitlements: boolean;
   hasSubscription: boolean;
-  hasFilter: boolean;
   error?: any;
 };
 
@@ -692,13 +606,11 @@ function aggregateRegionalMetric(
 }
 
 export function PlanSummaryForTeam({
-  chefTokenUsage,
   teamSummary,
   deploymentCount,
   entitlements,
   hasSubscription,
   showEntitlements,
-  hasFilter,
   error,
 }: PlanSummaryForTeamProps) {
   const hasEuDeployments = teamSummary?.some(
@@ -791,12 +703,7 @@ export function PlanSummaryForTeam({
               let metric: number | undefined;
               let primaryRegionMetric: number | undefined;
 
-              if (section.metric === "chefTokens") {
-                metric = chefTokenUsage
-                  ? chefTokenUsage.centitokensUsed / 100
-                  : undefined;
-                primaryRegionMetric = metric; // Chef tokens are not region-specific
-              } else if (section.metric === "deploymentCount") {
+              if (section.metric === "deploymentCount") {
                 metric = deploymentCount;
                 primaryRegionMetric = deploymentCount; // Deployment count is not region-specific
               } else {
@@ -814,16 +721,9 @@ export function PlanSummaryForTeam({
                   metric={metric}
                   primaryRegionMetric={primaryRegionMetric}
                   entitlement={
-                    section.metric === "chefTokens"
-                      ? chefTokenUsage
-                        ? chefTokenUsage.centitokensQuota / 100
-                        : undefined
-                      : entitlements
-                        ? (entitlements[section.entitlement] ?? 0)
-                        : undefined
-                  }
-                  isNotSubjectToFilter={
-                    section.metric === "chefTokens" && hasFilter
+                    entitlements
+                      ? (entitlements[section.entitlement] ?? 0)
+                      : undefined
                   }
                   hasSubscription={hasSubscription}
                   metricName={section.metric}
@@ -982,7 +882,6 @@ function UsageSection({
   title,
   suffix = "",
   showEntitlements,
-  isNotSubjectToFilter,
   noOnDemand = false,
 }: {
   metric?: number;
@@ -995,7 +894,6 @@ function UsageSection({
   title: string;
   suffix?: string;
   showEntitlements: boolean;
-  isNotSubjectToFilter: boolean;
   noOnDemand?: boolean;
 }) {
   const router = useRouter();
@@ -1004,49 +902,8 @@ function UsageSection({
     hasSubscription
       ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
       : "grid-cols-[5fr_4fr_auto]",
-    isNotSubjectToFilter
-      ? "bg-stripes"
-      : "hover:bg-background-primary focus-visible:bg-background-primary",
+    "hover:bg-background-primary focus-visible:bg-background-primary",
   );
-
-  if (metricName === "chefTokens") {
-    const content = (
-      <div className={className}>
-        <UsageAmount
-          {...{
-            metric,
-            primaryRegionMetric,
-            entitlement,
-            hasSubscription,
-            format,
-            detail,
-            title,
-            suffix,
-            showEntitlements,
-            noOnDemand,
-          }}
-        />
-        <span className="invisible flex items-center gap-1 text-xs">
-          <span className="hidden whitespace-nowrap sm:inline">
-            View breakdown by day
-          </span>
-          <ChevronRightIcon className="size-4" />
-        </span>
-      </div>
-    );
-    if (isNotSubjectToFilter) {
-      return (
-        <Tooltip
-          tip="This metric does not support filtering by project or component"
-          side="bottom"
-          asChild
-        >
-          {content}
-        </Tooltip>
-      );
-    }
-    return content;
-  }
 
   const section = METRIC_TO_SECTION[metricName];
   const { section: _s, tab: _t, ...restQuery } = router.query;
