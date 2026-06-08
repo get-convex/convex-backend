@@ -8,7 +8,11 @@ import { useState, useEffect, useCallback } from "react";
 import { TeamResponse } from "generatedApi";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
+// `loadStripe` rejects if the publishable key is missing (e.g. in Storybook,
+// tests, or self-hosted builds without billing), so only initialize when it's set.
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY)
+  : Promise.resolve(null);
 
 export function useStripePaymentSetup(
   team: TeamResponse,

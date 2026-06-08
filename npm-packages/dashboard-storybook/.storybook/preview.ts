@@ -62,7 +62,6 @@ sb.mock(import("dashboard-common/src/lib/appMetrics.ts"), {
   spy: true,
 });
 sb.mock(import("dashboard/src/hooks/useStripe.ts"));
-sb.mock(import("@stripe/react-stripe-js"), { spy: true });
 
 const preview: Preview = {
   initialGlobals: {
