@@ -1,7 +1,6 @@
 import { Context } from "../../../bundler/context.js";
 import { logMessage } from "../../../bundler/log.js";
 import { detect } from "detect-port";
-import crypto from "crypto";
 import { chalkStderr } from "chalk";
 
 export async function choosePorts(
@@ -89,10 +88,6 @@ export function printLocalDeploymentWelcomeMessage() {
       "To learn more, read the docs: https://docs.convex.dev/cli/local-deployments",
     ),
   );
-}
-
-export function generateInstanceSecret(): string {
-  return crypto.randomBytes(32).toString("hex");
 }
 
 export const LOCAL_BACKEND_INSTANCE_SECRET =

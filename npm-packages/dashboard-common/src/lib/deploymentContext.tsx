@@ -66,6 +66,7 @@ export type DeploymentInfo = (
         auditLogRetentionDays?: number;
         logStreamingEnabled?: boolean;
         streamingExportEnabled?: boolean;
+        customAuditLogsInLogStreamsConfigEnabled?: boolean;
       }
     | undefined;
   useTeamUsageState(teamId: number | null): string | undefined;
@@ -325,6 +326,7 @@ export type DeploymentInfo = (
    */
   deploymentBackendOwnsAdminKeys?: boolean;
   workosIntegrationEnabled: boolean;
+  logStreamTopicFiltersEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 

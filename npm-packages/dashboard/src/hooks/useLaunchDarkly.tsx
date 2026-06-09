@@ -11,6 +11,7 @@ export const flagDefaults: {
   connectionStateCheckIntervalMs: number;
   scopedDeployKeys: boolean;
   customRoles: boolean;
+  logStreamTopicFilters: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -21,6 +22,7 @@ export const flagDefaults: {
   connectionStateCheckIntervalMs: 2500,
   scopedDeployKeys: false,
   customRoles: false,
+  logStreamTopicFilters: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

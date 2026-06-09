@@ -36,14 +36,12 @@ import {
   loadProjectLocalConfig,
   saveDeploymentConfig,
 } from "./lib/localDeployment/filePaths.js";
-import {
-  chooseLocalBackendPorts,
-  LOCAL_BACKEND_INSTANCE_SECRET,
-} from "./lib/localDeployment/utils.js";
+import { chooseLocalBackendPorts } from "./lib/localDeployment/utils.js";
 import { bigBrainStart } from "./lib/localDeployment/bigBrain.js";
 import { importDefaultEnvVars } from "./lib/localDeployment/localDeployment.js";
 import { localDeploymentUrl } from "./lib/localDeployment/run.js";
 import { announceDeploymentTarget } from "./lib/announceDeploymentTarget.js";
+import { generateLocalDevSecrets } from "./lib/localDeployment/secrets.js";
 
 const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 
@@ -289,25 +287,30 @@ export async function createLocalDeployment(
     : await resolveProject(ctx, currentDeployment);
 
   showSpinner("Downloading local backend...");
-  const { version } = await ensureBackendBinaryDownloaded(ctx, {
-    kind: "latest",
-  });
+  const { version, binaryPath: latestBinaryPath } =
+    await ensureBackendBinaryDownloaded(ctx, {
+      kind: "latest",
+    });
 
   const { cloudPort, sitePort } = await chooseLocalBackendPorts(ctx);
 
   showSpinner("Registering local deployment...");
-  const { deploymentName, adminKey } = await bigBrainStart(ctx, {
+  const { deploymentName } = await bigBrainStart(ctx, {
     port: cloudPort,
     projectSlug,
     teamSlug,
     instanceName: null,
+  });
+  const { instanceSecret, adminKey } = await generateLocalDevSecrets(ctx, {
+    deploymentName,
+    latestBinaryPath,
   });
 
   saveDeploymentConfig(ctx, "local", deploymentName, {
     backendVersion: version,
     ports: { cloud: cloudPort, site: sitePort },
     adminKey,
-    instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
+    instanceSecret,
     cloudProjectId,
   });
 
