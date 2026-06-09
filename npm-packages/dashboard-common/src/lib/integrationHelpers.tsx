@@ -1,6 +1,7 @@
 import { Infer } from "convex/values";
 import { ReactNode } from "react";
-import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
+import * as Yup from "yup";
+import { Doc } from "system-udfs/convex/_generated/dataModel";
 import {
   DatadogSiteLocation,
   ExportIntegrationType,
@@ -29,6 +30,21 @@ import { WorkosLogo } from "./logos/WorkosLogo";
 
 export type SinkStatus = Doc<"_log_sinks">["status"];
 
+// A `_log_sinks` document narrowed to a single integration kind. Derives
+// fields from the schema.
+type LogSinkDoc<T extends Doc<"_log_sinks">["config"]["type"]> = Omit<
+  Doc<"_log_sinks">,
+  "config"
+> & { config: Extract<Doc<"_log_sinks">["config"], { type: T }> };
+
+export const topicsValidationSchema = Yup.array()
+  .nullable()
+  .test(
+    "non-empty-topics",
+    "Select at least one topic.",
+    (value) => value === null || value === undefined || value.length > 0,
+  );
+
 export const LOG_INTEGRATIONS = [
   "axiom",
   "datadog",
@@ -47,61 +63,16 @@ export type LogIntegrationConfig =
   | Infer<typeof postHogLogsConfig>;
 
 export type LogIntegration =
-  | {
-      kind: "datadog";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof datadogConfig>;
-      } | null;
-    }
-  | {
-      kind: "axiom";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof axiomConfig>;
-      } | null;
-    }
-  | {
-      kind: "webhook";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof webhookConfig>;
-      } | null;
-    }
-  | {
-      kind: "postHogLogs";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof postHogLogsConfig>;
-      } | null;
-    };
+  | { kind: "datadog"; existing: LogSinkDoc<"datadog"> | null }
+  | { kind: "axiom"; existing: LogSinkDoc<"axiom"> | null }
+  | { kind: "webhook"; existing: LogSinkDoc<"webhook"> | null }
+  | { kind: "postHogLogs"; existing: LogSinkDoc<"postHogLogs"> | null };
 
 export type ExceptionReportingIntegration =
-  | {
-      kind: "sentry";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof sentryConfig>;
-      } | null;
-    }
+  | { kind: "sentry"; existing: LogSinkDoc<"sentry"> | null }
   | {
       kind: "postHogErrorTracking";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof postHogErrorTrackingConfig>;
-      } | null;
+      existing: LogSinkDoc<"postHogErrorTracking"> | null;
     };
 
 export type ExceptionReportingIntegrationConfig =

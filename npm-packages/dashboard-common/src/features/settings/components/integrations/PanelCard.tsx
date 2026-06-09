@@ -4,8 +4,16 @@ import {
   ImportIntegrationType,
 } from "system-udfs/convex/_system/frontend/common";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  Transition,
+  TransitionChild,
+} from "@headlessui/react";
 import { Button } from "@ui/Button";
 import { Modal } from "@ui/Modal";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Tooltip } from "@ui/Tooltip";
 import Link from "next/link";
 import {
@@ -96,7 +104,7 @@ export function PanelCard({
     <div className={classes}>
       {integration.kind === "workos" && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {isModalOpen && renderModal(integration, closeModal)}
+          {isModalOpen && renderForm(integration, closeModal)}
           <IntegrationTitle
             logo={logo}
             integrationKind={integration.kind}
@@ -167,7 +175,7 @@ export function PanelCard({
         integration.kind === "postHogErrorTracking") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {isModalOpen &&
-            renderModal(integration, closeModal, onAddedIntegration)}
+            renderForm(integration, closeModal, onAddedIntegration)}
           <IntegrationTitle
             logo={logo}
             integrationKind={integration.kind}
@@ -214,7 +222,7 @@ function importSetupLink(kind: ImportIntegrationType): string {
   }
 }
 
-function renderModal(
+function renderForm(
   integration: LogIntegration | ExceptionReportingIntegration | AuthIntegration,
   closeModal: () => void,
   onAddedIntegration?: (kind: string) => void,
@@ -228,46 +236,52 @@ function renderModal(
   switch (integration.kind) {
     case "datadog": {
       return (
-        <LogIntegrationModal
+        <LogIntegrationSidePanel
           closeModal={closeModal}
           title="Configure Datadog"
           description="Configure your Convex deployment to route logs to Datadog to persist your logs and enable custom log queries and dashboards."
         >
-          <DatadogConfigurationForm
-            integration={integration}
-            onClose={closeModal}
-            {...addedIntegrationProp}
-          />
-        </LogIntegrationModal>
+          {(closePanel) => (
+            <DatadogConfigurationForm
+              integration={integration}
+              onClose={closePanel}
+              {...addedIntegrationProp}
+            />
+          )}
+        </LogIntegrationSidePanel>
       );
     }
     case "axiom":
       return (
-        <LogIntegrationModal
+        <LogIntegrationSidePanel
           closeModal={closeModal}
           title="Configure Axiom"
           description="Configure your Convex deployment to route logs to Axiom to persist your logs and enable custom log queries and dashboards."
         >
-          <AxiomConfigurationForm
-            integration={integration}
-            onClose={closeModal}
-            {...addedIntegrationProp}
-          />
-        </LogIntegrationModal>
+          {(closePanel) => (
+            <AxiomConfigurationForm
+              integration={integration}
+              onClose={closePanel}
+              {...addedIntegrationProp}
+            />
+          )}
+        </LogIntegrationSidePanel>
       );
     case "webhook":
       return (
-        <LogIntegrationModal
+        <LogIntegrationSidePanel
           closeModal={closeModal}
           title="Configure Webhook"
           description="Configure your Convex deployment to send JSON logs via POST requests."
         >
-          <WebhookConfigurationForm
-            onClose={closeModal}
-            integration={integration}
-            {...addedIntegrationProp}
-          />
-        </LogIntegrationModal>
+          {(closePanel) => (
+            <WebhookConfigurationForm
+              onClose={closePanel}
+              integration={integration}
+              {...addedIntegrationProp}
+            />
+          )}
+        </LogIntegrationSidePanel>
       );
 
     case "sentry":
@@ -288,17 +302,19 @@ function renderModal(
       );
     case "postHogLogs":
       return (
-        <LogIntegrationModal
+        <LogIntegrationSidePanel
           closeModal={closeModal}
           title="Configure PostHog Logs"
           description="Configure your Convex deployment to stream function logs to PostHog for querying and analysis."
         >
-          <PostHogLogsConfigurationForm
-            integration={integration}
-            onClose={closeModal}
-            {...addedIntegrationProp}
-          />
-        </LogIntegrationModal>
+          {(closePanel) => (
+            <PostHogLogsConfigurationForm
+              integration={integration}
+              onClose={closePanel}
+              {...addedIntegrationProp}
+            />
+          )}
+        </LogIntegrationSidePanel>
       );
     case "postHogErrorTracking":
       return (
@@ -329,7 +345,7 @@ function renderModal(
   }
 }
 
-function LogIntegrationModal({
+function LogIntegrationSidePanel({
   title,
   description,
   closeModal,
@@ -338,16 +354,59 @@ function LogIntegrationModal({
   title: string;
   description: string;
   closeModal: () => void;
-  children: React.ReactNode;
+  children: (closePanel: () => void) => React.ReactNode;
 }) {
+  const [open, setOpen] = useState(true);
+  const closePanel = useCallback(() => setOpen(false), []);
+
   return (
-    <Modal onClose={closeModal} title={title}>
-      <div className="flex flex-col gap-4">
-        <div className="max-w-prose text-xs text-pretty text-content-secondary">
-          {description}
+    <Transition show={open} appear afterLeave={closeModal}>
+      <Dialog
+        static
+        as="div"
+        className="fixed inset-0 z-50 overflow-hidden"
+        open // Real openness status is controlled by Transition above
+        onClose={closePanel}
+      >
+        <div className="absolute inset-0 overflow-hidden">
+          <TransitionChild
+            enter="ease-in-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in-out duration-300"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="absolute inset-0 bg-black/50 transition-opacity" />
+          </TransitionChild>
+
+          <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <TransitionChild
+              enter="transform transition ease-in-out duration-200 sm:duration-300"
+              enterFrom="translate-x-full"
+              enterTo="translate-x-0"
+              leave="transform transition ease-in-out duration-200 sm:duration-300"
+              leaveFrom="translate-x-0"
+              leaveTo="translate-x-full"
+            >
+              <DialogPanel className="w-screen max-w-2xl">
+                <div className="flex h-full flex-col bg-background-secondary shadow-xl dark:border">
+                  <div className="flex items-start justify-between px-6 pt-6 pb-4">
+                    <div>
+                      <DialogTitle as="h4">{title}</DialogTitle>
+                      <p className="mt-1 max-w-prose text-sm text-content-secondary">
+                        {description}
+                      </p>
+                    </div>
+                    <ClosePanelButton onClose={closePanel} />
+                  </div>
+                  {children(closePanel)}
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
         </div>
-        {children}
-      </div>
-    </Modal>
+      </Dialog>
+    </Transition>
   );
 }

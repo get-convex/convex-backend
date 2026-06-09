@@ -123,9 +123,11 @@ async function openConfigure(canvasElement: HTMLElement, label: string) {
   const heading = canvas.getByText(label);
   const panel = heading.closest("div")!.parentElement!;
   await userEvent.click(within(panel).getByTestId("configure-integration"));
+  // Log-stream integrations open a slide-over panel and exception-reporting
+  // ones open a modal; both render with role="dialog".
   await waitFor(() => {
-    if (!document.querySelector('[data-testid="modal"]')) {
-      throw new Error("modal not open yet");
+    if (!document.querySelector('[role="dialog"]')) {
+      throw new Error("config dialog not open yet");
     }
   });
 }

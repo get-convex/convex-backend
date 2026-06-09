@@ -66,6 +66,7 @@ export type DeploymentInfo = (
         auditLogRetentionDays?: number;
         logStreamingEnabled?: boolean;
         streamingExportEnabled?: boolean;
+        customAuditLogsInLogStreamsConfigEnabled?: boolean;
       }
     | undefined;
   useTeamUsageState(teamId: number | null): string | undefined;
@@ -311,6 +312,7 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
+  logStreamTopicFiltersEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 

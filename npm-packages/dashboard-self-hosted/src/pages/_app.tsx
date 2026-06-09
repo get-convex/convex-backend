@@ -319,6 +319,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
+  logStreamTopicFiltersEnabled: true,
   connectionStateCheckIntervalMs: 2500,
 };
 

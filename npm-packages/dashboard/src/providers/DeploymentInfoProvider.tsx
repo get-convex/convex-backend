@@ -137,6 +137,7 @@ export function DeploymentInfoProvider({
   const {
     workOsEnvironmentProvisioningDashboardUi,
     connectionStateCheckIntervalMs,
+    logStreamTopicFilters,
   } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
@@ -213,6 +214,7 @@ export function DeploymentInfoProvider({
         deploymentsURI,
         isSelfHosted: false,
         workosIntegrationEnabled: workOsEnvironmentProvisioningDashboardUi,
+        logStreamTopicFiltersEnabled: logStreamTopicFilters,
         connectionStateCheckIntervalMs,
       });
     };
@@ -230,6 +232,7 @@ export function DeploymentInfoProvider({
     projectsURI,
     teamsURI,
     workOsEnvironmentProvisioningDashboardUi,
+    logStreamTopicFilters,
     connectionStateCheckIntervalMs,
   ]);
 
