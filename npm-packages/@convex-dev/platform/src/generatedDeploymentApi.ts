@@ -300,6 +300,9 @@ export interface components {
             ingestUrl?: string | null;
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
+            /** @description The topics this log stream is subscribed to. `null` means subscribed to
+             *     all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         CreateAxiomLogStreamArgs: {
             /** @description Axiom API key for authentication. */
@@ -311,6 +314,9 @@ export interface components {
             datasetName: string;
             /** @description Optional ingest endpoint for Axiom */
             ingestUrl?: string | null;
+            /** @description The topics this log stream is subscribed to. Omit to
+             *     subscribe to all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         CreateDatadogLogStreamArgs: {
             /** @description Datadog API key for authentication. */
@@ -322,6 +328,9 @@ export interface components {
             service?: string | null;
             /** @description Location of your Datadog deployment. */
             siteLocation: components["schemas"]["DatadogSiteLocation"];
+            /** @description The topics this log stream is subscribed to. Omit to
+             *     subscribe to all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         CreateLogStreamArgs: (components["schemas"]["CreateDatadogLogStreamArgs"] & {
             /** @enum {string} */
@@ -379,6 +388,9 @@ export interface components {
             host?: string | null;
             /** @description OTLP service.name attribute. Defaults to the deployment name. */
             serviceName?: string | null;
+            /** @description The topics this log stream is subscribed to. Omit to
+             *     subscribe to all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         CreateSentryLogStreamArgs: {
             /** @description Sentry Data Source Name (DSN) to route exceptions to. */
@@ -392,6 +404,9 @@ export interface components {
             /** @description Format for the webhook payload. JSONL sends one object per line of
              *     request, JSON sends one array per request. */
             format: components["schemas"]["WebhookFormat"];
+            /** @description The topics this log stream is subscribed to. Omit to
+             *     subscribe to all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
             /** @description URL to send logs to. */
             url: string;
         };
@@ -412,6 +427,9 @@ export interface components {
             siteLocation: components["schemas"]["DatadogSiteLocation"];
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
+            /** @description The topics this log stream is subscribed to. `null` means subscribed to
+             *     all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         /**
          * @description The Datadog deployment locations, used to construct URLs
@@ -482,6 +500,8 @@ export interface components {
             /** @enum {string} */
             type: "deleting";
         };
+        /** @enum {string} */
+        LogTopic: "verification" | "console" | "function_execution" | "exception" | "audit_log" | "scheduler_stats" | "scheduled_job_lag" | "current_storage_usage" | "concurrency_stats" | "storage_api_bandwidth" | "log_stream_egress" | "custom_audit";
         /** PostHogErrorTrackingConfig */
         PostHogErrorTrackingLogStreamConfig: {
             /** @description PostHog host URL. */
@@ -499,6 +519,9 @@ export interface components {
             serviceName?: string | null;
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
+            /** @description The topics this log stream is subscribed to. `null` means subscribed to
+             *     all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         /** Format: int64 */
         ProjectId: number;
@@ -531,6 +554,10 @@ export interface components {
             datasetName?: string | null;
             /** @description Optional ingest endpoint for Axiom */
             ingestUrl?: string | null;
+            /** @description The topics this log stream is subscribed to. Omit to keep the current
+             *     subscription, or pass `null` to subscribe to all topics (including ones
+             *     added in the future). */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         UpdateCanonicalUrlRequest: {
             /** @description Whether to update the canonical URL for convex.cloud or convex.site */
@@ -548,6 +575,10 @@ export interface components {
             /** @description Service name used as a special tag in Datadog. */
             service?: string | null;
             siteLocation?: null | components["schemas"]["DatadogSiteLocation"];
+            /** @description The topics this log stream is subscribed to. Omit to keep the current
+             *     subscription, or pass `null` to subscribe to all topics (including ones
+             *     added in the future). */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         UpdateEnvVarRequest: {
             name: string;
@@ -588,6 +619,10 @@ export interface components {
             host?: string | null;
             /** @description OTLP service.name attribute. */
             serviceName?: string | null;
+            /** @description The topics this log stream is subscribed to. Omit to keep the current
+             *     subscription, or pass `null` to subscribe to all topics (including ones
+             *     added in the future). */
+            topics?: components["schemas"]["LogTopic"][] | null;
         };
         UpdateSentrySinkArgs: {
             /** @description Sentry Data Source Name (DSN) to route exceptions to. */
@@ -599,6 +634,10 @@ export interface components {
         };
         UpdateWebhookSinkArgs: {
             format?: null | components["schemas"]["WebhookFormat"];
+            /** @description The topics this log stream is subscribed to. Omit to keep the current
+             *     subscription, or pass `null` to subscribe to all topics (including ones
+             *     added in the future). */
+            topics?: components["schemas"]["LogTopic"][] | null;
             /** @description URL to send logs to. */
             url?: string | null;
         };
@@ -614,6 +653,9 @@ export interface components {
             id: string;
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
+            /** @description The topics this log stream is subscribed to. `null` means subscribed to
+             *     all topics, including ones added in the future. */
+            topics?: components["schemas"]["LogTopic"][] | null;
             /** @description URL to send logs to. */
             url: string;
         };
@@ -644,6 +686,7 @@ export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsRe
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
+export type LogTopic = components['schemas']['LogTopic'];
 export type PostHogErrorTrackingLogStreamConfig = components['schemas']['PostHogErrorTrackingLogStreamConfig'];
 export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogStreamConfig'];
 export type ProjectId = components['schemas']['ProjectId'];

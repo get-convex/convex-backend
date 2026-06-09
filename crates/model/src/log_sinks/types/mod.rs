@@ -1,5 +1,10 @@
-use std::fmt;
+use std::{
+    collections::BTreeSet,
+    fmt,
+    str::FromStr,
+};
 
+use common::log_streaming::LogTopic;
 use serde::{
     Deserialize,
     Serialize,
@@ -54,6 +59,26 @@ impl TryFrom<SerializedLogSinksRow> for LogSinksRow {
 }
 
 codegen_convex_serialization!(LogSinksRow, SerializedLogSinksRow);
+
+/// Serialize a set of subscribed topics for storage. `None` (subscribe to all
+/// topics, including ones added in the future) is preserved as `None`.
+pub(crate) fn serialize_topics(topics: Option<BTreeSet<LogTopic>>) -> Option<Vec<String>> {
+    topics.map(|topics| topics.iter().map(|t| t.to_string()).collect())
+}
+
+/// Parse a stored set of subscribed topics back into `LogTopic`s.
+pub(crate) fn deserialize_topics(
+    topics: Option<Vec<String>>,
+) -> anyhow::Result<Option<BTreeSet<LogTopic>>> {
+    topics
+        .map(|topics| {
+            topics
+                .iter()
+                .map(|t| LogTopic::from_str(t).map_err(anyhow::Error::from))
+                .collect::<anyhow::Result<BTreeSet<_>>>()
+        })
+        .transpose()
+}
 
 /// Status of a configured LogSink
 /// LogSink SinkState state machine:
@@ -211,7 +236,9 @@ impl TryFrom<SerializedSinkConfig> for SinkConfig {
             SerializedSinkConfig::Sentry(config) => {
                 Ok(SinkConfig::Sentry(sentry::SentryConfig::try_from(config)?))
             },
-            SerializedSinkConfig::PostHogLogs(config) => Ok(SinkConfig::PostHogLogs(config.into())),
+            SerializedSinkConfig::PostHogLogs(config) => {
+                Ok(SinkConfig::PostHogLogs(config.try_into()?))
+            },
             SerializedSinkConfig::PostHogErrorTracking(config) => {
                 Ok(SinkConfig::PostHogErrorTracking(config.into()))
             },

@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{
+    BTreeMap,
+    BTreeSet,
+};
 
 use anyhow::Context;
 use application::{
@@ -19,7 +22,10 @@ use common::{
         HttpResponseError,
     },
     knobs::AXIOM_MAX_ATTRIBUTES,
-    log_streaming::LogEventFormatVersion,
+    log_streaming::{
+        LogEventFormatVersion,
+        LogTopic,
+    },
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
@@ -106,6 +112,61 @@ fn validate_axiom_ingest_url(ingest_url: Option<&String>) -> anyhow::Result<()> 
     Ok(())
 }
 
+fn validate_subscribed_topics(
+    topics: Option<Vec<LogTopic>>,
+) -> anyhow::Result<Option<BTreeSet<LogTopic>>> {
+    topics
+        .map(|topics| {
+            if topics.is_empty() {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "EmptyLogTopics",
+                    "A log stream must be subscribed to at least one topic.",
+                ));
+            }
+            topics
+                .into_iter()
+                .map(|topic| {
+                    if topic.is_subscribable() {
+                        Ok(topic)
+                    } else {
+                        Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                            "InvalidLogTopic",
+                            format!("Log stream topic `{topic}` cannot be subscribed to"),
+                        )))
+                    }
+                })
+                .collect::<anyhow::Result<BTreeSet<LogTopic>>>()
+        })
+        .transpose()
+}
+
+async fn ensure_topic_entitlements(
+    application: &Application<ProdRuntime>,
+    identity: &keybroker::Identity,
+    topics: &Option<BTreeSet<LogTopic>>,
+) -> Result<(), HttpResponseError> {
+    if topics
+        .as_ref()
+        .is_some_and(|topics| topics.contains(&LogTopic::CustomAudit))
+    {
+        application
+            .ensure_custom_audit_logs_in_log_streams_allowed(identity.clone())
+            .await?;
+    }
+    Ok(())
+}
+
+fn resolve_topics_update(
+    // Outer option None means there is no update. Inner None means subscribe to all topics.
+    update: Option<Option<Vec<LogTopic>>>,
+    existing: Option<BTreeSet<LogTopic>>,
+) -> anyhow::Result<Option<BTreeSet<LogTopic>>> {
+    match update {
+        None => Ok(existing),
+        Some(topics) => validate_subscribed_topics(topics),
+    }
+}
+
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 enum LogStreamType {
@@ -174,6 +235,10 @@ pub struct CreateDatadogLogStreamArgs {
     dd_tags: Vec<String>,
     /// Service name used as a special tag in Datadog.
     service: Option<String>,
+    /// The topics this log stream is subscribed to. Omit to
+    /// subscribe to all topics, including ones added in the future.
+    #[serde(default)]
+    topics: Option<Vec<LogTopic>>,
 }
 
 impl TryFrom<CreateDatadogLogStreamArgs> for DatadogConfig {
@@ -186,6 +251,7 @@ impl TryFrom<CreateDatadogLogStreamArgs> for DatadogConfig {
             dd_tags: value.dd_tags,
             version: LogEventFormatVersion::V2,
             service: value.service,
+            topics: validate_subscribed_topics(value.topics)?,
         })
     }
 }
@@ -198,6 +264,10 @@ pub struct CreateWebhookLogStreamArgs {
     /// Format for the webhook payload. JSONL sends one object per line of
     /// request, JSON sends one array per request.
     format: WebhookFormat,
+    /// The topics this log stream is subscribed to. Omit to
+    /// subscribe to all topics, including ones added in the future.
+    #[serde(default)]
+    topics: Option<Vec<LogTopic>>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -212,6 +282,10 @@ pub struct CreateAxiomLogStreamArgs {
     attributes: Vec<AxiomAttribute>,
     /// Optional ingest endpoint for Axiom
     ingest_url: Option<String>,
+    /// The topics this log stream is subscribed to. Omit to
+    /// subscribe to all topics, including ones added in the future.
+    #[serde(default)]
+    topics: Option<Vec<LogTopic>>,
 }
 
 impl TryFrom<CreateAxiomLogStreamArgs> for AxiomConfig {
@@ -226,6 +300,7 @@ impl TryFrom<CreateAxiomLogStreamArgs> for AxiomConfig {
             attributes: value.attributes,
             version: LogEventFormatVersion::V2,
             ingest_url: value.ingest_url,
+            topics: validate_subscribed_topics(value.topics)?,
         })
     }
 }
@@ -280,6 +355,10 @@ pub struct CreatePostHogLogsLogStreamArgs {
     host: Option<String>,
     /// OTLP service.name attribute. Defaults to the deployment name.
     service_name: Option<String>,
+    /// The topics this log stream is subscribed to. Omit to
+    /// subscribe to all topics, including ones added in the future.
+    #[serde(default)]
+    topics: Option<Vec<LogTopic>>,
 }
 
 impl TryFrom<CreatePostHogLogsLogStreamArgs> for PostHogLogsConfig {
@@ -291,6 +370,7 @@ impl TryFrom<CreatePostHogLogsLogStreamArgs> for PostHogLogsConfig {
             api_key: value.api_key.into(),
             host: value.host,
             service_name: value.service_name,
+            topics: validate_subscribed_topics(value.topics)?,
         })
     }
 }
@@ -403,6 +483,7 @@ pub async fn create_log_stream(
             ensure_log_sink_does_not_exist(&st.application, &SinkType::Datadog).await?;
 
             let config: DatadogConfig = datadog_sink_post_args.try_into()?;
+            ensure_topic_entitlements(&st.application, &identity, &config.topics).await?;
             let id = st
                 .application
                 .add_log_sink(identity.clone(), SinkConfig::Datadog(config))
@@ -423,10 +504,13 @@ pub async fn create_log_stream(
                 ))
             })?;
 
+            let topics = validate_subscribed_topics(webhook_sink_post_args.topics)?;
+            ensure_topic_entitlements(&st.application, &identity, &topics).await?;
             let config = WebhookConfig {
                 url,
                 format: webhook_sink_post_args.format,
                 hmac_secret: hmac_secret.clone(),
+                topics,
             };
             let id = st
                 .application
@@ -452,6 +536,7 @@ pub async fn create_log_stream(
             }
 
             let config: AxiomConfig = axiom_sink_post_args.try_into()?;
+            ensure_topic_entitlements(&st.application, &identity, &config.topics).await?;
             let id = st
                 .application
                 .add_log_sink(identity.clone(), SinkConfig::Axiom(config))
@@ -473,6 +558,7 @@ pub async fn create_log_stream(
             ensure_log_sink_does_not_exist(&st.application, &SinkType::PostHogLogs).await?;
 
             let config: PostHogLogsConfig = args.try_into()?;
+            ensure_topic_entitlements(&st.application, &identity, &config.topics).await?;
             let id = st
                 .application
                 .add_log_sink(identity.clone(), SinkConfig::PostHogLogs(config))
@@ -559,9 +645,10 @@ pub async fn rotate_webhook_secret(
                 url: existing_webhook_sink.url,
                 format: existing_webhook_sink.format,
                 hmac_secret: hmac_secret.clone(),
+                topics: existing_webhook_sink.topics,
             };
             st.application
-                .patch_log_sink_config(identity.clone(), &id, SinkConfig::Webhook(config))
+                .patch_log_sink_config(identity, &id, SinkConfig::Webhook(config))
                 .await?;
 
             Ok(Json(RotateLogStreamSecretResponse::Webhook { hmac_secret }))
@@ -606,6 +693,9 @@ pub struct DatadogLogStreamConfig {
     /// Service name used as a special tag in Datadog.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service: Option<String>,
+    /// The topics this log stream is subscribed to. `null` means subscribed to
+    /// all topics, including ones added in the future.
+    pub topics: Option<Vec<LogTopic>>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -622,6 +712,9 @@ pub struct WebhookLogStreamConfig {
     pub format: WebhookFormat,
     /// Use this secret to verify webhook signatures.
     pub hmac_secret: String,
+    /// The topics this log stream is subscribed to. `null` means subscribed to
+    /// all topics, including ones added in the future.
+    pub topics: Option<Vec<LogTopic>>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -639,6 +732,9 @@ pub struct AxiomLogStreamConfig {
     /// Optional ingest endpoint for Axiom
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ingest_url: Option<String>,
+    /// The topics this log stream is subscribed to. `null` means subscribed to
+    /// all topics, including ones added in the future.
+    pub topics: Option<Vec<LogTopic>>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -666,6 +762,9 @@ pub struct PostHogLogsLogStreamConfig {
     /// OTLP service.name attribute.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_name: Option<String>,
+    /// The topics this log stream is subscribed to. `null` means subscribed to
+    /// all topics, including ones added in the future.
+    pub topics: Option<Vec<LogTopic>>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -690,6 +789,7 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
             site_location: config.site_location,
             dd_tags: config.dd_tags,
             service: config.service,
+            topics: config.topics.map(|topics| topics.into_iter().collect()),
         })),
         SinkConfig::Webhook(config) => Some(LogStreamConfig::Webhook(WebhookLogStreamConfig {
             id: sink.id.to_string(),
@@ -697,6 +797,7 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
             url: config.url.to_string(),
             format: config.format,
             hmac_secret: config.hmac_secret,
+            topics: config.topics.map(|topics| topics.into_iter().collect()),
         })),
         SinkConfig::Axiom(config) => Some(LogStreamConfig::Axiom(AxiomLogStreamConfig {
             id: sink.id.to_string(),
@@ -704,6 +805,7 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
             dataset_name: config.dataset_name,
             attributes: config.attributes,
             ingest_url: config.ingest_url,
+            topics: config.topics.map(|topics| topics.into_iter().collect()),
         })),
         SinkConfig::Sentry(config) => Some(LogStreamConfig::Sentry(SentryLogStreamConfig {
             id: sink.id.to_string(),
@@ -718,6 +820,7 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
                 status,
                 host: config.host,
                 service_name: config.service_name,
+                topics: config.topics.map(|topics| topics.into_iter().collect()),
             }))
         },
         SinkConfig::PostHogErrorTracking(config) => Some(LogStreamConfig::PostHogErrorTracking(
@@ -821,6 +924,11 @@ pub struct UpdateDatadogSinkArgs {
     /// Service name used as a special tag in Datadog.
     #[serde(default, with = "::serde_with::rust::double_option")]
     service: Option<Option<String>>,
+    /// The topics this log stream is subscribed to. Omit to keep the current
+    /// subscription, or pass `null` to subscribe to all topics (including ones
+    /// added in the future).
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    topics: Option<Option<Vec<LogTopic>>>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -833,6 +941,11 @@ pub struct UpdateWebhookSinkArgs {
     /// request, JSON sends one array per request.
     #[serde(default)]
     format: Option<WebhookFormat>,
+    /// The topics this log stream is subscribed to. Omit to keep the current
+    /// subscription, or pass `null` to subscribe to all topics (including ones
+    /// added in the future).
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    topics: Option<Option<Vec<LogTopic>>>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -851,6 +964,11 @@ pub struct UpdateAxiomSinkArgs {
     /// Optional ingest endpoint for Axiom
     #[serde(default, with = "::serde_with::rust::double_option")]
     ingest_url: Option<Option<String>>,
+    /// The topics this log stream is subscribed to. Omit to keep the current
+    /// subscription, or pass `null` to subscribe to all topics (including ones
+    /// added in the future).
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    topics: Option<Option<Vec<LogTopic>>>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -877,6 +995,11 @@ pub struct UpdatePostHogLogsSinkArgs {
     /// OTLP service.name attribute.
     #[serde(default, with = "::serde_with::rust::double_option")]
     service_name: Option<Option<String>>,
+    /// The topics this log stream is subscribed to. Omit to keep the current
+    /// subscription, or pass `null` to subscribe to all topics (including ones
+    /// added in the future).
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    topics: Option<Option<Vec<LogTopic>>>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -960,6 +1083,8 @@ pub async fn update_log_stream(
                 .into());
             };
 
+            let topics = resolve_topics_update(update_args.topics, existing_config.topics)?;
+            ensure_topic_entitlements(&st.application, &identity, &topics).await?;
             let config = DatadogConfig {
                 site_location: update_args
                     .site_location
@@ -971,6 +1096,7 @@ pub async fn update_log_stream(
                 dd_tags: update_args.dd_tags.unwrap_or(existing_config.dd_tags),
                 version: existing_config.version,
                 service: update_args.service.unwrap_or(existing_config.service),
+                topics,
             };
 
             st.application
@@ -998,10 +1124,13 @@ pub async fn update_log_stream(
                 existing_config.url
             };
 
+            let topics = resolve_topics_update(update_args.topics, existing_config.topics)?;
+            ensure_topic_entitlements(&st.application, &identity, &topics).await?;
             let config = WebhookConfig {
                 url,
                 format: update_args.format.unwrap_or(existing_config.format),
                 hmac_secret: existing_config.hmac_secret,
+                topics,
             };
 
             st.application
@@ -1032,6 +1161,8 @@ pub async fn update_log_stream(
                 validate_axiom_ingest_url(ingest_url.as_ref())?
             }
 
+            let topics = resolve_topics_update(update_args.topics, existing_config.topics)?;
+            ensure_topic_entitlements(&st.application, &identity, &topics).await?;
             let config = AxiomConfig {
                 api_key: update_args
                     .api_key
@@ -1043,6 +1174,7 @@ pub async fn update_log_stream(
                 attributes,
                 version: existing_config.version,
                 ingest_url,
+                topics,
             };
 
             st.application
@@ -1096,6 +1228,8 @@ pub async fn update_log_stream(
                 validate_posthog_host(host.as_ref())?;
             }
 
+            let topics = resolve_topics_update(update_args.topics, existing_config.topics)?;
+            ensure_topic_entitlements(&st.application, &identity, &topics).await?;
             let config = PostHogLogsConfig {
                 api_key: update_args
                     .api_key
@@ -1105,6 +1239,7 @@ pub async fn update_log_stream(
                 service_name: update_args
                     .service_name
                     .unwrap_or(existing_config.service_name),
+                topics,
             };
 
             st.application

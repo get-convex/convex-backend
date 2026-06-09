@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     ops::Deref,
     sync::{
         atomic::Ordering,
@@ -19,6 +20,7 @@ use common::{
     log_streaming::{
         LogEvent,
         LogEventFormatVersion,
+        LogTopic,
     },
     runtime::Runtime,
 };
@@ -44,8 +46,8 @@ use crate::{
     sinks::utils::{
         self,
         build_event_batches,
-        default_log_filter,
         EgressCounter,
+        SinkFilter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -108,6 +110,7 @@ pub(crate) struct DatadogSink<RT: Runtime> {
     dd_api_key: String,
     metadata: DatadogMetadata,
     log_event_format: LogEventFormatVersion,
+    filter: SinkFilter,
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
@@ -119,6 +122,7 @@ impl<RT: Runtime> DatadogSink<RT> {
         runtime: RT,
         fetch_client: Arc<dyn FetchClient>,
         config: DatadogConfig,
+        subscribed_topics: Option<BTreeSet<LogTopic>>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         egress_counter: EgressCounter,
         should_verify: bool,
@@ -132,12 +136,14 @@ impl<RT: Runtime> DatadogSink<RT> {
             config.service,
         );
 
+        let filter = SinkFilter::for_version(config.version, subscribed_topics);
         let mut sink = Self {
             runtime: runtime.clone(),
             dd_url: config.site_location.get_logging_endpoint()?,
             dd_api_key: config.dd_api_key.into_value(),
             metadata,
             log_event_format: config.version,
+            filter,
             events_receiver: rx,
             fetch_client,
             backoff: Backoff::new(consts::DD_SINK_INITIAL_BACKOFF, consts::DD_SINK_MAX_BACKOFF),
@@ -168,11 +174,8 @@ impl<RT: Runtime> DatadogSink<RT> {
                 },
                 Some(ev) => {
                     // Split events into batches
-                    let batches = build_event_batches(
-                        ev,
-                        consts::DD_SINK_MAX_LOGS_PER_BATCH,
-                        default_log_filter,
-                    );
+                    let batches =
+                        build_event_batches(ev, consts::DD_SINK_MAX_LOGS_PER_BATCH, &self.filter);
 
                     // Process each batch and send to Datadog
                     for batch in batches {

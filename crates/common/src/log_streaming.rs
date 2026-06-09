@@ -233,6 +233,82 @@ pub enum StructuredLogEvent {
     // },
 }
 
+// The set of topics that a `StructuredLogEvent` can belong to. Each variant of
+// `StructuredLogEvent` maps to exactly one `LogTopic` via
+// `StructuredLogEvent::topic`.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    strum::EnumString,
+    strum::IntoStaticStr,
+    strum::Display,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum LogTopic {
+    Verification,
+    Console,
+    FunctionExecution,
+    Exception,
+    AuditLog,
+    SchedulerStats,
+    ScheduledJobLag,
+    CurrentStorageUsage,
+    ConcurrencyStats,
+    StorageApiBandwidth,
+    LogStreamEgress,
+    CustomAudit,
+}
+
+impl LogTopic {
+    /// The topics that can be configured on a log stream subscription.
+    pub const SUBSCRIBABLE: &'static [LogTopic] = &[
+        LogTopic::Console,
+        LogTopic::FunctionExecution,
+        LogTopic::AuditLog,
+        LogTopic::SchedulerStats,
+        LogTopic::ScheduledJobLag,
+        LogTopic::CurrentStorageUsage,
+        LogTopic::ConcurrencyStats,
+        LogTopic::StorageApiBandwidth,
+        LogTopic::LogStreamEgress,
+        LogTopic::CustomAudit,
+    ];
+
+    /// Whether this topic can be configured on a log stream subscription.
+    pub fn is_subscribable(&self) -> bool {
+        Self::SUBSCRIBABLE.contains(self)
+    }
+}
+
+impl StructuredLogEvent {
+    pub fn topic(&self) -> LogTopic {
+        match self {
+            StructuredLogEvent::Verification => LogTopic::Verification,
+            StructuredLogEvent::Console { .. } => LogTopic::Console,
+            StructuredLogEvent::FunctionExecution { .. } => LogTopic::FunctionExecution,
+            StructuredLogEvent::Exception { .. } => LogTopic::Exception,
+            StructuredLogEvent::DeploymentAuditLog { .. } => LogTopic::AuditLog,
+            StructuredLogEvent::SchedulerStats { .. } => LogTopic::SchedulerStats,
+            StructuredLogEvent::ScheduledJobLag { .. } => LogTopic::ScheduledJobLag,
+            StructuredLogEvent::CurrentStorageUsage { .. } => LogTopic::CurrentStorageUsage,
+            StructuredLogEvent::ConcurrencyStats { .. } => LogTopic::ConcurrencyStats,
+            StructuredLogEvent::StorageApiBandwidth { .. } => LogTopic::StorageApiBandwidth,
+            StructuredLogEvent::LogStreamEgress { .. } => LogTopic::LogStreamEgress,
+            StructuredLogEvent::CustomAudit { .. } => LogTopic::CustomAudit,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum LogEventFormatVersion {
     V1,

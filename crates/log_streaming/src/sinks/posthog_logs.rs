@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::Ordering,
-    Arc,
+use std::{
+    collections::BTreeSet,
+    sync::{
+        atomic::Ordering,
+        Arc,
+    },
 };
 
 use bytes::Bytes;
@@ -17,6 +20,7 @@ use common::{
     log_streaming::{
         LogEvent,
         LogEventFormatVersion,
+        LogTopic,
         StructuredLogEvent,
     },
     runtime::Runtime,
@@ -50,8 +54,8 @@ use crate::{
     sinks::utils::{
         self,
         build_event_batches,
-        default_log_filter,
         EgressCounter,
+        SinkFilter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -62,6 +66,7 @@ pub struct PostHogLogsSink<RT: Runtime> {
     endpoint_url: reqwest::Url,
     api_key: String,
     service_name: String,
+    filter: SinkFilter,
     fetch_client: Arc<dyn FetchClient>,
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
@@ -73,6 +78,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
     pub async fn start(
         runtime: RT,
         config: PostHogLogsConfig,
+        subscribed_topics: Option<BTreeSet<LogTopic>>,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         egress_counter: EgressCounter,
@@ -94,6 +100,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
             endpoint_url: endpoint_url.parse()?,
             api_key: config.api_key.into_value(),
             service_name,
+            filter: SinkFilter::for_version(LogEventFormatVersion::V2, subscribed_topics),
             fetch_client,
             events_receiver: rx,
             backoff: Backoff::new(
@@ -163,7 +170,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
                     let batches = build_event_batches(
                         ev,
                         consts::POSTHOG_LOGS_SINK_MAX_LOGS_PER_BATCH,
-                        default_log_filter,
+                        &self.filter,
                     );
 
                     for batch in batches {

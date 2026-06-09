@@ -1,5 +1,8 @@
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::{
         atomic::Ordering,
         Arc,
@@ -19,6 +22,7 @@ use common::{
     log_streaming::{
         LogEvent,
         LogEventFormatVersion,
+        LogTopic,
     },
     runtime::Runtime,
 };
@@ -48,8 +52,8 @@ use crate::{
     sinks::utils::{
         self,
         build_event_batches,
-        default_log_filter,
         EgressCounter,
+        SinkFilter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -93,6 +97,7 @@ pub struct AxiomSink<RT: Runtime> {
     api_key: String,
     attributes: BTreeMap<String, String>,
     log_event_format: LogEventFormatVersion,
+    filter: SinkFilter,
     fetch_client: Arc<dyn FetchClient>,
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
@@ -104,6 +109,7 @@ impl<RT: Runtime> AxiomSink<RT> {
     pub async fn start(
         runtime: RT,
         config: AxiomConfig,
+        subscribed_topics: Option<BTreeSet<LogTopic>>,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         egress_counter: EgressCounter,
@@ -137,6 +143,7 @@ impl<RT: Runtime> AxiomSink<RT> {
                 .into_iter()
                 .map(|a| (a.key, a.value))
                 .collect(),
+            filter: SinkFilter::for_version(config.version, subscribed_topics),
             log_event_format: config.version,
             fetch_client,
             events_receiver: rx,
@@ -188,7 +195,7 @@ impl<RT: Runtime> AxiomSink<RT> {
                     let batches = build_event_batches(
                         ev,
                         consts::AXIOM_SINK_MAX_LOGS_PER_BATCH,
-                        default_log_filter,
+                        &self.filter,
                     );
 
                     // Process each batch and send to Axiom

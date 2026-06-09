@@ -103,7 +103,8 @@ impl<RT: Runtime> Application<RT> {
                 let id_str = id.clone();
                 async move {
                     let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
-                    LogSinksModel::new(tx).patch_config(id, config).await?;
+                    let mut model = LogSinksModel::new(tx);
+                    model.patch_config(id, config).await?;
                     Ok((
                         (),
                         vec![DeploymentAuditLogEvent::UpdateIntegration {
@@ -259,6 +260,18 @@ impl<RT: Runtime> Application<RT> {
         let mut tx = self.begin(identity).await?;
         BackendInfoModel::new(&mut tx)
             .ensure_log_streaming_allowed()
+            .await
+    }
+
+    /// Ensures the deployment is entitled to subscribe a log stream to the
+    /// `custom_audit` topic.
+    pub async fn ensure_custom_audit_logs_in_log_streams_allowed(
+        &self,
+        identity: Identity,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.begin(identity).await?;
+        BackendInfoModel::new(&mut tx)
+            .ensure_custom_audit_logs_in_log_streams_allowed()
             .await
     }
 }

@@ -587,6 +587,16 @@
           "status": {
             "$ref": "#/components/schemas/LogStreamStatus",
             "description": "Status of the log stream"
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. `null` means subscribed to\nall topics, including ones added in the future."
           }
         }
       },
@@ -619,6 +629,16 @@
               "null"
             ],
             "description": "Optional ingest endpoint for Axiom"
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to\nsubscribe to all topics, including ones added in the future."
           }
         }
       },
@@ -651,6 +671,16 @@
           "siteLocation": {
             "$ref": "#/components/schemas/DatadogSiteLocation",
             "description": "Location of your Datadog deployment."
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to\nsubscribe to all topics, including ones added in the future."
           }
         }
       },
@@ -953,6 +983,16 @@
               "null"
             ],
             "description": "OTLP service.name attribute. Defaults to the deployment name."
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to\nsubscribe to all topics, including ones added in the future."
           }
         }
       },
@@ -991,6 +1031,16 @@
           "format": {
             "$ref": "#/components/schemas/WebhookFormat",
             "description": "Format for the webhook payload. JSONL sends one object per line of\nrequest, JSON sends one array per request."
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to\nsubscribe to all topics, including ones added in the future."
           },
           "url": {
             "type": "string",
@@ -1048,6 +1098,16 @@
           "status": {
             "$ref": "#/components/schemas/LogStreamStatus",
             "description": "Status of the log stream"
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. `null` means subscribed to\nall topics, including ones added in the future."
           }
         }
       },
@@ -1390,6 +1450,23 @@
         ],
         "description": "Status of a log stream"
       },
+      "LogTopic": {
+        "type": "string",
+        "enum": [
+          "verification",
+          "console",
+          "function_execution",
+          "exception",
+          "audit_log",
+          "scheduler_stats",
+          "scheduled_job_lag",
+          "current_storage_usage",
+          "concurrency_stats",
+          "storage_api_bandwidth",
+          "log_stream_egress",
+          "custom_audit"
+        ]
+      },
       "PostHogErrorTrackingLogStreamConfig": {
         "type": "object",
         "title": "PostHogErrorTrackingConfig",
@@ -1442,6 +1519,16 @@
           "status": {
             "$ref": "#/components/schemas/LogStreamStatus",
             "description": "Status of the log stream"
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. `null` means subscribed to\nall topics, including ones added in the future."
           }
         }
       },
@@ -1548,6 +1635,16 @@
               "null"
             ],
             "description": "Optional ingest endpoint for Axiom"
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to keep the current\nsubscription, or pass `null` to subscribe to all topics (including ones\nadded in the future)."
           }
         }
       },
@@ -1607,6 +1704,16 @@
                 "description": "Location of your Datadog deployment."
               }
             ]
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to keep the current\nsubscription, or pass `null` to subscribe to all topics (including ones\nadded in the future)."
           }
         }
       },
@@ -1819,6 +1926,16 @@
               "null"
             ],
             "description": "OTLP service.name attribute."
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to keep the current\nsubscription, or pass `null` to subscribe to all topics (including ones\nadded in the future)."
           }
         }
       },
@@ -1861,6 +1978,16 @@
               }
             ]
           },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. Omit to keep the current\nsubscription, or pass `null` to subscribe to all topics (including ones\nadded in the future)."
+          },
           "url": {
             "type": [
               "string",
@@ -1902,6 +2029,16 @@
           "status": {
             "$ref": "#/components/schemas/LogStreamStatus",
             "description": "Status of the log stream"
+          },
+          "topics": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LogTopic"
+            },
+            "description": "The topics this log stream is subscribed to. `null` means subscribed to\nall topics, including ones added in the future."
           },
           "url": {
             "type": "string",

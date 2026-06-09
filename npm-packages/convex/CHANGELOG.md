@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.41.0
+- It is now possible to set limits on nested queries and mutations
+  with the new `transactionLimits` option in `runQuery`/`runMutation`.
+- `npx convex ai-files` now installs skills with separate copies of
+  each skill for each coding agent instead of using symlinks.
+  We made this change to avoid known issues with symlinks on Windows.
+- When using Convex in anonymous mode (without a Convex account),
+  `npx convex dev` now starts a different dashboard server for each
+  deployment. This ensures the dashboard always connects to the
+  right deployment when multiple deployments are running at the same time.
+
 ## 1.40.0
 - You can now create a local deployment in a specific Convex cloud project with
   `npx convex deployment create team-slug:project-slug:local`.

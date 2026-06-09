@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     ops::Deref,
     sync::{
         atomic::Ordering,
@@ -23,6 +24,7 @@ use common::{
     log_streaming::{
         LogEvent,
         LogEventFormatVersion,
+        LogTopic,
     },
     runtime::Runtime,
 };
@@ -51,8 +53,8 @@ use crate::{
     sinks::utils::{
         self,
         build_event_batches,
-        default_log_filter,
         EgressCounter,
+        SinkFilter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -82,6 +84,7 @@ impl<'a> WebhookLogEvent<'a> {
 pub struct WebhookSink<RT: Runtime> {
     runtime: RT,
     config: WebhookConfig,
+    filter: SinkFilter,
     fetch_client: Arc<dyn FetchClient>,
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
@@ -93,6 +96,7 @@ impl<RT: Runtime> WebhookSink<RT> {
     pub async fn start(
         runtime: RT,
         config: WebhookConfig,
+        subscribed_topics: Option<BTreeSet<LogTopic>>,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         egress_counter: EgressCounter,
@@ -104,6 +108,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         let mut sink = Self {
             runtime: runtime.clone(),
             config,
+            filter: SinkFilter::for_version(LOG_EVENT_FORMAT_FOR_WEBHOOK, subscribed_topics),
             fetch_client,
             events_receiver: rx,
             backoff: Backoff::new(
@@ -149,7 +154,7 @@ impl<RT: Runtime> WebhookSink<RT> {
                     let batches = build_event_batches(
                         ev,
                         consts::WEBHOOK_SINK_MAX_LOGS_PER_BATCH,
-                        default_log_filter,
+                        &self.filter,
                     );
 
                     // Process each batch and send to Datadog

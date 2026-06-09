@@ -45,8 +45,8 @@ use crate::{
     sinks::utils::{
         self,
         build_event_batches,
-        only_exceptions_log_filter,
         EgressCounter,
+        SinkFilter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -152,7 +152,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                     let batches = build_event_batches(
                         ev,
                         consts::POSTHOG_ET_SINK_MAX_LOGS_PER_BATCH,
-                        only_exceptions_log_filter,
+                        &SinkFilter::OnlyExceptions,
                     );
 
                     for batch in batches {
