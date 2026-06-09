@@ -9,6 +9,7 @@ import {
 } from "../bundler/log.js";
 import {
   DeploymentSelection,
+  ensureAuthCanCreateDeployment,
   getDeploymentSelection,
   getProjectDetails,
   deploymentNameFromSelection,
@@ -90,6 +91,12 @@ export const deploymentCreate = new Command("create")
       adminKey: undefined,
       envFile: undefined,
     });
+
+    // Creating a deployment goes through the platform API, which accepts
+    // personal access tokens and project keys but not deployment/preview deploy
+    // keys. Fail fast (and clearly) for the unsupported keys rather than
+    // surfacing an opaque 401 from the lookup below.
+    await ensureAuthCanCreateDeployment(ctx);
 
     const currentDeployment = await getDeploymentSelection(ctx, {
       url: undefined,
