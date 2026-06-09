@@ -348,29 +348,6 @@ impl IndexCache {
             IntervalStatus::IntervalMissing
         }
     }
-
-    /// Invalidate a cache entry if the write falls within its tracked interval.
-    fn apply_write_to_cache(&self, key: &CacheKey, write: &DatabaseIndexWrite) {
-        let old_in_interval = write
-            .update
-            .old
-            .as_ref()
-            .is_some_and(|k| key.interval.contains(k));
-        let new_in_interval = write
-            .update
-            .new
-            .as_ref()
-            .is_some_and(|k| key.interval.contains(k));
-        if !old_in_interval && !new_in_interval {
-            return;
-        }
-        self.cache.remove(key.clone());
-        tracing::debug!(
-            deployment_id = ?key.deployment_id,
-            "IndexCache::apply_write_to_cache invalidated entry"
-        );
-        log_index_cache_invalidation();
-    }
 }
 
 /// A handle to [`IndexCache`] scoped to a single deployment.
@@ -669,9 +646,8 @@ impl IndexCacheHandle {
             let Some(index_id) = (index_name_to_id)(index_name) else {
                 continue;
             };
-            // Clone the Arc-backed IndexIntervals (releasing the DashMap shard
-            // lock) before iterating writes so apply_write_to_cache can acquire
-            // the same DashMap entry without deadlocking.
+            // Clone the Arc-backed IndexIntervals to avoid holding the DashMap
+            // shard lock while iterating over writes.
             let Some(intervals) = self
                 .cache
                 .index_to_intervals
@@ -693,7 +669,12 @@ impl IndexCacheHandle {
                         order,
                         max_size,
                     };
-                    self.cache.apply_write_to_cache(&key, write);
+                    self.cache.cache.remove(key.clone());
+                    tracing::debug!(
+                        deployment_id = ?key.deployment_id,
+                        "IndexCache::apply_writes invalidated entry"
+                    );
+                    log_index_cache_invalidation();
                 }
             }
         }

@@ -280,6 +280,7 @@ Same format as .env.local or .env files, and overrides them.`,
                         credentials.deploymentFields.deploymentType,
                     }
                   : {}),
+                backendVersion: localOptions.backendVersion,
               },
               devOptions,
             ),

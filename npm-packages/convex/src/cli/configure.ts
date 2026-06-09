@@ -93,9 +93,10 @@ type ConfigureCmdOptions = {
 /**
  * As of writing, this is used by:
  * - `npx convex dev`
- * - `npx convex codegen`
+ * - `npx convex init`
  *
- * But is not used by `npx convex deploy` or other commands.
+ * But is not used by `npx convex deploy`, `npx convex codegen`,
+ * `npx convex env`, or other commands.
  */
 export async function deploymentCredentialsOrConfigure(
   ctx: Context,

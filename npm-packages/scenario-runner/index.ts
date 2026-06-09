@@ -10,7 +10,7 @@ import { Config, ProvisionerInfo, Scenario } from "./scenario.js";
 import { Search } from "./scenarios/search.js";
 import { VectorSearch } from "./scenarios/vector_search.js";
 import { ConvexClient } from "convex/browser";
-import { ScenarioMessage } from "./types.js";
+import { CLOSE_TIMEOUT, ScenarioMessage } from "./types.js";
 import { RunHttpAction } from "./scenarios/run_http_action.js";
 import dns from "node:dns";
 import { ManyIntersections } from "./scenarios/many_intersections.js";
@@ -98,6 +98,21 @@ async function getProvisionerInfo(
   };
 }
 
+/**
+ * `client.close()` resolves only when the WebSocket `onclose` event fires. On a
+ * half-open / wedged connection (e.g. after the backend closes with 1011
+ * InternalServerError, or the WS upgrade fails with a non-101 status) that event
+ * may never arrive, so an un-bounded `await client.close()` can hang the scenario
+ * loop forever -- silently halting all throughput for the scenario until the
+ * process restarts. Bound it so a stuck close just moves on.
+ */
+async function closeWithTimeout(client: ConvexClient) {
+  await Promise.race([
+    client.close(),
+    new Promise<void>((resolve) => setTimeout(resolve, CLOSE_TIMEOUT)),
+  ]);
+}
+
 async function runScenario(
   config: Config,
   scenarioMessage: ScenarioMessage,
@@ -157,8 +172,11 @@ async function runScenario(
     const client = new ConvexClient(config.deploymentUrl);
     const runScenario = async () => {
       const client = new ConvexClient(config.deploymentUrl);
-      await scenario!.run(client);
-      await client.close();
+      try {
+        await scenario!.run(client);
+      } finally {
+        await closeWithTimeout(client);
+      }
     };
     const rate = scenarioMessage.rate;
     const handleError = (err: Error) => {
@@ -209,7 +227,7 @@ async function runScenario(
       );
     } finally {
       scenario.cleanUp();
-      await client.close();
+      await closeWithTimeout(client);
     }
   } else {
     console.error(

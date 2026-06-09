@@ -41,7 +41,6 @@ import {
   generateLocalDevSecretsWithLatestBinary,
   LEGACY_LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./secrets.js";
-import { handleDashboard } from "./dashboard.js";
 
 export async function handleAnonymousDeployment(
   ctx: Context,
@@ -157,12 +156,6 @@ export async function handleAnonymousDeployment(
     if (cleanupFunc !== null) {
       await cleanupFunc(exitCode, err);
     }
-  });
-
-  await handleDashboard(ctx, version, {
-    name: deployment.deploymentName,
-    cloudPort,
-    adminKey,
   });
 
   if (deployment.kind === "new") {
