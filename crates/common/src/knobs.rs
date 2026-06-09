@@ -1659,7 +1659,7 @@ pub static HTTP_CACHE_SIZE: LazyLock<u64> =
     LazyLock::new(|| env_config("HTTP_CACHE_SIZE", 16 * 1024 * 1024));
 
 /// Maximum number of environment variables that can be stored.
-pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 256));
+pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 512));
 
 /// Maximum total size in bytes of all environment variables (names + values).
 pub static ENV_VAR_TOTAL_SIZE_LIMIT: LazyLock<usize> =
