@@ -10,7 +10,6 @@ import {
   LocalDeploymentConfig,
   LocalDeploymentKind,
   deploymentStateDir,
-  loadDeploymentConfig,
   saveDeploymentConfig,
 } from "./filePaths.js";
 import {
@@ -32,6 +31,10 @@ import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { recursivelyDelete } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
+import {
+  generateLocalDevSecretsWithLatestBinary,
+  LEGACY_LOCAL_BACKEND_INSTANCE_SECRET,
+} from "./secrets.js";
 
 export async function handlePotentialUpgradeAndStart(
   ctx: Context,
@@ -45,17 +48,31 @@ export async function handlePotentialUpgradeAndStart(
       cloud: number;
       site: number;
     };
-    adminKey: string;
-    instanceSecret: string;
+    existingCredentials: { adminKey: string; instanceSecret: string } | null;
     forceUpgrade: boolean;
     cloudProjectId: number | undefined;
   },
-): Promise<{ cleanupHandle: string }> {
+): Promise<{ cleanupHandle: string; adminKey: string }> {
+  const { adminKey, instanceSecret } =
+    args.existingCredentials === null ||
+    args.existingCredentials.instanceSecret ===
+      LEGACY_LOCAL_BACKEND_INSTANCE_SECRET
+      ? // Using `generateLocalDevSecretsFromLatestBinary` instead of `generateLocalDevSecrets`
+        // here, because `newBinaryPath` can be a binary that doesn’t support
+        // the `keygen admin-key` subcommand (when the --local-backend-version flag is provided to the CLI)
+        //
+        // In most cases (the user is not using the flag), we have already downloaded the latest binary
+        // shortly before in handleLocalDeployment/handleAnonymousDeployment, so this doesn’t cause an
+        // extra download (even if the user chooses later not to upgrade their deployment)
+        await generateLocalDevSecretsWithLatestBinary(ctx, {
+          deploymentName: args.deploymentName,
+        })
+      : args.existingCredentials;
   const newConfig: LocalDeploymentConfig = {
     ports: args.ports,
     backendVersion: args.newVersion,
-    adminKey: args.adminKey,
-    instanceSecret: args.instanceSecret,
+    adminKey,
+    instanceSecret,
     cloudProjectId: args.cloudProjectId,
   };
   if (args.oldVersion === null || args.oldVersion === args.newVersion) {
@@ -66,14 +83,15 @@ export async function handlePotentialUpgradeAndStart(
       args.deploymentName,
       newConfig,
     );
-    return runLocalBackend(ctx, {
+    const { cleanupHandle } = await runLocalBackend(ctx, {
       binaryPath: args.newBinaryPath,
       deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
       ports: args.ports,
-      instanceSecret: args.instanceSecret,
+      instanceSecret,
       isLatestVersion: true,
     });
+    return { cleanupHandle, adminKey };
   }
   logVerbose(
     `Considering upgrade from ${args.oldVersion} to ${args.newVersion}`,
@@ -98,14 +116,15 @@ export async function handlePotentialUpgradeAndStart(
       ...newConfig,
       backendVersion: args.oldVersion,
     });
-    return runLocalBackend(ctx, {
+    const { cleanupHandle } = await runLocalBackend(ctx, {
       binaryPath: oldBinaryPath,
       ports: args.ports,
       deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
-      instanceSecret: args.instanceSecret,
+      instanceSecret,
       isLatestVersion: false,
     });
+    return { cleanupHandle, adminKey };
   }
   const choice =
     args.forceUpgrade || !process.stdin.isTTY
@@ -131,31 +150,28 @@ export async function handlePotentialUpgradeAndStart(
       args.deploymentName,
       newConfig,
     );
-    return runLocalBackend(ctx, {
+    const { cleanupHandle } = await runLocalBackend(ctx, {
       binaryPath: args.newBinaryPath,
       deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
       ports: args.ports,
-      instanceSecret: args.instanceSecret,
+      instanceSecret,
       isLatestVersion: true,
     });
+    return { cleanupHandle, adminKey };
   }
-  const newAdminKey = args.adminKey;
-  const oldAdminKey =
-    loadDeploymentConfig(ctx, args.deploymentKind, args.deploymentName)
-      ?.adminKey ?? args.adminKey;
-  return handleUpgrade(ctx, {
+  const { cleanupHandle } = await handleUpgrade(ctx, {
     deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
     oldVersion: args.oldVersion!,
     newBinaryPath: args.newBinaryPath,
     newVersion: args.newVersion,
     ports: args.ports,
-    oldAdminKey,
-    newAdminKey,
-    instanceSecret: args.instanceSecret,
+    adminKey,
+    instanceSecret,
     cloudProjectId: args.cloudProjectId,
   });
+  return { cleanupHandle, adminKey };
 }
 
 async function handleUpgrade(
@@ -170,15 +186,12 @@ async function handleUpgrade(
       cloud: number;
       site: number;
     };
-    // In most of the cases the admin key is the same for the old and new version.
-    // This is helpful when we start generating new admin key formats that might
-    // be incompatible with older backend versions.
-    oldAdminKey: string;
-    newAdminKey: string;
     instanceSecret: string;
+    adminKey: string;
     cloudProjectId: number | undefined;
   },
 ): Promise<{ cleanupHandle: string }> {
+  const { adminKey } = args;
   const { binaryPath: oldBinaryPath } = await ensureBackendBinaryDownloaded(
     ctx,
     {
@@ -201,7 +214,7 @@ async function handleUpgrade(
   const deploymentUrl = localDeploymentUrl(args.ports.cloud);
   const envs = (await runSystemQuery(ctx, {
     deploymentUrl,
-    adminKey: args.oldAdminKey,
+    adminKey,
     functionName: "_system/cli/queryEnvironmentVariables",
     componentPath: undefined,
     args: {},
@@ -220,7 +233,7 @@ async function handleUpgrade(
   }
   const snapshotExportState = await startSnapshotExport(ctx, {
     deploymentUrl,
-    adminKey: args.oldAdminKey,
+    adminKey,
     includeStorage: true,
     inputPath: exportPath,
   });
@@ -234,7 +247,7 @@ async function handleUpgrade(
   await downloadSnapshotExport(ctx, {
     snapshotExportTs: snapshotExportState.start_ts,
     inputPath: exportPath,
-    adminKey: args.oldAdminKey,
+    adminKey,
     deploymentUrl,
   });
 
@@ -265,7 +278,7 @@ async function handleUpgrade(
   if (envs.length > 0) {
     const fetch = deploymentFetch(ctx, {
       deploymentUrl,
-      adminKey: args.newAdminKey,
+      adminKey,
     });
     try {
       await fetch("/api/update_environment_variables", {
@@ -281,7 +294,7 @@ async function handleUpgrade(
   logVerbose("Doing a snapshot import");
   const importId = await uploadForImport(ctx, {
     deploymentUrl,
-    adminKey: args.newAdminKey,
+    adminKey,
     filePath: exportPath,
     importArgs: { format: "zip", mode: "replace", tableName: undefined },
     onImportFailed: async (e) => {
@@ -292,7 +305,7 @@ async function handleUpgrade(
   let status = await waitForStableImportState(ctx, {
     importId,
     deploymentUrl,
-    adminKey: args.newAdminKey,
+    adminKey,
     onProgress: () => {
       // do nothing for now
       return 0;
@@ -310,7 +323,7 @@ async function handleUpgrade(
 
   await confirmImport(ctx, {
     importId,
-    adminKey: args.newAdminKey,
+    adminKey,
     deploymentUrl,
     onError: async (e) => {
       logFailure(`Failed to confirm import: ${e}`);
@@ -320,7 +333,7 @@ async function handleUpgrade(
   status = await waitForStableImportState(ctx, {
     importId,
     deploymentUrl,
-    adminKey: args.newAdminKey,
+    adminKey,
     onProgress: () => {
       // do nothing for now
       return 0;
@@ -341,7 +354,7 @@ async function handleUpgrade(
   saveDeploymentConfig(ctx, args.deploymentKind, args.deploymentName, {
     ports: args.ports,
     backendVersion: args.newVersion,
-    adminKey: args.newAdminKey,
+    adminKey,
     instanceSecret: args.instanceSecret,
     cloudProjectId: args.cloudProjectId,
   });

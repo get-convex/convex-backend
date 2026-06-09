@@ -873,8 +873,8 @@ impl KeyBroker {
     }
 
     pub fn local_dev(instance_name: &str) -> Self {
-        // Must match `LOCAL_BACKEND_INSTANCE_SECRET` in the CLI
-        // (npm-packages/convex/src/cli/lib/localDeployment/utils.ts), since admin
+        // Must match `LEGACY_LOCAL_BACKEND_INSTANCE_SECRET` in the CLI
+        // (npm-packages/convex/src/cli/lib/localDeployment/auth.ts), since admin
         // keys issued here are sent to backends launched by the CLI with that secret.
         const LOCAL_DEV_SECRET: &str = include_str!("../dev/secret.txt");
         Self::new(

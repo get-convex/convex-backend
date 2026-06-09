@@ -30,13 +30,13 @@ import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
 import {
   chooseLocalBackendPorts,
   printLocalDeploymentWelcomeMessage,
-  LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./utils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
 import { defaultEnvBackend } from "../defaultEnv.js";
 import { deploymentEnvBackend, EnvVar } from "../env.js";
 import { getProjectDetails } from "../deploymentSelection.js";
 import { DeploymentDetails } from "../deployment.js";
+import { LEGACY_LOCAL_BACKEND_INSTANCE_SECRET } from "./secrets.js";
 
 export async function handleLocalDeployment(
   ctx: Context,
@@ -92,25 +92,34 @@ export async function handleLocalDeployment(
     requestedPorts: options.ports,
     suggestedPorts: existingDeploymentForProject?.config.ports,
   });
-  const { deploymentName, adminKey, projectId } = await bigBrainStart(ctx, {
+  const { deploymentName, projectId } = await bigBrainStart(ctx, {
     port: cloudPort,
     projectSlug: options.projectSlug,
     teamSlug: options.teamSlug,
     instanceName: existingDeploymentForProject?.deploymentName ?? null,
   });
 
-  const { cleanupHandle } = await handlePotentialUpgradeAndStart(ctx, {
-    deploymentKind: "local",
-    deploymentName,
-    oldVersion: existingDeploymentForProject?.config.backendVersion ?? null,
-    newBinaryPath: binaryPath,
-    newVersion: version,
-    ports: { cloud: cloudPort, site: sitePort },
-    adminKey,
-    instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
-    forceUpgrade: options.forceUpgrade,
-    cloudProjectId: projectId,
-  });
+  const { cleanupHandle, adminKey } = await handlePotentialUpgradeAndStart(
+    ctx,
+    {
+      deploymentKind: "local",
+      deploymentName,
+      oldVersion: existingDeploymentForProject?.config.backendVersion ?? null,
+      newBinaryPath: binaryPath,
+      newVersion: version,
+      ports: { cloud: cloudPort, site: sitePort },
+      existingCredentials: existingDeploymentForProject?.config
+        ? {
+            adminKey: existingDeploymentForProject?.config.adminKey,
+            instanceSecret:
+              existingDeploymentForProject?.config.instanceSecret ??
+              LEGACY_LOCAL_BACKEND_INSTANCE_SECRET,
+          }
+        : null,
+      forceUpgrade: options.forceUpgrade,
+      cloudProjectId: projectId,
+    },
+  );
 
   if (isFirstTime) {
     await importDefaultEnvVars(ctx, {
@@ -125,22 +134,32 @@ export async function handleLocalDeployment(
   // Periodically report activity to BigBrain every 60 seconds.
   // Uses self-scheduling setTimeout to avoid overlapping requests.
   let activityTimeout: ReturnType<typeof setTimeout> | null = null;
-  const scheduleActivityPing = () => {
+  let activityPingStopped = false;
+  async function activityPing() {
+    if (activityPingStopped) {
+      return;
+    }
+    try {
+      await bigBrainRecordActivity(ctx, {
+        instanceName: deploymentName,
+        adminKey,
+      });
+    } catch {
+      // Best-effort: don't crash on failed pings
+    }
+
+    if (activityPingStopped) {
+      return;
+    }
     activityTimeout = setTimeout(async () => {
-      try {
-        await bigBrainRecordActivity(ctx, {
-          instanceName: deploymentName,
-        });
-      } catch {
-        // Best-effort: don't crash on failed pings
-      }
-      scheduleActivityPing();
+      void activityPing();
     }, 60_000);
-  };
-  scheduleActivityPing();
+  }
+  void activityPing();
 
   const cleanupFunc = ctx.removeCleanup(cleanupHandle);
   ctx.registerCleanup(async (exitCode, err) => {
+    activityPingStopped = true;
     if (activityTimeout !== null) {
       clearTimeout(activityTimeout);
     }
