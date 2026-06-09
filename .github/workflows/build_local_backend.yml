@@ -33,7 +33,7 @@ jobs:
         run: cargo update -w --locked
 
       - name: Cache pnpm artifacts
-        uses: runs-on/cache@a5f51d6f3fece787d03b7b4e981c82538a0654ed # v4
+        uses: runs-on/cache@a10d0f887093e2bc9de875be9edf8ab98c94a154 # v4.3.0
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
