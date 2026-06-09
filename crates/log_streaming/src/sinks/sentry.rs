@@ -43,7 +43,7 @@ use crate::{
     consts,
     sinks::utils::{
         build_event_batches,
-        only_exceptions_log_filter,
+        SinkFilter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -118,7 +118,7 @@ impl SentrySink {
                     let batches = build_event_batches(
                         ev,
                         consts::SENTRY_SINK_MAX_LOGS_PER_BATCH,
-                        only_exceptions_log_filter,
+                        &SinkFilter::OnlyExceptions,
                     );
 
                     // Process each batch and send to Sentry

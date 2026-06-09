@@ -117,4 +117,25 @@ impl<'a, RT: Runtime> BackendInfoModel<'a, RT> {
         );
         Ok(())
     }
+
+    pub async fn is_custom_audit_logs_in_log_streams_allowed(&mut self) -> anyhow::Result<bool> {
+        let backend_info = self.get().await?;
+        // Allowed by default on local/self-hosted deployments (no entitlement
+        // configured).
+        Ok(backend_info
+            .and_then(|bi| bi.custom_audit_logs_in_log_streams_config_enabled)
+            .unwrap_or(true))
+    }
+
+    pub async fn ensure_custom_audit_logs_in_log_streams_allowed(&mut self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.is_custom_audit_logs_in_log_streams_allowed().await?,
+            ErrorMetadata::forbidden(
+                "CustomAuditLogsInLogStreamsNotEnabled",
+                "Subscribing a log stream to the custom_audit topic is not available on your \
+                 current subscription. See https://www.convex.dev/plans to upgrade."
+            )
+        );
+        Ok(())
+    }
 }

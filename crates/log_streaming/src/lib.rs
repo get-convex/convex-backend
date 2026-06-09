@@ -632,10 +632,12 @@ impl<RT: Runtime> LogManager<RT> {
         match config {
             SinkConfig::Local(path) => LocalSink::start(runtime.clone(), path.parse()?).await,
             SinkConfig::Datadog(config) => {
+                let topics = config.topics.clone();
                 DatadogSink::start(
                     runtime.clone(),
                     fetch_client,
                     config,
+                    topics,
                     metadata,
                     egress_counter.clone(),
                     should_verify,
@@ -643,9 +645,11 @@ impl<RT: Runtime> LogManager<RT> {
                 .await
             },
             SinkConfig::Webhook(config) => {
+                let topics = config.topics.clone();
                 WebhookSink::start(
                     runtime.clone(),
                     config,
+                    topics,
                     fetch_client,
                     metadata,
                     egress_counter.clone(),
@@ -654,9 +658,11 @@ impl<RT: Runtime> LogManager<RT> {
                 .await
             },
             SinkConfig::Axiom(config) => {
+                let topics = config.topics.clone();
                 AxiomSink::start(
                     runtime.clone(),
                     config,
+                    topics,
                     fetch_client,
                     metadata,
                     egress_counter.clone(),
@@ -675,9 +681,11 @@ impl<RT: Runtime> LogManager<RT> {
                 .await
             },
             SinkConfig::PostHogLogs(config) => {
+                let topics = config.topics.clone();
                 PostHogLogsSink::start(
                     runtime.clone(),
                     config,
+                    topics,
                     fetch_client,
                     metadata,
                     egress_counter.clone(),

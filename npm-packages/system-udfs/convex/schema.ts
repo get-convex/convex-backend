@@ -186,6 +186,24 @@ export const sinkState = v.union(
   }),
 );
 
+// The subscribable log stream topics.
+export const logTopic = v.union(
+  v.literal("console"),
+  v.literal("function_execution"),
+  v.literal("audit_log"),
+  v.literal("scheduler_stats"),
+  v.literal("scheduled_job_lag"),
+  v.literal("current_storage_usage"),
+  v.literal("concurrency_stats"),
+  v.literal("storage_api_bandwidth"),
+  v.literal("log_stream_egress"),
+  v.literal("custom_audit"),
+);
+
+// The topics a log stream is subscribed to. Absent means subscribed to all
+// topics, including ones added in the future.
+const subscribedTopics = v.optional(v.array(logTopic));
+
 export const datadogConfig = v.object({
   type: v.literal("datadog"),
   siteLocation: v.union(
@@ -200,6 +218,7 @@ export const datadogConfig = v.object({
   ddTags: v.array(v.string()),
   service: v.optional(v.string()),
   version: v.optional(v.union(v.literal("1"), v.literal("2"))),
+  topics: subscribedTopics,
 });
 
 export const webhookConfig = v.object({
@@ -207,6 +226,7 @@ export const webhookConfig = v.object({
   url: v.string(),
   format: v.union(v.literal("json"), v.literal("jsonl")),
   hmacSecret: v.string(),
+  topics: subscribedTopics,
 });
 
 export const axiomConfig = v.object({
@@ -221,6 +241,7 @@ export const axiomConfig = v.object({
   ),
   version: v.optional(v.union(v.literal("1"), v.literal("2"))),
   ingestUrl: v.optional(v.string()),
+  topics: subscribedTopics,
 });
 
 export const sentryConfig = v.object({
@@ -235,6 +256,7 @@ export const postHogLogsConfig = v.object({
   apiKey: v.string(),
   host: v.optional(v.string()),
   serviceName: v.optional(v.string()),
+  topics: subscribedTopics,
 });
 
 export const postHogErrorTrackingConfig = v.object({
