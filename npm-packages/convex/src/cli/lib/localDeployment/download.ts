@@ -80,11 +80,38 @@ async function _ensureBackendBinaryDownloaded(
   return { version, binaryPath };
 }
 
+let cachedLatestVersion: string | null = null;
+
+/**
+ * Finds the latest version of the Convex local backend through
+ * version.convex.dev, caching the resolved version for the lifetime of the
+ * process so repeated lookups hit the network at most once.
+ *
+ * Wraps {@link _findLatestVersionWithBinary}. Only successful (non-null)
+ * results are cached, so a failed `requireSuccess: false` lookup can be retried
+ * by a later call.
+ */
+export async function findLatestVersionWithBinary<
+  RequireSuccess extends boolean,
+>(
+  ctx: Context,
+  requireSuccess: RequireSuccess,
+): Promise<RequireSuccess extends true ? string : string | null> {
+  if (cachedLatestVersion !== null) {
+    return cachedLatestVersion;
+  }
+  const result = await _findLatestVersionWithBinary(ctx, requireSuccess);
+  if (result !== null) {
+    cachedLatestVersion = result;
+  }
+  return result;
+}
+
 /**
  * Finds the latest version of the Convex local backend
  * through version.convex.dev
  */
-export async function findLatestVersionWithBinary<
+export async function _findLatestVersionWithBinary<
   RequireSuccess extends boolean,
 >(
   ctx: Context,
