@@ -164,7 +164,7 @@ const envRemoveCmd = new Command("remove")
   });
 
 const envListCmd = new Command("list")
-  .summary("List all variables")
+  .summary("List all variables and their values")
   .description(
     [
       "• List all variables: `npx convex env list`",
