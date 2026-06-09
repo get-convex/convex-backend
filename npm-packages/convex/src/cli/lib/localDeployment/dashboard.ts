@@ -9,7 +9,10 @@ import { choosePorts } from "./utils.js";
 import { startServer } from "./serve.js";
 import { localDeploymentUrl, selfHostedEventTag } from "./run.js";
 import serveHandler from "serve-handler";
-import { ensureDashboardDownloaded } from "./download.js";
+import {
+  ensureBackendBinaryDownloaded,
+  ensureDashboardDownloaded,
+} from "./download.js";
 import { bigBrainAPIMaybeThrows } from "../utils/utils.js";
 
 export const DEFAULT_LOCAL_DASHBOARD_PORT = 6790;
@@ -22,9 +25,20 @@ export const DEFAULT_LOCAL_DASHBOARD_PORT = 6790;
  */
 export async function handleDashboard(
   ctx: Context,
-  version: string,
   deployment: { name: string; cloudPort: number; adminKey: string },
+  options: {
+    /** The backend version to use if the user overrides the default version with the --local-backend-version flag */
+    backendVersion: string | undefined;
+  },
 ) {
+  // We call `ensureBackendBinaryDownloaded` here to get the version,
+  // but `handleAnonymousDeployment` has already downloaded it.
+  const { version } = await ensureBackendBinaryDownloaded(
+    ctx,
+    options.backendVersion === undefined
+      ? { kind: "latest" }
+      : { kind: "version", version: options.backendVersion },
+  );
   const anonymousId = loadUuidForAnonymousUser(ctx) ?? undefined;
   await ensureDashboardDownloaded(ctx, version);
   const [dashboardPort] = await choosePorts(ctx, {
