@@ -152,7 +152,10 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
                     .finish();
             }
         },
-        UrlInfoUpdate::Hostname(value) => parsed_url.set_host(value.as_deref())?,
+        UrlInfoUpdate::Hostname(value) => {
+            // ignore errors
+            _ = parsed_url.set_host(value.as_deref());
+        },
         UrlInfoUpdate::Href(value) => {
             parsed_url = Url::parse(&value)
                 .map_err(|_| TypeError::new(format!("Could not parse URL: {original_url}")))?;
