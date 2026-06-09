@@ -230,13 +230,16 @@ pub static FUNCTION_MAX_ARGS_SIZE: LazyLock<usize> = LazyLock::new(|| {
 });
 
 /// Maximum size in bytes of the result of a function.
+/// Has to be smaller than MAX_BACKEND_RPC_RESPONSE_SIZE
 pub static FUNCTION_MAX_RESULT_SIZE: LazyLock<usize> = LazyLock::new(|| {
     env_config("FUNCTION_MAX_RESULT_SIZE", 1 << 24) // 16 MiB
 });
 
-/// Maximum size in bytes of the result of a function.
+/// Maximum size in bytes of the result of a system function.
+/// Larger than FUNCTION_MAX_RESULT_SIZE but smaller than
+/// MAX_BACKEND_RPC_RESPONSE_SIZE
 pub static SYSTEM_FUNCTION_MAX_RESULT_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env_config("SYSTEM_FUNCTION_MAX_RESULT_SIZE", 1 << 25) // 32 MiB
+    env_config("SYSTEM_FUNCTION_MAX_RESULT_SIZE", 24 * (1 << 20)) // 24 MiB
 });
 
 /// When a function exceeds FUNCTION_LIMIT_WARNING_RATIO * a corresponding
@@ -1329,15 +1332,15 @@ pub static MAX_BACKEND_RPC_REQUEST_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_BACKEND_RPC_REQUEST_SIZE", 1 << 25)); // 32 MiB
 
 /// The maximum size for Backend HTTP and GRPC action callbacks.
-/// This needs to contain 8MiB for function result + 4MiB for log lines + 4MiB
-/// for smaller fields.
+/// This needs to contain 16MiB for FUNCTION_MAX_RESULT_SIZE + 4MiB for log
+/// lines + 4MiB for smaller fields.
 pub static MAX_BACKEND_RPC_RESPONSE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_BACKEND_RPC_RESPONSE_SIZE", 1 << 25)); // 32 MiB
 
 /// The maximum size of byte chunks used when transmitting HTTP request/response
 /// bodies as part of HTTP Actions.
 pub static MAX_BACKEND_RPC_HTTP_CHUNK_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MAX_BACKEND_RPC_RESPONSE_SIZE", 1 << 23)); // 8 MiB
+    LazyLock::new(|| env_config("MAX_BACKEND_RPC_HTTP_CHUNK_SIZE", 1 << 23)); // 8 MiB
 
 /// The maximum size for requests to the backend public API. Must be at least 16
 /// MiB for function arguments.
