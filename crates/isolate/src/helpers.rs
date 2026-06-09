@@ -5,7 +5,10 @@ use common::{
         report_error_sync,
         JsError,
     },
-    knobs::FUNCTION_MAX_RESULT_SIZE,
+    knobs::{
+        FUNCTION_MAX_RESULT_SIZE,
+        SYSTEM_FUNCTION_MAX_RESULT_SIZE,
+    },
     value::ConvexValue,
 };
 use deno_core::v8;
@@ -122,12 +125,18 @@ pub fn deserialize_udf_result(
     })?;
     let result = match ConvexValue::try_from(result_v) {
         Ok(value) => {
-            if value.size() > *FUNCTION_MAX_RESULT_SIZE {
+            let size = value.size();
+            let limit = if path.udf_path.is_system() {
+                *SYSTEM_FUNCTION_MAX_RESULT_SIZE
+            } else {
+                *FUNCTION_MAX_RESULT_SIZE
+            };
+            if size > limit {
                 Err(JsError::from_message(format!(
                     "Function {} return value is too large (actual: {}, limit: {})",
                     path.clone().for_logging().debug_str(),
                     value.size().format_size(BINARY),
-                    (*FUNCTION_MAX_RESULT_SIZE).format_size(BINARY),
+                    limit.format_size(BINARY),
                 )))
             } else {
                 Ok(value)

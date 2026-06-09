@@ -234,6 +234,11 @@ pub static FUNCTION_MAX_RESULT_SIZE: LazyLock<usize> = LazyLock::new(|| {
     env_config("FUNCTION_MAX_RESULT_SIZE", 1 << 24) // 16 MiB
 });
 
+/// Maximum size in bytes of the result of a function.
+pub static SYSTEM_FUNCTION_MAX_RESULT_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    env_config("SYSTEM_FUNCTION_MAX_RESULT_SIZE", 1 << 25) // 32 MiB
+});
+
 /// When a function exceeds FUNCTION_LIMIT_WARNING_RATIO * a corresponding
 /// limit value, we add a warning log line.
 pub static FUNCTION_LIMIT_WARNING_RATIO: LazyLock<f64> = LazyLock::new(|| {
