@@ -164,11 +164,11 @@ const envRemoveCmd = new Command("remove")
   });
 
 const envListCmd = new Command("list")
-  .summary("List all variables")
+  .summary("List all variables and their values")
   .description(
     [
-      "• List all variables: `npx convex env list`",
-      "• List only variable names: `npx convex env list --names-only`",
+      "• List all variables and their values: `npx convex env list`",
+      "• List only variable names (no values): `npx convex env list --names-only`",
       "• Save all variables to a file: `npx convex env list > .env.convex`",
       "• Append to a file: `npx convex env list >> .env.convex`",
     ].join("\n"),
@@ -207,7 +207,8 @@ export const env = new Command("env")
       "• Set interactively: `npx convex env set NAME`",
       "• Set multiple from file: `npx convex env set --from-file .env`",
       "• Unset a variable: `npx convex env remove NAME`",
-      "• List all variables: `npx convex env list`",
+      "• List all variables and their values: `npx convex env list`",
+      "• List only variable names (no values): `npx convex env list --names-only`",
       "• Print a variable's value: `npx convex env get NAME`",
       "",
       "By default, this sets and views variables on your dev deployment.",
