@@ -61,7 +61,9 @@ async function invokeMutation<
     meta: setupMutationMeta(visibility),
 
     runQuery: (reference: any, args?: any, options?: any) =>
-      runUdf("query", reference, args, options?.transactionLimits),
+      options?.useStaleSnapshot
+        ? runUdf("snapshotQuery", reference, args, options?.transactionLimits)
+        : runUdf("query", reference, args, options?.transactionLimits),
     runMutation: (reference: any, args?: any, options?: any) =>
       runUdf("mutation", reference, args, options?.transactionLimits),
   };
@@ -336,8 +338,14 @@ async function invokeQuery<
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
     meta: setupQueryMeta(visibility),
-    runQuery: (reference: any, args?: any, options?: any) =>
-      runUdf("query", reference, args, options?.transactionLimits),
+    runQuery: (reference: any, args?: any, options?: any) => {
+      if (options?.useStaleSnapshot) {
+        throw new Error(
+          "`useStaleSnapshot` is only supported in mutations, not queries.",
+        );
+      }
+      return runUdf("query", reference, args, options?.transactionLimits);
+    },
   };
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);

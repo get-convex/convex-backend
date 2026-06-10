@@ -1910,6 +1910,8 @@ export interface components {
         AuditLogEventResponse: {
             action: components["schemas"]["AuditLogAction"];
             actor: components["schemas"]["AuditLogActor"];
+            clientIp?: string | null;
+            clientUserAgent?: string | null;
             /** Format: int64 */
             createTime: number;
             metadata: components["schemas"]["Value"];

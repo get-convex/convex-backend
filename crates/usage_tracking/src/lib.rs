@@ -545,7 +545,7 @@ impl UsageCounter {
             });
         }
         for (
-            (component_path, table_name, index_name),
+            (component_path, index_name),
             TextIndexQueryUsage {
                 num_searches,
                 bytes_searched,
@@ -556,14 +556,14 @@ impl UsageCounter {
                 id: execution_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
-                table_name,
+                table_name: index_name.table().to_string(),
                 index_name: index_name.to_string(),
                 num_searches,
                 bytes_searched,
             })
         }
         for (
-            (component_path, table_name, index_name),
+            (component_path, index_name),
             VectorIndexQueryUsage {
                 num_searches,
                 bytes_searched,
@@ -575,7 +575,7 @@ impl UsageCounter {
                 id: execution_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
-                table_name,
+                table_name: index_name.table().to_string(),
                 index_name: index_name.to_string(),
                 num_searches,
                 bytes_searched,
@@ -925,13 +925,12 @@ impl FunctionUsageTracker {
     pub fn track_vector_query(
         &self,
         component_path: ComponentPath,
-        table_name: String,
         index_name: IndexName,
         index_size: u64,
         dimensions: u64,
     ) {
         let mut state = self.state.lock();
-        let key = (component_path, table_name, index_name);
+        let key = (component_path, index_name);
         *state.vector_query_usage.entry(key).or_default() += VectorIndexQueryUsage {
             num_searches: 1,
             bytes_searched: index_size,
@@ -960,12 +959,11 @@ impl FunctionUsageTracker {
     pub fn track_text_query(
         &self,
         component_path: ComponentPath,
-        table_name: TableName,
         index_name: IndexName,
         index_size: u64,
     ) {
         let mut state = self.state.lock();
-        let key = (component_path, table_name, index_name);
+        let key = (component_path, index_name);
         *state.text_query_usage.entry(key).or_default() += TextIndexQueryUsage {
             num_searches: 1,
             bytes_searched: index_size,
@@ -1095,8 +1093,8 @@ pub struct FunctionUsageStats {
     pub vector_egress: BTreeMap<(ComponentPath, TableName), u64>,
     pub text_ingress: BTreeMap<(ComponentPath, TableName), u64>,
 
-    pub text_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), TextIndexQueryUsage>,
-    pub vector_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), VectorIndexQueryUsage>,
+    pub text_query_usage: BTreeMap<(ComponentPath, IndexName), TextIndexQueryUsage>,
+    pub vector_query_usage: BTreeMap<(ComponentPath, IndexName), VectorIndexQueryUsage>,
     pub fetch_egress: BTreeMap<String, u64>,
     pub audit_log_egress: u64,
 
@@ -1290,13 +1288,13 @@ fn from_by_component_tag_count(
 }
 
 fn to_text_query_usage(
-    usage: impl Iterator<Item = ((ComponentPath, TableName, IndexName), TextIndexQueryUsage)>,
+    usage: impl Iterator<Item = ((ComponentPath, IndexName), TextIndexQueryUsage)>,
 ) -> Vec<pb::usage::TextQueryUsage> {
     usage
         .map(
-            |((component_path, table_name, index_name), usage)| pb::usage::TextQueryUsage {
+            |((component_path, index_name), usage)| pb::usage::TextQueryUsage {
                 component_path: component_path.serialize(),
-                table_name: Some(table_name),
+                table_name: Some(index_name.table().to_string()),
                 index_name: Some(index_name.to_string()),
                 num_searches: Some(usage.num_searches),
                 bytes_searched: Some(usage.bytes_searched),
@@ -1306,13 +1304,13 @@ fn to_text_query_usage(
 }
 
 fn to_vector_query_usage(
-    usage: impl Iterator<Item = ((ComponentPath, TableName, IndexName), VectorIndexQueryUsage)>,
+    usage: impl Iterator<Item = ((ComponentPath, IndexName), VectorIndexQueryUsage)>,
 ) -> Vec<pb::usage::VectorQueryUsage> {
     usage
         .map(
-            |((component_path, table_name, index_name), usage)| pb::usage::VectorQueryUsage {
+            |((component_path, index_name), usage)| pb::usage::VectorQueryUsage {
                 component_path: component_path.serialize(),
-                table_name: Some(table_name),
+                table_name: Some(index_name.table().to_string()),
                 index_name: Some(index_name.to_string()),
                 num_searches: Some(usage.num_searches),
                 bytes_searched: Some(usage.bytes_searched),
@@ -1324,14 +1322,11 @@ fn to_vector_query_usage(
 
 fn from_text_query_usage(
     usage: Vec<pb::usage::TextQueryUsage>,
-) -> anyhow::Result<
-    impl Iterator<Item = ((ComponentPath, TableName, IndexName), TextIndexQueryUsage)>,
-> {
+) -> anyhow::Result<impl Iterator<Item = ((ComponentPath, IndexName), TextIndexQueryUsage)>> {
     let usage: Vec<_> = usage
         .into_iter()
         .map(|u| -> anyhow::Result<_> {
             let component_path = ComponentPath::deserialize(u.component_path.as_deref())?;
-            let table_name = u.table_name.context("Missing `table_name` field")?;
             let index_name: IndexName = u
                 .index_name
                 .context("Missing `index_name` field")?
@@ -1341,7 +1336,7 @@ fn from_text_query_usage(
                 .bytes_searched
                 .context("Missing `num_segment_searches` field")?;
             Ok((
-                (component_path, table_name, index_name),
+                (component_path, index_name),
                 TextIndexQueryUsage {
                     num_searches,
                     bytes_searched,
@@ -1354,14 +1349,11 @@ fn from_text_query_usage(
 
 fn from_vector_query_usage(
     usage: Vec<pb::usage::VectorQueryUsage>,
-) -> anyhow::Result<
-    impl Iterator<Item = ((ComponentPath, TableName, IndexName), VectorIndexQueryUsage)>,
-> {
+) -> anyhow::Result<impl Iterator<Item = ((ComponentPath, IndexName), VectorIndexQueryUsage)>> {
     let usage: Vec<_> = usage
         .into_iter()
         .map(|u| -> anyhow::Result<_> {
             let component_path = ComponentPath::deserialize(u.component_path.as_deref())?;
-            let table_name = u.table_name.context("Missing `table_name` field")?;
             let index_name: IndexName = u
                 .index_name
                 .context("Missing `index_name` field")?
@@ -1372,7 +1364,7 @@ fn from_vector_query_usage(
                 .context("Missing `num_segment_searches` field")?;
             let dimensions = u.dimensions.context("Missing `num_dimensions` field")?;
             Ok((
-                (component_path, table_name, index_name),
+                (component_path, index_name),
                 VectorIndexQueryUsage {
                     num_searches,
                     bytes_searched,
