@@ -1,10 +1,4 @@
-use std::sync::{
-    atomic::{
-        AtomicBool,
-        Ordering,
-    },
-    Arc,
-};
+use std::sync::Arc;
 
 use aws_sdk_firehose::{
     primitives::Blob,
@@ -30,18 +24,15 @@ const FIREHOSE_ROUND_INCREMENTS_BYTES: u64 = 5000;
 #[derive(Clone)]
 pub struct AuditLogClient {
     log_stream_client: LogManagerClient,
-    is_dev_deployment: Arc<AtomicBool>,
     firehose_client: Option<Arc<AuditLogFirehoseClient>>,
 }
 
 impl AuditLogClient {
     pub async fn new(
         log_stream_client: LogManagerClient,
-        is_dev_deployment: bool,
         firehose_stream_name: Option<String>,
         deployment_name: &String,
     ) -> anyhow::Result<Self> {
-        let is_dev_deployment = Arc::new(AtomicBool::new(is_dev_deployment));
         let firehose_client = if let Some(firehose_name) = firehose_stream_name {
             validate_audit_log_firehose_stream_name(&firehose_name, deployment_name)?;
             Some(Arc::new(AuditLogFirehoseClient::new(firehose_name).await?))
@@ -50,22 +41,8 @@ impl AuditLogClient {
         };
         Ok(Self {
             log_stream_client,
-            is_dev_deployment,
             firehose_client,
         })
-    }
-
-    pub fn include_in_log_streams(&self) -> bool {
-        if self.firehose_client.is_some() {
-            return false;
-        }
-        // Only include in log streams on dev deployments
-        self.is_dev_deployment.load(Ordering::Relaxed)
-    }
-
-    pub fn set_is_dev_deployment(&self, is_dev_deployment: bool) {
-        self.is_dev_deployment
-            .store(is_dev_deployment, Ordering::Relaxed)
     }
 
     fn send_to_log_streams(
@@ -91,9 +68,7 @@ impl AuditLogClient {
         usage_tracker: &FunctionUsageTracker,
     ) -> anyhow::Result<()> {
         let Some(firehose_client) = &self.firehose_client else {
-            if self.include_in_log_streams() {
-                self.send_to_log_streams(logs);
-            }
+            self.send_to_log_streams(logs);
             return Ok(());
         };
 
