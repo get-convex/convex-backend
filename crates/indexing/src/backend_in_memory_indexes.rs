@@ -89,6 +89,7 @@ use imbl::{
 use itertools::Itertools;
 use value::{
     heap_size::HeapSize,
+    DeveloperDocumentId,
     ResolvedDocumentId,
     TableMapping,
     TableName,
@@ -253,6 +254,100 @@ struct IndexCacheReader {
     index_registry: ReadOnly<IndexRegistry>,
 }
 
+/// Deliberately logs only document ids, timestamps, and sizes — never index
+/// keys or document values, which are user data — plus a category for the first
+/// divergence. The `diff_kind` lets us distinguish a stale *value* (a write
+/// that wasn't invalidated) from a same-value/different-*ts* rewrite, and a
+/// shifted key (insert/delete) from an in-place change, which point at
+/// different bugs.
+#[allow(clippy::too_many_arguments)]
+fn log_index_page_mismatch(
+    index_id: IndexId,
+    index_name: &Option<TabletIndexName>,
+    tablet_id: TabletId,
+    order: Order,
+    max_results: usize,
+    cache_ts: RepeatableTimestamp,
+    snapshot_ts: RepeatableTimestamp,
+    cached: &IndexPage,
+    persistence: &IndexPage,
+) {
+    let mut diff_kind = "none";
+    let mut diff_index: Option<usize> = None;
+    let mut cached_id: Option<DeveloperDocumentId> = None;
+    let mut cached_entry_ts: Option<Timestamp> = None;
+    let mut cached_size: Option<usize> = None;
+    let mut persistence_id: Option<DeveloperDocumentId> = None;
+    let mut persistence_entry_ts: Option<Timestamp> = None;
+    let mut persistence_size: Option<usize> = None;
+    let n = cached.entries.len().max(persistence.entries.len());
+    for i in 0..n {
+        match (cached.entries.get(i), persistence.entries.get(i)) {
+            (Some(c), Some(p)) => {
+                if c.key != p.key {
+                    diff_kind = "key_mismatch";
+                } else if c.value != p.value {
+                    diff_kind = if c.ts == p.ts {
+                        "value_mismatch_same_ts"
+                    } else {
+                        "value_mismatch"
+                    };
+                } else if c.ts != p.ts {
+                    diff_kind = "ts_only_mismatch";
+                } else {
+                    continue;
+                }
+                diff_index = Some(i);
+                cached_id = Some(c.value.developer_id());
+                cached_entry_ts = Some(c.ts);
+                cached_size = Some(c.value.size());
+                persistence_id = Some(p.value.developer_id());
+                persistence_entry_ts = Some(p.ts);
+                persistence_size = Some(p.value.size());
+                break;
+            },
+            (Some(c), None) => {
+                diff_kind = "cache_has_extra";
+                diff_index = Some(i);
+                cached_id = Some(c.value.developer_id());
+                cached_entry_ts = Some(c.ts);
+                cached_size = Some(c.value.size());
+                break;
+            },
+            (None, Some(p)) => {
+                diff_kind = "persistence_has_extra";
+                diff_index = Some(i);
+                persistence_id = Some(p.value.developer_id());
+                persistence_entry_ts = Some(p.ts);
+                persistence_size = Some(p.value.size());
+                break;
+            },
+            (None, None) => break,
+        }
+    }
+    tracing::warn!(
+        index_id = ?index_id,
+        index_name = ?index_name,
+        tablet_id = ?tablet_id,
+        order = ?order,
+        max_results,
+        cache_ts = %cache_ts,
+        snapshot_ts = %snapshot_ts,
+        cached_len = cached.entries.len(),
+        persistence_len = persistence.entries.len(),
+        cursors_match = cached.cursor == persistence.cursor,
+        diff_kind,
+        diff_index = ?diff_index,
+        cached_id = ?cached_id,
+        cached_entry_ts = ?cached_entry_ts,
+        cached_size = ?cached_size,
+        persistence_id = ?persistence_id,
+        persistence_entry_ts = ?persistence_entry_ts,
+        persistence_size = ?persistence_size,
+        "IndexCache result does not match Persistence",
+    );
+}
+
 #[async_trait]
 impl IndexReader for IndexCacheReader {
     async fn index_page(
@@ -280,6 +375,21 @@ impl IndexReader for IndexCacheReader {
         {
             self.handle
                 .invalidate(index_id, interval.clone(), order, max_results);
+            let index_name = self
+                .index_registry
+                .enabled_index_by_index_id(&index_id)
+                .map(|index| index.name());
+            log_index_page_mismatch(
+                index_id,
+                &index_name,
+                tablet_id,
+                order,
+                max_results,
+                cache_ts,
+                self.reader.timestamp(),
+                &cached_page,
+                &index_page,
+            );
             self.handle.populate(
                 index_id,
                 interval,
