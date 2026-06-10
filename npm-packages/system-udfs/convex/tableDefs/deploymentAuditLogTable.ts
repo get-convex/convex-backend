@@ -1,59 +1,56 @@
 import { defineTable } from "convex/server";
-import { v } from "convex/values";
+import { GenericValidator, v } from "convex/values";
 import {
   snapshotImportFormat,
   snapshotImportMode,
   snapshotImportRequestor,
 } from "./snapshotImport";
 
-const createEnvironmentVariable = v.object({
-  action: v.literal("create_environment_variable"),
-  member_id: v.int64(),
-  metadata: v.object({
-    variable_name: v.string(),
-  }),
-});
+const auditLogEventValidator = <
+  const Action extends string,
+  Metadata extends Record<string, GenericValidator>,
+>(
+  action: Action,
+  metadata: Metadata,
+) =>
+  v.object({
+    action: v.literal(action),
+    member_id: v.union(v.int64(), v.null()),
+    client_ip: v.optional(v.string()),
+    client_user_agent: v.optional(v.string()),
+    metadata: v.object(metadata),
+  });
 
-const deleteEnvironmentVariable = v.object({
-  action: v.literal("delete_environment_variable"),
-  member_id: v.int64(),
-  metadata: v.object({
-    variable_name: v.string(),
-  }),
-});
+const createEnvironmentVariable = auditLogEventValidator(
+  "create_environment_variable",
+  { variable_name: v.string() },
+);
 
-const updateEnvironmentVariable = v.object({
-  action: v.literal("update_environment_variable"),
-  member_id: v.int64(),
-  metadata: v.object({
-    variable_name: v.string(),
-  }),
-});
+const deleteEnvironmentVariable = auditLogEventValidator(
+  "delete_environment_variable",
+  { variable_name: v.string() },
+);
 
-const replaceEnvironmentVariable = v.object({
-  action: v.literal("replace_environment_variable"),
-  member_id: v.int64(),
-  metadata: v.object({
+const updateEnvironmentVariable = auditLogEventValidator(
+  "update_environment_variable",
+  { variable_name: v.string() },
+);
+
+const replaceEnvironmentVariable = auditLogEventValidator(
+  "replace_environment_variable",
+  {
     previous_variable_name: v.string(),
     variable_name: v.string(),
-  }),
+  },
+);
+
+const updateCanonicalUrl = auditLogEventValidator("update_canonical_url", {
+  request_destination: v.string(),
+  url: v.string(),
 });
 
-const updateCanonicalUrl = v.object({
-  action: v.literal("update_canonical_url"),
-  member_id: v.string(),
-  metadata: v.object({
-    request_destination: v.string(),
-    url: v.string(),
-  }),
-});
-
-const deleteCanonicalUrl = v.object({
-  action: v.literal("delete_canonical_url"),
-  member_id: v.string(),
-  metadata: v.object({
-    request_destination: v.string(),
-  }),
+const deleteCanonicalUrl = auditLogEventValidator("delete_canonical_url", {
+  request_destination: v.string(),
 });
 
 const databaseIndex = v.object({
@@ -80,13 +77,9 @@ const vectorIndex = v.object({
 export const indexMetadata = v.union(databaseIndex, searchIndex, vectorIndex);
 
 const indexConfigs = v.array(v.union(databaseIndex, searchIndex, vectorIndex));
-export const buildIndexes = v.object({
-  action: v.literal("build_indexes"),
-  member_id: v.int64(),
-  metadata: v.object({
-    added_indexes: indexConfigs,
-    removed_indexes: indexConfigs,
-  }),
+export const buildIndexes = auditLogEventValidator("build_indexes", {
+  added_indexes: indexConfigs,
+  removed_indexes: indexConfigs,
 });
 
 export const indexDiff = v.object({
@@ -136,16 +129,12 @@ export const schemaDiffType = v.optional(
   ),
 );
 
-export const pushConfig = v.object({
-  action: v.literal("push_config"),
-  member_id: v.int64(),
-  metadata: v.object({
-    auth: authDiff,
-    server_version: serverVersion,
-    modules: moduleDiff,
-    crons: cronDiffType,
-    schema: schemaDiffType,
-  }),
+export const pushConfig = auditLogEventValidator("push_config", {
+  auth: authDiff,
+  server_version: serverVersion,
+  modules: moduleDiff,
+  crons: cronDiffType,
+  schema: schemaDiffType,
 });
 
 export const componentDiff = v.object({
@@ -164,10 +153,9 @@ export const componentDiff = v.object({
   schemaDiff: schemaDiffType,
 });
 
-export const pushConfigWithComponents = v.object({
-  action: v.literal("push_config_with_components"),
-  member_id: v.int64(),
-  metadata: v.object({
+export const pushConfigWithComponents = auditLogEventValidator(
+  "push_config_with_components",
+  {
     auth_diff: v.optional(authDiff),
     component_diffs: v.array(
       v.object({
@@ -177,8 +165,8 @@ export const pushConfigWithComponents = v.object({
     ),
     message: v.optional(v.string()),
     node_version_diff: v.optional(nodeVersionDiff),
-  }),
-});
+  },
+);
 
 export const oldBackendState = v.union(
   v.literal("paused"),
@@ -187,26 +175,20 @@ export const oldBackendState = v.union(
   v.literal("suspended"),
 );
 
-export const changeDeploymentState = v.object({
-  action: v.literal("change_deployment_state"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
+export const changeDeploymentState = auditLogEventValidator(
+  "change_deployment_state",
+  {
     old_state: oldBackendState,
     new_state: oldBackendState,
-  }),
-});
+  },
+);
 
-export const pauseDeployment = v.object({
-  action: v.literal("pause_deployment"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({}),
-});
+export const pauseDeployment = auditLogEventValidator("pause_deployment", {});
 
-export const unpauseDeployment = v.object({
-  action: v.literal("unpause_deployment"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({}),
-});
+export const unpauseDeployment = auditLogEventValidator(
+  "unpause_deployment",
+  {},
+);
 
 export const systemStopState = v.union(
   v.literal("none"),
@@ -214,206 +196,141 @@ export const systemStopState = v.union(
   v.literal("suspended"),
 );
 
-export const changeSystemStopState = v.object({
-  action: v.literal("change_system_stop_state"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
+export const changeSystemStopState = auditLogEventValidator(
+  "change_system_stop_state",
+  {
     old_state: systemStopState,
     new_state: systemStopState,
-  }),
+  },
+);
+
+export const clearTables = auditLogEventValidator("clear_tables", {});
+
+export const snapshotImport = auditLogEventValidator("snapshot_import", {
+  table_names: v.array(
+    v.object({
+      component: v.union(v.null(), v.string()),
+      table_names: v.array(v.string()),
+    }),
+  ),
+  table_count: v.int64(),
+  import_mode: snapshotImportMode,
+  import_format: snapshotImportFormat,
+  requestor: snapshotImportRequestor,
+  table_names_deleted: v.array(
+    v.object({
+      component: v.union(v.null(), v.string()),
+      table_names: v.array(v.string()),
+    }),
+  ),
+  table_count_deleted: v.int64(),
 });
 
-export const clearTables = v.object({
-  action: v.literal("clear_tables"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({}),
-});
-
-export const snapshotImport = v.object({
-  action: v.literal("snapshot_import"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    table_names: v.array(
-      v.object({
-        component: v.union(v.null(), v.string()),
-        table_names: v.array(v.string()),
-      }),
-    ),
-    table_count: v.int64(),
-    import_mode: snapshotImportMode,
-    import_format: snapshotImportFormat,
-    requestor: snapshotImportRequestor,
-    table_names_deleted: v.array(
-      v.object({
-        component: v.union(v.null(), v.string()),
-        table_names: v.array(v.string()),
-      }),
-    ),
-    table_count_deleted: v.int64(),
-  }),
-});
-
-const componentMetadata = v.object({
+const componentMetadata = {
   component_id: v.union(v.null(), v.string()),
   component: v.union(v.null(), v.string()),
+};
+
+const deleteScheduledJobsTable = auditLogEventValidator(
+  "delete_scheduled_jobs_table",
+  componentMetadata,
+);
+
+const deleteTables = auditLogEventValidator("delete_tables", {
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  table_names: v.array(v.string()),
 });
 
-const deleteScheduledJobsTable = v.object({
-  action: v.literal("delete_scheduled_jobs_table"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: componentMetadata,
-});
+const deleteComponent = auditLogEventValidator(
+  "delete_component",
+  componentMetadata,
+);
 
-const deleteTables = v.object({
-  action: v.literal("delete_tables"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    table_names: v.array(v.string()),
-  }),
-});
+const cancelAllScheduledFunctions = auditLogEventValidator(
+  "cancel_all_scheduled_functions",
+  componentMetadata,
+);
 
-const deleteComponent = v.object({
-  action: v.literal("delete_component"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: componentMetadata,
-});
-
-const cancelAllScheduledFunctions = v.object({
-  action: v.literal("cancel_all_scheduled_functions"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: componentMetadata,
-});
-
-const cancelScheduledFunction = v.object({
-  action: v.literal("cancel_scheduled_function"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
+const cancelScheduledFunction = auditLogEventValidator(
+  "cancel_scheduled_function",
+  {
     component_id: v.union(v.null(), v.string()),
     component: v.union(v.null(), v.string()),
     scheduled_function_id: v.string(),
     function_path: v.union(v.null(), v.string()),
-  }),
+  },
+);
+
+const requestExport = auditLogEventValidator("request_export", {
+  id: v.string(),
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  format: v.string(),
+  requestor: v.string(),
 });
 
-const requestExport = v.object({
-  action: v.literal("request_export"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    id: v.string(),
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    format: v.string(),
-    requestor: v.string(),
-  }),
+const cancelExport = auditLogEventValidator("cancel_export", {
+  id: v.string(),
 });
 
-const cancelExport = v.object({
-  action: v.literal("cancel_export"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    id: v.string(),
-  }),
+const setExportExpiration = auditLogEventValidator("set_export_expiration", {
+  id: v.string(),
+  expiration_ts_ms: v.int64(),
 });
 
-const setExportExpiration = v.object({
-  action: v.literal("set_export_expiration"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    id: v.string(),
-    expiration_ts_ms: v.int64(),
-  }),
+const createIntegration = auditLogEventValidator("create_integration", {
+  id: v.string(),
+  type: v.string(),
 });
 
-const createIntegration = v.object({
-  action: v.literal("create_integration"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    id: v.string(),
-    type: v.string(),
-  }),
+const updateIntegration = auditLogEventValidator("update_integration", {
+  id: v.string(),
+  type: v.string(),
 });
 
-const updateIntegration = v.object({
-  action: v.literal("update_integration"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    id: v.string(),
-    type: v.string(),
-  }),
+const deleteIntegration = auditLogEventValidator("delete_integration", {
+  id: v.string(),
+  type: v.string(),
 });
 
-const deleteIntegration = v.object({
-  action: v.literal("delete_integration"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    id: v.string(),
-    type: v.string(),
-  }),
+const addDocuments = auditLogEventValidator("add_documents", {
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  table: v.string(),
+  document_ids: v.array(v.string()),
 });
 
-const addDocuments = v.object({
-  action: v.literal("add_documents"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    table: v.string(),
-    document_ids: v.array(v.string()),
-  }),
+const deleteDocuments = auditLogEventValidator("delete_documents", {
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  table: v.string(),
+  document_ids: v.array(v.string()),
 });
 
-const deleteDocuments = v.object({
-  action: v.literal("delete_documents"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    table: v.string(),
-    document_ids: v.array(v.string()),
-  }),
+const updateDocuments = auditLogEventValidator("update_documents", {
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  table: v.string(),
+  document_ids: v.array(v.string()),
 });
 
-const updateDocuments = v.object({
-  action: v.literal("update_documents"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    table: v.string(),
-    document_ids: v.array(v.string()),
-  }),
+const createTable = auditLogEventValidator("create_table", {
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  table: v.string(),
 });
 
-const createTable = v.object({
-  action: v.literal("create_table"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    table: v.string(),
-  }),
+const deleteFiles = auditLogEventValidator("delete_files", {
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  storage_ids: v.array(v.string()),
 });
 
-const deleteFiles = v.object({
-  action: v.literal("delete_files"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-    storage_ids: v.array(v.string()),
-  }),
-});
-
-const generateUploadUrl = v.object({
-  action: v.literal("generate_upload_url"),
-  member_id: v.union(v.int64(), v.null()),
-  metadata: v.object({
-    component_id: v.union(v.null(), v.string()),
-    component: v.union(v.null(), v.string()),
-  }),
-});
+const generateUploadUrl = auditLogEventValidator(
+  "generate_upload_url",
+  componentMetadata,
+);
 
 const deploymentAuditLogTable = defineTable(
   v.union(
