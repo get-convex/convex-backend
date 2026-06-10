@@ -352,8 +352,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
         scope_with_context!(let context_scope, isolate.isolate(), v8_context);
 
-        let mut isolate_context =
-            RequestScope::new(context_scope, handle.clone(), state, true).await?;
+        let mut isolate_context = RequestScope::new(context_scope, handle.clone(), state, true)?;
 
         let request_head = request.head.clone();
 
@@ -682,8 +681,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
         scope_with_context!(let context_scope, isolate.isolate(), v8_context);
 
-        let mut isolate_context =
-            RequestScope::new(context_scope, handle.clone(), state, true).await?;
+        let mut isolate_context = RequestScope::new(context_scope, handle.clone(), state, true)?;
         let mut result = Self::run_action_inner(
             &mut isolate_context,
             &mut timeout,

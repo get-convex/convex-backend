@@ -233,7 +233,7 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
 
 impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 's, 'i, RT, E> {
     #[fastrace::trace]
-    pub async fn new(
+    pub fn new(
         scope: &'a mut v8::PinScope<'s, 'i>,
         handle: IsolateHandle,
         state: RequestState<RT, E>,
