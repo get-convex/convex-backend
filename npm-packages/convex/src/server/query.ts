@@ -35,9 +35,8 @@ import {
  *
  * @public
  */
-export interface QueryInitializer<
-  TableInfo extends GenericTableInfo,
-> extends Query<TableInfo> {
+export interface QueryInitializer<TableInfo extends GenericTableInfo>
+  extends Query<TableInfo> {
   /**
    * Query by reading all of the values out of this table.
    *
@@ -214,7 +213,9 @@ export interface OrderedQuery<
    * @returns - A new {@link OrderedQuery} with the given filter predicate applied.
    */
   filter(
-    predicate: (q: FilterBuilder<TableInfo>) => ExpressionOrValue<boolean>,
+    predicate: (
+      q: FilterBuilder<TableInfo, ResultDocument>,
+    ) => ExpressionOrValue<boolean>,
   ): this;
 
   /**

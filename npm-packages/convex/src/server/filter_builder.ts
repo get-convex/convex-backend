@@ -3,6 +3,7 @@ import {
   DocumentByInfo,
   FieldPaths,
   FieldTypeFromFieldPath,
+  GenericDocument,
   GenericTableInfo,
 } from "./data_model.js";
 
@@ -76,7 +77,10 @@ export type ExpressionOrValue<T extends Value | undefined> = Expression<T> | T;
  * | [`field(fieldPath)`](#field)  | Evaluates to the field at `fieldPath`.        |
  * @public
  */
-export interface FilterBuilder<TableInfo extends GenericTableInfo> {
+export interface FilterBuilder<
+  TableInfo extends GenericTableInfo,
+  Document extends GenericDocument = DocumentByInfo<TableInfo>,
+> {
   //  Comparisons  /////////////////////////////////////////////////////////////
 
   /**
@@ -245,5 +249,5 @@ export interface FilterBuilder<TableInfo extends GenericTableInfo> {
    */
   field<FieldPath extends FieldPaths<TableInfo>>(
     fieldPath: FieldPath,
-  ): Expression<FieldTypeFromFieldPath<DocumentByInfo<TableInfo>, FieldPath>>;
+  ): Expression<FieldTypeFromFieldPath<Document, FieldPath>>;
 }

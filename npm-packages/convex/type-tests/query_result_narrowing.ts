@@ -4,6 +4,7 @@ import type {
   IndexRangeBuilder,
   ResultDocumentFromIndexRange,
 } from "../src/server/index_range_builder.js";
+import type { Expression } from "../src/server/filter_builder.js";
 import type { GenericId } from "../src/values/index.js";
 
 type Equal<Left, Right> =
@@ -17,6 +18,7 @@ type AwaitedPaginationElement<T> =
   Awaited<T> extends { page: Array<infer Element> } ? Element : never;
 type AsyncIterableElement<T> =
   T extends AsyncIterable<infer Element> ? Element : never;
+type ExpressionValue<T> = T extends Expression<infer Value> ? Value : never;
 
 type FlashcardVisibility = "private" | "unlisted" | "public";
 
@@ -127,13 +129,13 @@ declare const indexRangeBuilder: IndexRangeBuilder<
   ["visibility", "_creationTime"]
 >;
 
-const directRange = indexRangeBuilder.eq("visibility", "public" as const);
+const directRange = indexRangeBuilder.eq("visibility", "public");
 type DirectRangeDoc = ResultDocumentFromIndexRange<typeof directRange>;
 type DirectRangeNarrows = Expect<Equal<DirectRangeDoc["visibility"], "public">>;
 
 const publicDocs = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const),
+    q.eq("visibility", "public"),
   )
   .take(10);
 type PublicDoc = AwaitedArrayElement<typeof publicDocs>;
@@ -141,7 +143,7 @@ type PublicVisibilityNarrows = Expect<Equal<PublicDoc["visibility"], "public">>;
 
 const orderedPublicDocs = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const),
+    q.eq("visibility", "public"),
   )
   .order("desc")
   .take(10);
@@ -152,9 +154,16 @@ type OrderedPublicVisibilityNarrows = Expect<
 
 const filteredPublicDocs = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const),
+    q.eq("visibility", "public"),
   )
-  .filter(() => true)
+  .filter((q) => {
+    const visibilityField = q.field("visibility");
+    type FilterVisibilityField = ExpressionValue<typeof visibilityField>;
+    type FilterVisibilityFieldNarrows = Expect<
+      Equal<FilterVisibilityField, "public">
+    >;
+    return q.eq(visibilityField, "public");
+  })
   .take(10);
 type FilteredPublicDoc = AwaitedArrayElement<typeof filteredPublicDocs>;
 type FilteredPublicVisibilityNarrows = Expect<
@@ -163,7 +172,7 @@ type FilteredPublicVisibilityNarrows = Expect<
 
 const boundedPublicDocs = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const).lt("_creationTime", Date.now()),
+    q.eq("visibility", "public").lt("_creationTime", Date.now()),
   )
   .take(10);
 type BoundedPublicDoc = AwaitedArrayElement<typeof boundedPublicDocs>;
@@ -173,7 +182,7 @@ type BoundedPublicVisibilityNarrows = Expect<
 
 const firstPublicDoc = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const),
+    q.eq("visibility", "public"),
   )
   .first();
 type FirstPublicDoc = NonNullable<Awaited<typeof firstPublicDoc>>;
@@ -183,7 +192,7 @@ type FirstPublicVisibilityNarrows = Expect<
 
 const uniquePublicDoc = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const),
+    q.eq("visibility", "public"),
   )
   .unique();
 type UniquePublicDoc = NonNullable<Awaited<typeof uniquePublicDoc>>;
@@ -193,7 +202,7 @@ type UniquePublicVisibilityNarrows = Expect<
 
 const paginatedPublicDocs = flashcardSets
   .withIndex("by_visibility_and_createdAt", (q) =>
-    q.eq("visibility", "public" as const),
+    q.eq("visibility", "public"),
   )
   .paginate({ numItems: 10, cursor: null });
 type PaginatedPublicDoc = AwaitedPaginationElement<typeof paginatedPublicDocs>;
@@ -203,7 +212,7 @@ type PaginatedPublicVisibilityNarrows = Expect<
 
 const iterablePublicDocs = flashcardSets.withIndex(
   "by_visibility_and_createdAt",
-  (q) => q.eq("visibility", "public" as const),
+  (q) => q.eq("visibility", "public"),
 );
 type IterablePublicDoc = AsyncIterableElement<typeof iterablePublicDocs>;
 type IterablePublicVisibilityNarrows = Expect<
@@ -212,7 +221,7 @@ type IterablePublicVisibilityNarrows = Expect<
 
 const chainedDocs = flashcardSets
   .withIndex("by_visibility_and_target", (q) =>
-    q.eq("visibility", "public" as const).eq("targetId", userId),
+    q.eq("visibility", "public").eq("targetId", userId),
   )
   .collect();
 type ChainedDoc = AwaitedArrayElement<typeof chainedDocs>;
@@ -225,7 +234,7 @@ type ChainedIdBrandNarrows = Expect<
 
 const searchDocs = flashcardSets
   .withSearchIndex("search_title", (q) =>
-    q.search("title", "biology").eq("visibility", "public" as const),
+    q.search("title", "biology").eq("visibility", "public"),
   )
   .take(10);
 type SearchDoc = AwaitedArrayElement<typeof searchDocs>;
@@ -235,7 +244,7 @@ const chainedSearchDocs = flashcardSets
   .withSearchIndex("search_title", (q) =>
     q
       .search("title", "biology")
-      .eq("visibility", "public" as const)
+      .eq("visibility", "public")
       .eq("targetId", userId),
   )
   .take(10);
@@ -248,7 +257,7 @@ type ChainedSearchIdBrandNarrows = Expect<
 >;
 
 const titleLiteralDocs = flashcardSets
-  .withIndex("by_title", (q) => q.eq("title", "Biology 101" as const))
+  .withIndex("by_title", (q) => q.eq("title", "Biology 101"))
   .take(10);
 type TitleLiteralDoc = AwaitedArrayElement<typeof titleLiteralDocs>;
 type TitleLiteralNarrows = Expect<
@@ -291,7 +300,7 @@ type IdentityIndexRangeDoesNotNarrow = Expect<
 
 const nestedFieldDocs = flashcardSets
   .withIndex("by_metadata_visibility", (q) =>
-    q.eq("metadata.visibility", "public" as const),
+    q.eq("metadata.visibility", "public"),
   )
   .take(10);
 type NestedFieldDoc = AwaitedArrayElement<typeof nestedFieldDocs>;
@@ -316,13 +325,13 @@ type ArrayEqualityDoesNotNarrow = Expect<
 >;
 
 const optionalFieldDocs = flashcardSets
-  .withIndex("by_kind", (q) => q.eq("kind", "deck" as const))
+  .withIndex("by_kind", (q) => q.eq("kind", "deck"))
   .take(10);
 type OptionalFieldDoc = AwaitedArrayElement<typeof optionalFieldDocs>;
 type OptionalFieldNarrows = Expect<Equal<OptionalFieldDoc["kind"], "deck">>;
 
 const unionDocs = unionFlashcardSets
-  .withIndex("by_kind", (q) => q.eq("kind", "publicSet" as const))
+  .withIndex("by_kind", (q) => q.eq("kind", "publicSet"))
   .collect();
 type UnionDoc = AwaitedArrayElement<typeof unionDocs>;
 type UnionKindNarrows = Expect<Equal<UnionDoc["kind"], "publicSet">>;
