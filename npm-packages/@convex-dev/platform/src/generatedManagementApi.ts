@@ -533,6 +533,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_access_tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List team access tokens
+         * @description Lists the team access tokens created by the authenticated member for the
+         *     given team.
+         */
+        get: operations["list team access tokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/delete_access_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a team access token
+         * @description Deletes a team access token, identified by its secret value or name.
+         */
+        post: operations["delete team access token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/token_details": {
         parameters: {
             query?: never;
@@ -919,6 +960,16 @@ export interface components {
             /** @description The generated personal access token. */
             accessToken: string;
         };
+        CreateTeamAccessTokenArgs: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this token will expire. Must be at least
+             *     30 minutes in the future. Defaults to no expiry if omitted.
+             */
+            expiresAt?: number | null;
+            /** @description Name for the access token. */
+            name?: string | null;
+        };
         CreateTeamAccessTokenResponse: {
             accessToken: string;
             tokenType: string;
@@ -959,6 +1010,10 @@ export interface components {
         DeletePersonalAccessTokenArgs: {
             /** @description The token to delete. This can be the secret value of the token or the
              *     token's unique name. */
+            id: string;
+        };
+        DeleteTeamAccessTokenArgs: {
+            /** @description The token to delete. This can be its secret value or its name. */
             id: string;
         };
         /** @enum {string} */
@@ -1002,6 +1057,14 @@ export interface components {
         };
         ListLocalDeploymentsResponse: {
             items: components["schemas"]["PlatformDeploymentResponse"][];
+        };
+        ListTeamAccessTokensResponse: {
+            /** @description The team access tokens created by the authenticated member. */
+            items: components["schemas"]["TeamAccessTokenResponse"][];
+            /** @description Pagination metadata. This endpoint does not currently paginate, so it
+             *     always reports no further pages; the field is present for
+             *     forwards-compatibility. */
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         ManagedBy: "vercel" | {
             oauthApp: string;
@@ -1416,6 +1479,28 @@ export interface components {
         RoleStatementEffect: "allow" | "deny";
         /** @enum {string} */
         RoleStatementWildcardAction: "*";
+        TeamAccessTokenResponse: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when the token was created.
+             */
+            creationTime: number;
+            creator?: null | components["schemas"]["MemberId"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when the token expires, if set.
+             */
+            expiresAt?: number | null;
+            /** @description The id of this access token. */
+            id: components["schemas"]["AccessTokenId"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when the token was last used, if ever.
+             */
+            lastUsedTime?: number | null;
+            /** @description Name of the token. */
+            name: string;
+        };
         /** Format: int64 */
         TeamId: number;
         TeamMember: {
@@ -1484,6 +1569,7 @@ export type CreateDeploymentType = components['schemas']['CreateDeploymentType']
 export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs'];
 export type CreatePersonalAccessTokenArgs = components['schemas']['CreatePersonalAccessTokenArgs'];
 export type CreatePersonalAccessTokenResponse = components['schemas']['CreatePersonalAccessTokenResponse'];
+export type CreateTeamAccessTokenArgs = components['schemas']['CreateTeamAccessTokenArgs'];
 export type CreateTeamAccessTokenResponse = components['schemas']['CreateTeamAccessTokenResponse'];
 export type CustomRoleId = components['schemas']['CustomRoleId'];
 export type CustomRoleResponse = components['schemas']['CustomRoleResponse'];
@@ -1491,6 +1577,7 @@ export type DefaultEnvironmentVariableChangeArgs = components['schemas']['Defaul
 export type DefaultEnvironmentVariableResponse = components['schemas']['DefaultEnvironmentVariableResponse'];
 export type DeleteCustomRoleArgs = components['schemas']['DeleteCustomRoleArgs'];
 export type DeletePersonalAccessTokenArgs = components['schemas']['DeletePersonalAccessTokenArgs'];
+export type DeleteTeamAccessTokenArgs = components['schemas']['DeleteTeamAccessTokenArgs'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentId = components['schemas']['DeploymentId'];
@@ -1504,6 +1591,7 @@ export type ListCustomRolesResponse = components['schemas']['ListCustomRolesResp
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeploymentsResponse'];
+export type ListTeamAccessTokensResponse = components['schemas']['ListTeamAccessTokensResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
 export type PaginatedDefaultEnvironmentVariablesResponse = components['schemas']['PaginatedDefaultEnvironmentVariablesResponse'];
@@ -1547,6 +1635,7 @@ export type RoleStatementAction = components['schemas']['RoleStatementAction'];
 export type RoleStatementActions = components['schemas']['RoleStatementActions'];
 export type RoleStatementEffect = components['schemas']['RoleStatementEffect'];
 export type RoleStatementWildcardAction = components['schemas']['RoleStatementWildcardAction'];
+export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResponse'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
 export type TeamMemberCustomRole = components['schemas']['TeamMemberCustomRole'];
@@ -2202,6 +2291,52 @@ export interface operations {
             };
         };
     };
+    "list team access tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListTeamAccessTokensResponse"];
+                };
+            };
+        };
+    };
+    "delete team access token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteTeamAccessTokenArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     "get token details": {
         parameters: {
             query?: never;
@@ -2353,7 +2488,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": null | components["schemas"]["CreateTeamAccessTokenArgs"];
+            };
+        };
         responses: {
             /** @description Team access token created successfully */
             201: {

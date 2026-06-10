@@ -1427,6 +1427,97 @@
         ]
       }
     },
+    "/teams/{team_id}/list_access_tokens": {
+      "get": {
+        "tags": [
+          "Access Tokens"
+        ],
+        "summary": "List team access tokens",
+        "description": "Lists the team access tokens created by the authenticated member for the\ngiven team.",
+        "operationId": "list team access tokens",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTeamAccessTokensResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/delete_access_token": {
+      "post": {
+        "tags": [
+          "Access Tokens"
+        ],
+        "summary": "Delete a team access token",
+        "description": "Deletes a team access token, identified by its secret value or name.",
+        "operationId": "delete team access token",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTeamAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/token_details": {
       "get": {
         "tags": [
@@ -1685,6 +1776,22 @@
             "required": true
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateTeamAccessTokenArgs"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Team access token created successfully",
@@ -2314,6 +2421,27 @@
           }
         }
       },
+      "CreateTeamAccessTokenArgs": {
+        "type": "object",
+        "properties": {
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this token will expire. Must be at least\n30 minutes in the future. Defaults to no expiry if omitted."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name for the access token."
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateTeamAccessTokenResponse": {
         "type": "object",
         "required": [
@@ -2448,6 +2576,19 @@
           "id": {
             "type": "string",
             "description": "The token to delete. This can be the secret value of the token or the\ntoken's unique name."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteTeamAccessTokenArgs": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token to delete. This can be its secret value or its name."
           }
         },
         "additionalProperties": false
@@ -2606,6 +2747,26 @@
             "items": {
               "$ref": "#/components/schemas/PlatformDeploymentResponse"
             }
+          }
+        }
+      },
+      "ListTeamAccessTokensResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamAccessTokenResponse"
+            },
+            "description": "The team access tokens created by the authenticated member."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata",
+            "description": "Pagination metadata. This endpoint does not currently paginate, so it\nalways reports no further pages; the field is present for\nforwards-compatibility."
           }
         }
       },
@@ -3777,6 +3938,56 @@
         "enum": [
           "*"
         ]
+      },
+      "TeamAccessTokenResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "creationTime"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp in milliseconds when the token was created."
+          },
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId",
+                "description": "The member who created the token."
+              }
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when the token expires, if set."
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "The id of this access token."
+          },
+          "lastUsedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when the token was last used, if ever."
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the token."
+          }
+        }
       },
       "TeamId": {
         "type": "integer",
