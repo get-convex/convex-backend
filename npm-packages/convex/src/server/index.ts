@@ -118,6 +118,7 @@ export type { IndexRange, IndexRangeBuilder } from "./index_range_builder.js";
 export * from "./pagination.js";
 export type { OrderedQuery, Query, QueryInitializer } from "./query.js";
 export type {
+  AdvancedRunQueryOptions,
   ArgsArray,
   DefaultFunctionArgs,
   FunctionVisibility,

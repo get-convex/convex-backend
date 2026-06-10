@@ -135,7 +135,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
-    ...args: ArgsAndOptions<Query, { transactionLimits?: TransactionLimits }>
+    ...args: ArgsAndOptions<Query, AdvancedRunQueryOptions>
   ) => Promise<FunctionReturnType<Query>>;
 
   /**
@@ -1211,3 +1211,18 @@ export type ActionBuilder<
 export type HttpActionBuilder = (
   func: (ctx: GenericActionCtx<any>, request: Request) => Promise<Response>,
 ) => PublicHttpAction;
+
+export interface AdvancedRunQueryOptions {
+  transactionLimits?: TransactionLimits;
+  /**
+   * Run a query on a recent snapshot of the database that is not guaranteed
+   * to be up-to-date when this transaction commits.
+   *
+   * This is an advanced feature which can introduce subtle race conditions,
+   * so its use is generally discouraged except for specific use-cases where
+   * database read conflicts are expected, e.g. reading from an append-only
+   * table with immutable records where the only read conflicts are from
+   * concurrent appends.
+   */
+  useStaleSnapshot?: boolean;
+}
