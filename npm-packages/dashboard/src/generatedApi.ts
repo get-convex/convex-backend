@@ -1895,12 +1895,12 @@ export interface components {
         } | {
             serviceAccount: {
                 member_id: components["schemas"]["MemberId"];
-                token_id?: null | components["schemas"]["AccessTokenId"];
+                token_id: components["schemas"]["AccessTokenId"];
             };
         } | {
             team: {
                 team_id: components["schemas"]["TeamId"];
-                token_id?: null | components["schemas"]["AccessTokenId"];
+                token_id: components["schemas"]["AccessTokenId"];
             };
         } | {
             app: {
