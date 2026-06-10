@@ -962,7 +962,7 @@ export interface components {
             id: string;
         };
         /** @enum {string} */
-        DeploymentClass: "s16" | "s256" | "d1024";
+        DeploymentClass: "s16" | "s256" | "d1024" | "d2048";
         DeploymentClassMetadata: {
             available: boolean;
             type: components["schemas"]["DeploymentClass"];

@@ -2457,7 +2457,8 @@
         "enum": [
           "s16",
           "s256",
-          "d1024"
+          "d1024",
+          "d2048"
         ]
       },
       "DeploymentClassMetadata": {
