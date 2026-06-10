@@ -3531,21 +3531,15 @@
               "serviceAccount": {
                 "type": "object",
                 "required": [
-                  "member_id"
+                  "member_id",
+                  "token_id"
                 ],
                 "properties": {
                   "member_id": {
                     "$ref": "#/components/schemas/MemberId"
                   },
                   "token_id": {
-                    "oneOf": [
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "$ref": "#/components/schemas/AccessTokenId"
-                      }
-                    ]
+                    "$ref": "#/components/schemas/AccessTokenId"
                   }
                 }
               }
@@ -3560,21 +3554,15 @@
               "team": {
                 "type": "object",
                 "required": [
-                  "team_id"
+                  "team_id",
+                  "token_id"
                 ],
                 "properties": {
                   "team_id": {
                     "$ref": "#/components/schemas/TeamId"
                   },
                   "token_id": {
-                    "oneOf": [
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "$ref": "#/components/schemas/AccessTokenId"
-                      }
-                    ]
+                    "$ref": "#/components/schemas/AccessTokenId"
                   }
                 }
               }
