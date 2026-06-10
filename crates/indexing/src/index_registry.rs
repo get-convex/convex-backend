@@ -287,6 +287,7 @@ impl IndexRegistry {
         }
     }
 
+    /// A document's updates to enabled indexes
     pub fn document_index_keys<F>(
         &self,
         id: ResolvedDocumentId,
@@ -298,7 +299,7 @@ impl IndexRegistry {
         F: Fn(ConvexString) -> SearchValueTokens,
     {
         let mut map: BTreeMap<_, _> = self
-            .indexes_by_table(id.tablet_id)
+            .enabled_indexes_for_table(id.tablet_id)
             .filter_map(|index| {
                 let update = Self::index_keys_for_index(
                     index,
