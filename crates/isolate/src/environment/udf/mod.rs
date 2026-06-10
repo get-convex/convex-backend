@@ -619,7 +619,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
 
         let mut isolate_context =
-            RequestScope::new(context_scope, isolate_handle.clone(), request_state, false).await?;
+            RequestScope::new(context_scope, isolate_handle.clone(), request_state, false)?;
         let mut result = Self::run_inner(
             executor,
             &mut isolate_context,

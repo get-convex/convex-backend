@@ -211,8 +211,7 @@ impl AppDefinitionEvaluator {
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
-        let mut isolate_context =
-            RequestScope::new(context_scope, handle.clone(), state, false).await?;
+        let mut isolate_context = RequestScope::new(context_scope, handle.clone(), state, false)?;
         let handle = isolate_context.handle();
 
         let result = {
@@ -371,8 +370,7 @@ impl ComponentInitializerEvaluator {
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
-        let mut isolate_context =
-            RequestScope::new(context_scope, handle.clone(), state, true).await?;
+        let mut isolate_context = RequestScope::new(context_scope, handle.clone(), state, true)?;
         let handle = isolate_context.handle();
 
         let result = {

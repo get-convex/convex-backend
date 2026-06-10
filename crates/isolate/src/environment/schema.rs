@@ -217,8 +217,7 @@ impl SchemaEnvironment {
         let client_id = Arc::new(client_id);
         let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
         scope_with_context!(let context_scope, isolate.isolate(), v8_context);
-        let mut isolate_context =
-            RequestScope::new(context_scope, handle.clone(), state, false).await?;
+        let mut isolate_context = RequestScope::new(context_scope, handle.clone(), state, false)?;
         let handle = isolate_context.handle();
         let result = Self::run_evaluate_schema(&mut isolate_context, &mut timeout).await;
 
