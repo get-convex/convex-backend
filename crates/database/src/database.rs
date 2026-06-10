@@ -2515,15 +2515,8 @@ impl<RT: Runtime> Database<RT> {
         let component_path = snapshot
             .component_registry
             .must_component_path(component_id, &mut TransactionReadSet::new())?;
-        let table_name = index_name.table();
-        usage.track_vector_egress(component_path.clone(), table_name.to_string(), size);
-        usage.track_vector_query(
-            component_path,
-            table_name.to_string(),
-            index_name,
-            index_size,
-            dimensions,
-        );
+        usage.track_vector_egress(component_path.clone(), index_name.table().to_string(), size);
+        usage.track_vector_query(component_path, index_name, index_size, dimensions);
         timer.finish();
         Ok((results, usage.gather_user_stats()))
     }

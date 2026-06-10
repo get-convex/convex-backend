@@ -1078,28 +1078,22 @@ impl<RT: Runtime> Transaction<RT> {
         let tablet_id = tablet_index_name.table();
         let table_namespace = self.table_mapping().tablet_namespace(*tablet_id)?;
         let component_path = self.must_component_path(table_namespace.into())?;
-        let index_name = search.index_name.clone();
         let search = search.to_internal(tablet_index_name.clone())?;
 
         // Get index metadata before performing the search
+        let index_name = search.printable_index_name()?;
         let index = self
             .index
             .index_registry()
-            .require_enabled(tablet_index_name, &search.printable_index_name()?)?;
+            .require_enabled(tablet_index_name, &index_name)?;
         let index_size = index.metadata().config.estimate_pricing_size_bytes()?;
-        let table_name = search.table_name.clone();
-
         let results = self
             .index
             .search(&mut self.reads, &search, tablet_index_name.clone(), version)
             .await?;
 
-        self.usage_tracker.track_text_query(
-            component_path,
-            table_name.to_string(),
-            index_name,
-            index_size,
-        );
+        self.usage_tracker
+            .track_text_query(component_path, index_name, index_size);
         Ok(results)
     }
 
