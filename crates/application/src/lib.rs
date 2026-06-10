@@ -135,7 +135,6 @@ use common::{
         ConvexOrigin,
         ConvexSite,
         DeploymentMetadata,
-        DeploymentType,
         EnvVarName,
         EnvVarValue,
         FullyQualifiedObjectKey,
@@ -780,15 +779,9 @@ impl<RT: Runtime> Application<RT> {
         )
         .await;
 
-        let is_dev_deployment = if let Some(doc) = bi.get().await? {
-            doc.deployment_type == DeploymentType::Dev
-        } else {
-            false
-        };
         let audit_log_config = AuditLogConfigModel::new(&mut tx).get_or_create().await?;
         let audit_log_client = AuditLogClient::new(
             log_manager_client.clone(),
-            is_dev_deployment,
             audit_log_config.firehose_stream_name.clone(),
             &deployment.name,
         )
