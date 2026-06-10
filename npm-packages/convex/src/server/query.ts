@@ -35,9 +35,8 @@ import {
  *
  * @public
  */
-export interface QueryInitializer<
-  TableInfo extends GenericTableInfo,
-> extends Query<TableInfo> {
+export interface QueryInitializer<TableInfo extends GenericTableInfo>
+  extends Query<TableInfo> {
   /**
    * Query by reading all of the values out of this table.
    *
