@@ -137,7 +137,6 @@ const CREATOR_VAL = "(self|[0-9]+)";
 const DEPLOYMENT_TYPE_VAL = "(dev|prod|preview|custom)";
 const projectSel = `(\\*|id=${SELECTOR_VAL}|slug=${SELECTOR_VAL})`;
 const deploymentSel = `(\\*|id=${SELECTOR_VAL}|type=${DEPLOYMENT_TYPE_VAL}|creator=${CREATOR_VAL})`;
-const memberSel = `(\\*|id=${SELECTOR_VAL})`;
 const tokenSel = `(\\*|creator=${CREATOR_VAL})`;
 const csv = (sel: string) => `${sel}(,${sel})*`;
 const tokenTail = `:token:${csv(tokenSel)}`;
@@ -145,7 +144,7 @@ const projectTail = `(${tokenTail}|:deployment:${csv(deploymentSel)}(${tokenTail
 const RESOURCE_PATTERN =
   `^(team:\\*(${tokenTail})?` +
   `|project:${csv(projectSel)}${projectTail}?` +
-  `|member:${csv(memberSel)}` +
+  `|member:\\*` +
   `|customRole:\\*` +
   `|billing:\\*` +
   `|oauthApplication:\\*` +

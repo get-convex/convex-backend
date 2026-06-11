@@ -932,6 +932,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         caller,
                         usage_tracker.clone(),
                         context.clone(),
+                        true,
                     )
                     .await?;
                 let state = match &completion.outcome.result {

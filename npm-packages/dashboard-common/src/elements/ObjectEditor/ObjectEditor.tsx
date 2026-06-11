@@ -94,25 +94,6 @@ export function ObjectEditor(props: ObjectEditorProps) {
 
   const getDocumentRefs = useIdDecorations(monaco, path, showTableNames);
 
-  // Initialize all markers on mount.
-  useEffect(() => {
-    if (monaco) {
-      handleCodeChange(
-        defaultValueString,
-        mode,
-        validator,
-        "allowTopLevelUndefined" in props
-          ? !!props.allowTopLevelUndefined
-          : false,
-        shouldSurfaceValidatorErrors,
-        handleError,
-        onChange,
-        getDocumentRefs,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monaco]);
-
   const saveActionRef = useRef(saveAction);
   useEffect(() => {
     saveActionRef.current = saveAction;
@@ -262,6 +243,18 @@ export function ObjectEditor(props: ObjectEditorProps) {
             diagnosticCodesToIgnore: [7028],
           });
           setMonaco(m);
+          handleCodeChange(
+            defaultValueString,
+            mode,
+            validator,
+            "allowTopLevelUndefined" in props
+              ? !!props.allowTopLevelUndefined
+              : false,
+            shouldSurfaceValidatorErrors,
+            handleError,
+            onChange,
+            getDocumentRefs,
+          );
         }}
         onMount={(editor, m) => {
           registerIdCommands({ monaco: m, deploymentsURI, captureMessage });

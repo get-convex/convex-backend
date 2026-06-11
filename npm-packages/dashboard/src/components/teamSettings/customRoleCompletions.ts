@@ -130,8 +130,9 @@ const RESOURCE_TEMPLATES: ResourceTemplate[] = [
   {
     label: "member:*",
     insertText: "member:*",
-    detail: "Team members",
-    documentation: "Use `*` for all members or `id=<memberId>` for one.",
+    detail: "All team members",
+    documentation:
+      "Matches all team members. The `member` resource only supports `*` — individual members can't be targeted by id.",
     category: "member",
   },
   {
