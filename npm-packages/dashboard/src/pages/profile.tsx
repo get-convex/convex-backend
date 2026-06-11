@@ -92,8 +92,7 @@ export function Profile() {
                         document.cookie = "";
                         window.localStorage.clear();
                         await deleteAccount();
-                        window.location.href =
-                          "/api/auth/logout?returnTo=/api/auth/login";
+                        window.location.href = "/api/auth/logout?local=true";
                       } catch (e: any) {
                         setDeleteAccountError(e.message);
                         throw e;

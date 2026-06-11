@@ -17,7 +17,7 @@ export default async function handler(
 
     res.setHeader("Set-Cookie", deleteSessionCookie());
 
-    if (!session) {
+    if (!session || req.query.local === "true") {
       return res.redirect("/login");
     }
 
