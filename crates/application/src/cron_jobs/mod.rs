@@ -92,6 +92,8 @@ mod metrics;
 const INITIAL_BACKOFF: Duration = Duration::from_millis(500);
 const MAX_BACKOFF: Duration = Duration::from_secs(15);
 pub(crate) const CRON_COMITTING: &str = "cron_committing";
+pub(crate) const CRON_JOB_EXECUTED: &str = "cron_job_executed";
+pub(crate) const CRON_JOB_SUCCEEDED: &str = "cron_job_succeeded";
 
 // Truncate result and log lines for cron job logs since they are only
 // used for the dashboard
@@ -197,6 +199,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         select_biased! {
             job_id = self.job_finished_rx.recv().fuse() => {
                 if let Some(job_id) = job_id {
+                    self.context.rt.pause_client().wait(CRON_JOB_EXECUTED).await;
                     self.running_job_ids.remove(&job_id);
                 } else {
                     anyhow::bail!("Job results channel closed, this is unexpected!");
@@ -278,6 +281,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 .await;
             match result {
                 Ok(result) => {
+                    self.rt.pause_client().wait(CRON_JOB_SUCCEEDED).await;
                     metrics::log_cron_job_success(function_backoff.failures());
                     return result;
                 },
@@ -635,6 +639,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                         caller,
                         usage_tracker.clone(),
                         context.clone(),
+                        true,
                     )
                     .await?;
                 let execution_time_f64 = completion.execution_time.as_secs_f64();
