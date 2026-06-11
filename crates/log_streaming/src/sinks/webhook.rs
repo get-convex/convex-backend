@@ -255,17 +255,16 @@ impl<RT: Runtime> WebhookSink<RT> {
                     } else {
                         let delay = self.backoff.fail(&mut self.runtime.rng());
                         tracing::warn!(
-                            "Failed to send in Webhook sink: {e}. Waiting {delay:?} before \
-                             retrying."
+                            "Failed to send in Webhook sink, waiting {delay:?} before retrying: \
+                             {e:#}"
                         );
-                        // Wrap error with ErrorMetadata if it doesn't have it, so the actual
-                        // error message appears in the failure reason
+                        // Tag transport failures with ErrorMetadata so the error message
+                        // surfaces in the customer-facing failure reason. Attach it with
+                        // `.context` rather than replacing the error, so the original cause
+                        // chain is preserved and still appears in `{e:#}` logs.
                         let e = if e.downcast_ref::<ErrorMetadata>().is_none() {
                             let error_msg = format!("{e}");
-                            anyhow::anyhow!(ErrorMetadata::overloaded(
-                                "WebhookRequestFailed",
-                                error_msg
-                            ))
+                            e.context(ErrorMetadata::overloaded("WebhookRequestFailed", error_msg))
                         } else {
                             e
                         };
@@ -314,7 +313,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         if let Err(e) = self.send_batch(values_to_send, false, track_egress).await {
             // We don't report this error to Sentry to prevent misconfigured webhook sinks
             // from overflowing our Sentry logs.
-            tracing::error!("could not send batch to WebhookSink: {e}");
+            tracing::error!("could not send batch to WebhookSink: {e:#}");
         } else {
             crate::metrics::webhook_sink_logs_sent(batch_size);
         }

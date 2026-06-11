@@ -1,8 +1,10 @@
-import { cn } from "@ui/cn";
+import { useContext } from "react";
 import { Combobox } from "@ui/Combobox";
+import { Link } from "@ui/Link";
 import { PuzzlePieceIcon } from "@common/elements/icons";
 import { Tooltip } from "@ui/Tooltip";
 import { NENT_APP_PLACEHOLDER, Nent, useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function NentSwitcher({
   onChange,
@@ -10,6 +12,7 @@ export function NentSwitcher({
   onChange?: (nent: string | null) => void;
 }) {
   const { nents: allNents, selectedNent, setSelectedNent } = useNents();
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
   if (!allNents || allNents.length <= 1) {
     return null;
   }
@@ -52,6 +55,15 @@ export function NentSwitcher({
           })),
         ]}
       />
+      {selectedNent && selectedNent.state !== "active" && (
+        <p className="mt-1 text-xs text-content-secondary">
+          This component is unmounted. You can delete it and its data on the{" "}
+          <Link passHref href={`${deploymentsURI}/settings/components`}>
+            Components settings
+          </Link>{" "}
+          page.
+        </p>
+      )}
     </div>
   );
 }
@@ -73,10 +85,7 @@ export function NentNameOption({
           : undefined
       }
       side="right"
-      className={cn(
-        "flex w-full items-center",
-        value && value.state !== "active" && "text-content-tertiary",
-      )}
+      className="flex w-full items-center"
     >
       <div className="flex items-center gap-1 truncate">
         {inButton && <PuzzlePieceIcon className="mt-px min-w-[13px]" />}
