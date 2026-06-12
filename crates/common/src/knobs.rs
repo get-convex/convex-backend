@@ -763,12 +763,23 @@ pub static ISOLATE_MAX_LIFETIME: LazyLock<Duration> =
 pub static V8_ACTION_SYSTEM_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_SYSTEM_TIMEOUT_SECONDS", 5 * 60)));
 
-/// The maximum amount of time
+/// The maximum amount of time a query or mutation waits for a concurrency
+/// permit before being rejected.
 pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| {
         Duration::from_millis(env_config(
             "APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT",
             5000,
+        ))
+    });
+
+/// The maximum amount of time an action waits for a concurrency permit before
+/// being rejected.
+pub static APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| {
+        Duration::from_millis(env_config(
+            "APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT",
+            10000,
         ))
     });
 

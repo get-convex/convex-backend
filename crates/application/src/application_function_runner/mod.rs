@@ -39,6 +39,7 @@ use common::{
     },
     fastrace_helpers::EncodedSpan,
     knobs::{
+        APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT,
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_MUTATIONS,
         APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
@@ -262,18 +263,21 @@ impl<RT: Runtime> FunctionRouter<RT> {
             ModuleEnvironment::Isolate,
             UdfType::Query,
             *APPLICATION_MAX_CONCURRENT_QUERIES,
+            *APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
             function_log.clone(),
         ));
         let mutation_limiter = Arc::new(Limiter::new(
             ModuleEnvironment::Isolate,
             UdfType::Mutation,
             *APPLICATION_MAX_CONCURRENT_MUTATIONS,
+            *APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
             function_log.clone(),
         ));
         let action_limiter = Arc::new(Limiter::new(
             ModuleEnvironment::Isolate,
             UdfType::Action,
             *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
+            *APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT,
             function_log,
         ));
         Self {
@@ -478,6 +482,9 @@ struct Limiter<RT: Runtime> {
     semaphore: Semaphore,
     total_permits: usize,
 
+    // How long to wait for a permit before rejecting the request.
+    semaphore_timeout: Duration,
+
     // Total function requests, including ones still waiting on the semaphore.
     total_outstanding: AtomicUsize,
 
@@ -490,6 +497,7 @@ impl<RT: Runtime> Limiter<RT> {
         env: ModuleEnvironment,
         udf_type: UdfType,
         total_permits: usize,
+        semaphore_timeout: Duration,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         let limiter = Self {
@@ -497,6 +505,7 @@ impl<RT: Runtime> Limiter<RT> {
             env,
             semaphore: Semaphore::new(total_permits),
             total_permits,
+            semaphore_timeout,
             total_outstanding: AtomicUsize::new(0),
             function_log,
         };
@@ -520,7 +529,7 @@ impl<RT: Runtime> Limiter<RT> {
                 self.report_metrics();
                 future::pending::<!>().await
             } => match x {},
-            _ = rt.wait(*APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT) => {
+            _ = rt.wait(self.semaphore_timeout) => {
                 log_function_wait_timeout(self.env, self.udf_type);
                 anyhow::bail!(ErrorMetadata::rate_limited(
                     "TooManyConcurrentRequests",
@@ -697,6 +706,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             ModuleEnvironment::Node,
             UdfType::Action,
             *APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
+            *APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT,
             function_log.clone(),
         );
 
