@@ -5,6 +5,7 @@ use serde::{
 };
 use sync_types::{
     CanonicalizedModulePath,
+    CanonicalizedUdfPath,
     ModulePath,
 };
 use value::{
@@ -17,7 +18,10 @@ use super::module_versions::{
     AnalyzedModule,
     SerializedAnalyzedModule,
 };
-use crate::source_packages::types::SourcePackageId;
+use crate::{
+    modules::module_versions::AnalyzedFunction,
+    source_packages::types::SourcePackageId,
+};
 
 /// In-memory representation of a module's metadata.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -43,6 +47,27 @@ impl ModuleMetadata {
             && self.analyze_result == other.analyze_result
             && self.environment == other.environment
             && self.sha256 == other.sha256
+    }
+
+    pub fn find_analyzed_function(
+        &self,
+        udf_path: &CanonicalizedUdfPath,
+    ) -> anyhow::Result<Option<AnalyzedFunction>> {
+        // Dependency modules don't have AnalyzedModule.
+        if !udf_path.module().is_deps() {
+            let analyzed_module = self
+                .analyze_result
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Expected analyze result for {udf_path:?}"))?;
+
+            for function in &analyzed_module.functions {
+                if &function.name == udf_path.function_name() {
+                    return Ok(Some(function.clone()));
+                }
+            }
+        }
+
+        Ok(None)
     }
 }
 

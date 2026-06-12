@@ -273,7 +273,7 @@ fn check_visibility_access(
                     identity.require_operation(op)?;
                     Ok(Ok(()))
                 } else {
-                    Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
+                    Ok(Err(missing_or_internal_error(path)?))
                 }
             },
             None => {
@@ -299,7 +299,7 @@ fn require_admin_data_op(
         identity.require_operation(op)?;
         Ok(Ok(()))
     } else {
-        Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
+        Ok(Err(missing_or_internal_error(path)?))
     }
 }
 
@@ -313,11 +313,11 @@ fn require_admin_identity(
     if identity.is_admin() || identity.is_system() || identity.is_acting_as_user() {
         Ok(Ok(()))
     } else {
-        Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
+        Ok(Err(missing_or_internal_error(path)?))
     }
 }
 
-fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String> {
+fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<JsError> {
     let path = path.debug_into_component_path();
     let err_str = format!(
         "Could not find public function for '{}'{}.",
@@ -327,7 +327,7 @@ fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String>
     if *UDF_404_ON_BAD_PATH {
         anyhow::bail!(ErrorMetadata::not_found("FunctionPathNotFound", err_str));
     } else {
-        Ok(err_str)
+        Ok(JsError::from_message(err_str))
     }
 }
 
@@ -354,16 +354,16 @@ async fn udf_version<RT: Runtime>(
         _ => {
             if udf_config.is_none()
                 && ModuleModel::new(tx)
-                    .get_analyzed_function_by_id(path)
+                    .get_metadata_for_function_by_id(path)
                     .await?
-                    .is_err()
+                    .is_none_or(|m| matches!(m.find_analyzed_function(&path.udf_path), Ok(None)))
             {
                 // We don't have a UDF config and we can't find the analyzed function.
                 // Likely this developer has never pushed before, so give them
                 // the missing error message.
-                return Ok(Err(JsError::from_message(missing_or_internal_error(
+                return Ok(Err(missing_or_internal_error(
                     PublicFunctionPath::ResolvedComponent(path.clone()),
-                )?)));
+                )?));
             }
 
             let unsupported = format!(
@@ -395,6 +395,7 @@ pub struct ValidatedPathAndArgs {
     args: SerializedArgs,
     // Not set for system modules.
     npm_version: Option<Version>,
+    reuse_context: bool,
 }
 
 impl ValidatedPathAndArgs {
@@ -467,6 +468,7 @@ impl ValidatedPathAndArgs {
                     path,
                     args,
                     npm_version: None,
+                    reuse_context: false,
                 },
                 ReturnsValidator::Unvalidated,
             )));
@@ -514,17 +516,20 @@ impl ValidatedPathAndArgs {
             Err(e) => return Ok(Err(e)),
         };
 
-        // AnalyzeResult result should be populated for all supported versions.
-        //
-        //
-        let Ok(analyzed_function) = ModuleModel::new(tx)
-            .get_analyzed_function_by_id(&path)
+        let Some(module) = ModuleModel::new(tx)
+            .get_metadata_for_function_by_id(&path)
             .await?
         else {
-            return Ok(Err(JsError::from_message(missing_or_internal_error(
-                public_path,
-            )?)));
+            return Ok(Err(missing_or_internal_error(public_path)?));
         };
+        // AnalyzeResult result should be populated for all supported versions.
+        let Some(analyzed_function) = module.find_analyzed_function(&path.udf_path)? else {
+            return Ok(Err(missing_or_internal_error(public_path)?));
+        };
+        let analyzed_module = module
+            .analyze_result
+            .as_ref()
+            .context("missing analyze_result")?;
 
         if udf_version < *MIN_NPM_VERSION_FOR_BETTER_AUTH && should_block_path(&path) {
             tracing::warn!(
@@ -532,9 +537,7 @@ impl ValidatedPathAndArgs {
                 path.udf_path,
                 udf_version
             );
-            return Ok(Err(JsError::from_message(missing_or_internal_error(
-                public_path,
-            )?)));
+            return Ok(Err(missing_or_internal_error(public_path)?));
         }
 
         let returns_validator = if path.udf_path.is_system() {
@@ -551,6 +554,7 @@ impl ValidatedPathAndArgs {
             expected_udf_type,
             analyzed_function,
             udf_version,
+            analyzed_module.reuse_context,
         )? {
             Ok(validated_udf_path_and_args) => {
                 Ok(Ok((validated_udf_path_and_args, returns_validator)))
@@ -567,6 +571,7 @@ impl ValidatedPathAndArgs {
         expected_udf_type: UdfType,
         analyzed_function: AnalyzedFunction,
         version: Version,
+        reuse_context: bool,
     ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
         if let Err(js_error) = check_visibility_access(
             allowed_visibility,
@@ -622,6 +627,7 @@ impl ValidatedPathAndArgs {
             path,
             args,
             npm_version: Some(version),
+            reuse_context,
         }))
     }
 
@@ -654,6 +660,7 @@ impl ValidatedPathAndArgs {
             npm_version,
             component_path,
             component_id,
+            reuse_context,
         }: pb::common::ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args =
@@ -671,7 +678,12 @@ impl ValidatedPathAndArgs {
             },
             args,
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
+            reuse_context: reuse_context.unwrap_or(false),
         })
+    }
+
+    pub fn reuse_context(&self) -> bool {
+        self.reuse_context
     }
 }
 
@@ -683,6 +695,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
             path,
             args,
             npm_version,
+            reuse_context,
         }: ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args = args.get().as_bytes().to_vec();
@@ -693,6 +706,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
             npm_version: npm_version.map(|v| v.to_string()),
             component_path,
             component_id: path.component.serialize_to_string(),
+            reuse_context: Some(reuse_context),
         })
     }
 }
@@ -705,6 +719,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
 pub struct ValidatedHttpPath {
     path: ResolvedComponentFunctionPath,
     npm_version: Option<Version>,
+    reuse_context: bool,
 }
 
 impl ValidatedHttpPath {
@@ -738,9 +753,14 @@ impl ValidatedHttpPath {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
+        let module = ModuleModel::new(tx)
+            .get_metadata_for_function_by_id(&path)
+            .await?;
         Ok(Ok(ValidatedHttpPath {
             path,
             npm_version: Some(udf_version),
+            reuse_context: module
+                .is_some_and(|m| m.analyze_result.as_ref().is_some_and(|a| a.reuse_context)),
         }))
     }
 
@@ -758,6 +778,7 @@ impl ValidatedHttpPath {
             component_path,
             component_id,
             npm_version,
+            reuse_context,
         }: pb::common::ValidatedHttpPath,
     ) -> anyhow::Result<Self> {
         let component = ComponentId::deserialize_from_string(component_id.as_deref())?;
@@ -772,6 +793,7 @@ impl ValidatedHttpPath {
                 component_path,
             },
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
+            reuse_context: reuse_context.unwrap_or(false),
         })
     }
 }
@@ -780,7 +802,11 @@ impl TryFrom<ValidatedHttpPath> for pb::common::ValidatedHttpPath {
     type Error = anyhow::Error;
 
     fn try_from(
-        ValidatedHttpPath { path, npm_version }: ValidatedHttpPath,
+        ValidatedHttpPath {
+            path,
+            npm_version,
+            reuse_context,
+        }: ValidatedHttpPath,
     ) -> anyhow::Result<Self> {
         let component_path = Some(path.component_path.into());
         Ok(Self {
@@ -788,6 +814,7 @@ impl TryFrom<ValidatedHttpPath> for pb::common::ValidatedHttpPath {
             npm_version: npm_version.map(|v| v.to_string()),
             component_path,
             component_id: path.component.serialize_to_string(),
+            reuse_context: Some(reuse_context),
         })
     }
 }

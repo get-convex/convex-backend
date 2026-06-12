@@ -232,15 +232,13 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
 }
 
 impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 's, 'i, RT, E> {
-    #[fastrace::trace]
-    pub fn new(
+    pub fn with_existing_context(
         scope: &'a mut v8::PinScope<'s, 'i>,
         handle: IsolateHandle,
         state: RequestState<RT, E>,
         allow_dynamic_imports: bool,
-    ) -> anyhow::Result<Self> {
-        let timer = context_build_timer();
-
+        module_map: ModuleMap,
+    ) -> Self {
         // These callbacks are global for the entire isolate, so we rely on the
         // isolate only running one request at a time.
         // The callbacks are removed in `Drop` so if they happen between requests
@@ -251,28 +249,37 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             scope.set_host_import_module_dynamically_callback(Self::dynamic_import_callback);
         }
 
-        Self::setup_context(scope, state, allow_dynamic_imports)?;
-        let isolate_context = Self {
+        let context = scope.get_current_context();
+        assert!(context.set_context_slot(scope, state));
+        assert!(context.set_context_slot(scope, module_map));
+        assert!(context.set_context_slot(scope, PendingUnhandledPromiseRejections::new()));
+        assert!(context.set_context_slot(scope, PendingDynamicImports::new(allow_dynamic_imports)));
+
+        Self {
             scope,
             handle,
             _pd: PhantomData,
-        };
-        timer.finish();
-        Ok(isolate_context)
+        }
     }
 
-    pub(crate) fn setup_context(
-        scope: &mut v8::PinScope<'_, '_>,
+    #[fastrace::trace]
+    pub fn new(
+        scope: &'a mut v8::PinScope<'s, 'i>,
+        handle: IsolateHandle,
         state: RequestState<RT, E>,
         allow_dynamic_imports: bool,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Self> {
+        let timer = context_build_timer();
+        let mut isolate_context = Self::with_existing_context(
+            scope,
+            handle,
+            state,
+            allow_dynamic_imports,
+            ModuleMap::new(),
+        );
+        let scope = &mut isolate_context.scope;
         let context = scope.get_current_context();
         let global = context.global(scope);
-
-        assert!(context.set_context_slot(scope, state));
-        assert!(context.set_context_slot(scope, ModuleMap::new()));
-        assert!(context.set_context_slot(scope, PendingUnhandledPromiseRejections::new()));
-        assert!(context.set_context_slot(scope, PendingDynamicImports::new(allow_dynamic_imports)));
 
         let syscall_template = v8::FunctionTemplate::new(scope, Self::syscall);
         let syscall_value = syscall_template
@@ -313,7 +320,8 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         let async_op_key = strings::asyncOp.create(scope)?;
         convex_value.set(scope, async_op_key.into(), async_op_value.into());
 
-        Ok(())
+        timer.finish();
+        Ok(isolate_context)
     }
 
     pub fn handle(&self) -> IsolateHandle {

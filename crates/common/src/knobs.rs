@@ -1733,3 +1733,7 @@ pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new
 /// we're rolling out.
 pub static UDF_404_ON_BAD_PATH: LazyLock<bool> =
     LazyLock::new(|| env_config("UDF_404_ON_BAD_PATH", true));
+
+/// If set, allows `experimental_reuseContext` to be set.
+pub static ALLOW_FUNCTION_CONTEXT_REUSE: LazyLock<bool> =
+    LazyLock::new(|| env_config("ALLOW_FUNCTION_CONTEXT_REUSE", false));

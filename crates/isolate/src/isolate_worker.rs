@@ -3,7 +3,6 @@ use common::{
     runtime::Runtime,
     types::UdfType,
 };
-use deno_core::v8;
 use futures::FutureExt;
 use sync_types::CanonicalizedUdfPath;
 use tracing::Instrument;
@@ -20,6 +19,7 @@ use crate::{
         SharedIsolateHeapStats,
         PAUSE_REQUEST,
     },
+    context_cache::ContextCache,
     environment::{
         action::ActionEnvironment,
         analyze::AnalyzeEnvironment,
@@ -54,7 +54,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
     async fn handle_request_inner(
         &self,
         isolate: &mut Isolate<RT>,
-        v8_context: v8::Global<v8::Context>,
+        context_cache: &mut ContextCache,
         isolate_clean: &mut bool,
         Request {
             client_id,
@@ -79,24 +79,23 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let timer = service_request_timer(&request.udf_type);
                 record_component_function_path(request.path_and_args.path());
                 let udf_path = request.path_and_args.path().udf_path.to_owned();
-                let function_timestamp = request.unix_timestamp;
-                let environment = DatabaseUdfEnvironment::new(
+                let (environment, args) = DatabaseUdfEnvironment::new(
                     self.rt.clone(),
                     environment_data,
                     heap_stats.clone(),
                     request,
                     reactor_depth,
                     client_id.clone(),
+                    rng_seed,
                 );
                 let r = environment
                     .run(
                         client_id,
                         isolate,
-                        v8_context,
+                        context_cache,
                         isolate_clean,
                         response.closed().boxed(),
-                        rng_seed,
-                        function_timestamp,
+                        args,
                         function_started_sender,
                         udf_callback,
                     )
@@ -152,7 +151,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     .run_action(
                         client_id,
                         isolate,
-                        v8_context,
+                        context_cache,
                         isolate_clean,
                         request.params.clone(),
                         response.closed().boxed(),
@@ -185,7 +184,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let r = AnalyzeEnvironment::analyze::<RT>(
                     client_id,
                     isolate,
-                    v8_context,
+                    context_cache,
                     isolate_clean,
                     udf_config,
                     modules,
@@ -233,7 +232,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     .run_http_action(
                         client_id,
                         isolate,
-                        v8_context,
+                        context_cache,
                         isolate_clean,
                         request.http_module_path,
                         request.routed_path,
@@ -263,7 +262,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let r = SchemaEnvironment::evaluate_schema(
                     client_id,
                     isolate,
-                    v8_context,
+                    context_cache,
                     schema_bundle,
                     source_map,
                     rng_seed,
@@ -283,7 +282,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let r = AuthConfigEnvironment::evaluate_auth_config(
                     client_id,
                     isolate,
-                    v8_context,
+                    context_cache,
                     auth_config_bundle,
                     source_map,
                     environment_variables,
@@ -303,7 +302,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 // AppDefinitionEvaluator doesn't use the prewarmed V8 context
                 // because it uses an arbitrary number of contexts. This call is
                 // rare and not particularly latency-sensitive though
-                drop(v8_context);
+                context_cache.clear();
                 let env = AppDefinitionEvaluator::new(
                     app_definition,
                     component_definitions,
@@ -344,7 +343,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,
-        v8_context: v8::Global<v8::Context>,
+        context_cache: &mut ContextCache,
         isolate_clean: &mut bool,
         request: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
@@ -360,7 +359,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         // Also add the tag to tracing so it shows up in DataDog logs.
         let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
         let result = self
-            .handle_request_inner(isolate, v8_context, isolate_clean, request, heap_stats)
+            .handle_request_inner(isolate, context_cache, isolate_clean, request, heap_stats)
             .instrument(span)
             .await;
         sentry::configure_scope(|scope| scope.remove_tag("client_id"));

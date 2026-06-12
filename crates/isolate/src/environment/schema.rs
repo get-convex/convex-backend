@@ -26,7 +26,6 @@ use deno_core::{
     v8::{
         self,
         scope,
-        scope_with_context,
     },
     ModuleSpecifier,
 };
@@ -52,6 +51,7 @@ use value::NamespacedTableMapping;
 
 use super::ModuleCodeCacheResult;
 use crate::{
+    context_cache::ContextCache,
     environment::{
         helpers::syscall_error::{
             syscall_description_for_error,
@@ -201,7 +201,7 @@ impl SchemaEnvironment {
     pub async fn evaluate_schema<RT: Runtime>(
         client_id: String,
         isolate: &mut Isolate<RT>,
-        v8_context: v8::Global<v8::Context>,
+        context_cache: &mut ContextCache,
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
@@ -216,7 +216,9 @@ impl SchemaEnvironment {
         };
         let client_id = Arc::new(client_id);
         let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
-        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
+        scope!(let handle_scope, isolate.isolate());
+        let v8_context = context_cache.get_or_create_fresh_context(handle_scope);
+        let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
         let mut isolate_context = RequestScope::new(context_scope, handle.clone(), state, false)?;
         let handle = isolate_context.handle();
         let result = Self::run_evaluate_schema(&mut isolate_context, &mut timeout).await;

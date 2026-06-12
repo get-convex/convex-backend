@@ -109,6 +109,12 @@ pub struct AnalyzedModule {
     pub cron_specs: Option<WithHeapSize<BTreeMap<CronIdentifier, CronSpec>>>,
     /// Index of the module's original source in the source map.
     pub source_index: Option<u32>,
+    /// Whether to keep around the JS context after running a function from this
+    /// module. If true, state will non-deterministically leak from UDF to UDF
+    /// (e.g. on the global object or module attributes).
+    ///
+    /// This is experimental for now and the reuse isn't guaranteed to happen.
+    pub reuse_context: bool,
 }
 
 impl HeapSize for AnalyzedModule {
@@ -127,6 +133,9 @@ pub struct SerializedAnalyzedModule {
     http_routes: Option<Vec<SerializedAnalyzedHttpRoute>>,
     cron_specs: Option<Vec<SerializedNamedCronSpec>>,
     source_mapped: Option<SerializedMappedModule>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    reuse_context: bool,
 }
 
 impl TryFrom<AnalyzedModule> for SerializedAnalyzedModule {
@@ -153,6 +162,7 @@ impl TryFrom<AnalyzedModule> for SerializedAnalyzedModule {
                 .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
                 .transpose()?,
             source_mapped,
+            reuse_context: m.reuse_context,
         })
     }
 }
@@ -181,6 +191,7 @@ impl TryFrom<SerializedAnalyzedModule> for AnalyzedModule {
             source_index: m
                 .source_mapped
                 .and_then(|mapped_module| mapped_module.source_index),
+            reuse_context: m.reuse_context,
         })
     }
 }
