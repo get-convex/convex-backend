@@ -1372,6 +1372,77 @@ html:not([class*="docs-doc-id-quickstart/"]):not(
   box-shadow: var(--ifm-global-shadow-lw);
 }
 
+.openapi-tabs__schema-container {
+  --schema-tab-track-bg: var(--ifm-color-emphasis-100);
+  --schema-tab-active-bg: var(--ifm-background-color);
+  --schema-tab-active-accent: var(--ifm-color-primary);
+  --schema-tab-idle-text: var(--ifm-color-emphasis-700);
+  --schema-tab-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.openapi-tabs__schema-container .openapi-tabs__schema-tabs-container {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* A lone option (e.g. the Body / Schema picker once its synthetic example tab
+ * is removed) isn't a choice — hide the selector and just show its content. */
+.openapi-tabs__schema-container
+  .openapi-tabs__schema-tabs-container:has(
+    .openapi-tabs__schema-item:only-child
+  ) {
+  display: none;
+}
+
+.openapi-tabs__schema-container .openapi-tabs__schema-list-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  width: auto;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 999px;
+  background-color: var(--schema-tab-track-bg);
+}
+
+.openapi-tabs__schema-container .openapi-tabs__schema-item {
+  margin: 0 !important;
+  padding: 0.3rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--schema-tab-idle-text);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.openapi-tabs__schema-container .openapi-tabs__schema-item:hover {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--ifm-color-content);
+}
+
+.openapi-tabs__schema-container .openapi-tabs__schema-item.active {
+  background-color: var(--schema-tab-active-bg);
+  border: 1px solid var(--schema-tab-active-accent);
+  color: var(--schema-tab-active-accent);
+  box-shadow: var(--schema-tab-active-shadow);
+}
+
+.badge--info {
+  color: var(--ifm-color-primary);
+  background-color: color-mix(
+    in srgb,
+    var(--ifm-color-primary) 12%,
+    transparent
+  );
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 35%, transparent);
+}
+
 /* FROM HERE ON: Dark mode styles */
 
 html[data-theme="dark"] {
@@ -1401,6 +1472,13 @@ html[data-theme="dark"] {
   --convex-zen-do-not-color: var(--ifm-color-warning-lightest);
 
   --color-error: #fca5a5;
+}
+
+/* Schema selectors: a light page-background highlight is invisible on the dark
+ * track, so lift the active segment with a lighter fill and a deeper shadow. */
+html[data-theme="dark"] .openapi-tabs__schema-list-container {
+  --schema-tab-active-bg: var(--ifm-color-emphasis-300);
+  --schema-tab-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* Fixes the highlighted code line background */
