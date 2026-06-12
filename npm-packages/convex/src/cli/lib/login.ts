@@ -5,6 +5,7 @@ import {
   logAndHandleFetchError,
   throwingFetch,
   isWebContainer,
+  typedPlatformClient,
 } from "./utils/utils.js";
 import open from "open";
 import { chalkStderr } from "chalk";
@@ -36,12 +37,6 @@ import { updateBigBrainAuthAfterLogin } from "./deploymentSelection.js";
 custom.setHttpOptionsDefaults({
   timeout: parseInt(process.env.OPENID_CLIENT_TIMEOUT || "10000"),
 });
-
-interface AuthorizeArgs {
-  authnToken: string;
-  deviceName: string;
-  anonymousId?: string | undefined;
-}
 
 export async function checkAuthorization(
   ctx: Context,
@@ -390,18 +385,23 @@ export async function performLogin(
     });
   }
 
-  const authorizeArgs: AuthorizeArgs = {
-    authnToken: accessToken!,
-    deviceName: deviceName,
-    anonymousId: anonymousId,
-  };
-  const data = await bigBrainAPI({
-    ctx,
-    method: "POST",
-    path: "authorize",
-    data: authorizeArgs,
+  // Exchange the WorkOS access token for a Convex personal access token.
+  ctx._updateBigBrainAuth({
+    accessToken: accessToken!,
+    kind: "accessToken",
+    header: `Bearer ${accessToken!}`,
   });
-  const globalConfig = { accessToken: data.accessToken };
+  const response = await typedPlatformClient(ctx).POST(
+    "/create_personal_access_token",
+    {
+      // `anonymousId` links a prior anonymous session to this account. It's
+      // intentionally absent from the generated platform API types,
+      // so cast to pass it through.
+      body: { name: deviceName, anonymousId } as { name: string },
+    },
+  );
+  const newAccessToken = response.data!.accessToken;
+  const globalConfig = { accessToken: newAccessToken };
   try {
     await modifyGlobalConfig(ctx, globalConfig);
     const path = globalConfigPath();
@@ -416,7 +416,7 @@ export async function performLogin(
   }
 
   logVerbose(`performLogin: updating big brain auth after login`);
-  await updateBigBrainAuthAfterLogin(ctx, data.accessToken);
+  await updateBigBrainAuthAfterLogin(ctx, newAccessToken);
 
   logVerbose(`performLogin: checking opt ins, acceptOptIns: ${acceptOptIns}`);
   // Do opt in to TOS and Privacy Policy stuff

@@ -14,6 +14,7 @@ use std::{
     },
     fmt::Debug,
     iter,
+    mem,
     ops::RangeBounds,
     sync::{
         Arc,
@@ -998,94 +999,113 @@ impl DatabaseIndexSnapshot {
         // slot in `results`.
         let stream = stream::iter(range_requests.iter().zip(&mut results[..]))
             .map(|(range_request, out)| async {
-                let result = self.start_range_fetch(range_request).await;
-                let (range_result, populate_cache) = match result {
+                let populate_cache;
+                (*out, populate_cache) = match self.range_fetch(range_request).await {
+                    Ok((range_result, populate_cache)) => (Ok(range_result), populate_cache),
                     Err(e) => (Err(e), None),
-                    Ok(RangeFetchResult::MemoryCached {
-                        documents,
-                        next_cursor,
-                    }) => (
-                        Ok((
-                            documents
-                                .into_iter()
-                                .map(|(key, ts, doc)| (key, ts, LazyDocument::Memory(doc)))
-                                .collect(),
-                            next_cursor,
-                        )),
-                        None,
-                    ),
-                    Ok(RangeFetchResult::NonCached {
-                        index_id,
-                        cache_results,
-                    }) => {
-                        let any_misses = cache_results.iter().any(|result| {
-                            matches!(result, DatabaseIndexSnapshotCacheResult::CacheMiss(_))
-                        });
-                        let fut = Self::fetch_cache_misses(
-                            self.reader.clone(),
-                            index_id,
-                            (*range_request).clone(),
-                            cache_results,
-                        );
-                        let fetch_result = if any_misses {
-                            // Only spawn onto a new task if any database reads are required
-                            try_join("fetch_cache_misses", fut).await
-                        } else {
-                            fut.await
-                        };
-                        // If we actually fetched anything, feed those results
-                        // into `populate_cache_results` so we can update the
-                        // DatabaseIndexSnapshotCache.
-                        // We can't do that here because we can't mutate `self`
-                        // during the concurrent phase of this future.
-                        match fetch_result {
-                            Err(e) => (Err(e), None),
-                            Ok((fetch_result_vec, cache_miss_results, cursor)) => (
-                                Ok((fetch_result_vec, cursor.clone())),
-                                Some((*range_request, index_id, cache_miss_results, cursor)),
-                            ),
-                        }
-                    },
                 };
-                *out = range_result;
                 stream::iter(populate_cache)
             })
             .buffer_unordered(20)
             .flatten()
             .collect();
-        let populate_cache_results: Vec<(
-            &RangeRequest,
-            IndexId,
-            Vec<(Timestamp, PackedDocument)>,
-            CursorPosition,
-        )> = assert_send(stream).await; // works around https://github.com/rust-lang/rust/issues/102211
+        let populate_cache_results: Vec<(IndexId, Vec<(Timestamp, PackedDocument)>, Interval)> =
+            assert_send(stream).await; // works around https://github.com/rust-lang/rust/issues/102211
 
-        for (range_request, index_id, cache_miss_results, cursor) in populate_cache_results {
-            for (ts, doc) in cache_miss_results {
-                // Populate all index point lookups that can result in the given
-                // document.
-                let index_keys = self
-                    .index_registry
-                    .index_keys(&doc)
-                    .map(|(index, index_key)| {
-                        (index.id(), index.metadata.name.is_by_id(), index_key)
-                    });
-                for (index_id, is_by_id, index_key) in index_keys {
-                    self.cache
-                        .populate(index_id, is_by_id, index_key, ts, doc.clone());
-                }
-            }
-            let (interval_read, _) = range_request
-                .interval
-                .split(cursor.clone(), range_request.order);
-            // After all documents in an index interval have been
-            // added to the cache with `populate_cache`, record the entire interval as
-            // being populated.
-            self.cache
-                .record_interval_populated(index_id, interval_read);
+        for (index_id, cache_miss_results, interval_read) in populate_cache_results {
+            self.populate_cache_misses(index_id, cache_miss_results, interval_read);
         }
 
         results
+    }
+
+    /// The concurrent part of `range_batch`; the result should be fed into
+    /// `populate_cache_misses` afterward
+    async fn range_fetch(
+        &self,
+        range_request: &RangeRequest,
+    ) -> anyhow::Result<(
+        (
+            Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
+            CursorPosition,
+        ),
+        Option<(IndexId, Vec<(Timestamp, PackedDocument)>, Interval)>,
+    )> {
+        match self.start_range_fetch(range_request).await? {
+            RangeFetchResult::MemoryCached {
+                documents,
+                next_cursor,
+            } => Ok((
+                (
+                    documents
+                        .into_iter()
+                        .map(|(key, ts, doc)| (key, ts, LazyDocument::Memory(doc)))
+                        .collect(),
+                    next_cursor,
+                ),
+                // There's no need to populate the transaction cache for memory indexes
+                None,
+            )),
+            RangeFetchResult::NonCached {
+                index_id,
+                cache_results,
+            } => {
+                let any_misses = cache_results
+                    .iter()
+                    .any(|result| matches!(result, DatabaseIndexSnapshotCacheResult::CacheMiss(_)));
+                let fut = Self::fetch_cache_misses(
+                    self.reader.clone(),
+                    index_id,
+                    range_request.clone(),
+                    cache_results,
+                );
+                let (fetch_result_vec, cache_miss_results, cursor) = if any_misses {
+                    // Only spawn onto a new task if any database reads are required
+                    try_join("fetch_cache_misses", fut).await?
+                } else {
+                    fut.await?
+                };
+                // If we actually fetched anything, feed those results into
+                // `Self::populate_cache_misses` so we can update the
+                // DatabaseIndexSnapshotCache.
+                // We can't do that here because we can't mutate `self`
+                // during the concurrent phase of the fetch.
+                let (interval_read, _) = range_request
+                    .interval
+                    .split(cursor.clone(), range_request.order);
+                Ok((
+                    (fetch_result_vec, cursor),
+                    Some((index_id, cache_miss_results, interval_read)),
+                ))
+            },
+        }
+    }
+
+    /// `cache_miss_results` contains all the documents in the range
+    /// `interval_read` in `index_id` that are *not* already cached
+    fn populate_cache_misses(
+        &mut self,
+        index_id: IndexId,
+        cache_miss_results: Vec<(Timestamp, PackedDocument)>,
+        interval_read: Interval,
+    ) {
+        for (ts, doc) in cache_miss_results {
+            // Populate all index point lookups that can result in the given
+            // document.
+            let index_keys = self
+                .index_registry
+                .index_keys(&doc)
+                .map(|(index, index_key)| (index.id(), index.metadata.name.is_by_id(), index_key));
+            for (index_id, is_by_id, index_key) in index_keys {
+                self.cache
+                    .populate(index_id, is_by_id, index_key, ts, doc.clone());
+            }
+        }
+        // After all documents in an index interval have been
+        // added to the cache with `populate_cache`, record the entire interval as
+        // being populated.
+        self.cache
+            .record_interval_populated(index_id, interval_read);
     }
 
     async fn fetch_cache_misses(
@@ -1322,7 +1342,7 @@ impl DatabaseIndexSnapshotCache {
                 total_size: if is_by_id { Some(0) } else { None },
                 ..Default::default()
             });
-        index_docs.insert(index_key_bytes, ts, doc.clone());
+        index_docs.insert(index_key_bytes, ts, doc);
         index_docs.interval_set.add(interval);
         true
     }
@@ -1485,6 +1505,10 @@ impl MemoryDocument {
         self.cached_system_document.force(&self.packed_document)
     }
 }
+
+const _: () = {
+    assert!(mem::size_of::<LazyDocument>() == mem::size_of::<MemoryDocument>());
+};
 
 /// Stores a lazily-populated, cached `ParsedDocument` of the right type for
 /// this system document.
