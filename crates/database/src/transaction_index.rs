@@ -170,7 +170,7 @@ impl TransactionIndex {
         let mut pre_resolved = Vec::with_capacity(batch_size);
         let mut persistence_ranges: Vec<&RangeRequest> = Vec::new();
 
-        for &range_request in ranges.iter() {
+        for &range_request in ranges {
             if range_request.interval.is_singleton().is_some() {
                 let pending_result = Self::pending_iter_for_request(
                     &self.index_registry,
