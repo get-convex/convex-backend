@@ -741,6 +741,19 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             let path = job.path.clone();
             let pause_client = self.rt.pause_client();
 
+            // Stage a write so that the mutation can observe its own
+            // `_scheduled_functions` record as `inProgress`. This is invisible to
+            // other transactions, for whom the job stays `pending` until it
+            // reaches a completion state.
+            let mut in_progress_job = job.clone();
+            in_progress_job.state = ScheduledJobState::InProgress {
+                request_id: context.request_id.clone(),
+                execution_id: context.execution_id,
+            };
+            SchedulerModel::new(&mut tx, namespace)
+                .replace(job_id, in_progress_job)
+                .await?;
+
             let result = self
                 .runner
                 .run_mutation_no_udf_log(

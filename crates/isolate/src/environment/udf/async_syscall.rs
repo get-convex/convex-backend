@@ -1145,7 +1145,6 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             id: String,
         }
         let component = provider.component()?;
-        let tx = provider.tx()?;
 
         let virtual_id_v6 = with_argument_error("db.cancel_job", || {
             let args: CancelJobArgs = serde_json::from_value(args)?;
@@ -1153,6 +1152,16 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             Ok(id)
         })?;
 
+        if let Some((_, self_job_id)) = provider.context().parent_scheduled_job
+            && self_job_id == virtual_id_v6
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "ScheduledFunctionCancelingItself",
+                "A mutation cannot cancel itself",
+            ));
+        }
+
+        let tx = provider.tx()?;
         VirtualSchedulerModel::new(tx, component.into())
             .cancel(virtual_id_v6)
             .await?;
