@@ -277,8 +277,8 @@ enum QueryResult {
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
     },
-    /// Skip returning results of this query because search indexes or table
-    /// summaries are unavailable
+    /// Skip returning results of this query because a feature it depends on
+    /// (e.g. search indexes or table summaries) is temporarily unavailable
     TemporarilyUnavailable,
     Refresh,
 }
@@ -1047,12 +1047,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             };
                             match udf_return_result {
                                 Err(e) => {
-                                    // TODO: use ErrorCode::FeatureTemporarilyUnavailable
-                                    // instead
-                                    if let Some(error) = e.downcast_ref::<ErrorMetadata>()
-                                        && ["SearchIndexesUnavailable", "TableSummariesUnavailable"]
-                                            .contains(&&*error.short_msg)
-                                    {
+                                    if e.is_feature_temporarily_unavailable() {
                                         (QueryResult::TemporarilyUnavailable, None)
                                     } else {
                                         anyhow::bail!(e)

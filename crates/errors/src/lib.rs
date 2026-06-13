@@ -490,6 +490,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::RejectedBeforeExecution
     }
 
+    pub fn is_feature_temporarily_unavailable(&self) -> bool {
+        self.code == ErrorCode::FeatureTemporarilyUnavailable
+    }
+
     pub fn is_forbidden(&self) -> bool {
         self.code == ErrorCode::Forbidden
     }
@@ -753,6 +757,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_rate_limited(&self) -> bool;
     fn is_operational_internal_server_error(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
+    fn is_feature_temporarily_unavailable(&self) -> bool;
     fn is_forbidden(&self) -> bool;
     fn is_too_early(&self) -> bool;
     fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)>;
@@ -888,6 +893,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_rejected_before_execution(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_rejected_before_execution();
+        }
+        false
+    }
+
+    /// Returns true if error is tagged as FeatureTemporarilyUnavailable
+    fn is_feature_temporarily_unavailable(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_feature_temporarily_unavailable();
         }
         false
     }
