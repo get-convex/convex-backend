@@ -64,6 +64,18 @@ export type FunctionMetadata = {
   type: FunctionType;
   /** Whether the function is public or internal. */
   visibility: FunctionVisibility;
+  /**
+   * The ID of the scheduled function document (in `_scheduled_functions`) that
+   * this execution belongs to, or `null` otherwise.
+   *
+   * This is set for the scheduled function itself and for any functions it
+   * calls (e.g. a mutation invoked via `runMutation` by a scheduled action),
+   * propagating the top-level scheduled function's ID down the call tree. It is
+   * `null` when the function was not scheduled.
+   *
+   * @internal
+   */
+  scheduledFunctionId: string | null;
 };
 
 /**
