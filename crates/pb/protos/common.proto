@@ -10,6 +10,7 @@ message ValidatedPathAndArgs {
   optional string npm_version = 3;
   optional ComponentPath component_path = 4;
   optional string component_id = 5;
+  optional bool reuse_context = 6;
 }
 
 message ValidatedHttpPath {
@@ -17,6 +18,7 @@ message ValidatedHttpPath {
   optional ComponentPath component_path = 22;
   optional string component_id = 3;
   optional string npm_version = 4;
+  optional bool reuse_context = 5;
 }
 
 message ComponentPath {

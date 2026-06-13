@@ -556,6 +556,7 @@ impl<RT: Runtime> Actions<RT> {
                 source_index,
                 http_routes: None,
                 cron_specs: None,
+                reuse_context: false,
             };
             result.insert(path, module);
         }

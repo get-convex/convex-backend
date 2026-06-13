@@ -6,6 +6,7 @@ use common::{
     },
     components::{
         CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
         ResolvedComponentFunctionPath,
     },
     document::{
@@ -48,7 +49,9 @@ use udf::{
 };
 
 use crate::{
+    context_cache::ContextCache,
     environment::udf::astral_future::RecursiveExecutor,
+    module_map::ModuleMap,
     termination::{
         ContextTerminationReason,
         IsolateTerminationReason,
@@ -204,9 +207,6 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
     udf_type: UdfType,
     path: ResolvedComponentFunctionPath,
-    arguments: SerializedArgs,
-    identity: InertIdentity,
-    udf_server_version: Option<semver::Version>,
     deployment: DeploymentMetadata,
     client_id: String,
 
@@ -361,6 +361,7 @@ struct RunUdf<'a, 'b, RT: Runtime> {
     rt: &'a RT,
     v8_scope: &'a mut v8::Isolate,
     paused_timeout: &'a mut PauseGuard<'b, RT>,
+    context_cache: &'a mut ContextCache,
     isolate_handle: &'a IsolateHandle,
     executor: &'a UdfRecursiveExecutor<RT>,
     heap_stats: &'a SharedIsolateHeapStats,
@@ -375,14 +376,14 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
         rng_seed: [u8; 32],
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
-        let function_timestamp = udf_request.unix_timestamp;
-        let nested_provider = DatabaseUdfEnvironment::new(
+        let (nested_provider, args) = DatabaseUdfEnvironment::new(
             self.rt.clone(),
             environment_data,
             self.heap_stats.clone(),
             udf_request,
             reactor_depth,
             client_id,
+            rng_seed,
         );
         // it is not necessary to propagate cancellation as the parent will already
         // cancel the entire tree of futures.
@@ -399,10 +400,9 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
         // Actually run the UDF.
         let future = DatabaseUdfEnvironment::<RT>::run_nested(
             self.executor,
-            rng_seed,
-            function_timestamp,
+            &args,
             self.v8_scope,
-            None,
+            self.context_cache,
             self.isolate_handle.clone(),
             request_state,
             &mut *unpause_guard,
@@ -430,6 +430,15 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
     }
 }
 
+pub struct DatabaseUdfArgs {
+    unix_timestamp: UnixTimestamp,
+    rng_seed: [u8; 32],
+    udf_args: SerializedArgs,
+    identity: InertIdentity,
+    udf_server_version: Option<semver::Version>,
+    reuse_context: bool,
+}
+
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     pub fn new(
         rt: RT,
@@ -445,49 +454,59 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             path_and_args,
             udf_type,
             transaction,
-            unix_timestamp: _,
+            unix_timestamp,
             journal,
             context,
         }: UdfRequest<RT>,
         reactor_depth: usize,
         client_id: String,
-    ) -> Self {
+        rng_seed: [u8; 32],
+    ) -> (Self, DatabaseUdfArgs) {
+        let reuse_context = path_and_args.reuse_context();
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let component = path.component;
-        Self {
-            rt: rt.clone(),
-            udf_type,
-            path,
-            arguments,
-            identity: transaction.inert_identity(),
-            udf_server_version,
+        let identity = transaction.inert_identity();
+        (
+            Self {
+                rt: rt.clone(),
+                udf_type,
+                path,
 
-            phase: UdfPhase::new(
-                transaction,
-                rt,
-                module_loader.clone(),
-                default_system_env_vars,
-                component,
-            ),
-            file_storage,
+                phase: UdfPhase::new(
+                    transaction,
+                    rt,
+                    module_loader.clone(),
+                    default_system_env_vars,
+                    component,
+                ),
+                file_storage,
 
-            query_manager: QueryManager::new(),
+                query_manager: QueryManager::new(),
 
-            key_broker,
-            log_lines: vec![].into(),
-            audit_log_lines: vec![].into(),
-            prev_journal: journal,
-            next_journal: QueryJournal::new(),
+                key_broker,
+                log_lines: vec![].into(),
+                audit_log_lines: vec![].into(),
+                prev_journal: journal,
+                next_journal: QueryJournal::new(),
 
-            pending_syscalls: WithHeapSize::default(),
-            syscall_trace: SyscallTrace::new(),
-            heap_stats,
-            context,
+                pending_syscalls: WithHeapSize::default(),
+                syscall_trace: SyscallTrace::new(),
+                heap_stats,
+                context,
 
-            reactor_depth,
-            deployment,
-            client_id,
-        }
+                reactor_depth,
+                deployment,
+                client_id,
+            },
+            DatabaseUdfArgs {
+                unix_timestamp,
+                rng_seed,
+                udf_args: arguments,
+                identity,
+                udf_server_version,
+                reuse_context,
+            },
+        )
     }
 
     /// Runs a top-level query or mutation.
@@ -496,11 +515,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         self,
         client_id: String,
         isolate: &mut Isolate<RT>,
-        v8_context: v8::Global<v8::Context>,
+        context_cache: &mut ContextCache,
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
-        rng_seed: [u8; 32],
-        unix_timestamp: UnixTimestamp,
+        args: DatabaseUdfArgs,
         function_started: Option<oneshot::Sender<()>>,
         udf_callback: Option<IsolateClient<RT>>,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
@@ -518,10 +536,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let (this, mut result) = executor
             .run_until(Self::run_nested(
                 &executor,
-                rng_seed,
-                unix_timestamp,
+                &args,
                 isolate.isolate(),
-                Some(v8_context),
+                context_cache,
                 handle.clone(),
                 state,
                 &mut timeout,
@@ -547,7 +564,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let user_execution_time = execution_time.elapsed;
 
         let success_result_value = result.as_ref().ok();
-        let parsed_args = parse_udf_args(&this.path.udf_path, this.arguments.clone().into_args()?)?;
+        let parsed_args = parse_udf_args(&this.path.udf_path, args.udf_args.clone().into_args()?)?;
         let mut log_lines = this.log_lines;
         Self::add_warnings_to_log_lines(
             &this.path.clone().for_logging(),
@@ -569,12 +586,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // and use them in log_mutation.
         let outcome = UdfOutcome {
             path: this.path.for_logging(),
-            arguments: this.arguments,
-            identity: this.identity,
+            arguments: args.udf_args,
+            identity: args.identity,
             observed_identity: this.phase.observed_identity(),
-            rng_seed,
+            rng_seed: args.rng_seed,
             observed_rng: this.phase.observed_rng(),
-            unix_timestamp,
+            unix_timestamp: args.unix_timestamp,
             observed_time: this.phase.observed_time(),
             log_lines,
             audit_log_lines: this.audit_log_lines,
@@ -584,7 +601,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 Err(e) => Err(e),
             },
             syscall_trace: this.syscall_trace,
-            udf_server_version: this.udf_server_version,
+            udf_server_version: args.udf_server_version,
             memory_in_mb,
             user_execution_time: Some(user_execution_time),
         };
@@ -599,10 +616,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     /// Runs a query or mutation, possibly nested via `runQuery`/`runMutation`.
     async fn run_nested(
         executor: &UdfRecursiveExecutor<RT>,
-        rng_seed: [u8; 32],
-        unix_timestamp: UnixTimestamp,
+        args: &DatabaseUdfArgs,
         isolate: &mut v8::Isolate,
-        v8_context: Option<v8::Global<v8::Context>>,
+        context_cache: &mut ContextCache,
         isolate_handle: IsolateHandle,
         request_state: RequestState<RT, Self>,
         timeout: &mut Timeout<RT>,
@@ -611,25 +627,53 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         udf_callback: Option<IsolateClient<RT>>,
     ) -> anyhow::Result<(Self, anyhow::Result<Result<ConvexValue, JsError>>)> {
         scope!(let handle_scope, isolate);
-        let v8_context = if let Some(context) = v8_context {
-            v8::Local::new(handle_scope, context)
+        let mut context_scope;
+        let mut isolate_context = if args.reuse_context
+            && let Some((context, module_map)) = request_state
+                .environment
+                .take_and_validate_reused_context(context_cache)
+                .await?
+        {
+            let v8_context = v8::Local::new(handle_scope, context);
+            context_scope = v8::ContextScope::new(handle_scope, v8_context);
+            RequestScope::with_existing_context(
+                &mut context_scope,
+                isolate_handle.clone(),
+                request_state,
+                false,
+                module_map,
+            )
         } else {
-            v8::Context::new(handle_scope, v8::ContextOptions::default())
+            let v8_context = context_cache.get_or_create_fresh_context(handle_scope);
+            context_scope = v8::ContextScope::new(handle_scope, v8_context);
+            RequestScope::new(
+                &mut context_scope,
+                isolate_handle.clone(),
+                request_state,
+                false,
+            )?
         };
-        let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
-
-        let mut isolate_context =
-            RequestScope::new(context_scope, isolate_handle.clone(), request_state, false)?;
-        let mut result = Self::run_inner(
-            executor,
-            &mut isolate_context,
-            timeout,
-            cancellation,
-            rng_seed,
-            unix_timestamp,
-            udf_callback,
-        )
-        .await;
+        let mut result = {
+            let v8_scope = isolate_context.scope();
+            match Self::initialize_context(&mut *v8_scope, timeout).await {
+                Ok(Ok(module)) => {
+                    Self::run_inner(
+                        executor,
+                        &isolate_handle,
+                        &mut *v8_scope,
+                        context_cache,
+                        timeout,
+                        cancellation,
+                        args,
+                        module,
+                        udf_callback,
+                    )
+                    .await
+                },
+                Ok(Err(e)) => Ok(Err(e)),
+                Err(e) => Err(e),
+            }
+        };
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -645,23 +689,34 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Err(e) => result = Ok(Err(e)),
         }
 
+        // Only reuse contexts if the execution was successful, in case
+        // there are any promises hanging around
+        if args.reuse_context
+            && let Ok(Ok(_)) = result
+        {
+            let module_map = isolate_context
+                .take_module_map()
+                .context("Lost ModuleMap?")?;
+            let v8_scope = isolate_context.scope();
+            let context = v8_scope.get_current_context();
+            context_cache.save_context(
+                CanonicalizedComponentModulePath {
+                    component: this.path.component,
+                    module_path: this.path.udf_path.module().clone(),
+                },
+                v8::Global::new(v8_scope, context),
+                module_map,
+            );
+        }
+
         Ok((this, result))
     }
 
-    #[convex_macro::instrument_future]
     #[fastrace::trace]
-    async fn run_inner(
-        executor: &UdfRecursiveExecutor<RT>,
-        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+    async fn initialize_context<'c>(
+        v8_scope: &'_ mut v8::PinScope<'c, '_>,
         timeout: &mut Timeout<RT>,
-        cancellation: BoxFuture<'_, ()>,
-        rng_seed: [u8; 32],
-        unix_timestamp: UnixTimestamp,
-        udf_callback: Option<IsolateClient<RT>>,
-    ) -> anyhow::Result<Result<ConvexValue, JsError>> {
-        let handle = isolate.handle();
-        scope!(let v8_scope, isolate.scope());
-
+    ) -> anyhow::Result<Result<v8::Local<'c, v8::Module>, JsError>> {
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         // Initialize the environment, preloading the UDF config, before executing any
@@ -671,18 +726,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             state.environment.phase.initialize(timeout).await?;
         }
 
-        let (rt, udf_type, path, udf_args, heap_stats) = {
+        let (udf_type, udf_path) = {
             let state = scope.state()?;
             let environment = &state.environment;
-            (
-                environment.rt.clone(),
-                environment.udf_type,
-                environment.path.clone(),
-                environment.arguments.clone(),
-                environment.heap_stats.clone(),
-            )
+            (environment.udf_type, environment.path.udf_path.clone())
         };
-        let udf_path = path.udf_path.clone();
 
         // Don't allow directly running a UDF within the `_deps` directory. We don't
         // really expect users to hit this unless someone is trying to exploit
@@ -707,6 +755,37 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Ok(id) => id,
             Err(e) => return Ok(Err(e)),
         };
+
+        Ok(Ok(module))
+    }
+
+    #[convex_macro::instrument_future]
+    #[fastrace::trace]
+    async fn run_inner(
+        executor: &UdfRecursiveExecutor<RT>,
+        handle: &IsolateHandle,
+        v8_scope: &mut v8::PinScope<'_, '_>,
+        context_cache: &mut ContextCache,
+        timeout: &mut Timeout<RT>,
+        cancellation: BoxFuture<'_, ()>,
+        args: &DatabaseUdfArgs,
+        module: v8::Local<'_, v8::Module>,
+        udf_callback: Option<IsolateClient<RT>>,
+    ) -> anyhow::Result<Result<ConvexValue, JsError>> {
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
+
+        let (rt, udf_type, path, heap_stats) = {
+            let state = scope.state()?;
+            let environment = &state.environment;
+            (
+                environment.rt.clone(),
+                environment.udf_type,
+                environment.path.clone(),
+                environment.heap_stats.clone(),
+            )
+        };
+        let udf_path = &path.udf_path;
+
         let namespace = module
             .get_module_namespace()
             .to_object(&scope)
@@ -782,7 +861,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             },
         };
 
-        let args_str = udf_args.get();
+        let args_str = args.udf_args.get();
         metrics::log_argument_length(args_str);
         let args_v8_str = v8::String::new(&scope, args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
@@ -798,7 +877,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             state
                 .environment
                 .phase
-                .begin_execution(rng_seed, unix_timestamp)?;
+                .begin_execution(args.rng_seed, args.unix_timestamp)?;
         }
         let global = scope.get_current_context().global(&scope);
         let promise_r =
@@ -900,7 +979,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                                 rt: &rt,
                                 v8_scope: scope,
                                 paused_timeout,
-                                isolate_handle: &handle,
+                                context_cache,
+                                isolate_handle: handle,
                                 executor,
                                 heap_stats: &heap_stats,
                             };
@@ -1196,5 +1276,20 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             trace_system_warning(warning);
         }
         Ok(())
+    }
+
+    async fn take_and_validate_reused_context(
+        &self,
+        context_cache: &mut ContextCache,
+    ) -> anyhow::Result<Option<(v8::Global<v8::Context>, ModuleMap)>> {
+        let module_path = CanonicalizedComponentModulePath {
+            component: self.path.component,
+            module_path: self.path.udf_path.module().clone(),
+        };
+        let Some((context, module_map)) = context_cache.take_reused_context(&module_path) else {
+            return Ok(None);
+        };
+        // TODO: check that module_map matches current source versions
+        Ok(Some((context, module_map)))
     }
 }

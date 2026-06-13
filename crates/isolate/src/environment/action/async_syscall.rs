@@ -355,9 +355,18 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 
     fn async_syscall_getFunctionMetadata(&self) -> anyhow::Result<JsonValue> {
+        // The top-level scheduled function and all of its descendants (e.g. a
+        // mutation called by a scheduled action) report the scheduled function's
+        // id, since `parent_scheduled_job` is propagated down the call tree. It
+        // is `None` when the function was not scheduled.
+        let scheduled_function_id = self
+            .context
+            .parent_scheduled_job
+            .map(|(_, job_id)| job_id.encode());
         Ok(json!({
             "name": self.udf_path.clone().strip().to_string(),
             "componentPath": self.component_path.to_string(),
+            "scheduledFunctionId": scheduled_function_id,
         }))
     }
 

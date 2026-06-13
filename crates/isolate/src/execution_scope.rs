@@ -301,7 +301,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         is_dynamic: bool,
         name: &ModuleSpecifier,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Result<v8::Local<'a, v8::Module>, JsError>> {
+    ) -> anyhow::Result<Result<v8::Local<'s, v8::Module>, JsError>> {
         let timer = metrics::eval_user_module_timer(udf_type, is_dynamic);
         let module = match self.eval_module(name, timeout).await {
             Ok(id) => id,
@@ -332,7 +332,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         &mut self,
         name: &ModuleSpecifier,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<v8::Local<'a, v8::Module>> {
+    ) -> anyhow::Result<v8::Local<'s, v8::Module>> {
         let _s = static_span!();
 
         // These first two steps of registering and then instantiating the module

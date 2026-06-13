@@ -1,5 +1,4 @@
 import { useContext } from "react";
-import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import type { LogTopic } from "@convex-dev/platform/deploymentApi";
@@ -100,12 +99,6 @@ export function LogTopicsSelector({
     return null;
   }
 
-  // Topics the user is currently allowed to add (excludes entitlement-gated
-  // topics they don't have access to).
-  const selectableTopics = TOPICS.filter(
-    (t) => !t.requiresCustomAuditEntitlement || customAuditEnabled,
-  ).map((t) => t.key);
-
   // A `null` value means "subscribed to all topics", which (matching the
   // backend) excludes the opt-in `custom_audit` topic. Render it as every
   // non-opt-in topic checked, regardless of entitlement.
@@ -119,18 +112,8 @@ export function LogTopicsSelector({
       <div className="flex flex-col gap-1">
         Topics
         <div className="max-w-prose text-xs text-content-secondary">
-          Choose which event topics are sent to this log stream. Verification
-          events are always sent.
+          Choose which event topics are sent to this log stream.
         </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="neutral"
-          size="xs"
-          onClick={() => onChange([...selectableTopics])}
-        >
-          Select all
-        </Button>
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-x-4 gap-y-1">
         {TOPICS.map((topic) => {

@@ -29,12 +29,15 @@ async function getTransactionMetrics(): Promise<TransactionMetrics> {
 async function getFunctionMetadata(): Promise<{
   name: string;
   componentPath: string;
+  scheduledFunctionId: string | null;
 }> {
-  const { name, componentPath } = await performAsyncSyscall(
-    "1.0/getFunctionMetadata",
-    {},
-  );
-  return { name, componentPath };
+  const { name, componentPath, scheduledFunctionId } =
+    await performAsyncSyscall("1.0/getFunctionMetadata", {});
+  return {
+    name,
+    componentPath,
+    scheduledFunctionId,
+  };
 }
 
 async function getDeploymentMetadata(): Promise<DeploymentMetadata> {

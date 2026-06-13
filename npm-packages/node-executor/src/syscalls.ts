@@ -338,6 +338,11 @@ export class SyscallsImpl {
             // TODO: plumb componentPath through ExecuteRequest when we
             // support node actions for components.
             componentPath: "",
+            // The top-level scheduled function and all of its descendants report
+            // the scheduled function's id (`parentScheduledJob` is propagated
+            // down the call tree). It is null when the function was not
+            // scheduled.
+            scheduledFunctionId: this.executionContext.parentScheduledJob,
           });
         case "1.0/getDeploymentMetadata":
           return JSON.stringify(this.deployment);

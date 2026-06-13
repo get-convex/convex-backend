@@ -121,8 +121,20 @@ tuple_struct_u64!(TeamId);
 tuple_struct_u64!(DeploymentId);
 tuple_struct_u64!(ProjectId);
 tuple_struct_u64!(CustomRoleId);
+// The autoincrement primary key of the `authorized_devices` table in big brain.
+// Stably identifies an access token (unlike the secret token string, which we
+// avoid surfacing) so callers can refer to a specific token.
+tuple_struct_u64!(AccessTokenId);
 tuple_struct_string!(ConvexOrigin);
 tuple_struct_string!(ConvexSite);
+
+impl AccessTokenId {
+    /// A sentinel value for legacy audit log rows that do not contain the
+    /// access token
+    pub fn unknown() -> Self {
+        Self(0)
+    }
+}
 
 /// A unique id for a subscription.
 pub type SubscriberId = usize;

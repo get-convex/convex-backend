@@ -85,7 +85,6 @@ use database::{
 };
 use deno_core::v8::{
     self,
-    scope,
     V8,
 };
 use errors::{
@@ -150,6 +149,7 @@ use value::identifier::Identifier;
 
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
+    context_cache::ContextCache,
     isolate::{
         Isolate,
         IsolateHeapStats,
@@ -157,7 +157,6 @@ use crate::{
     isolate_worker::FunctionRunnerIsolateWorker,
     metrics::{
         self,
-        create_context_timer,
         log_aggregated_heap_stats,
         log_pool_max,
         log_pool_running_count,
@@ -1468,17 +1467,13 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                 limiter.clone(),
                 isolate_heap_size,
             );
+            let mut context_cache = ContextCache::new();
             // Reset to default heap size for the next isolate, unless
             // overridden before the next `continue 'recreate_isolate`.
             isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
             heap_stats.store(isolate.heap_stats());
             loop {
-                let v8_context = {
-                    let _create_context_timer = create_context_timer();
-                    scope!(let scope, isolate.isolate());
-                    let context = v8::Context::new(scope, v8::ContextOptions::default());
-                    v8::Global::new(scope, context)
-                };
+                context_cache.prepare(isolate.isolate());
                 // Check again whether the isolate has enough free heap memory
                 // before starting the next request
                 if let Some(debug_str) = &last_request
@@ -1550,10 +1545,10 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                         };
                         // Ok, we're ready to accept the request for real.
                         let Some((req, done, done_token)) = reqs.next().await else { return };
-                        // Note that we won't reply to `done` until the next
-                        // `v8_context` is created. This improves latency in the
-                        // common case since requests will be routed to a thread
-                        // that has a context ready to go.
+                        // Note that we won't reply to `done` until
+                        // `context_cache` has been prepared. This improves
+                        // latency in the common case since requests will be
+                        // routed to a thread that has a context ready to go.
                         ready = Some((done, done_token));
                         let root = initialize_root_from_parent(
                             func_path!(),
@@ -1565,7 +1560,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                         let debug_str = self
                             .handle_request(
                                 &mut isolate,
-                                v8_context,
+                                &mut context_cache,
                                 &mut isolate_clean,
                                 req,
                                 heap_stats.clone(),
@@ -1585,7 +1580,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,
-        v8_context: v8::Global<v8::Context>,
+        context_cache: &mut ContextCache,
         isolate_clean: &mut bool,
         req: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
