@@ -2,7 +2,11 @@ import type { TSESTree } from "@typescript-eslint/types";
 import { AST_NODE_TYPES } from "@typescript-eslint/types";
 import { CONVEX_REGISTRARS, createRule, isEntryPoint } from "../util.js";
 
-type Options = [];
+type Options = [
+  {
+    additionalRegistrars: string[];
+  },
+];
 type MessageIds = "no-unexported-convex-function";
 
 /**
@@ -25,17 +29,35 @@ export const noUnexportedConvexFunction = createRule<Options, MessageIds>({
       description:
         "Disallow declaring Convex functions (`query`, `mutation`, `action`, and their `internal*` variants) that are never exported.",
     },
-    schema: [],
+    schema: [
+      {
+        type: "object",
+        properties: {
+          additionalRegistrars: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Additional function names to treat as Convex function registrars, for custom wrappers like authMutation.",
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       "no-unexported-convex-function":
         "Convex function `{{name}}` is declared with `{{registrar}}()` but is never exported. Convex only registers functions that are exported from a module in `convex/`, so this declaration has no effect at runtime — add `export` or remove it.",
     },
   },
-  defaultOptions: [],
-  create(context) {
+  defaultOptions: [{ additionalRegistrars: [] }],
+  create(context, options) {
     // Only check files that the Convex bundler treats as entry points; helper
     // modules and `_generated/*` are not walked for function registration.
     if (!isEntryPoint(context.filename)) return {};
+
+    const registrars = new Set<string>([
+      ...CONVEX_REGISTRARS,
+      ...options[0].additionalRegistrars,
+    ]);
 
     const candidates = new Map<
       string,
@@ -59,7 +81,7 @@ export const noUnexportedConvexFunction = createRule<Options, MessageIds>({
           const init = declarator.init;
           if (!init || init.type !== AST_NODE_TYPES.CallExpression) continue;
           if (init.callee.type !== AST_NODE_TYPES.Identifier) continue;
-          if (!CONVEX_REGISTRARS.includes(init.callee.name)) continue;
+          if (!registrars.has(init.callee.name)) continue;
 
           if (isExported) {
             exportedNames.add(declarator.id.name);
