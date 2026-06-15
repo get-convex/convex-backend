@@ -1,7 +1,7 @@
 import {
   DailyMetricByProject,
   DailyPerTagMetricsByProject,
-} from "hooks/usageMetricsV2";
+} from "hooks/usageMetrics";
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";

@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { DailyMetric } from "hooks/usageMetricsV2";
+import { DailyMetric } from "hooks/usageMetrics";
 import { Sheet } from "@ui/Sheet";
 import { UsageBarChart } from "./UsageBarChart";
 

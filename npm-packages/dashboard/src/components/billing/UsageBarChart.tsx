@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { DailyMetric, DailyPerTagMetrics } from "hooks/usageMetricsV2";
+import { DailyMetric, DailyPerTagMetrics } from "hooks/usageMetrics";
 import { Bar, Rectangle, ReferenceArea } from "recharts";
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";

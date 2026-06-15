@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
-import { DailyPerTagMetricsByProjectAndClass } from "hooks/usageMetricsV2";
-import { useFunctionCallsPerDayByProjectAndClassV2 } from "hooks/usageMetricsV2";
+import { DailyPerTagMetricsByProjectAndClass } from "hooks/usageMetrics";
+import { useFunctionCallsPerDayByProjectAndClass } from "hooks/usageMetrics";
 import { useProjectById } from "api/projects";
-import { FunctionCallsUsageV2 } from "components/billing/TeamUsage";
+import { FunctionCallsUsage } from "components/billing/TeamUsage";
 
 const rows: DailyPerTagMetricsByProjectAndClass[] = [...Array(14).keys()].map(
   (dayIndex) => {
@@ -48,7 +48,7 @@ const team = {
 };
 
 const meta = {
-  component: FunctionCallsUsageV2,
+  component: FunctionCallsUsage,
   args: {
     team,
     dateRange: { from: "2026-02-01", to: "2026-03-01" },
@@ -56,7 +56,7 @@ const meta = {
     componentPrefix: null,
   },
   beforeEach: () => {
-    mocked(useFunctionCallsPerDayByProjectAndClassV2).mockReturnValue({
+    mocked(useFunctionCallsPerDayByProjectAndClass).mockReturnValue({
       data: [...rows, ...rows2],
       error: undefined,
     });
@@ -89,7 +89,7 @@ const meta = {
       error: undefined,
     }));
   },
-} satisfies Meta<typeof FunctionCallsUsageV2>;
+} satisfies Meta<typeof FunctionCallsUsage>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

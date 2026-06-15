@@ -4,7 +4,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
-import { UsageSummaryRowV2 } from "hooks/usageMetricsV2";
+import { UsageSummaryRow } from "hooks/usageMetrics";
 import { formatQuantity } from "./lib/formatQuantity";
 import { ReactNode } from "react";
 import { TeamEntitlementsResponse } from "generatedApi";
@@ -43,12 +43,12 @@ const SELF_SERVE_METRIC_TO_SECTION: Record<string, string> = {
 };
 
 type BusinessMetricKey =
-  | keyof Omit<UsageSummaryRowV2, "deploymentClass" | "region">
+  | keyof Omit<UsageSummaryRow, "deploymentClass" | "region">
   | "compute"
   | "actionCompute"
   | "deploymentCount";
 
-type V2Section = {
+type Section = {
   metric: BusinessMetricKey;
   // TODO: Remove string fallback once teamMaxSearchQueries is in generated types
   entitlement?: keyof TeamEntitlementsResponse | string;
@@ -59,7 +59,7 @@ type V2Section = {
   noOnDemand?: boolean;
 };
 
-const businessSections: V2Section[] = [
+const businessSections: Section[] = [
   {
     metric: "functionCalls",
     format: formatNumberCompact,
@@ -118,7 +118,7 @@ const businessSections: V2Section[] = [
   },
 ];
 
-const selfServeSections: V2Section[] = [
+const selfServeSections: Section[] = [
   {
     metric: "functionCalls",
     entitlement: "teamMaxFunctionCalls",
@@ -190,7 +190,7 @@ const selfServeSections: V2Section[] = [
 ];
 
 export function BusinessPlanSummary({
-  summaryV2,
+  summary,
   deploymentCount,
   error,
   isBusinessPlan = true,
@@ -198,7 +198,7 @@ export function BusinessPlanSummary({
   hasSubscription = false,
   showEntitlements = false,
 }: {
-  summaryV2?: UsageSummaryRowV2[];
+  summary?: UsageSummaryRow[];
   deploymentCount?: number;
   error?: any;
   isBusinessPlan?: boolean;
@@ -210,7 +210,7 @@ export function BusinessPlanSummary({
   const activeSections = isBusinessPlan ? businessSections : selfServeSections;
 
   // Aggregate usage rows by summing each metric in activeSections.
-  const aggregateRows = (rows: UsageSummaryRowV2[]) =>
+  const aggregateRows = (rows: UsageSummaryRow[]) =>
     rows.reduce(
       (acc, row) => {
         for (const section of activeSections) {
@@ -234,7 +234,7 @@ export function BusinessPlanSummary({
     );
 
   // Aggregate across deployment classes and regions
-  const aggregated = summaryV2 ? aggregateRows(summaryV2) : undefined;
+  const aggregated = summary ? aggregateRows(summary) : undefined;
 
   // Add deployment count from separate data source
   if (aggregated && deploymentCount !== undefined) {
@@ -244,8 +244,8 @@ export function BusinessPlanSummary({
   // For self-serve plans, aggregate only primary region (aws-us-east-1)
   // so that included limits only apply to US-hosted deployments.
   const primaryRegionAggregated =
-    !isBusinessPlan && summaryV2
-      ? aggregateRows(summaryV2.filter((row) => row.region === "aws-us-east-1"))
+    !isBusinessPlan && summary
+      ? aggregateRows(summary.filter((row) => row.region === "aws-us-east-1"))
       : undefined;
 
   // Deployment count is not region-specific (it comes from a separate data
@@ -259,7 +259,7 @@ export function BusinessPlanSummary({
     : SELF_SERVE_METRIC_TO_SECTION;
 
   const hasEuDeployments =
-    !isBusinessPlan && summaryV2?.some((s) => s.region !== "aws-us-east-1");
+    !isBusinessPlan && summary?.some((s) => s.region !== "aws-us-east-1");
 
   return (
     <>

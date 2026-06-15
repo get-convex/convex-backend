@@ -1,15 +1,15 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { ProjectDetails } from "generatedApi";
-import { AggregatedFunctionMetricsV2 } from "hooks/usageMetricsV2";
+import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import { Sheet } from "@ui/Sheet";
 import {
-  FunctionBreakdownMetricCallsV2,
-  FunctionBreakdownMetricComputeV2,
-  FunctionBreakdownMetricDatabaseIOV2,
-  FunctionBreakdownMetricDataEgressV2,
-  FunctionBreakdownMetricSearchV2,
+  FunctionBreakdownMetricCalls,
+  FunctionBreakdownMetricCompute,
+  FunctionBreakdownMetricDatabaseIO,
+  FunctionBreakdownMetricDataEgress,
+  FunctionBreakdownMetricSearch,
   TeamUsageByFunctionChart,
 } from "./TeamUsageByFunctionChart";
 
@@ -108,7 +108,7 @@ const deployments: PlatformDeploymentResponse[] = [
   },
 ];
 
-const rows: AggregatedFunctionMetricsV2[] = [
+const rows: AggregatedFunctionMetrics[] = [
   {
     projectId: 42,
     deploymentName: "wandering-fish-513",
@@ -357,8 +357,8 @@ export const Default: Story = {
     team,
     project,
     deployments,
-    maxValue: Math.max(...rows.map(FunctionBreakdownMetricCallsV2.getTotal)),
-    metric: FunctionBreakdownMetricCallsV2,
+    maxValue: Math.max(...rows.map(FunctionBreakdownMetricCalls.getTotal)),
+    metric: FunctionBreakdownMetricCalls,
   },
 };
 
@@ -368,8 +368,8 @@ export const ForDeletedProject: Story = {
     team,
     project: null,
     deployments: [],
-    maxValue: Math.max(...rows.map(FunctionBreakdownMetricCallsV2.getTotal)),
-    metric: FunctionBreakdownMetricCallsV2,
+    maxValue: Math.max(...rows.map(FunctionBreakdownMetricCalls.getTotal)),
+    metric: FunctionBreakdownMetricCalls,
   },
 };
 
@@ -379,10 +379,8 @@ export const DatabaseIO: Story = {
     team,
     project,
     deployments,
-    maxValue: Math.max(
-      ...rows.map(FunctionBreakdownMetricDatabaseIOV2.getTotal),
-    ),
-    metric: FunctionBreakdownMetricDatabaseIOV2,
+    maxValue: Math.max(...rows.map(FunctionBreakdownMetricDatabaseIO.getTotal)),
+    metric: FunctionBreakdownMetricDatabaseIO,
   },
 };
 
@@ -392,8 +390,8 @@ export const Compute: Story = {
     team,
     project,
     deployments,
-    maxValue: Math.max(...rows.map(FunctionBreakdownMetricComputeV2.getTotal)),
-    metric: FunctionBreakdownMetricComputeV2,
+    maxValue: Math.max(...rows.map(FunctionBreakdownMetricCompute.getTotal)),
+    metric: FunctionBreakdownMetricCompute,
   },
 };
 
@@ -403,8 +401,8 @@ export const Search: Story = {
     team,
     project,
     deployments,
-    maxValue: Math.max(...rows.map(FunctionBreakdownMetricSearchV2.getTotal)),
-    metric: FunctionBreakdownMetricSearchV2,
+    maxValue: Math.max(...rows.map(FunctionBreakdownMetricSearch.getTotal)),
+    metric: FunctionBreakdownMetricSearch,
   },
 };
 
@@ -414,9 +412,7 @@ export const DataEgress: Story = {
     team,
     project,
     deployments,
-    maxValue: Math.max(
-      ...rows.map(FunctionBreakdownMetricDataEgressV2.getTotal),
-    ),
-    metric: FunctionBreakdownMetricDataEgressV2,
+    maxValue: Math.max(...rows.map(FunctionBreakdownMetricDataEgress.getTotal)),
+    metric: FunctionBreakdownMetricDataEgress,
   },
 };

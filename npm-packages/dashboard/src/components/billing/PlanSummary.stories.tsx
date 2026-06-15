@@ -14,7 +14,7 @@ export const Primary: Story = {
     hasSubscription: true,
     showEntitlements: true,
     isBusinessPlan: false,
-    summaryV2: [
+    summary: [
       {
         deploymentClass: "s16",
         region: "aws-us-east-1",

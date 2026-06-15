@@ -8,7 +8,7 @@ import {
 import classNames from "classnames";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { AggregatedFunctionMetricsV2 } from "hooks/usageMetricsV2";
+import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
 import { ReactNode, useMemo, useState } from "react";
@@ -85,7 +85,7 @@ type DeploymentTypeRow = {
   href: string | null;
 };
 
-export type FunctionMetricsRow = AggregatedFunctionMetricsV2;
+export type FunctionMetricsRow = AggregatedFunctionMetrics;
 
 export type FunctionBreakdownMetric = {
   name: string;
@@ -98,16 +98,16 @@ export type FunctionBreakdownMetric = {
   }[];
 };
 
-// V2 function breakdown metrics
+// function breakdown metrics
 
-export const FunctionBreakdownMetricCallsV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricCalls: FunctionBreakdownMetric = {
   name: "function calls",
   getTotal: (row) => row.callCount,
   getValues: (row) => [row.callCount],
   quantityType: "unit",
 };
 
-export const FunctionBreakdownMetricDatabaseIOV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricDatabaseIO: FunctionBreakdownMetric = {
   name: "database I/O",
   getTotal: (row) => row.databaseIngressSize + row.databaseEgressSize,
   getValues: (row) => [row.databaseEgressSize, row.databaseIngressSize],
@@ -115,7 +115,7 @@ export const FunctionBreakdownMetricDatabaseIOV2: FunctionBreakdownMetric = {
   categories: Object.values(BANDWIDTH_CATEGORIES),
 };
 
-export const FunctionBreakdownMetricComputeV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricCompute: FunctionBreakdownMetric = {
   name: "compute",
   getTotal: (row) =>
     ("queryMutationComputeTime" in row ? row.queryMutationComputeTime : 0) +
@@ -143,7 +143,7 @@ export const FunctionBreakdownMetricComputeV2: FunctionBreakdownMetric = {
   ],
 };
 
-export const FunctionBreakdownMetricSearchV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricSearch: FunctionBreakdownMetric = {
   name: "search",
   getTotal: (row) =>
     ("textSearchGb" in row ? row.textSearchGb : 0) +
@@ -165,7 +165,7 @@ export const FunctionBreakdownMetricSearchV2: FunctionBreakdownMetric = {
   ],
 };
 
-export const FunctionBreakdownMetricDataEgressV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricDataEgress: FunctionBreakdownMetric = {
   name: "data egress",
   getTotal: (row) => ("dataEgress" in row ? row.dataEgress : 0),
   getValues: (row) => ["dataEgress" in row ? row.dataEgress : 0],

@@ -1,6 +1,6 @@
 import { DatabricksQueryId, DateRange, useUsageQuery } from "api/usage";
 
-const QUERY_IDS_V2: {
+const QUERY_IDS_: {
   summary: DatabricksQueryId;
   functionBreakdown: DatabricksQueryId;
   deploymentsByClassAndRegion: DatabricksQueryId;
@@ -12,7 +12,7 @@ const QUERY_IDS_V2: {
   deploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
 };
 
-const BY_PROJECT_QUERY_IDS_V2: {
+const BY_PROJECT_QUERY_IDS_: {
   databaseStorageByProjectAndClass: DatabricksQueryId;
   databaseStorageByTable: DatabricksQueryId;
   documentCountByTable: DatabricksQueryId;
@@ -46,7 +46,7 @@ const BY_PROJECT_QUERY_IDS_V2: {
 
 // --- Types ---
 
-export type UsageSummaryRowV2 = {
+export type UsageSummaryRow = {
   deploymentClass: string;
   region: string;
   databaseStorage: number;
@@ -62,7 +62,7 @@ export type UsageSummaryRowV2 = {
   actionComputeUser: number; // GB-hours — corrected non-node compute for business plans
 };
 
-export interface AggregatedFunctionMetricsV2 {
+export interface AggregatedFunctionMetrics {
   function: string;
   projectId: number;
   callCount: number;
@@ -132,14 +132,14 @@ function parseProjectId(projectId: string | number): number | "_rest" {
 
 // --- Hooks ---
 
-export function useUsageTeamSummaryV2(
+export function useUsageTeamSummary(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ) {
   const { data, error } = useUsageQuery({
-    queryId: QUERY_IDS_V2.summary,
+    queryId: QUERY_IDS_.summary,
     teamId,
     projectId,
     period,
@@ -186,20 +186,20 @@ export function useUsageTeamSummaryV2(
           dataEgress: Number(dataEgress),
           searchQueries: Number(searchQueries),
           actionComputeUser: Number(actionComputeUser) / 60 / 60,
-        }) satisfies UsageSummaryRowV2,
+        }) satisfies UsageSummaryRow,
     ),
     error: undefined,
   };
 }
 
-export function useUsageTeamMetricsByFunctionV2(
+export function useUsageTeamMetricsByFunction(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
-): { data: AggregatedFunctionMetricsV2[] | undefined; error: any } {
+): { data: AggregatedFunctionMetrics[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: QUERY_IDS_V2.functionBreakdown,
+    queryId: QUERY_IDS_.functionBreakdown,
     teamId,
     projectId,
     period,
@@ -249,14 +249,14 @@ export function useUsageTeamMetricsByFunctionV2(
 
 // Daily by-project hooks (with deployment class)
 
-export function useDatabaseStoragePerDayByProjectAndClassV2(
+export function useDatabaseStoragePerDayByProjectAndClass(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProjectAndClass[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.databaseStorageByProjectAndClass,
+    queryId: BY_PROJECT_QUERY_IDS_.databaseStorageByProjectAndClass,
     teamId,
     projectId,
     period,
@@ -290,14 +290,14 @@ export function useDatabaseStoragePerDayByProjectAndClassV2(
   };
 }
 
-export function useDatabaseStoragePerDayByTableV2(
+export function useDatabaseStoragePerDayByTable(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyMetricByTable[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.databaseStorageByTable,
+    queryId: BY_PROJECT_QUERY_IDS_.databaseStorageByTable,
     teamId,
     projectId,
     period,
@@ -328,14 +328,14 @@ export function useDatabaseStoragePerDayByTableV2(
   };
 }
 
-export function useDocumentCountPerDayByTableV2(
+export function useDocumentCountPerDayByTable(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyMetricByTable[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.documentCountByTable,
+    queryId: BY_PROJECT_QUERY_IDS_.documentCountByTable,
     teamId,
     projectId,
     period,
@@ -359,14 +359,14 @@ export function useDocumentCountPerDayByTableV2(
   };
 }
 
-export function useDatabaseIOPerDayByProjectAndClassV2(
+export function useDatabaseIOPerDayByProjectAndClass(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProjectAndClass[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.databaseIOByProjectAndClass,
+    queryId: BY_PROJECT_QUERY_IDS_.databaseIOByProjectAndClass,
     teamId,
     projectId,
     period,
@@ -393,14 +393,14 @@ export function useDatabaseIOPerDayByProjectAndClassV2(
   };
 }
 
-export function useComputePerDayByProjectV2(
+export function useComputePerDayByProject(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.computeByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.computeByProject,
     teamId,
     projectId,
     period,
@@ -440,14 +440,14 @@ export function useComputePerDayByProjectV2(
   };
 }
 
-export function useComputePerDayByProjectSelfServeV2(
+export function useComputePerDayByProjectSelfServe(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.computeByProjectSelfServe,
+    queryId: BY_PROJECT_QUERY_IDS_.computeByProjectSelfServe,
     teamId,
     projectId,
     period,
@@ -476,14 +476,14 @@ export function useComputePerDayByProjectSelfServeV2(
   };
 }
 
-export function useFunctionCallsPerDayByProjectAndClassV2(
+export function useFunctionCallsPerDayByProjectAndClass(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProjectAndClass[] | undefined; error: any } {
   const { data: functionData, error: functionError } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.functionCallsByProjectAndClass,
+    queryId: BY_PROJECT_QUERY_IDS_.functionCallsByProjectAndClass,
     teamId,
     projectId,
     period,
@@ -491,7 +491,7 @@ export function useFunctionCallsPerDayByProjectAndClassV2(
   });
 
   const { data: storageData, error: storageError } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.storageCallsByProjectAndClass,
+    queryId: BY_PROJECT_QUERY_IDS_.storageCallsByProjectAndClass,
     teamId,
     projectId,
     period,
@@ -550,14 +550,14 @@ export function useFunctionCallsPerDayByProjectAndClassV2(
 
 // Daily by-project hooks (without deployment class)
 
-export function useFileStoragePerDayByProjectV2(
+export function useFileStoragePerDayByProject(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyMetricByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.fileStorageByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.fileStorageByProject,
     teamId,
     projectId,
     period,
@@ -578,14 +578,14 @@ export function useFileStoragePerDayByProjectV2(
   };
 }
 
-export function useSearchStoragePerDayByProjectV2(
+export function useSearchStoragePerDayByProject(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.searchStorageByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.searchStorageByProject,
     teamId,
     projectId,
     period,
@@ -611,14 +611,14 @@ export function useSearchStoragePerDayByProjectV2(
   };
 }
 
-export function useDataEgressPerDayByProjectV2(
+export function useDataEgressPerDayByProject(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.dataEgressByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.dataEgressByProject,
     teamId,
     projectId,
     period,
@@ -668,14 +668,14 @@ export function useDataEgressPerDayByProjectV2(
   };
 }
 
-export function useSearchQueriesPerDayByProjectV2(
+export function useSearchQueriesPerDayByProject(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.searchQueriesByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.searchQueriesByProject,
     teamId,
     projectId,
     period,
@@ -703,13 +703,13 @@ export function useSearchQueriesPerDayByProjectV2(
 
 // Deployments
 
-export function useDeploymentsByClassAndRegionV2(
+export function useDeploymentsByClassAndRegion(
   teamId: number,
   period: DateRange | null,
 ): { data: DailyDeploymentsByClassAndRegion[] | undefined; error: any } {
   // This query is not broken down by project, so it is always team-wide.
   const { data, error } = useUsageQuery({
-    queryId: QUERY_IDS_V2.deploymentsByClassAndRegion,
+    queryId: QUERY_IDS_.deploymentsByClassAndRegion,
     teamId,
     projectId: null,
     period,
@@ -737,7 +737,7 @@ export function useUsageTeamDocumentsPerDayByProject(
   componentPrefix: string | null,
 ): { data: DailyMetricByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.documentCountByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.documentCountByProject,
     teamId,
     projectId: null,
     period,
@@ -764,7 +764,7 @@ export function useUsageTeamDeploymentCountPerDayByProject(
   componentPrefix: string | null,
 ): { data: DailyMetricByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: BY_PROJECT_QUERY_IDS_V2.deploymentCountByProject,
+    queryId: BY_PROJECT_QUERY_IDS_.deploymentCountByProject,
     teamId,
     projectId: null,
     period,
@@ -792,7 +792,7 @@ export function useUsageTeamDeploymentCountByType(
   componentPrefix: string | null,
 ): { data: DailyPerTagMetrics[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
-    queryId: QUERY_IDS_V2.deploymentCountByType,
+    queryId: QUERY_IDS_.deploymentCountByType,
     teamId,
     projectId,
     period,

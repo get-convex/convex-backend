@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { useState } from "react";
-import { DailyMetricByProject } from "hooks/usageMetricsV2";
+import { DailyMetricByProject } from "hooks/usageMetrics";
 import { Sheet } from "@ui/Sheet";
 import { UsageByProjectChart } from "./UsageByProjectChart";
 
