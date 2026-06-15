@@ -30,7 +30,7 @@ export function formatQuantity(value: number, quantityType: QuantityType) {
     case "actionCompute":
       return `${formatActionCompute(value)} GB-hours`;
     case "textSearch":
-      return `${formatActionCompute(value)} qGB`;
+      return `${formatActionCompute(value)} Query-GB`;
     default:
       return formatNumberCompact(value);
   }
