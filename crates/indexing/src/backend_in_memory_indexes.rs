@@ -49,7 +49,7 @@ use common::{
         IntervalSet,
         StartIncluded,
     },
-    knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
+    knobs::MAX_TRANSACTION_CACHE_SIZE_BYTES,
     persistence::{
         LatestDocument,
         PersistenceSnapshot,
@@ -1219,7 +1219,7 @@ impl DatabaseIndexSnapshot {
 }
 
 static MAX_TRANSACTION_CACHE_SIZE: LazyLock<usize> =
-    LazyLock::new(|| *TRANSACTION_MAX_READ_SIZE_BYTES);
+    LazyLock::new(|| *MAX_TRANSACTION_CACHE_SIZE_BYTES);
 
 #[derive(Clone)]
 pub struct DatabaseIndexSnapshotCache {

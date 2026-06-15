@@ -392,6 +392,13 @@ pub static TRANSACTION_MAX_READ_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
     env_config("TRANSACTION_MAX_READ_SIZE_BYTES", 1 << 24) // 16 MiB
 });
 
+/// Maximum size in bytes of the in-memory index cache carried across
+/// transactions. When a write pushes the cache past this size the entire cache
+/// is dropped, forcing subsequent reads to go to the database.
+pub static MAX_TRANSACTION_CACHE_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("MAX_TRANSACTION_CACHE_SIZE_BYTES", 1 << 24) // 16 MiB
+});
+
 /// Maximum number of intervals that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SET_INTERVALS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SET_INTERVALS", 4096));
