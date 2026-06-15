@@ -2989,6 +2989,9 @@ importers:
       prism-react-renderer:
         specifier: ~2.4.1
         version: 2.4.1(react@18.3.1)
+      prism-svelte:
+        specifier: 0.5.0
+        version: 0.5.0
       raw-loader:
         specifier: 4.0.2
         version: 4.0.2(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15)))
@@ -24342,6 +24345,9 @@ packages:
     resolution: {integrity: sha512-ey8Ls/+Di31eqzUxC46h8MksNuGx/n0AAC8uKpwFau4RPDYLuE3EXTp8N8G2vX2N7UC/+IXeNUnlWBGGcAG+Ig==}
     peerDependencies:
       react: '>=16.0.0'
+
+  prism-svelte@0.5.0:
+    resolution: {integrity: sha512-db91Bf3pRGKDPz1lAqLFSJXeW13mulUJxhycysFpfXV5MIK7RgWWK2E5aPAa71s8TCzQUXxF5JOV42/iOs6QkA==}
 
   prismjs@1.30.0:
     resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
@@ -55182,6 +55188,8 @@ snapshots:
       '@types/prismjs': 1.26.5
       clsx: 2.1.1
       react: 18.3.1
+
+  prism-svelte@0.5.0: {}
 
   prismjs@1.30.0: {}
 
