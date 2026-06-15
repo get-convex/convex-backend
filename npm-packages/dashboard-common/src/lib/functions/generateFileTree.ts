@@ -219,7 +219,6 @@ export function processAnalyzedModuleFunction(
     type: "function",
     udfType: moduleFunction.udfType,
     identifier,
-    args: moduleFunction.argsValidator,
     visibility: moduleFunction.visibility,
     lineno: moduleFunction.lineno,
     componentId,

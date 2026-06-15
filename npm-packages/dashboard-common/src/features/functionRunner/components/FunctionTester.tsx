@@ -7,7 +7,7 @@ import {
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { UserIdentityAttributes } from "convex/browser";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useQuery } from "convex/react";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
 import { Link } from "@ui/Link";
@@ -58,6 +58,7 @@ import {
   PermissionsContext,
 } from "@common/lib/deploymentContext";
 import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
+import udfs from "@common/udfs";
 
 const CUSTOM_TEST_QUERY_PLACEHOLDER =
   "__CONVEX_PLACEHOLDER_custom_test_query_1255035852";
@@ -145,8 +146,17 @@ export function GlobalFunctionTester({
         null)
       : null;
 
-  const argsValidator =
-    selectedFunction?.args && JSON.parse(selectedFunction.args);
+  const argsValidatorString = useQuery(
+    udfs.modules.argsValidator,
+    selectedFunction
+      ? {
+          componentId: selectedFunction.componentId,
+          function: selectedFunction.displayName,
+        }
+      : "skip",
+  );
+
+  const argsValidator = argsValidatorString && JSON.parse(argsValidatorString);
   const initialArgs = argsValidator
     ? (defaultValueForValidator(argsValidator) as Record<string, Value>)
     : undefined;
@@ -661,23 +671,25 @@ export function useFunctionTester({
         </div>
       </div>
       <div className="relative min-h-28 grow overflow-y-auto px-4">
-        <ObjectEditor
-          className="max-w-3xl animate-fadeInFromLoading"
-          key={
-            (moduleFunction?.identifier || "") +
-            (moduleFunction?.componentId || "") +
-            (runHistoryItem?.startedAt.toString() || "")
-          }
-          fullHeight
-          defaultValue={parameters}
-          onChange={onChange}
-          path={`arguments-${moduleFunction?.identifier}-${moduleFunction?.componentId}`}
-          onError={onFirstParameterError}
-          validator={argsValidator}
-          shouldSurfaceValidatorErrors
-          showTableNames
-          mode="editDocument"
-        />
+        {argsValidator !== undefined && (
+          <ObjectEditor
+            className="max-w-3xl animate-fadeInFromLoading"
+            key={
+              (moduleFunction?.identifier || "") +
+              (moduleFunction?.componentId || "") +
+              (runHistoryItem?.startedAt.toString() || "")
+            }
+            fullHeight
+            defaultValue={parameters}
+            onChange={onChange}
+            path={`arguments-${moduleFunction?.identifier}-${moduleFunction?.componentId}`}
+            onError={onFirstParameterError}
+            validator={argsValidator}
+            shouldSurfaceValidatorErrors
+            showTableNames
+            mode="editDocument"
+          />
+        )}
       </div>
       {impersonation && (
         <div className="flex items-start gap-4 px-4">
