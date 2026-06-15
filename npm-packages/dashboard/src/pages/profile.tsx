@@ -92,8 +92,12 @@ export function Profile() {
                         document.cookie = "";
                         window.localStorage.clear();
                         await deleteAccount();
+                        // The account deletion also deletes the WorkOS user, so
+                        // skip the hosted WorkOS logout (which would render a
+                        // blank page for the now-nonexistent user) and just
+                        // clear our session cookie before sending them to login.
                         window.location.href =
-                          "/api/auth/logout?returnTo=/api/auth/login";
+                          "/api/auth/logout?sessionDeleted=true&returnTo=/login";
                       } catch (e: any) {
                         setDeleteAccountError(e.message);
                         throw e;
