@@ -164,18 +164,25 @@ const envRemoveCmd = new Command("remove")
   });
 
 const envListCmd = new Command("list")
-  .summary("List all variables and their values")
+  .summary("List all environment variables and their values")
   .description(
     [
-      "• List all variables: `npx convex env list`",
+      "• List all variables and their values: `npx convex env list`",
+      "• List only variable names (no values): `npx convex env list --names-only`",
       "• Save all variables to a file: `npx convex env list > .env.convex`",
       "• Append to a file: `npx convex env list >> .env.convex`",
     ].join("\n"),
   )
+  .option(
+    "--names-only",
+    "List only the names of environment variables, without their values",
+  )
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
-  .action(async (_options, cmd) => {
-    const options = cmd.optsWithGlobals();
+  .action(async (cmdOptions, cmd) => {
+    // Note: We use `as` here because optsWithGlobals() type inference doesn't
+    // include global options from the parent command (added via addDeploymentSelectionOptions)
+    const options = cmd.optsWithGlobals() as DeploymentSelectionOptions;
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env list");
     await withRunningBackend({
@@ -183,7 +190,9 @@ const envListCmd = new Command("list")
       deployment,
       action: async () => {
         const backend = deploymentEnvBackend(ctx, deployment);
-        await envList(ctx, backend);
+        await envList(ctx, backend, {
+          namesOnly: cmdOptions.namesOnly ?? false,
+        });
       },
     });
   });
@@ -198,7 +207,8 @@ export const env = new Command("env")
       "• Set interactively: `npx convex env set NAME`",
       "• Set multiple from file: `npx convex env set --from-file .env`",
       "• Unset a variable: `npx convex env remove NAME`",
-      "• List all variables: `npx convex env list`",
+      "• List all variables and their values: `npx convex env list`",
+      "• List only variable names (no values): `npx convex env list --names-only`",
       "• Print a variable's value: `npx convex env get NAME`",
       "",
       "By default, this sets and views variables on your dev deployment.",

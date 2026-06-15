@@ -141,24 +141,29 @@ const envDefaultRemove = addEnvDefaultOptions(
 
 const envDefaultList = addEnvDefaultOptions(
   new Command("list")
-    .summary("List all default variables")
+    .summary("List all default environment variables and their values")
     .description(
       [
-        "List all default variables.",
-        "",
-        "• `npx convex env default list`",
+        "• List all default variables and their values: `npx convex env default list`",
+        "• List only default variable names (no values): `npx convex env default list --names-only`",
         "",
         "The deployment type is determined by the current deployment (local maps to dev), or by --type if provided.",
       ].join("\n"),
     )
+    .option(
+      "--names-only",
+      "List only the names of environment variables, without their values",
+    )
     .configureHelp({ showGlobalOptions: true })
     .allowExcessArguments(false),
-).action(async (_options, cmd) => {
+).action(async (cmdOptions, cmd) => {
   const options = cmd.optsWithGlobals() as DeploymentSelectionOptions &
     EnvDefaultExtraOptions;
   const { ctx, backend } = await resolveEnvDefaultBackend(options);
   await ensureHasConvexDependency(ctx, "env default list");
-  await envList(ctx, backend);
+  await envList(ctx, backend, {
+    namesOnly: cmdOptions.namesOnly ?? false,
+  });
 });
 
 export const envDefault = new Command("default")
@@ -171,7 +176,8 @@ export const envDefault = new Command("default")
       "",
       "• Set a default variable: `npx convex env default set NAME 'value'`",
       "• Unset a default variable: `npx convex env default remove NAME`",
-      "• List all default variables: `npx convex env default list`",
+      "• List all default variables and their values: `npx convex env default list`",
+      "• List only default variable names (no values): `npx convex env default list --names-only`",
       "• Print a default variable's value: `npx convex env default get NAME`",
     ].join("\n"),
   )

@@ -171,13 +171,21 @@ export async function envRemove(
   );
 }
 
-export async function envList(ctx: Context, backend: EnvVarBackend) {
+export async function envList(
+  ctx: Context,
+  backend: EnvVarBackend,
+  options?: { namesOnly?: boolean },
+) {
   const envs = await backend.list();
   if (envs.length === 0) {
     logMessage(`No environment variables set${backend.notice}`);
     return;
   }
   for (const { name, value } of envs) {
+    if (options?.namesOnly) {
+      logOutput(name);
+      continue;
+    }
     const { formatted, warning } = formatEnvValueForDotfile(value);
     if (warning) {
       logMessage(`Warning (${name}): ${warning}`);
