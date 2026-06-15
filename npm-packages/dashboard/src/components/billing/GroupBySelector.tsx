@@ -1,4 +1,5 @@
 import { SegmentedControl, SegmentedControlOption } from "@ui/SegmentedControl";
+import { ReactNode } from "react";
 
 // Base type for most sections (no byTable)
 export type GroupBy = "byType" | "byProject";
@@ -47,13 +48,30 @@ export function GroupBySelector<T extends string>({
   value,
   onChange,
   options,
+  disabledOptions,
 }: {
   value: T;
   onChange: (newValue: T) => void;
-  disabled?: boolean;
   options: SegmentedControlOption<T>[];
+  /** Map of option value -> tooltip explaining why it is disabled. */
+  disabledOptions?: Partial<Record<T, ReactNode>>;
 }) {
+  const mergedOptions = disabledOptions
+    ? options.map((option) =>
+        disabledOptions[option.value] !== undefined
+          ? {
+              ...option,
+              disabled: true,
+              disabledTooltip: disabledOptions[option.value],
+            }
+          : option,
+      )
+    : options;
   return (
-    <SegmentedControl options={options} value={value} onChange={onChange} />
+    <SegmentedControl
+      options={mergedOptions}
+      value={value}
+      onChange={onChange}
+    />
   );
 }

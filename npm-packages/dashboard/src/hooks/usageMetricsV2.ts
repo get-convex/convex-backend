@@ -4,16 +4,19 @@ const QUERY_IDS_V2: {
   summary: DatabricksQueryId;
   functionBreakdown: DatabricksQueryId;
   deploymentsByClassAndRegion: DatabricksQueryId;
+  deploymentCountByType: DatabricksQueryId;
 } = {
   summary: "b63fe48d-320c-401a-8682-0a0b36b50e2b",
   functionBreakdown: "90ec3ee0-720f-4e67-94a2-75ecd278b3c6",
   deploymentsByClassAndRegion: "dfc73057-1948-4b99-a3bf-9ae802a395ee",
+  deploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
 };
 
 const BY_PROJECT_QUERY_IDS_V2: {
   databaseStorageByProjectAndClass: DatabricksQueryId;
   databaseStorageByTable: DatabricksQueryId;
   documentCountByTable: DatabricksQueryId;
+  documentCountByProject: DatabricksQueryId;
   databaseIOByProjectAndClass: DatabricksQueryId;
   functionCallsByProjectAndClass: DatabricksQueryId;
   storageCallsByProjectAndClass: DatabricksQueryId;
@@ -23,10 +26,12 @@ const BY_PROJECT_QUERY_IDS_V2: {
   searchStorageByProject: DatabricksQueryId;
   dataEgressByProject: DatabricksQueryId;
   searchQueriesByProject: DatabricksQueryId;
+  deploymentCountByProject: DatabricksQueryId;
 } = {
   databaseStorageByProjectAndClass: "489b0f87-6b3a-4dfe-a327-f2965b5c2977",
   databaseStorageByTable: "017c5977-3002-40ca-96af-31868e70e611",
   documentCountByTable: "28646a64-f234-44c2-b763-ecb63d43ad24",
+  documentCountByProject: "2a5120a1-b334-4d99-b378-1028487c2202",
   databaseIOByProjectAndClass: "9f606f77-521d-44bb-83ef-b1057b0fb1c9",
   functionCallsByProjectAndClass: "77a4e5bd-aa82-43e7-85a4-89897cecaa05",
   storageCallsByProjectAndClass: "90c9d3b3-d93e-4583-a054-dbb2f9dad5a3",
@@ -36,6 +41,7 @@ const BY_PROJECT_QUERY_IDS_V2: {
   searchStorageByProject: "87f2b0b2-024c-4c2a-bf81-8a3c0cab1b82",
   dataEgressByProject: "67ce838f-b2d0-4cda-9a2e-580c6d134466",
   searchQueriesByProject: "48ae8bb1-ec17-41db-9e35-7c774296c5ac",
+  deploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
 };
 
 // --- Types ---
@@ -76,6 +82,16 @@ export interface DailyPerTagMetricsByProjectAndClass {
   ds: string;
   projectId: number | "_rest";
   deploymentClass: string;
+  metrics: { tag: string; value: number }[];
+}
+
+export type DailyMetric = {
+  ds: string;
+  value: number;
+};
+
+export interface DailyPerTagMetrics {
+  ds: string;
   metrics: { tag: string; value: number }[];
 }
 
@@ -691,6 +707,7 @@ export function useDeploymentsByClassAndRegionV2(
   teamId: number,
   period: DateRange | null,
 ): { data: DailyDeploymentsByClassAndRegion[] | undefined; error: any } {
+  // This query is not broken down by project, so it is always team-wide.
   const { data, error } = useUsageQuery({
     queryId: QUERY_IDS_V2.deploymentsByClassAndRegion,
     teamId,
@@ -709,6 +726,105 @@ export function useDeploymentsByClassAndRegionV2(
       deploymentClass,
       region,
       count: Number(count),
+    })),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDocumentsPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_V2.documentCountByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(([_teamId, projectId, ds, count]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
+      value: Number(count),
+    })),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDeploymentCountPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_V2.deploymentCountByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(([_teamId, projectId, ds, count]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
+      value: Number(count),
+    })),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDeploymentCountByType(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyPerTagMetrics[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: QUERY_IDS_V2.deploymentCountByType,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  if (data === undefined) {
+    return { data: undefined, error: undefined };
+  }
+
+  // Group by date since each row is [teamId, deploymentType, ds, count]
+  const groupedByDate = new Map<string, Map<string, number>>();
+
+  data.forEach(([_teamId, deploymentType, ds, count]) => {
+    if (!groupedByDate.has(ds)) {
+      groupedByDate.set(ds, new Map());
+    }
+    const tag = deploymentType || "deleted";
+    groupedByDate.get(ds)!.set(tag, Number(count));
+  });
+
+  return {
+    data: Array.from(groupedByDate.entries()).map(([ds, metricsMap]) => ({
+      ds,
+      metrics: Array.from(metricsMap.entries()).map(([tag, value]) => ({
+        tag,
+        value,
+      })),
     })),
     error: undefined,
   };

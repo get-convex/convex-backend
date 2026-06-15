@@ -1,10 +1,10 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { PlanSummaryForTeam } from "./PlanSummary";
+import { BusinessPlanSummary } from "./PlanSummary";
 
 const meta = {
-  component: PlanSummaryForTeam,
+  component: BusinessPlanSummary,
   parameters: { a11y: { test: "todo" } },
-} satisfies Meta<typeof PlanSummaryForTeam>;
+} satisfies Meta<typeof BusinessPlanSummary>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -13,28 +13,37 @@ export const Primary: Story = {
   args: {
     hasSubscription: true,
     showEntitlements: true,
-    teamSummary: [
+    isBusinessPlan: false,
+    summaryV2: [
       {
+        deploymentClass: "s16",
         region: "aws-us-east-1",
-        databaseBandwidth: 3072 * 1024 * 1024,
         databaseStorage: 8 * 1024 * 1024,
-        fileStorage: 12 * 1024,
-        fileBandwidth: 8,
+        databaseIO: 3072 * 1024 * 1024,
         functionCalls: 200000,
-        actionCompute: 180,
-        vectorBandwidth: 0,
-        vectorStorage: 0,
+        queryMutationCompute: 60,
+        actionComputeConvex: 120,
+        actionComputeNode: 60,
+        actionComputeUser: 120,
+        fileStorage: 12 * 1024,
+        searchStorage: 0,
+        dataEgress: 8,
+        searchQueries: 0,
       },
       {
+        deploymentClass: "s16",
         region: "aws-eu-west-1",
-        databaseBandwidth: 1024 * 1024 * 1024,
         databaseStorage: 2 * 1024 * 1024,
-        fileStorage: 3 * 1024,
-        fileBandwidth: 2,
+        databaseIO: 1024 * 1024 * 1024,
         functionCalls: 50000,
-        actionCompute: 60,
-        vectorBandwidth: 0,
-        vectorStorage: 0,
+        queryMutationCompute: 20,
+        actionComputeConvex: 40,
+        actionComputeNode: 20,
+        actionComputeUser: 40,
+        fileStorage: 3 * 1024,
+        searchStorage: 0,
+        dataEgress: 2,
+        searchQueries: 0,
       },
     ],
     deploymentCount: 12,

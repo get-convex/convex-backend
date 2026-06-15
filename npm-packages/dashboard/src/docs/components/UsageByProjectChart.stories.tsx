@@ -1,16 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
-import { DailyPerTagMetricsByProject } from "hooks/usageMetrics";
-import { useUsageTeamDailyCallsByTagByProject } from "hooks/usageMetrics";
+import { DailyPerTagMetricsByProjectAndClass } from "hooks/usageMetricsV2";
+import { useFunctionCallsPerDayByProjectAndClassV2 } from "hooks/usageMetricsV2";
 import { useProjectById } from "api/projects";
-import { FunctionCallsUsage } from "components/billing/TeamUsage";
+import { FunctionCallsUsageV2 } from "components/billing/TeamUsage";
 
-const rows: DailyPerTagMetricsByProject[] = [...Array(14).keys()].map(
+const rows: DailyPerTagMetricsByProjectAndClass[] = [...Array(14).keys()].map(
   (dayIndex) => {
     const ds = `2026-02-${(dayIndex + 1).toString().padStart(2, "0")}`;
     return {
       ds,
       projectId: 1 as number | "_rest",
+      deploymentClass: "s16",
       metrics: [
         { tag: "query", value: (dayIndex + 1) * 80_000 },
         { tag: "mutation", value: (dayIndex + 1) * 30_000 },
@@ -20,12 +21,13 @@ const rows: DailyPerTagMetricsByProject[] = [...Array(14).keys()].map(
   },
 );
 
-const rows2: DailyPerTagMetricsByProject[] = [...Array(14).keys()].map(
+const rows2: DailyPerTagMetricsByProjectAndClass[] = [...Array(14).keys()].map(
   (dayIndex) => {
     const ds = `2026-02-${(dayIndex + 1).toString().padStart(2, "0")}`;
     return {
       ds,
       projectId: 2 as number | "_rest",
+      deploymentClass: "s16",
       metrics: [
         { tag: "query", value: (14 - dayIndex) * 50_000 },
         { tag: "mutation", value: (14 - dayIndex) * 20_000 },
@@ -46,7 +48,7 @@ const team = {
 };
 
 const meta = {
-  component: FunctionCallsUsage,
+  component: FunctionCallsUsageV2,
   args: {
     team,
     dateRange: { from: "2026-02-01", to: "2026-03-01" },
@@ -54,7 +56,7 @@ const meta = {
     componentPrefix: null,
   },
   beforeEach: () => {
-    mocked(useUsageTeamDailyCallsByTagByProject).mockReturnValue({
+    mocked(useFunctionCallsPerDayByProjectAndClassV2).mockReturnValue({
       data: [...rows, ...rows2],
       error: undefined,
     });
@@ -87,7 +89,7 @@ const meta = {
       error: undefined,
     }));
   },
-} satisfies Meta<typeof FunctionCallsUsage>;
+} satisfies Meta<typeof FunctionCallsUsageV2>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

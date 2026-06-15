@@ -8,7 +8,6 @@ import {
 import classNames from "classnames";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { AggregatedFunctionMetricsV2 } from "hooks/usageMetricsV2";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
@@ -86,9 +85,7 @@ type DeploymentTypeRow = {
   href: string | null;
 };
 
-export type FunctionMetricsRow =
-  | AggregatedFunctionMetrics
-  | AggregatedFunctionMetricsV2;
+export type FunctionMetricsRow = AggregatedFunctionMetricsV2;
 
 export type FunctionBreakdownMetric = {
   name: string;
@@ -99,43 +96,6 @@ export type FunctionBreakdownMetric = {
     name: string;
     backgroundColor: string;
   }[];
-};
-
-export const FunctionBreakdownMetricCalls: FunctionBreakdownMetric = {
-  name: "function calls",
-  getTotal: (row) => row.callCount,
-  getValues: (row) => [row.callCount],
-  quantityType: "unit",
-};
-
-export const FunctionBreakdownMetricDatabaseBandwidth: FunctionBreakdownMetric =
-  {
-    name: "database bandwidth",
-    getTotal: (row) => row.databaseIngressSize + row.databaseEgressSize,
-    getValues: (row) => [row.databaseEgressSize, row.databaseIngressSize],
-    quantityType: "storage",
-    categories: Object.values(BANDWIDTH_CATEGORIES),
-  };
-
-export const FunctionBreakdownMetricActionCompute: FunctionBreakdownMetric = {
-  name: "action compute",
-  getTotal: (row) => ("actionComputeTime" in row ? row.actionComputeTime : 0),
-  getValues: (row) => ["actionComputeTime" in row ? row.actionComputeTime : 0],
-  quantityType: "actionCompute",
-};
-
-export const FunctionBreakdownMetricVectorBandwidth: FunctionBreakdownMetric = {
-  name: "vector bandwidth",
-  getTotal: (row) =>
-    "vectorIngressSize" in row
-      ? row.vectorIngressSize + row.vectorEgressSize
-      : 0,
-  getValues: (row) =>
-    "vectorIngressSize" in row
-      ? [row.vectorEgressSize, row.vectorIngressSize]
-      : [0, 0],
-  quantityType: "storage",
-  categories: Object.values(BANDWIDTH_CATEGORIES),
 };
 
 // V2 function breakdown metrics
@@ -501,13 +461,7 @@ function useOrderedAndGroupedRows(
         const systemKind = getSystemRowKind(row.function);
         const name = systemKind === "dashboard" ? "" : row.function;
         if (project) {
-          deployment = deployments.find(
-            (d) =>
-              (d.kind === "cloud" &&
-                "deploymentId" in row &&
-                d.id === row.deploymentId) ||
-              d.name === row.deploymentName,
-          );
+          deployment = deployments.find((d) => d.name === row.deploymentName);
           deploymentType = deployment
             ? deployment.deploymentType
             : fallbackDeploymentType;

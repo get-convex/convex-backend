@@ -1,4 +1,4 @@
-import { DailyMetricByTable } from "hooks/usageMetrics";
+import { DailyMetricByTable } from "hooks/usageMetricsV2";
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";

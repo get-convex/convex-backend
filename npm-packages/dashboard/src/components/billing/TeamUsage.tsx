@@ -1,33 +1,8 @@
-import {
-  PlanSummary,
-  BusinessPlanSummary,
-} from "components/billing/PlanSummary";
+import { BusinessPlanSummary } from "components/billing/PlanSummary";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
-import { Callout } from "@ui/Callout";
 import { SegmentedControl } from "@ui/SegmentedControl";
-import {
-  useUsageTeamActionComputeDailyByProject,
-  useUsageTeamMetricsByFunction,
-  useUsageTeamDailyCallsByTagByProject,
-  useUsageTeamDatabaseBandwidthPerDayByProject,
-  useUsageTeamDocumentsPerDayByProject,
-  useUsageTeamDatabaseStoragePerDayByProject,
-  useUsageTeamStoragePerDayByProject,
-  useUsageTeamStorageThroughputDailyByProject,
-  useUsageTeamVectorBandwidthPerDayByProject,
-  useUsageTeamVectorStoragePerDayByProject,
-  useUsageTeamSummary,
-  useUsageTeamDeploymentCountPerDayByProject,
-  useUsageTeamDeploymentCountByType,
-  useUsageTeamDatabaseStoragePerDayByTable,
-  useUsageTeamDocumentCountPerDayByTable,
-  DailyMetric,
-  DailyMetricByProject,
-  DailyPerTagMetrics,
-  DailyPerTagMetricsByProject,
-} from "hooks/usageMetrics";
 import { TeamResponse } from "generatedApi";
 import { useEffect, useMemo, useState } from "react";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
@@ -52,11 +27,8 @@ import { useProfile } from "api/profile";
 import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,
-  BANDWIDTH_CATEGORIES,
   CATEGORY_RENAMES,
   TAG_CATEGORIES,
-  FILE_BANDWIDTH_CATEGORIES,
-  FILE_STORAGE_CATEGORIES,
   DATA_EGRESS_CATEGORIES,
   DATA_EGRESS_CATEGORY_RENAMES,
   COMPUTE_CATEGORIES_SELF_SERVE,
@@ -68,10 +40,6 @@ import {
 } from "./lib/teamUsageCategories";
 import {
   FunctionBreakdownMetric,
-  FunctionBreakdownMetricActionCompute,
-  FunctionBreakdownMetricCalls,
-  FunctionBreakdownMetricDatabaseBandwidth,
-  FunctionBreakdownMetricVectorBandwidth,
   FunctionMetricsRow,
   FunctionBreakdownMetricCallsV2,
   FunctionBreakdownMetricDatabaseIOV2,
@@ -85,14 +53,12 @@ import { UsageByProjectChart } from "./UsageByProjectChart";
 import { UsageByTableChart } from "./UsageByTableChart";
 import {
   UsageChartUnavailable,
-  UsageDataNotAvailable,
   UsageNoDataError,
   UsageDataError,
 } from "./TeamUsageError";
 import { TeamUsageToolbar } from "./TeamUsageToolbar";
 import {
   GroupBy,
-  DatabaseGroupBy,
   BusinessGroupBy,
   BusinessDatabaseGroupBy,
   GroupBySelector,
@@ -117,15 +83,15 @@ import {
   useSearchQueriesPerDayByProjectV2,
   useDeploymentsByClassAndRegionV2,
   useComputePerDayByProjectSelfServeV2,
+  useUsageTeamDocumentsPerDayByProject,
+  useUsageTeamDeploymentCountPerDayByProject,
+  useUsageTeamDeploymentCountByType,
+  DailyMetric,
+  DailyMetricByProject,
+  DailyPerTagMetrics,
+  DailyPerTagMetricsByProject,
   DailyPerTagMetricsByProjectAndClass,
 } from "hooks/usageMetricsV2";
-
-const FUNCTION_BREAKDOWN_TABS = [
-  FunctionBreakdownMetricCalls,
-  FunctionBreakdownMetricDatabaseBandwidth,
-  FunctionBreakdownMetricActionCompute,
-  FunctionBreakdownMetricVectorBandwidth,
-];
 
 const FUNCTION_BREAKDOWN_TABS_V2 = [
   FunctionBreakdownMetricCallsV2,
@@ -139,12 +105,7 @@ export type UsageSectionId =
   | "functionCalls"
   | "actionCompute"
   | "databaseStorage"
-  | "databaseBandwidth"
-  | "databaseDocumentCount"
   | "filesStorage"
-  | "filesBandwidth"
-  | "vectorsStorage"
-  | "vectorsBandwidth"
   | "deployments"
   // Business plan sections
   | "compute"
@@ -190,12 +151,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     functionCalls: "Function Calls",
     actionCompute: "Action Compute",
     databaseStorage: "Database Storage",
-    databaseBandwidth: "Database Bandwidth",
-    databaseDocumentCount: "Document Count",
     filesStorage: "File Storage",
-    filesBandwidth: "File Bandwidth",
-    vectorsStorage: "Vector Storage",
-    vectorsBandwidth: "Vector Bandwidth",
     deployments: "Deployments",
     compute: "Compute",
     databaseIO: "Database I/O",
@@ -230,20 +186,10 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
   const { subscription } = useTeamOrbSubscription(team?.id);
 
   const isBusinessPlanType = subscription?.plan.planType === "CONVEX_BUSINESS";
-  const hasNewBilling = subscription?.hasNewBilling ?? false;
-  const [previewNewBilling, setPreviewNewBilling] = useState(false);
-  const useV2 = hasNewBilling || previewNewBilling;
 
   const billingPeriodRange = shownBillingPeriod
     ? { from: shownBillingPeriod.from, to: shownBillingPeriod.to }
     : null;
-
-  const { data: teamSummary, error: teamSummaryError } = useUsageTeamSummary(
-    team?.id,
-    billingPeriodRange,
-    projectId,
-    componentPrefix,
-  );
 
   const { data: summaryV2, error: summaryV2Error } = useUsageTeamSummaryV2(
     team?.id,
@@ -327,70 +273,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
         )}
       </div>
 
-      {!hasNewBilling && !isBusinessPlanType && subscription && (
-        <Callout variant="hint">
-          <div className="flex w-full items-center justify-between gap-4">
-            <span>
-              Your Convex subscription pricing is changing{" "}
-              {subscription.newBillingStartDate
-                ? `on ${new Date(subscription.newBillingStartDate + "T00:00:00").toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}`
-                : "in May 2026"}
-              .
-              <div className="mt-1 flex gap-3">
-                <Link
-                  href="https://convex.dev/pricing"
-                  target="_blank"
-                  className="text-util-accent hover:underline dark:text-white"
-                >
-                  Go to pricing page
-                </Link>
-                <Link
-                  href="https://news.convex.dev/enterprise-launch/"
-                  target="_blank"
-                  className="text-util-accent hover:underline dark:text-white"
-                >
-                  View blog post
-                </Link>
-              </div>
-            </span>
-            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-              <span>Preview new usage metrics</span>
-              {/* eslint-disable-next-line react/forbid-elements -- custom toggle switch, not a standard button */}
-              <button
-                type="button"
-                role="switch"
-                aria-checked={previewNewBilling}
-                aria-label="Preview new usage metrics"
-                onClick={() => {
-                  setPreviewNewBilling((prev) => !prev);
-                  if (section) {
-                    void router.push(summaryHref, undefined, {
-                      shallow: true,
-                    });
-                  }
-                }}
-                className={cn(
-                  "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-                  "focus-visible:outline-2 focus-visible:outline-border-selected",
-                  previewNewBilling
-                    ? "bg-util-accent"
-                    : "bg-neutral-4 dark:bg-neutral-7",
-                )}
-              >
-                <span
-                  className={cn(
-                    "inline-block size-3.5 rounded-full bg-white shadow-sm transition-transform",
-                    previewNewBilling
-                      ? "translate-x-[18px]"
-                      : "translate-x-[3px]",
-                  )}
-                />
-              </button>
-            </label>
-          </div>
-        </Callout>
-      )}
-
       {currentBillingPeriod !== undefined && shownBillingPeriod !== null && (
         <>
           <TeamUsageToolbar
@@ -421,44 +303,22 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
                 inert={section ? "inert" : undefined}
               >
-                {useV2 ? (
-                  <>
-                    <BusinessPlanSummary
-                      summaryV2={summaryV2}
-                      deploymentCount={latestDeploymentCount}
-                      error={summaryV2Error}
-                      isBusinessPlan={isBusinessPlanType}
-                      entitlements={entitlements}
-                      hasSubscription={hasSubscription}
-                      showEntitlements={showEntitlements}
-                    />
-                    <FunctionBreakdownSectionV2
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                      shownBillingPeriod={shownBillingPeriod}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <PlanSummary
-                      teamSummary={teamSummary}
-                      deploymentCount={latestDeploymentCount}
-                      entitlements={entitlements}
-                      hasSubscription={hasSubscription}
-                      showEntitlements={showEntitlements}
-                      error={teamSummaryError}
-                    />
-                    <FunctionBreakdownSection
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                      shownBillingPeriod={shownBillingPeriod}
-                    />
-                  </>
-                )}
+                <BusinessPlanSummary
+                  summaryV2={summaryV2}
+                  deploymentCount={latestDeploymentCount}
+                  error={summaryV2Error}
+                  isBusinessPlan={isBusinessPlanType}
+                  entitlements={entitlements}
+                  hasSubscription={hasSubscription}
+                  showEntitlements={showEntitlements}
+                />
+                <FunctionBreakdownSectionV2
+                  team={team}
+                  dateRange={dateRange}
+                  projectId={projectId}
+                  componentPrefix={componentPrefix}
+                  shownBillingPeriod={shownBillingPeriod}
+                />
               </div>
 
               {/* Detail pane */}
@@ -471,34 +331,17 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
                 inert={!section ? "inert" : undefined}
               >
-                {section === "functionCalls" &&
-                  (useV2 ? (
-                    <FunctionCallsUsageV2
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ) : (
-                    <FunctionCallsUsage
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ))}
-
-                {/* V1-only: self-serve action compute section */}
-                {section === "actionCompute" && !useV2 && (
-                  <ActionComputeUsage
+                {section === "functionCalls" && (
+                  <FunctionCallsUsageV2
                     team={team}
                     dateRange={dateRange}
                     projectId={projectId}
                     componentPrefix={componentPrefix}
                   />
                 )}
-                {/* V2: self-serve action compute uses the same section ID */}
-                {section === "actionCompute" && useV2 && (
+
+                {/* Self-serve action compute uses the same section ID */}
+                {section === "actionCompute" && (
                   <ComputeUsageV2
                     team={team}
                     dateRange={dateRange}
@@ -508,26 +351,8 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                   />
                 )}
 
-                {section === "databaseStorage" &&
-                  (useV2 ? (
-                    <DatabaseStorageUsageV2
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ) : (
-                    <DatabaseStorageUsage
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ))}
-
-                {/* V1-only sections */}
-                {section === "databaseBandwidth" && (
-                  <DatabaseBandwidthUsage
+                {section === "databaseStorage" && (
+                  <DatabaseStorageUsageV2
                     team={team}
                     dateRange={dateRange}
                     projectId={projectId}
@@ -535,8 +360,8 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                   />
                 )}
 
-                {section === "databaseDocumentCount" && (
-                  <DatabaseDocumentCountUsage
+                {section === "filesStorage" && (
+                  <FileStorageUsageV2
                     team={team}
                     dateRange={dateRange}
                     projectId={projectId}
@@ -544,25 +369,8 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                   />
                 )}
 
-                {section === "filesStorage" &&
-                  (useV2 ? (
-                    <FileStorageUsageV2
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ) : (
-                    <FilesStorageUsage
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ))}
-
-                {section === "filesBandwidth" && (
-                  <FilesBandwidthUsage
+                {section === "deployments" && (
+                  <DeploymentCountUsageV2
                     team={team}
                     dateRange={dateRange}
                     projectId={projectId}
@@ -570,42 +378,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                   />
                 )}
 
-                {section === "vectorsStorage" && (
-                  <VectorStorageUsage
-                    team={team}
-                    dateRange={dateRange}
-                    projectId={projectId}
-                    componentPrefix={componentPrefix}
-                  />
-                )}
-
-                {section === "vectorsBandwidth" && (
-                  <VectorBandwidthUsage
-                    team={team}
-                    dateRange={dateRange}
-                    projectId={projectId}
-                    componentPrefix={componentPrefix}
-                  />
-                )}
-
-                {section === "deployments" &&
-                  (useV2 ? (
-                    <DeploymentCountUsageV2
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ) : (
-                    <DeploymentCountUsage
-                      team={team}
-                      dateRange={dateRange}
-                      projectId={projectId}
-                      componentPrefix={componentPrefix}
-                    />
-                  ))}
-
-                {/* V2 detail sections */}
                 {section === "compute" && (
                   <ComputeUsageV2
                     team={team}
@@ -657,117 +429,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
         </>
       )}
     </div>
-  );
-}
-
-function FunctionBreakdownSection({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-  shownBillingPeriod,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-  shownBillingPeriod: Period;
-}) {
-  const { data: metricsByFunction, error: metricsByFunctionError } =
-    useUsageTeamMetricsByFunction(
-      team.id,
-      dateRange,
-      projectId,
-      componentPrefix,
-    );
-
-  const [functionBreakdownTab, setFunctionBreakdownTab] = useState(
-    FUNCTION_BREAKDOWN_TABS[0].name,
-  );
-  const metric =
-    FUNCTION_BREAKDOWN_TABS.find((t) => t.name === functionBreakdownTab) ??
-    FUNCTION_BREAKDOWN_TABS[0];
-  const usageByProject = useUsageByProject(metricsByFunction, metric);
-
-  const {
-    visibleItems: visibleProjects,
-    totalPages,
-    currentPage,
-    setCurrentPage,
-  } = usePagination({
-    items: usageByProject ?? [],
-    itemsPerPage: 20,
-  });
-
-  // Reset the page number when the filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    team,
-    projectId,
-    componentPrefix,
-    dateRange?.from,
-    dateRange?.to,
-    shownBillingPeriod.type,
-    shownBillingPeriod.from,
-    shownBillingPeriod.to,
-    functionBreakdownTab,
-    setCurrentPage, // stable
-  ]);
-
-  const isFunctionBreakdownBandwidthAvailable =
-    shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
-
-  const functionBreakdownOptions = FUNCTION_BREAKDOWN_TABS.map((tab) => ({
-    label: tab.name.replace(/\b\w/g, (c) => c.toUpperCase()),
-    value: tab.name,
-  }));
-
-  return (
-    <TeamUsageSection
-      stickyHeader
-      header={
-        <div className="flex w-full flex-col gap-2">
-          <div className="flex items-center justify-between gap-4">
-            <h3>Breakdown by function</h3>
-
-            <SegmentedControl
-              options={functionBreakdownOptions}
-              value={functionBreakdownTab}
-              onChange={setFunctionBreakdownTab}
-            />
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex justify-end">
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-          )}
-        </div>
-      }
-    >
-      <div className="px-4">
-        {metricsByFunctionError ? (
-          <UsageDataError entity="Functions breakdown" />
-        ) : !metricsByFunction ? (
-          <ChartLoading />
-        ) : metric === FUNCTION_BREAKDOWN_TABS[0] ||
-          isFunctionBreakdownBandwidthAvailable ? (
-          <FunctionUsageBreakdown
-            team={team}
-            usageByProject={visibleProjects}
-            metricsByDeployment={metricsByFunction}
-            metric={metric}
-          />
-        ) : (
-          <UsageDataNotAvailable entity={`Breakdown by ${metric.name}`} />
-        )}
-      </div>
-    </TeamUsageSection>
   );
 }
 
@@ -902,787 +563,23 @@ function FunctionUsageBreakdownByProject({
   );
 }
 
-function DatabaseStorageUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<DatabaseGroupBy>(
-    "usageViewMode_databaseStorage",
-    "byTable",
-  );
-  const viewMode = storedViewMode;
-
-  const [activeTab, setActiveTab] = useState<"size" | "count">("size");
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const {
-    data: databaseStorageByProject,
-    error: databaseStorageByProjectError,
-  } = useUsageTeamDatabaseStoragePerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
-
-  const { data: databaseStorageByTable, error: databaseStorageByTableError } =
-    useUsageTeamDatabaseStoragePerDayByTable(
-      team.id,
-      dateRange,
-      projectId,
-      componentPrefix,
-    );
-
-  const { data: documentsCountByProject, error: documentsCountByProjectError } =
-    useUsageTeamDocumentsPerDayByProject(team.id, dateRange, componentPrefix);
-
-  const { data: documentsCountByTable, error: documentsCountByTableError } =
-    useUsageTeamDocumentCountPerDayByTable(
-      team.id,
-      dateRange,
-      projectId,
-      componentPrefix,
-    );
-
-  const databaseStorage =
-    viewMode === "byType"
-      ? aggregateByProjectToByType(databaseStorageByProject, projectId)
-      : null;
-
-  const documentsCount =
-    viewMode === "byType"
-      ? aggregateSimpleByProjectToByType(documentsCountByProject, projectId)
-      : null;
-
-  const hasError =
-    activeTab === "size"
-      ? databaseStorageByProjectError || databaseStorageByTableError
-      : documentsCountByProjectError || documentsCountByTableError;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Database Storage</h3>
-          <div className="flex flex-wrap items-center gap-3">
-            <SegmentedControl
-              options={[
-                { label: "Document Size", value: "size" },
-                { label: "Document Count", value: "count" },
-              ]}
-              value={activeTab}
-              onChange={(v) => {
-                setActiveTab(v);
-                setSelectedDate(null);
-              }}
-            />
-            <GroupBySelector
-              value={viewMode}
-              onChange={setViewMode}
-              disabled={false}
-              options={DATABASE_GROUP_BY_OPTIONS}
-            />
-          </div>
-        </>
-      }
-    >
-      <div className="px-4">
-        {hasError ? (
-          <UsageDataError entity="Database storage" />
-        ) : activeTab === "size" ? (
-          <>
-            {viewMode === "byType" ? (
-              databaseStorage === undefined ? (
-                <ChartLoading />
-              ) : databaseStorage === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={databaseStorage}
-                  categories={DATABASE_STORAGE_CATEGORIES}
-                  quantityType="storage"
-                  isGauge
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : viewMode === "byTable" ? (
-              databaseStorageByTable === undefined ? (
-                <ChartLoading />
-              ) : databaseStorageByTable === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageByTableChart
-                  rows={databaseStorageByTable}
-                  quantityType="storage"
-                  isGauge
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : databaseStorageByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={databaseStorageByProject}
-                quantityType="storage"
-                isGauge
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              documentsCount === undefined ? (
-                <ChartLoading />
-              ) : documentsCount === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageBarChart rows={documentsCount} entity="documents" />
-              )
-            ) : viewMode === "byTable" ? (
-              documentsCountByTable === undefined ? (
-                <ChartLoading />
-              ) : documentsCountByTable === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageByTableChart
-                  rows={documentsCountByTable}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : documentsCountByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={documentsCountByProject}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function DatabaseBandwidthUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_databaseBandwidth",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const {
-    data: databaseBandwidthByProject,
-    error: databaseBandwidthByProjectError,
-  } = useUsageTeamDatabaseBandwidthPerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
-
-  const databaseBandwidth =
-    viewMode === "byType"
-      ? aggregateByProjectToByType(databaseBandwidthByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Database Bandwidth</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {databaseBandwidthByProjectError ? (
-          <UsageDataError entity="Database bandwidth" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              databaseBandwidth === undefined ? (
-                <ChartLoading />
-              ) : databaseBandwidth === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={databaseBandwidth}
-                  categories={BANDWIDTH_CATEGORIES}
-                  quantityType="storage"
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : databaseBandwidthByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={databaseBandwidthByProject}
-                quantityType="storage"
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function DatabaseDocumentCountUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<DatabaseGroupBy>(
-    "usageViewMode_databaseDocumentCount",
-    "byTable",
-  );
-  const viewMode = storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const { data: documentsCountByProject, error: documentsCountByProjectError } =
-    useUsageTeamDocumentsPerDayByProject(team.id, dateRange, componentPrefix);
-
-  const { data: documentsCountByTable, error: documentsCountByTableError } =
-    useUsageTeamDocumentCountPerDayByTable(
-      team.id,
-      dateRange,
-      projectId,
-      componentPrefix,
-    );
-
-  const documentsCount =
-    viewMode === "byType"
-      ? aggregateSimpleByProjectToByType(documentsCountByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Database Document Count</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={false}
-            options={DATABASE_GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {documentsCountByProjectError || documentsCountByTableError ? (
-          <UsageDataError entity="Document count" />
-        ) : viewMode === "byType" ? (
-          documentsCount === undefined ? (
-            <ChartLoading />
-          ) : documentsCount === null ? (
-            <UsageChartUnavailable />
-          ) : (
-            <UsageBarChart rows={documentsCount} entity="documents" />
-          )
-        ) : viewMode === "byTable" ? (
-          documentsCountByTable === undefined ? (
-            <ChartLoading />
-          ) : documentsCountByTable === null ? (
-            <UsageChartUnavailable />
-          ) : (
-            <UsageByTableChart
-              rows={documentsCountByTable}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-            />
-          )
-        ) : documentsCountByProject === undefined ? (
-          <ChartLoading />
-        ) : (
-          <UsageByProjectChart
-            rows={documentsCountByProject}
-            team={team}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-          />
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-export function FunctionCallsUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_functionCalls",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const { data: callsByTagByProject, error: callsByTagByProjectError } =
-    useUsageTeamDailyCallsByTagByProject(team.id, dateRange, componentPrefix);
-
-  const callsByTag =
-    viewMode === "byType"
-      ? aggregateByProjectToByType(callsByTagByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Function calls</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {callsByTagByProjectError ? (
-          <UsageDataError entity="Function calls" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              callsByTag === undefined ? (
-                <ChartLoading />
-              ) : callsByTag === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={callsByTag}
-                  categories={TAG_CATEGORIES}
-                  categoryRenames={CATEGORY_RENAMES}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : callsByTagByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={callsByTagByProject}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function ActionComputeUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_actionCompute",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const {
-    data: actionComputeDailyByProject,
-    error: actionComputeDailyByProjectError,
-  } = useUsageTeamActionComputeDailyByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
-
-  const actionComputeDaily =
-    viewMode === "byType"
-      ? aggregateSimpleByProjectToByType(actionComputeDailyByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Action Compute</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {actionComputeDailyByProjectError ? (
-          <UsageDataError entity="Action compute" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              actionComputeDaily === undefined ? (
-                <ChartLoading />
-              ) : actionComputeDaily === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageBarChart
-                  rows={actionComputeDaily}
-                  entity="action calls"
-                  quantityType="actionCompute"
-                />
-              )
-            ) : actionComputeDailyByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={actionComputeDailyByProject}
-                quantityType="actionCompute"
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function FilesStorageUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_filesStorage",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const { data: fileStorageByProject, error: fileStorageByProjectError } =
-    useUsageTeamStoragePerDayByProject(team.id, dateRange, componentPrefix);
-
-  const fileStorage =
-    viewMode === "byType"
-      ? aggregateByProjectToByType(fileStorageByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">File Storage</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {fileStorageByProjectError ? (
-          <UsageDataError entity="File storage" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              fileStorage === undefined ? (
-                <ChartLoading />
-              ) : fileStorage === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={fileStorage}
-                  categories={FILE_STORAGE_CATEGORIES}
-                  quantityType="storage"
-                  isGauge
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : fileStorageByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={fileStorageByProject}
-                quantityType="storage"
-                isGauge
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function FilesBandwidthUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_filesBandwidth",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const { data: filesBandwidthByProject, error: filesBandwidthByProjectError } =
-    useUsageTeamStorageThroughputDailyByProject(
-      team.id,
-      dateRange,
-      componentPrefix,
-    );
-
-  const filesBandwidth =
-    viewMode === "byType"
-      ? aggregateByProjectToByType(filesBandwidthByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">File Bandwidth</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {filesBandwidthByProjectError ? (
-          <UsageDataError entity="File bandwidth" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              filesBandwidth === undefined ? (
-                <ChartLoading />
-              ) : filesBandwidth === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={filesBandwidth}
-                  categories={FILE_BANDWIDTH_CATEGORIES}
-                  quantityType="storage"
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : filesBandwidthByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={filesBandwidthByProject}
-                quantityType="storage"
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-function DeploymentCountUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_deploymentCount",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const {
-    data: deploymentCountDailyByProject,
-    error: deploymentCountDailyByProjectError,
-  } = useUsageTeamDeploymentCountPerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
-
-  const { data: deploymentCountByType, error: deploymentCountByTypeError } =
-    useUsageTeamDeploymentCountByType(
-      team.id,
-      dateRange,
-      projectId,
-      componentPrefix,
-    );
-
-  const deploymentTypeCategories = {
-    prod: {
-      name: "Production",
-      color: "fill-chart-line-1",
-    },
-    dev: {
-      name: "Development",
-      color: "fill-chart-line-2",
-    },
-    preview: {
-      name: "Preview",
-      color: "fill-chart-line-3",
-    },
-    deleted: {
-      name: "Deleted Deployment",
-      color: "fill-chart-line-4",
-    },
-  };
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Deployments</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {viewMode === "byType" ? (
-          // Show deployment type breakdown (prod/dev/preview/deleted)
-          deploymentCountByTypeError ? (
-            <UsageDataError entity="Deployments" />
-          ) : deploymentCountByType === undefined ? (
-            <ChartLoading />
-          ) : (
-            <UsageStackedBarChart
-              rows={deploymentCountByType}
-              categories={deploymentTypeCategories}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              isGauge
-            />
-          )
-        ) : // Show deployment count by project
-        deploymentCountDailyByProjectError ? (
-          <UsageDataError entity="Deployments" />
-        ) : deploymentCountDailyByProject === undefined ? (
-          <ChartLoading />
-        ) : (
-          <UsageByProjectChart
-            rows={deploymentCountDailyByProject}
-            team={team}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            isGauge
-          />
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
 function DeploymentCountUsageV2({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: DetailSectionPropsV2) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<BusinessGroupBy>(
     "usageViewMode_businessDeploymentCount",
     "byType",
   );
-  const viewMode = storedViewMode;
+  // The by-deployment-class data is only available team-wide, so it isn't a
+  // valid view when filtered to a single project — fall back to by-type.
+  const classDisabled = projectId !== null;
+  const viewMode =
+    classDisabled && storedViewMode === "byDeploymentClass"
+      ? "byType"
+      : storedViewMode;
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
@@ -1693,18 +590,26 @@ function DeploymentCountUsageV2({
     useUsageTeamDeploymentCountByType(
       team.id,
       dateRange,
-      null,
+      projectId,
       componentPrefix,
     );
 
-  const {
-    data: deploymentCountDailyByProject,
-    error: deploymentCountDailyByProjectError,
-  } = useUsageTeamDeploymentCountPerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
+  const { data: allDeploymentCountDailyByProject, error: byProjectError } =
+    useUsageTeamDeploymentCountPerDayByProject(
+      team.id,
+      dateRange,
+      componentPrefix,
+    );
+
+  // The by-project hook always returns every project, so scope it to the
+  // selected project when a project filter is active.
+  const deploymentCountDailyByProject =
+    projectId === null
+      ? allDeploymentCountDailyByProject
+      : allDeploymentCountDailyByProject?.filter(
+          (row) => row.projectId === projectId,
+        );
+  const deploymentCountDailyByProjectError = byProjectError;
 
   const deploymentTypeCategories = {
     prod: {
@@ -1756,6 +661,14 @@ function DeploymentCountUsageV2({
             value={viewMode}
             onChange={setViewMode}
             options={BUSINESS_GROUP_BY_OPTIONS}
+            disabledOptions={
+              classDisabled
+                ? {
+                    byDeploymentClass:
+                      "Deployment class breakdown isn't available when filtered to a single project.",
+                  }
+                : undefined
+            }
           />
         </>
       }
@@ -1801,171 +714,6 @@ function DeploymentCountUsageV2({
             setSelectedDate={setSelectedDate}
             isGauge
           />
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function VectorStorageUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_vectorsStorage",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const { data: vectorStorageByProject, error: vectorStorageByProjectError } =
-    useUsageTeamVectorStoragePerDayByProject(
-      team.id,
-      dateRange,
-      componentPrefix,
-    );
-
-  const vectorStorage =
-    viewMode === "byType"
-      ? aggregateSimpleByProjectToByType(vectorStorageByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Vector Index Storage</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {vectorStorageByProjectError ? (
-          <UsageDataError entity="Vector storage" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              vectorStorage === undefined ? (
-                <ChartLoading />
-              ) : vectorStorage === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageBarChart
-                  rows={vectorStorage}
-                  entity="vectors"
-                  quantityType="storage"
-                />
-              )
-            ) : vectorStorageByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={vectorStorageByProject}
-                quantityType="storage"
-                isGauge
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </TeamUsageSection>
-  );
-}
-
-function VectorBandwidthUsage({
-  team,
-  dateRange,
-  projectId,
-  componentPrefix,
-}: {
-  team: TeamResponse;
-  dateRange: DateRange | null;
-  projectId: number | null;
-  componentPrefix: string | null;
-}) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
-    "usageViewMode_vectorsBandwidth",
-    "byType",
-  );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
-
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
-
-  const {
-    data: vectorBandwidthByProject,
-    error: vectorBandwidthByProjectError,
-  } = useUsageTeamVectorBandwidthPerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
-
-  const vectorBandwidth =
-    viewMode === "byType"
-      ? aggregateByProjectToByType(vectorBandwidthByProject, projectId)
-      : null;
-
-  return (
-    <TeamUsageSection
-      header={
-        <>
-          <h3 className="py-2">Vector Index Bandwidth</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={projectId !== null}
-            options={GROUP_BY_OPTIONS}
-          />
-        </>
-      }
-    >
-      <div className="px-4">
-        {vectorBandwidthByProjectError ? (
-          <UsageDataError entity="Vector bandwidth" />
-        ) : (
-          <>
-            {viewMode === "byType" ? (
-              vectorBandwidth === undefined ? (
-                <ChartLoading />
-              ) : vectorBandwidth === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={vectorBandwidth}
-                  categories={BANDWIDTH_CATEGORIES}
-                  quantityType="storage"
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : vectorBandwidthByProject === undefined ? (
-              <ChartLoading />
-            ) : (
-              <UsageByProjectChart
-                rows={vectorBandwidthByProject}
-                quantityType="storage"
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
-            )}
-          </>
         )}
       </div>
     </TeamUsageSection>
@@ -2169,7 +917,7 @@ function aggregateTagByProjectToByClass(
   });
 }
 
-function FunctionCallsUsageV2({
+export function FunctionCallsUsageV2({
   team,
   dateRange,
   projectId,
@@ -2417,7 +1165,7 @@ function DatabaseStorageUsageV2({
 
   const documentsCount =
     viewMode === "byType"
-      ? aggregateSimpleByProjectToByType(documentsCountByProject, null)
+      ? aggregateSimpleByProjectToByType(documentsCountByProject, projectId)
       : null;
 
   const hasError =
