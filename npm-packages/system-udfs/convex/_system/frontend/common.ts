@@ -107,7 +107,6 @@ export type AnalyzedModuleFunction = {
   lineno?: number;
   udfType: UdfType;
   visibility: Visibility;
-  argsValidator: string;
 };
 
 // To deprecate

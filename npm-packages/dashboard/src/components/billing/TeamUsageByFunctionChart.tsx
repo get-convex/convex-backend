@@ -9,7 +9,6 @@ import classNames from "classnames";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
-import { AggregatedFunctionMetricsV2 } from "hooks/usageMetricsV2";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
 import { ReactNode, useMemo, useState } from "react";
@@ -86,9 +85,7 @@ type DeploymentTypeRow = {
   href: string | null;
 };
 
-export type FunctionMetricsRow =
-  | AggregatedFunctionMetrics
-  | AggregatedFunctionMetricsV2;
+export type FunctionMetricsRow = AggregatedFunctionMetrics;
 
 export type FunctionBreakdownMetric = {
   name: string;
@@ -101,6 +98,8 @@ export type FunctionBreakdownMetric = {
   }[];
 };
 
+// function breakdown metrics
+
 export const FunctionBreakdownMetricCalls: FunctionBreakdownMetric = {
   name: "function calls",
   getTotal: (row) => row.callCount,
@@ -108,46 +107,7 @@ export const FunctionBreakdownMetricCalls: FunctionBreakdownMetric = {
   quantityType: "unit",
 };
 
-export const FunctionBreakdownMetricDatabaseBandwidth: FunctionBreakdownMetric =
-  {
-    name: "database bandwidth",
-    getTotal: (row) => row.databaseIngressSize + row.databaseEgressSize,
-    getValues: (row) => [row.databaseEgressSize, row.databaseIngressSize],
-    quantityType: "storage",
-    categories: Object.values(BANDWIDTH_CATEGORIES),
-  };
-
-export const FunctionBreakdownMetricActionCompute: FunctionBreakdownMetric = {
-  name: "action compute",
-  getTotal: (row) => ("actionComputeTime" in row ? row.actionComputeTime : 0),
-  getValues: (row) => ["actionComputeTime" in row ? row.actionComputeTime : 0],
-  quantityType: "actionCompute",
-};
-
-export const FunctionBreakdownMetricVectorBandwidth: FunctionBreakdownMetric = {
-  name: "vector bandwidth",
-  getTotal: (row) =>
-    "vectorIngressSize" in row
-      ? row.vectorIngressSize + row.vectorEgressSize
-      : 0,
-  getValues: (row) =>
-    "vectorIngressSize" in row
-      ? [row.vectorEgressSize, row.vectorIngressSize]
-      : [0, 0],
-  quantityType: "storage",
-  categories: Object.values(BANDWIDTH_CATEGORIES),
-};
-
-// V2 function breakdown metrics
-
-export const FunctionBreakdownMetricCallsV2: FunctionBreakdownMetric = {
-  name: "function calls",
-  getTotal: (row) => row.callCount,
-  getValues: (row) => [row.callCount],
-  quantityType: "unit",
-};
-
-export const FunctionBreakdownMetricDatabaseIOV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricDatabaseIO: FunctionBreakdownMetric = {
   name: "database I/O",
   getTotal: (row) => row.databaseIngressSize + row.databaseEgressSize,
   getValues: (row) => [row.databaseEgressSize, row.databaseIngressSize],
@@ -155,7 +115,7 @@ export const FunctionBreakdownMetricDatabaseIOV2: FunctionBreakdownMetric = {
   categories: Object.values(BANDWIDTH_CATEGORIES),
 };
 
-export const FunctionBreakdownMetricComputeV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricCompute: FunctionBreakdownMetric = {
   name: "compute",
   getTotal: (row) =>
     ("queryMutationComputeTime" in row ? row.queryMutationComputeTime : 0) +
@@ -183,7 +143,7 @@ export const FunctionBreakdownMetricComputeV2: FunctionBreakdownMetric = {
   ],
 };
 
-export const FunctionBreakdownMetricSearchV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricSearch: FunctionBreakdownMetric = {
   name: "search",
   getTotal: (row) =>
     ("textSearchGb" in row ? row.textSearchGb : 0) +
@@ -205,7 +165,7 @@ export const FunctionBreakdownMetricSearchV2: FunctionBreakdownMetric = {
   ],
 };
 
-export const FunctionBreakdownMetricDataEgressV2: FunctionBreakdownMetric = {
+export const FunctionBreakdownMetricDataEgress: FunctionBreakdownMetric = {
   name: "data egress",
   getTotal: (row) => ("dataEgress" in row ? row.dataEgress : 0),
   getValues: (row) => ["dataEgress" in row ? row.dataEgress : 0],
@@ -501,13 +461,7 @@ function useOrderedAndGroupedRows(
         const systemKind = getSystemRowKind(row.function);
         const name = systemKind === "dashboard" ? "" : row.function;
         if (project) {
-          deployment = deployments.find(
-            (d) =>
-              (d.kind === "cloud" &&
-                "deploymentId" in row &&
-                d.id === row.deploymentId) ||
-              d.name === row.deploymentName,
-          );
+          deployment = deployments.find((d) => d.name === row.deploymentName);
           deploymentType = deployment
             ? deployment.deploymentType
             : fallbackDeploymentType;

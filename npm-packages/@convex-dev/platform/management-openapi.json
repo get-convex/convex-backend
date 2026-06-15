@@ -1810,6 +1810,193 @@
         "security": []
       }
     },
+    "/teams/{team_id}/list_audit_log_events": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "List audit log events",
+        "description": "List a team's audit log events within a time range, with optional filters.",
+        "operationId": "list audit log events",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the time range, in milliseconds since epoch.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the time range, in milliseconds since epoch.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "query",
+            "description": "Only return events performed by this member.",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/MemberId"
+                }
+              ]
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "team:join",
+                "team:create",
+                "team:update",
+                "team:delete",
+                "project:create",
+                "project:transfer",
+                "project:receive",
+                "project:update",
+                "project:delete",
+                "defaultEnvironmentVariable:create",
+                "defaultEnvironmentVariable:update",
+                "defaultEnvironmentVariable:delete",
+                "deployment:create",
+                "deployment:delete",
+                "member:invite",
+                "member:cancelInvitation",
+                "member:remove",
+                "member:updateRole",
+                "project:updateMemberRole",
+                "billing:paymentMethod:update",
+                "billing:contact:update",
+                "billing:address:update",
+                "billing:subscription:create",
+                "billing:subscription:resume",
+                "billing:subscription:cancel",
+                "billing:subscription:changePlan",
+                "team:token:create",
+                "team:token:update",
+                "team:token:delete",
+                "team:token:view",
+                "project:token:create",
+                "project:token:update",
+                "project:token:delete",
+                "project:token:view",
+                "deployment:token:create",
+                "deployment:token:update",
+                "deployment:token:delete",
+                "deployment:token:view",
+                "deployment:customDomain:create",
+                "deployment:customDomain:delete",
+                "deployment:backups:create",
+                "deployment:backups:import",
+                "deployment:backups:configurePeriodic",
+                "deployment:backups:disablePeriodic",
+                "deployment:backups:delete",
+                "team:disableExceedingSpendingLimits",
+                "billing:spendingLimit:update",
+                "team:applyReferralCode",
+                "oauthApplication:create",
+                "oauthApplication:update",
+                "oauthApplication:delete",
+                "oauthApplication:verify",
+                "oauthApplication:generateClientSecret",
+                "integration:workos:team:create",
+                "integration:workos:environment:create",
+                "integration:workos:environment:delete",
+                "integration:workos:environment:retrieveCredentials",
+                "integration:workos:team:disconnect",
+                "integration:workos:team:inviteMember",
+                "integration:workos:projectEnvironment:create",
+                "integration:workos:projectEnvironment:delete",
+                "integration:workos:projectEnvironment:retrieveCredentials",
+                "sso:enable",
+                "sso:disable",
+                "sso:update",
+                "deployment:transfer",
+                "deployment:receive",
+                "deployment:update",
+                "customRole:create",
+                "customRole:update",
+                "customRole:delete"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of events to return (1-100, defaults to 15).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor from a previous response to fetch the next page.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAuditLogEventsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/teams/{team_id}/invite_team_member": {
       "post": {
         "tags": [
@@ -2316,6 +2503,220 @@
         "type": "string",
         "description": "Encrypted admin key"
       },
+      "AuditLogActor": {
+        "oneOf": [
+          {
+            "type": "object",
+            "title": "System",
+            "description": "The internal Convex system.",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "system"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "Member",
+            "description": "A member acting via the dashboard.",
+            "required": [
+              "member_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "member"
+                ]
+              },
+              "member_id": {
+                "$ref": "#/components/schemas/MemberId",
+                "description": "Member ID"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "Token",
+            "description": "A token.",
+            "required": [
+              "token_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "token"
+                ]
+              },
+              "member_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MemberId",
+                    "description": "Member ID"
+                  }
+                ]
+              },
+              "token_id": {
+                "$ref": "#/components/schemas/AccessTokenId",
+                "description": "Token ID. `0` for legacy audit log rows created before token IDs\nwere recorded."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "OAuthApp",
+            "description": "An OAuth application.",
+            "required": [
+              "client_id",
+              "kind"
+            ],
+            "properties": {
+              "client_id": {
+                "type": "string",
+                "description": "Client ID of the OAuth application"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "app"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "The identity that executed an audit log action."
+      },
+      "AuditLogEventResponse": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "actor",
+          "action",
+          "createTime",
+          "metadata"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "team:join",
+              "team:create",
+              "team:update",
+              "team:delete",
+              "project:create",
+              "project:transfer",
+              "project:receive",
+              "project:update",
+              "project:delete",
+              "defaultEnvironmentVariable:create",
+              "defaultEnvironmentVariable:update",
+              "defaultEnvironmentVariable:delete",
+              "deployment:create",
+              "deployment:delete",
+              "member:invite",
+              "member:cancelInvitation",
+              "member:remove",
+              "member:updateRole",
+              "project:updateMemberRole",
+              "billing:paymentMethod:update",
+              "billing:contact:update",
+              "billing:address:update",
+              "billing:subscription:create",
+              "billing:subscription:resume",
+              "billing:subscription:cancel",
+              "billing:subscription:changePlan",
+              "team:token:create",
+              "team:token:update",
+              "team:token:delete",
+              "team:token:view",
+              "project:token:create",
+              "project:token:update",
+              "project:token:delete",
+              "project:token:view",
+              "deployment:token:create",
+              "deployment:token:update",
+              "deployment:token:delete",
+              "deployment:token:view",
+              "deployment:customDomain:create",
+              "deployment:customDomain:delete",
+              "deployment:backups:create",
+              "deployment:backups:import",
+              "deployment:backups:configurePeriodic",
+              "deployment:backups:disablePeriodic",
+              "deployment:backups:delete",
+              "team:disableExceedingSpendingLimits",
+              "billing:spendingLimit:update",
+              "team:applyReferralCode",
+              "oauthApplication:create",
+              "oauthApplication:update",
+              "oauthApplication:delete",
+              "oauthApplication:verify",
+              "oauthApplication:generateClientSecret",
+              "integration:workos:team:create",
+              "integration:workos:environment:create",
+              "integration:workos:environment:delete",
+              "integration:workos:environment:retrieveCredentials",
+              "integration:workos:team:disconnect",
+              "integration:workos:team:inviteMember",
+              "integration:workos:projectEnvironment:create",
+              "integration:workos:projectEnvironment:delete",
+              "integration:workos:projectEnvironment:retrieveCredentials",
+              "sso:enable",
+              "sso:disable",
+              "sso:update",
+              "deployment:transfer",
+              "deployment:receive",
+              "deployment:update",
+              "customRole:create",
+              "customRole:update",
+              "customRole:delete"
+            ]
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditLogActor",
+            "description": "The identity that executed the action"
+          },
+          "clientIp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IP address of the client that performed the action, if known."
+          },
+          "clientUserAgent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "User agent of the client that performed the action, if known."
+          },
+          "createTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Time the event was created, in milliseconds since epoch."
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Value",
+            "description": "Additional JSON metadata about the audit log event"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId",
+            "description": "Team ID"
+          }
+        }
+      },
       "CancelInvitationArgs": {
         "type": "object",
         "required": [
@@ -2689,6 +3090,24 @@
       "IsDefaultDeployment": {
         "type": "boolean",
         "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
+      },
+      "ListAuditLogEventsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEventResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
+          }
+        }
       },
       "ListCustomRolesResponse": {
         "type": "object",
@@ -4209,7 +4628,8 @@
           }
         },
         "additionalProperties": false
-      }
+      },
+      "Value": {}
     },
     "securitySchemes": {
       "OAuth Project Token": {

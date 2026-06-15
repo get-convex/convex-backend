@@ -142,7 +142,6 @@ function processHttpRoute(f: {
     lineno: lineno ? Number(lineno) : undefined,
     udfType: "HttpAction",
     visibility: { kind: "public" },
-    argsValidator: f.args || DEFAULT_ARGS_VALIDATOR,
   } as const;
 }
 
@@ -160,6 +159,5 @@ function processFunction(f: {
     lineno: lineno ? Number(lineno) : undefined,
     udfType: f.udfType,
     visibility: f.visibility ?? { kind: "public" },
-    argsValidator: f.args || DEFAULT_ARGS_VALIDATOR,
   };
 }
