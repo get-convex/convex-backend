@@ -61,6 +61,7 @@ export function CreateTokenDialog({
               value={values.tokenName}
               onChange={handleChange}
               placeholder="Enter a memorable name, like 'asdfjkl;'"
+              autoFocus
               error={
                 touched.tokenName && typeof errors.tokenName === "string"
                   ? errors.tokenName
