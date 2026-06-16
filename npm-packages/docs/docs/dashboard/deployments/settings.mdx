@@ -9,25 +9,60 @@ description:
 
 The [deployment settings page](https://dashboard.convex.dev/deployment/settings)
 gives you access to information and configuration options related to a specific
-deployment (**production**, your personal **development** deployment, or a
-**preview** deployment).
+deployment.
 
-## URL and Deploy Key
+## General
 
-The [URL and deploy key page](https://dashboard.convex.dev/deployment/settings)
-shows:
+The [General page](https://dashboard.convex.dev/deployment/settings) shows
+information about the deployment and lets you configure it:
 
-- The URL this deployment is hosted at. Some Convex integrations may require the
-  deployment URL for configuration.
-- The URL that HTTP Actions for this deployment should be sent to.
-- The deployment's deploy key, used to
+- **Deployment summary** - the deployment's name, type, region, deployment
+  class, the running Convex version, and when it was last deployed and backed
+  up. It also shows the URL the deployment is hosted at and the URL that HTTP
+  Actions are served from. (Some Convex integrations require these URLs for
+  configuration.)
+- **Deploy keys** - generate, view, and delete the deployment's deploy keys,
+  used to
   [integrate with build tools such as Netlify and Vercel](/production/hosting/hosting.mdx)
-  and
-  [syncing data with Fivetran and Airbyte](/production/integrations/streaming-import-export.mdx).
+  and to
+  [sync data with Fivetran and Airbyte](/production/integrations/streaming-import-export.mdx).
+- **Advanced settings**
+  - **Deployment reference** - edit the deployment's reference.
+  - **Stream function logs** - control whether function logs are streamed to
+    connected clients.
+  - **Dashboard edit confirmation** - require confirmation before editing data
+    from the dashboard.
+  - **Deployment expiration** - for non-production deployments, set an
+    expiration time after which the deployment is automatically deleted.
+- **[Pause deployment](/production/pause-deployment.mdx)** - temporarily stop
+  the deployment from running any functions (including scheduled functions and
+  cron jobs), then resume it later.
+- **Delete deployment** - permanently delete the deployment and all of its data.
+- **Transfer deployment** - move the deployment to another project in the same
+  team.
 
 <Screenshot
   story="docs/pages/project/deployment/DeploymentSettings"
   alt="Deployment Settings Dashboard Page"
+/>
+
+When you create a deploy key you can scope it to only have permission to perform
+specific actions.
+
+For a CI/CD pipeline that runs `npx convex deploy`, enable the
+`deployment:deploy` permission, which grants the ability to push code, schema,
+and auth configuration to the deployment.
+
+For CLI usage or AI Agents using the Convex CLI, you may want to enable more
+permissions, such as the ability to view deployment logs and read/write data or
+environment variables.
+
+See [Role Actions](/team-management/role-actions.mdx#data-plane-and-runtime) for
+the full list of actions a deploy key can be granted.
+
+<Screenshot
+  story="docs/pages/CreateDeployKey"
+  alt="Create Deploy Key panel with the deployment:deploy permission enabled"
 />
 
 ## Environment Variables

@@ -5,7 +5,6 @@ import { CopyButton } from "@common/elements/CopyButton";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Callout } from "@ui/Callout";
-import { SegmentedControl } from "@ui/SegmentedControl";
 import {
   Dialog,
   DialogPanel,
@@ -26,6 +25,7 @@ import {
   resolveExpirationTime,
 } from "components/TokenExpirationSelector";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import { Link } from "@ui/Link";
 
 export type DeployKeyGenerationDisabledReason =
   | "CannotManageDeployment"
@@ -127,33 +127,6 @@ export const ACTION_GROUPS: ActionGroup[] = [
     ],
   },
   {
-    label: "Backups",
-    actions: [
-      {
-        key: "deployment:backups:view",
-        description: "Not yet implemented.",
-      },
-      {
-        key: "deployment:backups:create",
-        description:
-          "Allows exporting data with the Convex CLI. In the future, will also allow deploy keys to create cloud backups.",
-      },
-      {
-        key: "deployment:backups:download",
-        description: "Allows downloading previously generated backups.",
-      },
-      {
-        key: "deployment:backups:delete",
-        description: "Not yet implemented.",
-      },
-      {
-        key: "deployment:backups:import",
-        description:
-          "Allows importing data with the Convex CLI and Streaming Import. In the future, will also allow deploy keys to restore from a cloud backup.",
-      },
-    ],
-  },
-  {
     label: "Monitoring",
     actions: [
       {
@@ -185,16 +158,33 @@ export const ACTION_GROUPS: ActionGroup[] = [
       },
     ],
   },
-];
-
-type PermissionMode = "deploy" | "custom";
-
-const PERMISSION_MODE_OPTIONS: {
-  label: string;
-  value: PermissionMode;
-}[] = [
-  { label: "Deploy only", value: "deploy" },
-  { label: "Custom permissions", value: "custom" },
+  {
+    label: "Backups",
+    actions: [
+      {
+        key: "deployment:backups:view",
+        description: "Not yet implemented.",
+      },
+      {
+        key: "deployment:backups:create",
+        description:
+          "Allows exporting data with the Convex CLI. In the future, will also allow deploy keys to create cloud backups.",
+      },
+      {
+        key: "deployment:backups:download",
+        description: "Allows downloading previously generated backups.",
+      },
+      {
+        key: "deployment:backups:delete",
+        description: "Not yet implemented.",
+      },
+      {
+        key: "deployment:backups:import",
+        description:
+          "Allows importing data with the Convex CLI and Streaming Import. In the future, will also allow deploy keys to restore from a cloud backup.",
+      },
+    ],
+  },
 ];
 
 export type CreateDeployKeyFormProps = {
@@ -208,11 +198,12 @@ export type CreateDeployKeyFormProps = {
   showCustomPermissions?: boolean;
 };
 
-// Renders the create-deploy-key flow (form + post-creation key reveal) inside
-// a right-hand slide-in side panel rather than a modal. The panel header and
-// the Cancel/Create (or Done) footer are pinned while the body scrolls.
-// `onClose` is invoked after the panel slides out to dismiss it from the
-// deploy key list.
+// Renders the create-deploy-key flow (form + post-creation key reveal). On
+// `md`+ viewports it's a right-hand slide-in side panel; on narrower viewports
+// it collapses to a centered modal (and the permissions grid drops to a single
+// column). The header and the Cancel/Create (or Done) footer are pinned while
+// the body scrolls. `onClose` is invoked after it animates out to dismiss it
+// from the deploy key list.
 export function CreateDeployKeyForm({
   disabledReason,
   getAdminKey,
@@ -224,8 +215,6 @@ export function CreateDeployKeyForm({
   const closePanel = useCallback(() => setOpen(false), []);
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
-  const [permissionMode, setPermissionMode] =
-    useState<PermissionMode>("deploy");
   const [selectedActions, setSelectedActions] = useState<Set<DeployKeyAction>>(
     () => new Set(),
   );
@@ -256,17 +245,20 @@ export function CreateDeployKeyForm({
             <div className="absolute inset-0 transition-opacity" />
           </TransitionChild>
 
-          <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
+          <div className="fixed inset-0 flex items-center justify-center p-4 md:inset-y-0 md:right-0 md:left-auto md:items-stretch md:justify-end md:p-0 md:pl-10">
             <TransitionChild
-              enter="transform transition ease-in-out duration-200 sm:duration-300"
-              enterFrom="translate-x-full"
-              enterTo="translate-x-0"
-              leave="transform transition ease-in-out duration-200 sm:duration-300"
-              leaveFrom="translate-x-0"
-              leaveTo="translate-x-full"
+              enter="transform transition ease-in-out duration-200 md:duration-300"
+              enterFrom="translate-y-2 opacity-0 md:translate-x-full md:translate-y-0"
+              enterTo="translate-y-0 opacity-100 md:translate-x-0"
+              leave="transform transition ease-in-out duration-200 md:duration-300"
+              leaveFrom="translate-y-0 opacity-100 md:translate-x-0"
+              leaveTo="translate-y-2 opacity-0 md:translate-x-full md:translate-y-0"
             >
-              <DialogPanel className="w-screen max-w-2xl">
-                <div className="flex h-full flex-col bg-background-secondary shadow-xl dark:border">
+              <DialogPanel className="w-full max-w-lg md:w-screen md:max-w-3xl">
+                <div
+                  data-testid="create-deploy-key-panel"
+                  className="flex max-h-[85vh] flex-col rounded-lg bg-background-secondary shadow-xl md:h-full md:max-h-none md:rounded-none dark:border"
+                >
                   <div className="flex items-center justify-between px-6 pt-6 pb-4">
                     <DialogTitle as="h4">
                       {createdKey ? "Deploy Key Created" : "Create Deploy Key"}
@@ -302,9 +294,7 @@ export function CreateDeployKeyForm({
                         try {
                           const allowedActions =
                             scopedDeployKeys && showCustomPermissions
-                              ? permissionMode === "deploy"
-                                ? (["deployment:deploy"] as DeployKeyAction[])
-                                : Array.from(selectedActions)
+                              ? Array.from(selectedActions)
                               : undefined;
                           const expiresAt = resolveExpirationTime(expiration);
                           const result = await getAdminKey(
@@ -342,94 +332,85 @@ export function CreateDeployKeyForm({
                         />
                         {scopedDeployKeys && showCustomPermissions && (
                           <div className="mt-2 flex flex-col gap-3">
-                            <SegmentedControl
-                              className="w-fit"
-                              options={PERMISSION_MODE_OPTIONS}
-                              value={permissionMode}
-                              onChange={(value) => {
-                                setPermissionMode(value);
-                                if (value === "custom") {
+                            <p className="text-xs text-content-secondary">
+                              Select the permissions this key needs.{" "}
+                              <Link
+                                href="https://docs.convex.dev/team-management/role-actions#data-plane-and-runtime"
+                                target="_blank"
+                              >
+                                Learn more about permissions.
+                              </Link>
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="neutral"
+                                size="xs"
+                                onClick={() => {
+                                  const all = new Set(
+                                    ACTION_GROUPS.flatMap((g) =>
+                                      g.actions.map((a) => a.key),
+                                    ),
+                                  );
+                                  setSelectedActions(all);
+                                }}
+                              >
+                                Select all
+                              </Button>
+                              <Button
+                                variant="neutral"
+                                size="xs"
+                                onClick={() => {
                                   setSelectedActions(new Set());
-                                }
-                              }}
-                            />
-                            {permissionMode === "deploy" ? (
-                              <p className="text-xs text-content-secondary">
-                                This key will able to deploy to this deployment.
-                                Deploying includes updating code, the database
-                                schema, and auth configuration.
-                              </p>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="neutral"
-                                    size="xs"
-                                    onClick={() => {
-                                      const all = new Set(
-                                        ACTION_GROUPS.flatMap((g) =>
-                                          g.actions.map((a) => a.key),
-                                        ),
-                                      );
-                                      setSelectedActions(all);
-                                    }}
-                                  >
-                                    Select all
-                                  </Button>
-                                  <Button
-                                    variant="neutral"
-                                    size="xs"
-                                    onClick={() => {
-                                      setSelectedActions(new Set());
-                                    }}
-                                  >
-                                    Select none
-                                  </Button>
+                                }}
+                              >
+                                Select none
+                              </Button>
+                            </div>
+                            <div className="columns-1 gap-x-6 md:columns-2">
+                              {ACTION_GROUPS.map((group) => (
+                                <div
+                                  key={group.label}
+                                  className="mb-3 break-inside-avoid"
+                                >
+                                  <div className="mb-1 text-sm font-semibold text-content-secondary">
+                                    {group.label}
+                                  </div>
+                                  <div className="flex flex-col gap-y-1">
+                                    {group.actions.map((action) => (
+                                      <label
+                                        key={action.key}
+                                        htmlFor={`action-${action.key}`}
+                                        className="flex cursor-pointer items-center gap-2 rounded-sm p-1 text-xs hover:bg-background-secondary"
+                                      >
+                                        <Checkbox
+                                          id={`action-${action.key}`}
+                                          checked={selectedActions.has(
+                                            action.key,
+                                          )}
+                                          onChange={() => {
+                                            setSelectedActions((prev) => {
+                                              const next = new Set(prev);
+                                              if (next.has(action.key)) {
+                                                next.delete(action.key);
+                                              } else {
+                                                next.add(action.key);
+                                              }
+                                              return next;
+                                            });
+                                          }}
+                                        />
+                                        <span className="font-mono">
+                                          {action.key}
+                                        </span>
+                                        <HelpTooltip>
+                                          {action.description}
+                                        </HelpTooltip>
+                                      </label>
+                                    ))}
+                                  </div>
                                 </div>
-                                <div className="flex flex-col gap-3">
-                                  {ACTION_GROUPS.map((group) => (
-                                    <div key={group.label}>
-                                      <div className="mb-1 text-sm font-semibold text-content-secondary">
-                                        {group.label}
-                                      </div>
-                                      <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-x-4 gap-y-1">
-                                        {group.actions.map((action) => (
-                                          <label
-                                            key={action.key}
-                                            htmlFor={`action-${action.key}`}
-                                            className="flex cursor-pointer items-center gap-2 rounded-sm p-1 text-xs hover:bg-background-secondary"
-                                          >
-                                            <Checkbox
-                                              id={`action-${action.key}`}
-                                              checked={selectedActions.has(
-                                                action.key,
-                                              )}
-                                              onChange={() => {
-                                                setSelectedActions((prev) => {
-                                                  const next = new Set(prev);
-                                                  if (next.has(action.key)) {
-                                                    next.delete(action.key);
-                                                  } else {
-                                                    next.add(action.key);
-                                                  }
-                                                  return next;
-                                                });
-                                              }}
-                                            />
-                                            <span className="font-mono">
-                                              {action.key}
-                                            </span>
-                                            <HelpTooltip>
-                                              {action.description}
-                                            </HelpTooltip>
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </>
-                            )}
+                              ))}
+                            </div>
                           </div>
                         )}
                         {error !== null && (
@@ -445,7 +426,6 @@ export function CreateDeployKeyForm({
                       <div className="flex items-center justify-end gap-2 px-6 py-4">
                         {scopedDeployKeys &&
                           showCustomPermissions &&
-                          permissionMode === "custom" &&
                           selectedActions.size === 0 && (
                             <span className="text-xs text-content-errorSecondary">
                               Select at least one action
@@ -466,7 +446,6 @@ export function CreateDeployKeyForm({
                             name.trim() === "" ||
                             (scopedDeployKeys &&
                               showCustomPermissions &&
-                              permissionMode === "custom" &&
                               selectedActions.size === 0)
                           }
                           loading={isLoading}

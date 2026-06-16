@@ -47,6 +47,13 @@ Fivetran streaming export connector. Some use cases include:
 
 <ProFeatureUpsell feature="Streaming export" verb="requires" />
 
+The Fivetran connector authenticates with a Convex
+[deploy key](/cli/deploy-key-types.mdx). When you create the key, enable the
+`deployment:data:view` permission so the connector can read the documents in
+your tables and their schema. See
+[Role Actions](/team-management/role-actions.mdx#data-plane-and-runtime) for the
+full list of actions a deploy key can be granted.
+
 See the [Fivetran](https://fivetran.com/integrations/convex) docs to learn how
 to set up a streaming export. [Contact us](https://convex.dev/community) if you
 need help or have questions.
@@ -74,6 +81,13 @@ sync tooling. Some use cases include:
   there are no mutations or actions writing to imported tables in your code and
   avoid editing documents in imported tables in the dashboard.
 </Admonition>
+
+The Airbyte connector authenticates with a Convex
+[deploy key](/cli/deploy-key-types.mdx). When you create the key, enable the
+`deployment:backups:import` permission so the connector can write imported data
+into your deployment. See
+[Role Actions](/team-management/role-actions.mdx#data-plane-and-runtime) for the
+full list of actions a deploy key can be granted.
 
 Streaming import is included with all Convex plans. See the Airbyte docs on how
 to set up the Convex destination connector
