@@ -28,7 +28,10 @@ pub use self::{
         EndRef,
         StartIncluded,
     },
-    interval_set::IntervalSet,
+    interval_set::{
+        IntervalSet,
+        MembershipCursor,
+    },
     key::BinaryKey,
 };
 use crate::{

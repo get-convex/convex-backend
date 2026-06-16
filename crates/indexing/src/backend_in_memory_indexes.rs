@@ -1456,6 +1456,69 @@ impl DatabaseIndexSnapshotCache {
         }
         true
     }
+
+    /// Shrink the cache to only the intervals in `keep` (the finished
+    /// transaction's read set, keyed by index id).
+    ///
+    /// This is only sound for a *reused* cache: one extracted from a finished
+    /// transaction and reused for the next, near-identical one, as the
+    /// scheduled job executor does. There the read set is the best predictor of
+    /// what the next transaction will read, so anything outside it is dead
+    /// weight. It would be the wrong policy for general within-transaction
+    /// caching, where speculative cross-index population is the whole point
+    /// (read `by_age`, then `db.get(id)`).
+    pub fn retain_read_intervals(&mut self, keep: &BTreeMap<IndexId, IntervalSet>) {
+        let index_ids: Vec<IndexId> = self.documents.keys().copied().collect();
+        for index_id in index_ids {
+            let Some(keep_intervals) = keep.get(&index_id) else {
+                self.remove_index(index_id);
+                continue;
+            };
+            let removed_size = {
+                let Some(index_docs) = self.documents.get_mut(&index_id) else {
+                    continue;
+                };
+                // Only retain the intersection of populated and keep_intervals
+                let mut retained = IntervalSet::new();
+                for populated in index_docs.interval_set.iter() {
+                    for (in_set, component) in
+                        keep_intervals.split_interval_components(populated.as_ref())
+                    {
+                        if in_set {
+                            retained.add(component.to_owned());
+                        }
+                    }
+                }
+
+                // Rebuild `index_docs` by moving the entries out of the old
+                // map and reinserting after we've checked they are in the retained intervals.
+                // `index_docs` and `retained` are sorted, so we can do a linear merge to check
+                // which entries should be added back.
+                let track_size = index_docs.total_size().is_some();
+                let old_total = index_docs.total_size().unwrap_or(0);
+                let old_docs = std::mem::take(&mut index_docs.docs);
+                let new_total = {
+                    let mut membership_cursor = retained.membership_cursor();
+                    let mut new_total = 0;
+                    for (key, value) in old_docs {
+                        if membership_cursor.contains(&key[..]) {
+                            if track_size {
+                                new_total += value.1.value().size();
+                            }
+                            index_docs.docs.insert(key, value);
+                        }
+                    }
+                    new_total
+                };
+                index_docs.interval_set = retained;
+                if let Some(total) = index_docs.total_size.as_mut() {
+                    *total = new_total;
+                }
+                old_total.saturating_sub(new_total)
+            };
+            self.cache_size = self.cache_size.saturating_sub(removed_size);
+        }
+    }
 }
 
 /// [`DatabaseIndexSnapshotCache`] paired with the [`RepeatableTimestamp`] it
