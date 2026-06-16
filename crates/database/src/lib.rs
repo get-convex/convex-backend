@@ -81,6 +81,7 @@ pub use token::{
     Token,
 };
 pub use transaction::{
+    SnoopedTransaction,
     TableCountSnapshot,
     Transaction,
 };

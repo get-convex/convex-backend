@@ -106,7 +106,7 @@ export interface QueryInitializer<TableInfo extends GenericTableInfo>
 /**
  * The {@link Query} interface allows functions to read values out of the database.
  *
- * **If you only need to load an object by ID, use `db.get(id)` instead.**
+ * **If you only need to load an object by ID, use `db.get(tableName, id)` instead.**
  *
  * Executing a query consists of calling
  * 1. (Optional) {@link Query.order} to define the order

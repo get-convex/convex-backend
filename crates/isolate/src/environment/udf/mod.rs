@@ -1,5 +1,6 @@
 use astral_future::AstralBody;
 use common::{
+    self,
     audit_log_lines::{
         AuditLogLine,
         AuditLogLines,
@@ -49,7 +50,10 @@ use udf::{
 };
 
 use crate::{
-    context_cache::ContextCache,
+    context_cache::{
+        ContextCache,
+        ContextReadSet,
+    },
     environment::udf::astral_future::RecursiveExecutor,
     module_map::ModuleMap,
     termination::{
@@ -115,6 +119,7 @@ use database::{
     BiggestDocumentWrites,
     FunctionExecutionSize,
     Transaction,
+    TransactionReadSet,
     OVER_LIMIT_HELP,
 };
 use deno_core::{
@@ -620,7 +625,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         isolate: &mut v8::Isolate,
         context_cache: &mut ContextCache,
         isolate_handle: IsolateHandle,
-        request_state: RequestState<RT, Self>,
+        mut request_state: RequestState<RT, Self>,
         timeout: &mut Timeout<RT>,
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
@@ -628,34 +633,63 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<(Self, anyhow::Result<Result<ConvexValue, JsError>>)> {
         scope!(let handle_scope, isolate);
         let mut context_scope;
-        let mut isolate_context = if args.reuse_context
-            && let Some((context, module_map)) = request_state
+        let (mut isolate_context, mut context_read_set) = if args.reuse_context
+            && let Some((context, module_map, read_set)) = request_state
                 .environment
                 .take_and_validate_reused_context(context_cache)
                 .await?
         {
             let v8_context = v8::Local::new(handle_scope, context);
             context_scope = v8::ContextScope::new(handle_scope, v8_context);
-            RequestScope::with_existing_context(
-                &mut context_scope,
-                isolate_handle.clone(),
-                request_state,
-                false,
-                module_map,
+            (
+                RequestScope::with_existing_context(
+                    &mut context_scope,
+                    isolate_handle.clone(),
+                    request_state,
+                    false,
+                    module_map,
+                ),
+                Some(read_set),
             )
         } else {
             let v8_context = context_cache.get_or_create_fresh_context(handle_scope);
             context_scope = v8::ContextScope::new(handle_scope, v8_context);
-            RequestScope::new(
-                &mut context_scope,
-                isolate_handle.clone(),
-                request_state,
-                false,
-            )?
+            (
+                RequestScope::new(
+                    &mut context_scope,
+                    isolate_handle.clone(),
+                    request_state,
+                    false,
+                )?,
+                None,
+            )
         };
         let mut result = {
             let v8_scope = isolate_context.scope();
-            match Self::initialize_context(&mut *v8_scope, timeout).await {
+            let module = {
+                let snoop = context_read_set.is_none() && args.reuse_context;
+                if snoop {
+                    RequestScope::<RT, Self>::enter(v8_scope)
+                        .state_mut()?
+                        .environment
+                        .phase
+                        .snoop_reads()?;
+                }
+                let initialize_result = Self::initialize_context(&mut *v8_scope, timeout).await;
+                if snoop {
+                    let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
+                    let read_set = scope.state_mut()?.environment.phase.finish_snoop()?;
+                    if let Ok(Ok(_)) = initialize_result {
+                        context_read_set = Self::capture_context_read_set(
+                            read_set,
+                            scope.state_mut()?.environment.phase.tx_mut()?,
+                        )
+                        .await?;
+                    }
+                }
+                initialize_result
+            };
+            match module {
                 Ok(Ok(module)) => {
                     Self::run_inner(
                         executor,
@@ -693,6 +727,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // there are any promises hanging around
         if args.reuse_context
             && let Ok(Ok(_)) = result
+            && let Some(read_set) = context_read_set
         {
             let module_map = isolate_context
                 .take_module_map()
@@ -706,6 +741,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 },
                 v8::Global::new(v8_scope, context),
                 module_map,
+                read_set,
             );
         }
 
@@ -1279,17 +1315,77 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     async fn take_and_validate_reused_context(
-        &self,
+        &mut self,
         context_cache: &mut ContextCache,
-    ) -> anyhow::Result<Option<(v8::Global<v8::Context>, ModuleMap)>> {
+    ) -> anyhow::Result<Option<(v8::Global<v8::Context>, ModuleMap, ContextReadSet)>> {
         let module_path = CanonicalizedComponentModulePath {
             component: self.path.component,
             module_path: self.path.udf_path.module().clone(),
         };
-        let Some((context, module_map)) = context_cache.take_reused_context(&module_path) else {
+        let Some((context, module_map, read_set)) = context_cache.take_reused_context(&module_path)
+        else {
             return Ok(None);
         };
-        // TODO: check that module_map matches current source versions
-        Ok(Some((context, module_map)))
+        let tx = self.phase.tx_mut()?;
+        for (namespace, tablet_index_name, table_name, intervals, hash) in &read_set.range_hashes {
+            let tablet = *tablet_index_name.table();
+            if !tx.table_mapping().tablet_id_exists(tablet) {
+                return Ok(None);
+            }
+            let (new_namespace, _, new_table_name) =
+                tx.table_mapping().get_table_metadata(tablet)?;
+            anyhow::ensure!(namespace == new_namespace, "{tablet} changed namespace?");
+            anyhow::ensure!(table_name == new_table_name, "{tablet} changed name?");
+            let Some(new_hash) = tx
+                .hash_index_interval_no_deps(tablet_index_name, table_name, intervals)
+                .await?
+            else {
+                return Ok(None);
+            };
+            if new_hash != *hash {
+                return Ok(None);
+            }
+        }
+        // All hashes match, so make sure to merge the saved read set into `tx`
+        tx.apply_reads(read_set.read_set.clone());
+        Ok(Some((context, module_map, read_set)))
+    }
+
+    async fn capture_context_read_set(
+        read_set: TransactionReadSet,
+        tx: &mut Transaction<RT>,
+    ) -> anyhow::Result<Option<ContextReadSet>> {
+        anyhow::ensure!(
+            read_set.read_set().iter_search().count() == 0,
+            "searches can't be done during init"
+        );
+        let mut range_hashes = vec![];
+        for (tablet_index_name, reads) in read_set.read_set().iter_indexed() {
+            let &(namespace, _table_number, ref table_name) = tx
+                .table_mapping()
+                .get_table_metadata(*tablet_index_name.table())?;
+            anyhow::ensure!(
+                table_name.is_system(),
+                "context init read non-system table {table_name}?"
+            );
+            let table_name = table_name.clone();
+            let Some(hash) = tx
+                .hash_index_interval_no_deps(tablet_index_name, &table_name, &reads.intervals)
+                .await?
+            else {
+                return Ok(None);
+            };
+            range_hashes.push((
+                namespace,
+                tablet_index_name.clone(),
+                table_name,
+                reads.intervals.clone(),
+                hash,
+            ));
+        }
+        Ok(Some(ContextReadSet {
+            read_set,
+            range_hashes,
+        }))
     }
 }

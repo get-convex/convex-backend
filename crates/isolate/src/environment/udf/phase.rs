@@ -1,5 +1,9 @@
 use std::{
     collections::BTreeMap,
+    ops::{
+        Deref,
+        DerefMut,
+    },
     str::FromStr,
     sync::Arc,
 };
@@ -21,7 +25,9 @@ use database::{
     BiggestDocumentWrites,
     BootstrapComponentsModel,
     FunctionExecutionSize,
+    SnoopedTransaction,
     Transaction,
+    TransactionReadSet,
 };
 use errors::ErrorMetadata;
 use model::{
@@ -91,7 +97,7 @@ pub struct UdfPhase<RT: Runtime> {
     // We "check out" the transaction when executing a cross-component
     // call. Until we implement subtransactions, we cannot run any
     // user code concurrently with a component call.
-    tx: Option<Transaction<RT>>,
+    tx: Option<MaybeSnooped<RT>>,
 
     pub rt: RT,
     module_loader: Arc<dyn ModuleCache<RT>>,
@@ -117,6 +123,30 @@ enum UdfPreloaded {
     },
 }
 
+enum MaybeSnooped<RT: Runtime> {
+    Tx(Transaction<RT>),
+    SnoopedTx(SnoopedTransaction<RT>),
+}
+
+impl<RT: Runtime> Deref for MaybeSnooped<RT> {
+    type Target = Transaction<RT>;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MaybeSnooped::Tx(tx) => tx,
+            MaybeSnooped::SnoopedTx(tx) => tx,
+        }
+    }
+}
+impl<RT: Runtime> DerefMut for MaybeSnooped<RT> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            MaybeSnooped::Tx(tx) => tx,
+            MaybeSnooped::SnoopedTx(tx) => tx,
+        }
+    }
+}
+
 impl<RT: Runtime> UdfPhase<RT> {
     pub fn new(
         tx: Transaction<RT>,
@@ -127,7 +157,7 @@ impl<RT: Runtime> UdfPhase<RT> {
     ) -> Self {
         Self {
             phase: Phase::Importing,
-            tx: Some(tx),
+            tx: Some(MaybeSnooped::Tx(tx)),
             rt,
             module_loader,
             preloaded: UdfPreloaded::Created {
@@ -368,6 +398,10 @@ impl<RT: Runtime> UdfPhase<RT> {
             .tx
             .take()
             .context("Transaction missing due to concurrent component call")?;
+        let MaybeSnooped::Tx(tx) = tx else {
+            // snooping is only used during initialization
+            anyhow::bail!("Transaction is still snooped during start_nested_udf?");
+        };
         let UdfPreloaded::Ready {
             ref mut rng,
             unix_timestamp,
@@ -389,25 +423,56 @@ impl<RT: Runtime> UdfPhase<RT> {
 
     pub fn put_tx(&mut self, tx: Transaction<RT>) -> anyhow::Result<()> {
         anyhow::ensure!(self.tx.is_none());
-        self.tx = Some(tx);
+        self.tx = Some(MaybeSnooped::Tx(tx));
         Ok(())
     }
 
-    fn tx_mut(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
+    pub fn tx_mut(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
         self.tx
-            .as_mut()
+            .as_deref_mut()
             .context("Transaction missing due to concurrent component call")
+    }
+
+    pub fn snoop_reads(&mut self) -> anyhow::Result<()> {
+        match self.tx.take() {
+            Some(MaybeSnooped::Tx(tx)) => {
+                self.tx = Some(MaybeSnooped::SnoopedTx(tx.snoop_reads()));
+                Ok(())
+            },
+            Some(MaybeSnooped::SnoopedTx(_)) => {
+                anyhow::bail!("Called snoop_reads while already snooping")
+            },
+            None => anyhow::bail!("Transaction missing due to concurrent component call"),
+        }
+    }
+
+    pub fn finish_snoop(&mut self) -> anyhow::Result<TransactionReadSet> {
+        match self.tx.take() {
+            Some(MaybeSnooped::SnoopedTx(tx)) => {
+                let (tx, reads) = tx.finish_snoop();
+                self.tx = Some(MaybeSnooped::Tx(tx));
+                Ok(reads)
+            },
+            Some(MaybeSnooped::Tx(_)) => {
+                anyhow::bail!("Called finish_snoop while not snooping")
+            },
+            None => anyhow::bail!("Transaction missing due to concurrent component call"),
+        }
     }
 
     fn tx_ref(&self) -> anyhow::Result<&Transaction<RT>> {
         self.tx
-            .as_ref()
+            .as_deref()
             .context("Transaction missing due to concurrent component call")
     }
 
     pub fn into_transaction(self) -> anyhow::Result<Transaction<RT>> {
         self.tx
             .context("Transaction missing due to concurrent component call")
+            .map(|tx| match tx {
+                MaybeSnooped::Tx(tx) => tx,
+                MaybeSnooped::SnoopedTx(tx) => tx.finish_snoop().0,
+            })
     }
 
     pub fn biggest_document_writes(&self) -> anyhow::Result<Option<BiggestDocumentWrites>> {

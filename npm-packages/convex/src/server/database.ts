@@ -14,7 +14,13 @@ import {
 
 interface BaseDatabaseReader<DataModel extends GenericDataModel> {
   /**
-   * Fetch a single document from the database by its {@link values.GenericId}.
+   * Fetch a single document from the database by table name and
+   * {@link values.GenericId}.
+   *
+   * @example
+   * ```typescript
+   * const user = await ctx.db.get("users", userId);
+   * ```
    *
    * @param table - The name of the table to fetch the document from.
    * @param id - The {@link values.GenericId} of the document to fetch from the database.
@@ -27,6 +33,9 @@ interface BaseDatabaseReader<DataModel extends GenericDataModel> {
 
   /**
    * Fetch a single document from the database by its {@link values.GenericId}.
+   *
+   * Supported for backwards compatibility. Prefer `db.get(tableName, id)` in
+   * new code, or `db.system.get(tableName, id)` for system tables.
    *
    * @param id - The {@link values.GenericId} of the document to fetch from the database.
    * @returns - The {@link GenericDocument} of the document at the given {@link values.GenericId}, or `null` if it no longer exists.
@@ -55,7 +64,7 @@ interface BaseDatabaseReader<DataModel extends GenericDataModel> {
    * This accepts the string ID format as well as the `.toString()` representation
    * of the legacy class-based ID format.
    *
-   * This does not guarantee that the ID exists (i.e. `db.get(id)` may return `null`).
+   * This does not guarantee that the ID exists (i.e. `db.get(tableName, id)` may return `null`).
    *
    * @param tableName - The name of the table.
    * @param id - The ID string.
@@ -109,7 +118,7 @@ export interface BaseTableReader<
  *
  * The two entry points are:
  *   - {@link GenericDatabaseReader.get}, which fetches a single document
- *     by its {@link values.GenericId}.
+ *     by table name and {@link values.GenericId}.
  *   - {@link GenericDatabaseReader.query}, which starts building a query.
  *
  * @example
@@ -272,6 +281,9 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    *
    * This method will throw if the document does not exist.
    *
+   * Supported for backwards compatibility. Prefer `db.patch(tableName, id, value)`
+   * in new code.
+   *
    * @param id - The {@link values.GenericId} of the document to patch.
    * @param value - The partial document to merge into the existing document.
    */
@@ -316,6 +328,9 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * Unlike `patch`, which does a shallow merge, `replace` overwrites the
    * entire document.
    *
+   * Supported for backwards compatibility. Prefer `db.replace(tableName, id, value)`
+   * in new code.
+   *
    * @param id - The {@link values.GenericId} of the document to replace.
    * @param value - The new document. System fields can be omitted.
    */
@@ -342,6 +357,9 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
 
   /**
    * Delete an existing document.
+   *
+   * Supported for backwards compatibility. Prefer `db.delete(tableName, id)` in
+   * new code.
    *
    * **Note:** Convex queries do not support `.delete()` directly on query
    * results. To delete multiple documents, `.collect()` them first, then
