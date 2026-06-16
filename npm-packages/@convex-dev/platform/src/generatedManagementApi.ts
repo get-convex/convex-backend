@@ -1126,9 +1126,6 @@ export interface components {
         ListTeamAccessTokensResponse: {
             /** @description The team access tokens created by the authenticated member. */
             items: components["schemas"]["TeamAccessTokenResponse"][];
-            /** @description Pagination metadata. This endpoint does not currently paginate, so it
-             *     always reports no further pages; the field is present for
-             *     forwards-compatibility. */
             pagination: components["schemas"]["PaginationMetadata"];
         };
         ManagedBy: "vercel" | {
@@ -2363,7 +2360,12 @@ export interface operations {
     };
     "list team access tokens": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Maximum number of tokens to return (default 10, max 100) */
+                limit?: number;
+            };
             header?: never;
             path: {
                 /** @description Team ID */

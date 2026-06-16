@@ -1444,6 +1444,25 @@
             "schema": {
               "$ref": "#/components/schemas/TeamId"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of tokens to return (default 10, max 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -3184,8 +3203,7 @@
             "description": "The team access tokens created by the authenticated member."
           },
           "pagination": {
-            "$ref": "#/components/schemas/PaginationMetadata",
-            "description": "Pagination metadata. This endpoint does not currently paginate, so it\nalways reports no further pages; the field is present for\nforwards-compatibility."
+            "$ref": "#/components/schemas/PaginationMetadata"
           }
         }
       },
