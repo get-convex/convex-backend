@@ -882,18 +882,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     fn function_metadata(provider: &mut P) -> anyhow::Result<JsonValue> {
         let udf_path = provider.udf_path();
         let component_path = provider.component_path();
-        // The top-level scheduled function and all of its descendants (e.g. a
-        // mutation called by a scheduled action) report the scheduled function's
-        // id, since `parent_scheduled_job` is propagated down the call tree. It
-        // is `None` when the function was not scheduled.
-        let scheduled_function_id = provider
-            .context()
-            .parent_scheduled_job
-            .map(|(_, job_id)| job_id.encode());
         Ok(json!({
             "name": udf_path.clone().strip().to_string(),
             "componentPath": component_path.to_string(),
-            "scheduledFunctionId": scheduled_function_id,
         }))
     }
 
@@ -918,10 +909,18 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         );
         let context = provider.context();
         let metadata = &context.request_metadata;
+        // The top-level scheduled function and all of its descendants (e.g. a
+        // mutation called by a scheduled action) report the scheduled function's
+        // id, since `parent_scheduled_job` is propagated down the call tree. It
+        // is `None` when the function was not scheduled.
+        let scheduled_function_id = context
+            .parent_scheduled_job
+            .map(|(_, job_id)| job_id.encode());
         Ok(json!({
             "ip": metadata.ip.as_ref().map(|ip| ip.as_str()),
             "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
             "requestId": context.request_id.as_str(),
+            "scheduledFunctionId": scheduled_function_id,
         }))
     }
 

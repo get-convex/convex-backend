@@ -29,14 +29,14 @@ async function getTransactionMetrics(): Promise<TransactionMetrics> {
 async function getFunctionMetadata(): Promise<{
   name: string;
   componentPath: string;
-  scheduledFunctionId: string | null;
 }> {
-  const { name, componentPath, scheduledFunctionId } =
-    await performAsyncSyscall("1.0/getFunctionMetadata", {});
+  const { name, componentPath } = await performAsyncSyscall(
+    "1.0/getFunctionMetadata",
+    {},
+  );
   return {
     name,
     componentPath,
-    scheduledFunctionId,
   };
 }
 
@@ -54,11 +54,9 @@ async function getDeploymentMetadata(): Promise<DeploymentMetadata> {
 }
 
 async function getRequestMetadata(): Promise<RequestMetadata> {
-  const { ip, userAgent, requestId } = await performAsyncSyscall(
-    "1.0/getRequestMetadata",
-    {},
-  );
-  return { ip, userAgent, requestId };
+  const { ip, userAgent, requestId, scheduledFunctionId } =
+    await performAsyncSyscall("1.0/getRequestMetadata", {});
+  return { ip, userAgent, requestId, scheduledFunctionId };
 }
 
 export function setupQueryMeta(
