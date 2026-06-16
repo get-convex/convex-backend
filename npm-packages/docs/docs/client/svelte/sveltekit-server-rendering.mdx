@@ -1,0 +1,385 @@
+---
+title: "SvelteKit Server Rendering"
+sidebar_label: "SvelteKit Server Rendering"
+sidebar_position: 30
+description:
+  "Server-side render Convex data in SvelteKit with convexLoad and
+  convexLoadPaginated, transport hooks, authenticated SSR fetches, and server
+  helpers."
+pagination_next: client/svelte/why-server-rendering
+---
+
+This page builds on the core
+[Queries, Mutations & Actions](/client/svelte/reactivity.mdx) API. Make sure
+`setupConvex()` is in your root layout before using these features — see
+[Overview](/client/svelte/overview.mdx#setup).
+
+Import from `convex-svelte/sveltekit` for SvelteKit-specific features: SSR
+transport with live upgrade, and a server-side HTTP client helper.
+
+<Admonition type="info" title="Why bother with SSR on a realtime backend?">
+
+The client will open a WebSocket and get live updates anyway — so is SSR worth
+it? Almost always yes: it's faster for time-to-data on first page load. See
+[Why server-side rendering with Convex?](/client/svelte/why-server-rendering.mdx)
+for the full comparison.
+
+</Admonition>
+
+## SSR with convexLoad / convexLoadPaginated (recommended)
+
+`convexLoad()` and `convexLoadPaginated()` fetch data on the server and
+automatically upgrade to live subscriptions on the client. No manual
+`initialData` wiring needed. Use `convexLoad()` for regular queries and
+`convexLoadPaginated()` for paginated queries.
+
+### Setup
+
+Add `initConvex()` and the transport hooks to `hooks.ts` (universal hooks — runs
+on both server and client). `initConvex()` creates the `ConvexClient` singleton
+early so the transport decoder can upgrade SSR data to live subscriptions.
+`setupConvex()` in your root layout automatically reuses this singleton.
+
+If you only use `convexLoad()`, you only need the `ConvexLoadResult` transport.
+Add `ConvexLoadPaginatedResult` when using `convexLoadPaginated()`.
+
+```ts title="src/hooks.ts"
+import {
+  initConvex,
+  encodeConvexLoad,
+  decodeConvexLoad,
+  encodeConvexLoadPaginated,
+  decodeConvexLoadPaginated,
+} from "convex-svelte/sveltekit";
+import { PUBLIC_CONVEX_URL } from "$env/static/public";
+
+initConvex(PUBLIC_CONVEX_URL);
+
+export const transport = {
+  ConvexLoadResult: {
+    encode: encodeConvexLoad,
+    decode: decodeConvexLoad,
+  },
+  // Only needed if you use convexLoadPaginated()
+  ConvexLoadPaginatedResult: {
+    encode: encodeConvexLoadPaginated,
+    decode: decodeConvexLoadPaginated,
+  },
+};
+```
+
+### Usage with convexLoad
+
+```ts title="src/routes/+page.ts"
+import { convexLoad } from "convex-svelte/sveltekit";
+import { api } from "$convex/_generated/api";
+
+export const load = async () => ({
+  tasks: await convexLoad(api.tasks.get, {}),
+});
+```
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  let { data } = $props();
+  const tasks = $derived(data.tasks);
+</script>
+
+{#if tasks.isLoading}
+  Loading...
+{:else if tasks.error}
+  Error: {tasks.error.message}
+{:else}
+  <ul>
+    {#each tasks.data as task}
+      <li>{task.text}</li>
+    {/each}
+  </ul>
+{/if}
+```
+
+The result has the same shape as `useQuery()` — `.data`, `.isLoading`, `.error`,
+`.isStale` — and is reactive. On first load, data arrives via SSR (no loading
+flash). After hydration, a live WebSocket subscription takes over automatically.
+
+### Usage with convexLoadPaginated
+
+`convexLoadPaginated()` works the same way but for paginated queries. It fetches
+the first page on the server and upgrades to a live paginated subscription on
+the client — with `loadMore()` support for incremental loading.
+
+```ts title="src/routes/+page.ts"
+import { convexLoadPaginated } from "convex-svelte/sveltekit";
+import { api } from "$convex/_generated/api";
+
+export const load = async () => ({
+  messages: await convexLoadPaginated(
+    api.messages.paginatedList,
+    { searchWords: [] },
+    { initialNumItems: 10 },
+  ),
+});
+```
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  let { data } = $props();
+  const messages = $derived(data.messages);
+</script>
+
+{#if messages.isLoading}
+  Loading...
+{:else if messages.error}
+  Error: {messages.error.message}
+{:else}
+  <ul>
+    {#each messages.results as message}
+      <li>{message.author}: {message.body}</li>
+    {/each}
+  </ul>
+  {#if messages.status === "CanLoadMore"}
+    <button onclick={() => messages.loadMore(10)}>Load more</button>
+  {/if}
+{/if}
+```
+
+The result has the same shape as `usePaginatedQuery()` — `.results`, `.status`,
+`.isLoading`, `.error`, `.loadMore()` — and is reactive. On first load, the
+first page arrives via SSR (no loading flash). After hydration, a live WebSocket
+subscription takes over and `loadMore()` becomes functional.
+
+### Authenticated fetches
+
+For authenticated SSR fetches, use `withServerConvexToken` in your server hook.
+This stores the auth token per-request via `AsyncLocalStorage`, so `convexLoad`
+and `createConvexHttpClient` pick it up automatically — no `{ token }` option
+needed.
+
+```ts title="src/hooks.server.ts"
+import type { Handle } from "@sveltejs/kit";
+import { withServerConvexToken } from "convex-svelte/sveltekit/server";
+
+export const handle: Handle = async ({ event, resolve }) => {
+  const token = await getAuthToken(event.cookies); // your auth provider
+  event.locals.token = token;
+  return withServerConvexToken(token, () => resolve(event));
+};
+```
+
+Then use `convexLoad` in **any** load function — `+page.ts` or
+`+page.server.ts`:
+
+```ts title="src/routes/+page.ts"
+// Universal — works for both SSR and client-side navigation
+import { convexLoad } from "convex-svelte/sveltekit";
+import { api } from "$convex/_generated/api";
+
+export const load = async () => ({
+  tasks: await convexLoad(api.tasks.get, {}),
+});
+```
+
+The explicit `{ token }` option still works as a manual override:
+
+```ts title="src/routes/+page.server.ts"
+// Explicit token (escape hatch)
+export const load = async ({ locals }) => ({
+  tasks: await convexLoad(api.tasks.get, {}, { token: locals.token }),
+});
+```
+
+### Skipping queries
+
+Pass `'skip'` as args to avoid fetching — useful for auth-gated queries that
+should not run when the user is unauthenticated:
+
+```ts title="src/routes/+page.server.ts"
+// Skip when unauthenticated
+export const load = async ({ locals }) => ({
+  user: await convexLoad(api.users.get, locals.token ? {} : "skip"),
+});
+```
+
+When skipped, `convexLoad` returns
+`{ data: undefined, isLoading: false, error: undefined, isStale: false }`
+without making any request. `convexLoadPaginated` returns
+`{ results: [], status: 'Exhausted', isLoading: false, error: undefined, loadMore: () => false }`.
+
+### Choosing between `+page.ts` and `+page.server.ts`
+
+`convexLoad` works in both universal (`+page.ts`) and server-only
+(`+page.server.ts`) load functions. The difference is what happens during
+**client-side navigation** (after the first SSR page load):
+
+- **`+page.ts` (universal):** On client-side navigation, `convexLoad` runs in
+  the browser and queries Convex directly — no server roundtrip. Auth is handled
+  implicitly via the already-authenticated `ConvexClient` singleton (configured
+  by `setupAuth()` in your root layout).
+- **`+page.server.ts` (server-only):** On client-side navigation, SvelteKit
+  fetches from your server, which then queries Convex — adding an extra network
+  hop. Auth is always explicit (server-side via `withServerConvexToken` or
+  `locals.token`).
+
+Both produce identical SSR on first page load. Use `+page.ts` for best
+navigation performance. Use `+page.server.ts` if you need access to server-only
+data (e.g. `locals`, cookies) or prefer explicit auth handling.
+
+## SSR with initialData (manual alternative)
+
+If you prefer server-only load functions (`+page.server.ts`) or need more
+control, you can use the `initialData` option on `useQuery()` and
+`usePaginatedQuery()` directly.
+
+```ts title="src/routes/+page.server.ts"
+import { ConvexHttpClient } from "convex/browser";
+import type { PageServerLoad } from "./$types.js";
+import { PUBLIC_CONVEX_URL } from "$env/static/public";
+import { api } from "../convex/_generated/api.js";
+
+export const load = (async () => {
+  const client = new ConvexHttpClient(PUBLIC_CONVEX_URL!);
+  return {
+    messages: await client.query(api.messages.list, { searchWords: [] }),
+  };
+}) satisfies PageServerLoad;
+```
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  import type { PageData } from "./$types.js";
+  let { data }: { data: PageData } = $props();
+
+  import { useQuery } from "convex-svelte";
+  import { api } from "../convex/_generated/api.js";
+
+  const messages = useQuery(
+    api.messages.list,
+    () => ({ searchWords: [] }),
+    () => ({ initialData: data.messages }),
+  );
+</script>
+```
+
+Combining `initialData` with `keepPreviousData: true` (or never changing the
+query arguments) should be enough to avoid ever seeing a loading state.
+
+<Admonition type="note" title="When to use this over convexLoad">
+
+Use `initialData` when building a library that needs to support Svelte-only,
+SvelteKit SPA, and SvelteKit SSR without requiring the transport hook setup.
+
+</Admonition>
+
+## Server helpers
+
+These are server-only helpers (`hooks.server.ts`, `+page.server.ts`, form
+actions, endpoints) for authenticating SSR fetches and running one-off calls
+from the server. For one-off calls from the **client**, use
+[`getConvexClient()`](/client/svelte/reactivity.mdx#one-time-calls) instead.
+
+### withServerConvexToken (recommended)
+
+Import from `convex-svelte/sveltekit/server`. Wraps your SvelteKit `resolve()`
+call to store the auth token per-request via `AsyncLocalStorage`. Both
+`convexLoad` and `createConvexHttpClient` automatically read it during SSR.
+
+```ts title="src/hooks.server.ts"
+import type { Handle } from "@sveltejs/kit";
+import { withServerConvexToken } from "convex-svelte/sveltekit/server";
+
+export const handle: Handle = async ({ event, resolve }) => {
+  const token = await getAuthToken(event.cookies);
+  event.locals.token = token; // still available for direct use
+  return withServerConvexToken(token, () => resolve(event));
+};
+```
+
+```ts title="src/app.d.ts"
+declare global {
+  namespace App {
+    interface Locals {
+      token: string | undefined;
+    }
+  }
+}
+```
+
+With this setup, `convexLoad()` and `createConvexHttpClient()` automatically
+authenticate during SSR — no `{ token }` option needed in load functions.
+
+### Setting up `locals.token` (without withServerConvexToken)
+
+If you prefer not to use `withServerConvexToken`, you can still extract the
+token and pass it explicitly:
+
+```ts title="src/hooks.server.ts"
+import type { Handle } from "@sveltejs/kit";
+
+export const handle: Handle = async ({ event, resolve }) => {
+  event.locals.token = await getAuthToken(event.cookies);
+  return resolve(event);
+};
+```
+
+Then pass `{ token: locals.token }` to `convexLoad` or `createConvexHttpClient`
+in each load function.
+
+### createConvexHttpClient
+
+For server-only code (`+page.server.ts`, form actions, API routes), use
+`createConvexHttpClient()`:
+
+```ts title="src/routes/+page.server.ts"
+// With withServerConvexToken (no args needed)
+import { createConvexHttpClient } from "convex-svelte/sveltekit";
+import { api } from "$convex/_generated/api";
+
+export const load = async () => {
+  const client = createConvexHttpClient();
+  const tasks = await client.query(api.tasks.get, {});
+  return { tasks };
+};
+```
+
+Explicit token still works as an override:
+
+```ts title="src/routes/+page.server.ts"
+// Explicit token (escape hatch)
+export const load = async ({ locals }) => {
+  const client = createConvexHttpClient({ token: locals.token });
+  const tasks = await client.query(api.tasks.get, {});
+  return { tasks };
+};
+```
+
+The `url` option falls back to the URL set by `initConvex()`.
+
+## Deploying
+
+See [Deploy Your Frontend](/production/hosting/hosting.mdx) and
+[`npx convex deploy`](/cli/reference/deploy.mdx) for detailed instructions on
+deploying your app and Convex functions to production. For the biggest SSR
+performance win, co-locate your framework server in the same region as Convex —
+see
+[Co-locate your server with Convex](/client/svelte/why-server-rendering.mdx#co-locate-your-server-with-convex).
+
+## API reference
+
+Functions and types exported from `convex-svelte/sveltekit`:
+
+| Export                                      | Kind     | Description                                                                                |
+| ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `initConvex(url, options?)`                 | Function | Create the `ConvexClient` singleton early. Only needed for [convexLoad SSR setup](#setup). |
+| `getConvexUrl()`                            | Function | Retrieve the deployment URL set by `initConvex()` or `setupConvex()`.                      |
+| `closeConvex()`                             | Function | Close the app-scoped client and clear the singleton (also exported from `convex-svelte`).  |
+| `convexLoad(query, args, options?)`         | Function | Fetch data server-side, upgrade to live subscription on client.                            |
+| `encodeConvexLoad`                          | Function | Transport encoder — use in `hooks.ts` (see [Setup](#setup)).                               |
+| `decodeConvexLoad`                          | Function | Transport decoder — use in `hooks.ts` (see [Setup](#setup)).                               |
+| `convexLoadPaginated(query, args, options)` | Function | Fetch first page server-side, upgrade to live paginated subscription on client.            |
+| `encodeConvexLoadPaginated`                 | Function | Paginated transport encoder — use in `hooks.ts`.                                           |
+| `decodeConvexLoadPaginated`                 | Function | Paginated transport decoder — use in `hooks.ts`.                                           |
+| `createConvexHttpClient(options?)`          | Function | Create a `ConvexHttpClient` for server-side use.                                           |
+| `CreateConvexHttpClientOptions`             | Type     | Options for `createConvexHttpClient`: `url`, `token`, `options`.                           |
+
+The server-only helper `withServerConvexToken` is imported from
+`convex-svelte/sveltekit/server`.
