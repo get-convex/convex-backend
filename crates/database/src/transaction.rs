@@ -709,8 +709,22 @@ impl<RT: Runtime> Transaction<RT> {
         anyhow::ensure!(self.is_readonly(), "Transaction isn't readonly");
         metrics::log_read_tx(&self);
         let ts = self.begin_timestamp();
-        let token = Token::new(Arc::new(self.reads.into_read_set()), *ts);
-        let cache = self.index.into_flat()?.into_cache();
+        let read_set = self.reads.into_read_set();
+        // Reused cache only needs the intervals actually read by the transaction for
+        // the next use. Specifically, data that gets copied to the by_id index can be
+        // dropped. This is important for bounding the growth of the cache.
+        let keep: BTreeMap<IndexId, IntervalSet> = read_set
+            .iter_indexed()
+            .filter_map(|(index_name, reads)| {
+                self.index
+                    .index_registry()
+                    .get_enabled(index_name)
+                    .map(|index| (index.id(), reads.intervals.clone()))
+            })
+            .collect();
+        let mut cache = self.index.into_flat()?.into_cache();
+        cache.retain_read_intervals(&keep);
+        let token = Token::new(Arc::new(read_set), *ts);
         Ok((token, TimestampedIndexCache { cache, ts }))
     }
 

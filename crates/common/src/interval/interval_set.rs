@@ -365,6 +365,47 @@ impl IntervalSet {
             },
         }
     }
+
+    /// Returns a cursor for testing membership of a *monotonically
+    /// non-decreasing* stream of keys. Each query is O(1) amortized -- a
+    /// forward merge over the set's sorted intervals -- rather than the
+    /// O(log n) of [`Self::contains`]. Keys MUST be queried in ascending
+    /// order; querying out of order yields incorrect results.
+    pub fn membership_cursor(&self) -> MembershipCursor<impl Iterator<Item = Interval> + '_> {
+        MembershipCursor::new(self.iter())
+    }
+}
+
+/// Cursor for membership tests over an ascending stream of keys, returned by
+/// [`IntervalSet::membership_cursor`].
+pub struct MembershipCursor<I: Iterator<Item = Interval>> {
+    intervals: I,
+    current: Option<Interval>,
+}
+
+impl<I: Iterator<Item = Interval>> MembershipCursor<I> {
+    fn new(mut intervals: I) -> Self {
+        let current = intervals.next();
+        Self { intervals, current }
+    }
+
+    /// Returns whether `key` is in the set. `key` must be greater than or equal
+    /// to every previously queried key.
+    pub fn contains(&mut self, key: &[u8]) -> bool {
+        // Advance past every interval that ends at or before `key`: since keys
+        // are non-decreasing, those intervals can't match this or any later
+        // query.
+        while self
+            .current
+            .as_ref()
+            .is_some_and(|interval| !interval.as_ref().end.greater_than(key))
+        {
+            self.current = self.intervals.next();
+        }
+        self.current
+            .as_ref()
+            .is_some_and(|interval| interval.contains(key))
+    }
 }
 
 impl HeapSize for IntervalSet {
