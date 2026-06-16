@@ -184,9 +184,15 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   const shouldMockCurrentDeployment = title.startsWith(
     "docs/pages/project/deployment/",
   );
-  const deploymentTypeOverride = (
-    context.parameters as { docsPage?: { deploymentType?: "dev" | "prod" } }
-  )?.docsPage?.deploymentType;
+  const docsPageParams = (
+    context.parameters as {
+      docsPage?: {
+        deploymentType?: "dev" | "prod";
+        launchDarkly?: Partial<ReturnType<typeof useLaunchDarkly>>;
+      };
+    }
+  )?.docsPage;
+  const deploymentTypeOverride = docsPageParams?.deploymentType;
   const activeDeployment =
     deploymentTypeOverride === "prod"
       ? STORYBOOK_PROD_DEPLOYMENT
@@ -349,6 +355,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   mocked(useLaunchDarkly).mockReturnValue({
     ...flagDefaults,
     enableStatuspageWidget: false,
+    ...docsPageParams?.launchDarkly,
   });
   mocked(useCurrentDeployment).mockReturnValue(
     shouldMockCurrentDeployment ? activeDeployment : undefined,

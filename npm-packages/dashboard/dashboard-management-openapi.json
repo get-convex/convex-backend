@@ -5436,11 +5436,18 @@
           "appName",
           "redirectUris",
           "verified",
-          "createTime"
+          "createTime",
+          "authorizedTeamCount",
+          "unverifiedTeamLimit"
         ],
         "properties": {
           "appName": {
             "$ref": "#/components/schemas/AppName"
+          },
+          "authorizedTeamCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The number of distinct teams that have authorized this app."
           },
           "clientId": {
             "type": "string"
@@ -5460,6 +5467,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "unverifiedTeamLimit": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The maximum number of teams that may authorize this app while it is\nunverified."
           },
           "verified": {
             "type": "boolean"

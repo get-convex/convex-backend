@@ -105,6 +105,8 @@ use crate::{
         log_index_cache_cleared,
         log_index_page_point_lookup,
         log_transaction_cache_query,
+        log_transaction_index_cache_retained_size,
+        log_transaction_index_cache_size,
     },
 };
 
@@ -1468,6 +1470,7 @@ impl DatabaseIndexSnapshotCache {
     /// caching, where speculative cross-index population is the whole point
     /// (read `by_age`, then `db.get(id)`).
     pub fn retain_read_intervals(&mut self, keep: &BTreeMap<IndexId, IntervalSet>) {
+        log_transaction_index_cache_size(self.cache_size);
         let index_ids: Vec<IndexId> = self.documents.keys().copied().collect();
         for index_id in index_ids {
             let Some(keep_intervals) = keep.get(&index_id) else {
@@ -1518,6 +1521,7 @@ impl DatabaseIndexSnapshotCache {
             };
             self.cache_size = self.cache_size.saturating_sub(removed_size);
         }
+        log_transaction_index_cache_retained_size(self.cache_size);
     }
 }
 

@@ -211,6 +211,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/CreateDeployKey",
+    "light": {
+      "filename": "pages_create_deploy_key_light.webp",
+      "width": 1600,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_create_deploy_key_dark.webp",
+      "width": 1600,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/Profile",
     "light": {
       "filename": "pages_profile_light.webp",
