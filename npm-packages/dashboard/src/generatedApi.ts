@@ -2398,11 +2398,22 @@ export interface components {
         };
         OauthAppResponse: {
             appName: components["schemas"]["AppName"];
+            /**
+             * Format: int64
+             * @description The number of distinct teams that have authorized this app.
+             */
+            authorizedTeamCount: number;
             clientId: string;
             clientSecret?: string | null;
             /** Format: int64 */
             createTime: number;
             redirectUris: string[];
+            /**
+             * Format: int64
+             * @description The maximum number of teams that may authorize this app while it is
+             *     unverified.
+             */
+            unverifiedTeamLimit: number;
             verified: boolean;
         };
         OptIn: {
