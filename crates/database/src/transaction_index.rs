@@ -126,24 +126,25 @@ impl TransactionIndex {
         &self.index_registry
     }
 
-    fn pending_iter_for_request<'a>(
-        index_registry: &IndexRegistry,
-        database_index_updates: &'a OrdMap<IndexId, TransactionIndexMap>,
-        range_request: &'a RangeRequest,
+    pub(crate) fn pending_iter_for_interval<'a>(
+        &'a self,
+        index_name: &'a TabletIndexName,
+        printable_index_name: &'a IndexName,
+        interval: &'a Interval,
     ) -> Result<
         impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<PackedDocument>)> + 'a,
         anyhow::Error,
     > {
-        let iter = match index_registry.require_enabled(
-            &range_request.index_name,
-            &range_request.printable_index_name,
-        ) {
-            Ok(index) => database_index_updates.get(&index.id()),
+        let iter = match self
+            .index_registry
+            .require_enabled(index_name, printable_index_name)
+        {
+            Ok(index) => self.database_index_updates.get(&index.id()),
             // Range queries on missing tables are allowed for system provided indexes.
-            Err(_) if range_request.index_name.is_by_id_or_creation_time() => None,
+            Err(_) if index_name.is_by_id_or_creation_time() => None,
             Err(e) => return Err(e),
         }
-        .map(|pending| pending.range(&range_request.interval))
+        .map(|pending| pending.range(interval))
         .into_iter()
         .flatten();
         Ok(iter)
@@ -172,10 +173,10 @@ impl TransactionIndex {
 
         for &range_request in ranges {
             if range_request.interval.is_singleton().is_some() {
-                let pending_result = Self::pending_iter_for_request(
-                    &self.index_registry,
-                    &self.database_index_updates,
-                    range_request,
+                let pending_result = self.pending_iter_for_interval(
+                    &range_request.index_name,
+                    &range_request.printable_index_name,
+                    &range_request.interval,
                 );
                 match pending_result {
                     Ok(mut pending_it) => {
@@ -228,10 +229,10 @@ impl TransactionIndex {
             let result = try_anyhow!({
                 let (snapshot_result_vec, cursor) = snapshot_result?;
                 let mut snapshot_it = snapshot_result_vec.into_iter();
-                let pending_it = Self::pending_iter_for_request(
-                    &self.index_registry,
-                    &self.database_index_updates,
-                    range_request,
+                let pending_it = self.pending_iter_for_interval(
+                    &range_request.index_name,
+                    &range_request.printable_index_name,
+                    &range_request.interval,
                 )?;
                 let mut pending_it = range_request.order.apply(pending_it);
 

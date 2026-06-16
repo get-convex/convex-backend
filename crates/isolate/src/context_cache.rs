@@ -1,9 +1,19 @@
 use std::collections::HashMap;
 
-use common::components::CanonicalizedComponentModulePath;
+use common::{
+    components::CanonicalizedComponentModulePath,
+    interval::IntervalSet,
+    types::TabletIndexName,
+};
+use database::TransactionReadSet;
 use deno_core::v8::{
     self,
     scope,
+};
+use value::{
+    sha256::Sha256Digest,
+    TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -13,7 +23,21 @@ use crate::{
 
 pub struct ContextCache {
     fresh_context: Option<v8::Global<v8::Context>>,
-    saved_contexts: HashMap<CanonicalizedComponentModulePath, (v8::Global<v8::Context>, ModuleMap)>,
+    saved_contexts: HashMap<
+        CanonicalizedComponentModulePath,
+        (v8::Global<v8::Context>, ModuleMap, ContextReadSet),
+    >,
+}
+
+pub(crate) struct ContextReadSet {
+    pub read_set: TransactionReadSet,
+    pub range_hashes: Vec<(
+        TableNamespace,
+        TabletIndexName,
+        TableName,
+        IntervalSet,
+        Sha256Digest,
+    )>,
 }
 
 impl ContextCache {
@@ -52,15 +76,16 @@ impl ContextCache {
         module_path: CanonicalizedComponentModulePath,
         context: v8::Global<v8::Context>,
         module_map: ModuleMap,
+        read_set: ContextReadSet,
     ) {
         self.saved_contexts
-            .insert(module_path, (context, module_map));
+            .insert(module_path, (context, module_map, read_set));
     }
 
     pub(crate) fn take_reused_context(
         &mut self,
         module_path: &CanonicalizedComponentModulePath,
-    ) -> Option<(v8::Global<v8::Context>, ModuleMap)> {
+    ) -> Option<(v8::Global<v8::Context>, ModuleMap, ContextReadSet)> {
         self.saved_contexts.remove(module_path)
     }
 }

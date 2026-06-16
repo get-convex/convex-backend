@@ -37,7 +37,10 @@ use common::{
         IndexKey,
         IndexKeyBytes,
     },
-    interval::Interval,
+    interval::{
+        Interval,
+        IntervalSet,
+    },
     knobs::{
         TEXT_INDEX_SIZE_HARD_LIMIT,
         VECTOR_INDEX_SIZE_HARD_LIMIT,
@@ -70,6 +73,10 @@ use common::{
     },
     virtual_system_mapping::VirtualSystemMapping,
 };
+use derive_more::{
+    Deref,
+    DerefMut,
+};
 use errors::ErrorMetadata;
 use indexing::backend_in_memory_indexes::{
     RangeRequest,
@@ -90,6 +97,10 @@ use sync_types::{
 use tokio::task;
 use usage_tracking::FunctionUsageTracker;
 use value::{
+    sha256::{
+        Sha256,
+        Sha256Digest,
+    },
     TableNamespace,
     TableNumber,
     TabletId,
@@ -899,6 +910,100 @@ impl<RT: Runtime> Transaction<RT> {
         };
         Ok(is_new)
     }
+
+    /// Compute a hashed representation of the documents matching the given
+    /// `IntervalSet` in the index `index_name`. The hash is just the sha256 of
+    /// the timestamps of all the matching documents, in index order.
+    ///
+    /// This hash guarantees that if `tx1.hash_index_interval(index_name,
+    /// intervals) == tx2.hash_index_interval(index_name, intervals)` (and both
+    /// are Some), then all reads within `intervals` on `index_name` agree
+    /// between `tx1` and `tx2`.
+    ///
+    /// The argument is as follows:
+    /// - Without loss of generality, assume `tx1.ts < tx2.ts`.
+    /// - Suppose `tx1` and `tx2` disagree on some index key `key` within
+    ///   `intervals`.
+    /// - Consider `tx2.query(index_name, key)`:
+    ///   - If it is `Some(rev2)`, then `rev2.ts > tx1.ts` (or else tx1 would
+    ///     observe it). In that case, the hash input to
+    ///     `tx2.hash_index_interval(..)` contains `rev2.ts`, which is greater
+    ///     than any timestamp hashed in `tx1.hash_index_interval(..)`; so the
+    ///     two must differ.
+    ///   - Otherwise, it is `None`, in which case `tx1.query(index_name, key)`
+    ///     must be `Some(rev1)`. Then `tx2.hash_index_interval(..)`'s hash
+    ///     input has fewer(*) occurrences of `rev1.ts` compared to
+    ///     `tx1.hash_index_interval(..)`, so again the two must differ.
+    ///     - (*) because updates can only write _new_ timestamps, not old ones.
+    ///
+    /// Returns None if the interval includes any pending writes.
+    ///
+    /// This method doesn't update `self`'s read set.
+    pub async fn hash_index_interval_no_deps(
+        &mut self,
+        index_name: &TabletIndexName,
+        // just for error messages
+        table_name: &TableName,
+        intervals: &IntervalSet,
+    ) -> anyhow::Result<Option<Sha256Digest>> {
+        let mut index_name = index_name.clone();
+        let mut printable_index_name = index_name
+            .clone()
+            .map_table(&|_| Ok::<_, !>(table_name.clone()))?;
+        let mut sha256 = Sha256::new();
+        for mut interval in intervals.iter() {
+            if self
+                .index
+                .pending_iter_for_interval(&index_name, &printable_index_name, &interval)?
+                .next()
+                .is_some()
+            {
+                // This range contains pending writes (possibly including deletes)
+                return Ok(None);
+            }
+            while !interval.is_empty() {
+                let request = RangeRequest {
+                    index_name,
+                    printable_index_name,
+                    order: Order::Asc,
+                    interval,
+                    max_size: 100,
+                };
+                let Ok([result]): Result<[_; 1], _> = self
+                    .index
+                    .base_snapshot_mut()
+                    .range_batch(&[&request])
+                    .await
+                    .try_into()
+                else {
+                    anyhow::bail!("returned wrong batch size")
+                };
+                let (docs, cursor) = result?;
+                RangeRequest {
+                    index_name,
+                    printable_index_name,
+                    ..
+                } = request;
+                (_, interval) = request.interval.split(cursor, request.order);
+                for (_index_key, ts, _doc) in docs {
+                    sha256.update(&u64::to_le_bytes(ts.into()));
+                }
+            }
+        }
+        Ok(Some(sha256.finalize()))
+    }
+
+    pub fn apply_reads(&mut self, reads: TransactionReadSet) {
+        let num_intervals = reads.num_intervals();
+        let user_tx_size = reads.user_tx_size().clone();
+        let system_tx_size = reads.system_tx_size().clone();
+        self.reads.merge(
+            reads.into_read_set(),
+            num_intervals,
+            user_tx_size,
+            system_tx_size,
+        );
+    }
 }
 
 // Private methods for `Transaction`: Place all authorization checks closer to
@@ -1150,6 +1255,17 @@ impl<RT: Runtime> Transaction<RT> {
             .await
     }
 
+    /// Starts recording reads on this transaction. Returns a
+    /// `SnoopedTransaction`; its `finish` method stops recording and return the
+    /// recorded read set, as well as the original transaction.
+    ///
+    /// As a caveat, it is possible to exceed transaction limits since the
+    /// transaction read set is temporarily reset. This should only be used to
+    /// snoop system reads or reads that are otherwise limited.
+    pub fn snoop_reads(self) -> SnoopedTransaction<RT> {
+        SnoopedTransaction::new(self)
+    }
+
     pub fn finalize(self) -> anyhow::Result<FinalTransaction> {
         FinalTransaction::new(self)
     }
@@ -1189,6 +1305,30 @@ impl<RT: Runtime> Transaction<RT> {
         })
     }
 
+}
+
+#[must_use]
+#[derive(Deref, DerefMut)]
+pub struct SnoopedTransaction<RT: Runtime> {
+    saved_read_set: TransactionReadSet,
+    #[deref]
+    #[deref_mut]
+    tx: Transaction<RT>,
+}
+
+impl<RT: Runtime> SnoopedTransaction<RT> {
+    fn new(mut tx: Transaction<RT>) -> Self {
+        Self {
+            saved_read_set: mem::replace(&mut tx.reads, TransactionReadSet::new()),
+            tx,
+        }
+    }
+
+    pub fn finish_snoop(mut self) -> (Transaction<RT>, TransactionReadSet) {
+        let snooped_reads = mem::replace(&mut self.tx.reads, self.saved_read_set);
+        self.tx.apply_reads(snooped_reads.clone());
+        (self.tx, snooped_reads)
+    }
 }
 
 #[derive(Debug)]
