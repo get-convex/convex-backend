@@ -281,6 +281,7 @@ function CreatePersonalTokenDialog({
               value={values.tokenName}
               onChange={handleChange}
               placeholder="Enter a name for your PAT"
+              autoFocus
               error={
                 touched.tokenName && typeof errors.tokenName === "string"
                   ? errors.tokenName

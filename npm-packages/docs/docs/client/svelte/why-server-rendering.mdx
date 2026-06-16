@@ -1,0 +1,138 @@
+---
+title: "Why server-side rendering with Convex?"
+sidebar_label: "Why server rendering?"
+sidebar_position: 40
+description:
+  "Why server-side rendering is almost always faster for time-to-data with a
+  realtime Convex backend, with a SvelteKit performance comparison and
+  co-location guidance."
+pagination_next: client/svelte/troubleshooting
+---
+
+With a realtime backend like Convex, you might wonder whether SSR is worth the
+effort — after all, the client will open a WebSocket and get live updates
+anyway. The short answer: **SSR with Convex is almost always faster for
+time-to-data on first page load.**
+
+This page explains why. For the how, see
+[SvelteKit Server Rendering](/client/svelte/sveltekit-server-rendering.mdx).
+
+## The client-side waterfall
+
+Without SSR, every first page load hits a sequential waterfall:
+
+```
+1. Client → Framework server: request page
+2. Framework server → Client: HTML shell (empty)        ← skeleton visible
+3. Browser parses HTML, discovers <script> tags
+4. Browser downloads JavaScript bundle(s)
+5. Browser parses + executes JavaScript                  ← 50-200ms on mobile
+6. Framework boots, component mounts, useQuery() fires
+7. Client → Convex: subscribe to query
+8. Convex → Client: data                                ← content visible
+```
+
+Steps 3–6 are **dead time** — the user is staring at a skeleton while the
+browser downloads and executes JS before it can even _start_ talking to Convex.
+
+## SSR eliminates the waterfall
+
+With SSR, your framework server fetches data from Convex while rendering the
+page. The client receives complete HTML with data in a single response:
+
+```
+1. Client → Framework server: request page
+2. Server → Convex: fetch data                           ← ~1-5ms if co-located
+3. Server renders HTML with data
+4. Framework server → Client: complete HTML + data       ← content visible
+5. Browser hydrates (attaches event listeners)
+6. Client → Convex: WebSocket for live updates           ← background, non-blocking
+```
+
+The server uses the time the client would be waiting anyway (for the HTTP
+response) to productively fetch data. Steps 2–3 happen **inside** the server
+response time, not after it.
+
+## How much faster?
+
+The difference depends on three factors:
+
+**Device speed** — The biggest variable. On a mid-range mobile phone, JS parse +
+execute (steps 3–6 in the waterfall) takes 100–300ms. On desktop, 30–80ms. SSR
+skips this entirely.
+
+**Server-to-Convex distance** — If your framework server is co-located with
+Convex (same cloud region), the server→Convex hop is ~1–5ms. This is essentially
+free. Convex currently offers **US East (N. Virginia)** and **EU West
+(Ireland)** regions.
+
+**Client-to-server distance** — Both approaches need at least one round trip to
+the framework server. SSR bundles data into that response; client-side adds a
+second round trip to Convex after JS execution.
+
+A realistic example (user in Germany, framework server in EU, Convex in
+Ireland):
+
+|                               | SSR                 | Client-side    |
+| ----------------------------- | ------------------- | -------------- |
+| Skeleton/shell visible        | —                   | ~20ms          |
+| **Content with data visible** | **~70ms**           | **~200–400ms** |
+| Live updates active           | ~150ms (background) | ~200–400ms     |
+
+## Co-locate your server with Convex
+
+The single biggest optimization: **deploy your framework server in the same
+region as Convex.**
+
+| Platform       | How to co-locate with Convex                                                                                                                             |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Vercel**     | Set function region to `iad1` (US East) or `dub1` (Ireland) in project settings — default is `iad1`                                                      |
+| **Cloudflare** | Enable [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement/) or set explicit placement to match your Convex region |
+| **Netlify**    | Use [region selection](https://www.netlify.com/blog/netlify-functions-region-selection/) to match your Convex region                                     |
+
+With co-location, the server→Convex hop is negligible (~1–5ms), and SSR becomes
+strictly faster than client-side for time-to-data.
+
+## SSR is easy with the SvelteKit transport hook
+
+A common concern is that SSR adds boilerplate. With the
+[`convexLoad` transport hook](/client/svelte/sveltekit-server-rendering.mdx#ssr-with-convexload--convexloadpaginated-recommended),
+it's minimal — fetch in your load function, use the result directly in the
+template. No manual `initialData` wiring needed:
+
+```ts title="src/routes/+page.ts"
+export const load = async () => ({
+  tasks: await convexLoad(api.tasks.get, {}),
+});
+```
+
+The result is a live-updating reactive object that works without `useQuery()` in
+the component. SSR on first load, live WebSocket updates after hydration — all
+handled automatically.
+
+## When is client-side rendering acceptable?
+
+SSR delivers a better experience in virtually every scenario. Client-side
+rendering is not _faster_ — it just shows a skeleton sooner while the user waits
+longer for actual data. That said, skipping SSR is acceptable when:
+
+- **Authenticated app-like UIs** (dashboards, admin panels) — users have longer
+  sessions where the one-time initial load cost is amortized, and SEO is
+  irrelevant
+- **Rapid prototyping** — when you want to iterate quickly and add SSR later
+
+Even in these cases, SSR would still provide a faster first load. The trade-off
+is development effort, not performance.
+
+Note that **subsequent navigations are always client-side** regardless of your
+SSR choice. After the initial page load, SvelteKit does client-side routing and
+the Convex WebSocket is already open — data loads without any framework server
+round trip.
+
+<Admonition type="tip" title="Recommendation">
+
+Default to SSR. It is faster for time-to-data in every realistic deployment, and
+with the transport hook it requires minimal effort. Only skip SSR if you have a
+specific reason to.
+
+</Admonition>

@@ -26,7 +26,7 @@ const sectionLabels = [
   ["/client/tanstack/", "TanStack"],
   ["/client/javascript/", "JavaScript"],
   ["/client/vue/", "Vue"],
-  ["/client/svelte", "Svelte"],
+  ["/client/svelte/", "Svelte"],
   ["/client/swift/", "Swift"],
   ["/client/android/", "Android"],
   ["/client/python", "Python"],

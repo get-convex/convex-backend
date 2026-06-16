@@ -1154,10 +1154,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         if let Some((_, self_job_id)) = provider.context().parent_scheduled_job
             && self_job_id == virtual_id_v6
         {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "ScheduledFunctionCancelingItself",
-                "A mutation cannot cancel itself",
-            ));
+            return Ok(JsonValue::Null);
         }
 
         let tx = provider.tx()?;
