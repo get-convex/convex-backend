@@ -1,5 +1,10 @@
 use common::types::MemberId;
-use keybroker::DeploymentOp;
+use errors::ErrorMetadata;
+use keybroker::{
+    bad_admin_key_error,
+    DeploymentOp,
+    Identity,
+};
 
 use super::types::{
     ActionPattern,
@@ -244,6 +249,36 @@ pub fn deployment_op_action(op: DeploymentOp) -> Option<RoleStatementAction> {
         O::ViewAuditLog => A::ViewAuditLog,
         O::Unknown => return None,
     })
+}
+
+pub trait RequireDeploymentOp {
+    fn require_operation(&self, operation: DeploymentOp) -> anyhow::Result<()>;
+}
+
+impl RequireDeploymentOp for Identity {
+    /// Check that this identity is an admin allowed to perform `operation`.
+    /// System identities are always allowed. Admin identities are checked
+    /// against their allowed operations. All other identities are rejected.
+    fn require_operation(&self, operation: DeploymentOp) -> anyhow::Result<()> {
+        let admin_identity = match self {
+            Identity::System(_) => return Ok(()),
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity
+            },
+            Identity::User(_) | Identity::Unknown(_) => {
+                return Err(bad_admin_key_error(self.instance_name()).into());
+            },
+        };
+        if !admin_identity.is_operation_allowed(operation)? {
+            let action = deployment_op_action(operation)
+                .map_or_else(|| format!("{operation:?}"), |action| action.to_string());
+            anyhow::bail!(ErrorMetadata::forbidden(
+                "Unauthorized",
+                format!("You do not have permission to perform this operation ({action})."),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Returns the [`DeploymentOp`]s that `roles` collectively allow on

@@ -107,7 +107,6 @@ use crate::{
         log_store_file_auth_expired,
     },
     operations::{
-        bad_admin_key_error,
         operations_for_deploy_key,
         DeploymentOp,
     },
@@ -391,28 +390,6 @@ impl Identity {
             return Some(id.clone());
         }
         None
-    }
-
-    /// Check that this identity is an admin allowed to perform `operation`.
-    /// System identities are always allowed. Admin identities are checked
-    /// against their allowed operations. All other identities are rejected.
-    pub fn require_operation(&self, operation: DeploymentOp) -> anyhow::Result<()> {
-        let admin_identity = match self {
-            Identity::System(_) => return Ok(()),
-            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
-                admin_identity
-            },
-            Identity::User(_) | Identity::Unknown(_) => {
-                return Err(bad_admin_key_error(self.instance_name()).into());
-            },
-        };
-        if !admin_identity.is_operation_allowed(operation)? {
-            anyhow::bail!(ErrorMetadata::forbidden(
-                "Unauthorized",
-                format!("You do not have permission to perform this operation ({operation:?})."),
-            ));
-        }
-        Ok(())
     }
 }
 

@@ -314,6 +314,7 @@ use model::{
 use node_executor::Actions;
 use parking_lot::Mutex;
 use rand::Rng;
+use roles::RequireDeploymentOp;
 use scheduled_jobs::ScheduledJobRunner;
 use schema_worker::SchemaWorker;
 use search::{

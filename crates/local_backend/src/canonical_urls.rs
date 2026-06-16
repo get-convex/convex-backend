@@ -21,6 +21,7 @@ use model::{
     },
     deployment_audit_log::types::DeploymentAuditLogEvent,
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

@@ -67,6 +67,7 @@ use http::StatusCode;
 use keybroker::Identity;
 use maplit::btreemap;
 use model::virtual_system_mapping;
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

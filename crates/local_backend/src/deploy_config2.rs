@@ -57,6 +57,7 @@ use model::{
     modules::module_versions::SerializedAnalyzedModule,
     source_packages::types::SourcePackage,
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

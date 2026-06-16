@@ -29,6 +29,7 @@ use model::snapshot_imports::types::{
     ImportFormat,
     ImportMode,
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

@@ -63,6 +63,7 @@ use model::{
     virtual_system_mapping,
 };
 use rand::Rng;
+use roles::RequireDeploymentOp;
 use serde_json::Value as JsonValue;
 use sync_types::types::SerializedArgs;
 use value::{

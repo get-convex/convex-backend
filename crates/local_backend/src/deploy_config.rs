@@ -39,6 +39,7 @@ use model::{
     },
     source_packages::SourcePackageModel,
 };
+use roles::RequireDeploymentOp;
 use runtime::prod::ProdRuntime;
 use serde::{
     Deserialize,

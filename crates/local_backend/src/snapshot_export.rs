@@ -38,6 +38,7 @@ use model::{
         ExportsModel,
     },
 };
+use roles::RequireDeploymentOp;
 use serde::Deserialize;
 use storage::StorageGetStream;
 use sync_types::Timestamp;
