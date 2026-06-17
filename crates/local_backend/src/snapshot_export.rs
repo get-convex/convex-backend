@@ -38,6 +38,7 @@ use model::{
         ExportsModel,
     },
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,
