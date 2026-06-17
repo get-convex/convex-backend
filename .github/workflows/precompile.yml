@@ -95,6 +95,19 @@ jobs:
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      # Windows-only: Defender's real-time scan of every small file dominates the
+      # cargo/rush build wall-clock. Exclude the file-heavy dirs (best-effort).
+      - name: Exclude build dirs from Windows Defender
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($p in @(
+            "${{ github.workspace }}",
+            "$env:USERPROFILE\.rush",
+            "$env:USERPROFILE\.cargo"
+          )) { Add-MpPreference -ExclusionPath $p -ErrorAction SilentlyContinue }
+          Add-MpPreference -ExclusionProcess node.exe -ErrorAction SilentlyContinue
+
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
@@ -146,6 +159,9 @@ jobs:
           unset SODIUM_USE_PKG_CONFIG
           unset SNAPPY_LIB_DIR
           export AWS_LC_SYS_PREBUILT_NASM=1
+          # Ninja avoids cmake-rs's MSVC-generator autodetect, which panics
+          # building aws-lc-sys on windows-latest's VS2026 (aws/aws-lc-rs#780).
+          if [ "$RUNNER_OS" = "Windows" ]; then export CMAKE_GENERATOR=Ninja; fi
           cargo build --release -p local_backend --bin convex-local-backend
           mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
 
