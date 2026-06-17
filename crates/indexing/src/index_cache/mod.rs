@@ -620,28 +620,6 @@ impl IndexCacheHandle {
         log_index_cache_size(self.shared_cache.cache.weighted_size());
     }
 
-    /// TODO: Remove when IndexCache is stable.
-    /// Used when a cached result is found to be incorrect (e.g. it
-    /// mismatches persistence) so that subsequent reads do not re-surface
-    /// the same error.
-    pub fn invalidate(
-        &self,
-        index_id: IndexId,
-        interval: Arc<Interval>,
-        order: Order,
-        max_size: usize,
-    ) {
-        let key = CacheKey {
-            deployment_id: self.deployment_id,
-            index_id,
-            interval,
-            order,
-            max_size,
-        };
-        self.shared_cache.cache.remove(key);
-        log_index_cache_size(self.shared_cache.cache.weighted_size());
-    }
-
     /// Apply index updates and new document value to the cache, invalidating
     /// cache entries with overlapping intervals and tracking writes
     /// in the write buffer.

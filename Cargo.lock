@@ -5054,6 +5054,7 @@ dependencies = [
  "moka",
  "must-let",
  "parking_lot",
+ "rand 0.9.4",
  "runtime",
  "shuttle",
  "shuttle-dashmap",
