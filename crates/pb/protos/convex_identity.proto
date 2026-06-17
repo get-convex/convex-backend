@@ -73,6 +73,8 @@ message AdminIdentity {
   // Operations this identity is allowed to perform.
   repeated DeploymentOperation allowed_operations = 7;
   optional google.protobuf.Timestamp validated_at = 8;
+  optional uint64 token_id = 9;
+  optional string app_client_id = 10;
 }
 
 message UserIdentity {
