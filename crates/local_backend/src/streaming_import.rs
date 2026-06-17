@@ -37,6 +37,7 @@ use fivetran_destination::api_types::{
 };
 use http::StatusCode;
 use model::snapshot_imports::types::ImportRequestor;
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

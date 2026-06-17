@@ -21,6 +21,7 @@ import { logout } from "./logout.js";
 import { logs } from "./logs.js";
 import { mcp } from "./mcp.js";
 import { networkTest } from "./network_test.js";
+import { project } from "./project.js";
 import { reinit } from "./reinit.js";
 import { run } from "./run.js";
 import { typecheck } from "./typecheck.js";
@@ -51,6 +52,7 @@ export function buildProgram() {
       .addCommand(env)
       .addCommand(data)
       .addCommand(deployment)
+      .addCommand(project)
       .addCommand(codegen)
       .addCommand(update)
       .addCommand(logout)

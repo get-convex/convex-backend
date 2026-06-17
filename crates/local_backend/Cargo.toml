@@ -21,6 +21,7 @@ testing = [
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
+    "roles/testing",
     "runtime/testing",
     "search/testing",
     "storage/testing",
@@ -76,6 +77,7 @@ model = { workspace = true }
 node_executor = { workspace = true }
 parking_lot = { workspace = true }
 reqwest = { workspace = true }
+roles = { workspace = true }
 runtime = { workspace = true }
 search = { workspace = true }
 sentry = { workspace = true }
@@ -127,6 +129,7 @@ metrics = { workspace = true, features = ["testing"] }
 model = { workspace = true, features = ["testing"] }
 node_executor = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
+roles = { workspace = true, features = ["testing"] }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }

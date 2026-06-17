@@ -53,6 +53,7 @@ use model::log_sinks::types::{
     SinkConfig,
     SinkType,
 };
+use roles::RequireDeploymentOp;
 use runtime::prod::ProdRuntime;
 use sentry::types::Dsn;
 use serde::{

@@ -379,6 +379,7 @@ dependencies = [
  "proptest-derive",
  "rand 0.9.4",
  "regex",
+ "roles",
  "runtime",
  "search",
  "semver",
@@ -2884,6 +2885,7 @@ dependencies = [
  "proptest-derive",
  "rand 0.9.4",
  "rand_chacha 0.9.0",
+ "roles",
  "runtime",
  "search",
  "segment",
@@ -5244,6 +5246,7 @@ dependencies = [
  "rand_chacha 0.9.0",
  "regex",
  "reqwest",
+ "roles",
  "runtime",
  "scopeguard",
  "search",
@@ -5709,6 +5712,7 @@ dependencies = [
  "parking_lot",
  "proptest",
  "reqwest",
+ "roles",
  "runtime",
  "search",
  "sentry",
@@ -8219,6 +8223,7 @@ dependencies = [
  "anyhow",
  "big_brain_private_api_types",
  "common",
+ "errors",
  "keybroker",
  "serde",
  "serde_json",
@@ -9135,7 +9140,7 @@ dependencies = [
 [[package]]
 name = "shuttle"
 version = "0.9.1"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "bitvec",
  "cfg-if",
@@ -9156,7 +9161,7 @@ dependencies = [
 [[package]]
 name = "shuttle-core"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "assoc",
  "bitvec",
@@ -9195,7 +9200,7 @@ dependencies = [
 [[package]]
 name = "shuttle-parking_lot"
 version = "0.12.5"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "cfg-if",
  "parking_lot",
@@ -9205,7 +9210,7 @@ dependencies = [
 [[package]]
 name = "shuttle-parking_lot-impl"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "shuttle",
  "tracing",
@@ -9214,7 +9219,7 @@ dependencies = [
 [[package]]
 name = "shuttle-schedulers"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "rand 0.8.6",
  "rand_pcg",
@@ -9226,7 +9231,7 @@ dependencies = [
 [[package]]
 name = "shuttle-std"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "assoc",
  "owo-colors",
@@ -10801,6 +10806,7 @@ dependencies = [
  "proptest-derive",
  "proptest-http",
  "rand 0.9.4",
+ "roles",
  "runtime",
  "semver",
  "serde_json",

@@ -25,6 +25,7 @@ testing = [
     "node_executor/testing",
     "proptest",
     "proptest-derive",
+    "roles/testing",
     "runtime/testing",
     "search/testing",
     "storage/testing",
@@ -88,6 +89,7 @@ proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 rand = { workspace = true }
 regex = { workspace = true }
+roles = { workspace = true }
 search = { workspace = true }
 semver = { workspace = true }
 sentry = { workspace = true }
@@ -142,6 +144,7 @@ openidconnect = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
+roles = { workspace = true, features = ["testing"] }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }

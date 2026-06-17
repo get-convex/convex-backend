@@ -30,6 +30,7 @@ testing = [
     "must-let",
     "proptest",
     "reqwest",
+    "roles/testing",
     "runtime/testing",
     "search/testing",
     "storage/testing",
@@ -87,6 +88,7 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, optional = true }
+roles = { workspace = true }
 runtime = { workspace = true }
 scopeguard = { workspace = true }
 search = { workspace = true }
@@ -140,6 +142,7 @@ must-let = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 reqwest = { workspace = true }
+roles = { workspace = true, features = ["testing"] }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }

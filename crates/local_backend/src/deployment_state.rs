@@ -15,6 +15,7 @@ use common::{
 use errors::ErrorMetadata;
 use http::StatusCode;
 use model::backend_state::BackendStateModel;
+use roles::RequireDeploymentOp;
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{

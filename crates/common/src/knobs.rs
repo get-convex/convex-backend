@@ -1159,7 +1159,7 @@ pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
 /// The maximum length of time to wait to start running a function (when the
 /// FUNRUN_ISOLATE_ACTIVE_THREADS limit is reached).
 pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 100)));
+    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 200)));
 
 /// Isolate worker usage at which the funrun load reporter's
 /// `effective_load` saturates to 1.0.
@@ -1740,10 +1740,14 @@ pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new
 });
 
 /// If set, 404 on a bad path request instead of 200 + js error message
-/// temporary knob - we want to default to true, but just have the knob while
-/// we're rolling out.
+///
+/// Knob defaults to false -> in an emergency we can use it to differentiate
+/// 404 traffic (eg if a customer is getting hammered).
+///
+/// Long term, we want to make this the default, but it is tricky, because we
+/// need to reconcile the behavior on batch HTTP endpoints and on websocket.
 pub static UDF_404_ON_BAD_PATH: LazyLock<bool> =
-    LazyLock::new(|| env_config("UDF_404_ON_BAD_PATH", true));
+    LazyLock::new(|| env_config("UDF_404_ON_BAD_PATH", false));
 
 /// If set, allows `experimental_reuseContext` to be set.
 pub static ALLOW_FUNCTION_CONTEXT_REUSE: LazyLock<bool> =

@@ -16,6 +16,7 @@ use database::{
 use errors::ErrorMetadata;
 use keybroker::DeploymentOp;
 use model::virtual_system_mapping;
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

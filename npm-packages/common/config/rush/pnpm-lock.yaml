@@ -3224,6 +3224,9 @@ importers:
       prism-react-renderer:
         specifier: ~2.4.1
         version: 2.4.1(react@18.3.1)
+      prism-svelte:
+        specifier: 0.5.0
+        version: 0.5.0
       raw-loader:
         specifier: 4.0.2
         version: 4.0.2(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15)))
@@ -11906,8 +11909,8 @@ packages:
     resolution: {integrity: sha512-tmmZ3lQxAe/k/+rNnXQRawJ4NjxO2hqiOLTHvWchtGZULp4RyFeh6aU4XdOYBFe2KE1oShQTv4AblOs2iOrNnQ==}
     engines: {node: '>= 10.0.0'}
 
-  '@peculiar/asn1-android@2.7.0':
-    resolution: {integrity: sha512-iD3VskhVQnM4nE3PN9cBdPTR7JrqZy3FYk+uD2CeG6DUqKoANqaEfx0f7izPmW+Qm5JBM35ek+viLCmjy18ByQ==}
+  '@peculiar/asn1-android@2.8.0':
+    resolution: {integrity: sha512-skLbS+IOGv1lUgDqtChr8xvtvEr3HMse/JGBaL2r1J1o/n7a8wqOrovMtlRq/UXLhxvmLaONP67hwtshgzwfzA==}
 
   '@peculiar/asn1-cms@2.7.0':
     resolution: {integrity: sha512-hew63shtzzvBcSHbhm+cyAmKe6AIfinT9hzEqSPjDC6opTTMKmTkQ0gHuN2KsWlvqiKw1S/fS94fhag/FJkioQ==}
@@ -11935,6 +11938,9 @@ packages:
 
   '@peculiar/asn1-schema@2.7.0':
     resolution: {integrity: sha512-W8ZfWzLmQnrcky+eh3tni4IozMdqBDiHWU0N+vve/UGjMaUs8c0L7A2oEdkBXS8rTpWDpK/aoI3DG/L/hxmxPg==}
+
+  '@peculiar/asn1-schema@2.8.0':
+    resolution: {integrity: sha512-7YT0U/ze0tF2QOBbE15gKZwy5tvgGyLRiRHLzhlbOpf7BT032oBSd0haZqXn5W6l26WLlu3dyxzjM+2638/z2Q==}
 
   '@peculiar/asn1-x509-attr@2.7.0':
     resolution: {integrity: sha512-NS8e7SOgXipkzUPLF/sce7ukpMpWjhxYsH0n6Y+bHYo4TTxOb95Zv7hqwSuL212mj5YxovjdOKQOgH1As3E94w==}
@@ -16365,6 +16371,10 @@ packages:
 
   asn1@0.2.6:
     resolution: {integrity: sha512-ix/FxPn0MDjeyJ7i/yoHGFt/EX6LyNbxSEhPPXODPL+KB0VPk86UYfL0lMdy+KCnv+fmvIzySwaK5COwqVbWTQ==}
+
+  asn1js@3.0.10:
+    resolution: {integrity: sha512-S2s3aOytiKdFRdulw2qPE51MzjzVOisppcVv7jVFR+Kw0kxwvFrDcYA0h7Ndqbmj0HkMIXYWaoj7fli8kgx1eg==}
+    engines: {node: '>=12.0.0'}
 
   asn1js@3.0.6:
     resolution: {integrity: sha512-UOCGPYbl0tv8+006qks/dTgV9ajs97X2p0FAbyS2iyCRrmLSRolDaHdp+v/CLgnzHc3fVB+CwYiUmei7ndFcgA==}
@@ -24738,6 +24748,9 @@ packages:
     resolution: {integrity: sha512-ey8Ls/+Di31eqzUxC46h8MksNuGx/n0AAC8uKpwFau4RPDYLuE3EXTp8N8G2vX2N7UC/+IXeNUnlWBGGcAG+Ig==}
     peerDependencies:
       react: '>=16.0.0'
+
+  prism-svelte@0.5.0:
+    resolution: {integrity: sha512-db91Bf3pRGKDPz1lAqLFSJXeW13mulUJxhycysFpfXV5MIK7RgWWK2E5aPAa71s8TCzQUXxF5JOV42/iOs6QkA==}
 
   prismjs@1.30.0:
     resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
@@ -36901,10 +36914,10 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.5.6
       '@parcel/watcher-win32-x64': 2.5.6
 
-  '@peculiar/asn1-android@2.7.0':
+  '@peculiar/asn1-android@2.8.0':
     dependencies:
-      '@peculiar/asn1-schema': 2.7.0
-      asn1js: 3.0.6
+      '@peculiar/asn1-schema': 2.8.0
+      asn1js: 3.0.10
       tslib: 2.8.1
 
   '@peculiar/asn1-cms@2.7.0':
@@ -36973,6 +36986,12 @@ snapshots:
     dependencies:
       '@peculiar/utils': 2.0.3
       asn1js: 3.0.6
+      tslib: 2.8.1
+
+  '@peculiar/asn1-schema@2.8.0':
+    dependencies:
+      '@peculiar/utils': 2.0.3
+      asn1js: 3.0.10
       tslib: 2.8.1
 
   '@peculiar/asn1-x509-attr@2.7.0':
@@ -37126,7 +37145,7 @@ snapshots:
       extract-zip: 2.0.1
       progress: 2.0.3
       proxy-agent: 6.5.0
-      semver: 7.7.4
+      semver: 7.8.1
       tar-fs: 3.1.2
       yargs: 17.7.2
     transitivePeerDependencies:
@@ -38956,7 +38975,7 @@ snapshots:
     dependencies:
       '@hexagon/base64': 1.1.28
       '@levischuck/tiny-cbor': 0.2.11
-      '@peculiar/asn1-android': 2.7.0
+      '@peculiar/asn1-android': 2.8.0
       '@peculiar/asn1-ecc': 2.7.0
       '@peculiar/asn1-rsa': 2.7.0
       '@peculiar/asn1-schema': 2.7.0
@@ -41508,7 +41527,7 @@ snapshots:
 
   '@typescript-eslint/project-service@8.46.4(typescript@5.0.4)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.46.4(typescript@5.0.4)
+      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.0.4)
       '@typescript-eslint/types': 8.58.2
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 5.0.4
@@ -41517,7 +41536,7 @@ snapshots:
 
   '@typescript-eslint/project-service@8.46.4(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.46.4(typescript@5.9.3)
+      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.9.3)
       '@typescript-eslint/types': 8.58.2
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 5.9.3
@@ -41526,7 +41545,7 @@ snapshots:
 
   '@typescript-eslint/project-service@8.57.2(typescript@5.0.4)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.58.0(typescript@5.0.4)
+      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.0.4)
       '@typescript-eslint/types': 8.58.2
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 5.0.4
@@ -41535,7 +41554,7 @@ snapshots:
 
   '@typescript-eslint/project-service@8.57.2(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.58.0(typescript@5.9.3)
+      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.9.3)
       '@typescript-eslint/types': 8.58.2
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 5.9.3
@@ -41649,7 +41668,6 @@ snapshots:
   '@typescript-eslint/tsconfig-utils@8.58.2(typescript@5.9.3)':
     dependencies:
       typescript: 5.9.3
-    optional: true
 
   '@typescript-eslint/type-utils@8.46.4(eslint@9.39.1(jiti@2.7.0))(typescript@5.0.4)':
     dependencies:
@@ -41719,7 +41737,7 @@ snapshots:
       globby: 11.1.0
       is-glob: 4.0.3
       minimatch: 9.0.9
-      semver: 7.7.4
+      semver: 7.8.1
       ts-api-utils: 1.4.3(typescript@5.4.5)
     optionalDependencies:
       typescript: 5.4.5
@@ -41736,7 +41754,7 @@ snapshots:
       fast-glob: 3.3.3
       is-glob: 4.0.3
       minimatch: 9.0.9
-      semver: 7.7.4
+      semver: 7.8.1
       ts-api-utils: 2.5.0(typescript@5.0.4)
       typescript: 5.0.4
     transitivePeerDependencies:
@@ -41752,7 +41770,7 @@ snapshots:
       fast-glob: 3.3.3
       is-glob: 4.0.3
       minimatch: 9.0.9
-      semver: 7.7.4
+      semver: 7.8.1
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -41766,7 +41784,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.57.2
       debug: 4.4.3(supports-color@10.2.2)
       minimatch: 10.2.4
-      semver: 7.7.4
+      semver: 7.8.1
       tinyglobby: 0.2.16
       ts-api-utils: 2.5.0(typescript@5.0.4)
       typescript: 5.0.4
@@ -41781,7 +41799,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.57.2
       debug: 4.4.3(supports-color@10.2.2)
       minimatch: 10.2.4
-      semver: 7.7.4
+      semver: 7.8.1
       tinyglobby: 0.2.16
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -43910,6 +43928,12 @@ snapshots:
   asn1@0.2.6:
     dependencies:
       safer-buffer: 2.1.2
+
+  asn1js@3.0.10:
+    dependencies:
+      pvtsutils: 1.3.6
+      pvutils: 1.1.5
+      tslib: 2.8.1
 
   asn1js@3.0.6:
     dependencies:
@@ -47514,7 +47538,7 @@ snapshots:
   esrap@2.2.4:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
-      '@typescript-eslint/types': 8.58.2
+      '@typescript-eslint/types': 8.58.0
 
   esrecurse@4.3.0:
     dependencies:
@@ -55812,6 +55836,8 @@ snapshots:
       '@types/prismjs': 1.26.5
       clsx: 2.1.1
       react: 18.3.1
+
+  prism-svelte@0.5.0: {}
 
   prismjs@1.30.0: {}
 

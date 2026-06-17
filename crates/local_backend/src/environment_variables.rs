@@ -22,6 +22,7 @@ use model::environment_variables::{
     },
     EnvironmentVariablesModel,
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

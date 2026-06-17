@@ -120,6 +120,7 @@ use model::{
         SnapshotImportModel,
     },
 };
+use roles::RequireDeploymentOp;
 use serde_json::Value as JsonValue;
 use shape_inference::{
     export_context::GeneratedSchema,

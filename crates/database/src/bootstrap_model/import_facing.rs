@@ -10,6 +10,7 @@ use common::{
 };
 use errors::ErrorMetadata;
 use keybroker::DeploymentOp;
+use roles::RequireDeploymentOp;
 use value::{
     ConvexObject,
     ConvexValue,

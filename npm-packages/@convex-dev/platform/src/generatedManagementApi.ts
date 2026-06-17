@@ -2556,7 +2556,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                team_id: string;
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
             };
             cookie?: never;
         };

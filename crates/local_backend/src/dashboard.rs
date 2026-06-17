@@ -35,6 +35,7 @@ use model::{
     config::types::ModuleConfig,
     virtual_system_mapping,
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

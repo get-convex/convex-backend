@@ -63,6 +63,7 @@ use model::{
     virtual_system_mapping,
 };
 use rand::Rng;
+use roles::RequireDeploymentOp;
 use serde_json::Value as JsonValue;
 use sync_types::types::SerializedArgs;
 use value::{
@@ -593,7 +594,7 @@ impl ValidatedPathAndArgs {
                 analyzed_function.udf_type
             );
             return if *UDF_404_ON_BAD_PATH {
-                anyhow::bail!(ErrorMetadata::bad_request("FunctionPathWrongType", err_str));
+                anyhow::bail!(ErrorMetadata::not_found("FunctionPathWrongType", err_str));
             } else {
                 Ok(Err(JsError::from_message(err_str)))
             };

@@ -45,6 +45,7 @@ use database::{
     SchemaModel,
 };
 use errors::ErrorMetadata;
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,

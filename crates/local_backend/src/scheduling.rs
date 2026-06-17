@@ -29,6 +29,7 @@ use model::{
         SCHEDULED_JOBS_TABLE,
     },
 };
+use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
     Serialize,
