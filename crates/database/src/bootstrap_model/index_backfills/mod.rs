@@ -75,7 +75,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
     }
 
     #[fastrace::trace]
-    pub(crate) async fn existing_backfill_metadata(
+    pub async fn existing_backfill_metadata(
         &mut self,
         index_id: DeveloperDocumentId,
     ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {

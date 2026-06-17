@@ -7,10 +7,9 @@ use common::{
     knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
     runtime::Runtime,
 };
+use database::Database;
 use errors::ErrorMetadataAnyhowExt;
 use sync_types::backoff::Backoff;
-
-use crate::Database;
 
 // Overloaded means indexes are not yet ready, but if we fail to load them in
 // 10ish minutes, probably something has gone wrong.

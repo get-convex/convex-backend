@@ -16,6 +16,11 @@ use common::{
     runtime::Runtime,
     types::TabletIndexName,
 };
+use database::{
+    Database,
+    IndexModel,
+    Token,
+};
 use itertools::Itertools;
 use keybroker::Identity;
 use rand::seq::SliceRandom;
@@ -28,26 +33,21 @@ use tokio::task;
 use value::ResolvedDocumentId;
 
 use crate::{
+    index_meta::{
+        SearchIndex,
+        SearchOnDiskState,
+        SearchSnapshot,
+        SegmentStatistics,
+        SegmentType,
+        SnapshotData,
+    },
     metrics::{
         compaction_build_one_timer,
         log_compaction_compacted_segment_num_documents_total,
         log_compaction_total_segments,
         CompactionReason,
     },
-    search_index_workers::{
-        index_meta::{
-            SearchIndex,
-            SearchOnDiskState,
-            SearchSnapshot,
-            SegmentStatistics,
-            SegmentType,
-            SnapshotData,
-        },
-        writer::SearchIndexMetadataWriter,
-    },
-    Database,
-    IndexModel,
-    Token,
+    writer::SearchIndexMetadataWriter,
 };
 
 pub(crate) const COMPACTION_RUNNING_LABEL: &str = "compaction_running";

@@ -188,6 +188,7 @@ rustls-pki-types = { version = "1" }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 scopeguard = { version = "1.1" }
 search = { path = "crates/search" }
+search_index_workers = { path = "crates/search_index_workers" }
 semver = { version = "1", features = [ "serde" ] }
 sentry = { version = "0.46", features = [ "anyhow", "tower", "tower-http" ] }
 sentry-tracing = "0.46"

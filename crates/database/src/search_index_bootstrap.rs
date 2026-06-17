@@ -72,9 +72,9 @@ use vector::{
 };
 
 use crate::{
+    bootstrap_model::index_workers::load_metadata_fast_forward_ts,
     committer::CommitterClient,
     metrics::log_document_skipped,
-    search_index_workers::fast_forward::load_metadata_fast_forward_ts,
 };
 
 pub const FINISHED_BOOTSTRAP_UPDATES: &str = "finished_bootstrap_updates";

@@ -156,13 +156,11 @@ use cron_jobs::CronJobExecutor;
 use database::{
     BootstrapComponentsModel,
     Database,
-    FastForwardIndexWorker,
     IndexModel,
     IndexWorker,
     OccRetryStats,
     ResolvedQuery,
     SchemaModel,
-    SearchIndexWorkers,
     Snapshot,
     TableModel,
     Token,
@@ -323,6 +321,10 @@ use search::{
         Searcher,
         SegmentTermMetadataFetcher,
     },
+};
+use search_index_workers::{
+    FastForwardIndexWorker,
+    SearchIndexWorkers,
 };
 use semver::Version;
 use short_future::ShortBoxFuture;

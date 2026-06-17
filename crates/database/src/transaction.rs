@@ -335,6 +335,10 @@ impl<RT: Runtime> Transaction<RT> {
         self.index.base_snapshot().timestamp()
     }
 
+    pub fn index_registry(&self) -> &indexing::index_registry::IndexRegistry {
+        self.index.index_registry()
+    }
+
     pub fn is_readonly(&self) -> bool {
         self.writes.is_empty()
     }

@@ -1,19 +1,17 @@
 use std::sync::Arc;
 
 use common::runtime::Runtime;
+use database::Database;
 use search::searcher::Searcher;
 use storage::Storage;
 
 use crate::{
-    search_index_workers::{
-        search_compactor::{
-            CompactionConfig,
-            SearchIndexCompactor,
-        },
-        writer::SearchIndexMetadataWriter,
+    search_compactor::{
+        CompactionConfig,
+        SearchIndexCompactor,
     },
     vector_index_worker::vector_meta::VectorSearchIndex,
-    Database,
+    writer::SearchIndexMetadataWriter,
 };
 
 pub type VectorIndexCompactor<RT> = SearchIndexCompactor<RT, VectorSearchIndex>;

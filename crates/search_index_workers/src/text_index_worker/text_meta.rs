@@ -52,6 +52,10 @@ use common::{
         SearchIndexMetricLabels,
     },
 };
+use database::{
+    Database,
+    Snapshot,
+};
 use futures::{
     StreamExt as _,
     TryStreamExt,
@@ -80,18 +84,14 @@ use value::{
     TabletId,
 };
 
-use crate::{
-    search_index_workers::index_meta::{
-        SearchIndex,
-        SearchIndexConfig,
-        SearchOnDiskState,
-        SearchSnapshot,
-        SegmentStatistics,
-        SegmentType,
-        SnapshotData,
-    },
-    Database,
-    Snapshot,
+use crate::index_meta::{
+    SearchIndex,
+    SearchIndexConfig,
+    SearchOnDiskState,
+    SearchSnapshot,
+    SegmentStatistics,
+    SegmentType,
+    SnapshotData,
 };
 
 #[derive(Clone, Debug)]

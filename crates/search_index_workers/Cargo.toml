@@ -1,5 +1,5 @@
 [package]
-name = "model"
+name = "search_index_workers"
 version = "0.1.0"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2024"
@@ -10,98 +10,71 @@ doctest = false
 
 [features]
 testing = [
+    "must-let",
     "common/testing",
     "database/testing",
     "errors/testing",
-    "fivetran_destination/testing",
+    "events/testing",
     "keybroker/testing",
     "metrics/testing",
-    "migrations_model/testing",
-    "proptest",
-    "proptest-derive",
-    "proptest-http",
     "runtime/testing",
     "search/testing",
     "storage/testing",
     "usage_tracking/testing",
     "value/testing",
-    "convex_macro/testing",
+    "vector/testing",
 ]
 
 [dependencies]
 anyhow = { workspace = true }
-async-recursion = { workspace = true }
 async-trait = { workspace = true }
-async_lru = { workspace = true }
-async_zip_0_0_9 = { workspace = true }
-bytes = { workspace = true }
-chrono = { workspace = true }
-cmd_util = { workspace = true }
 common = { workspace = true }
-convex_macro = { workspace = true }
 database = { workspace = true }
-derive_more = { workspace = true }
 errors = { workspace = true }
-fastrace = { workspace = true }
-fivetran_destination = { workspace = true }
+events = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
-humansize = { workspace = true }
-imbl = { workspace = true }
+governor = { workspace = true }
+itertools = { workspace = true }
 keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
-migrations_model = { workspace = true }
-openidconnect = { workspace = true }
+must-let = { workspace = true, optional = true }
 pb = { workspace = true }
-proptest = { workspace = true, optional = true }
-proptest-derive = { workspace = true, optional = true }
-proptest-http = { workspace = true, optional = true }
+prometheus = { workspace = true }
+qdrant_segment = { workspace = true }
 rand = { workspace = true }
-reqwest = { workspace = true }
 runtime = { workspace = true }
-saffron = { workspace = true }
 search = { workspace = true }
-semver = { workspace = true }
-sentry = { workspace = true }
-serde = { workspace = true }
-serde_bytes = { workspace = true }
-serde_json = { workspace = true }
-serde_with = { workspace = true }
 storage = { workspace = true }
-strum = { workspace = true }
 sync_types = { workspace = true }
-thiserror = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true }
-tokio-stream = { workspace = true }
 tracing = { workspace = true }
 usage_tracking = { workspace = true }
-utoipa = { workspace = true }
 value = { workspace = true }
+vector = { workspace = true }
 
 [dev-dependencies]
+cmd_util = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
-fivetran_destination = { workspace = true, features = ["testing"] }
+events = { workspace = true, features = ["testing"] }
+indexing = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
-migrations_model = { workspace = true, features = ["testing"] }
+must-let = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-proptest-http = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
-search_index_workers = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
-sync_types = { workspace = true, features = [
-    "testing",
-] }
-tempfile = { workspace = true }
 usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }
+vector = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

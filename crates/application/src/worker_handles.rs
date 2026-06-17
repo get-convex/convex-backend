@@ -4,8 +4,8 @@ use common::runtime::{
     shutdown_and_join,
     SpawnHandle,
 };
-use database::SearchIndexWorkers;
 use parking_lot::Mutex;
+use search_index_workers::SearchIndexWorkers;
 use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
 
 use crate::{

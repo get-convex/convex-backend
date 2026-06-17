@@ -11,17 +11,15 @@ use common::{
     runtime::Runtime,
     types::IndexId,
 };
-use sync_types::Timestamp;
-
-use crate::{
-    bootstrap_model::index_workers::{
-        IndexWorkerMetadataModel,
-        IndexWorkerMetadataRecord,
-    },
-    search_index_workers::fast_forward::IndexFastForward,
+use database::{
+    IndexWorkerMetadataModel,
+    IndexWorkerMetadataRecord,
     Snapshot,
     Transaction,
 };
+use sync_types::Timestamp;
+
+use crate::fast_forward::IndexFastForward;
 
 pub struct VectorFastForward;
 

@@ -23,7 +23,6 @@ pub mod query;
 pub mod reads;
 mod retention;
 mod search_index_bootstrap;
-mod search_index_workers;
 mod snapshot_manager;
 mod stack_traces;
 pub mod streaming_export_selection;
@@ -37,7 +36,6 @@ mod token;
 mod transaction;
 mod transaction_id_generator;
 mod transaction_index;
-pub mod vector_index_worker;
 mod virtual_tables;
 mod write_limits;
 mod write_log;
@@ -47,8 +45,10 @@ mod writes;
 mod component_registry;
 mod schema_registry;
 mod table_iteration;
-pub mod text_index_worker;
-pub use committer::table_dependency_sort_key;
+pub use committer::{
+    table_dependency_sort_key,
+    AFTER_PENDING_WRITE_SNAPSHOT,
+};
 pub use component_registry::ComponentRegistry;
 pub use database_index_workers::{
     index_writer::{
@@ -75,6 +75,7 @@ pub use reads::{
     OVER_LIMIT_HELP,
 };
 pub use schema_registry::SchemaRegistry;
+pub use search_index_bootstrap::FINISHED_BOOTSTRAP_UPDATES;
 pub use table_registry::TableRegistry;
 pub use token::{
     SerializedToken,
@@ -90,7 +91,6 @@ pub use transaction_index::{
     TextIndexManagerSnapshot,
     TransactionTextSnapshot,
 };
-pub use vector_index_worker::flusher::VectorIndexFlusher;
 pub use virtual_tables::VirtualTable;
 pub use write_limits::BiggestDocumentWrites;
 pub use write_log::{
@@ -122,11 +122,15 @@ pub use self::{
         },
         index_backfills::{
             types::IndexBackfillMetadata,
+            IndexBackfillModel,
             IndexBackfillTable,
             INDEX_BACKFILLS_BY_INDEX_ID,
             INDEX_BACKFILLS_TABLE,
         },
         index_workers::{
+            load_metadata_fast_forward_ts,
+            IndexWorkerMetadataModel,
+            IndexWorkerMetadataRecord,
             IndexWorkerMetadataTable,
             INDEX_DOC_ID_INDEX,
             INDEX_WORKER_METADATA_TABLE,
@@ -183,13 +187,6 @@ pub use self::{
         LeaderRetentionWorkers,
         RetentionType,
     },
-    search_index_workers::{
-        fast_forward::{
-            load_metadata_fast_forward_ts,
-            FastForwardIndexWorker,
-        },
-        search_worker::SearchIndexWorkers,
-    },
     snapshot_manager::{
         Snapshot,
         TableSummaries,
@@ -201,6 +198,7 @@ pub use self::{
     table_iteration::{
         MultiTableIterator,
         TableIterator,
+        TableScanCursor,
     },
     table_summary::{
         TableSummary,

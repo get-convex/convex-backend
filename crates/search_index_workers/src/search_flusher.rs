@@ -44,6 +44,14 @@ use common::{
         TabletIndexName,
     },
 };
+use database::{
+    Database,
+    IndexBackfillModel,
+    IndexModel,
+    IndexWorkerMetadataModel,
+    TableScanCursor,
+    Token,
+};
 use futures::{
     StreamExt,
     TryStreamExt,
@@ -66,9 +74,14 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::{
-        index_backfills::IndexBackfillModel,
-        index_workers::IndexWorkerMetadataModel,
+    index_meta::{
+        SearchIndex,
+        SearchIndexConfig,
+        SearchOnDiskState,
+        SearchSnapshot,
+        SegmentStatistics,
+        SegmentType,
+        SnapshotData,
     },
     metrics::{
         build_one_search_index_timer,
@@ -78,28 +91,13 @@ use crate::{
         log_non_deleted_documents_per_search_index,
         log_non_deleted_documents_per_search_segment,
     },
-    search_index_workers::{
-        index_meta::{
-            SearchIndex,
-            SearchIndexConfig,
-            SearchOnDiskState,
-            SearchSnapshot,
-            SegmentStatistics,
-            SegmentType,
-            SnapshotData,
-        },
-        writer::{
-            SearchIndexMetadataWriter,
-            SearchIndexWriteResult,
-        },
-        BuildReason,
-        FlusherType,
-        MultiSegmentBackfillResult,
+    writer::{
+        SearchIndexMetadataWriter,
+        SearchIndexWriteResult,
     },
-    table_iteration::TableScanCursor,
-    Database,
-    IndexModel,
-    Token,
+    BuildReason,
+    FlusherType,
+    MultiSegmentBackfillResult,
 };
 
 pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
@@ -279,7 +277,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let ready_index_sizes = T::get_index_sizes(snapshot)?;
 
         IndexModel::new(&mut tx).take_indexes_dependency()?;
-        for index_doc in tx.index.index_registry().clone().all_indexes() {
+        for index_doc in tx.index_registry().clone().all_indexes() {
             let index_id = index_doc.id();
             let Some(config) = T::get_config(&index_doc.config) else {
                 continue;
