@@ -4926,8 +4926,7 @@
         "required": [
           "plan",
           "status",
-          "nextBillingPeriodStart",
-          "hasNewBilling"
+          "nextBillingPeriodStart"
         ],
         "properties": {
           "billingAddress": {
@@ -4956,17 +4955,6 @@
               "null"
             ],
             "format": "int64"
-          },
-          "hasNewBilling": {
-            "type": "boolean",
-            "description": "Whether this subscription includes new billing metrics (e.g. Database\nI/O)."
-          },
-          "newBillingStartDate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The first renewal date on or after the new billing cutover (May 6,\n2026). Only set when `has_new_billing` is false."
           },
           "nextBillingPeriodStart": {
             "type": "string"
