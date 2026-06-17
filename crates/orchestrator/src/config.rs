@@ -114,14 +114,13 @@ impl FromStr for ProvisionerMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegistrationMode {
-    /// Only emails in `admin_emails` get admin; everyone else gets the
-    /// `developer` role on the default team.
+    /// Only emails in `admin_emails` can self-register.
     Allowlist,
     /// First registration becomes admin; subsequent registrations land as
     /// developer. Documented as "evaluation mode".
     Open,
-    /// Only emails with a valid invite code may register (not yet implemented
-    /// — falls through to Allowlist for now).
+    /// Only emails with a valid invite code may register, except admin
+    /// allowlist matches which can still bootstrap the default team.
     InviteOnly,
 }
 

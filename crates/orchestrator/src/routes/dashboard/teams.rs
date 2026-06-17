@@ -343,10 +343,20 @@ pub(crate) async fn unpause_deployments(
     tag = "dashboard",
 )]
 pub(crate) async fn list_invites(
-    _auth: AuthIdentity,
+    auth: AuthIdentity,
     State(state): State<OrchestratorState>,
     Path(team_id): Path<i64>,
 ) -> ApiResult<Json<Vec<InvitationResponse>>> {
+    let member_id = auth.require_member()?;
+    if state
+        .storage
+        .get_team_role(team_id, member_id)
+        .await
+        .map_err(ApiError::Internal)?
+        .is_none()
+    {
+        return Err(ApiError::Forbidden);
+    }
     let invites = state
         .storage
         .list_invitations(team_id)
@@ -464,6 +474,19 @@ pub(crate) async fn accept_invite(
         .ok_or_else(|| ApiError::NotFound("invitation".into()))?;
     if inv.accepted_at.is_some() {
         return Err(ApiError::Conflict("invitation already accepted".into()));
+    }
+    let member = state
+        .storage
+        .get_member(caller)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or(ApiError::Forbidden)?;
+    if !inv
+        .email
+        .trim()
+        .eq_ignore_ascii_case(member.primary_email.trim())
+    {
+        return Err(ApiError::Forbidden);
     }
     let role: TeamRole = inv
         .role

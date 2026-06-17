@@ -19,7 +19,7 @@ export default function InviteAcceptPage() {
   const router = useRouter();
   const code = router.query.code as string | undefined;
   const session = useSession();
-  const token = useAccessToken();
+  const token = useAccessToken(router.isReady ? (code ?? null) : null);
   const url = orchestratorUrl();
   const [state, setState] = useState<State>({ kind: "idle" });
 

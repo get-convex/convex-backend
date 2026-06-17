@@ -34,6 +34,7 @@ use crate::{
     storage::{
         access_tokens::NewAccessToken,
         AccessTokenKind,
+        InvitationRecord,
         TeamRole,
     },
 };
@@ -52,6 +53,10 @@ pub struct ExchangeSessionArgs {
     pub email: String,
     #[serde(default)]
     pub name: Option<String>,
+    /// Optional team invitation code. Required for a non-allowlisted user to
+    /// mint the temporary session token needed to accept an invite.
+    #[serde(default)]
+    pub invite_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -96,60 +101,84 @@ pub(crate) async fn exchange_session(
         ));
     }
 
+    let invite = matching_invitation(&state, &email, args.invite_code.as_deref()).await?;
+    let is_admin_email = email_is_admin(&state, &email);
+
     let member = state
         .storage
         .upsert_member(&args.auth_user_id, &email, args.name.as_deref())
         .await
         .map_err(ApiError::Internal)?;
 
-    // Default-team bootstrap. The `self-hosted` team is auto-created on
-    // first registration and is the operator-managed root team.
-    let team = match state
+    let existing_teams = state
         .storage
-        .get_team_by_slug("self-hosted")
+        .list_teams_for_member(member.id)
         .await
-        .map_err(ApiError::Internal)?
-    {
-        Some(t) => t,
-        None => state
-            .storage
-            .create_team(
-                state.config.default_team_display_name(),
-                "self-hosted",
-                Some(member.id),
-            )
-            .await
-            .map_err(ApiError::Internal)?,
-    };
+        .map_err(ApiError::Internal)?;
 
-    // Decide role per registration policy. Admin allowlist match always wins.
-    let role = if email_is_admin(&state, &email) {
-        TeamRole::Admin
+    let (team_id, team_slug, role, token_team_id) = if let Some(team) = existing_teams.first() {
+        let role = if is_admin_email {
+            state
+                .storage
+                .add_team_member(team.id, member.id, TeamRole::Admin)
+                .await
+                .map_err(ApiError::Internal)?;
+            TeamRole::Admin
+        } else {
+            state
+                .storage
+                .get_team_role(team.id, member.id)
+                .await
+                .map_err(ApiError::Internal)?
+                .unwrap_or(TeamRole::Developer)
+        };
+        (team.id, team.slug.clone(), role, Some(team.id))
+    } else if is_admin_email {
+        let team = default_team(&state, Some(member.id)).await?;
+        state
+            .storage
+            .add_team_member(team.id, member.id, TeamRole::Admin)
+            .await
+            .map_err(ApiError::Internal)?;
+        (team.id, team.slug, TeamRole::Admin, Some(team.id))
     } else {
         match state.config.registration_mode {
-            RegistrationMode::Allowlist | RegistrationMode::InviteOnly => TeamRole::Developer,
             RegistrationMode::Open => {
+                let team = default_team(&state, Some(member.id)).await?;
                 // First non-system member becomes admin in `open` mode.
                 let total = state
                     .storage
                     .count_members()
                     .await
                     .map_err(ApiError::Internal)?;
-                if total <= 1 {
+                let role = if total <= 1 {
                     TeamRole::Admin
                 } else {
                     TeamRole::Developer
-                }
+                };
+                state
+                    .storage
+                    .add_team_member(team.id, member.id, role)
+                    .await
+                    .map_err(ApiError::Internal)?;
+                (team.id, team.slug, role, Some(team.id))
+            },
+            RegistrationMode::Allowlist | RegistrationMode::InviteOnly => {
+                let inv = invite.ok_or(ApiError::Forbidden)?;
+                let team = state
+                    .storage
+                    .get_team(inv.team_id)
+                    .await
+                    .map_err(ApiError::Internal)?
+                    .ok_or_else(|| ApiError::NotFound("team".into()))?;
+                let role: TeamRole = inv
+                    .role
+                    .parse()
+                    .map_err(|_| ApiError::BadRequest(format!("unknown role {}", inv.role)))?;
+                (team.id, team.slug, role, None)
             },
         }
     };
-
-    // Idempotent — `add_team_member` is INSERT ... ON CONFLICT DO UPDATE.
-    state
-        .storage
-        .add_team_member(team.id, member.id, role)
-        .await
-        .map_err(ApiError::Internal)?;
 
     // Mint a fresh PAT for this session.
     let public_id = random_id();
@@ -163,7 +192,7 @@ pub(crate) async fn exchange_session(
             public_id: &public_id,
             kind: AccessTokenKind::Session,
             member_id: Some(member.id),
-            team_id: Some(team.id),
+            team_id: token_team_id,
             project_id: None,
             deployment_id: None,
             name: "dashboard-session",
@@ -180,7 +209,7 @@ pub(crate) async fn exchange_session(
     state
         .storage
         .append_audit(
-            team.id,
+            team_id,
             Some(member.id),
             "memberSignIn",
             &serde_json::json!({
@@ -196,7 +225,7 @@ pub(crate) async fn exchange_session(
     Ok(Json(ExchangeSessionResponse {
         access_token: pat,
         member_id: member.id as u64,
-        team_slug: team.slug,
+        team_slug,
         role: role.to_string(),
     }))
 }
@@ -244,4 +273,50 @@ fn email_is_admin(state: &OrchestratorState, email: &str) -> bool {
         .admin_emails
         .iter()
         .any(|e| e.eq_ignore_ascii_case(email))
+}
+
+async fn default_team(
+    state: &OrchestratorState,
+    creator_id: Option<i64>,
+) -> ApiResult<crate::storage::TeamRecord> {
+    match state
+        .storage
+        .get_team_by_slug("self-hosted")
+        .await
+        .map_err(ApiError::Internal)?
+    {
+        Some(t) => Ok(t),
+        None => state
+            .storage
+            .create_team(
+                state.config.default_team_display_name(),
+                "self-hosted",
+                creator_id,
+            )
+            .await
+            .map_err(ApiError::Internal),
+    }
+}
+
+async fn matching_invitation(
+    state: &OrchestratorState,
+    email: &str,
+    invite_code: Option<&str>,
+) -> ApiResult<Option<InvitationRecord>> {
+    let Some(code) = invite_code.map(str::trim).filter(|c| !c.is_empty()) else {
+        return Ok(None);
+    };
+    let inv = state
+        .storage
+        .get_invitation_by_code(code)
+        .await
+        .map_err(ApiError::Internal)?
+        .ok_or_else(|| ApiError::NotFound("invitation".into()))?;
+    if inv.accepted_at.is_some() {
+        return Err(ApiError::Conflict("invitation already accepted".into()));
+    }
+    if !inv.email.trim().eq_ignore_ascii_case(email) {
+        return Err(ApiError::Forbidden);
+    }
+    Ok(Some(inv))
 }

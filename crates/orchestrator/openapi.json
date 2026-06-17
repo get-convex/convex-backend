@@ -3775,6 +3775,10 @@
           "email": {
             "type": "string"
           },
+          "inviteCode": {
+            "type": ["string", "null"],
+            "description": "Optional team invitation code. Required for a non-allowlisted user to\nmint the temporary session token needed to accept an invite."
+          },
           "name": {
             "type": ["string", "null"]
           }

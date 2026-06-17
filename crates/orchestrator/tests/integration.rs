@@ -303,6 +303,10 @@ async fn deployment_internal_flow_against_real_db() {
         router::build_router,
         state::OrchestratorState,
     };
+    use orchestrator_api_types::dashboard::{
+        DeviceAuthorizeArgs,
+        DeviceAuthorizeResponse,
+    };
     use orchestrator_api_types::deployment::{
         CreateProjectArgs,
         CreateProjectResponse,
@@ -348,7 +352,30 @@ async fn deployment_internal_flow_against_real_db() {
     state.provisioner = Arc::new(StubProvisioner);
 
     let app = build_router(state.clone());
-    let bearer = format!("Bearer {bootstrap_token}");
+
+    let authorize_args = DeviceAuthorizeArgs {
+        device_name: "integration-test".into(),
+        email: None,
+        password: None,
+        bootstrap_token: Some(bootstrap_token.clone()),
+    };
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/authorize")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&authorize_args).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .expect("send /api/authorize");
+    assert_eq!(resp.status(), StatusCode::OK, "POST /api/authorize");
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let auth: DeviceAuthorizeResponse =
+        serde_json::from_slice(&body).expect("DeviceAuthorizeResponse shape");
+    let bearer = format!("Bearer {}", auth.access_token);
 
     // 1. GET /api/teams should return the bootstrap team and deserialize as
     //    Vec<TeamSummary>.
@@ -437,6 +464,147 @@ async fn deployment_internal_flow_against_real_db() {
     assert!(after.has_projects, "has_projects should be true after create");
 }
 
+#[tokio::test]
+#[ignore = "needs TEST_ORCHESTRATOR_DATABASE_URL"]
+async fn allowlist_rejects_uninvited_non_admin_session_exchange() {
+    use axum::http::StatusCode;
+    use orchestrator::config::RegistrationMode;
+
+    let database_url = std::env::var("TEST_ORCHESTRATOR_DATABASE_URL")
+        .expect("TEST_ORCHESTRATOR_DATABASE_URL not set (this test is `#[ignore]` by default)");
+    reset_public_schema(&database_url).await;
+
+    let state = test_state(
+        database_url,
+        RegistrationMode::Allowlist,
+        vec!["owner@example.com".into()],
+        "service-key",
+    )
+    .await;
+    let app = orchestrator::router::build_router(state);
+
+    let resp = exchange_session(&app, "stranger@example.com", None)
+        .await
+        .0;
+
+    assert_eq!(resp, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+#[ignore = "needs TEST_ORCHESTRATOR_DATABASE_URL"]
+async fn invite_accept_rejects_signed_in_member_with_different_email() {
+    use axum::http::StatusCode;
+    use orchestrator::config::RegistrationMode;
+
+    let database_url = std::env::var("TEST_ORCHESTRATOR_DATABASE_URL")
+        .expect("TEST_ORCHESTRATOR_DATABASE_URL not set (this test is `#[ignore]` by default)");
+    reset_public_schema(&database_url).await;
+
+    let state = test_state(
+        database_url,
+        RegistrationMode::Open,
+        vec!["owner@example.com".into()],
+        "service-key",
+    )
+    .await;
+    let app = orchestrator::router::build_router(state.clone());
+
+    let owner = exchange_session(&app, "owner@example.com", None).await;
+    assert_eq!(owner.0, StatusCode::OK);
+    let team = state
+        .storage
+        .get_team_by_slug("self-hosted")
+        .await
+        .expect("load default team")
+        .expect("default team exists");
+    let invite_code = format!("invite-{}", uuid_like());
+    state
+        .storage
+        .create_invitation(team.id, "invited@example.com", "admin", &invite_code, None)
+        .await
+        .expect("create invitation");
+
+    let attacker = exchange_session(&app, "attacker@example.com", None).await;
+    assert_eq!(attacker.0, StatusCode::OK);
+    let attacker_token = attacker
+        .1
+        .get("accessToken")
+        .and_then(|v| v.as_str())
+        .expect("attacker exchange returns accessToken");
+
+    let resp = post_with_bearer(
+        &app,
+        &format!("/api/dashboard/invites/{invite_code}/accept"),
+        attacker_token,
+        serde_json::Value::Null,
+    )
+    .await;
+
+    assert_eq!(resp, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+#[ignore = "needs TEST_ORCHESTRATOR_DATABASE_URL"]
+async fn non_members_cannot_list_team_invite_codes() {
+    use axum::http::StatusCode;
+    use orchestrator::config::RegistrationMode;
+
+    let database_url = std::env::var("TEST_ORCHESTRATOR_DATABASE_URL")
+        .expect("TEST_ORCHESTRATOR_DATABASE_URL not set (this test is `#[ignore]` by default)");
+    reset_public_schema(&database_url).await;
+
+    let state = test_state(
+        database_url,
+        RegistrationMode::Open,
+        vec!["owner@example.com".into()],
+        "service-key",
+    )
+    .await;
+    let app = orchestrator::router::build_router(state.clone());
+
+    let owner = exchange_session(&app, "owner@example.com", None).await;
+    assert_eq!(owner.0, StatusCode::OK);
+    let owner_member = state
+        .storage
+        .get_member_by_email("owner@example.com")
+        .await
+        .expect("load owner")
+        .expect("owner member exists");
+    let private_team = state
+        .storage
+        .create_team("Private Team", "private-team", Some(owner_member.id))
+        .await
+        .expect("create private team");
+    state
+        .storage
+        .create_invitation(
+            private_team.id,
+            "invited@example.com",
+            "developer",
+            &format!("invite-{}", uuid_like()),
+            Some(owner_member.id),
+        )
+        .await
+        .expect("create invitation");
+
+    let outsider = exchange_session(&app, "outsider@example.com", None).await;
+    assert_eq!(outsider.0, StatusCode::OK);
+    let outsider_token = outsider
+        .1
+        .get("accessToken")
+        .and_then(|v| v.as_str())
+        .expect("outsider exchange returns accessToken");
+
+    let resp = get_with_bearer(
+        &app,
+        &format!("/api/dashboard/teams/{}/invites", private_team.id),
+        outsider_token,
+    )
+    .await;
+
+    assert_eq!(resp, StatusCode::FORBIDDEN);
+}
+
 #[cfg(test)]
 fn uuid_like() -> String {
     use std::time::SystemTime;
@@ -445,6 +613,149 @@ fn uuid_like() -> String {
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     format!("{nanos:032x}")
+}
+
+#[cfg(test)]
+async fn test_state(
+    database_url: String,
+    registration_mode: orchestrator::config::RegistrationMode,
+    admin_emails: Vec<String>,
+    service_key: &str,
+) -> orchestrator::state::OrchestratorState {
+    use orchestrator::{
+        config::{
+            OrchestratorConfig,
+            ProvisionerMode,
+        },
+        state::OrchestratorState,
+    };
+
+    let data_root = tempfile::tempdir().expect("tempdir for data root");
+    let config = OrchestratorConfig {
+        database_url,
+        data_root: data_root.path().to_path_buf(),
+        public_origin: "http://localhost".into(),
+        bootstrap_token: None,
+        provisioner_mode: ProvisionerMode::External,
+        service_key: Some(service_key.into()),
+        admin_emails,
+        default_team_name: "Self-Hosted".into(),
+        registration_mode,
+        backend_image: "irrelevant".into(),
+        backend_network: None,
+        backend_container_prefix: "test-".into(),
+        router_host: "localhost".into(),
+        router_public_port: 9000,
+        router_public_scheme: "http".into(),
+        direct_backend_routing: true,
+        enable_sidecars: false,
+        postgres_image: "postgres:16-alpine".into(),
+        minio_image: "quay.io/minio/minio:latest".into(),
+    };
+
+    OrchestratorState::new(config)
+        .await
+        .expect("orchestrator state")
+}
+
+#[cfg(test)]
+async fn exchange_session(
+    app: &axum::Router,
+    email: &str,
+    invite_code: Option<&str>,
+) -> (axum::http::StatusCode, serde_json::Value) {
+    use axum::{
+        body::Body,
+        http::Request,
+    };
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    let mut body = serde_json::json!({
+        "authUserId": format!("auth:{email}"),
+        "email": email,
+        "name": email.split('@').next().unwrap_or(email),
+    });
+    if let Some(code) = invite_code {
+        body["inviteCode"] = serde_json::Value::String(code.to_string());
+    }
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/internal/exchange_session")
+                .header("x-service-key", "service-key")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .expect("send /api/internal/exchange_session");
+    let status = resp.status();
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
+    (status, json)
+}
+
+#[cfg(test)]
+async fn post_with_bearer(
+    app: &axum::Router,
+    uri: &str,
+    token: &str,
+    body: serde_json::Value,
+) -> axum::http::StatusCode {
+    use axum::{
+        body::Body,
+        http::{
+            header::AUTHORIZATION,
+            Request,
+        },
+    };
+    use tower::ServiceExt;
+
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(uri)
+                .header(AUTHORIZATION, format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .expect("send authenticated POST")
+        .status()
+}
+
+#[cfg(test)]
+async fn get_with_bearer(
+    app: &axum::Router,
+    uri: &str,
+    token: &str,
+) -> axum::http::StatusCode {
+    use axum::{
+        body::Body,
+        http::{
+            header::AUTHORIZATION,
+            Request,
+        },
+    };
+    use tower::ServiceExt;
+
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .header(AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("send authenticated GET")
+        .status()
 }
 
 /// `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` so the next migration

@@ -136,7 +136,7 @@ ORCHESTRATOR_REGION_NAME='Self-Hosted'
 DEFAULT_TEAM_NAME='Self-Hosted'
 
 # First admin email + signup policy. `allowlist` = only ADMIN_EMAILS can
-# sign up; `open` = anyone; `closed` = no signup (invite-only).
+# self-register; `open` = anyone; `invite-only` = admins plus invite links.
 ADMIN_EMAILS='you@my-domain.com'
 REGISTRATION_MODE='allowlist'
 ```

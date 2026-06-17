@@ -47,6 +47,8 @@ export default async function handler(
     res.status(401).json({ error: "not authenticated" });
     return;
   }
+  const inviteCode =
+    typeof req.query.inviteCode === "string" ? req.query.inviteCode : undefined;
 
   const exchangeRes = await fetch(
     `${ORCHESTRATOR_URL.replace(/\/$/, "")}/api/internal/exchange_session`,
@@ -60,13 +62,18 @@ export default async function handler(
         authUserId: session.user.id,
         email: session.user.email,
         name: session.user.name ?? null,
+        ...(inviteCode ? { inviteCode } : {}),
       }),
     },
   );
 
   if (!exchangeRes.ok) {
     const body = await exchangeRes.text().catch(() => "");
-    res.status(502).json({
+    const status =
+      exchangeRes.status === 401 || exchangeRes.status === 403
+        ? exchangeRes.status
+        : 502;
+    res.status(status).json({
       error: "orchestrator session exchange failed",
       status: exchangeRes.status,
       body,

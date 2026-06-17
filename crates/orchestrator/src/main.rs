@@ -134,9 +134,8 @@ struct Args {
     #[arg(long, env = "CONVEX_ORCHESTRATOR_SERVICE_KEY")]
     service_key: Option<String>,
 
-    /// Comma-separated list of email addresses that auto-receive the admin
-    /// role on first registration. If unset and `--registration-mode` is
-    /// `allowlist`, only the first registrant ever becomes admin.
+    /// Comma-separated list of email addresses that can self-register and
+    /// auto-receive the admin role on first registration.
     #[arg(long, env = "CONVEX_ORCHESTRATOR_ADMIN_EMAILS", value_delimiter = ',')]
     admin_emails: Vec<String>,
 
