@@ -21,6 +21,10 @@ use common::{
     },
     types::TabletIndexName,
 };
+use database::{
+    Database,
+    Token,
+};
 use futures::{
     future::BoxFuture,
     pin_mut,
@@ -35,16 +39,11 @@ use storage::Storage;
 use sync_types::backoff::Backoff;
 
 use crate::{
-    search_index_workers::{
-        retriable_worker::{
-            retry_loop_expect_occs_and_overloaded,
-            RetriableWorker,
-        },
-        search_compactor::CompactionConfig,
-        timeout_with_jitter,
-        writer::SearchIndexMetadataWriter,
-        FlusherType,
+    retriable_worker::{
+        retry_loop_expect_occs_and_overloaded,
+        RetriableWorker,
     },
+    search_compactor::CompactionConfig,
     text_index_worker::{
         compactor::{
             new_text_compactor,
@@ -57,17 +56,20 @@ use crate::{
         BuildTextIndexArgs,
         TextIndexMetadataWriter,
     },
+    timeout_with_jitter,
     vector_index_worker::{
         compactor::{
             new_vector_compactor,
             VectorIndexCompactor,
         },
-        flusher::new_vector_flusher,
+        flusher::{
+            new_vector_flusher,
+            VectorIndexFlusher,
+        },
         BuildVectorIndexArgs,
     },
-    Database,
-    Token,
-    VectorIndexFlusher,
+    writer::SearchIndexMetadataWriter,
+    FlusherType,
 };
 
 /// Builds and compacts text/vector search indexes.

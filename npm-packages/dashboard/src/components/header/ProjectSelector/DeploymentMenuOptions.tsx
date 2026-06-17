@@ -15,7 +15,7 @@ import {
   Share1Icon,
 } from "@radix-ui/react-icons";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import {
   PROVISION_DEV_PAGE_NAME,
   PROVISION_PROD_PAGE_NAME,
@@ -31,7 +31,7 @@ export function DeploymentMenuOptions({
 }: {
   team: TeamResponse;
   project: ProjectDetails;
-  deployments: (PlatformDeploymentResponse | DeploymentResponse)[];
+  deployments: PlatformDeploymentResponse[];
 }) {
   const member = useProfile();
   const router = useRouter();
@@ -317,8 +317,8 @@ function MainMenuDevItems({
 }: {
   project: ProjectDetails;
   team: TeamResponse;
-  deployments: (PlatformDeploymentResponse | DeploymentResponse)[];
-  nonDefaultTeamDevs: (PlatformDeploymentResponse | DeploymentResponse)[];
+  deployments: PlatformDeploymentResponse[];
+  nonDefaultTeamDevs: PlatformDeploymentResponse[];
 }) {
   const member = useProfile();
   const router = useRouter();
@@ -332,7 +332,7 @@ function MainMenuDevItems({
   const currentView = router.asPath.split("?")[0].split("/").slice(5).join("/");
   const personalDevs = sortDevDeployments(
     deployments.filter(
-      (d: PlatformDeploymentResponse | DeploymentResponse) =>
+      (d: PlatformDeploymentResponse) =>
         d.deploymentType === "dev" && d.creator === member?.id,
     ),
   ).filter((d) => (d.kind === "local" ? d.isActive : true));
@@ -393,9 +393,7 @@ function MainMenuDevItems({
   );
 }
 
-function sortDevDeployments(
-  deployments: (PlatformDeploymentResponse | DeploymentResponse)[],
-) {
+function sortDevDeployments(deployments: PlatformDeploymentResponse[]) {
   return deployments.sort((a, b) => {
     // Sort inactive local deployments to the end
     if (a.kind === "local" && !a.isActive) {

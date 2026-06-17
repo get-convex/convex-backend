@@ -5,23 +5,21 @@ use common::{
     persistence::PersistenceReader,
     runtime::Runtime,
 };
+use database::Database;
 use search::searcher::SegmentTermMetadataFetcher;
 use storage::Storage;
 
 use crate::{
-    search_index_workers::{
-        search_flusher::{
-            SearchFlusher,
-            SearchIndexLimits,
-        },
-        writer::SearchIndexMetadataWriter,
-        FlusherType,
+    search_flusher::{
+        SearchFlusher,
+        SearchIndexLimits,
     },
     text_index_worker::text_meta::{
         BuildTextIndexArgs,
         TextSearchIndex,
     },
-    Database,
+    writer::SearchIndexMetadataWriter,
+    FlusherType,
 };
 
 pub(crate) struct FlusherBuilder<RT: Runtime> {

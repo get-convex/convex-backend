@@ -11,22 +11,13 @@ use common::{
         IndexConfig,
         TabletIndexMetadata,
     },
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
-    interval::{
-        BinaryKey,
-        Interval,
-    },
+    document::ParsedDocument,
     knobs::{
         DATABASE_WORKERS_MIN_COMMITS,
         DATABASE_WORKERS_POLL_INTERVAL,
         INDEX_WORKERS_INITIAL_BACKOFF,
         SEARCH_WORKERS_MAX_CHECKPOINT_AGE,
     },
-    persistence::PersistenceSnapshot,
-    query::Order,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -36,40 +27,28 @@ use common::{
         TabletIndexName,
     },
 };
-use futures::TryStreamExt;
-use indexing::index_registry::IndexRegistry;
+use database::{
+    Database,
+    IndexModel,
+    IndexWorkerMetadataModel,
+    IndexWorkerMetadataRecord,
+    Snapshot,
+    SystemMetadataModel,
+    Transaction,
+};
 use keybroker::Identity;
 use sync_types::{
     backoff::Backoff,
     Timestamp,
 };
-use value::{
-    values_to_bytes,
-    ConvexValue,
-    NamespacedTableMapping,
-    ResolvedDocumentId,
-};
 
 use super::retriable_worker::retry_loop_expect_occs_and_overloaded;
 use crate::{
-    bootstrap_model::index_workers::{
-        IndexWorkerMetadataModel,
-        IndexWorkerMetadataRecord,
-    },
-    search_index_workers::{
-        retriable_worker::RetriableWorker,
-        timeout_with_jitter,
-        MAX_BACKOFF,
-    },
+    retriable_worker::RetriableWorker,
     text_index_worker::fast_forward::TextFastForward,
+    timeout_with_jitter,
     vector_index_worker::fast_forward::VectorFastForward,
-    Database,
-    IndexModel,
-    Snapshot,
-    SystemMetadataModel,
-    Transaction,
-    INDEX_DOC_ID_INDEX,
-    INDEX_WORKER_METADATA_TABLE,
+    MAX_BACKOFF,
 };
 
 pub struct LastFastForwardInfo {
@@ -192,7 +171,7 @@ impl FastForwardIndexWorker {
         let expected_version = Worker::current_version(&mut tx);
 
         IndexModel::new(&mut tx).take_indexes_dependency()?;
-        for index_doc in tx.index.index_registry().clone().all_indexes() {
+        for index_doc in tx.index_registry().clone().all_indexes() {
             let index_id = index_doc.id();
             let internal_id = index_id.internal_id().into();
 
@@ -264,44 +243,4 @@ pub trait IndexFastForward<RT: Runtime, V: PartialEq + Send> {
         index_id: IndexId,
     ) -> anyhow::Result<ParsedDocument<IndexWorkerMetadataRecord>>;
     fn num_transactions(snapshot: Snapshot, index_id: IndexId) -> anyhow::Result<Option<usize>>;
-}
-
-pub async fn load_metadata_fast_forward_ts(
-    registry: &IndexRegistry,
-    snapshot: &PersistenceSnapshot,
-    table_mapping: &NamespacedTableMapping,
-    index: ResolvedDocumentId,
-) -> anyhow::Result<Option<Timestamp>> {
-    let metadata_table_id = table_mapping.id(&INDEX_WORKER_METADATA_TABLE)?;
-    let metadata_index_id = INDEX_DOC_ID_INDEX
-        .name()
-        .map_table(&table_mapping.name_to_tablet())?;
-    let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
-
-    let id_value = ConvexValue::String(index.internal_id().to_string().try_into()?);
-    let id_value_bytes = values_to_bytes(&[Some(id_value)]);
-    let interval = Interval::prefix(BinaryKey::from(id_value_bytes));
-
-    let stream = snapshot.index_scan(
-        metadata_index_internal_id,
-        metadata_table_id.tablet_id,
-        &interval,
-        Order::Asc,
-        100,
-    );
-    let mut results: Vec<_> = stream
-        .try_collect::<Vec<_>>()
-        .await?
-        .into_iter()
-        .map(|(_, rev)| rev.value)
-        .collect();
-    let fast_forward_ts = if !results.is_empty() {
-        let mut doc = ParseDocument::<IndexWorkerMetadataRecord>::parse(results.remove(0))?;
-        // This defaults to Timestamp(0) if a document isn't present, which is fine for
-        // our purpose
-        Some(*doc.index_metadata.mut_fast_forward_ts())
-    } else {
-        None
-    };
-    Ok(fast_forward_ts)
 }

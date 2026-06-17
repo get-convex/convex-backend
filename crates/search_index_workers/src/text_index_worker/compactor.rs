@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use common::runtime::Runtime;
+use database::Database;
 use search::Searcher;
 use storage::Storage;
 
 use crate::{
-    search_index_workers::search_compactor::{
+    search_compactor::{
         CompactionConfig,
         SearchIndexCompactor,
     },
@@ -13,7 +14,6 @@ use crate::{
         text_meta::TextSearchIndex,
         TextIndexMetadataWriter,
     },
-    Database,
 };
 
 pub type TextIndexCompactor<RT> = SearchIndexCompactor<RT, TextSearchIndex>;

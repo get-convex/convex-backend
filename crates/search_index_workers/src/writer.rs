@@ -33,6 +33,13 @@ use common::{
         TabletIndexName,
     },
 };
+use database::{
+    Database,
+    IndexBackfillModel,
+    IndexModel,
+    SystemMetadataModel,
+    Transaction,
+};
 use governor::Quota;
 use itertools::Itertools;
 use keybroker::Identity;
@@ -42,7 +49,16 @@ use sync_types::Timestamp;
 use value::ResolvedDocumentId;
 
 use crate::{
-    bootstrap_model::index_backfills::IndexBackfillModel,
+    index_meta::{
+        BackfillState,
+        SearchBackfillCursor,
+        SearchIndex,
+        SearchOnDiskState,
+        SearchSnapshot,
+        SegmentStatistics,
+        SegmentType,
+        SnapshotData,
+    },
     metrics::{
         finish_search_index_merge_timer,
         search_compaction_merge_commit_timer,
@@ -51,28 +67,12 @@ use crate::{
         SearchIndexMergeType,
         SearchWriterLockWaiter,
     },
-    search_index_workers::{
-        index_meta::{
-            BackfillState,
-            SearchBackfillCursor,
-            SearchIndex,
-            SearchOnDiskState,
-            SearchSnapshot,
-            SegmentStatistics,
-            SegmentType,
-            SnapshotData,
-        },
-        search_flusher::{
-            IndexBuild,
-            IndexBuildResult,
-        },
-        BuildReason,
-        MultiSegmentBackfillResult,
+    search_flusher::{
+        IndexBuild,
+        IndexBuildResult,
     },
-    Database,
-    IndexModel,
-    SystemMetadataModel,
-    Transaction,
+    BuildReason,
+    MultiSegmentBackfillResult,
 };
 
 /// Serializes writes to index metadata from the worker and reconciles any

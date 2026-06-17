@@ -769,7 +769,7 @@ impl LogReader {
 impl WriteLogIndexReader for LogReader {
     fn iter_writes_after(
         &self,
-        index_name: TabletIndexName,
+        index_name: &TabletIndexName,
         ts: Timestamp,
     ) -> anyhow::Result<
         Option<
@@ -781,7 +781,7 @@ impl WriteLogIndexReader for LogReader {
         if ts < guard.log.purged_ts {
             anyhow::bail!("Timestamp is out of retention window");
         }
-        let Some(writes_by_ts) = guard.log.by_database_index.iter_since(&index_name, ts) else {
+        let Some(writes_by_ts) = guard.log.by_database_index.iter_since(index_name, ts) else {
             return Ok(None);
         };
         let results: Vec<_> = writes_by_ts

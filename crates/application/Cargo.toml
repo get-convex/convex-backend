@@ -28,6 +28,7 @@ testing = [
     "roles/testing",
     "runtime/testing",
     "search/testing",
+    "search_index_workers/testing",
     "storage/testing",
     "shape_inference/testing",
     "udf/testing",
@@ -91,6 +92,7 @@ rand = { workspace = true }
 regex = { workspace = true }
 roles = { workspace = true }
 search = { workspace = true }
+search_index_workers = { workspace = true }
 semver = { workspace = true }
 sentry = { workspace = true }
 serde = { workspace = true }
@@ -147,6 +149,7 @@ proptest-derive = { workspace = true }
 roles = { workspace = true, features = ["testing"] }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
+search_index_workers = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
 storage_zip_reader = { workspace = true, features = ["testing"] }

@@ -1,6 +1,6 @@
 import startCase from "lodash/startCase";
 import Link from "next/link";
-import type { TeamMemberCustomRole } from "generatedApi";
+import type { TeamMemberCustomRole } from "@convex-dev/platform/managementApi";
 
 type RoleDisplayProps = {
   role: string;

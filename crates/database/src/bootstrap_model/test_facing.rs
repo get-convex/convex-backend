@@ -45,6 +45,15 @@ impl<'a, RT: Runtime> TestFacingModel<'a, RT> {
             .await
     }
 
+    /// Replace a document by id, bypassing user-facing checks.
+    pub async fn replace_inner(
+        &mut self,
+        id: ResolvedDocumentId,
+        value: ConvexObject,
+    ) -> anyhow::Result<ResolvedDocument> {
+        self.tx.replace_inner(id, value).await
+    }
+
     /// Insert a new document and immediately read it. Prefer using `insert`
     /// unless you need to read the creation time.
     #[convex_macro::instrument_future]

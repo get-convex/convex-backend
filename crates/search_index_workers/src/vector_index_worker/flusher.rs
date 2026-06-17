@@ -8,20 +8,18 @@ use common::{
     persistence::PersistenceReader,
     runtime::Runtime,
 };
+use database::Database;
 use storage::Storage;
 
 use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
-    search_index_workers::{
-        search_flusher::{
-            SearchFlusher,
-            SearchIndexLimits,
-        },
-        writer::SearchIndexMetadataWriter,
-        FlusherType,
+    search_flusher::{
+        SearchFlusher,
+        SearchIndexLimits,
     },
     vector_index_worker::vector_meta::VectorSearchIndex,
-    Database,
+    writer::SearchIndexMetadataWriter,
+    FlusherType,
 };
 
 pub type VectorIndexFlusher<RT> = SearchFlusher<RT, VectorSearchIndex>;

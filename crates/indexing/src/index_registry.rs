@@ -84,8 +84,8 @@ pub struct IndexRegistry {
     index_table_number: TableNumber,
     // Indexes that are enabled and ready to be queried against.
     enabled_indexes: OrdMap<TabletIndexName, Index>,
-    // Indexes that are not yet enabled for queries, typically backfilling or waiting to be
-    // committed.
+    // Indexes that are not enabled for queries, typically backfilling, waiting to be
+    // committed, or disabled.
     pending_indexes: OrdMap<TabletIndexName, Index>,
 }
 

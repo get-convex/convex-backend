@@ -4,8 +4,11 @@ import { Link } from "@ui/Link";
 import { Modal } from "@ui/Modal";
 import { Tooltip } from "@ui/Tooltip";
 import { useState } from "react";
-import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
-import type { TeamMember, TeamResponse } from "generatedApi";
+import type {
+  CustomRoleResponse,
+  TeamMember,
+} from "@convex-dev/platform/managementApi";
+import type { TeamResponse } from "generatedApi";
 import { useHasCustomRolePermission } from "api/roles";
 import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import { CustomRolesSelector } from "./CustomRolesSelector";

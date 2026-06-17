@@ -25,7 +25,6 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use common::errors::report_error;
 use common::{
     bootstrap_model::index::{
         database_index::DatabaseIndexState,
@@ -49,7 +48,10 @@ use common::{
         IntervalSet,
         StartIncluded,
     },
-    knobs::MAX_TRANSACTION_CACHE_SIZE_BYTES,
+    knobs::{
+        INDEX_CACHE_VERIFY_PERCENT,
+        MAX_TRANSACTION_CACHE_SIZE_BYTES,
+    },
     persistence::{
         LatestDocument,
         PersistenceSnapshot,
@@ -361,10 +363,6 @@ impl IndexReader for IndexCacheReader {
         order: Order,
         max_results: usize,
     ) -> anyhow::Result<IndexPage> {
-        let index_page = self
-            .reader
-            .index_page(index_id, tablet_id, interval, order, max_results)
-            .await?;
         let interval = Arc::new(interval.clone());
         let maybe_page = self.handle.get(
             index_id,
@@ -373,26 +371,45 @@ impl IndexReader for IndexCacheReader {
             order,
             max_results,
         );
-        if let Some((cached_page, cache_ts)) = maybe_page
-            && cached_page != index_page
-        {
-            self.handle
-                .invalidate(index_id, interval.clone(), order, max_results);
-            let index_name = self
-                .index_registry
-                .enabled_index_by_index_id(&index_id)
-                .map(|index| index.name());
-            log_index_page_mismatch(
-                index_id,
-                &index_name,
-                tablet_id,
-                order,
-                max_results,
-                cache_ts,
-                self.reader.timestamp(),
-                &cached_page,
-                &index_page,
-            );
+        let index_page = if let Some((cached_page, cache_ts)) = maybe_page {
+            let verify_cache_results = cfg!(any(test, feature = "testing"))
+                || rand::random_range(0..100) < *INDEX_CACHE_VERIFY_PERCENT;
+            if verify_cache_results {
+                let index_page = self
+                    .reader
+                    .index_page(index_id, tablet_id, &interval, order, max_results)
+                    .await?;
+                if index_page != cached_page {
+                    let index_name = self
+                        .index_registry
+                        .enabled_index_by_index_id(&index_id)
+                        .map(|index| index.name());
+                    log_index_page_mismatch(
+                        index_id,
+                        &index_name,
+                        tablet_id,
+                        order,
+                        max_results,
+                        cache_ts,
+                        self.reader.timestamp(),
+                        &cached_page,
+                        &index_page,
+                    );
+                    // Panic if there is an inconsistency between the cache and the persistence
+                    // layer. This means there is likely data corruption.
+                    panic!(
+                        "IndexCache result does not match Persistence index_page for index_id \
+                         {:?} tablet_id {:?} interval {:?} order {:?} max_results {} begin_ts {:?}",
+                        index_id, tablet_id, interval, order, max_results, cache_ts,
+                    );
+                }
+            }
+            cached_page
+        } else {
+            let index_page = self
+                .reader
+                .index_page(index_id, tablet_id, &interval, order, max_results)
+                .await?;
             self.handle.populate(
                 index_id,
                 interval,
@@ -402,7 +419,8 @@ impl IndexReader for IndexCacheReader {
                 index_page.clone(),
                 &self.index_registry,
             );
-        }
+            index_page
+        };
         Ok(index_page)
     }
 

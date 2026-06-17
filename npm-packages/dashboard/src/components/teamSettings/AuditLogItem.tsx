@@ -18,7 +18,6 @@ import {
   MemberResponse,
   AuditLogAction,
   AuditLogEventResponse,
-  DeploymentResponse,
 } from "generatedApi";
 import { captureMessage } from "@sentry/nextjs";
 import startCase from "lodash/startCase";
@@ -879,9 +878,7 @@ function AuditLogItemActor({
   );
 }
 
-function deploymentDisplayName(
-  deployment: PlatformDeploymentResponse | DeploymentResponse,
-) {
+function deploymentDisplayName(deployment: PlatformDeploymentResponse) {
   switch (deployment.deploymentType) {
     case "prod":
       return "a production deployment";

@@ -33,6 +33,7 @@ testing = [
     "roles/testing",
     "runtime/testing",
     "search/testing",
+    "search_index_workers/testing",
     "storage/testing",
     "usage_tracking/testing",
     "value/testing",
@@ -92,6 +93,7 @@ roles = { workspace = true }
 runtime = { workspace = true }
 scopeguard = { workspace = true }
 search = { workspace = true }
+search_index_workers = { workspace = true, optional = true }
 semver = { workspace = true }
 sentry = { workspace = true }
 serde = { workspace = true }
@@ -145,6 +147,7 @@ reqwest = { workspace = true }
 roles = { workspace = true, features = ["testing"] }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
+search_index_workers = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
 udf = { workspace = true, features = ["testing"] }

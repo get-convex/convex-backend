@@ -11,7 +11,7 @@ import { useRememberLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { ProjectDetails, DeploymentResponse, TeamResponse } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { Button } from "@ui/Button";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { DeploymentMenuOptions } from "components/header/ProjectSelector/DeploymentMenuOptions";
@@ -491,7 +491,7 @@ export function getDeploymentLabel({
   deployment,
   whoseName,
 }: {
-  deployment: PlatformDeploymentResponse | DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   whoseName: string | null; // null = mine
 }): string {
   if (

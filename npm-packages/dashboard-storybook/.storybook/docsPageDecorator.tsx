@@ -237,7 +237,6 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       postal_code: "94107",
       country: "US",
     },
-    hasNewBilling: true,
     nextBillingPeriodStart: new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     ).toISOString(),

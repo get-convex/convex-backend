@@ -45,6 +45,10 @@ use common::{
         SearchIndexMetricLabels,
     },
 };
+use database::{
+    Database,
+    Snapshot,
+};
 use futures::{
     StreamExt,
     TryStreamExt,
@@ -70,18 +74,14 @@ use vector::{
     QdrantSchema,
 };
 
-use crate::{
-    search_index_workers::index_meta::{
-        SearchIndex,
-        SearchIndexConfig,
-        SearchOnDiskState,
-        SearchSnapshot,
-        SegmentStatistics,
-        SegmentType,
-        SnapshotData,
-    },
-    Database,
-    Snapshot,
+use crate::index_meta::{
+    SearchIndex,
+    SearchIndexConfig,
+    SearchOnDiskState,
+    SearchSnapshot,
+    SegmentStatistics,
+    SegmentType,
+    SnapshotData,
 };
 
 impl From<VectorIndexState> for SearchOnDiskState<VectorSearchIndex> {

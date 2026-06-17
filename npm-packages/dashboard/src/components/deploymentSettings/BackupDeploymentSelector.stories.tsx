@@ -1,11 +1,14 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
-import { TeamResponse, ProjectDetails, TeamMember } from "generatedApi";
+import { TeamResponse, ProjectDetails } from "generatedApi";
 import { useProfile } from "api/profile";
 import { useInfiniteProjects, useProjectById } from "api/projects";
 import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
-import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import {
+  PlatformDeploymentResponse,
+  TeamMember,
+} from "@convex-dev/platform/managementApi";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 

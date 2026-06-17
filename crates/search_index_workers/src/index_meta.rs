@@ -33,6 +33,10 @@ use common::{
     },
     types::IndexId,
 };
+use database::{
+    Database,
+    Snapshot,
+};
 use search::{
     metrics::SearchType,
     Searcher,
@@ -43,11 +47,6 @@ use value::{
     ConvexObject,
     TableNumber,
     TabletId,
-};
-
-use crate::{
-    Database,
-    Snapshot,
 };
 
 pub trait SegmentType<T: SearchIndex> {

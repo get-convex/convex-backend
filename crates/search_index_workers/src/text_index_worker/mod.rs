@@ -1,6 +1,6 @@
 use crate::{
-    search_index_workers::writer::SearchIndexMetadataWriter,
     text_index_worker::text_meta::TextSearchIndex,
+    writer::SearchIndexMetadataWriter,
 };
 
 pub mod compactor;

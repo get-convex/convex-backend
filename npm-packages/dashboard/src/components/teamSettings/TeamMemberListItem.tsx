@@ -3,9 +3,11 @@ import type {
   ProjectMemberRoleResponse,
   UpdateProjectRolesArgs,
   TeamResponse,
-  TeamMember,
 } from "generatedApi";
-import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
+import type {
+  CustomRoleResponse,
+  TeamMember,
+} from "@convex-dev/platform/managementApi";
 import { useRouter } from "next/router";
 import { useRef, useState, type ReactNode } from "react";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";

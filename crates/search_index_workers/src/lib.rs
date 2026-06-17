@@ -1,9 +1,18 @@
+#![feature(coroutines)]
+#![feature(impl_trait_in_assoc_type)]
+#![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
+#![feature(try_find)]
+
 pub mod fast_forward;
 pub mod index_meta;
+mod metrics;
 pub mod retriable_worker;
 pub mod search_compactor;
 pub mod search_flusher;
 pub mod search_worker;
+pub mod text_index_worker;
+pub mod vector_index_worker;
 pub mod writer;
 
 use std::{
@@ -19,9 +28,11 @@ use common::{
     runtime::Runtime,
     types::RepeatableTimestamp,
 };
+use database::TableScanCursor;
+pub use fast_forward::FastForwardIndexWorker;
 use rand::Rng;
-
-use crate::table_iteration::TableScanCursor;
+pub use search_worker::SearchIndexWorkers;
+pub use vector_index_worker::flusher::VectorIndexFlusher;
 
 pub const MAX_BACKOFF: Duration = Duration::from_secs(10 * 60);
 
