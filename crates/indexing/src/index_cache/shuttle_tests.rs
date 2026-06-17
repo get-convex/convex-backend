@@ -89,6 +89,9 @@ struct Ctx {
     registry: Arc<IndexRegistry>,
     write_key: IndexKeyBytes,
     dummy_doc_id: ResolvedDocumentId,
+    /// The test index's own `_index` row id, used to drive a metadata
+    /// modification of that index.
+    index_doc_id: ResolvedDocumentId,
 }
 
 impl Ctx {
@@ -154,7 +157,40 @@ impl Ctx {
 
     /// Drive moka's size-based eviction to completion.
     fn run_pending_tasks(&self) {
-        self.handle.cache.cache.run_pending_tasks();
+        self.handle.shared_cache.cache.run_pending_tasks();
+    }
+
+    /// Mirror a production index modification at `ts`: a write to the `_index`
+    /// table whose document is the test index's own `_index` row. As in
+    /// `LogWriter::append`, the write is appended to the write log *before*
+    /// `apply_writes` runs. `apply_writes` recovers the modified `IndexId` from
+    /// `document_id.internal_id()` and evicts that index from the cache.
+    fn modify_index(&self, ts: Timestamp) {
+        let write = DatabaseIndexWrite {
+            document_id: self.index_doc_id,
+            update: Update {
+                old: None,
+                new: None,
+            },
+            new_document: None,
+        };
+        self.write_log.add_write(
+            TabletIndexName::by_id(self.index_doc_id.tablet_id),
+            ts,
+            write.clone(),
+        );
+        let mut v = Vector::new();
+        v.push_back(write);
+        let writes_by_index = BTreeMap::from([(
+            TabletIndexName::by_id(self.index_doc_id.tablet_id),
+            WithHeapSize::from(v),
+        )]);
+        let index_id = self.index_id;
+        let index_name = self.index_name.clone();
+        self.handle
+            .apply_writes(&writes_by_index, &|n: &TabletIndexName| {
+                (*n == index_name).then_some(index_id)
+            });
     }
 }
 
@@ -166,13 +202,16 @@ fn setup_with_capacity(max_weight: u64) -> Ctx {
     let mut id_gen = TestIdGenerator::new();
 
     // _index.by_id — required by IndexRegistry::bootstrap
-    let idx_tablet = id_gen.system_table_id(&INDEX_TABLE).tablet_id;
+    let index_tablet = id_gen.system_table_id(&INDEX_TABLE).tablet_id;
     let by_id_doc = ResolvedDocument::new(
         id_gen.system_generate(&INDEX_TABLE),
         CreationTime::ONE,
-        IndexMetadata::new_enabled(GenericIndexName::by_id(idx_tablet), IndexedFields::by_id())
-            .try_into()
-            .unwrap(),
+        IndexMetadata::new_enabled(
+            GenericIndexName::by_id(index_tablet),
+            IndexedFields::by_id(),
+        )
+        .try_into()
+        .unwrap(),
     )
     .unwrap();
 
@@ -202,8 +241,7 @@ fn setup_with_capacity(max_weight: u64) -> Ctx {
 
     let write_log = Arc::new(MockWriteLogReader::new());
     let cache = IndexCache::new(max_weight);
-    let mut handle = cache.new_handle();
-    handle.set_write_log_reader(write_log.clone());
+    let handle = cache.new_handle().build(index_tablet, write_log.clone());
 
     Ctx {
         handle,
@@ -213,6 +251,7 @@ fn setup_with_capacity(max_weight: u64) -> Ctx {
         registry: Arc::new(registry),
         write_key,
         dummy_doc_id,
+        index_doc_id,
     }
 }
 

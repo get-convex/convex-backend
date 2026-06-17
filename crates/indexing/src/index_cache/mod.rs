@@ -51,9 +51,12 @@ use parking_lot::Mutex;
 use shuttle_dashmap::DashMap;
 #[cfg(feature = "shuttle-testing")]
 use shuttle_parking_lot::Mutex;
-use value::heap_size::{
-    HeapSize,
-    WithHeapSize,
+use value::{
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
+    TabletId,
 };
 
 use crate::{
@@ -79,7 +82,7 @@ pub trait WriteLogIndexReader: Send + Sync {
     /// Iterate over writes to an index after the given timestamp.
     fn iter_writes_after(
         &self,
-        index_name: TabletIndexName,
+        index_name: &TabletIndexName,
         ts: Timestamp,
     ) -> anyhow::Result<
         Option<
@@ -215,16 +218,6 @@ impl IndexIntervals {
     }
 }
 
-enum IntervalStatus {
-    Tracked,
-    /// The deployment entry is gone — expected when remove_deployment races
-    /// with an in-flight populate or get.
-    DeploymentGone,
-    /// Deployment entry present but interval missing — indicates a refcount
-    /// bug.
-    IntervalMissing,
-}
-
 /// Shared cache for index range reads up-to-date as of the latest commits.
 #[derive(Clone)]
 pub struct IndexCache {
@@ -293,13 +286,12 @@ impl IndexCache {
         }
     }
 
-    pub fn new_handle(&self) -> IndexCacheHandle {
+    pub fn new_handle(&self) -> IndexCacheHandleBuilder {
         let id = self.next_deployment_id.fetch_add(1, Ordering::SeqCst);
         assert_ne!(id, u32::MAX, "DeploymentId overflow");
-        IndexCacheHandle {
+        IndexCacheHandleBuilder {
             deployment_id: DeploymentId(id),
-            cache: self.clone(),
-            write_log_reader: None,
+            shared_cache: self.clone(),
         }
     }
 
@@ -326,26 +318,43 @@ impl IndexCache {
         log_index_cache_size(self.cache.weighted_size());
     }
 
-    fn check_interval_tracking(
+    /// Whether `(interval, order, max_size)` is currently registered for this
+    /// index, meaning apply_writes can still invalidate its cache entry. An
+    /// untracked entry must not be served: the deployment was removed, or the
+    /// index was modified (which untracks its intervals).
+    fn is_interval_tracked(
         index_to_intervals: &Arc<DashMap<DeploymentId, DashMap<IndexId, IndexIntervals>>>,
         deployment_id: DeploymentId,
         index_id: IndexId,
         interval: &Arc<Interval>,
         order: Order,
         max_size: usize,
-    ) -> IntervalStatus {
-        let deployment_intervals = index_to_intervals.get(&deployment_id);
-        let tracked = deployment_intervals
-            .as_ref()
+    ) -> bool {
+        index_to_intervals
+            .get(&deployment_id)
             .and_then(|d| d.get(&index_id).map(|iv| iv.value().clone()))
             .map(|iv| iv.contains(interval, order, max_size))
-            .unwrap_or(false);
-        if tracked {
-            IntervalStatus::Tracked
-        } else if deployment_intervals.is_none() {
-            IntervalStatus::DeploymentGone
-        } else {
-            IntervalStatus::IntervalMissing
+            .unwrap_or(false)
+    }
+}
+
+#[derive(Clone)]
+pub struct IndexCacheHandleBuilder {
+    pub deployment_id: DeploymentId,
+    shared_cache: IndexCache,
+}
+
+impl IndexCacheHandleBuilder {
+    pub fn build(
+        self,
+        index_tablet: TabletId,
+        write_log_reader: Arc<dyn WriteLogIndexReader>,
+    ) -> IndexCacheHandle {
+        IndexCacheHandle {
+            deployment_id: self.deployment_id,
+            index_tablet,
+            shared_cache: self.shared_cache,
+            write_log_reader,
         }
     }
 }
@@ -357,19 +366,28 @@ impl IndexCache {
 #[derive(Clone)]
 pub struct IndexCacheHandle {
     pub deployment_id: DeploymentId,
-    cache: IndexCache,
+    /// The `_index.by_id` index name for this deployment. Writes to this index
+    /// are modifications to index metadata, which evict the modified index
+    /// from the cache.
+    index_tablet: TabletId,
+    shared_cache: IndexCache,
     /// Write log reader is used to validate cache entries by reading the write
     /// log up to the latest timestamp during populate.
-    write_log_reader: Option<Arc<dyn WriteLogIndexReader>>,
+    write_log_reader: Arc<dyn WriteLogIndexReader>,
 }
 
 impl IndexCacheHandle {
-    pub fn set_write_log_reader(&mut self, reader: Arc<dyn WriteLogIndexReader>) {
-        self.write_log_reader = Some(reader);
+    pub fn remove_deployment(&self) {
+        self.shared_cache.remove_deployment(self.deployment_id);
     }
 
-    pub fn remove_deployment(&self) {
-        self.cache.remove_deployment(self.deployment_id);
+    fn remove_index(&self, index_id: &IndexId) {
+        self.shared_cache
+            .index_to_intervals
+            .entry(self.deployment_id)
+            .and_modify(|e| {
+                e.remove(index_id);
+            });
     }
 
     pub fn get(
@@ -389,41 +407,28 @@ impl IndexCacheHandle {
             max_size,
         };
         let result = self
-            .cache
+            .shared_cache
             .cache
             .get(&key)
             .and_then(|cached_interval| cached_interval.index_page_at_ts(ts));
-        if let Some((ref _index_page, cache_ts)) = result {
+        if let Some((ref _index_page, _cache_ts)) = result {
             // A ready entry must have its interval tracked so apply_writes can invalidate
-            // it. If the interval is missing, this entry is a zombie that would serve
-            // stale data — remove it and treat as a miss.
+            // it. If it isn't, this entry would serve stale data — remove it and treat as
+            // a miss.
             // DashMap lock is released before any moka call to maintain lock ordering.
-            match IndexCache::check_interval_tracking(
-                &self.cache.index_to_intervals,
+            if IndexCache::is_interval_tracked(
+                &self.shared_cache.index_to_intervals,
                 self.deployment_id,
                 index_id,
                 &interval,
                 order,
                 max_size,
             ) {
-                IntervalStatus::Tracked => {
-                    timer.add_label(StaticMetricLabel::new("status", "hit"));
-                },
-                IntervalStatus::DeploymentGone => {
-                    timer.add_label(StaticMetricLabel::new("status", "miss"));
-                    return None;
-                },
-                IntervalStatus::IntervalMissing => {
-                    tracing::error!(
-                        "IndexCache: ready entry found but interval not tracked — invalidating \
-                         zombie entry (deployment_id={:?}, index_id={index_id:?}, \
-                         cache_ts={cache_ts})",
-                        self.deployment_id
-                    );
-                    self.cache.cache.remove(key);
-                    timer.add_label(StaticMetricLabel::new("status", "miss"));
-                    return None;
-                },
+                timer.add_label(StaticMetricLabel::new("status", "hit"));
+            } else {
+                self.shared_cache.cache.remove(key);
+                timer.add_label(StaticMetricLabel::new("status", "miss"));
+                return None;
             }
         } else {
             timer.add_label(StaticMetricLabel::new("status", "miss"));
@@ -460,7 +465,10 @@ impl IndexCacheHandle {
         index_registry: &IndexRegistry,
     ) {
         let deployment_id = self.deployment_id;
-        let populate_id = self.cache.next_populate_id.fetch_add(1, Ordering::Relaxed);
+        let populate_id = self
+            .shared_cache
+            .next_populate_id
+            .fetch_add(1, Ordering::Relaxed);
         let mut timer = index_cache_populate_timer();
         let key = CacheKey {
             deployment_id,
@@ -471,7 +479,7 @@ impl IndexCacheHandle {
         };
         // Only insert if there's no existing entry — a prior entry with an earlier
         // begin_ts can serve a wider range of reads.
-        if self.cache.cache.contains_key(&key) {
+        if self.shared_cache.cache.contains_key(&key) {
             timer.add_label(StaticMetricLabel::new("result", "already_exists"));
             return;
         }
@@ -496,7 +504,7 @@ impl IndexCacheHandle {
             begin_ts: ts,
             populate_id,
         };
-        let result = self.cache.cache.compute(key.clone(), |maybe_entry| {
+        let result = self.shared_cache.cache.compute(key.clone(), |maybe_entry| {
             // Only insert if there's no existing entry — a prior entry with an earlier
             // begin_ts can serve a wider range of reads.
             if maybe_entry.is_some() {
@@ -510,7 +518,7 @@ impl IndexCacheHandle {
             return;
         }
 
-        self.cache
+        self.shared_cache
             .index_to_intervals
             .entry(deployment_id)
             .or_default()
@@ -518,15 +526,14 @@ impl IndexCacheHandle {
             .or_insert_with(IndexIntervals::new)
             .insert(interval.clone(), order, max_size);
 
-        let Ok(writes) = self
-            .write_log_reader
-            .as_ref()
-            .unwrap()
-            .iter_writes_after(index.name(), *ts)
-        else {
+        let (Ok(writes), Ok(index_table_writes)) = (
+            self.write_log_reader.iter_writes_after(&index.name(), *ts),
+            self.write_log_reader
+                .iter_writes_after(&TabletIndexName::by_id(self.index_tablet), *ts),
+        ) else {
             // Remove the cache entry. The eviction listener will remove from
             // index_to_intervals
-            self.cache.cache.remove(key);
+            self.shared_cache.cache.remove(key);
             timer.add_label(StaticMetricLabel::new("result", "out_of_retention"));
             return;
         };
@@ -548,43 +555,46 @@ impl IndexCacheHandle {
                 timer.add_label(StaticMetricLabel::new("result", "invalid"));
                 // Remove the cache entry. The eviction listener will remove from
                 // index_to_intervals
-                self.cache.cache.remove(key);
+                self.shared_cache.cache.remove(key);
                 return;
+            }
+        }
+        if let Some(index_table_writes) = index_table_writes {
+            for (_ts, writes) in index_table_writes {
+                for write in writes {
+                    if write.document_id.internal_id() == index_id.0 {
+                        timer.add_label(StaticMetricLabel::new("result", "invalid"));
+                        // Remove the cache entry. The eviction listener will remove from
+                        // index_to_intervals
+                        self.shared_cache.cache.remove(key);
+                        return;
+                    }
+                }
             }
         }
 
         // Phase 2 of 2PC: mark the cache entry as ready to serve reads if it's still
         // there. If it is missing, it was evicted by a concurrent call to
         // `apply_writes`.
-        self.cache.cache.compute(key, |maybe_entry| {
+        self.shared_cache.cache.compute(key, |maybe_entry| {
             if let Some(entry) = maybe_entry
                 && entry.value().begin_ts == ts
             {
-                // Remove if the interval is no longer registered. remove_deployment
-                // atomically removes the deployment entry before removing cache entries,
-                // so a concurrent populate may find the deployment gone — that's expected.
-                match IndexCache::check_interval_tracking(
-                    &self.cache.index_to_intervals,
+                // Drop the entry if its interval is no longer registered. Both causes
+                // are expected and benign: remove_deployment atomically removes the
+                // deployment entry before its cache entries, and a concurrent index
+                // modification untracks the index's intervals. Either way this populate's
+                // snapshot is no longer safe to serve, so remove it.
+                if !IndexCache::is_interval_tracked(
+                    &self.shared_cache.index_to_intervals,
                     deployment_id,
                     index_id,
                     &interval,
                     order,
                     max_size,
                 ) {
-                    IntervalStatus::Tracked => {},
-                    IntervalStatus::DeploymentGone => {
-                        timer.add_label(StaticMetricLabel::new("result", "invalid"));
-                        return Op::Remove;
-                    },
-                    IntervalStatus::IntervalMissing => {
-                        tracing::error!(
-                            "IndexCache invariant violated: interval not registered in \
-                             index_to_intervals but deployment entry is present \
-                             (deployment_id={deployment_id:?}, index_id={index_id:?})"
-                        );
-                        timer.add_label(StaticMetricLabel::new("result", "invalid"));
-                        return Op::Remove;
-                    },
+                    timer.add_label(StaticMetricLabel::new("result", "invalid"));
+                    return Op::Remove;
                 }
                 // Make sure we only mark our own entry as ready.
                 let is_own = entry.value().populate_id == populate_id;
@@ -607,7 +617,7 @@ impl IndexCacheHandle {
                 Op::Nop
             }
         });
-        log_index_cache_size(self.cache.cache.weighted_size());
+        log_index_cache_size(self.shared_cache.cache.weighted_size());
     }
 
     /// TODO: Remove when IndexCache is stable.
@@ -628,8 +638,8 @@ impl IndexCacheHandle {
             order,
             max_size,
         };
-        self.cache.cache.remove(key);
-        log_index_cache_size(self.cache.cache.weighted_size());
+        self.shared_cache.cache.remove(key);
+        log_index_cache_size(self.shared_cache.cache.weighted_size());
     }
 
     /// Apply index updates and new document value to the cache, invalidating
@@ -643,13 +653,21 @@ impl IndexCacheHandle {
         let _timer = cache_apply_writes_timer();
         let deployment_id = self.deployment_id;
         for (index_name, writes) in writes_by_index {
+            // When an index is modified, we remove it from the index_to_intervals map so it
+            // can't be queried again. Doesn't really matter if it is added, removed, or
+            // updated. If it's added, future populates will populate it.
+            if &TabletIndexName::by_id(self.index_tablet) == index_name {
+                for write in writes {
+                    self.remove_index(&IndexId(write.document_id.internal_id()))
+                }
+            }
             let Some(index_id) = (index_name_to_id)(index_name) else {
                 continue;
             };
             // Clone the Arc-backed IndexIntervals to avoid holding the DashMap
             // shard lock while iterating over writes.
             let Some(intervals) = self
-                .cache
+                .shared_cache
                 .index_to_intervals
                 .get(&deployment_id)
                 .and_then(|d| d.get(&index_id).map(|r| r.value().clone()))
@@ -669,7 +687,7 @@ impl IndexCacheHandle {
                         order,
                         max_size,
                     };
-                    self.cache.cache.remove(key.clone());
+                    self.shared_cache.cache.remove(key.clone());
                     tracing::debug!(
                         deployment_id = ?key.deployment_id,
                         "IndexCache::apply_writes invalidated entry"
@@ -678,7 +696,7 @@ impl IndexCacheHandle {
                 }
             }
         }
-        log_index_cache_size(self.cache.cache.weighted_size());
+        log_index_cache_size(self.shared_cache.cache.weighted_size());
     }
 }
 

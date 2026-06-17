@@ -133,7 +133,10 @@ use indexing::{
         NoInMemoryIndexes,
         TimestampedIndexCache,
     },
-    index_cache::IndexCacheHandle,
+    index_cache::{
+        IndexCacheHandle,
+        IndexCacheHandleBuilder,
+    },
     index_registry::IndexRegistry,
 };
 use itertools::Itertools;
@@ -963,7 +966,7 @@ impl<RT: Runtime> Database<RT> {
         searcher: Arc<dyn Searcher>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
-        mut index_cache_handle: IndexCacheHandle,
+        index_cache_handle: IndexCacheHandleBuilder,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
@@ -1024,7 +1027,10 @@ impl<RT: Runtime> Database<RT> {
 
         let persistence_reader = persistence.reader();
         let (log_owner, log_reader, log_writer) = new_write_log(*ts);
-        index_cache_handle.set_write_log_reader(Arc::new(log_reader.clone()));
+        let index_cache_handle = index_cache_handle.build(
+            bootstrap_metadata.index_tablet_id,
+            Arc::new(log_reader.clone()),
+        );
         let invalidation_callback = InvalidationMetricCallback::new();
         let subscriptions =
             SubscriptionsWorker::start(log_owner, runtime.clone(), invalidation_callback.clone());
