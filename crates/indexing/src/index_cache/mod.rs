@@ -72,6 +72,7 @@ use crate::{
         index_cache_populate_timer,
         log_index_cache_invalidation,
         log_index_cache_size,
+        log_index_cache_size_eviction,
     },
 };
 
@@ -256,6 +257,9 @@ impl IndexCache {
             })
             .max_capacity(max_weight)
             .eviction_listener(move |key: Arc<CacheKey>, _val, cause| {
+                if cause == RemovalCause::Size {
+                    log_index_cache_size_eviction();
+                }
                 // Skip in-place replacements for marking the cache entry as ready.
                 // The interval registration is unchanged in that case and the refcount
                 // shouldn't be decremented.

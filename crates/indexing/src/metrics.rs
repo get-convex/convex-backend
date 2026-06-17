@@ -81,6 +81,14 @@ pub fn log_index_cache_invalidation() {
     log_counter(&INDEX_CACHE_INVALIDATION_TOTAL, 1);
 }
 
+register_convex_counter!(
+    INDEX_CACHE_SIZE_EVICTION_TOTAL,
+    "Count of IndexCache entries evicted because the cache exceeded its capacity"
+);
+pub fn log_index_cache_size_eviction() {
+    log_counter(&INDEX_CACHE_SIZE_EVICTION_TOTAL, 1);
+}
+
 register_convex_histogram!(
     INDEX_CACHE_GET_SECONDS,
     "Time to execute IndexCache::get in seconds",
