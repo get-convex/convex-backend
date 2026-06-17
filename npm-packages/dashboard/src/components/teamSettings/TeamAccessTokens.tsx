@@ -1,4 +1,3 @@
-import { TeamAccessTokenResponse } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { LoadingTransition } from "@ui/Loading";
 import { AccessTokenListItem } from "components/AccessTokenListItem";
@@ -10,26 +9,43 @@ import { CreateTokenDialog } from "components/teamSettings/CreateTokenDialog";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useCurrentTeam } from "api/teams";
 import { Link } from "@ui/Link";
+import { PaginationControls } from "elements/PaginationControls";
+import {
+  CreateTeamAccessTokenArgs,
+  CreateTeamAccessTokenResponse,
+  TeamAccessTokenResponse,
+} from "@convex-dev/platform/managementApi";
 
 export function TeamAccessTokens({
   accessTokens,
   onCreateToken,
   canCreate,
   canDelete,
+  isLoading,
+  hasMore,
+  currentPage,
+  canGoPrevious,
+  onPreviousPage,
+  onNextPage,
 }: {
   accessTokens: TeamAccessTokenResponse[] | undefined;
-  onCreateToken: (args: {
-    tokenName: string;
-    expiresAt?: number;
-  }) => Promise<void>;
+  onCreateToken: (
+    args: CreateTeamAccessTokenArgs,
+  ) => Promise<CreateTeamAccessTokenResponse>;
   canCreate: boolean | undefined;
   canDelete: boolean | undefined;
+  isLoading: boolean;
+  hasMore: boolean;
+  currentPage: number;
+  canGoPrevious: boolean;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
 }) {
   const team = useCurrentTeam();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   return (
-    <Sheet>
-      <div className="mb-4 flex flex-col gap-2">
+    <Sheet className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-sm text-content-primary">
             These access tokens allow your team to access your Convex projects
@@ -83,37 +99,44 @@ export function TeamAccessTokens({
       <LoadingTransition
         loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
       >
-        {accessTokens !== undefined && (
-          <div className="mt-2 flex w-full flex-col gap-2 divide-y">
-            {team && accessTokens.length > 0 ? (
-              [...accessTokens]
-                .sort((a, b) => b.creationTime - a.creationTime)
-                .map((token) => (
+        {team && accessTokens !== undefined && (
+          <div className="flex w-full flex-col divide-y">
+            {accessTokens.length > 0
+              ? accessTokens.map((token) => (
                   <AccessTokenListItem
-                    kind="team"
                     key={token.name}
                     token={token}
-                    identifier={team.id.toString()}
-                    shouldShow={false}
-                    showMemberName={false}
+                    teamId={team.id}
                     canDelete={canDelete}
                   />
                 ))
-            ) : (
-              <div className="my-6 flex w-full justify-center text-content-secondary">
-                You have not created any team access tokens yet.
-              </div>
-            )}
+              : !isLoading && (
+                  <div className="my-6 flex w-full justify-center text-content-secondary">
+                    You have not created any team access tokens yet.
+                  </div>
+                )}
           </div>
         )}
       </LoadingTransition>
+      {accessTokens &&
+        accessTokens.length > 0 &&
+        (hasMore || canGoPrevious) && (
+          <PaginationControls
+            isCursorBasedPagination
+            currentPage={currentPage}
+            hasMore={hasMore}
+            pageSize={10}
+            onPageSizeChange={() => {}}
+            onPreviousPage={onPreviousPage}
+            onNextPage={onNextPage}
+            canGoPrevious={canGoPrevious}
+            showPageSize={false}
+          />
+        )}
       {showCreateDialog && (
         <CreateTokenDialog
           onClose={() => setShowCreateDialog(false)}
-          onSubmit={async (args) => {
-            await onCreateToken(args);
-            setShowCreateDialog(false);
-          }}
+          onSubmit={onCreateToken}
         />
       )}
     </Sheet>

@@ -57,10 +57,10 @@ import {
   useListCloudBackupsIfAvailable,
 } from "../../dashboard/src/api/backups";
 import {
-  useCreateTeamAccessToken,
   useDeployKeys,
   useDeleteDeployKey,
 } from "../../dashboard/src/api/accessTokens";
+import { useCreateTeamAccessToken } from "../../dashboard/src/api/teamAccessTokens";
 import {
   useCreateVanityDomain,
   useDeleteVanityDomain,

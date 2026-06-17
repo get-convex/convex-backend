@@ -1,15 +1,14 @@
 import {
   useTeamAccessTokens,
   useCreateTeamAccessToken,
-} from "api/accessTokens";
+} from "api/teamAccessTokens";
 import { useHasCustomRolePermission } from "api/roles";
 import { useProfile } from "api/profile";
 import { TeamResponse } from "generatedApi";
 import { TeamAccessTokens } from "components/teamSettings/TeamAccessTokens";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { teamTokenResource } from "lib/permissions";
-import React from "react";
-import { useAccessToken } from "hooks/useServerSideData";
+import React, { useState } from "react";
 
 export function TokensLayout({ team }: { team: TeamResponse }) {
   const profile = useProfile();
@@ -39,8 +38,36 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
     tokenResource,
     true,
   );
-  const [accessToken] = useAccessToken();
-  const teamAccessTokens = useTeamAccessTokens(team.id);
+  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
+    undefined,
+  );
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
+
+  const { data, isLoading } = useTeamAccessTokens(team.id, currentCursor);
+
+  const tokens = data?.items;
+  const hasMore = data?.pagination.hasMore ?? false;
+  const nextCursor = data?.pagination.nextCursor;
+  const currentPage = cursorHistory.length;
+
+  const handleNextPage = () => {
+    if (nextCursor) {
+      setCursorHistory((prev) => [...prev, nextCursor]);
+      setCurrentCursor(nextCursor);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (cursorHistory.length > 1) {
+      const newHistory = [...cursorHistory];
+      newHistory.pop();
+      setCursorHistory(newHistory);
+      setCurrentCursor(newHistory[newHistory.length - 1]);
+    }
+  };
+
   const createTeamAccessToken = useCreateTeamAccessToken(team.id);
 
   if (canViewTokens === false) {
@@ -59,21 +86,6 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
     );
   }
 
-  const handleCreateToken = async ({
-    tokenName,
-    expiresAt,
-  }: {
-    tokenName: string;
-    expiresAt?: number;
-  }) => {
-    await createTeamAccessToken({
-      authnToken: accessToken,
-      deviceName: tokenName,
-      teamId: team.id,
-      ...(expiresAt !== undefined && { expiresAt }),
-    });
-  };
-
   return (
     <div className="flex min-w-fit flex-col">
       <div className="sticky top-0 z-10 bg-background-primary">
@@ -82,10 +94,16 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
         </div>
       </div>
       <TeamAccessTokens
-        accessTokens={teamAccessTokens}
-        onCreateToken={handleCreateToken}
+        accessTokens={tokens}
+        onCreateToken={createTeamAccessToken}
         canCreate={canCreateTokens}
         canDelete={canDeleteTokens}
+        isLoading={isLoading}
+        hasMore={hasMore}
+        currentPage={currentPage}
+        canGoPrevious={cursorHistory.length > 1}
+        onPreviousPage={handlePrevPage}
+        onNextPage={handleNextPage}
       />
     </div>
   );
