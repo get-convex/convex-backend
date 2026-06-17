@@ -277,11 +277,20 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn performance_now(&mut self) -> anyhow::Result<Duration> {
-        anyhow::bail!(not_allowed_in_udf("Performance", "the Performance API"))
+        match self.udf_type {
+            // Queries must be deterministic, so now() is fixed at its value at the
+            // start of execution and doesn't observe elapsed time.
+            UdfType::Query => self.phase.performance_now_fixed(),
+            UdfType::Mutation => self.phase.performance_now_incrementing(),
+            _ => anyhow::bail!("Expected a query or mutation"),
+        }
     }
 
     fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
-        anyhow::bail!(not_allowed_in_udf("Performance", "the Performance API"))
+        match self.udf_type {
+            UdfType::Query | UdfType::Mutation => self.phase.performance_time_origin(),
+            _ => anyhow::bail!("Expected a query or mutation"),
+        }
     }
 
     fn get_environment_variable(

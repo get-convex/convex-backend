@@ -167,17 +167,11 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
     }
 
     fn performance_now(&mut self) -> anyhow::Result<Duration> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoPerformanceDuringImport",
-            "The Performance API is not supported at import time"
-        ))
+        Ok(Duration::ZERO)
     }
 
     fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoPerformanceDuringImport",
-            "The Performance API is not supported at import time"
-        ))
+        Ok(self.unix_timestamp)
     }
 
     fn get_environment_variable(
