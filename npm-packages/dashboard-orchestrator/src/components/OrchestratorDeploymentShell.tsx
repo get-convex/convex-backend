@@ -212,6 +212,7 @@ export function OrchestratorDeploymentShell({
     // links and break the chrome).
     deploymentBackendOwnsAdminKeys: true,
     workosIntegrationEnabled: false,
+    logStreamTopicFiltersEnabled: true,
     connectionStateCheckIntervalMs: 2500,
   };
 
