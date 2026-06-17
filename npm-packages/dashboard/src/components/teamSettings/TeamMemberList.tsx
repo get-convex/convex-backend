@@ -1,4 +1,8 @@
-import { TeamResponse, InvitationResponse, TeamMember } from "generatedApi";
+import { TeamResponse } from "generatedApi";
+import {
+  InvitationResponse,
+  TeamMember,
+} from "@convex-dev/platform/managementApi";
 
 import { Sheet } from "@ui/Sheet";
 import { LoadingTransition } from "@ui/Loading";

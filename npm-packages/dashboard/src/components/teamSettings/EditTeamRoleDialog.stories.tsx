@@ -1,6 +1,9 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import type { CustomRoleResponse } from "@convex-dev/platform/managementApi";
-import { TeamMember, TeamResponse } from "generatedApi";
+import type {
+  CustomRoleResponse,
+  TeamMember,
+} from "@convex-dev/platform/managementApi";
+import { TeamResponse } from "generatedApi";
 
 import { EditTeamRoleDialog } from "./EditTeamRoleDialog";
 

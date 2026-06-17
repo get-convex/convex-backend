@@ -1,6 +1,7 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { screen, expect, mocked, userEvent, waitFor } from "storybook/test";
-import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { useProfile } from "api/profile";
 import { useTeamMembers } from "api/teams";
@@ -27,26 +28,31 @@ const mockProject: ProjectDetails = {
 
 let nextId = 0;
 function createCloudDeployment(
-  overrides: Partial<Extract<DeploymentResponse, { kind: "cloud" }>> & {
+  overrides: Partial<Extract<PlatformDeploymentResponse, { kind: "cloud" }>> & {
     name: string;
-    deploymentType: DeploymentResponse["deploymentType"];
+    deploymentType: PlatformDeploymentResponse["deploymentType"];
   },
-): DeploymentResponse {
+): PlatformDeploymentResponse {
   return {
     id: nextId++,
     createTime: Date.now(),
     projectId: 1,
     kind: "cloud",
-    deploymentClass: "s16",
+    class: "s16",
+    deploymentUrl: "",
     region: "us-east-1",
     isDefault: false,
     reference: overrides.name,
     ...overrides,
-  } as DeploymentResponse;
+  } as PlatformDeploymentResponse;
 }
 
 // Wrapper component to show the menu in an open state
-function MenuWrapper({ deployments }: { deployments: DeploymentResponse[] }) {
+function MenuWrapper({
+  deployments,
+}: {
+  deployments: PlatformDeploymentResponse[];
+}) {
   return (
     <div style={{ width: "400px", height: "500px" }}>
       <ContextMenu target={{ x: 20, y: 20 }} onClose={() => {}}>

@@ -196,22 +196,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_members_for_team"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/remove_member": {
         parameters: {
             query?: never;
@@ -500,38 +484,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/deployments/{deployment_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_deployment_by_id"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/teams/{team_id}/update_member_role": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["update_member_role"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/get_project_roles": {
         parameters: {
             query?: never;
@@ -804,22 +756,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/access_tokens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_team_access_tokens"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/app_access_tokens": {
         parameters: {
             query?: never;
@@ -828,38 +764,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get_team_app_access_tokens"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/instances/{deployment_name}/access_tokens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_deployment_access_tokens"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/access_tokens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_project_access_tokens"];
         put?: never;
         post?: never;
         delete?: never;
@@ -878,22 +782,6 @@ export interface paths {
         get: operations["get_project_app_access_tokens"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/teams/delete_access_token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["delete_team_access_token"];
         delete?: never;
         options?: never;
         head?: never;
@@ -929,38 +817,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["authorize_app"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/teams/{team_id}/invites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["pending_invitations_for_team"];
-        put?: never;
-        post: operations["create_invitation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/teams/{team_id}/invites/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["cancel_invitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1330,23 +1186,6 @@ export interface paths {
         put?: never;
         /** @description Unlink a secondary identity from a user's account */
         post: operations["unlink_identity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/list_identities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description List all identities for a user */
-        get: operations["list_identities"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1855,9 +1694,6 @@ export interface components {
     schemas: {
         /** Format: int64 */
         AccessTokenId: number;
-        ActionOnAccessTokenArgs: {
-            accessToken: string;
-        };
         Address: {
             city?: string | null;
             country?: string | null;
@@ -1924,13 +1760,6 @@ export interface components {
             cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
         };
-        AuthIdentityResponse: {
-            connection: string;
-            isPrimary: boolean;
-            parentUserId?: string | null;
-            provider: string;
-            userId: string;
-        };
         AuthorizeAppArgs: {
             /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
@@ -1980,9 +1809,6 @@ export interface components {
             email: string;
             name: string;
         };
-        CancelInvitationArgs: {
-            email: string;
-        };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
         };
@@ -2026,17 +1852,6 @@ export interface components {
             /** Format: int64 */
             expirationDeltaSecs?: number | null;
             includeStorage?: boolean | null;
-        };
-        CreateInvitationArgs: {
-            /** @description Custom roles to attach when `role` is `custom`. Required and non-empty
-             *     in that case, and forbidden otherwise. */
-            customRoles?: components["schemas"]["CustomRoleId"][] | null;
-            email: string;
-            /** @description Role to assign when the invitation is accepted.
-             *     Pass `custom` together with a non-empty `customRoles` list to invite a
-             *     member into a custom role; `admin` and `developer` must be sent without
-             *     `customRoles`. */
-            role: components["schemas"]["Role"];
         };
         CreateProjectArgs: {
             deploymentClass?: string | null;
@@ -2118,56 +1933,6 @@ export interface components {
         DeploymentId: number;
         /** @description An identifier that uniquely identifies this deployment within the project. */
         DeploymentReference: string;
-        DeploymentResponse: {
-            /** Format: int64 */
-            createTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            dashboardEditConfirmation?: boolean | null;
-            /** @description The deployment class for this deployment. */
-            deploymentClass: string;
-            deploymentType: components["schemas"]["DeploymentType"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this deployment will be
-             *     deleted. Preview deployments have this set by default unless
-             *     overridden.
-             */
-            expiresAt?: number | null;
-            id: components["schemas"]["DeploymentId"];
-            isDefault: components["schemas"]["IsDefaultDeployment"];
-            /** @enum {string} */
-            kind: "cloud";
-            /** Format: int64 */
-            lastDeployTime?: number | null;
-            name: string;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            projectId: components["schemas"]["ProjectId"];
-            reference: components["schemas"]["DeploymentReference"];
-            region: components["schemas"]["RegionName"];
-            /** @description Whether to send function logs to the client. If `null`, the
-             *     deployment-type default is used (true for dev/preview, false for
-             *     prod). */
-            sendLogsToClient?: boolean | null;
-        } | {
-            /** Format: int64 */
-            createTime: number;
-            creator: components["schemas"]["MemberId"];
-            deploymentType: components["schemas"]["DeploymentType"];
-            deviceName: components["schemas"]["DeviceName"];
-            /** Format: int64 */
-            id: number;
-            isActive: boolean;
-            isDefault: components["schemas"]["IsDefaultDeployment"];
-            /** @enum {string} */
-            kind: "local";
-            /** Format: int64 */
-            lastUpdateTime: number;
-            name: string;
-            /** Format: int32 */
-            port: number;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            projectId: components["schemas"]["ProjectId"];
-        };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeploymentWorkOSEnvironmentInfo: {
@@ -2318,14 +2083,6 @@ export interface components {
              *     eligible for re-invitation) */
             adminEmail?: string | null;
             eligibleEmails: string[];
-        };
-        InvitationResponse: {
-            /** @description The custom roles attached to this invitation. Present iff `role` is
-             *     `custom`. */
-            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
-            email: string;
-            expired: boolean;
-            role: components["schemas"]["Role"];
         };
         InviteWorkOSTeamMemberRequest: {
             /** @description Email address to invite to the WorkOS team,
@@ -2738,21 +2495,6 @@ export interface components {
         };
         /** @enum {string} */
         SpendingLimitsState: "Running" | "Disabled" | "Warning";
-        TeamAccessTokenResponse: {
-            accessToken: string;
-            /** Format: int64 */
-            creationTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            /** Format: int64 */
-            expiresAt?: number | null;
-            /** @description Stable identifier for this access token. */
-            id: components["schemas"]["AccessTokenId"];
-            /** Format: int64 */
-            lastUsedTime?: number | null;
-            name: components["schemas"]["DeviceName"];
-            permissions?: string[] | null;
-            serializedAccessToken: components["schemas"]["SerializedAccessToken"];
-        };
         TeamCurrentBillingPeriodResponse: {
             end: string;
             start: string;
@@ -2800,26 +2542,6 @@ export interface components {
         };
         /** Format: int64 */
         TeamId: number;
-        TeamMember: {
-            /** @description The custom roles attached to this team member. Present iff
-             *     `role` is `custom`. */
-            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
-            /** @description The email of the team member */
-            email: string;
-            id: components["schemas"]["MemberId"];
-            /** @description The name of the team member */
-            name?: string | null;
-            /** @description The role of the team member. `custom` indicates the member's
-             *     permissions come from the attached `customRoles`. */
-            role: components["schemas"]["Role"];
-        };
-        /** @description A custom role attached to a team member, denormalized with the
-         *     role's display name so API consumers can render members without a
-         *     separate roles lookup. */
-        TeamMemberCustomRole: {
-            id: components["schemas"]["CustomRoleId"];
-            name: string;
-        };
         TeamName: string;
         TeamResponse: {
             creator?: null | components["schemas"]["MemberId"];
@@ -2861,10 +2583,6 @@ export interface components {
         };
         UpdateEnvironmentVariables: {
             changes: components["schemas"]["UpdateEnvironmentVariable"][];
-        };
-        UpdateMemberRoleArgs: {
-            memberId: components["schemas"]["MemberId"];
-            role: components["schemas"]["Role"];
         };
         UpdateOauthAppArgs: {
             appName?: null | components["schemas"]["AppName"];
@@ -2950,7 +2668,6 @@ export interface components {
     pathItems: never;
 }
 export type AccessTokenId = components['schemas']['AccessTokenId'];
-export type ActionOnAccessTokenArgs = components['schemas']['ActionOnAccessTokenArgs'];
 export type Address = components['schemas']['Address'];
 export type AdminKey = components['schemas']['AdminKey'];
 export type AppAccessTokenResponse = components['schemas']['AppAccessTokenResponse'];
@@ -2960,7 +2677,6 @@ export type AuditLogAction = components['schemas']['AuditLogAction'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
 export type AuditLogResponse = components['schemas']['AuditLogResponse'];
-export type AuthIdentityResponse = components['schemas']['AuthIdentityResponse'];
 export type AuthorizeAppArgs = components['schemas']['AuthorizeAppArgs'];
 export type AuthorizeAppMode = components['schemas']['AuthorizeAppMode'];
 export type AuthorizeArgs = components['schemas']['AuthorizeArgs'];
@@ -2969,7 +2685,6 @@ export type AuthorizeDiscordAccountRequest = components['schemas']['AuthorizeDis
 export type AuthorizeResponse = components['schemas']['AuthorizeResponse'];
 export type AvailableWorkOsTeamEmailsResponse = components['schemas']['AvailableWorkOSTeamEmailsResponse'];
 export type BillingContactResponse = components['schemas']['BillingContactResponse'];
-export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
 export type ChangeSubscriptionPlanArgs = components['schemas']['ChangeSubscriptionPlanArgs'];
 export type CheckOauthAppArgs = components['schemas']['CheckOauthAppArgs'];
 export type CheckProjectEnvironmentHealthRequest = components['schemas']['CheckProjectEnvironmentHealthRequest'];
@@ -2977,7 +2692,6 @@ export type CloudBackupId = components['schemas']['CloudBackupId'];
 export type CloudBackupResponse = components['schemas']['CloudBackupResponse'];
 export type CloudDeploymentName = components['schemas']['CloudDeploymentName'];
 export type ConfigurePeriodicBackupArgs = components['schemas']['ConfigurePeriodicBackupArgs'];
-export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs'];
 export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
 export type CreateProjectResponse = components['schemas']['CreateProjectResponse'];
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
@@ -2992,7 +2706,6 @@ export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOS
 export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentReference = components['schemas']['DeploymentReference'];
-export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeploymentWorkOsEnvironmentInfo = components['schemas']['DeploymentWorkOSEnvironmentInfo'];
 export type DeploymentWorkOsEnvironmentResponse = components['schemas']['DeploymentWorkOSEnvironmentResponse'];
@@ -3022,7 +2735,6 @@ export type HasFailedPaymentResponse = components['schemas']['HasFailedPaymentRe
 export type IdentityResponse = components['schemas']['IdentityResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
-export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOSTeamMemberRequest'];
 export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOSTeamMemberResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
@@ -3087,12 +2799,9 @@ export type SerializedAccessToken = components['schemas']['SerializedAccessToken
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
 export type SpendingLimitsState = components['schemas']['SpendingLimitsState'];
-export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResponse'];
 export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
 export type TeamId = components['schemas']['TeamId'];
-export type TeamMember = components['schemas']['TeamMember'];
-export type TeamMemberCustomRole = components['schemas']['TeamMemberCustomRole'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
@@ -3104,7 +2813,6 @@ export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddre
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
 export type UpdateEnvironmentVariable = components['schemas']['UpdateEnvironmentVariable'];
 export type UpdateEnvironmentVariables = components['schemas']['UpdateEnvironmentVariables'];
-export type UpdateMemberRoleArgs = components['schemas']['UpdateMemberRoleArgs'];
 export type UpdateOauthAppArgs = components['schemas']['UpdateOauthAppArgs'];
 export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethodArgs'];
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
@@ -3401,27 +3109,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamResponse"];
-                };
-            };
-        };
-    };
-    get_members_for_team: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamMember"][];
                 };
             };
         };
@@ -3849,52 +3536,6 @@ export interface operations {
             };
         };
     };
-    get_deployment_by_id: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: components["schemas"]["TeamId"];
-                /** @description Can be a deployment's id (integer) or name (string) */
-                deployment_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeploymentResponse"];
-                };
-            };
-        };
-    };
-    update_member_role: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateMemberRoleArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     get_project_roles_for_team: {
         parameters: {
             query?: never;
@@ -4256,27 +3897,6 @@ export interface operations {
             };
         };
     };
-    get_team_access_tokens: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamAccessTokenResponse"][];
-                };
-            };
-        };
-    };
     get_team_app_access_tokens: {
         parameters: {
             query?: never;
@@ -4294,48 +3914,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppAccessTokenResponse"][];
-                };
-            };
-        };
-    };
-    get_deployment_access_tokens: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamAccessTokenResponse"][];
-                };
-            };
-        };
-    };
-    get_project_access_tokens: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamAccessTokenResponse"][];
                 };
             };
         };
@@ -4358,27 +3936,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AppAccessTokenResponse"][];
                 };
-            };
-        };
-    };
-    delete_team_access_token: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ActionOnAccessTokenArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -4425,73 +3982,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthorizeCodeResponse"];
                 };
-            };
-        };
-    };
-    pending_invitations_for_team: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvitationResponse"][];
-                };
-            };
-        };
-    };
-    create_invitation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInvitationArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    cancel_invitation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CancelInvitationArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -4998,25 +4488,6 @@ export interface operations {
             };
         };
         responses: never;
-    };
-    list_identities: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthIdentityResponse"][];
-                };
-            };
-        };
     };
     identities: {
         parameters: {

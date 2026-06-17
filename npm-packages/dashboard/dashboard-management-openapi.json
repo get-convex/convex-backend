@@ -278,34 +278,6 @@
         }
       }
     },
-    "/teams/{team_id}/members": {
-      "get": {
-        "operationId": "get_members_for_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamMember"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_id}/remove_member": {
       "post": {
         "operationId": "remove_member_from_team",
@@ -871,71 +843,6 @@
         }
       }
     },
-    "/teams/{team_id}/deployments/{deployment_id}": {
-      "get": {
-        "operationId": "get_deployment_by_id",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/TeamId"
-            }
-          },
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "Can be a deployment's id (integer) or name (string)",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/update_member_role": {
-      "post": {
-        "operationId": "update_member_role",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateMemberRoleArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/teams/{team_id}/get_project_roles": {
       "get": {
         "operationId": "get_project_roles_for_team",
@@ -1365,34 +1272,6 @@
         }
       }
     },
-    "/teams/{team_id}/access_tokens": {
-      "get": {
-        "operationId": "get_team_access_tokens",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_id}/app_access_tokens": {
       "get": {
         "operationId": "get_team_app_access_tokens",
@@ -1413,65 +1292,6 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/AppAccessTokenResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/access_tokens": {
-      "get": {
-        "operationId": "get_deployment_access_tokens",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/access_tokens": {
-      "get": {
-        "operationId": "get_project_access_tokens",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
                   }
                 }
               }
@@ -1504,26 +1324,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/teams/delete_access_token": {
-      "post": {
-        "operationId": "delete_team_access_token",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ActionOnAccessTokenArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
           }
         }
       }
@@ -1579,88 +1379,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/invites": {
-      "get": {
-        "operationId": "pending_invitations_for_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/InvitationResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "create_invitation",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateInvitationArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/invites/cancel": {
-      "post": {
-        "operationId": "cancel_invitation",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CancelInvitationArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
           }
         }
       }
@@ -2370,27 +2088,6 @@
           "required": true
         },
         "responses": {}
-      }
-    },
-    "/list_identities": {
-      "get": {
-        "description": "List all identities for a user",
-        "operationId": "list_identities",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AuthIdentityResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/identities": {
@@ -3303,17 +3000,6 @@
         "format": "int64",
         "minimum": 0
       },
-      "ActionOnAccessTokenArgs": {
-        "type": "object",
-        "required": [
-          "accessToken"
-        ],
-        "properties": {
-          "accessToken": {
-            "type": "string"
-          }
-        }
-      },
       "Address": {
         "type": "object",
         "properties": {
@@ -3651,35 +3337,6 @@
           }
         }
       },
-      "AuthIdentityResponse": {
-        "type": "object",
-        "required": [
-          "connection",
-          "userId",
-          "provider",
-          "isPrimary"
-        ],
-        "properties": {
-          "connection": {
-            "type": "string"
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "parentUserId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "provider": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string"
-          }
-        }
-      },
       "AuthorizeAppArgs": {
         "type": "object",
         "required": [
@@ -3899,18 +3556,6 @@
           }
         }
       },
-      "CancelInvitationArgs": {
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "properties": {
-          "email": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      },
       "ChangeSubscriptionPlanArgs": {
         "type": "object",
         "required": [
@@ -4039,32 +3684,6 @@
               "boolean",
               "null"
             ]
-          }
-        }
-      },
-      "CreateInvitationArgs": {
-        "type": "object",
-        "required": [
-          "email",
-          "role"
-        ],
-        "properties": {
-          "customRoles": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/CustomRoleId"
-            },
-            "description": "Custom roles to attach when `role` is `custom`. Required and non-empty\nin that case, and forbidden otherwise."
-          },
-          "email": {
-            "type": "string"
-          },
-          "role": {
-            "$ref": "#/components/schemas/Role",
-            "description": "Role to assign when the invitation is accepted.\nPass `custom` together with a non-empty `customRoles` list to invite a\nmember into a custom role; `admin` and `developer` must be sent without\n`customRoles`."
           }
         }
       },
@@ -4378,183 +3997,6 @@
       "DeploymentReference": {
         "type": "string",
         "description": "An identifier that uniquely identifies this deployment within the project."
-      },
-      "DeploymentResponse": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "id",
-              "name",
-              "createTime",
-              "deploymentType",
-              "projectId",
-              "region",
-              "isDefault",
-              "reference",
-              "deploymentClass",
-              "kind"
-            ],
-            "properties": {
-              "createTime": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "creator": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MemberId"
-                  }
-                ]
-              },
-              "dashboardEditConfirmation": {
-                "type": [
-                  "boolean",
-                  "null"
-                ]
-              },
-              "deploymentClass": {
-                "type": "string",
-                "description": "The deployment class for this deployment."
-              },
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType"
-              },
-              "expiresAt": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "int64",
-                "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
-              },
-              "id": {
-                "$ref": "#/components/schemas/DeploymentId"
-              },
-              "isDefault": {
-                "$ref": "#/components/schemas/IsDefaultDeployment"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "cloud"
-                ]
-              },
-              "lastDeployTime": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "int64"
-              },
-              "name": {
-                "type": "string"
-              },
-              "previewIdentifier": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
-                  }
-                ]
-              },
-              "projectId": {
-                "$ref": "#/components/schemas/ProjectId"
-              },
-              "reference": {
-                "$ref": "#/components/schemas/DeploymentReference"
-              },
-              "region": {
-                "$ref": "#/components/schemas/RegionName"
-              },
-              "sendLogsToClient": {
-                "type": [
-                  "boolean",
-                  "null"
-                ],
-                "description": "Whether to send function logs to the client. If `null`, the\ndeployment-type default is used (true for dev/preview, false for\nprod)."
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "id",
-              "name",
-              "createTime",
-              "deploymentType",
-              "projectId",
-              "creator",
-              "port",
-              "lastUpdateTime",
-              "deviceName",
-              "isActive",
-              "isDefault",
-              "kind"
-            ],
-            "properties": {
-              "createTime": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "creator": {
-                "$ref": "#/components/schemas/MemberId"
-              },
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType"
-              },
-              "deviceName": {
-                "$ref": "#/components/schemas/DeviceName"
-              },
-              "id": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "isActive": {
-                "type": "boolean"
-              },
-              "isDefault": {
-                "$ref": "#/components/schemas/IsDefaultDeployment"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "local"
-                ]
-              },
-              "lastUpdateTime": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "name": {
-                "type": "string"
-              },
-              "port": {
-                "type": "integer",
-                "format": "int32",
-                "minimum": 0
-              },
-              "previewIdentifier": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
-                  }
-                ]
-              },
-              "projectId": {
-                "$ref": "#/components/schemas/ProjectId"
-              }
-            }
-          }
-        ]
       },
       "DeploymentType": {
         "type": "string",
@@ -5137,35 +4579,6 @@
             "items": {
               "type": "string"
             }
-          }
-        }
-      },
-      "InvitationResponse": {
-        "type": "object",
-        "required": [
-          "email",
-          "expired",
-          "role"
-        ],
-        "properties": {
-          "customRoles": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/TeamMemberCustomRole"
-            },
-            "description": "The custom roles attached to this invitation. Present iff `role` is\n`custom`."
-          },
-          "email": {
-            "type": "string"
-          },
-          "expired": {
-            "type": "boolean"
-          },
-          "role": {
-            "$ref": "#/components/schemas/Role"
           }
         }
       },
@@ -6562,68 +5975,6 @@
           "Warning"
         ]
       },
-      "TeamAccessTokenResponse": {
-        "type": "object",
-        "required": [
-          "id",
-          "accessToken",
-          "name",
-          "creationTime",
-          "serializedAccessToken"
-        ],
-        "properties": {
-          "accessToken": {
-            "type": "string"
-          },
-          "creationTime": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "creator": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MemberId"
-              }
-            ]
-          },
-          "expiresAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          },
-          "id": {
-            "$ref": "#/components/schemas/AccessTokenId",
-            "description": "Stable identifier for this access token."
-          },
-          "lastUsedTime": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          },
-          "name": {
-            "$ref": "#/components/schemas/DeviceName"
-          },
-          "permissions": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "serializedAccessToken": {
-            "$ref": "#/components/schemas/SerializedAccessToken"
-          }
-        }
-      },
       "TeamCurrentBillingPeriodResponse": {
         "type": "object",
         "required": [
@@ -6774,60 +6125,6 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
-      },
-      "TeamMember": {
-        "type": "object",
-        "required": [
-          "id",
-          "email",
-          "role"
-        ],
-        "properties": {
-          "customRoles": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/TeamMemberCustomRole"
-            },
-            "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
-          },
-          "email": {
-            "type": "string",
-            "description": "The email of the team member"
-          },
-          "id": {
-            "$ref": "#/components/schemas/MemberId"
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The name of the team member"
-          },
-          "role": {
-            "$ref": "#/components/schemas/Role",
-            "description": "The role of the team member. `custom` indicates the member's\npermissions come from the attached `customRoles`."
-          }
-        }
-      },
-      "TeamMemberCustomRole": {
-        "type": "object",
-        "description": "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
-        "required": [
-          "id",
-          "name"
-        ],
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/CustomRoleId"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
       },
       "TeamName": {
         "type": "string"
@@ -7030,22 +6327,6 @@
             }
           }
         }
-      },
-      "UpdateMemberRoleArgs": {
-        "type": "object",
-        "required": [
-          "memberId",
-          "role"
-        ],
-        "properties": {
-          "memberId": {
-            "$ref": "#/components/schemas/MemberId"
-          },
-          "role": {
-            "$ref": "#/components/schemas/Role"
-          }
-        },
-        "additionalProperties": false
       },
       "UpdateOauthAppArgs": {
         "type": "object",

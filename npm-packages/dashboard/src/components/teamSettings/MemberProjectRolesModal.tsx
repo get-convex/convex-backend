@@ -11,8 +11,8 @@ import type {
   ProjectMemberRoleResponse,
   ProjectDetails,
   UpdateProjectRolesArgs,
-  TeamMember,
 } from "generatedApi";
+import type { TeamMember } from "@convex-dev/platform/managementApi";
 import { Link } from "@ui/Link";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { usePaginatedProjects } from "api/projects";
