@@ -5,6 +5,7 @@ use std::{
 };
 
 use common::types::{
+    AccessTokenId,
     DeploymentClass,
     DeploymentId,
     DeploymentType,
@@ -129,6 +130,10 @@ pub struct AccessTokenDeploymentAuthResponse {
     pub is_read_only: Option<bool>,
     #[serde(default)]
     pub allowed_ops: Option<Vec<DeploymentOp>>,
+    #[serde(default)]
+    pub token_id: Option<AccessTokenId>,
+    #[serde(default)]
+    pub app_client_id: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]

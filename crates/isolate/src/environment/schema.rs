@@ -102,17 +102,11 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
     }
 
     fn performance_now(&mut self) -> anyhow::Result<Duration> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoPerformanceInSchema",
-            "The Performance API is not supported when evaluating schema"
-        ))
+        Ok(Duration::ZERO)
     }
 
     fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoPerformanceInSchema",
-            "The Performance API is not supported when evaluating schema"
-        ))
+        Ok(self.unix_timestamp)
     }
 
     fn get_environment_variable(

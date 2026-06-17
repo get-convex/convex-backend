@@ -19,7 +19,10 @@ use serde_json::Value as JsonValue;
 use value::TableName;
 
 pub use self::{
-    performance::PerformanceTimeOrigin,
+    performance::{
+        performance_unsupported,
+        PerformanceApi,
+    },
     promise::{
         resolve_promise,
         resolve_promise_allow_all_errors,

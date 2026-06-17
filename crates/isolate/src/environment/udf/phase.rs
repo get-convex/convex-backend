@@ -6,6 +6,7 @@ use std::{
     },
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -71,7 +72,11 @@ struct ComponentEnvCtx {
 
 use crate::{
     environment::{
-        helpers::Phase,
+        helpers::{
+            performance_unsupported,
+            PerformanceApi,
+            Phase,
+        },
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
@@ -114,6 +119,7 @@ enum UdfPreloaded {
         observed_rng_during_execution: bool,
         unix_timestamp: Option<UnixTimestamp>,
         observed_time_during_execution: bool,
+        performance_api: Option<PerformanceApi>,
         observed_identity_during_execution: bool,
         root_env_vars: Option<PreloadedEnvironmentVariables>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -282,6 +288,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             observed_rng_during_execution: false,
             unix_timestamp,
             observed_time_during_execution: false,
+            performance_api: unix_timestamp.map(PerformanceApi::new),
             observed_identity_during_execution: false,
             root_env_vars,
             system_env_vars,
@@ -494,6 +501,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         let UdfPreloaded::Ready {
             ref mut rng,
             ref mut unix_timestamp,
+            ref mut performance_api,
             ..
         } = self.preloaded
         else {
@@ -502,6 +510,9 @@ impl<RT: Runtime> UdfPhase<RT> {
         self.phase = Phase::Executing;
         *rng = Some(ChaCha12Rng::from_seed(rng_seed));
         *unix_timestamp = Some(execution_unix_timestamp);
+        if let Some(performance_api) = performance_api {
+            performance_api.begin_execution(&self.rt, execution_unix_timestamp)?;
+        }
         Ok(())
     }
 
@@ -596,6 +607,59 @@ impl<RT: Runtime> UdfPhase<RT> {
             ));
         };
         Ok(unix_timestamp)
+    }
+
+    pub fn performance_now_incrementing(&mut self) -> anyhow::Result<Duration> {
+        let UdfPreloaded::Ready {
+            performance_api,
+            observed_time_during_execution,
+            ..
+        } = &mut self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        match (&self.phase, &*performance_api) {
+            (Phase::Importing, Some(PerformanceApi::Importing(api))) => Ok(api.now()),
+            (Phase::Executing, Some(PerformanceApi::Executing(api))) => {
+                *observed_time_during_execution = true;
+                Ok(api.now_incrementing(&self.rt))
+            },
+            (_, None) => anyhow::bail!(performance_unsupported()),
+            _ => anyhow::bail!("performance API state does not match phase"),
+        }
+    }
+
+    pub fn performance_now_fixed(&mut self) -> anyhow::Result<Duration> {
+        let UdfPreloaded::Ready {
+            performance_api,
+            observed_time_during_execution,
+            ..
+        } = &mut self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        match (&self.phase, &*performance_api) {
+            (Phase::Importing, Some(PerformanceApi::Importing(api))) => Ok(api.now()),
+            (Phase::Executing, Some(PerformanceApi::Executing(api))) => {
+                *observed_time_during_execution = true;
+                Ok(api.now_fixed())
+            },
+            (_, None) => anyhow::bail!(performance_unsupported()),
+            _ => anyhow::bail!("performance API state does not match phase"),
+        }
+    }
+
+    pub fn performance_time_origin(&self) -> anyhow::Result<UnixTimestamp> {
+        let UdfPreloaded::Ready {
+            performance_api, ..
+        } = &self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let Some(performance_api) = performance_api else {
+            anyhow::bail!(performance_unsupported());
+        };
+        Ok(performance_api.time_origin())
     }
 
     pub fn observe_rng(&mut self) {
