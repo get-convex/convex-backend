@@ -1155,7 +1155,7 @@ pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
 /// The maximum length of time to wait to start running a function (when the
 /// FUNRUN_ISOLATE_ACTIVE_THREADS limit is reached).
 pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 100)));
+    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 200)));
 
 /// Isolate worker usage at which the funrun load reporter's
 /// `effective_load` saturates to 1.0.
