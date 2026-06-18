@@ -11,6 +11,10 @@
 !/rust-toolchain
 !/self-hosted/*
 
+# mise version pins (the backend build reads these to install protoc)
+!/mise.toml
+!/mise.lock
+
 # Node/NPM-related includes
 !/.nvmrc
 !/npm-packages*/*
