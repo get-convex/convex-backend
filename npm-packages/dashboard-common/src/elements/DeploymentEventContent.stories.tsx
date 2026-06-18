@@ -39,6 +39,8 @@ export const CreateEnvironmentVariable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -54,6 +56,8 @@ export const DeleteEnvironmentVariable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -69,6 +73,8 @@ export const UpdateEnvironmentVariable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -85,6 +91,8 @@ export const ReplaceEnvironmentVariable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -117,6 +125,8 @@ export const UpdateIndexes: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -133,6 +143,8 @@ export const PausingDeploymentDeprecated: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -149,6 +161,8 @@ export const ResumingDeploymentDeprecated: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -162,6 +176,8 @@ export const UserUnpausedDeployment: Story = {
       metadata: {},
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -174,6 +190,8 @@ export const UserPausedDeployment: Story = {
       metadata: {},
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -190,6 +208,8 @@ export const SystemUnblockedDeployment: Story = {
       },
       memberName: "System",
       member_id: null,
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -206,6 +226,8 @@ export const SystemDisabledDeployment: Story = {
       },
       memberName: "System",
       member_id: null,
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -222,6 +244,8 @@ export const SystemSuspendedDeployment: Story = {
       },
       memberName: "System",
       member_id: null,
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -241,6 +265,8 @@ export const PushConfig: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -260,6 +286,8 @@ export const PushConfigWithVersionChange: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -279,6 +307,8 @@ export const PushConfigWithAuthChange: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -427,6 +457,8 @@ export const PushConfigWithChange: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -518,6 +550,8 @@ export const PushConfigWithAddition: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -599,6 +633,8 @@ export const PushConfigWithDeletion: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -661,6 +697,8 @@ export const PushConfigWithEnforcementChange: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1284,6 +1322,8 @@ export const PushConfigWithLargeDiff: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1307,6 +1347,8 @@ export const PushConfigWithCron: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1335,6 +1377,8 @@ export const SnapshotImportZip: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1363,6 +1407,8 @@ export const SnapshotImportCsv: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1379,6 +1425,8 @@ export const DeleteScheduledJobsTable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1396,6 +1444,8 @@ export const DeleteTables: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1413,6 +1463,8 @@ export const DeleteSingleTable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1430,6 +1482,8 @@ export const DeleteTablesInComponent: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1446,6 +1500,8 @@ export const DeleteComponent: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1462,6 +1518,8 @@ export const CancelAllScheduledFunctions: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1480,6 +1538,8 @@ export const CancelScheduledFunction: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1499,6 +1559,8 @@ export const RequestExport: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1514,6 +1576,8 @@ export const CancelExport: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1530,6 +1594,8 @@ export const SetExportExpiration: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1546,6 +1612,8 @@ export const CreateIntegration: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1562,6 +1630,8 @@ export const UpdateIntegration: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1578,6 +1648,8 @@ export const DeleteIntegration: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1596,6 +1668,8 @@ export const AddDocuments: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1614,6 +1688,8 @@ export const AddDocumentsInComponent: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1632,6 +1708,8 @@ export const DeleteDocuments: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1650,6 +1728,8 @@ export const UpdateSingleDocument: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1668,6 +1748,8 @@ export const UpdateDocumentsWithTable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1685,6 +1767,8 @@ export const CreateTable: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1702,6 +1786,8 @@ export const DeleteFiles: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1719,6 +1805,8 @@ export const DeleteSingleFile: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1741,6 +1829,8 @@ export const DeleteManyDocuments: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1757,6 +1847,8 @@ export const GenerateUploadUrl: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1784,6 +1876,8 @@ export const PushConfigWithComponents: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1812,6 +1906,8 @@ export const PushConfigWithComponentsAndMessage: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1843,6 +1939,8 @@ export const PushConfigWithNodeVersionFirstSet: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1874,6 +1972,8 @@ export const PushConfigWithNodeVersionUpdate: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };
@@ -1905,6 +2005,8 @@ export const PushConfigWithNodeVersionUnset: Story = {
       },
       memberName: "member@convex.dev",
       member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
     },
   },
 };

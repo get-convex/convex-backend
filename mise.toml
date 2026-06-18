@@ -1,0 +1,57 @@
+# Tool versions for Convex local dev + CI, managed by mise (https://mise.jdx.dev).
+# Node is NOT here -- it stays in .nvmrc (via idiomatic_version_file in [settings]),
+# the shared source of truth for the builder image, copybara, and the OSS repo.
+# Rust (rustup), Python (uv), and pnpm/Rush manage themselves. Pins are exact and
+# checksum-locked in mise.lock; Renovate proposes bumps.
+
+# mise's own version: read by the bootstrap installer + the release Dockerfiles, and
+# a floor (mise refuses to run an older binary against this config).
+min_version = "2026.6.10"
+
+[tools]
+uv       = "0.11.5"
+just     = "1.52.0"
+jq       = "1.8.1"
+cmake    = "3.31.12"   # 3.x line; 4.x drops compat with our older CMakeLists
+protoc   = "21.12"
+opentofu = "1.10.0"
+
+# Dev Cargo lint tools (prebuilt via cargo-binstall, no compile). `mise install`
+# pulls them in dev + CI (cached); the release images install only specific tools.
+cargo-binstall      = "1.20.0"
+"cargo:cargo-udeps" = "0.1.55"
+"cargo:cargo-sort"  = "2.1.4"
+
+[env]
+# Build hints for the native -sys crates, primarily for LOCAL dev -- CI Linux gets
+# these (plus SNAPPY_LIB_DIR) from .github/actions/setup-rust, which also covers the
+# jobs that don't run mise. Windows has neither pkg-config nor these prebuilt libs,
+# so the -sys crates build from bundled sources -- windows.yml unsets both before cargo.
+SODIUM_USE_PKG_CONFIG = "1"
+# Resolve the rocksdb lib dir per-OS via mise's os(); Windows falls through to
+# empty (and windows.yml unsets it before cargo regardless).
+ROCKSDB_LIB_DIR = "{% if os() == 'macos' %}/opt/homebrew/lib{% elif os() == 'linux' %}/usr/lib{% endif %}"
+
+[settings]
+# Read Node's version from the existing .nvmrc.
+idiomatic_version_file_enable_tools = ["node"]
+# Commit mise.lock so binaries are checksum-pinned across platforms.
+lockfile = true
+
+# System C libraries the Rust crates link against (outside [tools]). setup_env.py
+# installs these via experimental `mise bootstrap packages` (apt/brew); plain
+# `mise install` ignores them, so CI is unaffected. "latest" because apt/brew can't
+# portably pin and mise.lock doesn't cover OS packages.
+[bootstrap.packages]
+"apt:build-essential" = "latest"
+"apt:lld" = "latest"
+"apt:pkg-config" = "latest"
+"apt:libssl-dev" = "latest"
+"apt:libsodium-dev" = "latest"
+"apt:librocksdb8.9" = "latest"
+"apt:libsnappy-dev" = "latest"
+"brew:pkg-config" = "latest"
+"brew:openssl" = "latest"
+"brew:libsodium" = "latest"
+"brew:rocksdb" = "latest"
+"brew:snappy" = "latest"

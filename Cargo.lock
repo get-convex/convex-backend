@@ -3657,7 +3657,6 @@ dependencies = [
  "cfg-if",
  "fxhash",
  "maplit",
- "pb_build",
  "proptest",
  "prost 0.14.3",
  "prost-types",

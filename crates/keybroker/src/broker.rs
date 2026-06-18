@@ -39,6 +39,7 @@ use common::{
         format_admin_key,
         remove_type_prefix_from_deployment_name,
         split_admin_key,
+        AccessTokenId,
         ActionCallbackToken,
         AdminKey,
         MemberId,
@@ -368,6 +369,24 @@ impl Identity {
         None
     }
 
+    pub fn token_id(&self) -> Option<AccessTokenId> {
+        match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity.token_id
+            },
+            _ => None,
+        }
+    }
+
+    pub fn app_client_id(&self) -> Option<String> {
+        match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity.app_client_id.clone()
+            },
+            _ => None,
+        }
+    }
+
     pub fn instance_admin_principal(&self) -> Option<AdminIdentityPrincipal> {
         if let Identity::DeploymentAdmin(AdminIdentity { principal, .. }) = self {
             return Some(principal.clone());
@@ -651,6 +670,8 @@ pub struct AdminIdentity {
     // Operations this identity is allowed to perform. Empty means all operations allowed.
     allowed_ops: Vec<DeploymentOp>,
     validated_at: SystemTime,
+    token_id: Option<AccessTokenId>,
+    app_client_id: Option<String>,
 }
 
 impl TryFrom<AdminIdentity> for pb::convex_identity::AdminIdentity {
@@ -666,6 +687,8 @@ impl TryFrom<AdminIdentity> for pb::convex_identity::AdminIdentity {
             is_read_only,
             allowed_ops,
             validated_at,
+            token_id,
+            app_client_id,
         } = identity;
         Ok(Self {
             instance_name: Some(instance_name),
@@ -684,6 +707,8 @@ impl TryFrom<AdminIdentity> for pb::convex_identity::AdminIdentity {
                 .map(|op| ProtoDeploymentOperation::from(op) as i32)
                 .collect(),
             validated_at: Some(validated_at.into()),
+            token_id: token_id.map(|id| id.0),
+            app_client_id,
         })
     }
 }
@@ -697,6 +722,8 @@ impl AdminIdentity {
             allowed_operations,
             validated_at,
             principal,
+            token_id,
+            app_client_id,
         }: pb::convex_identity::AdminIdentity,
     ) -> anyhow::Result<Self> {
         let instance_name =
@@ -723,6 +750,7 @@ impl AdminIdentity {
         let validated_at = validated_at
             .unwrap_or_else(|| SystemTime::now().into())
             .try_into()?;
+        let token_id = token_id.map(AccessTokenId);
         Ok(Self {
             deployment_name: instance_name,
             principal,
@@ -730,6 +758,8 @@ impl AdminIdentity {
             is_read_only,
             allowed_ops,
             validated_at,
+            token_id,
+            app_client_id,
         })
     }
 
@@ -740,6 +770,8 @@ impl AdminIdentity {
         is_read_only: bool,
         allowed_ops: Vec<DeploymentOp>,
         validated_at: SystemTime,
+        token_id: Option<AccessTokenId>,
+        app_client_id: Option<String>,
     ) -> Self {
         Self {
             deployment_name,
@@ -748,6 +780,8 @@ impl AdminIdentity {
             is_read_only,
             allowed_ops,
             validated_at,
+            token_id,
+            app_client_id,
         }
     }
 
@@ -982,6 +1016,8 @@ impl KeyBroker {
                 is_read_only,
                 allowed_ops: operations_for_deploy_key(is_read_only),
                 validated_at: now,
+                token_id: None,
+                app_client_id: None,
             }),
             AdminIdentityProto::System(()) => Identity::system(),
         })

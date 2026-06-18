@@ -37,7 +37,6 @@ url = { workspace = true }
 [build-dependencies]
 cfg-if = { workspace = true }
 fxhash = { workspace = true }
-pb_build = { workspace = true }
 tonic-prost-build = { workspace = true }
 
 [dev-dependencies]

@@ -45,6 +45,8 @@ const mockEvents = [
     _creationTime: now - 30 * 60 * 1000,
     action: "create_environment_variable" as const,
     member_id: BigInt(1),
+    token_id: BigInt(1),
+    app_client_id: null,
     metadata: { variable_name: "OPENAI_API_KEY" },
   },
   {
@@ -52,6 +54,8 @@ const mockEvents = [
     _creationTime: now - 2 * 60 * 60 * 1000,
     action: "update_environment_variable" as const,
     member_id: BigInt(2),
+    token_id: BigInt(1),
+    app_client_id: null,
     metadata: { variable_name: "STRIPE_SECRET_KEY" },
   },
   {
@@ -59,6 +63,8 @@ const mockEvents = [
     _creationTime: now - 5 * 60 * 60 * 1000,
     action: "push_config" as const,
     member_id: BigInt(1),
+    token_id: BigInt(1),
+    app_client_id: null,
     metadata: {
       auth: { added: [], removed: [] },
       server_version: { previous_version: "1.36.0", next_version: "1.36.0" },
@@ -72,6 +78,8 @@ const mockEvents = [
     _creationTime: now - 24 * 60 * 60 * 1000,
     action: "delete_environment_variable" as const,
     member_id: BigInt(2),
+    token_id: BigInt(1),
+    app_client_id: null,
     metadata: { variable_name: "LEGACY_TOKEN" },
   },
 ];

@@ -28,14 +28,6 @@ runs:
           cmake \
           libclang-dev
 
-    - name: Install Just
-      uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2
-      with:
-        tool: just
-
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-
     - name: Install Rust
       uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
 
@@ -55,6 +47,9 @@ runs:
         fi
         echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" >> $GITHUB_ENV
         echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
+        # Line tables only (not full debuginfo) to cut CI rustc memory and avoid
+        # OOMs; backtraces keep symbols + file:line. Set before the cache step.
+        echo "CARGO_PROFILE_RELEASE_DEBUG=line-tables-only" >> $GITHUB_ENV
 
     - name: Install sccache
       uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10

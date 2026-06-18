@@ -110,7 +110,7 @@ overrides:
   webpack-dev-server@>=5.0.0 <5.2.4: ^5.2.4
   vite@5.4.14: ^5.4.19
   vite@>=6.0.0 <6.4.2: ^6.4.2
-  ws@>=8.0.0 <8.20.1: ^8.20.1
+  ws@>=8.0.0 <8.21.0: ^8.21.0
   yaml@>=1.0.0 <1.10.3: ^1.10.3
   yaml@>=2.0.0 <2.8.3: ^2.8.3
 
@@ -537,8 +537,8 @@ importers:
         specifier: ^3.0.0
         version: 3.6.2
       ws:
-        specifier: 8.20.1
-        version: 8.20.1(bufferutil@4.0.9)
+        specifier: 8.21.0
+        version: 8.21.0(bufferutil@4.0.9)
     devDependencies:
       '@auth0/auth0-react':
         specifier: 2.15.1
@@ -1971,7 +1971,7 @@ importers:
         version: link:../../convex
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@4.4.3)
+        version: 6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@4.4.3)
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -2305,8 +2305,8 @@ importers:
         specifier: ^4.19.4
         version: 4.20.6
       ws:
-        specifier: 8.20.1
-        version: 8.20.1(bufferutil@4.0.9)
+        specifier: 8.21.0
+        version: 8.21.0(bufferutil@4.0.9)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3533,10 +3533,10 @@ importers:
     dependencies:
       '@langchain/core':
         specifier: ^0.3.80
-        version: 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+        version: 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       '@langchain/openai':
         specifier: ^0.6.0
-        version: 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(ws@8.20.1(bufferutil@4.0.9))
+        version: 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(ws@8.21.0(bufferutil@4.0.9))
       '@popperjs/core':
         specifier: ~2.11.6
         version: 2.11.8
@@ -3545,13 +3545,13 @@ importers:
         version: 5.3.8(@popperjs/core@2.11.8)
       chromadb:
         specifier: '=1.10.5'
-        version: 1.10.5(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))
+        version: 1.10.5(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))
       convex:
         specifier: workspace:*
         version: link:../../convex
       langchain:
         specifier: ^0.3.37
-        version: 0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+        version: 0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       postmark:
         specifier: ~4.0.0
         version: 4.0.5
@@ -5188,7 +5188,7 @@ importers:
         version: 17.4.0
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@4.4.3)
+        version: 6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@4.4.3)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5261,7 +5261,7 @@ importers:
         version: 17.4.0
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@4.4.3)
+        version: 6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@4.4.3)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5337,7 +5337,7 @@ importers:
         version: 17.4.0
       openai:
         specifier: ^6.0.0
-        version: 6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@4.4.3)
+        version: 6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@4.4.3)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5928,7 +5928,7 @@ importers:
     dependencies:
       '@langchain/core':
         specifier: ^0.3.80
-        version: 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+        version: 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       '@sentry/node':
         specifier: ^7.23.0
         version: 7.120.4
@@ -5937,7 +5937,7 @@ importers:
         version: 7.120.4
       langchain:
         specifier: ^0.3.37
-        version: 0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+        version: 0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       prettier:
         specifier: 3.8.1
         version: 3.8.1
@@ -5979,8 +5979,8 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
       ws:
-        specifier: 8.20.1
-        version: 8.20.1(bufferutil@4.0.9)
+        specifier: 8.21.0
+        version: 8.21.0(bufferutil@4.0.9)
 
   ../../shapes:
     dependencies:
@@ -6358,8 +6358,8 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
       ws:
-        specifier: 8.20.1
-        version: 8.20.1(bufferutil@4.0.9)
+        specifier: 8.21.0
+        version: 8.21.0(bufferutil@4.0.9)
 
   ../../tests/package-tests:
     dependencies:
@@ -11932,9 +11932,6 @@ packages:
 
   '@peculiar/asn1-rsa@2.7.0':
     resolution: {integrity: sha512-/qvENQrXyTZURjMqSeofHul0JJt2sNSzSwk36pl2olkHbaioMQgrASDZAlHXl0xUlnVbHj0uGgOrBMTb5x2aJQ==}
-
-  '@peculiar/asn1-schema@2.5.0':
-    resolution: {integrity: sha512-YM/nFfskFJSlHqv59ed6dZlLZqtZQwjRVJ4bBAiWV08Oc+1rSd5lDZcBEx0lGDHfSoH3UziI2pXt2UM33KerPQ==}
 
   '@peculiar/asn1-schema@2.7.0':
     resolution: {integrity: sha512-W8ZfWzLmQnrcky+eh3tni4IozMdqBDiHWU0N+vve/UGjMaUs8c0L7A2oEdkBXS8rTpWDpK/aoI3DG/L/hxmxPg==}
@@ -21663,7 +21660,7 @@ packages:
       '@opentelemetry/exporter-trace-otlp-proto': '*'
       '@opentelemetry/sdk-trace-base': '*'
       openai: '*'
-      ws: ^8.20.1
+      ws: ^8.21.0
     peerDependenciesMeta:
       '@opentelemetry/api':
         optional: true
@@ -23368,7 +23365,7 @@ packages:
     resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
     hasBin: true
     peerDependencies:
-      ws: ^8.20.1
+      ws: ^8.21.0
       zod: ^3.23.8
     peerDependenciesMeta:
       ws:
@@ -23380,7 +23377,7 @@ packages:
     resolution: {integrity: sha512-xqzHHQch5Tws5PcKR2xsZGX9xtch+JQFz5zb14dGqlshmmDAFBFEWmeIpf7wVqWV+w7Emj7jRgkNJakyKE0tYQ==}
     hasBin: true
     peerDependencies:
-      ws: ^8.20.1
+      ws: ^8.21.0
       zod: ^3.23.8
     peerDependenciesMeta:
       ws:
@@ -23392,7 +23389,7 @@ packages:
     resolution: {integrity: sha512-ITxOGo7rO3XRMiKA5l7tQ43iNNu+iXGFAcf2t+aWVzzqRaS0i7m1K2BhxNdaveB+5eENhO0VY1FkiZzhBk4v3A==}
     hasBin: true
     peerDependencies:
-      ws: ^8.20.1
+      ws: ^8.21.0
       zod: ^3.25 || ^4.0
     peerDependenciesMeta:
       ws:
@@ -28598,8 +28595,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.20.1:
-    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
+  ws@8.21.0:
+    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -34352,7 +34349,7 @@ snapshots:
       terminal-link: 2.1.1
       toqr: 0.1.1
       wrap-ansi: 7.0.0
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       zod: 3.25.76
     optionalDependencies:
       expo-router: 55.0.13(4d5824350e6bd5dbeae1817bfc93c90e)
@@ -34428,7 +34425,7 @@ snapshots:
       terminal-link: 2.1.1
       toqr: 0.1.1
       wrap-ansi: 7.0.0
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       zod: 3.25.76
     optionalDependencies:
       expo-router: 55.0.13(af4d5bb5e32c171fa45e8fecbde984c1)
@@ -35698,14 +35695,14 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))':
+  '@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -35719,14 +35716,14 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))':
+  '@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -35740,32 +35737,32 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/openai@0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(ws@8.20.1(bufferutil@4.0.9))':
+  '@langchain/openai@0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(ws@8.21.0(bufferutil@4.0.9))':
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       js-tiktoken: 1.0.21
-      openai: 5.12.2(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76)
+      openai: 5.12.2(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
 
-  '@langchain/openai@0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(ws@8.20.1(bufferutil@4.0.9))':
+  '@langchain/openai@0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(ws@8.21.0(bufferutil@4.0.9))':
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       js-tiktoken: 1.0.21
-      openai: 5.12.2(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76)
+      openai: 5.12.2(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
 
-  '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))':
+  '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))':
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       js-tiktoken: 1.0.21
 
-  '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))':
+  '@langchain/textsplitters@0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))':
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       js-tiktoken: 1.0.21
 
   '@leichtgewicht/ip-codec@2.0.5': {}
@@ -36132,7 +36129,7 @@ snapshots:
       vite-plugin-inspect: 11.3.3(@nuxt/kit@4.4.6(magicast@0.5.2))(vite@7.3.3(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
       vite-plugin-vue-tracer: 1.3.0(vite@7.3.3(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.9.3))
       which: 6.0.1
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -36976,12 +36973,6 @@ snapshots:
       asn1js: 3.0.6
       tslib: 2.8.1
 
-  '@peculiar/asn1-schema@2.5.0':
-    dependencies:
-      asn1js: 3.0.6
-      pvtsutils: 1.3.6
-      tslib: 2.8.1
-
   '@peculiar/asn1-schema@2.7.0':
     dependencies:
       '@peculiar/utils': 2.0.3
@@ -37018,7 +37009,7 @@ snapshots:
 
   '@peculiar/webcrypto@1.5.0':
     dependencies:
-      '@peculiar/asn1-schema': 2.5.0
+      '@peculiar/asn1-schema': 2.7.0
       '@peculiar/json-schema': 1.1.12
       pvtsutils: 1.3.6
       tslib: 2.8.1
@@ -39830,7 +39821,7 @@ snapshots:
       react-docgen: 7.1.1(supports-color@10.2.2)
       react-dom: 18.3.1(react@18.3.1)
       resolve: 1.22.11
-      semver: 7.7.4
+      semver: 7.8.1
       storybook: 10.3.4(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tsconfig-paths: 4.2.0
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)
@@ -39853,7 +39844,7 @@ snapshots:
       react-docgen: 7.1.1
       react-dom: 18.3.1(react@18.3.1)
       resolve: 1.22.11
-      semver: 7.7.4
+      semver: 7.8.1
       storybook: 10.3.4(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tsconfig-paths: 4.2.0
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)
@@ -39876,7 +39867,7 @@ snapshots:
       react-docgen: 7.1.1
       react-dom: 18.3.1(react@18.3.1)
       resolve: 1.22.11
-      semver: 7.7.4
+      semver: 7.8.1
       storybook: 10.3.4(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tsconfig-paths: 4.2.0
       webpack: 5.105.4(esbuild@0.25.0)
@@ -41563,8 +41554,8 @@ snapshots:
 
   '@typescript-eslint/project-service@8.58.0(typescript@5.0.4)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.58.0(typescript@5.0.4)
-      '@typescript-eslint/types': 8.58.0
+      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.0.4)
+      '@typescript-eslint/types': 8.58.2
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 5.0.4
     transitivePeerDependencies:
@@ -41572,8 +41563,8 @@ snapshots:
 
   '@typescript-eslint/project-service@8.58.0(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.58.0(typescript@5.9.3)
-      '@typescript-eslint/types': 8.58.0
+      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.9.3)
+      '@typescript-eslint/types': 8.58.2
       debug: 4.4.3(supports-color@10.2.2)
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -42890,7 +42881,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@6.4.2(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -42908,7 +42899,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@22.19.1)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@6.4.2(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -42925,7 +42916,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@22.19.1)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@6.4.2(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -42943,7 +42934,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@7.3.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -42961,7 +42952,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@7.3.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -42979,7 +42970,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@20.19.25)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@7.3.3(@types/node@20.19.25)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -42997,7 +42988,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.8(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.0)(@types/node@22.19.1)(@vitest/browser-playwright@4.1.8)(happy-dom@20.8.9(bufferutil@4.0.9))(jsdom@28.1.0(@noble/hashes@2.2.0))(vite@7.3.3(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -45041,12 +45032,12 @@ snapshots:
 
   chownr@3.0.0: {}
 
-  chromadb@1.10.5(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76)):
+  chromadb@1.10.5(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76)):
     dependencies:
       cliui: 8.0.1
       isomorphic-fetch: 3.0.0
     optionalDependencies:
-      openai: 4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76)
+      openai: 4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76)
     transitivePeerDependencies:
       - encoding
 
@@ -45499,7 +45490,7 @@ snapshots:
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.1
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     optionalDependencies:
       '@auth0/auth0-react': 2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@clerk/clerk-react': 5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -45826,7 +45817,7 @@ snapshots:
       postcss-modules-scope: 3.2.1(postcss@8.5.15)
       postcss-modules-values: 4.0.0(postcss@8.5.15)
       postcss-value-parser: 4.2.0
-      semver: 7.7.4
+      semver: 7.8.1
     optionalDependencies:
       '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)
@@ -45840,7 +45831,7 @@ snapshots:
       postcss-modules-scope: 3.2.1(postcss@8.5.15)
       postcss-modules-values: 4.0.0(postcss@8.5.15)
       postcss-value-parser: 4.2.0
-      semver: 7.7.4
+      semver: 7.8.1
     optionalDependencies:
       '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))
@@ -45854,7 +45845,7 @@ snapshots:
       postcss-modules-scope: 3.2.1(postcss@8.5.15)
       postcss-modules-values: 4.0.0(postcss@8.5.15)
       postcss-value-parser: 4.2.0
-      semver: 7.7.4
+      semver: 7.8.1
     optionalDependencies:
       '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
       webpack: 5.105.4(esbuild@0.25.0)
@@ -49186,7 +49177,7 @@ snapshots:
       '@types/ws': 8.18.1
       entities: 7.0.1
       whatwg-mimetype: 3.0.0
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -51321,7 +51312,7 @@ snapshots:
       whatwg-encoding: 2.0.0
       whatwg-mimetype: 3.0.0
       whatwg-url: 11.0.0
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       xml-name-validator: 4.0.0
     transitivePeerDependencies:
       - bufferutil
@@ -51348,7 +51339,7 @@ snapshots:
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - bufferutil
@@ -51552,15 +51543,15 @@ snapshots:
 
   lan-network@0.2.1: {}
 
-  langchain@0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)):
+  langchain@0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)):
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
-      '@langchain/openai': 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(ws@8.20.1(bufferutil@4.0.9))
-      '@langchain/textsplitters': 0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
+      '@langchain/openai': 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(ws@8.21.0(bufferutil@4.0.9))
+      '@langchain/textsplitters': 0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))
       js-tiktoken: 1.0.21
       js-yaml: 4.1.1
       jsonpointer: 5.0.1
-      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       openapi-types: 12.1.3
       p-retry: 4.6.2
       uuid: 10.0.0
@@ -51577,15 +51568,15 @@ snapshots:
       - openai
       - ws
 
-  langchain@0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)):
+  langchain@0.3.37(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(axios@1.16.1)(cheerio@1.1.2)(handlebars@4.7.9)(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)):
     dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
-      '@langchain/openai': 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))(ws@8.20.1(bufferutil@4.0.9))
-      '@langchain/textsplitters': 0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)))
+      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
+      '@langchain/openai': 0.6.16(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))(ws@8.21.0(bufferutil@4.0.9))
+      '@langchain/textsplitters': 0.1.0(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)))
       js-tiktoken: 1.0.21
       js-yaml: 4.1.1
       jsonpointer: 5.0.1
-      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9))
+      langsmith: 0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9))
       openapi-types: 12.1.3
       p-retry: 4.6.2
       uuid: 10.0.0
@@ -51602,23 +51593,23 @@ snapshots:
       - openai
       - ws
 
-  langsmith@0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)):
+  langsmith@0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/sdk-trace-base': 2.2.0(@opentelemetry/api@1.9.0)
-      openai: 4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76)
-      ws: 8.20.1(bufferutil@4.0.9)
+      openai: 4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76)
+      ws: 8.21.0(bufferutil@4.0.9)
 
-  langsmith@0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76))(ws@8.20.1(bufferutil@4.0.9)):
+  langsmith@0.6.3(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76))(ws@8.21.0(bufferutil@4.0.9)):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/sdk-trace-base': 2.2.0(@opentelemetry/api@1.9.0)
-      openai: 6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76)
-      ws: 8.20.1(bufferutil@4.0.9)
+      openai: 6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76)
+      ws: 8.21.0(bufferutil@4.0.9)
 
   language-subtag-registry@0.3.23: {}
 
@@ -54303,7 +54294,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@4.104.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76):
+  openai@4.104.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76):
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -54313,26 +54304,26 @@ snapshots:
       formdata-node: 4.4.1
       node-fetch: 2.7.0
     optionalDependencies:
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       zod: 3.25.76
     transitivePeerDependencies:
       - encoding
     optional: true
 
-  openai@5.12.2(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76):
+  openai@5.12.2(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76):
     optionalDependencies:
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       zod: 3.25.76
 
-  openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@3.25.76):
+  openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@3.25.76):
     optionalDependencies:
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       zod: 3.25.76
     optional: true
 
-  openai@6.10.0(ws@8.20.1(bufferutil@4.0.9))(zod@4.4.3):
+  openai@6.10.0(ws@8.21.0(bufferutil@4.0.9))(zod@4.4.3):
     optionalDependencies:
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
       zod: 4.4.3
 
   openapi-fetch@0.17.0:
@@ -55245,7 +55236,7 @@ snapshots:
       cosmiconfig: 9.0.0(typescript@5.9.3)
       jiti: 2.6.1
       postcss: 8.5.15
-      semver: 7.7.4
+      semver: 7.8.1
     optionalDependencies:
       '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)
@@ -55257,7 +55248,7 @@ snapshots:
       cosmiconfig: 9.0.0(typescript@5.9.3)
       jiti: 2.6.1
       postcss: 8.5.15
-      semver: 7.7.4
+      semver: 7.8.1
     optionalDependencies:
       '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
       webpack: 5.105.4(esbuild@0.25.0)
@@ -55996,7 +55987,7 @@ snapshots:
       devtools-protocol: 0.0.1581282
       typed-query-selector: 2.12.1
       webdriver-bidi-protocol: 0.4.1
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -58198,7 +58189,7 @@ snapshots:
       recast: 0.23.11
       semver: 7.7.4
       use-sync-external-store: 1.6.0(react@18.3.1)
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     optionalDependencies:
       prettier: 3.8.1
     transitivePeerDependencies:
@@ -58222,7 +58213,7 @@ snapshots:
       recast: 0.23.11
       semver: 7.7.4
       use-sync-external-store: 1.6.0(react@19.2.4)
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     optionalDependencies:
       prettier: 3.8.1
     transitivePeerDependencies:
@@ -60847,7 +60838,7 @@ snapshots:
 
   webcrypto-core@1.8.1:
     dependencies:
-      '@peculiar/asn1-schema': 2.5.0
+      '@peculiar/asn1-schema': 2.7.0
       '@peculiar/json-schema': 1.1.12
       asn1js: 3.0.6
       pvtsutils: 1.3.6
@@ -60994,7 +60985,7 @@ snapshots:
       sockjs: 0.3.24
       spdy: 4.0.2(supports-color@10.2.2)
       webpack-dev-middleware: 7.4.5(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     optionalDependencies:
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)
     transitivePeerDependencies:
@@ -61033,7 +61024,7 @@ snapshots:
       sockjs: 0.3.24
       spdy: 4.0.2(supports-color@10.2.2)
       webpack-dev-middleware: 7.4.5(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15)))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     optionalDependencies:
       webpack: 5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))
     transitivePeerDependencies:
@@ -61071,7 +61062,7 @@ snapshots:
       sockjs: 0.3.24
       spdy: 4.0.2(supports-color@10.2.2)
       webpack-dev-middleware: 7.4.5(webpack@5.105.4(esbuild@0.25.0))
-      ws: 8.20.1(bufferutil@4.0.9)
+      ws: 8.21.0(bufferutil@4.0.9)
     optionalDependencies:
       webpack: 5.105.4(esbuild@0.25.0)
     transitivePeerDependencies:
@@ -61504,7 +61495,7 @@ snapshots:
     optionalDependencies:
       bufferutil: 4.0.9
 
-  ws@8.20.1(bufferutil@4.0.9):
+  ws@8.21.0(bufferutil@4.0.9):
     optionalDependencies:
       bufferutil: 4.0.9
 
