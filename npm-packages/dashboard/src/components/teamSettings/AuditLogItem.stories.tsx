@@ -1,7 +1,10 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { AuditLogEventResponse } from "@convex-dev/platform/managementApi";
-import { MemberResponse, TeamResponse } from "generatedApi";
-import { AuditLogAction } from "api/auditLog";
+import {
+  AuditLogAction,
+  AuditLogEventResponse,
+  MemberResponse,
+  TeamResponse,
+} from "generatedApi";
 import { AuditLogItem } from "./AuditLogItem";
 import { Sheet } from "@ui/Sheet";
 
@@ -47,8 +50,8 @@ export const SpendingLimitChange: Story = {
     entry: {
       id: 1,
       createTime: new Date().toISOString(),
-      action: "billing:spendingLimit:update" as AuditLogAction,
-      actor: { kind: "member", member_id: 1 },
+      action: "setSpendingLimit" as AuditLogAction,
+      actor: { member: 1 },
       metadata: {
         previous: {
           warningThresholdCents: 500_00,
@@ -70,8 +73,8 @@ export const SpendingLimitChangeAddAndRemove: Story = {
     entry: {
       id: 1,
       createTime: new Date().toISOString(),
-      action: "billing:spendingLimit:update" as AuditLogAction,
-      actor: { kind: "member", member_id: 1 },
+      action: "setSpendingLimit" as AuditLogAction,
+      actor: { member: 1 },
       metadata: {
         previous: {
           disableThresholdCents: null,
@@ -93,8 +96,8 @@ export const SpendingLimitChangeOnlyOneValue: Story = {
     entry: {
       id: 1,
       createTime: new Date().toISOString(),
-      action: "billing:spendingLimit:update" as AuditLogAction,
-      actor: { kind: "member", member_id: 1 },
+      action: "setSpendingLimit" as AuditLogAction,
+      actor: { member: 1 },
       metadata: {
         previous: {
           disableThresholdCents: 12345_00,

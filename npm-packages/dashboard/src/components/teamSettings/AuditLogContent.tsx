@@ -1,6 +1,9 @@
 import { Sheet } from "@ui/Sheet";
-import { AuditLogEventResponse } from "@convex-dev/platform/managementApi";
-import { MemberResponse, TeamResponse } from "generatedApi";
+import {
+  AuditLogEventResponse,
+  MemberResponse,
+  TeamResponse,
+} from "generatedApi";
 import { AuditLogItem } from "./AuditLogItem";
 
 export function AuditLogContent({
@@ -36,14 +39,13 @@ export function AuditLogContent({
 }
 
 function entryMemberId(entry: AuditLogEventResponse) {
-  switch (entry.actor.kind) {
-    case "member":
-      return entry.actor.member_id;
-    case "token":
-      return entry.actor.member_id ?? null;
-    default:
-      return null;
-  }
+  return typeof entry.actor === "object"
+    ? "member" in entry.actor
+      ? entry.actor.member.member_id
+      : "serviceAccount" in entry.actor
+        ? entry.actor.serviceAccount.member_id
+        : null
+    : null;
 }
 
 function NoEntries() {

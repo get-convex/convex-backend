@@ -1,15 +1,10 @@
 import flatMap from "lodash/flatMap";
+import { AuditLogAction, AuditLogEventResponse } from "generatedApi";
 import { createInfiniteHook } from "swr-openapi";
-import {
-  AuditLogEventResponse,
-  ListAuditLogEventsResponse,
-} from "@convex-dev/platform/managementApi";
-import { managementApiClient } from "api/api";
+import { client } from "api/api";
 import { useAuthHeader } from "hooks/fetching";
 
-export type AuditLogAction = AuditLogEventResponse["action"];
-
-const useInfinite = createInfiniteHook(managementApiClient, "management-api");
+const useInfinite = createInfiniteHook(client, "big-brain");
 
 export function useTeamAuditLog(
   teamId: number,
@@ -33,12 +28,18 @@ export function useTeamAuditLog(
   const authHeader = useAuthHeader();
 
   const { data, isLoading, setSize } = useInfinite(
-    "/teams/{team_id}/list_audit_log_events",
+    "/teams/{team_id}/get_audit_log_events",
     (
       pageIndex: number,
-      previousPageData: ListAuditLogEventsResponse | null,
+      previousPageData: {
+        events: AuditLogEventResponse[];
+        cursor?: string;
+      } | null,
     ) => {
-      if (previousPageData && !previousPageData.pagination.nextCursor) {
+      if (
+        previousPageData &&
+        (!previousPageData.events || !previousPageData.cursor)
+      ) {
         return null;
       }
 
@@ -49,17 +50,14 @@ export function useTeamAuditLog(
         },
         params: {
           path: {
-            team_id: teamId,
+            team_id: teamId.toString(),
           },
           query: {
             from,
             to,
-            ...(memberId ? { memberId: Number(memberId) } : {}),
+            ...(memberId ? { member_id: memberId } : {}),
             ...(action ? { action } : {}),
-            cursor:
-              pageIndex > 0
-                ? (previousPageData?.pagination.nextCursor ?? undefined)
-                : undefined,
+            cursor: pageIndex > 0 ? previousPageData?.cursor : undefined,
           },
         },
       };
@@ -68,11 +66,11 @@ export function useTeamAuditLog(
 
   return {
     entries: flatMap(
-      data?.map((page) => page.items),
+      data?.map((page) => page.events),
       (entry) => entry,
     ),
     loadNextPage: () => setSize((size) => size + 1),
     isLoading,
-    hasMore: !!data?.[data.length - 1]?.pagination.hasMore,
+    hasMore: !!data?.[data.length - 1]?.cursor,
   };
 }
