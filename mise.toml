@@ -44,7 +44,6 @@ lockfile = true
 # portably pin and mise.lock doesn't cover OS packages.
 [bootstrap.packages]
 "apt:build-essential" = "latest"
-"apt:lld" = "latest"
 "apt:pkg-config" = "latest"
 "apt:libssl-dev" = "latest"
 "apt:libsodium-dev" = "latest"
