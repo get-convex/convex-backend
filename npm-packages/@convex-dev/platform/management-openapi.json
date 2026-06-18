@@ -2598,8 +2598,8 @@
           },
           {
             "type": "object",
-            "title": "OAuthApp",
-            "description": "An OAuth application.",
+            "title": "Integration",
+            "description": "An integration (OAuth application).",
             "required": [
               "client_id",
               "kind"
@@ -2607,12 +2607,12 @@
             "properties": {
               "client_id": {
                 "type": "string",
-                "description": "Client ID of the OAuth application"
+                "description": "Client ID of the integration"
               },
               "kind": {
                 "type": "string",
                 "enum": [
-                  "app"
+                  "integration"
                 ]
               }
             }
