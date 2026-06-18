@@ -107,7 +107,12 @@ impl From<IndexDiff> for AuditLogIndexDiff {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, strum::EnumDiscriminants)]
+#[strum_discriminants(
+    name(DeploymentAuditLogEventKind),
+    derive(strum::EnumIter, strum::IntoStaticStr),
+    strum(serialize_all = "snake_case")
+)]
 pub enum DeploymentAuditLogEvent {
     CreateEnvironmentVariable {
         name: EnvVarName,
@@ -272,56 +277,20 @@ impl From<IndexDiff> for DeploymentAuditLogEvent {
     }
 }
 
+impl DeploymentAuditLogEventKind {
+    pub fn action(self) -> &'static str {
+        self.into()
+    }
+
+    pub fn actions() -> impl Iterator<Item = &'static str> {
+        use strum::IntoEnumIterator;
+        Self::iter().map(Self::action)
+    }
+}
+
 impl DeploymentAuditLogEvent {
     pub fn action(&self) -> &'static str {
-        match self {
-            DeploymentAuditLogEvent::CreateEnvironmentVariable { .. } => {
-                "create_environment_variable"
-            },
-            DeploymentAuditLogEvent::UpdateEnvironmentVariable { .. } => {
-                "update_environment_variable"
-            },
-            DeploymentAuditLogEvent::DeleteEnvironmentVariable { .. } => {
-                "delete_environment_variable"
-            },
-            DeploymentAuditLogEvent::ReplaceEnvironmentVariable { .. } => {
-                "replace_environment_variable"
-            },
-            DeploymentAuditLogEvent::UpdateCanonicalUrl { .. } => "update_canonical_url",
-            DeploymentAuditLogEvent::DeleteCanonicalUrl { .. } => "delete_canonical_url",
-            DeploymentAuditLogEvent::PushConfig { .. } => "push_config",
-            DeploymentAuditLogEvent::PushConfigWithComponents { .. } => {
-                "push_config_with_components"
-            },
-            DeploymentAuditLogEvent::BuildIndexes { .. } => "build_indexes",
-            DeploymentAuditLogEvent::ChangeDeploymentState { .. } => "change_deployment_state",
-            DeploymentAuditLogEvent::PauseDeployment => "pause_deployment",
-            DeploymentAuditLogEvent::UnpauseDeployment => "unpause_deployment",
-            DeploymentAuditLogEvent::ChangeSystemStopState { .. } => "change_system_stop_state",
-            DeploymentAuditLogEvent::SnapshotImport { .. } => "snapshot_import",
-            DeploymentAuditLogEvent::ClearTables => "clear_tables",
-            DeploymentAuditLogEvent::DeleteScheduledJobsTable { .. } => {
-                "delete_scheduled_jobs_table"
-            },
-            DeploymentAuditLogEvent::DeleteTables { .. } => "delete_tables",
-            DeploymentAuditLogEvent::DeleteComponent { .. } => "delete_component",
-            DeploymentAuditLogEvent::CancelAllScheduledFunctions { .. } => {
-                "cancel_all_scheduled_functions"
-            },
-            DeploymentAuditLogEvent::CancelScheduledFunction { .. } => "cancel_scheduled_function",
-            DeploymentAuditLogEvent::RequestExport { .. } => "request_export",
-            DeploymentAuditLogEvent::CancelExport { .. } => "cancel_export",
-            DeploymentAuditLogEvent::SetExportExpiration { .. } => "set_export_expiration",
-            DeploymentAuditLogEvent::CreateIntegration { .. } => "create_integration",
-            DeploymentAuditLogEvent::UpdateIntegration { .. } => "update_integration",
-            DeploymentAuditLogEvent::DeleteIntegration { .. } => "delete_integration",
-            DeploymentAuditLogEvent::AddDocuments { .. } => "add_documents",
-            DeploymentAuditLogEvent::DeleteDocuments { .. } => "delete_documents",
-            DeploymentAuditLogEvent::UpdateDocuments { .. } => "update_documents",
-            DeploymentAuditLogEvent::CreateTable { .. } => "create_table",
-            DeploymentAuditLogEvent::DeleteFiles { .. } => "delete_files",
-            DeploymentAuditLogEvent::GenerateUploadUrl { .. } => "generate_upload_url",
-        }
+        DeploymentAuditLogEventKind::from(self).action()
     }
 
     fn metadata(self) -> anyhow::Result<ConvexObject> {
