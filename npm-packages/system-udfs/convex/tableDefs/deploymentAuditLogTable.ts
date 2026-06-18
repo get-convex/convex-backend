@@ -16,10 +16,10 @@ const auditLogEventValidator = <
   v.object({
     action: v.literal(action),
     member_id: v.union(v.int64(), v.null()),
-    token_id: v.union(v.int64(), v.null()),
-    app_client_id: v.union(v.string(), v.null()),
-    client_ip: v.optional(v.string()),
-    client_user_agent: v.optional(v.string()),
+    token_id: v.optional(v.union(v.int64(), v.null())),
+    app_client_id: v.optional(v.union(v.string(), v.null())),
+    client_ip: v.optional(v.union(v.string(), v.null())),
+    client_user_agent: v.optional(v.union(v.string(), v.null())),
     metadata: v.object(metadata),
   });
 
