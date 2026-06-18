@@ -137,6 +137,7 @@ pub async fn shapes2(
 pub async fn delete_tables(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(DeleteTableArgs {
         table_names,
         component_id,
@@ -149,7 +150,7 @@ pub async fn delete_tables(
         .collect::<anyhow::Result<_>>()?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     st.application
-        .delete_tables(&identity, table_names, component_id)
+        .delete_tables(&identity, request_metadata, table_names, component_id)
         .await?;
     Ok(StatusCode::OK)
 }
@@ -166,12 +167,13 @@ pub async fn delete_tables(
 pub async fn delete_component(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(DeleteComponentArgs { component_id }): Json<DeleteComponentArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteData)?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     st.application
-        .delete_component(&identity, component_id)
+        .delete_component(&identity, request_metadata, component_id)
         .await?;
     Ok(StatusCode::OK)
 }

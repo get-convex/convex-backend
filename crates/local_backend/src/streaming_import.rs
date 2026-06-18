@@ -24,6 +24,7 @@ use common::{
             Json,
             MtState,
         },
+        ExtractRequestMetadata,
         HttpResponseError,
     },
     schemas::json::DatabaseSchemaJson,
@@ -146,6 +147,7 @@ pub struct ClearTableArgs {
 pub async fn clear_tables(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(ClearTableArgs { table_names }): Json<ClearTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
@@ -166,6 +168,7 @@ pub async fn clear_tables(
         .application
         .clear_tables(
             &identity,
+            request_metadata,
             table_names,
             ImportRequestor::StreamingImport,
             usage.clone(),
@@ -194,6 +197,7 @@ pub async fn clear_tables(
 pub async fn fivetran_truncate_table(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(TruncateTableArgs {
         table_name,
         delete_before,
@@ -211,6 +215,7 @@ pub async fn fivetran_truncate_table(
         st.application
             .clear_tables(
                 &identity,
+                request_metadata,
                 vec![(ComponentPath::root(), table_name.0)],
                 ImportRequestor::StreamingImport,
                 usage.clone(),

@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use common::{
+    execution_context::RequestMetadata,
     obj,
     runtime::Runtime,
     types::MemberId,
@@ -60,14 +61,17 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
     pub async fn insert(
         &mut self,
         events: Vec<DeploymentAuditLogEvent>,
+        request_metadata: &RequestMetadata,
     ) -> anyhow::Result<Vec<ResolvedDocumentId>> {
-        self.insert_with_member_override(events, None).await
+        self.insert_with_member_override(events, None, request_metadata)
+            .await
     }
 
     pub async fn insert_with_member_override(
         &mut self,
         events: Vec<DeploymentAuditLogEvent>,
         member_id_override: Option<MemberId>,
+        request_metadata: &RequestMetadata,
     ) -> anyhow::Result<Vec<ResolvedDocumentId>> {
         if !(self.tx.identity().is_system() || self.tx.identity().is_admin()) {
             anyhow::bail!(unauthorized_error("insert_deployment_audit_log_event"));
@@ -102,6 +106,15 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
                     event_object.shallow_merge(obj!("app_client_id" => app_client_id.as_str())?)?
                 },
                 None => event_object.shallow_merge(obj!("app_client_id" => null)?)?,
+            };
+            event_object = match request_metadata.ip.clone() {
+                Some(ip) => event_object.shallow_merge(obj!("client_ip" => ip.into_string())?)?,
+                None => event_object.shallow_merge(obj!("client_ip" => null)?)?,
+            };
+            event_object = match request_metadata.user_agent.clone() {
+                Some(user_agent) => event_object
+                    .shallow_merge(obj!("client_user_agent" => user_agent.into_string())?)?,
+                None => event_object.shallow_merge(obj!("client_user_agent" => null)?)?,
             };
             let id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&DEPLOYMENT_AUDIT_LOG_TABLE, event_object)

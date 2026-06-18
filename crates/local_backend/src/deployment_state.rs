@@ -5,6 +5,7 @@ use axum::{
 use common::{
     http::{
         extract::MtState,
+        ExtractRequestMetadata,
         HttpResponseError,
     },
     types::{
@@ -46,6 +47,7 @@ use crate::{
 pub async fn pause_deployment(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::PauseDeployment)?;
 
@@ -63,7 +65,7 @@ pub async fn pause_deployment(
     }
 
     st.application
-        .set_user_stop_state(identity, UserStopState::Paused)
+        .set_user_stop_state(identity, request_metadata, UserStopState::Paused)
         .await?;
 
     Ok(StatusCode::OK)
@@ -89,6 +91,7 @@ pub async fn pause_deployment(
 pub async fn unpause_deployment(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::UnpauseDeployment)?;
 
@@ -113,7 +116,7 @@ pub async fn unpause_deployment(
     }
 
     st.application
-        .set_user_stop_state(identity, UserStopState::None)
+        .set_user_stop_state(identity, request_metadata, UserStopState::None)
         .await?;
 
     Ok(StatusCode::OK)

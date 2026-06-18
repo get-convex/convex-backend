@@ -11,6 +11,7 @@ use common::http::{
         Json,
         MtState,
     },
+    ExtractRequestMetadata,
     HttpResponseError,
 };
 use http::StatusCode;
@@ -87,6 +88,7 @@ pub struct UpdateEnvVarsRequest {
 pub async fn update_environment_variables(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(UpdateEnvVarsRequest { changes }): Json<UpdateEnvVarsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteEnvironmentVariables)?;
@@ -104,7 +106,7 @@ pub async fn update_environment_variables(
         .await?;
 
     st.application
-        .commit_with_audit_log_events(tx, audit_events, "update_env_vars")
+        .commit_with_audit_log_events(tx, audit_events, request_metadata, "update_env_vars")
         .await?;
 
     Ok(StatusCode::OK)
