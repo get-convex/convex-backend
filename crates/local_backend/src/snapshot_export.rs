@@ -21,6 +21,7 @@ use common::{
             Path,
             Query,
         },
+        ExtractRequestMetadata,
         HttpResponseError,
     },
     types::SetExportExpirationRequest,
@@ -68,6 +69,7 @@ pub struct RequestZipExport {
 pub async fn request_zip_export(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Query(RequestZipExport {
         include_storage,
         component,
@@ -77,6 +79,7 @@ pub async fn request_zip_export(
     st.application
         .request_export(
             identity,
+            request_metadata,
             ExportFormat::Zip { include_storage },
             component,
             ExportRequestor::SnapshotExport,
@@ -136,6 +139,7 @@ pub struct SetExportExpirationPathArgs {
 pub async fn set_export_expiration(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
     Json(SetExportExpirationRequest { expiration_ts_ns }): Json<SetExportExpirationRequest>,
 ) -> Result<StatusCode, HttpResponseError> {
@@ -154,6 +158,7 @@ pub async fn set_export_expiration(
                 id: snapshot_id.encode(),
                 expiration_ts_ms: (expiration_ts_ns / 1_000_000) as i64,
             }],
+            request_metadata,
             "set_export_expiration",
         )
         .await?;
@@ -164,6 +169,7 @@ pub async fn set_export_expiration(
 pub async fn cancel_export(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
 ) -> Result<StatusCode, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
@@ -178,6 +184,7 @@ pub async fn cancel_export(
             vec![DeploymentAuditLogEvent::CancelExport {
                 id: snapshot_id.encode(),
             }],
+            request_metadata,
             "cancel_export",
         )
         .await?;

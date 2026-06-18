@@ -3,6 +3,7 @@ use common::{
         ParseDocument,
         ParsedDocument,
     },
+    execution_context::RequestMetadata,
     runtime::Runtime,
 };
 use database::Database;
@@ -56,27 +57,33 @@ impl<RT: Runtime> Application<RT> {
     pub async fn add_log_sink(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         config: SinkConfig,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let sink_type = config.sink_type().as_str().to_string();
         let id = self
-            .execute_with_audit_log_events_and_occ_retries(identity, "add_log_sink", |tx| {
-                let config = config.clone();
-                let sink_type = sink_type.clone();
-                async move {
-                    let id = LogSinksModel::new(tx).add_or_update(config).await?;
-                    let id_str = DeveloperDocumentId::from(id).encode();
-                    Ok((
-                        id,
-                        vec![DeploymentAuditLogEvent::CreateIntegration {
-                            id: id_str,
-                            r#type: sink_type,
-                        }],
-                    ))
-                }
-                .boxed()
-                .into()
-            })
+            .execute_with_audit_log_events_and_occ_retries(
+                identity,
+                request_metadata,
+                "add_log_sink",
+                |tx| {
+                    let config = config.clone();
+                    let sink_type = sink_type.clone();
+                    async move {
+                        let id = LogSinksModel::new(tx).add_or_update(config).await?;
+                        let id_str = DeveloperDocumentId::from(id).encode();
+                        Ok((
+                            id,
+                            vec![DeploymentAuditLogEvent::CreateIntegration {
+                                id: id_str,
+                                r#type: sink_type,
+                            }],
+                        ))
+                    }
+                    .boxed()
+                    .into()
+                },
+            )
             .await?;
         Ok(id)
     }
@@ -84,6 +91,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn patch_log_sink_config(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         id: &String,
         config: SinkConfig,
     ) -> anyhow::Result<()> {
@@ -96,6 +104,7 @@ impl<RT: Runtime> Application<RT> {
         })?;
         self.execute_with_audit_log_events_and_occ_retries(
             identity,
+            request_metadata,
             "patch_log_sink_config",
             |tx| {
                 let config = config.clone();
@@ -210,6 +219,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn remove_log_sink_by_id(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         id: String,
     ) -> anyhow::Result<()> {
         let developer_id = DeveloperDocumentId::decode(&id).map_err(|_| {
@@ -218,40 +228,46 @@ impl<RT: Runtime> Application<RT> {
                 "The log stream id is invalid"
             ))
         })?;
-        self.execute_with_audit_log_events_and_occ_retries(identity, "remove_log_sink", |tx| {
-            let id = id.clone();
-            async move {
-                let resolved_id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
-                let row: ParsedDocument<LogSinksRow> = tx
-                    .get(resolved_id)
-                    .await?
-                    .ok_or_else(|| {
-                        ErrorMetadata::bad_request(
+        self.execute_with_audit_log_events_and_occ_retries(
+            identity,
+            request_metadata,
+            "remove_log_sink",
+            |tx| {
+                let id = id.clone();
+                async move {
+                    let resolved_id =
+                        tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
+                    let row: ParsedDocument<LogSinksRow> = tx
+                        .get(resolved_id)
+                        .await?
+                        .ok_or_else(|| {
+                            ErrorMetadata::bad_request(
+                                "LogStreamDoesntExist",
+                                "No log stream with the given id exists for this deployment.",
+                            )
+                        })?
+                        .parse()?;
+                    if row.status == SinkState::Tombstoned {
+                        return Err(ErrorMetadata::bad_request(
                             "LogStreamDoesntExist",
                             "No log stream with the given id exists for this deployment.",
                         )
-                    })?
-                    .parse()?;
-                if row.status == SinkState::Tombstoned {
-                    return Err(ErrorMetadata::bad_request(
-                        "LogStreamDoesntExist",
-                        "No log stream with the given id exists for this deployment.",
-                    )
-                    .into());
+                        .into());
+                    }
+                    let sink_type = row.into_value().config.sink_type().as_str().to_string();
+                    LogSinksModel::new(tx).mark_for_removal(resolved_id).await?;
+                    Ok((
+                        (),
+                        vec![DeploymentAuditLogEvent::DeleteIntegration {
+                            id,
+                            r#type: sink_type,
+                        }],
+                    ))
                 }
-                let sink_type = row.into_value().config.sink_type().as_str().to_string();
-                LogSinksModel::new(tx).mark_for_removal(resolved_id).await?;
-                Ok((
-                    (),
-                    vec![DeploymentAuditLogEvent::DeleteIntegration {
-                        id,
-                        r#type: sink_type,
-                    }],
-                ))
-            }
-            .boxed()
-            .into()
-        })
+                .boxed()
+                .into()
+            },
+        )
         .await?;
         Ok(())
     }

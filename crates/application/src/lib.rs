@@ -86,6 +86,7 @@ use common::{
         report_error,
         JsError,
     },
+    execution_context::RequestMetadata,
     http::{
         fetch::FetchClient,
         RequestDestination,
@@ -1520,6 +1521,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn request_export(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
@@ -1586,6 +1588,7 @@ impl<RT: Runtime> Application<RT> {
                 format: format_str,
                 requestor: requestor.usage_tag().to_string(),
             }],
+            request_metadata,
             "request_export",
         )
         .await?;
@@ -1808,6 +1811,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         environment_variables: Vec<EnvironmentVariable>,
         identity: Identity,
+        request_metadata: RequestMetadata,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity).await?;
 
@@ -1826,8 +1830,13 @@ impl<RT: Runtime> Application<RT> {
             .await
         {
             Ok(audit_events) => {
-                self.commit_with_audit_log_events(tx, audit_events, "set_initial_env_vars")
-                    .await?;
+                self.commit_with_audit_log_events(
+                    tx,
+                    audit_events,
+                    request_metadata,
+                    "set_initial_env_vars",
+                )
+                .await?;
                 Ok(())
             },
             Err(e) => {
@@ -2066,11 +2075,13 @@ impl<RT: Runtime> Application<RT> {
     pub async fn apply_config_with_retries(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         apply_config_args: ApplyConfigArgs,
     ) -> anyhow::Result<(ConfigMetadataAndSchema, OccRetryStats)> {
         let runner = self.runner.clone();
         self.execute_with_audit_log_events_and_occ_retries_reporting_stats(
             identity,
+            request_metadata,
             "apply_config",
             |tx| Self::_apply_config(runner.clone(), tx, apply_config_args.clone()).into(),
         )
@@ -2606,11 +2617,20 @@ impl<RT: Runtime> Application<RT> {
     pub async fn clear_tables(
         &self,
         identity: &Identity,
+        request_metadata: RequestMetadata,
         table_names: Vec<(ComponentPath, TableName)>,
         requestor: ImportRequestor,
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<u64> {
-        clear_tables(self, identity, table_names, requestor, usage).await
+        clear_tables(
+            self,
+            identity,
+            request_metadata,
+            table_names,
+            requestor,
+            usage,
+        )
+        .await
     }
 
     pub async fn execute_standalone_module(
@@ -2834,6 +2854,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn delete_tables(
         &self,
         identity: &Identity,
+        request_metadata: RequestMetadata,
         table_names: Vec<TableName>,
         component_id: ComponentId,
     ) -> anyhow::Result<u64> {
@@ -2859,6 +2880,7 @@ impl<RT: Runtime> Application<RT> {
                 component,
                 table_names,
             }],
+            request_metadata,
             "delete_tables",
         )
         .await?;
@@ -2868,6 +2890,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn delete_component(
         &self,
         identity: &Identity,
+        request_metadata: RequestMetadata,
         component_id: ComponentId,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity.clone()).await?;
@@ -2882,6 +2905,7 @@ impl<RT: Runtime> Application<RT> {
                 component_id: cid,
                 component,
             }],
+            request_metadata,
             "delete_component",
         )
         .await?;
@@ -3259,6 +3283,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn delete_scheduled_jobs_table(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         component_id: ComponentId,
     ) -> anyhow::Result<()> {
         identity.require_operation(DeploymentOp::WriteData)?;
@@ -3277,6 +3302,7 @@ impl<RT: Runtime> Application<RT> {
                 component_id: component_id.serialize_to_string(),
                 component,
             }],
+            request_metadata,
             "delete_scheduled_jobs_table",
         )
         .await?;
@@ -3288,6 +3314,7 @@ impl<RT: Runtime> Application<RT> {
         component_id: ComponentId,
         path: Option<CanonicalizedComponentFunctionPath>,
         identity: Identity,
+        request_metadata: RequestMetadata,
         start_next_ts: Option<Timestamp>,
         end_next_ts: Option<Timestamp>,
     ) -> anyhow::Result<()> {
@@ -3295,6 +3322,7 @@ impl<RT: Runtime> Application<RT> {
             let count = self
                 .execute_with_audit_log_events_and_occ_retries(
                     identity.clone(),
+                    request_metadata.clone(),
                     "application_cancel_all_jobs",
                     |tx| {
                         Self::_cancel_all_jobs(
@@ -3345,10 +3373,11 @@ impl<RT: Runtime> Application<RT> {
         &self,
         mut transaction: Transaction<RT>,
         events: Vec<DeploymentAuditLogEvent>,
+        request_metadata: RequestMetadata,
         write_source: impl Into<WriteSource>,
     ) -> anyhow::Result<Timestamp> {
         DeploymentAuditLogModel::new(&mut transaction)
-            .insert(events.clone())
+            .insert(events.clone(), &request_metadata)
             .await?;
         let ts = self.commit(transaction, write_source).await?;
         let logs = events
@@ -3366,6 +3395,7 @@ impl<RT: Runtime> Application<RT> {
     async fn insert_deployment_audit_log_events<'b, F, T>(
         tx: &mut Transaction<RT>,
         f: F,
+        request_metadata: RequestMetadata,
     ) -> anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>
     where
         T: Send,
@@ -3377,7 +3407,7 @@ impl<RT: Runtime> Application<RT> {
     {
         let (t, events) = f(tx).0.await?;
         DeploymentAuditLogModel::new(tx)
-            .insert(events.clone())
+            .insert(events.clone(), &request_metadata)
             .await?;
         Ok((t, events))
     }
@@ -3385,6 +3415,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_with_audit_log_events_and_occ_retries<'a, F, T>(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<T>
@@ -3398,6 +3429,7 @@ impl<RT: Runtime> Application<RT> {
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
+            request_metadata,
             write_source,
             f,
         )
@@ -3408,6 +3440,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_with_audit_log_events_and_occ_retries_reporting_stats<'a, F, T>(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(T, OccRetryStats)>
@@ -3421,6 +3454,7 @@ impl<RT: Runtime> Application<RT> {
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
+            request_metadata,
             write_source,
             f,
         )
@@ -3430,6 +3464,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_with_audit_log_events_and_occ_retries_with_timestamp<'a, F, T>(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(T, Timestamp)>
@@ -3444,7 +3479,7 @@ impl<RT: Runtime> Application<RT> {
         let db = self.database.clone();
         let (ts, (t, events), _stats) = db
             .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
-                Self::insert_deployment_audit_log_events(tx, &f).into()
+                Self::insert_deployment_audit_log_events(tx, &f, request_metadata.clone()).into()
             })
             .await?;
         // Send deployment audit logs
@@ -3462,6 +3497,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_with_audit_log_events_and_occ_retries_with_pause_client<'a, F, T>(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(T, OccRetryStats)>
@@ -3476,7 +3512,7 @@ impl<RT: Runtime> Application<RT> {
         let db = self.database.clone();
         let (ts, (t, events), stats) = db
             .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
-                Self::insert_deployment_audit_log_events(tx, &f).into()
+                Self::insert_deployment_audit_log_events(tx, &f, request_metadata.clone()).into()
             })
             .await?;
         // Send deployment audit logs

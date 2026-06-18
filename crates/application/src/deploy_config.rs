@@ -28,6 +28,7 @@ use common::{
         Resource,
     },
     errors::JsError,
+    execution_context::RequestMetadata,
     runtime::Runtime,
     schemas::DatabaseSchema,
     types::{
@@ -666,6 +667,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn finish_push(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         mut start_push: StartPushResponse,
         message: Option<PushMessage>,
     ) -> anyhow::Result<(FinishPushDiff, Timestamp)> {
@@ -694,6 +696,7 @@ impl<RT: Runtime> Application<RT> {
         let (diff, ts) = self
             .execute_with_audit_log_events_and_occ_retries_with_timestamp(
                 identity.clone(),
+                request_metadata,
                 finish_push_write_source,
                 |tx| {
                     let start_push = &start_push;
@@ -828,6 +831,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn push_config_no_components(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         config_file: ConfigFile,
         modules: Vec<ModuleConfig>,
         udf_server_version: Version,
@@ -893,6 +897,7 @@ impl<RT: Runtime> Application<RT> {
         ) = self
             .apply_config_with_retries(
                 identity.clone(),
+                request_metadata,
                 ApplyConfigArgs {
                     auth_module,
                     config_file,

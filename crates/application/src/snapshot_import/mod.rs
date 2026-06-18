@@ -54,7 +54,10 @@ use common::{
         ID_FIELD,
     },
     errors::report_error,
-    execution_context::ExecutionId,
+    execution_context::{
+        ExecutionId,
+        RequestMetadata,
+    },
     knobs::{
         MAX_IMPORT_AGE,
         TRANSACTION_MAX_NUM_USER_WRITES,
@@ -410,6 +413,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             &self.database,
             Identity::system(),
             snapshot_import.member_id,
+            RequestMetadata::system(),
             initial_schemas,
             snapshot_import.mode,
             imported_tables,
@@ -694,6 +698,7 @@ pub async fn do_import_from_object_key<RT: Runtime>(
 pub async fn clear_tables<RT: Runtime>(
     application: &Application<RT>,
     identity: &Identity,
+    request_metadata: RequestMetadata,
     table_names: Vec<(ComponentPath, TableName)>,
     requestor: ImportRequestor,
     usage: FunctionUsageTracker,
@@ -737,6 +742,7 @@ pub async fn clear_tables<RT: Runtime>(
         &application.database,
         identity.clone(),
         None,
+        request_metadata,
         initial_schemas,
         ImportMode::Replace,
         table_mapping,
@@ -941,6 +947,7 @@ async fn finalize_import<RT: Runtime>(
     database: &Database<RT>,
     identity: Identity,
     member_id_override: Option<MemberId>,
+    request_metadata: RequestMetadata,
     initial_schemas: SchemasForImport,
     mode: ImportMode,
     imported_tables: TableMapping,
@@ -1057,7 +1064,11 @@ async fn finalize_import<RT: Runtime>(
                 ))
                 .await?;
                 DeploymentAuditLogModel::new(tx)
-                    .insert_with_member_override(vec![audit_log_event.clone()], member_id_override)
+                    .insert_with_member_override(
+                        vec![audit_log_event.clone()],
+                        member_id_override,
+                        &request_metadata,
+                    )
                     .await?;
 
                 Ok(documents_deleted)

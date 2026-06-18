@@ -1196,6 +1196,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let args: AuditLogArgs = serde_json::from_value(args)?;
 
         let component_id = provider.component()?;
+        let request_metadata = provider.context().request_metadata.clone();
         let tx = provider.tx()?;
         let component_path = tx.must_component_path(component_id)?;
 
@@ -1219,7 +1220,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         let event_obj = obj!("action" => args.action, "metadata" => metadata)?;
         DeploymentAuditLogModel::new(tx)
-            .insert(vec![DeploymentAuditLogEvent::try_from(event_obj)?])
+            .insert(
+                vec![DeploymentAuditLogEvent::try_from(event_obj)?],
+                &request_metadata,
+            )
             .await?;
 
         Ok(JsonValue::Null)

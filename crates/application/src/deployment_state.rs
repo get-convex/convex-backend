@@ -1,4 +1,5 @@
 use common::{
+    execution_context::RequestMetadata,
     runtime::Runtime,
     types::{
         SystemStopState,
@@ -17,6 +18,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn set_user_stop_state(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         new_user_state: UserStopState,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity).await?;
@@ -31,6 +33,7 @@ impl<RT: Runtime> Application<RT> {
         self.commit_with_audit_log_events(
             tx,
             vec![deployment_audit_log_event],
+            request_metadata,
             "set_user_stop_state",
         )
         .await?;
@@ -40,6 +43,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn set_system_stop_state(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         new_system_state: SystemStopState,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity).await?;
@@ -54,6 +58,7 @@ impl<RT: Runtime> Application<RT> {
         self.commit_with_audit_log_events(
             tx,
             vec![deployment_audit_log_event],
+            request_metadata,
             "set_system_stop_state",
         )
         .await?;

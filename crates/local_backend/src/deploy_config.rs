@@ -15,11 +15,13 @@ use axum::{
 };
 use common::{
     components::ComponentId,
+    execution_context::RequestMetadata,
     http::{
         extract::{
             Json,
             MtState,
         },
+        ExtractRequestMetadata,
         HttpResponseError,
     },
     version::Version,
@@ -258,9 +260,10 @@ pub async fn get_config_hashes(
 #[debug_handler]
 pub async fn push_config(
     State(st): State<LocalAppState>,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(req): Json<ConfigJson>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    push_config_handler(&st.application, req)
+    push_config_handler(&st.application, request_metadata, req)
         .await
         .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
 
@@ -270,6 +273,7 @@ pub async fn push_config(
 #[fastrace::trace]
 pub async fn push_config_handler(
     application: &Application<ProdRuntime>,
+    request_metadata: RequestMetadata,
     config: ConfigJson,
 ) -> anyhow::Result<(Identity, PushAnalytics, PushMetrics)> {
     let identity = application
@@ -305,6 +309,7 @@ pub async fn push_config_handler(
     let (analytics, metrics) = application
         .push_config_no_components(
             identity.clone(),
+            request_metadata,
             config.config,
             modules,
             udf_server_version,

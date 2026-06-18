@@ -962,10 +962,10 @@ export interface components {
              *     were recorded. */
             token_id: components["schemas"]["AccessTokenId"];
         } | {
-            /** @description Client ID of the OAuth application */
+            /** @description Client ID of the integration */
             client_id: string;
             /** @enum {string} */
-            kind: "app";
+            kind: "integration";
         };
         AuditLogEventResponse: {
             /** @enum {string} */
