@@ -38,6 +38,9 @@ runs:
         fi
         echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" >> $GITHUB_ENV
         echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
+        # Line tables only (not full debuginfo) to cut CI rustc memory and avoid
+        # OOMs; backtraces keep symbols + file:line. Set before the cache step.
+        echo "CARGO_PROFILE_RELEASE_DEBUG=line-tables-only" >> $GITHUB_ENV
 
     - name: Install sccache
       uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
