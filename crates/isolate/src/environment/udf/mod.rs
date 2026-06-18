@@ -684,7 +684,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                         .phase
                         .snoop_reads()?;
                 }
-                let initialize_result = Self::initialize_context(&mut *v8_scope, timeout).await;
+                let initialize_result =
+                    Self::initialize_context(&mut *v8_scope, timeout, context_read_set.is_some())
+                        .await;
                 if snoop {
                     let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
                     let read_set = scope.state_mut()?.environment.phase.finish_snoop()?;
@@ -757,10 +759,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok((this, result))
     }
 
-    #[fastrace::trace]
+    #[fastrace::trace(properties = {"is_reused": "{is_reused}"})]
     async fn initialize_context<'c>(
         v8_scope: &'_ mut v8::PinScope<'c, '_>,
         timeout: &mut Timeout<RT>,
+        is_reused: bool,
     ) -> anyhow::Result<Result<v8::Local<'c, v8::Module>, JsError>> {
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
@@ -1323,6 +1326,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok(())
     }
 
+    #[fastrace::trace]
     async fn take_and_validate_reused_context(
         &mut self,
         context_cache: &mut ContextCache,
@@ -1360,6 +1364,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok(Some((context, module_map, read_set)))
     }
 
+    #[fastrace::trace]
     async fn capture_context_read_set(
         read_set: TransactionReadSet,
         tx: &mut Transaction<RT>,
