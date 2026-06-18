@@ -368,6 +368,24 @@ impl Identity {
         None
     }
 
+    pub fn token_id(&self) -> Option<AccessTokenId> {
+        match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity.token_id
+            },
+            _ => None,
+        }
+    }
+
+    pub fn app_client_id(&self) -> Option<String> {
+        match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity.app_client_id.clone()
+            },
+            _ => None,
+        }
+    }
+
     pub fn instance_admin_principal(&self) -> Option<AdminIdentityPrincipal> {
         if let Identity::DeploymentAdmin(AdminIdentity { principal, .. }) = self {
             return Some(principal.clone());
