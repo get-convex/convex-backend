@@ -1,6 +1,9 @@
 {
   "name": "convex",
   "private": true,
+  "engines": {
+    "npm": "11.11.0"
+  },
   "devDependencies": {
     "@microsoft/rush": "5.175.1",
     "dprint": "0.52.0",

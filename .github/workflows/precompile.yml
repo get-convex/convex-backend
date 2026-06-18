@@ -28,17 +28,11 @@ jobs:
             hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
           restore-keys: pnpm-cache-
 
-      - name: Node setup
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - name: Install mise tools
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
-          node-version-file: ".nvmrc"
-
-      - name: Install just
-        uses: taiki-e/install-action@481c34c1cf3a84c68b5e46f4eccfc82af798415a # v2
-        with:
-          tool: just
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: NPM install globals
         run: npm ci --prefix scripts
@@ -135,10 +129,11 @@ jobs:
             hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
           restore-keys: pnpm-cache-
 
-      - name: Node setup
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - name: Install mise tools
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
         with:
-          node-version-file: ".nvmrc"
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: NPM install globals
         run: npm ci --prefix scripts
