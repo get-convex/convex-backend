@@ -36,7 +36,7 @@ use common::{
 use errors::ErrorMetadata;
 use imbl::OrdMap;
 use indexing::{
-    backend_in_memory_indexes::BackendInMemoryIndexes,
+    in_memory_indexes::BackendInMemoryIndexes,
     index_registry::IndexRegistry,
 };
 use parking_lot::Mutex;

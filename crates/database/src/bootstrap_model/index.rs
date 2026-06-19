@@ -47,7 +47,7 @@ use common::{
 };
 use errors::ErrorMetadata;
 use indexing::{
-    backend_in_memory_indexes::index_not_a_database_index_error,
+    database_index_snapshot::index_not_a_database_index_error,
     index_registry::{
         index_not_found_error,
         Index,

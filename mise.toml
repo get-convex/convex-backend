@@ -21,6 +21,7 @@ opentofu = "1.10.0"
 cargo-binstall      = "1.20.0"
 "cargo:cargo-udeps" = "0.1.55"
 "cargo:cargo-sort"  = "2.1.4"
+"aqua:planetscale/cli" = "0.291.0"
 
 [env]
 # Build hints for the native -sys crates, primarily for LOCAL dev -- CI Linux gets

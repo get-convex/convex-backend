@@ -54,13 +54,13 @@ use futures::{
     TryStreamExt,
 };
 use indexing::{
-    backend_in_memory_indexes::{
-        DatabaseIndexSnapshot,
+    database_index_snapshot::DatabaseIndexSnapshot,
+    in_memory_indexes::{
         InMemoryIndexes,
-        IndexReader,
         MemoryDocument,
         SystemDocument,
     },
+    index_reader::IndexReader,
     index_registry::IndexRegistry,
 };
 use keybroker::Identity;

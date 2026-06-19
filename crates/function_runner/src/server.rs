@@ -48,7 +48,7 @@ use database::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::FutureExt;
-use indexing::backend_in_memory_indexes::IndexReader;
+use indexing::index_reader::IndexReader;
 use isolate::{
     client::EnvironmentData,
     IsolateClient,

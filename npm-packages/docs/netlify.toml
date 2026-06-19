@@ -1,6 +1,12 @@
 [build]
   ignore = "bash npm-packages/docs/scripts/should-build.sh"
 
+[build.environment]
+  # Netlify's build image has a version of mise older than the min_version
+  # specified in our mise.toml, which causes docs deploys to fail. We can ignore
+  # the mise.toml config since building docs does not require it.
+  MISE_IGNORED_CONFIG_PATHS = "/opt/build/repo/mise.toml"
+
 [[headers]]
   for = "/fonts/*"
   [headers.values]

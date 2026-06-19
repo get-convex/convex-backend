@@ -61,7 +61,7 @@ use value::{
 
 use super::*;
 use crate::{
-    backend_in_memory_indexes::IndexPage,
+    index_reader::IndexPage,
     index_registry::IndexRegistry,
 };
 

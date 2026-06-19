@@ -78,9 +78,9 @@ use derive_more::{
     DerefMut,
 };
 use errors::ErrorMetadata;
-use indexing::backend_in_memory_indexes::{
-    RangeRequest,
-    TimestampedIndexCache,
+use indexing::{
+    database_index_snapshot::TimestampedIndexCache,
+    index_reader::RangeRequest,
 };
 use keybroker::{
     Identity,

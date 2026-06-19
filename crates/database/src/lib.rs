@@ -62,7 +62,7 @@ pub use execution_size::{
     FunctionExecutionSize,
     TransactionLimits,
 };
-pub use indexing::backend_in_memory_indexes::{
+pub use indexing::database_index_snapshot::{
     DatabaseIndexSnapshotCache,
     TimestampedIndexCache,
 };
