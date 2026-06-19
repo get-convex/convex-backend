@@ -46,12 +46,12 @@ use common::{
 };
 use imbl::OrdMap;
 use indexing::{
-    backend_in_memory_indexes::{
+    database_index_snapshot::{
         DatabaseIndexSnapshot,
         DatabaseIndexSnapshotCache,
-        LazyDocument,
-        RangeRequest,
     },
+    in_memory_indexes::LazyDocument,
+    index_reader::RangeRequest,
     index_registry::{
         Index,
         IndexRegistry,

@@ -127,11 +127,13 @@ use futures::{
 };
 use imbl::OrdMap;
 use indexing::{
-    backend_in_memory_indexes::{
-        BackendInMemoryIndexes,
+    database_index_snapshot::{
         DatabaseIndexSnapshot,
-        NoInMemoryIndexes,
         TimestampedIndexCache,
+    },
+    in_memory_indexes::{
+        BackendInMemoryIndexes,
+        NoInMemoryIndexes,
     },
     index_cache::{
         IndexCacheHandle,

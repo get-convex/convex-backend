@@ -44,7 +44,7 @@ use imbl::{
     Vector,
 };
 use indexing::{
-    backend_in_memory_indexes::TimestampedIndexCache,
+    database_index_snapshot::TimestampedIndexCache,
     index_cache::WriteLogIndexReader,
     index_registry::IndexRegistry,
 };

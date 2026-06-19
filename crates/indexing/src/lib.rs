@@ -9,7 +9,9 @@
 #![feature(anonymous_lifetime_in_impl_trait)]
 
 pub mod atomic_cache;
-pub mod backend_in_memory_indexes;
+pub mod database_index_snapshot;
+pub mod in_memory_indexes;
 pub mod index_cache;
+pub mod index_reader;
 pub mod index_registry;
 pub mod metrics;

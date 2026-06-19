@@ -61,7 +61,7 @@ use value::{
 
 use crate::{
     atomic_cache::AtomicCache,
-    backend_in_memory_indexes::{
+    index_reader::{
         IndexEntry,
         IndexPage,
     },

@@ -26,10 +26,12 @@ use common::{
     query::Order,
     runtime::Runtime,
 };
-use indexing::backend_in_memory_indexes::{
-    LazyDocument,
-    MemoryDocument,
-    RangeRequest,
+use indexing::{
+    in_memory_indexes::{
+        LazyDocument,
+        MemoryDocument,
+    },
+    index_reader::RangeRequest,
 };
 use value::{
     serde::ConvexSerializable,

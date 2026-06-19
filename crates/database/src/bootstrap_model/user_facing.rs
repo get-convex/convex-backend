@@ -21,7 +21,7 @@ use common::{
     version::Version,
 };
 use errors::ErrorMetadata;
-use indexing::backend_in_memory_indexes::{
+use indexing::index_reader::{
     BatchKey,
     RangeRequest,
 };
