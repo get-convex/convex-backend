@@ -1,13 +1,30 @@
 use std::sync::LazyLock;
 
 use common::{
+    document::CREATION_TIME_FIELD_PATH,
     execution_context::RequestMetadata,
     obj,
+    query::{
+        Cursor,
+        CursorPosition,
+        IndexRange,
+        IndexRangeExpression,
+        Order,
+        Query,
+    },
     runtime::Runtime,
-    types::MemberId,
+    types::{
+        IndexName,
+        MemberId,
+    },
 };
 use database::{
+    query::{
+        PaginationOptions,
+        TableFilter,
+    },
     unauthorized_error,
+    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -16,12 +33,16 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 mod developer_index_config;
 pub mod types;
 
-use types::DeploymentAuditLogEvent;
+use types::{
+    DeploymentAuditLogEntry,
+    DeploymentAuditLogEvent,
+};
 
 use crate::{
     SystemIndex,
@@ -122,5 +143,46 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
             deployment_audit_log_ids.push(id);
         }
         Ok(deployment_audit_log_ids)
+    }
+
+    pub async fn list_events_from_time(
+        &mut self,
+        from_ts_ms: u64,
+        cursor: Option<Cursor>,
+        limit: usize,
+    ) -> anyhow::Result<(Vec<DeploymentAuditLogEntry>, Option<Cursor>)> {
+        let query = Query::index_range(IndexRange {
+            index_name: IndexName::by_creation_time(DEPLOYMENT_AUDIT_LOG_TABLE.clone()),
+            range: vec![IndexRangeExpression::Gte(
+                CREATION_TIME_FIELD_PATH.clone(),
+                (from_ts_ms as f64).into(),
+            )],
+            order: Order::Asc,
+        });
+        let mut query_stream = ResolvedQuery::new_bounded(
+            self.tx,
+            TableNamespace::Global,
+            query,
+            PaginationOptions::ManualPagination {
+                start_cursor: cursor,
+                maximum_rows_read: Some(limit),
+                maximum_bytes_read: None,
+            },
+            None,
+            TableFilter::IncludePrivateSystemTables,
+        )?;
+
+        let mut events = Vec::with_capacity(limit);
+        while events.len() < limit
+            && let Some(document) = query_stream.next(self.tx, None).await?
+        {
+            events.push(DeploymentAuditLogEntry::try_from(document)?);
+        }
+
+        let next_cursor = match query_stream.cursor() {
+            Some(cursor) if !matches!(cursor.position, CursorPosition::End) => Some(cursor),
+            _ => None,
+        };
+        Ok((events, next_cursor))
     }
 }

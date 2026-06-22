@@ -49,6 +49,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list_audit_log_events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List audit log events
+         * @description List a deployment's audit log events on or after a timestamp, from least to
+         *     most recent. Pass the returned `cursor` (along with the same `from`) to
+         *     fetch the next page.
+         */
+        get: operations["list_audit_log_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployment_info": {
         parameters: {
             query?: never;
@@ -284,6 +306,27 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Format: int64 */
+        AccessTokenId: number;
+        /** @description The identity that performed an audit log action. */
+        AuditLogActor: {
+            /** @enum {string} */
+            kind: "system";
+        } | {
+            /** @enum {string} */
+            kind: "member";
+            /** @description Member ID */
+            member_id: components["schemas"]["MemberId"];
+        } | {
+            /** @description Client ID of the OAuth application, if the token belongs to one. */
+            client_id?: string | null;
+            /** @enum {string} */
+            kind: "token";
+            member_id?: null | components["schemas"]["MemberId"];
+            /** @description Token ID. `0` for legacy audit log rows created before token IDs
+             *     were recorded. */
+            token_id: components["schemas"]["AccessTokenId"];
+        };
         AxiomAttribute: {
             key: string;
             value: string;
@@ -436,6 +479,23 @@ export interface components {
          * @enum {string}
          */
         DatadogSiteLocation: "US1" | "US3" | "US5" | "EU" | "US1_FED" | "AP1";
+        DeploymentAuditLogEventResponse: {
+            /** @enum {string} */
+            action: "create_environment_variable" | "update_environment_variable" | "delete_environment_variable" | "replace_environment_variable" | "update_canonical_url" | "delete_canonical_url" | "push_config" | "push_config_with_components" | "build_indexes" | "change_deployment_state" | "pause_deployment" | "unpause_deployment" | "change_system_stop_state" | "clear_tables" | "snapshot_import" | "delete_scheduled_jobs_table" | "delete_tables" | "delete_component" | "cancel_all_scheduled_functions" | "cancel_scheduled_function" | "request_export" | "cancel_export" | "set_export_expiration" | "create_integration" | "update_integration" | "delete_integration" | "add_documents" | "delete_documents" | "update_documents" | "create_table" | "delete_files" | "generate_upload_url";
+            /** @description The identity that performed the action. */
+            actor: components["schemas"]["AuditLogActor"];
+            /** @description IP address of the client that performed the action, if known. */
+            clientIp?: string | null;
+            /** @description User agent of the client that performed the action, if known. */
+            clientUserAgent?: string | null;
+            /**
+             * Format: int64
+             * @description Time the event was created, in milliseconds since epoch.
+             */
+            createTime: number;
+            /** @description Additional JSON metadata about the audit log event. */
+            metadata: components["schemas"]["Value"];
+        };
         /** Format: int64 */
         DeploymentId: number;
         DeploymentInfoResponse: {
@@ -457,6 +517,11 @@ export interface components {
         GetCanonicalUrlsResponse: {
             convexCloudUrl: string;
             convexSiteUrl: string;
+        };
+        ListDeploymentAuditLogEventsResponse: {
+            /** @description The audit log events for this page, from least to most recent. */
+            items: components["schemas"]["DeploymentAuditLogEventResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         ListEnvVarsResponse: {
             environmentVariables: {
@@ -502,6 +567,12 @@ export interface components {
         };
         /** @enum {string} */
         LogTopic: "verification" | "console" | "function_execution" | "exception" | "audit_log" | "scheduler_stats" | "scheduled_job_lag" | "current_storage_usage" | "concurrency_stats" | "storage_api_bandwidth" | "log_stream_egress" | "custom_audit";
+        /** Format: int64 */
+        MemberId: number;
+        PaginationMetadata: {
+            hasMore: boolean;
+            nextCursor?: string | null;
+        };
         /** PostHogErrorTrackingConfig */
         PostHogErrorTrackingLogStreamConfig: {
             /** @description PostHog host URL. */
@@ -641,6 +712,7 @@ export interface components {
             /** @description URL to send logs to. */
             url?: string | null;
         };
+        Value: unknown;
         /** @enum {string} */
         WebhookFormat: "json" | "jsonl";
         /** WebhookConfig */
@@ -666,6 +738,8 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AccessTokenId = components['schemas']['AccessTokenId'];
+export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AxiomAttribute = components['schemas']['AxiomAttribute'];
 export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];
 export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStreamArgs'];
@@ -679,14 +753,18 @@ export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLog
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
 export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
 export type DatadogSiteLocation = components['schemas']['DatadogSiteLocation'];
+export type DeploymentAuditLogEventResponse = components['schemas']['DeploymentAuditLogEventResponse'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentInfoResponse = components['schemas']['DeploymentInfoResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
+export type ListDeploymentAuditLogEventsResponse = components['schemas']['ListDeploymentAuditLogEventsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
 export type LogTopic = components['schemas']['LogTopic'];
+export type MemberId = components['schemas']['MemberId'];
+export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PostHogErrorTrackingLogStreamConfig = components['schemas']['PostHogErrorTrackingLogStreamConfig'];
 export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogStreamConfig'];
 export type ProjectId = components['schemas']['ProjectId'];
@@ -704,6 +782,7 @@ export type UpdatePostHogErrorTrackingSinkArgs = components['schemas']['UpdatePo
 export type UpdatePostHogLogsSinkArgs = components['schemas']['UpdatePostHogLogsSinkArgs'];
 export type UpdateSentrySinkArgs = components['schemas']['UpdateSentrySinkArgs'];
 export type UpdateWebhookSinkArgs = components['schemas']['UpdateWebhookSinkArgs'];
+export type Value = components['schemas']['Value'];
 export type WebhookFormat = components['schemas']['WebhookFormat'];
 export type WebhookLogStreamConfig = components['schemas']['WebhookLogStreamConfig'];
 export type $defs = Record<string, never>;
@@ -744,6 +823,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvVarsResponse"];
+                };
+            };
+        };
+    };
+    list_audit_log_events: {
+        parameters: {
+            query: {
+                /** @description Only return events on or after this time, in milliseconds since epoch.
+                 *     Pass the same value on every page of a paginated request. */
+                from: number;
+                /** @description Maximum number of events to return (defaults to 15, capped at 100). */
+                limit?: number | null;
+                /** @description Cursor from a previous response to fetch the next page. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeploymentAuditLogEventsResponse"];
                 };
             };
         };

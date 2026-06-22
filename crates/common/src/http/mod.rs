@@ -830,11 +830,11 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
 pub struct InstanceNameExt(pub String);
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PaginationMetadata {
     pub has_more: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
 
