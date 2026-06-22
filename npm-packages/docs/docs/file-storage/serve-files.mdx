@@ -36,21 +36,45 @@ File URLs can be used in `img` elements to render images:
 
 <Snippet title="src/App.tsx" source={App} snippet="imageComponent" />
 
-In your query you can control who gets access to a file when the URL is
-generated. If you need to control access when the file is _served_, you can
-define your own file serving HTTP actions instead.
+:::caution Security consideration
+
+File URLs are unauthenticated. **Anyone with the URL can access the file**
+without further authentication from your app.
+
+In your query you can control who receives the URL, but once shared, that URL
+can be reused or shared. **To revoke a shared URL, delete the file.** If you
+still need to serve the file, upload it again and share the new URL only with
+authorized users.
+
+If you need to authenticate or authorize access each time the file is requested,
+use [HTTP actions](#serving-files-from-http-actions) and avoid exposing direct
+file URLs to the client.
 
 ## Serving files from HTTP actions
 
-You can serve files directly from [HTTP actions](/functions/http-actions.mdx).
-An HTTP action will need to take some parameter(s) that can be mapped to a
-storage ID, or a storage ID itself.
+For files requiring access control on every request, serve files directly from
+[HTTP actions](/functions/http-actions.mdx). **Do not pass a raw storage ID for
+private files.** Instead:
 
-This enables access control at the time the file is served, such as when an
-image is displayed on a website. But note that the HTTP actions response size is
-[currently limited](/functions/http-actions.mdx#limits) to 20MB. For larger
-files you need to use file URLs as described
-[above](#generating-file-urls-in-queries).
+1. Store the storage ID in your own table, along with ownership or permission
+   metadata.
+2. Give the client an app-level ID, such as a message ID or file record ID.
+3. In the HTTP action, check permissions, map the app-level ID to the storage
+   ID, and return the file bytes with `storage.get()`.
+
+This is a practical stopgap for private files because the client never sees the
+storage ID or direct file URL.
+
+HTTP action responses are
+[currently limited](/functions/http-actions.mdx#limits) to 20MB. **For larger
+sensitive files, Convex File Storage does not currently provide a built-in
+authenticated large file serving path.** Use file URLs as described
+[above](#generating-file-urls-in-queries) only when bearer URL access is
+acceptable for your use case.
+
+The small example below passes a storage ID in the URL so it can focus on
+`storage.get()`. **For private files, use the app-level ID mapping above
+instead.**
 
 A file [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) object
 can be generated from a storage ID by the
