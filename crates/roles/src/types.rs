@@ -41,6 +41,26 @@ pub(crate) enum TokenSelector {
     Creator(CreatorMatcher),
 }
 
+/// Selectors valid on component resources, nested under a deployment.
+///
+/// A component statement reads e.g. `…:deployment:*:component:path=foo/bar`.
+/// Selection is over the component's path in the deployment's component tree,
+/// matched as a string (the canonical slash-joined path; the root app component
+/// is `""`). A leading `/` on the written path is optional and ignored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum ComponentSelector {
+    /// `*` — every component in the deployment.
+    Any,
+    /// `path=foo/bar` — exactly this component (`path=/` selects the root app
+    /// component, stored as `""`).
+    Path(String),
+    /// `path=<prefix>*` — any component whose path string starts with `prefix`.
+    /// This is a literal prefix: `foo` matches `foo`, `foo/bar`, *and*
+    /// `foobar`. End the prefix with `/` for path-boundary matching: `foo/`
+    /// matches `foo` and `foo/bar` but not `foobar`.
+    PathStartsWith(String),
+}
+
 /// Right-hand side of `creator=` on a deployment or token selector. Either
 /// a fixed [`MemberId`] or `self`, which resolves to the evaluating actor's
 /// member id at match time so a single statement covers "things I created"
@@ -77,6 +97,7 @@ pub enum ResourceKind {
     Team,
     Project,
     Deployment,
+    Component,
     Member,
     Token,
     CustomRole,
@@ -95,6 +116,7 @@ pub(crate) enum ResourceSegment {
     Team,
     Project(Vec<ProjectSelector>),
     Deployment(Vec<DeploymentSelector>),
+    Component(Vec<ComponentSelector>),
     Member,
     Token(Vec<TokenSelector>),
     CustomRole,
@@ -111,6 +133,7 @@ impl ResourceSegment {
             ResourceSegment::Team => ResourceKind::Team,
             ResourceSegment::Project(_) => ResourceKind::Project,
             ResourceSegment::Deployment(_) => ResourceKind::Deployment,
+            ResourceSegment::Component(_) => ResourceKind::Component,
             ResourceSegment::Member => ResourceKind::Member,
             ResourceSegment::Token(_) => ResourceKind::Token,
             ResourceSegment::CustomRole => ResourceKind::CustomRole,
