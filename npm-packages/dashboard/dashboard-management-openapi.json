@@ -3221,6 +3221,12 @@
                   "token_id"
                 ],
                 "properties": {
+                  "client_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "member_id": {
                     "$ref": "#/components/schemas/MemberId"
                   },
@@ -3244,6 +3250,12 @@
                   "token_id"
                 ],
                 "properties": {
+                  "client_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "team_id": {
                     "$ref": "#/components/schemas/TeamId"
                   },

@@ -1730,11 +1730,13 @@ export interface components {
             };
         } | {
             serviceAccount: {
+                client_id?: string | null;
                 member_id: components["schemas"]["MemberId"];
                 token_id: components["schemas"]["AccessTokenId"];
             };
         } | {
             team: {
+                client_id?: string | null;
                 team_id: components["schemas"]["TeamId"];
                 token_id: components["schemas"]["AccessTokenId"];
             };
