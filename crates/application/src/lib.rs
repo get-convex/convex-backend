@@ -245,7 +245,10 @@ use model::{
         DatabaseGlobalsModel,
     },
     deployment_audit_log::{
-        types::DeploymentAuditLogEvent,
+        types::{
+            DeploymentAuditLogEntry,
+            DeploymentAuditLogEvent,
+        },
         DeploymentAuditLogModel,
     },
     environment_variables::{
@@ -621,6 +624,9 @@ pub async fn create_storage<RT: Runtime>(
     Ok(storage)
 }
 
+const DEFAULT_AUDIT_LOG_LIMIT: usize = 15;
+const MAX_AUDIT_LOG_LIMIT: usize = 100;
+
 impl<RT: Runtime> Application<RT> {
     pub async fn initialize_storage(
         runtime: RT,
@@ -947,6 +953,59 @@ impl<RT: Runtime> Application<RT> {
     pub fn function_log(&self, identity: &Identity) -> anyhow::Result<FunctionEntriesLog<'_, RT>> {
         identity.require_operation(DeploymentOp::ViewLogs)?;
         Ok(FunctionEntriesLog::new(&self.function_log))
+    }
+
+    pub async fn list_audit_log_events(
+        &self,
+        identity: Identity,
+        from_ts_ms: u64,
+        limit: Option<usize>,
+        cursor: Option<String>,
+    ) -> anyhow::Result<(Vec<DeploymentAuditLogEntry>, Option<String>)> {
+        identity.require_operation(DeploymentOp::ViewAuditLog)?;
+
+        let limit = limit.unwrap_or(DEFAULT_AUDIT_LOG_LIMIT);
+        if limit == 0 || limit > MAX_AUDIT_LOG_LIMIT {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "LimitOutOfRange",
+                format!("The limit for audit logs must be between 1 and {MAX_AUDIT_LOG_LIMIT}"),
+            ));
+        }
+        let cursor = cursor
+            .map(|cursor| self.key_broker().decrypt_cursor(cursor))
+            .transpose()?;
+
+        let mut tx = self.begin(identity).await?;
+        let retention_days = BackendInfoModel::new(&mut tx)
+            .get()
+            .await?
+            .map(|backend_info| backend_info.audit_log_retention_days);
+        match retention_days {
+            None => anyhow::bail!(ErrorMetadata::forbidden(
+                "AuditLogsDisabled",
+                "Audit logs are not available on your current plan. See \
+                 https://www.convex.dev/pricing to upgrade.",
+            )),
+            Some(-1) => (),
+            Some(retention_days) => {
+                let now_ms = tx.runtime().unix_timestamp().as_ms_since_epoch()?;
+                let retention_ms = retention_days as u64 * 24 * 60 * 60 * 1000;
+                if from_ts_ms < now_ms.saturating_sub(retention_ms) {
+                    anyhow::bail!(ErrorMetadata::forbidden(
+                        "AuditLogsTooOld",
+                        format!(
+                            "Audit logs are only available for the last {retention_days} days."
+                        ),
+                    ));
+                }
+            },
+        }
+
+        let (events, next_cursor) = DeploymentAuditLogModel::new(&mut tx)
+            .list_events_from_time(from_ts_ms, cursor, limit)
+            .await?;
+        let cursor = next_cursor.map(|cursor| self.key_broker().encrypt_cursor(&cursor));
+        Ok((events, cursor))
     }
 
     pub fn log_manager_client(&self) -> &LogManagerClient {

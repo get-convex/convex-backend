@@ -6,6 +6,7 @@ use std::{
 use common::{
     bootstrap_model::index::IndexMetadata,
     components::ComponentPath,
+    document::ResolvedDocument,
     http::RequestDestination,
     log_streaming::{
         LogEvent,
@@ -14,9 +15,11 @@ use common::{
     pii::PII,
     runtime::UnixTimestamp,
     types::{
+        AccessTokenId,
         GenericIndexName,
         IndexDiff,
         IndexName,
+        MemberId,
         SystemStopState,
     },
 };
@@ -293,7 +296,7 @@ impl DeploymentAuditLogEvent {
         DeploymentAuditLogEventKind::from(self).action()
     }
 
-    fn metadata(self) -> anyhow::Result<ConvexObject> {
+    pub fn metadata(self) -> anyhow::Result<ConvexObject> {
         match self {
             DeploymentAuditLogEvent::CreateEnvironmentVariable { name }
             | DeploymentAuditLogEvent::UpdateEnvironmentVariable { name }
@@ -626,6 +629,72 @@ impl TryFrom<DeploymentAuditLogEvent> for ConvexObject {
 
     fn try_from(value: DeploymentAuditLogEvent) -> anyhow::Result<Self> {
         obj!("action" => value.action(), "metadata" => value.metadata()?)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum DeploymentAuditLogActor {
+    Token {
+        member_id: Option<MemberId>,
+        token_id: AccessTokenId,
+        client_id: Option<String>,
+    },
+    Member {
+        member_id: MemberId,
+    },
+    System,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeploymentAuditLogEntry {
+    pub client_ip: Option<String>,
+    pub client_user_agent: Option<String>,
+    pub create_time: i64,
+    pub actor: DeploymentAuditLogActor,
+    pub action: DeploymentAuditLogEvent,
+}
+
+impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
+    type Error = anyhow::Error;
+
+    fn try_from(document: ResolvedDocument) -> anyhow::Result<Self> {
+        let create_time = f64::from(document.creation_time()) as i64;
+        let object: ConvexObject = document.into_value().into_value();
+
+        let mut fields = BTreeMap::from(object.clone());
+        let member_id = match fields.remove("member_id") {
+            Some(ConvexValue::Int64(id)) => Some(MemberId(u64::try_from(id)?)),
+            Some(ConvexValue::Null) | None => None,
+            v => anyhow::bail!("expected int or null for member_id, got {v:?}"),
+        };
+        let token_id = remove_nullable_string(&mut fields, "token_id")?;
+        let client_id = remove_nullable_string(&mut fields, "app_client_id")?;
+        let client_ip = remove_nullable_string(&mut fields, "client_ip")?;
+        let client_user_agent = remove_nullable_string(&mut fields, "client_user_agent")?;
+
+        let actor = match token_id {
+            Some(token_id) => DeploymentAuditLogActor::Token {
+                member_id,
+                token_id: token_id
+                    .parse::<u64>()
+                    .map(AccessTokenId)
+                    .unwrap_or_else(|_| AccessTokenId::unknown()),
+                client_id,
+            },
+            None => match member_id {
+                Some(member_id) => DeploymentAuditLogActor::Member { member_id },
+                None => DeploymentAuditLogActor::System,
+            },
+        };
+
+        let action = DeploymentAuditLogEvent::try_from(object)?;
+        Ok(Self {
+            client_ip,
+            client_user_agent,
+            create_time,
+            actor,
+            action,
+        })
     }
 }
 
