@@ -2573,6 +2573,13 @@
               "kind"
             ],
             "properties": {
+              "client_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Client ID of the OAuth application the token was issued to or is\nmanaged by, if any."
+              },
               "kind": {
                 "type": "string",
                 "enum": [

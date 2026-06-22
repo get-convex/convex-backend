@@ -955,6 +955,9 @@ export interface components {
             /** @description Member ID */
             member_id: components["schemas"]["MemberId"];
         } | {
+            /** @description Client ID of the OAuth application the token was issued to or is
+             *     managed by, if any. */
+            client_id?: string | null;
             /** @enum {string} */
             kind: "token";
             member_id?: null | components["schemas"]["MemberId"];
