@@ -1094,38 +1094,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/environment_variables/list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_environment_variables"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/environment_variables/update_batch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["update_environment_variables"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/usage/query": {
         parameters: {
             query?: never;
@@ -1974,15 +1942,6 @@ export interface components {
             requiresPaymentMethod: boolean;
         };
         EnableSSORequest: Record<string, never>;
-        EnvVariableConfigJson: {
-            deploymentTypes: components["schemas"]["DeploymentType"][];
-            name: string;
-            value: string;
-        };
-        EnvironmentVariableJson: {
-            name: string;
-            value: string;
-        };
         GenerateSSOConfigurationLinkRequest: {
             intent: components["schemas"]["SSOPortalIntent"];
         };
@@ -2103,9 +2062,6 @@ export interface components {
         /** @description Indicates whether the deployment is the default prod deployment for the
          *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
-        ListEnvVariableResponse: {
-            configs: components["schemas"]["EnvVariableConfigJson"][];
-        };
         ListMyCustomRolesResponse: {
             customRoles: components["schemas"]["CustomRoleResponse"][];
             /** @description The team member's built-in role. When `custom`, `customRoles` lists
@@ -2557,13 +2513,6 @@ export interface components {
             email: string;
             name: string;
         };
-        UpdateEnvironmentVariable: {
-            newConfig?: null | components["schemas"]["EnvVariableConfigJson"];
-            oldVariable?: null | components["schemas"]["EnvironmentVariableJson"];
-        };
-        UpdateEnvironmentVariables: {
-            changes: components["schemas"]["UpdateEnvironmentVariable"][];
-        };
         UpdateOauthAppArgs: {
             appName?: null | components["schemas"]["AppName"];
             redirectUris?: string[] | null;
@@ -2699,8 +2648,6 @@ export type DiscordId = components['schemas']['DiscordId'];
 export type DiscordLoginUrlResponse = components['schemas']['DiscordLoginUrlResponse'];
 export type DiscountedPlanResponse = components['schemas']['DiscountedPlanResponse'];
 export type EnableSsoRequest = components['schemas']['EnableSSORequest'];
-export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson'];
-export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
 export type GenerateSsoConfigurationLinkRequest = components['schemas']['GenerateSSOConfigurationLinkRequest'];
 export type GenerateSsoConfigurationLinkResponse = components['schemas']['GenerateSSOConfigurationLinkResponse'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
@@ -2720,7 +2667,6 @@ export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOS
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
-export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
@@ -2790,8 +2736,6 @@ export type UnlinkDiscordAccountRequest = components['schemas']['UnlinkDiscordAc
 export type UnlinkIdentityRequest = components['schemas']['UnlinkIdentityRequest'];
 export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddressArgs'];
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
-export type UpdateEnvironmentVariable = components['schemas']['UpdateEnvironmentVariable'];
-export type UpdateEnvironmentVariables = components['schemas']['UpdateEnvironmentVariables'];
 export type UpdateOauthAppArgs = components['schemas']['UpdateOauthAppArgs'];
 export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethodArgs'];
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
@@ -4330,50 +4274,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GetSpendingLimitsResponse"];
                 };
-            };
-        };
-    };
-    list_environment_variables: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListEnvVariableResponse"];
-                };
-            };
-        };
-    };
-    update_environment_variables: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateEnvironmentVariables"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
