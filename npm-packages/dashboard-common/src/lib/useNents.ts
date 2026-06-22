@@ -25,7 +25,7 @@ export function useNents(): {
   selectedNent: Nent | null;
   setSelectedNent: (nent?: string) => Promise<void>;
 } {
-  const { query, push } = useRouter();
+  const { query, pathname, push } = useRouter();
   // Get canViewDataCached from a special memoized context because useNents is called in a lot of components,
   // which may have hundreds of instantiations.
   const { canViewDataCached } = useContext(PermissionsContext);
@@ -48,14 +48,13 @@ export function useNents(): {
   const selectedNent = (query.component as string | undefined) ?? null;
 
   const setSelectedNent = async (nent?: string) => {
-    if (!nent) {
-      delete query.component;
-      await push({ query });
-      return;
+    const newQuery = { ...query };
+    if (nent) {
+      newQuery.component = nent;
+    } else {
+      delete newQuery.component;
     }
-    await push({ query: { ...query, component: nent } }, undefined, {
-      shallow: true,
-    });
+    await push({ pathname, query: newQuery }, undefined, { shallow: true });
   };
 
   const nents: Nent[] | undefined = useMemo(
