@@ -409,23 +409,44 @@ impl<RT: Runtime> UdfPhase<RT> {
             // snooping is only used during initialization
             anyhow::bail!("Transaction is still snooped during start_nested_udf?");
         };
-        let UdfPreloaded::Ready {
-            ref mut rng,
-            unix_timestamp,
-            ..
-        } = self.preloaded
-        else {
-            anyhow::bail!("Phase not initialized");
-        };
-        let (rng, unix_timestamp) =
-            (rng.as_mut().zip(unix_timestamp)).context(ErrorMetadata::bad_request(
-                "NoCallsDuringImport",
-                "Cannot call another function at import time",
-            ))?;
         // Note: it's up to the caller to update observed_rng / observed_time after the
         // nested UDF returns
-        let rng_seed = rng.random();
+        let rng_seed = self.draw_nested_rng_seed()?;
+        let UdfPreloaded::Ready { unix_timestamp, .. } = self.preloaded else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let unix_timestamp = unix_timestamp.context(ErrorMetadata::bad_request(
+            "NoCallsDuringImport",
+            "Cannot call another function at import time",
+        ))?;
         Ok((tx, rng_seed, unix_timestamp))
+    }
+
+    /// Draws a single 32-byte RNG seed for a nested UDF call, advancing the
+    /// parent RNG stream by exactly one draw. Both the execute path
+    /// ([`Self::start_nested_udf`]) and the subquery-cache-hit path
+    /// ([`Self::advance_nested_rng`]) go through here, so the parent RNG stream
+    /// advances identically whether or not a subquery was served from the
+    /// in-transaction memoization cache. Keep this the single source of the
+    /// "one draw per `ctx.runQuery`" invariant.
+    fn draw_nested_rng_seed(&mut self) -> anyhow::Result<[u8; 32]> {
+        let UdfPreloaded::Ready { ref mut rng, .. } = self.preloaded else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let rng = rng.as_mut().context(ErrorMetadata::bad_request(
+            "NoCallsDuringImport",
+            "Cannot call another function at import time",
+        ))?;
+        Ok(rng.random())
+    }
+
+    /// Advances the parent RNG by the single draw a nested UDF call consumes,
+    /// without actually starting one. Called when a subquery is served from the
+    /// in-transaction memoization cache so the parent's RNG stream is identical
+    /// whether or not the subquery executed.
+    pub fn advance_nested_rng(&mut self) -> anyhow::Result<()> {
+        self.draw_nested_rng_seed()?;
+        Ok(())
     }
 
     pub fn put_tx(&mut self, tx: Transaction<RT>) -> anyhow::Result<()> {

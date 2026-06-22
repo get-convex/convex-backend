@@ -57,6 +57,8 @@ use database::{
     BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
+    SubqueryCacheKey,
+    SubqueryCacheValue,
     Transaction,
     TransactionLimits,
     UserFacingModel,
@@ -136,6 +138,7 @@ use crate::{
         async_syscall_timer,
         log_component_get_user_identity,
         log_run_udf,
+        log_subquery_cache,
     },
 };
 
@@ -590,15 +593,33 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 ));
             },
         }
-        let tx = self.phase.tx()?;
         let called_component_id = path.component;
-
         let execution_type = nested_udf_type.execution_type();
+        let serialized_args = SerializedArgs::from_args(vec![args.into()])?;
+
+        // A query may call another query, and the whole query tree executes
+        // against a single immutable transaction snapshot. We can therefore
+        // memoize each subquery's result for the rest of this execution, keyed
+        // by (component, path, args). This is only sound from a query: a
+        // mutation may write between two subquery calls, which would change the
+        // snapshot. System UDFs are excluded too: they thread a pagination
+        // journal (`prev_journal`/`next_journal`) through nested query calls that
+        // a cache hit would skip. See `crates/database/src/subquery_cache.rs`.
+        let subquery_cache_key = (self.udf_type == UdfType::Query
+            && nested_udf_type == NestedUdfType::Query
+            && !self.is_system())
+        .then(|| SubqueryCacheKey {
+            component: called_component_id,
+            udf_path: path.udf_path.clone(),
+            args: serialized_args.clone(),
+        });
+
+        let tx = self.phase.tx()?;
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
             PublicFunctionPath::ResolvedComponent(path.clone()),
-            SerializedArgs::from_args(vec![args.into()])?,
+            serialized_args,
             execution_type,
         )
         .await?;
@@ -620,6 +641,52 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             ));
         }
         let new_reactor_depth = self.reactor_depth + 1;
+
+        // Serve the subquery from the in-transaction memoization cache if we ran
+        // it earlier in this query execution.
+        if let Some(key) = &subquery_cache_key {
+            match self.phase.tx()?.subquery_cache_get(key) {
+                Some(cached) => {
+                    log_subquery_cache(true);
+                    // Mirror the single RNG draw that `start_nested_udf` performs
+                    // per nested call, so the parent's RNG stream is identical
+                    // whether or not the subquery was served from cache.
+                    self.phase.advance_nested_rng()?;
+                    // Log before propagating identity, matching the miss path so
+                    // the `outer_observed_identity` label reflects the parent's
+                    // pre-propagation state in both cases.
+                    log_run_udf(
+                        self.udf_type,
+                        execution_type,
+                        self.phase.observed_identity(),
+                        cached.observed_identity,
+                    );
+                    // Re-propagate observation flags so the parent outcome (and
+                    // the top-level query cache key) still reflect that it
+                    // transitively observed identity / time. `observed_rng` is
+                    // never set on a cached entry (see the insert below).
+                    if cached.observed_identity {
+                        self.observe_identity()?;
+                    }
+                    if cached.observed_time {
+                        self.phase.unix_timestamp()?;
+                    }
+                    // Validate the cached value against the callee's return
+                    // validator, exactly as the freshly-executed path does.
+                    let tx = self.phase.tx()?;
+                    let table_mapping = tx.table_mapping().namespace(called_component_id.into());
+                    if let Some(e) = returns_validator.check_output(
+                        &cached.result,
+                        &table_mapping,
+                        virtual_system_mapping(),
+                    ) {
+                        anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
+                    }
+                    return Ok(cached.result);
+                },
+                None => log_subquery_cache(false),
+            }
+        }
 
         let (initial_tx, rng_seed, unix_timestamp) = self.phase.start_nested_udf()?;
         let (mut nested_tx, saved_tx) = match nested_udf_type {
@@ -686,6 +753,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             journal,
         } = outcome;
 
+        // A cache hit does not re-emit a subquery's audit log lines, so refuse to
+        // memoize any subquery that produced audit logs (queries effectively never
+        // do, but this keeps audit-log emission complete if that ever changes).
+        let emitted_audit_logs = !audit_log_lines.is_empty();
+
         log_run_udf(
             self.udf_type,
             execution_type,
@@ -728,6 +800,26 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         {
             anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
         }
+
+        // Memoize the validated result for the rest of this query execution. We
+        // never store a result that observed randomness: each `ctx.runQuery`
+        // seeds the child RNG independently, so a randomness-observing subquery
+        // may legitimately produce a different value on a later identical call.
+        // We also skip any subquery that emitted audit logs (see above).
+        if let Some(key) = subquery_cache_key
+            && !observed_rng
+            && !emitted_audit_logs
+        {
+            self.phase.tx()?.subquery_cache_insert(
+                key,
+                SubqueryCacheValue {
+                    result: result.clone(),
+                    observed_identity,
+                    observed_time,
+                },
+            );
+        }
+
         Ok(result)
     }
 

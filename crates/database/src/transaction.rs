@@ -133,6 +133,11 @@ use crate::{
     reads::TransactionReadSet,
     schema_registry::SchemaRegistry,
     snapshot_manager::Snapshot,
+    subquery_cache::{
+        SubqueryCache,
+        SubqueryCacheKey,
+        SubqueryCacheValue,
+    },
     table_summary::table_summary_bootstrapping_error,
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
@@ -191,6 +196,10 @@ pub struct Transaction<RT: Runtime> {
     pub usage_tracker: FunctionUsageTracker,
     pub(crate) virtual_system_mapping: VirtualSystemMapping,
 
+    /// Memoizes read-only subquery (`ctx.runQuery`) results for the lifetime of
+    /// this transaction. Only populated when the running UDF is a query (see
+    /// [`crate::subquery_cache`] for the correctness argument).
+    pub(crate) subquery_cache: SubqueryCache,
 }
 
 #[async_trait]
@@ -243,6 +252,7 @@ impl<RT: Runtime> Transaction<RT> {
             runtime,
             usage_tracker,
             virtual_system_mapping,
+            subquery_cache: SubqueryCache::new(),
         }
     }
 
@@ -384,6 +394,26 @@ impl<RT: Runtime> Transaction<RT> {
         self.schema_registry.require_not_nested()?;
         self.component_registry.require_not_nested()?;
         Ok(())
+    }
+
+    /// Looks up a memoized read-only subquery result for this transaction
+    /// snapshot. See [`crate::subquery_cache`] for when this is safe to use.
+    pub fn subquery_cache_get(&self, key: &SubqueryCacheKey) -> Option<SubqueryCacheValue> {
+        self.subquery_cache.get(key)
+    }
+
+    /// Memoizes a read-only subquery result for the remainder of this
+    /// transaction. Returns `true` if the entry was stored (it may be dropped
+    /// if the per-transaction cap is reached). Callers must only memoize
+    /// results that are safe to replay for an identical `(component, path,
+    /// args)` call against the same snapshot — see
+    /// [`crate::subquery_cache`].
+    pub fn subquery_cache_insert(
+        &mut self,
+        key: SubqueryCacheKey,
+        value: SubqueryCacheValue,
+    ) -> bool {
+        self.subquery_cache.insert(key, value)
     }
 
     pub fn writes(&self) -> &NestedWrites<Writes> {
@@ -1319,10 +1349,12 @@ impl<RT: Runtime> Transaction<RT> {
             runtime: self.runtime.clone(),
             usage_tracker: self.usage_tracker.clone(),
             virtual_system_mapping: self.virtual_system_mapping.clone(),
-
+            // Snapshot queries run from a *mutation* context, where subquery
+            // memoization is disabled (writes can change the snapshot between
+            // calls). Start with an empty, independent cache.
+            subquery_cache: SubqueryCache::new(),
         })
     }
-
 }
 
 #[must_use]
@@ -1370,7 +1402,6 @@ pub struct FinalTransaction {
     pub(crate) writes: Writes,
 
     pub(crate) usage_tracker: FunctionUsageTracker,
-
 }
 
 impl FinalTransaction {
@@ -1390,7 +1421,6 @@ impl FinalTransaction {
             reads: transaction.reads,
             writes: transaction.writes.into_flat()?,
             usage_tracker: transaction.usage_tracker,
-
         })
     }
 

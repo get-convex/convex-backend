@@ -673,6 +673,21 @@ pub fn log_run_udf(
 }
 
 register_convex_counter!(
+    SUBQUERY_CACHE_TOTAL,
+    "Number of ctx.runQuery subquery calls eligible for in-transaction memoization, labeled by \
+     whether the result was served from cache",
+    &["hit"]
+);
+
+pub fn log_subquery_cache(hit: bool) {
+    log_counter_with_labels(
+        &SUBQUERY_CACHE_TOTAL,
+        1,
+        vec![StaticMetricLabel::new("hit", hit.as_label())],
+    );
+}
+
+register_convex_counter!(
     COMPONENT_GET_USER_IDENTITY_TOTAL,
     "Number of times that components call getUserIdentity()",
     &["has_user_identity"]
