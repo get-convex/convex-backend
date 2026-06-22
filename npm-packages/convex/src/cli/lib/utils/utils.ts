@@ -101,6 +101,52 @@ export function readDeployKeyFromEnv(
   return fromDeployKey || fromToken || undefined;
 }
 
+// The prefix the backend's `require_operation` checks use when an identity
+// lacks a permission. The full message names the missing permission, e.g.
+// `You do not have permission to perform this operation (deployment:data:view).`
+const PERMISSION_DENIED_MESSAGE_PREFIX =
+  "You do not have permission to perform this operation";
+
+function deployKeyPermissionAdvice(): string | null {
+  // Name whichever env var is actually set. `CONVEX_DEPLOY_KEY` takes
+  // precedence over `CONVEX_DEPLOYMENT_TOKEN` when both are present.
+  const envVarName = process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME]
+    ? CONVEX_DEPLOY_KEY_ENV_VAR_NAME
+    : process.env[CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME]
+      ? CONVEX_DEPLOYMENT_TOKEN_ENV_VAR_NAME
+      : null;
+  if (envVarName === null) {
+    return null;
+  }
+  return `This is determined by the permissions granted to ${envVarName}.`;
+}
+
+/**
+ * Detects a server-side authorization failure (a `require_operation` error,
+ * surfaced both as an HTTP 403 and as an error from a system UDF query) and
+ * produces a clean, single-line message naming the missing permission. When a
+ * deploy key is in use, appends advice for configuring its permissions.
+ *
+ * Returns `null` if `errorMessage` is not a permission error, so callers can
+ * fall back to their normal error handling.
+ */
+export function permissionDeniedErrorMessage(
+  errorMessage: string,
+): string | null {
+  const index = errorMessage.indexOf(PERMISSION_DENIED_MESSAGE_PREFIX);
+  if (index === -1) {
+    return null;
+  }
+  // Drop any wrapping context (e.g. the `[CONVEX Q(...)]` prefix) and stack
+  // trace, keeping just the permission sentence.
+  let msg = errorMessage.slice(index).split("\n")[0].trim();
+  const advice = deployKeyPermissionAdvice();
+  if (advice) {
+    msg = `${msg}\n${advice}`;
+  }
+  return msg;
+}
+
 export function parsePositiveInteger(value: string) {
   const parsedValue = parseInteger(value);
   if (parsedValue <= 0) {
@@ -177,6 +223,16 @@ export class ThrowingFetchError extends Error {
     } else if (this.response.status === 401) {
       error_type = "fatal";
       msg = `${msg}\nAuthenticate with \`npx convex dev\``;
+    } else if (this.response.status === 403) {
+      error_type = "fatal";
+      // Surface the missing permission cleanly (e.g. the server includes the
+      // required action like `deployment:data:view`) instead of the noisy
+      // "Error fetching ..." wrapper.
+      msg = this.serverErrorData?.message ?? msg;
+      const advice = deployKeyPermissionAdvice();
+      if (advice) {
+        msg = `${msg}\n${advice}`;
+      }
     } else if (this.response.status === 404) {
       error_type = "fatal";
       msg = `${msg}: ${this.response.url}`;

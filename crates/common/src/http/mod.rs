@@ -830,6 +830,14 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
 pub struct InstanceNameExt(pub String);
 
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginationMetadata {
+    pub has_more: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
+
 #[derive(ToSchema, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
 pub enum RequestDestination {
