@@ -101,6 +101,7 @@ export const insights = new Command("insights")
   )
   .allowExcessArguments(false)
   .option("--details", "Show recent events for each insight", false)
+  .option("--json", "Output insights as JSON", false)
   .addDeploymentSelectionOptions(actionDescription("Show insights for"))
   .showHelpAfterError()
   .action(async (cmdOptions) => {
@@ -144,6 +145,17 @@ export const insights = new Command("insights")
       deploymentName,
       "?view=insights",
     );
+
+    if (cmdOptions.json) {
+      logOutput(
+        JSON.stringify(
+          { deploymentName, dashboardUrl, insights: insightsList },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
 
     if (insightsList.length === 0) {
       logOutput(
