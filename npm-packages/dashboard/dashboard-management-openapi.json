@@ -1330,7 +1330,7 @@
     },
     "/authorize": {
       "post": {
-        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the WorkOS access token",
+        "summary": "DEPRECATED: Replaced by the platform's `/create_personal_access_token`\nendpoint.",
         "operationId": "authorize_device",
         "requestBody": {
           "content": {
@@ -3422,16 +3422,6 @@
             "type": "string",
             "description": "Authentication token is expected to be the access token from WorkOS"
           },
-          "deploymentId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DeploymentId"
-              }
-            ]
-          },
           "deviceName": {
             "oneOf": [
               {
@@ -3439,53 +3429,6 @@
               },
               {
                 "$ref": "#/components/schemas/DeviceName"
-              }
-            ]
-          },
-          "expiresAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "Timestamp in milliseconds when this token will expire. Must be at\nleast 30 minutes in the future."
-          },
-          "oauthApp": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/OauthAppMetadata"
-              }
-            ]
-          },
-          "permissions": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "projectId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ProjectId"
-              }
-            ]
-          },
-          "teamId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/TeamId"
               }
             ]
           }
@@ -4837,22 +4780,6 @@
             ]
           }
         }
-      },
-      "OauthAppMetadata": {
-        "type": "object",
-        "required": [
-          "clientId",
-          "clientSecret"
-        ],
-        "properties": {
-          "clientId": {
-            "type": "string"
-          },
-          "clientSecret": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
       },
       "OauthAppResponse": {
         "type": "object",

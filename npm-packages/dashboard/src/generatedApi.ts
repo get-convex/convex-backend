@@ -797,9 +797,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** This endpoint is a placeholder for generating our own access tokens.
-         *     Right now, it is a no-op for the token.
-         *     Version 1 of the token is the WorkOS access token */
+        /** DEPRECATED: Replaced by the platform's `/create_personal_access_token`
+         *     endpoint. */
         post: operations["authorize_device"];
         delete?: never;
         options?: never;
@@ -1778,18 +1777,7 @@ export interface components {
             anonymousId?: string | null;
             /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
-            deploymentId?: null | components["schemas"]["DeploymentId"];
             deviceName?: null | components["schemas"]["DeviceName"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this token will expire. Must be at
-             *     least 30 minutes in the future.
-             */
-            expiresAt?: number | null;
-            oauthApp?: null | components["schemas"]["OauthAppMetadata"];
-            permissions?: string[] | null;
-            projectId?: null | components["schemas"]["ProjectId"];
-            teamId?: null | components["schemas"]["TeamId"];
         };
         AuthorizeCodeResponse: {
             /** @description A code that the application can use to retrieve the token */
@@ -2150,10 +2138,6 @@ export interface components {
             email: string;
             id: components["schemas"]["MemberId"];
             name?: string | null;
-        };
-        OauthAppMetadata: {
-            clientId: string;
-            clientSecret: string;
         };
         OauthAppResponse: {
             appName: components["schemas"]["AppName"];
@@ -2744,7 +2728,6 @@ export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type MemberResponse = components['schemas']['MemberResponse'];
-export type OauthAppMetadata = components['schemas']['OauthAppMetadata'];
 export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
