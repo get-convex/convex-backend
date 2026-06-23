@@ -41,6 +41,7 @@ use value::{
     val,
     ConvexObject,
     ConvexValue,
+    FieldName,
     TableName,
 };
 
@@ -334,9 +335,9 @@ impl DeploymentAuditLogEvent {
                         let config_value = ConvexValue::try_from(config)?;
                         let name_value = ConvexValue::try_from(name.to_string())?;
                         let metadata_value = match config_value {
-                            ConvexValue::Object(o) => {
-                                ConvexValue::Object(o.shallow_merge(obj!("name" => name_value)?)?)
-                            },
+                            ConvexValue::Object(o) => ConvexValue::Object(
+                                o.insert(const { FieldName::const_new("name") }, name_value)?,
+                            ),
                             _ => anyhow::bail!("Expected config value to be an object"),
                         };
                         Ok(metadata_value)
@@ -349,9 +350,9 @@ impl DeploymentAuditLogEvent {
                         let config_value = ConvexValue::try_from(config)?;
                         let name_value = ConvexValue::try_from(name.to_string())?;
                         let metadata_value = match config_value {
-                            ConvexValue::Object(o) => {
-                                ConvexValue::Object(o.shallow_merge(obj!("name" => name_value)?)?)
-                            },
+                            ConvexValue::Object(o) => ConvexValue::Object(
+                                o.insert(const { FieldName::const_new("name") }, name_value)?,
+                            ),
                             _ => anyhow::bail!("Expected config value to be an object"),
                         };
                         Ok(metadata_value)

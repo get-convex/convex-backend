@@ -3,7 +3,6 @@
 //! This is the authoritative representation of a document within the database.
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     fmt::{
         self,
         Debug,
@@ -364,7 +363,7 @@ impl ResolvedDocument {
         mut value: ConvexObject,
     ) -> anyhow::Result<Self> {
         let id_value: ConvexValue = id.into();
-        if let Some(existing_value) = value.get(&FieldName::from(ID_FIELD.clone())) {
+        if let Some(existing_value) = value.get(&FieldName::from(ID_FIELD)) {
             if existing_value != &id_value {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "InvalidIdError",
@@ -375,19 +374,15 @@ impl ResolvedDocument {
                 ));
             }
         } else {
-            let mut fields: BTreeMap<_, _> = value.into();
-            fields.insert(ID_FIELD.to_owned().into(), id_value);
-            value = fields.try_into()?;
+            value = value.insert(ID_FIELD.into(), id_value)?;
         }
         let creation_time_value = ConvexValue::from(f64::from(creation_time));
         match (
             creation_time_value,
-            value.get(&FieldName::from(CREATION_TIME_FIELD.clone())),
+            value.get(&FieldName::from(CREATION_TIME_FIELD)),
         ) {
             (time, None) => {
-                let mut fields: BTreeMap<_, _> = value.into();
-                fields.insert(CREATION_TIME_FIELD.to_owned().into(), time);
-                value = fields.try_into()?;
+                value = value.insert(CREATION_TIME_FIELD.into(), time)?;
             },
             (l, r) if Some(&l) == r => (),
             _ => anyhow::bail!(ErrorMetadata::bad_request(
