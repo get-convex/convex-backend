@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.42.0
+
+- Added a new `npx convex project create` command that can be used
+  to create new projects     programmatically.
+- Added a new `--names-only` flag to `npx convex env list`
+  (and `npx convex env default list`). This flag shows the names of
+  the env vars that are set, without the values. It can be useful
+  to let AI coding agents know the variables that are set on a deployment,
+  without giving them the actual values.
+- Added a new `useStaleSnapshot` option to the arguments for `runQuery`.
+  This is an advanced feature that can be used to allow mutations
+  to avoid optimistic concurrency control (OCC) conflicts in some cases
+  where they can commit even though they depend on conflicting reads.
+  This change allows us to improve the performance of some of the
+  official Convex components, including Workpool.
+- Improved the documentation of `db.*` methods to more clearly explain
+  the difference between the old APIs without table names
+  (e.g. `db.get(userId)`) and the new APIs with table names
+  (e.g. `db.get("users", userId)`).
+- Fixed an issue where the CLI would not surface permission errors
+  correctly when the user or token doesn’t have permission to do something.
+- Exposes the current scheduled function's ID as `scheduledFunctionId` in
+  `ctx.meta.getRequestMetadata()`.
+- Bumps the `ws` peer dependency to avoid a vulnerable range.
+
 ## 1.41.0
 - It is now possible to set limits on nested queries and mutations
   with the new `transactionLimits` option in `runQuery`/`runMutation`.
