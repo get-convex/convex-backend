@@ -1,16 +1,28 @@
 import { GenericId } from "../values/index.js";
 
 /**
- * A reference to a file in storage.
+ * @deprecated This ID format is no longer returned by stable file storage APIs. Use `Id<"_storage">` instead.
  *
- * This is used in the {@link StorageReader} and {@link StorageWriter} which are accessible in
- * Convex queries and mutations via {@link QueryCtx} and {@link MutationCtx} respectively.
+ * The old ID format used by Convex file storage.
+ *
+ * ⚠️ Security warning: Anyone that has knows to this ID can download the underlying file
+ * from `https://<deployment>.convex.cloud/api/storage/<storageId>`.
+ * (Note that it’s safe to share the new ID format, `Id<"_storage">`, to anyone).
  *
  * @public
  */
 export type StorageId = string;
-export type FileStorageId = GenericId<"_storage"> | StorageId;
+
 /**
+ * @deprecated This type is only necessary for backwards compatibility with Convex versions that
+ * pre-date `convex@1.6.0`. Use `Id<"_storage">` instead.
+ */
+export type FileStorageId = GenericId<"_storage"> | StorageId;
+
+/**
+ * @deprecated This type is only returned by {@link StorageReader.getUrl | storage.getUrl}.
+ *   To get the details of a document, use `ctx.db.system.get("_storage", storageId)` instead.
+ *
  * Metadata for a single file as returned by {@link StorageReader.getMetadata | storage.getMetadata}.
  *
  * @public
@@ -18,6 +30,13 @@ export type FileStorageId = GenericId<"_storage"> | StorageId;
 export type FileMetadata = {
   /**
    * ID for referencing the file (eg. via {@link StorageReader.getUrl | storage.getUrl})
+   *
+   * This is an older ID format that is no longer returned by stable file storage APIs.
+   * Consider using `Id<"_storage">` instead.
+   *
+   * ⚠️ Security warning: Anyone that has knows to this ID can download the underlying file
+   * from `https://<deployment>.convex.cloud/api/storage/<storageId>`.
+   * (Note that it’s safe to share the new ID format, `Id<"_storage">`, to anyone).
    */
   storageId: StorageId;
   /**
