@@ -3,7 +3,6 @@ use std::sync::LazyLock;
 use common::{
     document::CREATION_TIME_FIELD_PATH,
     execution_context::RequestMetadata,
-    obj,
     query::{
         Cursor,
         CursorPosition,
@@ -29,7 +28,9 @@ use database::{
     Transaction,
 };
 use value::{
+    val,
     ConvexObject,
+    FieldName,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -114,29 +115,41 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
         let mut deployment_audit_log_ids = vec![];
         for event in events {
             let mut event_object: ConvexObject = event.try_into()?;
-            event_object = match member_id_value {
-                Some(member_id) => event_object.shallow_merge(obj!("member_id" => member_id)?)?,
-                None => event_object.shallow_merge(obj!("member_id" => null)?)?,
-            };
-            event_object = match token_id {
-                Some(token_id) => event_object.shallow_merge(obj!("token_id" => token_id)?)?,
-                None => event_object.shallow_merge(obj!("token_id" => null)?)?,
-            };
-            event_object = match app_client_id {
-                Some(ref app_client_id) => {
-                    event_object.shallow_merge(obj!("app_client_id" => app_client_id.as_str())?)?
+            event_object = event_object.insert(
+                const { FieldName::const_new("member_id") },
+                match member_id_value {
+                    Some(member_id) => val!(member_id),
+                    None => val!(null),
                 },
-                None => event_object.shallow_merge(obj!("app_client_id" => null)?)?,
-            };
-            event_object = match request_metadata.ip.clone() {
-                Some(ip) => event_object.shallow_merge(obj!("client_ip" => ip.into_string())?)?,
-                None => event_object.shallow_merge(obj!("client_ip" => null)?)?,
-            };
-            event_object = match request_metadata.user_agent.clone() {
-                Some(user_agent) => event_object
-                    .shallow_merge(obj!("client_user_agent" => user_agent.into_string())?)?,
-                None => event_object.shallow_merge(obj!("client_user_agent" => null)?)?,
-            };
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("token_id") },
+                match token_id {
+                    Some(token_id) => val!(token_id),
+                    None => val!(null),
+                },
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("app_client_id") },
+                match &app_client_id {
+                    Some(app_client_id) => val!(app_client_id.as_str()),
+                    None => val!(null),
+                },
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("client_ip") },
+                match &request_metadata.ip {
+                    Some(ip) => val!(ip.as_str()),
+                    None => val!(null),
+                },
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("client_user_agent") },
+                match &request_metadata.user_agent {
+                    Some(user_agent) => val!(user_agent.as_str()),
+                    None => val!(null),
+                },
+            )?;
             let id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&DEPLOYMENT_AUDIT_LOG_TABLE, event_object)
                 .await?;
