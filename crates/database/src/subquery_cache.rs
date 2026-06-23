@@ -21,9 +21,13 @@
 //!
 //! ## Invariants enforced by the caller (`run_udf` in `crates/isolate`)
 //!
-//! * Only consulted/populated when the parent UDF is a `Query`. Mutations may
-//!   write between two subquery calls, which would change the snapshot, so
-//!   memoization is unsound there.
+//! * Only consulted/populated when the parent UDF is a `Query` **and the
+//!   transaction is read-only** (`Transaction::is_readonly`). A nested query
+//!   reads the same transaction, including writes already buffered in it
+//!   (read-your-writes), and this cache lives on the transaction, so it would
+//!   otherwise outlive a write. A query tree never writes; a mutation that
+//!   calls a query, `db.patch`es, then calls the same query again must see the
+//!   new value, so memoization is disabled once any write is buffered.
 //! * System UDFs are excluded: they thread a pagination journal through nested
 //!   query calls that a cache hit would skip.
 //! * Only `Ok` results are stored; a subquery that returns an error re-executes

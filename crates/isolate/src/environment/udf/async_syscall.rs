@@ -597,22 +597,29 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let execution_type = nested_udf_type.execution_type();
         let serialized_args = SerializedArgs::from_args(vec![args.into()])?;
 
-        // A query may call another query, and the whole query tree executes
-        // against a single immutable transaction snapshot. We can therefore
-        // memoize each subquery's result for the rest of this execution, keyed
-        // by (component, path, args). This is only sound from a query: a
-        // mutation may write between two subquery calls, which would change the
-        // snapshot. System UDFs are excluded too: they thread a pagination
-        // journal (`prev_journal`/`next_journal`) through nested query calls that
-        // a cache hit would skip. See `crates/database/src/subquery_cache.rs`.
+        // A query calling another query reads against the SAME transaction,
+        // including any writes already buffered in it (read-your-writes). We may
+        // memoize a subquery's result for the rest of this execution -- keyed by
+        // (component, path, args) -- only while that transaction is read-only, so
+        // no pending write exists that a later identical call would observe. A
+        // top-level query satisfies this for its whole tree (queries can't
+        // write). A mutation does NOT: it can call a query, `db.patch` a
+        // document, then call the same query again and must see the new value --
+        // and because this cache lives on the transaction, it would otherwise
+        // outlive that write. System UDFs are excluded too: they thread a
+        // pagination journal (`prev_journal`/`next_journal`) through nested query
+        // calls that a cache hit would skip. See
+        // `crates/database/src/subquery_cache.rs`.
+        let tx_is_readonly = self.phase.tx()?.is_readonly();
         let subquery_cache_key = (self.udf_type == UdfType::Query
             && nested_udf_type == NestedUdfType::Query
-            && !self.is_system())
-        .then(|| SubqueryCacheKey {
-            component: called_component_id,
-            udf_path: path.udf_path.clone(),
-            args: serialized_args.clone(),
-        });
+            && !self.is_system()
+            && tx_is_readonly)
+            .then(|| SubqueryCacheKey {
+                component: called_component_id,
+                udf_path: path.udf_path.clone(),
+                args: serialized_args.clone(),
+            });
 
         let tx = self.phase.tx()?;
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
