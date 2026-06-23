@@ -348,9 +348,9 @@ impl SearchIndex for VectorSearchIndex {
         _document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()> {
         while let Some(entry) = documents.try_next().await? {
-            if entry.value.is_none() {
-                previous_segments.maybe_delete_convex(entry.id.internal_id())?;
-            }
+            // If this is an insert, it won't be found in other segments. If it's an update
+            // or delete, it should be deleted from previous segments.
+            previous_segments.maybe_delete_convex(entry.id.internal_id())?;
         }
         Ok(())
     }

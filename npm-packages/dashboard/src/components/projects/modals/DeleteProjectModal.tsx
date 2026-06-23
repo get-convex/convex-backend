@@ -63,11 +63,7 @@ export function DeleteProjectModal({
     <DeleteProjectDialog
       onClose={onClose}
       onConfirm={handleDelete}
-      validationText={
-        project.isDemo
-          ? undefined
-          : `Delete ${project.name} and data in all deployments, including Production`
-      }
+      validationText={`Delete ${project.name} and data in all deployments, including Production`}
     >
       <DeleteProjectModalContent team={team} />
     </DeleteProjectDialog>

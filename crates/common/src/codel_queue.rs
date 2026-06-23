@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    future::poll_fn,
     pin::Pin,
     sync::Arc,
     task::{
@@ -130,6 +131,19 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
         result
     }
 
+    pub fn pop_expiration(&mut self) -> Option<(T, ExpiredInQueue)> {
+        let now = self.rt.monotonic_now();
+        if let Some((item, _)) = self
+            .buffer
+            .pop_front_if(|(_, expiration)| *expiration < now)
+        {
+            self.update_last_time_empty();
+            Some((item, ExpiredInQueue))
+        } else {
+            None
+        }
+    }
+
     pub fn pop(&mut self) -> Option<(T, Option<ExpiredInQueue>)> {
         let now = self.rt.monotonic_now();
         let result = if let Some((_, oldest_expiration)) = self.buffer.front()
@@ -230,6 +244,48 @@ impl<RT: Runtime, T> CoDelQueueSender<RT, T> {
     }
 }
 
+impl<RT: Runtime, T> CoDelQueueReceiver<RT, T> {
+    fn register(
+        listener: &mut Option<event_listener::EventListener>,
+        inner: &mut Inner<RT, T>,
+        cx: &mut Context<'_>,
+    ) -> Poll<!> {
+        loop {
+            match Pin::new(listener.get_or_insert_with(|| inner.event.listen())).poll(cx) {
+                // The queue is still empty. The listener is stored for the next
+                // poll, and it has registered with cx.waker to be woken when
+                // it is notified of the queue becoming nonempty.
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(()) => {
+                    // This should not happen, because the listener is only notified
+                    // when the queue state changes, which is impossible while we are
+                    // holding self.inner.lock(). But we can be defensive in case of
+                    // spurious wakeups, by dropping the listener and looping.
+                    listener.take();
+                    continue;
+                },
+            }
+        }
+    }
+
+    fn poll_next_expiration(&mut self, cx: &mut Context<'_>) -> Poll<Option<(T, ExpiredInQueue)>> {
+        let mut inner = self.inner.lock();
+        if let Some(result) = inner.queue.pop_expiration() {
+            return Poll::Ready(Some(result));
+        } else if inner.senders == 0 {
+            return Poll::Ready(None);
+        }
+
+        let Poll::Pending = Self::register(&mut self.listener, &mut *inner, cx);
+        Poll::Pending
+    }
+
+    /// Returns the next expired entry from the queue.
+    pub async fn recv_next_expiration(&mut self) -> Option<(T, ExpiredInQueue)> {
+        poll_fn(|cx| self.poll_next_expiration(cx)).await
+    }
+}
+
 impl<RT: Runtime, T> Stream for CoDelQueueReceiver<RT, T> {
     type Item = (T, Option<ExpiredInQueue>);
 
@@ -244,23 +300,7 @@ impl<RT: Runtime, T> Stream for CoDelQueueReceiver<RT, T> {
             return Poll::Ready(None);
         }
 
-        // Now we are waiting for the queue to become nonempty.
-        loop {
-            let listener = s.listener.get_or_insert_with(|| inner.event.listen());
-            match Pin::new(listener).poll(cx) {
-                // The queue is still empty. The listener is stored for the next
-                // poll, and it has registered with cx.waker to be woken when
-                // it is notified of the queue becoming nonempty.
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(()) => {
-                    // This should not happen, because the listener is only notified
-                    // when the queue state changes, which is impossible while we are
-                    // holding self.inner.lock(). But we can be defensive in case of
-                    // spurious wakeups, by dropping the listener and looping.
-                    s.listener.take();
-                    continue;
-                },
-            }
-        }
+        let Poll::Pending = Self::register(&mut s.listener, &mut *inner, cx);
+        Poll::Pending
     }
 }

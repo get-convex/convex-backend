@@ -1844,59 +1844,6 @@
         }
       }
     },
-    "/projects/{project_id}/environment_variables/list": {
-      "get": {
-        "operationId": "list_environment_variables",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListEnvVariableResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/environment_variables/update_batch": {
-      "post": {
-        "operationId": "update_environment_variables",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateEnvironmentVariables"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/teams/{team_id}/usage/query": {
       "get": {
         "operationId": "query_usage_databricks",
@@ -4167,43 +4114,6 @@
       "EnableSSORequest": {
         "type": "object"
       },
-      "EnvVariableConfigJson": {
-        "type": "object",
-        "required": [
-          "name",
-          "value",
-          "deploymentTypes"
-        ],
-        "properties": {
-          "deploymentTypes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DeploymentType"
-            }
-          },
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
-      "EnvironmentVariableJson": {
-        "type": "object",
-        "required": [
-          "name",
-          "value"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
       "GenerateSSOConfigurationLinkRequest": {
         "type": "object",
         "required": [
@@ -4632,20 +4542,6 @@
       "IsDefaultDeployment": {
         "type": "boolean",
         "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
-      },
-      "ListEnvVariableResponse": {
-        "type": "object",
-        "required": [
-          "configs"
-        ],
-        "properties": {
-          "configs": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EnvVariableConfigJson"
-            }
-          }
-        }
       },
       "ListMyCustomRolesResponse": {
         "type": "object",
@@ -6215,45 +6111,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "UpdateEnvironmentVariable": {
-        "type": "object",
-        "properties": {
-          "newConfig": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/EnvVariableConfigJson"
-              }
-            ]
-          },
-          "oldVariable": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/EnvironmentVariableJson"
-              }
-            ]
-          }
-        }
-      },
-      "UpdateEnvironmentVariables": {
-        "type": "object",
-        "required": [
-          "changes"
-        ],
-        "properties": {
-          "changes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UpdateEnvironmentVariable"
-            }
-          }
-        }
       },
       "UpdateOauthAppArgs": {
         "type": "object",

@@ -97,12 +97,12 @@ use fastrace::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
-    select_biased,
     stream::{
         self,
         FuturesUnordered,
         StreamExt,
     },
+    FutureExt as _,
     TryStreamExt as _,
 };
 use itertools::Either;
@@ -378,7 +378,7 @@ where
 
 impl<RT: Runtime> Request<RT> {
     fn expire(self, error: ExpiredInQueue) {
-        let error = anyhow::anyhow!(error).context(ErrorMetadata::overloaded(
+        let error = anyhow::anyhow!(error).context(ErrorMetadata::rejected_before_execution(
             "ExpiredInQueue",
             "Too many concurrent requests in a short period of time. Spread out your requests out \
              over time or throttle them to avoid errors.",
@@ -1248,20 +1248,36 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             });
     }
 
-    pub async fn run(mut self, receiver: CoDelQueueReceiver<RT, Request<RT>>) {
+    pub async fn run(mut self, mut receiver: CoDelQueueReceiver<RT, Request<RT>>) {
         log_pool_max(self.worker.config().name, self.max_workers);
-        let mut receiver = receiver.fuse();
         let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
         loop {
-            select_biased! {
-                completed_worker = self.in_progress_workers.select_next_some() => {
-                    let Ok(completed_worker): Result<ActiveWorkerState, _> = completed_worker else {
-                        tracing::warn!("Worker has shut down uncleanly. Shutting down {} scheduler.", self.worker.config().name);
+            let all_workers_busy = self.active_workers.load(Ordering::Relaxed) >= self.max_workers;
+            let next_request = if all_workers_busy {
+                Either::Left(
+                    receiver
+                        .recv_next_expiration()
+                        .map(|r| r.map(|(req, expired)| (req, Some(expired)))),
+                )
+            } else {
+                Either::Right(receiver.next())
+            };
+            tokio::select! {
+                biased;
+                completed_worker = self.in_progress_workers.next(),
+                if !self.in_progress_workers.is_empty() => {
+                    let Some(Ok(completed_worker)): Option<Result<ActiveWorkerState, _>> =
+                        completed_worker
+                    else {
+                        tracing::warn!(
+                            "Worker has shut down uncleanly. Shutting down {} scheduler.",
+                            self.worker.config().name
+                        );
                         return;
                     };
                     self.handle_completed_worker(completed_worker);
                 }
-                request = receiver.next() => {
+                request = next_request => {
                     let Some((request, expired)) = request else {
                         tracing::warn!("Request sender went away; {} scheduler shutting down", self.worker.config().name);
                         return
@@ -1271,6 +1287,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         continue;
                     }
                     let Some(worker_id) = self.get_worker(&request.client_id) else {
+                        tracing::error!("unexpected: couldn't find a worker?");
                         request.reject();
                         continue;
                     };
@@ -1308,7 +1325,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         return;
                     }
                 },
-                _ = report_stats => {
+                _ = &mut report_stats => {
                     let heap_stats = self.aggregate_heap_stats();
                     log_aggregated_heap_stats(&heap_stats);
                     report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);

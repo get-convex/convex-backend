@@ -103,7 +103,7 @@ pub fn log_pool_allocated_count(name: &'static str, count: usize) {
 register_convex_counter!(UDF_EXECUTE_FULL_TOTAL, "UDF execution queue full count");
 pub fn execute_full_error() -> ErrorMetadata {
     log_counter(&UDF_EXECUTE_FULL_TOTAL, 1);
-    ErrorMetadata::overloaded(
+    ErrorMetadata::rejected_before_execution(
         "ExecuteFullError",
         "Too many concurrent requests in a short period of time. Spread out your requests out \
          over time or throttle them to avoid errors.",
