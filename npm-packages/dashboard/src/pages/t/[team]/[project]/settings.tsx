@@ -493,7 +493,7 @@ function ProjectSettings() {
                 <div id={SECTION_IDS.envVars}>
                   <DefaultEnvironmentVariables />
                 </div>
-                {team && project && !project?.isDemo && (
+                {team && project && (
                   <div id={SECTION_IDS.lostAccess}>
                     <LostAccess
                       teamSlug={team.slug}
