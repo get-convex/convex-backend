@@ -12,13 +12,12 @@ import { Button } from "@ui/Button";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { stringifyValue } from "@common/lib/stringifyValue";
-import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
-  TeamResponse,
-  MemberResponse,
-  AuditLogAction,
+  PlatformDeploymentResponse,
   AuditLogEventResponse,
-} from "generatedApi";
+} from "@convex-dev/platform/managementApi";
+import { TeamResponse, MemberResponse } from "generatedApi";
+import { AuditLogAction } from "api/auditLog";
 import { captureMessage } from "@sentry/nextjs";
 import startCase from "lodash/startCase";
 import { Link } from "@ui/Link";
@@ -116,13 +115,13 @@ function EntryAction({
   members: MemberResponse[];
 }) {
   switch (action) {
-    case "createProject":
-    case "updateProject":
-    case "deleteProject":
+    case "project:create":
+    case "project:update":
+    case "project:delete":
       return (
         <ProjectEntryAction team={team} action={action} metadata={metadata} />
       );
-    case "receiveProject":
+    case "project:receive":
       return (
         <span>
           transferred project{" "}
@@ -134,7 +133,7 @@ function EntryAction({
           to this team.
         </span>
       );
-    case "transferProject":
+    case "project:transfer":
       return (
         <span>
           transferred project{" "}
@@ -146,13 +145,13 @@ function EntryAction({
           to another team.
         </span>
       );
-    case "updateBillingContact":
+    case "billing:contact:update":
       return <span>updated the billing contact</span>;
-    case "updateBillingAddress":
+    case "billing:address:update":
       return <span>updated the billing address</span>;
-    case "updatePaymentMethod":
+    case "billing:paymentMethod:update":
       return <span>updated the payment method</span>;
-    case "removeMember":
+    case "member:remove":
       if (!metadata.previous?.email) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
@@ -164,7 +163,7 @@ function EntryAction({
           the team
         </span>
       );
-    case "inviteMember":
+    case "member:invite":
       if (!metadata.current?.email) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
@@ -176,7 +175,7 @@ function EntryAction({
           team
         </span>
       );
-    case "cancelMemberInvitation":
+    case "member:cancelInvitation":
       if (!metadata.previous?.email) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
@@ -187,7 +186,7 @@ function EntryAction({
           <span className="font-semibold">{metadata.previous.email}</span>
         </span>
       );
-    case "updateMemberRole":
+    case "member:updateRole":
       if (
         !metadata.current?.role ||
         !metadata.current?.id ||
@@ -209,7 +208,7 @@ function EntryAction({
           </span>
         </span>
       );
-    case "updateMemberProjectRole":
+    case "project:updateMemberRole":
       if (
         metadata.current &&
         metadata.current.project_id &&
@@ -248,15 +247,15 @@ function EntryAction({
       captureMessage(`Found malformed metadata for ${action}`, "error");
       return <UnhandledAction action={action} />;
 
-    case "joinTeam":
+    case "team:join":
       return <span>joined the team</span>;
-    case "createTeam":
+    case "team:create":
       return <span>created the team</span>;
-    case "updateTeam":
+    case "team:update":
       return <span>updated the team</span>;
-    case "deleteTeam":
+    case "team:delete":
       return <span>deleted the team</span>;
-    case "createDeployment": {
+    case "deployment:create": {
       const deploymentType =
         metadata.current?.deploymentType ?? metadata.current?.type;
       if (!deploymentType || !metadata.current?.projectId) {
@@ -285,7 +284,7 @@ function EntryAction({
         </span>
       );
     }
-    case "deleteDeployment": {
+    case "deployment:delete": {
       const deploymentType =
         metadata.previous?.deploymentType ?? metadata.previous?.type;
       if (!deploymentType || !metadata.previous?.projectId) {
@@ -313,7 +312,7 @@ function EntryAction({
         </span>
       );
     }
-    case "updateDeployment": {
+    case "deployment:update": {
       return (
         <span>
           updated deployment{" "}
@@ -325,9 +324,9 @@ function EntryAction({
         </span>
       );
     }
-    case "createProjectEnvironmentVariable":
-    case "updateProjectEnvironmentVariable":
-    case "deleteProjectEnvironmentVariable":
+    case "defaultEnvironmentVariable:create":
+    case "defaultEnvironmentVariable:update":
+    case "defaultEnvironmentVariable:delete":
       return (
         <EnvironmentVariableEntryAction
           action={action}
@@ -335,23 +334,23 @@ function EntryAction({
           team={team}
         />
       );
-    case "createSubscription":
+    case "billing:subscription:create":
       return (
         <span>subscribed to {metadata.current?.plan || "a Convex plan"}</span>
       );
-    case "cancelSubscription":
+    case "billing:subscription:cancel":
       return (
         <span>
           canceled the {metadata.previous?.plan || "Convex"} subscription
         </span>
       );
-    case "resumeSubscription":
+    case "billing:subscription:resume":
       return (
         <span>
           resumed the {metadata.current?.plan || "Convex"} subscription
         </span>
       );
-    case "changeSubscriptionPlan":
+    case "billing:subscription:changePlan":
       if (!metadata.previous?.plan || !metadata.current?.plan) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
@@ -363,7 +362,7 @@ function EntryAction({
           <span className="font-semibold">{metadata.current?.plan}</span>
         </span>
       );
-    case "createCustomDomain":
+    case "deployment:customDomain:create":
       return (
         <span>
           added {metadata.current?.domain ? "the" : "a"} custom domain{" "}
@@ -382,7 +381,7 @@ function EntryAction({
           )}
         </span>
       );
-    case "deleteCustomDomain":
+    case "deployment:customDomain:delete":
       return (
         <span>
           deleted {metadata.previous?.domain ? "the" : "a"} custom domain{" "}
@@ -401,9 +400,9 @@ function EntryAction({
           )}
         </span>
       );
-    case "createTeamAccessToken":
-    case "createProjectAccessToken":
-    case "createDeploymentAccessToken":
+    case "team:token:create":
+    case "project:token:create":
+    case "deployment:token:create":
       return (
         <span>
           {metadata.current && (
@@ -415,9 +414,9 @@ function EntryAction({
           )}
         </span>
       );
-    case "viewTeamAccessToken":
-    case "viewProjectAccessToken":
-    case "viewDeploymentAccessToken":
+    case "team:token:view":
+    case "project:token:view":
+    case "deployment:token:view":
       // we expect these to never be logged
       captureMessage("Found viewAccessToken audit log", "error");
       return (
@@ -431,9 +430,9 @@ function EntryAction({
           )}
         </span>
       );
-    case "updateTeamAccessToken":
-    case "updateProjectAccessToken":
-    case "updateDeploymentAccessToken":
+    case "team:token:update":
+    case "project:token:update":
+    case "deployment:token:update":
       return (
         <span>
           {metadata.current && (
@@ -445,9 +444,9 @@ function EntryAction({
           )}
         </span>
       );
-    case "deleteTeamAccessToken":
-    case "deleteProjectAccessToken":
-    case "deleteDeploymentAccessToken":
+    case "team:token:delete":
+    case "project:token:delete":
+    case "deployment:token:delete":
       return (
         <span>
           {metadata.previous && (
@@ -459,8 +458,8 @@ function EntryAction({
           )}
         </span>
       );
-    case "startManualCloudBackup":
-    case "deleteCloudBackup": {
+    case "deployment:backups:create":
+    case "deployment:backups:delete": {
       const verb =
         metadata.previous && metadata.current
           ? "updated"
@@ -485,7 +484,7 @@ function EntryAction({
         </span>
       );
     }
-    case "restoreFromCloudBackup":
+    case "deployment:backups:import":
       if (
         !metadata.current?.targetDeploymentName ||
         !metadata.current?.backup ||
@@ -506,8 +505,8 @@ function EntryAction({
           from the backup <BackupIdentifier backup={metadata.current?.backup} />
         </span>
       );
-    case "configurePeriodicBackup":
-    case "disablePeriodicBackup": {
+    case "deployment:backups:configurePeriodic":
+    case "deployment:backups:disablePeriodic": {
       if (
         !metadata.current?.sourceDeploymentName &&
         !metadata.previous?.sourceDeploymentName
@@ -535,17 +534,17 @@ function EntryAction({
         </span>
       );
     }
-    case "applyReferralCode": {
+    case "team:applyReferralCode": {
       return <span>applied a referral code</span>;
     }
-    case "disableTeamExceedingSpendingLimits": {
+    case "team:disableExceedingSpendingLimits": {
       return (
         <span>
           disabled your team's projects due to exceeding spending limits
         </span>
       );
     }
-    case "setSpendingLimit": {
+    case "billing:spendingLimit:update": {
       const { previous, current } = metadata;
       if (
         !isValidSpendingLimitDiff(previous) ||
@@ -582,58 +581,58 @@ function EntryAction({
         </>
       );
     }
-    case "verifyOAuthApplication": {
+    case "oauthApplication:verify": {
       return <span>verified an OAuth application</span>;
     }
-    case "deleteOAuthApplication": {
+    case "oauthApplication:delete": {
       return <span>deleted an OAuth application</span>;
     }
-    case "createOAuthApplication": {
+    case "oauthApplication:create": {
       return <span>created an OAuth application</span>;
     }
-    case "updateOAuthApplication": {
+    case "oauthApplication:update": {
       return <span>updated an OAuth application</span>;
     }
-    case "generateOAuthClientSecret": {
+    case "oauthApplication:generateClientSecret": {
       return <span>generated a client secret for an OAuth application</span>;
     }
-    case "createWorkosTeam": {
+    case "integration:workos:team:create": {
       return <span>created a WorkOS team</span>;
     }
-    case "createWorkosEnvironment": {
+    case "integration:workos:environment:create": {
       return <span>created a WorkOS environment</span>;
     }
-    case "retrieveWorkosEnvironmentCredentials": {
+    case "integration:workos:environment:retrieveCredentials": {
       return <span>retrieve WorkOS Environment credentials</span>;
     }
-    case "disconnectWorkosTeam": {
+    case "integration:workos:team:disconnect": {
       return <span>disconnected a WorkOS team</span>;
     }
-    case "deleteWorkosEnvironment": {
+    case "integration:workos:environment:delete": {
       return <span>deleted a WorkOS environment</span>;
     }
-    case "inviteWorkosTeamMember": {
+    case "integration:workos:team:inviteMember": {
       return <span>invited a WorkOS team member</span>;
     }
-    case "enableSSO": {
+    case "sso:enable": {
       return <span>enabled SSO</span>;
     }
-    case "disableSSO": {
+    case "sso:disable": {
       return <span>disabled SSO</span>;
     }
-    case "updateSSO": {
+    case "sso:update": {
       return <span>updated SSO settings</span>;
     }
-    case "createProjectWorkosEnvironment": {
+    case "integration:workos:projectEnvironment:create": {
       return <span>created a project WorkOS environment</span>;
     }
-    case "deleteProjectWorkosEnvironment": {
+    case "integration:workos:projectEnvironment:delete": {
       return <span>deleted a project WorkOS environment</span>;
     }
-    case "retrieveProjectWorkosEnvironmentCredentials": {
+    case "integration:workos:projectEnvironment:retrieveCredentials": {
       return <span>retrieved project WorkOS environment credentials</span>;
     }
-    case "transferDeployment": {
+    case "deployment:transfer": {
       return (
         <span>
           transferred deployment{" "}
@@ -663,21 +662,21 @@ function EntryAction({
         </span>
       );
     }
-    case "receiveDeployment": {
+    case "deployment:receive": {
       return <span>received a deployment from another project</span>;
     }
-    case "createCustomRole":
-    case "updateCustomRole":
-    case "deleteCustomRole": {
+    case "customRole:create":
+    case "customRole:update":
+    case "customRole:delete": {
       const name = metadata.current?.name || metadata.previous?.name;
       if (!name) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       const verb =
-        action === "createCustomRole"
+        action === "customRole:create"
           ? "created"
-          : action === "updateCustomRole"
+          : action === "customRole:update"
             ? "updated"
             : "deleted";
       return (
@@ -854,10 +853,17 @@ function AuditLogItemActor({
   memberId: number | null;
   members: MemberResponse[];
 }) {
-  if (entry.actor === "system") {
+  if (entry.actor.kind === "system") {
     return <span className="font-semibold">Convex</span>;
   }
-  if ("team" in entry.actor) {
+  if (entry.actor.kind === "integration") {
+    return <span className="font-semibold">An OAuth application</span>;
+  }
+  // A token actor with no associated member is a team-level deploy key.
+  if (
+    entry.actor.kind === "token" &&
+    (entry.actor.member_id === null || entry.actor.member_id === undefined)
+  ) {
     return <span className="font-semibold">A Deploy Key</span>;
   }
   const member = members?.find((m) => m.id === memberId);

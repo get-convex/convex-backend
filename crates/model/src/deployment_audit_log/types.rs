@@ -34,6 +34,7 @@ use value::{
     obj,
     remove_boolean,
     remove_int64,
+    remove_nullable_int64,
     remove_nullable_string,
     remove_object,
     remove_string,
@@ -723,7 +724,7 @@ impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
             Some(ConvexValue::Null) | None => None,
             v => anyhow::bail!("expected int or null for member_id, got {v:?}"),
         };
-        let token_id = remove_nullable_string(&mut fields, "token_id")?;
+        let token_id = remove_nullable_int64(&mut fields, "token_id")?;
         let client_id = remove_nullable_string(&mut fields, "app_client_id")?;
         let client_ip = remove_nullable_string(&mut fields, "client_ip")?;
         let client_user_agent = remove_nullable_string(&mut fields, "client_user_agent")?;
@@ -731,8 +732,7 @@ impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
         let actor = match token_id {
             Some(token_id) => DeploymentAuditLogActor::Token {
                 member_id,
-                token_id: token_id
-                    .parse::<u64>()
+                token_id: u64::try_from(token_id)
                     .map(AccessTokenId)
                     .unwrap_or_else(|_| AccessTokenId::unknown()),
                 client_id,

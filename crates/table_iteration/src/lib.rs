@@ -1,3 +1,7 @@
+#![feature(coroutines)]
+#![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
+
 use std::{
     cmp,
     collections::{
