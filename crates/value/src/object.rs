@@ -236,8 +236,9 @@ pub fn remove_nullable_int64(
 ) -> anyhow::Result<Option<i64>> {
     match fields.remove(field) {
         Some(ConvexValue::Int64(i)) => Ok(Some(i)),
+        Some(ConvexValue::Null) => Ok(None),
         None => Ok(None),
-        v => anyhow::bail!("expected int for {field}, got {v:?}"),
+        v => anyhow::bail!("expected int or null for {field}, got {v:?}"),
     }
 }
 
