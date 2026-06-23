@@ -214,6 +214,7 @@ sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
 sync = { path = "crates/sync" }
 sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
+table_iteration = { path = "crates/table_iteration" }
 tantivy = { git = "https://github.com/get-convex/tantivy", rev = "2bb95afa29cc2ac94e303ea68ca4e16222d8e777" }
 tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "2bb95afa29cc2ac94e303ea68ca4e16222d8e777" }
 tempfile = "3"

@@ -2896,6 +2896,7 @@ dependencies = [
  "short_future",
  "slab",
  "storage",
+ "table_iteration",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -9747,6 +9748,21 @@ checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "table_iteration"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+ "errors",
+ "fastrace",
+ "futures",
+ "futures-async-stream",
+ "tokio",
+ "tracing",
+ "value",
 ]
 
 [[package]]
