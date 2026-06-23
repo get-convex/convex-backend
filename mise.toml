@@ -14,7 +14,6 @@ just     = "1.52.0"
 jq       = "1.8.1"
 cmake    = "3.31.12"   # 3.x line; 4.x drops compat with our older CMakeLists
 protoc   = "21.12"
-opentofu = "1.10.0"
 
 # Dev Cargo lint tools (prebuilt via cargo-binstall, no compile). `mise install`
 # pulls them in dev + CI (cached); the release images install only specific tools.
