@@ -871,15 +871,7 @@ impl<RT: Runtime> Committer<RT> {
         let commit_ts = pending_write.must_commit_ts();
 
         let (ordered_updates, write_source, new_snapshot) =
-            match self.pending_writes.pop_first(pending_write) {
-                None => panic!("commit at {commit_ts} not pending"),
-                Some((ts, document_updates, write_source, snapshot)) => {
-                    if ts != commit_ts {
-                        panic!("commits out of order {ts} != {commit_ts}");
-                    }
-                    (document_updates, write_source, snapshot)
-                },
-            };
+            self.pending_writes.pop_first(pending_write);
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
