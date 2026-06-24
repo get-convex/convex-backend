@@ -79,14 +79,19 @@ library isn't supported, you can use an action with the
 
 #### Timing APIs
 
-The following APIs are available in [actions](#actions) only when using version
-1.37.0 or later of the `convex` NPM package:
-
 - [`performance.now()`](https://developer.mozilla.org/en-US/docs/Web/API/Performance/now)
 - [Performance](https://developer.mozilla.org/en-US/docs/Web/API/Performance)
 - [PerformanceEntry](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEntry)
 - [PerformanceMark](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceMark)
 - [PerformanceMeasure](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceMeasure)
+
+:::warning
+
+Note that there are additional
+[restrictions](#using-randomness-and-time-in-queries-and-mutations) on the
+Performance API when used in queries.
+
+:::
 
 #### Node APIs
 
@@ -156,6 +161,12 @@ export const updateSomething = mutation({
   },
 });
 ```
+
+Likewise, `performance.now()` is fixed to same result during query function
+execution. However, `performance.now()` will increment inside mutations.
+[`Performance.timeOrigin`](https://developer.mozilla.org/en-US/docs/Web/API/Performance/timeOrigin)
+is fixed to the deploy timestamp, both globally and during execution for all
+functions (except for in the [Node.js runtime](#nodejs-runtime)).
 
 ### Actions
 
