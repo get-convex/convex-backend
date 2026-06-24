@@ -11,7 +11,10 @@ use std::{
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
-        database_index::DatabaseIndexState,
+        database_index::{
+            DatabaseIndexSpec,
+            DatabaseIndexState,
+        },
         IndexConfig,
     },
     document::PackedDocument,
@@ -562,13 +565,25 @@ impl DatabaseIndexSnapshot {
         for (ts, doc) in cache_miss_results {
             // Populate all index point lookups that can result in the given
             // document.
-            let index_keys = self
+            for index in self
                 .index_registry
-                .index_keys(&doc)
-                .map(|(index, index_key)| (index.id(), index.metadata.name.is_by_id(), index_key));
-            for (index_id, is_by_id, index_key) in index_keys {
-                self.cache
-                    .populate(index_id, is_by_id, index_key, ts, doc.clone());
+                .enabled_indexes_for_table(doc.id().tablet_id)
+            {
+                let IndexConfig::Database {
+                    spec: DatabaseIndexSpec { fields },
+                    ..
+                } = &index.metadata.config
+                else {
+                    continue;
+                };
+                let index_key = doc.index_key_owned(&fields[..]);
+                self.cache.populate(
+                    index.id(),
+                    index.metadata.name.is_by_id(),
+                    index_key,
+                    ts,
+                    doc.clone(),
+                );
             }
         }
         // After all documents in an index interval have been
