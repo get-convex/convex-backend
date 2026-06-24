@@ -21,7 +21,6 @@ use common::{
     },
     runtime::Runtime,
     types::{
-        GenericIndexName,
         IndexName,
         StorageUuid,
     },
@@ -73,17 +72,15 @@ pub mod virtual_table;
 
 pub type BatchKey = usize;
 
-pub static FILE_STORAGE_TABLE: TableName = TableName::const_new("_file_storage");
-pub static FILE_STORAGE_VIRTUAL_TABLE: TableName = TableName::const_new("_storage");
+pub const FILE_STORAGE_TABLE: TableName = TableName::const_new("_file_storage");
+pub const FILE_STORAGE_VIRTUAL_TABLE: TableName = TableName::const_new("_storage");
 
-pub static FILE_STORAGE_INDEX_BY_ID: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_id(FILE_STORAGE_TABLE.clone()));
-pub static FILE_STORAGE_INDEX_BY_CREATION_TIME: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_creation_time(FILE_STORAGE_TABLE.clone()));
-pub static FILE_STORAGE_VIRTUAL_INDEX_BY_ID: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_id(FILE_STORAGE_VIRTUAL_TABLE.clone()));
-static FILE_STORAGE_VIRTUAL_INDEX_BY_CREATION_TIME: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_creation_time(FILE_STORAGE_VIRTUAL_TABLE.clone()));
+const FILE_STORAGE_INDEX_BY_ID: IndexName = IndexName::by_id(FILE_STORAGE_TABLE);
+const FILE_STORAGE_INDEX_BY_CREATION_TIME: IndexName =
+    IndexName::by_creation_time(FILE_STORAGE_TABLE);
+const FILE_STORAGE_VIRTUAL_INDEX_BY_ID: IndexName = IndexName::by_id(FILE_STORAGE_VIRTUAL_TABLE);
+const FILE_STORAGE_VIRTUAL_INDEX_BY_CREATION_TIME: IndexName =
+    IndexName::by_creation_time(FILE_STORAGE_VIRTUAL_TABLE);
 
 static FILE_STORAGE_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "storageId".parse().expect("invalid storageId field"));
@@ -94,9 +91,7 @@ pub struct FileStorageTable;
 impl SystemTable for FileStorageTable {
     type Metadata = FileStorageEntry;
 
-    fn table_name() -> &'static TableName {
-        &FILE_STORAGE_TABLE
-    }
+    const TABLE_NAME: TableName = FILE_STORAGE_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![FILE_STORAGE_ID_INDEX.clone()]
@@ -104,12 +99,12 @@ impl SystemTable for FileStorageTable {
 
     fn virtual_table() -> Option<AssociatedVirtualTable> {
         Some(AssociatedVirtualTable::Primary {
-            virtual_table_name: FILE_STORAGE_VIRTUAL_TABLE.clone(),
+            virtual_table_name: FILE_STORAGE_VIRTUAL_TABLE,
             virtual_to_system_indexes: ordmap! {
-                FILE_STORAGE_VIRTUAL_INDEX_BY_CREATION_TIME.clone() =>
-                    FILE_STORAGE_INDEX_BY_CREATION_TIME.clone(),
-                FILE_STORAGE_VIRTUAL_INDEX_BY_ID.clone() =>
-                    FILE_STORAGE_INDEX_BY_ID.clone()
+                FILE_STORAGE_VIRTUAL_INDEX_BY_CREATION_TIME =>
+                    FILE_STORAGE_INDEX_BY_CREATION_TIME,
+                FILE_STORAGE_VIRTUAL_INDEX_BY_ID =>
+                    FILE_STORAGE_INDEX_BY_ID
             },
             doc_mapper: Arc::new(FileStorageDocMapper),
         })

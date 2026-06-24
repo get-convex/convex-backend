@@ -175,7 +175,7 @@ pub async fn load_metadata_fast_forward_ts(
     Ok(fast_forward_ts)
 }
 
-pub static INDEX_WORKER_METADATA_TABLE: TableName = TableName::const_new("_index_worker_metadata");
+pub const INDEX_WORKER_METADATA_TABLE: TableName = TableName::const_new("_index_worker_metadata");
 
 static INDEX_DOC_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "index_id".parse().expect("Invalid built-in field"));
@@ -187,9 +187,7 @@ pub struct IndexWorkerMetadataTable;
 impl SystemTable for IndexWorkerMetadataTable {
     type Metadata = IndexWorkerMetadataRecord;
 
-    fn table_name() -> &'static TableName {
-        &INDEX_WORKER_METADATA_TABLE
-    }
+    const TABLE_NAME: TableName = INDEX_WORKER_METADATA_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![INDEX_DOC_ID_INDEX.clone()]

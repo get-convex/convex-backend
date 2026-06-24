@@ -452,8 +452,8 @@ pub async fn initialize_application_system_table<RT: Runtime>(
     let is_new = tx
         .create_system_table(
             namespace,
-            table.table_name(),
-            default_table_numbers.get(table.table_name()).cloned(),
+            &table.table_name(),
+            default_table_numbers.get(&table.table_name()).cloned(),
         )
         .await?;
     if is_new {
@@ -467,7 +467,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         let table_id = tx
             .table_mapping()
             .namespace(namespace)
-            .id(table.table_name())?
+            .id(&table.table_name())?
             .tablet_id;
         let existing_indexes: BTreeMap<_, _> = IndexModel::new(tx)
             .all_indexes_on_table(table_id)

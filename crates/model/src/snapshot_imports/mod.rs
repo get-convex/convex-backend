@@ -46,15 +46,13 @@ use crate::{
 
 pub mod types;
 
-pub static SNAPSHOT_IMPORTS_TABLE: TableName = TableName::const_new("_snapshot_imports");
+pub const SNAPSHOT_IMPORTS_TABLE: TableName = TableName::const_new("_snapshot_imports");
 
 pub struct SnapshotImportsTable;
 impl SystemTable for SnapshotImportsTable {
     type Metadata = SnapshotImport;
 
-    fn table_name() -> &'static TableName {
-        &SNAPSHOT_IMPORTS_TABLE
-    }
+    const TABLE_NAME: TableName = SNAPSHOT_IMPORTS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
@@ -78,7 +76,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(TableNamespace::Global)
-            .tablet_matches_name(id.tablet_id, SnapshotImportsTable::table_name()));
+            .tablet_matches_name(id.tablet_id, &SnapshotImportsTable::TABLE_NAME));
         match self.tx.get(id).await? {
             None => Ok(None),
             Some(doc) => Ok(Some(doc.parse()?)),
@@ -116,7 +114,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         };
         let id = SystemMetadataModel::new_global(self.tx)
             .insert(
-                SnapshotImportsTable::table_name(),
+                &SnapshotImportsTable::TABLE_NAME,
                 snapshot_import.try_into()?,
             )
             .await?;

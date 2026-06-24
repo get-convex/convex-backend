@@ -71,7 +71,7 @@ use crate::{
     },
 };
 
-pub static DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
+pub const DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AuditLogIndexDiff {

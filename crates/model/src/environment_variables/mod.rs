@@ -55,7 +55,7 @@ use crate::{
 
 pub mod types;
 
-pub static ENVIRONMENT_VARIABLES_TABLE: TableName = TableName::const_new("_environment_variables");
+pub const ENVIRONMENT_VARIABLES_TABLE: TableName = TableName::const_new("_environment_variables");
 
 pub static ENVIRONMENT_VARIABLES_INDEX_BY_NAME: LazyLock<SystemIndex<EnvironmentVariablesTable>> =
     LazyLock::new(|| SystemIndex::new("by_name", [&NAME_FIELD]).unwrap());
@@ -66,9 +66,7 @@ pub struct EnvironmentVariablesTable;
 impl SystemTable for EnvironmentVariablesTable {
     type Metadata = PersistedEnvironmentVariable;
 
-    fn table_name() -> &'static TableName {
-        &ENVIRONMENT_VARIABLES_TABLE
-    }
+    const TABLE_NAME: TableName = ENVIRONMENT_VARIABLES_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone()]

@@ -80,9 +80,7 @@ pub struct TablesTable;
 impl SystemTable for TablesTable {
     type Metadata = TableMetadata;
 
-    fn table_name() -> &'static TableName {
-        &TABLES_TABLE
-    }
+    const TABLE_NAME: TableName = TABLES_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![TABLES_BY_NAME_INDEX.clone()]
@@ -473,14 +471,14 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(namespace)
-            .name_to_tablet()(S::table_name().clone())?;
+            .name_to_tablet()(S::TABLE_NAME)?;
 
         let table_number = self
             .delete_table_by_id_bypassing_schema_enforcement(tablet_id)
             .await?;
         self._insert_table_metadata(
             namespace,
-            S::table_name(),
+            &S::TABLE_NAME,
             Some(table_number),
             TableState::Active,
         )
@@ -490,7 +488,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let index_metadata = IndexMetadata::new_enabled(
                 index
                     .name
-                    .map_table(&|_| anyhow::Ok(S::table_name().clone()))?,
+                    .map_table(&|_| anyhow::Ok(S::TABLE_NAME.clone()))?,
                 index.fields,
             );
             index_model
@@ -509,7 +507,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         anyhow::ensure!(
             bootstrap_system_tables()
                 .iter()
-                .all(|t| t.table_name() != table),
+                .all(|t| t.table_name() != *table),
             "Conflict with bootstrap system table {table}",
         );
         self._insert_table_metadata(namespace, table, table_number, TableState::Hidden)
