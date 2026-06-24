@@ -2009,12 +2009,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
           }
         ]
       }
