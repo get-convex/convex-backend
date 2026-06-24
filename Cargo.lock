@@ -5084,7 +5084,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.16.1",
  "serde",
  "serde_core",
 ]
@@ -9114,7 +9114,7 @@ dependencies = [
 [[package]]
 name = "shuttle"
 version = "0.9.1"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "bitvec",
  "cfg-if",
@@ -9135,7 +9135,7 @@ dependencies = [
 [[package]]
 name = "shuttle-core"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "assoc",
  "bitvec",
@@ -9174,7 +9174,7 @@ dependencies = [
 [[package]]
 name = "shuttle-parking_lot"
 version = "0.12.5"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "cfg-if",
  "parking_lot",
@@ -9184,7 +9184,7 @@ dependencies = [
 [[package]]
 name = "shuttle-parking_lot-impl"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "shuttle",
  "tracing",
@@ -9193,7 +9193,7 @@ dependencies = [
 [[package]]
 name = "shuttle-schedulers"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "rand 0.8.6",
  "rand_pcg",
@@ -9205,7 +9205,7 @@ dependencies = [
 [[package]]
 name = "shuttle-std"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle#c8a46d3965048df3207ec920dae066bc9c4d9d89"
 dependencies = [
  "assoc",
  "owo-colors",
