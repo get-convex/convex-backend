@@ -1,4 +1,4 @@
-import { Menu, MenuLink } from "@ui/Menu";
+import { Menu, MenuItem, MenuLink } from "@ui/Menu";
 import { Tooltip } from "@ui/Tooltip";
 import { ToggleTheme } from "@common/elements/ToggleTheme";
 import { GearIcon, PersonIcon, ExitIcon } from "@radix-ui/react-icons";
@@ -8,6 +8,7 @@ import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
+import { logout } from "lib/logout";
 
 export function UserMenu() {
   const { user } = useWorkOS();
@@ -103,12 +104,12 @@ export function UserMenu() {
         </>
       ) : null}
       <hr className="mx-4" />
-      <MenuLink href="/api/auth/logout?returnTo=/api/auth/login">
+      <MenuItem action={() => logout()}>
         <div className="flex w-full items-center justify-between">
           Log Out
           <ExitIcon className="text-content-secondary" />
         </div>
-      </MenuLink>
+      </MenuItem>
     </Menu>
   );
 }
