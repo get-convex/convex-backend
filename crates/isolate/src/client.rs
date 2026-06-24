@@ -34,6 +34,7 @@ use common::{
         ExpiredInQueue,
     },
     components::{
+        CanonicalizedComponentModulePath,
         ComponentDefinitionPath,
         ComponentName,
         Resource,
@@ -97,6 +98,11 @@ use fastrace::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
+    future::{
+        self,
+        Join,
+        Ready,
+    },
     stream::{
         self,
         FuturesUnordered,
@@ -149,7 +155,10 @@ use value::identifier::Identifier;
 
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
-    context_cache::ContextCache,
+    context_cache::{
+        CachedContexts,
+        ContextCache,
+    },
     isolate::{
         Isolate,
         IsolateHeapStats,
@@ -249,6 +258,23 @@ impl<RT: Runtime> Request<RT> {
             inner,
             parent_trace,
         }
+    }
+
+    pub fn module(&self) -> Option<CanonicalizedComponentModulePath> {
+        let function_path = match &self.inner {
+            RequestType::Udf { request, .. } => request.path_and_args.path(),
+            RequestType::Action { request, .. } => request.params.path_and_args.path(),
+            RequestType::HttpAction { request, .. } => request.http_module_path.path(),
+            RequestType::Analyze { .. }
+            | RequestType::EvaluateSchema { .. }
+            | RequestType::EvaluateAuthConfig { .. }
+            | RequestType::EvaluateAppDefinitions { .. }
+            | RequestType::EvaluateComponentInitializer { .. } => return None,
+        };
+        Some(CanonicalizedComponentModulePath {
+            component: function_path.component,
+            module_path: function_path.udf_path.module().clone(),
+        })
     }
 }
 
@@ -1153,13 +1179,7 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     rt: RT,
     worker: W,
     /// Vec of channels for sending work to individual workers.
-    worker_senders: Vec<
-        mpsc::Sender<(
-            Request<RT>,
-            oneshot::Sender<ActiveWorkerState>,
-            ActiveWorkerState,
-        )>,
-    >,
+    worker_senders: Vec<mpsc::Sender<(Request<RT>, oneshot::Sender<IdleWorkerInfo>)>>,
     /// Map from client_id to stack of workers (implemented with a deque). The
     /// most recently used worker for a given client is at the front of the
     /// deque. These workers were previously used by this client, but may
@@ -1169,7 +1189,8 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     /// new client.
     available_workers: HashMap<String, VecDeque<IdleWorkerState>>,
     /// Set of futures awaiting a response from an active worker.
-    in_progress_workers: FuturesUnordered<oneshot::Receiver<ActiveWorkerState>>,
+    in_progress_workers:
+        FuturesUnordered<Join<oneshot::Receiver<IdleWorkerInfo>, Ready<ActiveWorkerState>>>,
     /// Counts the number of active workers per client. Should only contain a
     /// key if the value is greater than 0.
     in_progress_count: HashMap<String, usize>,
@@ -1183,9 +1204,13 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     max_active_workers_per_client: usize,
 }
 
+pub struct IdleWorkerInfo {
+    cached_contexts: Arc<CachedContexts>,
+}
 struct IdleWorkerState {
     worker_id: usize,
     last_used_ts: tokio::time::Instant,
+    info: IdleWorkerInfo,
 }
 struct ActiveWorkerState {
     worker_id: usize,
@@ -1217,7 +1242,11 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         }
     }
 
-    fn handle_completed_worker(&mut self, completed_worker: ActiveWorkerState) {
+    fn handle_completed_worker(
+        &mut self,
+        completed_worker: ActiveWorkerState,
+        info: IdleWorkerInfo,
+    ) {
         let new_count = match self
             .in_progress_count
             .remove_entry(&completed_worker.client_id)
@@ -1249,6 +1278,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             .push_front(IdleWorkerState {
                 worker_id: completed_worker.worker_id,
                 last_used_ts: self.rt.monotonic_now(),
+                info,
             });
     }
 
@@ -1270,8 +1300,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 biased;
                 completed_worker = self.in_progress_workers.next(),
                 if !self.in_progress_workers.is_empty() => {
-                    let Some(Ok(completed_worker)): Option<Result<ActiveWorkerState, _>> =
-                        completed_worker
+                    let Some((Ok(info), completed_worker)) = completed_worker
                     else {
                         tracing::warn!(
                             "Worker has shut down uncleanly. Shutting down {} scheduler.",
@@ -1279,7 +1308,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         );
                         return;
                     };
-                    self.handle_completed_worker(completed_worker);
+                    self.handle_completed_worker(completed_worker, info);
                 }
                 request = next_request => {
                     let Some((request, expired)) = request else {
@@ -1290,13 +1319,17 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         request.expire(expired);
                         continue;
                     }
-                    let Some(worker_id) = self.get_worker(&request.client_id) else {
+                    let Some(worker_id) = self.get_worker(&request) else {
                         tracing::error!("unexpected: couldn't find a worker?");
                         request.reject();
                         continue;
                     };
                     let (done_sender, done_receiver) = oneshot::channel();
-                    self.in_progress_workers.push(done_receiver);
+                    let st = ActiveWorkerState {
+                        client_id: request.client_id.clone(),
+                        worker_id,
+                    };
+                    self.in_progress_workers.push(future::join(done_receiver, future::ready(st)));
                     let entry = self
                         .in_progress_count
                         .entry(request.client_id.clone())
@@ -1308,15 +1341,10 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         *entry,
                         &request.client_id,
                     );
-                    let client_id = request.client_id.clone();
                     if self.worker_senders[worker_id]
                         .try_send((
                             request,
                             done_sender,
-                            ActiveWorkerState {
-                                client_id,
-                                worker_id,
-                            },
                         ))
                         .is_err()
                     {
@@ -1346,7 +1374,8 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     /// `self.available_workers` state, so the caller is responsible for using
     /// the worker and returning it back to `self.available_workers` after it is
     /// done.
-    fn get_worker(&mut self, client_id: &str) -> Option<usize> {
+    fn get_worker(&mut self, request: &Request<RT>) -> Option<usize> {
+        let client_id = request.client_id.as_str();
         // Make sure this client isn't overloading the scheduler.
         let active_worker_count = self
             .in_progress_count
@@ -1363,9 +1392,19 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         }
         // Try to find an existing worker for this client.
         if let Some((client_id, mut workers)) = self.available_workers.remove_entry(client_id) {
+            // If there is a worker with an appropriate reusable context, pick that one
+            // first.
             let worker = workers
-                .pop_front()
-                .expect("Available worker map should never contain an empty list");
+                .extract_if(.., |worker| {
+                    worker.info.cached_contexts.can_serve_request(request)
+                })
+                .next();
+            // Otherwise just take the most recently used one.
+            let worker = worker.unwrap_or_else(|| {
+                workers
+                    .pop_front()
+                    .expect("Available worker map should never contain an empty list")
+            });
             if !workers.is_empty() {
                 self.available_workers.insert(client_id, workers);
             }
@@ -1395,42 +1434,30 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         // No existing worker for this client and we've already started the max number
         // of workers -- just grab the least recently used worker. This worker is least
         // likely to be reused by its' previous client.
-        let Some((key, workers)) =
-            self.available_workers
-                .iter_mut()
-                .min_by(|(_, workers1), (_, workers2)| {
-                    workers1
-                        .back()
-                        .expect("Available worker map should never contain an empty list")
-                        .last_used_ts
-                        .cmp(
-                            &workers2
-                                .back()
-                                .expect("Available worker map should never contain an empty list")
-                                .last_used_ts,
-                        )
-                })
+        let Some((key, workers)) = self
+            .available_workers
+            .iter_mut()
+            .min_by_key(|(_, workers)| {
+                workers
+                    .back()
+                    .expect("Available worker map should never contain an empty list")
+                    .last_used_ts
+            })
         else {
             // No available workers.
             return None;
         };
-        log_worker_stolen(
-            workers
-                .back()
-                .expect("Available worker map should never contain an empty list")
-                .last_used_ts
-                .elapsed(),
-        );
-        let worker_id = workers
+        let worker = workers
             .pop_back()
             .expect("Available worker map should never contain an empty list");
+        log_worker_stolen(worker.last_used_ts.elapsed());
         if workers.is_empty() {
             // This variable shadowing drops the mutable reference to
             // `self.available_workers`.
             let key = key.clone();
             self.available_workers.remove(&key);
         }
-        Some(worker_id.worker_id)
+        Some(worker.worker_id)
     }
 
     fn aggregate_heap_stats(&self) -> IsolateHeapStats {
@@ -1466,9 +1493,9 @@ impl SharedIsolateHeapStats {
 
 #[async_trait(?Send)]
 pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
-    async fn service_requests<T>(
+    async fn service_requests(
         self,
-        reqs: mpsc::Receiver<(Request<RT>, oneshot::Sender<T>, T)>,
+        reqs: mpsc::Receiver<(Request<RT>, oneshot::Sender<IdleWorkerInfo>)>,
         heap_stats: SharedIsolateHeapStats,
     ) {
         let IsolateConfig {
@@ -1477,7 +1504,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
             ..
         } = self.config();
         let mut reqs = std::pin::pin!(ReceiverStream::new(reqs).peekable());
-        let mut ready: Option<(oneshot::Sender<_>, _)> = None;
+        let mut ready: Option<oneshot::Sender<_>> = None;
         let mut isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
         'recreate_isolate: loop {
             let mut last_client_id: Option<String> = None;
@@ -1503,9 +1530,11 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     continue 'recreate_isolate;
                 }
                 heap_stats.store(isolate.heap_stats());
-                if let Some((done, done_token)) = ready.take() {
+                if let Some(done) = ready.take() {
                     // Inform the scheduler that this thread is ready to accept a new request.
-                    let _ = done.send(done_token);
+                    let _ = done.send(IdleWorkerInfo {
+                        cached_contexts: context_cache.cached_contexts().clone(),
+                    });
                 }
                 tokio::select! {
                     // If the isolate isn't "tainted", no need to wait for the idle timeout.
@@ -1565,12 +1594,12 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                             },
                         };
                         // Ok, we're ready to accept the request for real.
-                        let Some((req, done, done_token)) = reqs.next().await else { return };
+                        let Some((req, done)) = reqs.next().await else { return };
                         // Note that we won't reply to `done` until
                         // `context_cache` has been prepared. This improves
                         // latency in the common case since requests will be
                         // routed to a thread that has a context ready to go.
-                        ready = Some((done, done_token));
+                        ready = Some(done);
                         let root = initialize_root_from_parent(
                             func_path!(),
                             req.parent_trace.clone(),

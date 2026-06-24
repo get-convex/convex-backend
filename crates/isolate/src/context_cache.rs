@@ -1,8 +1,15 @@
-use std::collections::HashMap;
+use std::{
+    collections::{
+        HashMap,
+        HashSet,
+    },
+    sync::Arc,
+};
 
 use common::{
     components::CanonicalizedComponentModulePath,
     interval::IntervalSet,
+    runtime::Runtime,
     types::TabletIndexName,
 };
 use database::TransactionReadSet;
@@ -10,6 +17,7 @@ use deno_core::v8::{
     self,
     scope,
 };
+use parking_lot::Mutex;
 use value::{
     sha256::Sha256Digest,
     TableName,
@@ -17,16 +25,32 @@ use value::{
 };
 
 use crate::{
+    client::{
+        Request,
+        RequestType,
+    },
     metrics::create_context_timer,
     module_map::ModuleMap,
 };
 
 pub struct ContextCache {
     fresh_context: Option<v8::Global<v8::Context>>,
-    saved_contexts: HashMap<
+    saved_database_udf_contexts: HashMap<
         CanonicalizedComponentModulePath,
         (v8::Global<v8::Context>, ModuleMap, ContextReadSet),
     >,
+    cached_contexts: Arc<CachedContexts>,
+}
+
+/// A mirror of the cache keys present in a `ContextCache`.
+/// This struct is `Send + Sync` so that it can be used by the isolate
+/// scheduler.
+pub struct CachedContexts {
+    inner: Mutex<CachedContextsInner>,
+}
+
+struct CachedContextsInner {
+    saved_database_udf_contexts: HashSet<CanonicalizedComponentModulePath>,
 }
 
 pub(crate) struct ContextReadSet {
@@ -44,7 +68,12 @@ impl ContextCache {
     pub(crate) fn new() -> Self {
         Self {
             fresh_context: None,
-            saved_contexts: HashMap::new(),
+            saved_database_udf_contexts: HashMap::new(),
+            cached_contexts: Arc::new(CachedContexts {
+                inner: Mutex::new(CachedContextsInner {
+                    saved_database_udf_contexts: HashSet::new(),
+                }),
+            }),
         }
     }
 
@@ -57,7 +86,13 @@ impl ContextCache {
     }
 
     pub(crate) fn clear(&mut self) {
-        *self = Self::new();
+        self.fresh_context = None;
+        self.saved_database_udf_contexts.clear();
+        self.cached_contexts
+            .inner
+            .lock()
+            .saved_database_udf_contexts
+            .clear();
     }
 
     pub(crate) fn get_or_create_fresh_context<'s>(
@@ -78,15 +113,49 @@ impl ContextCache {
         module_map: ModuleMap,
         read_set: ContextReadSet,
     ) {
-        self.saved_contexts
-            .insert(module_path, (context, module_map, read_set));
+        self.saved_database_udf_contexts
+            .insert(module_path.clone(), (context, module_map, read_set));
+        self.cached_contexts
+            .inner
+            .lock()
+            .saved_database_udf_contexts
+            .insert(module_path);
     }
 
     pub(crate) fn take_reused_context(
         &mut self,
         module_path: &CanonicalizedComponentModulePath,
     ) -> Option<(v8::Global<v8::Context>, ModuleMap, ContextReadSet)> {
-        self.saved_contexts.remove(module_path)
+        self.cached_contexts
+            .inner
+            .lock()
+            .saved_database_udf_contexts
+            .remove(module_path);
+        self.saved_database_udf_contexts.remove(module_path)
+    }
+
+    pub fn cached_contexts(&self) -> &Arc<CachedContexts> {
+        &self.cached_contexts
+    }
+}
+
+impl CachedContexts {
+    pub fn can_serve_request<RT: Runtime>(&self, request: &Request<RT>) -> bool {
+        match &request.inner {
+            RequestType::Udf { request: inner, .. } => {
+                inner.path_and_args.reuse_context()
+                    && request
+                        .module()
+                        .is_some_and(|m| self.inner.lock().saved_database_udf_contexts.contains(&m))
+            },
+            RequestType::Action { .. }
+            | RequestType::HttpAction { .. }
+            | RequestType::Analyze { .. }
+            | RequestType::EvaluateSchema { .. }
+            | RequestType::EvaluateAuthConfig { .. }
+            | RequestType::EvaluateAppDefinitions { .. }
+            | RequestType::EvaluateComponentInitializer { .. } => false,
+        }
     }
 }
 
