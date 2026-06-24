@@ -1829,7 +1829,14 @@
             "description": "Caller is not authorized to create team access tokens"
           }
         },
-        "security": []
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_audit_log_events": {
