@@ -90,7 +90,7 @@ impl<RT: Runtime> Transaction<RT> {
         let tablet_id = self
             .table_mapping()
             .namespace(namespace)
-            .id_if_exists(T::table_name())
+            .id_if_exists(&T::TABLE_NAME)
             .with_context(|| format!("Index {:?} not present in {namespace:?}", index.name()))?;
         Ok(SystemQueryBuilder {
             tx: self,
@@ -291,7 +291,7 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
                 .unwrap_or_default();
             self.tx.reads.record_read_document(
                 component_path,
-                T::table_name().clone(),
+                T::TABLE_NAME.clone(),
                 doc.size(),
                 &self.tx.usage_tracker,
                 &self.tx.virtual_system_mapping,

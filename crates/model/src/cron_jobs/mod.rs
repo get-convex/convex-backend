@@ -60,7 +60,7 @@ use crate::{
 pub mod next_ts;
 pub mod types;
 
-pub static CRON_JOBS_TABLE: TableName = TableName::const_new("_cron_jobs");
+pub const CRON_JOBS_TABLE: TableName = TableName::const_new("_cron_jobs");
 
 // Used to find cron job by name
 pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<SystemIndex<CronJobsTable>> =
@@ -68,7 +68,7 @@ pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<SystemIndex<CronJobsTable>> =
 static CRON_JOBS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
 
-pub static CRON_JOB_LOGS_TABLE: TableName = TableName::const_new("_cron_job_logs");
+pub const CRON_JOB_LOGS_TABLE: TableName = TableName::const_new("_cron_job_logs");
 
 pub static CRON_JOB_LOGS_INDEX_BY_NAME_TS: LazyLock<SystemIndex<CronJobLogsTable>> =
     LazyLock::new(|| {
@@ -83,7 +83,7 @@ pub static CRON_JOB_LOGS_NAME_FIELD: LazyLock<FieldPath> =
 static CRON_JOB_LOGS_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "ts".parse().expect("invalid ts field"));
 
-pub static CRON_NEXT_RUN_TABLE: TableName = TableName::const_new("_cron_next_run");
+pub const CRON_NEXT_RUN_TABLE: TableName = TableName::const_new("_cron_next_run");
 
 pub static CRON_NEXT_RUN_INDEX_BY_NEXT_TS: LazyLock<SystemIndex<CronNextRunTable>> =
     LazyLock::new(|| SystemIndex::new("by_next_ts", [&CRON_NEXT_RUN_NEXT_TS_FIELD]).unwrap());
@@ -100,9 +100,7 @@ pub struct CronJobsTable;
 impl SystemTable for CronJobsTable {
     type Metadata = CronJobMetadata;
 
-    fn table_name() -> &'static TableName {
-        &CRON_JOBS_TABLE
-    }
+    const TABLE_NAME: TableName = CRON_JOBS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![CRON_JOBS_INDEX_BY_NAME.clone()]
@@ -113,9 +111,7 @@ pub struct CronJobLogsTable;
 impl SystemTable for CronJobLogsTable {
     type Metadata = CronJobLog;
 
-    fn table_name() -> &'static TableName {
-        &CRON_JOB_LOGS_TABLE
-    }
+    const TABLE_NAME: TableName = CRON_JOB_LOGS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone()]
@@ -126,9 +122,7 @@ pub struct CronNextRunTable;
 impl SystemTable for CronNextRunTable {
     type Metadata = CronNextRun;
 
-    fn table_name() -> &'static TableName {
-        &CRON_NEXT_RUN_TABLE
-    }
+    const TABLE_NAME: TableName = CRON_NEXT_RUN_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![

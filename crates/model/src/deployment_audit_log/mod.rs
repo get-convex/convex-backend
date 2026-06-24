@@ -50,7 +50,7 @@ use crate::{
     SystemTable,
 };
 
-pub static DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
+pub const DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
 
 pub static ACTION_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "action".parse().expect("invalid action field"));
@@ -59,9 +59,7 @@ pub struct DeploymentAuditLogsTable;
 impl SystemTable for DeploymentAuditLogsTable {
     type Metadata = DeploymentAuditLogEvent;
 
-    fn table_name() -> &'static TableName {
-        &DEPLOYMENT_AUDIT_LOG_TABLE
-    }
+    const TABLE_NAME: TableName = DEPLOYMENT_AUDIT_LOG_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

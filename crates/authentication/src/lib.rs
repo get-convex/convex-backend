@@ -136,6 +136,7 @@ pub fn token_to_authorization_header(token: AuthenticationToken) -> anyhow::Resu
 }
 
 /// Validate a token against a list of Convex auth providers.
+#[fastrace::trace]
 pub async fn validate_id_token<F, E>(
     token_str: AuthIdToken,
     // The http client is injected here so we can unit test this filter without needing to actually

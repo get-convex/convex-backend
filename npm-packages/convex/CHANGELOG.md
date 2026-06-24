@@ -23,6 +23,12 @@
   correctly when the user or token doesn’t have permission to do something.
 - Exposes the current scheduled function's ID as `scheduledFunctionId` in
   `ctx.meta.getRequestMetadata()`.
+- `npx convex insights` has a new `--json` flag that makes the command
+  output easier to parse programmatically.
+- File storage: marked a few TypeScript types in `convex/server` as `@deprecated`
+  (`FileMetadata`, `FileStorageId`, `StorageId`). These types are used
+  only by file storage APIs that were deprecated in `convex@1.6.0`,
+  so we also marked them as `@deprecated` for clarity.
 - Bumps the `ws` peer dependency to avoid a vulnerable range.
 
 ## 1.41.0

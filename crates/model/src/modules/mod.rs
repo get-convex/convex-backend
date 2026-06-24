@@ -76,7 +76,7 @@ pub mod types;
 pub mod user_error;
 
 /// Table name for user modules.
-pub static MODULES_TABLE: TableName = TableName::const_new("_modules");
+pub const MODULES_TABLE: TableName = TableName::const_new("_modules");
 
 /// Field for a module's path in `ModuleMetadata`.
 static PATH_FIELD: LazyLock<FieldPath> =
@@ -97,9 +97,7 @@ pub struct ModulesTable;
 impl SystemTable for ModulesTable {
     type Metadata = ModuleMetadata;
 
-    fn table_name() -> &'static TableName {
-        &MODULES_TABLE
-    }
+    const TABLE_NAME: TableName = MODULES_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![

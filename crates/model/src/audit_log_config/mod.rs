@@ -23,15 +23,13 @@ use crate::{
 pub mod types;
 use types::AuditLogConfig;
 
-pub static AUDIT_LOG_CONFIG_TABLE: TableName = TableName::const_new("_audit_log_config");
+pub const AUDIT_LOG_CONFIG_TABLE: TableName = TableName::const_new("_audit_log_config");
 
 pub struct AuditLogConfigTable;
 impl SystemTable for AuditLogConfigTable {
     type Metadata = AuditLogConfig;
 
-    fn table_name() -> &'static TableName {
-        &AUDIT_LOG_CONFIG_TABLE
-    }
+    const TABLE_NAME: TableName = AUDIT_LOG_CONFIG_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

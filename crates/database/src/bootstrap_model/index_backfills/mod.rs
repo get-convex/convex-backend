@@ -36,7 +36,7 @@ use crate::{
 
 pub mod types;
 
-pub static INDEX_BACKFILLS_TABLE: TableName = TableName::const_new("_index_backfills");
+pub const INDEX_BACKFILLS_TABLE: TableName = TableName::const_new("_index_backfills");
 
 pub static INDEX_BACKFILLS_BY_INDEX_ID: LazyLock<SystemIndex<IndexBackfillTable>> =
     LazyLock::new(|| {
@@ -51,9 +51,7 @@ pub struct IndexBackfillTable;
 impl SystemTable for IndexBackfillTable {
     type Metadata = types::IndexBackfillMetadata;
 
-    fn table_name() -> &'static TableName {
-        &INDEX_BACKFILLS_TABLE
-    }
+    const TABLE_NAME: TableName = INDEX_BACKFILLS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![INDEX_BACKFILLS_BY_INDEX_ID.clone()]

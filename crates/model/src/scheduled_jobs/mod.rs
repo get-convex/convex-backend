@@ -27,10 +27,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
-    types::{
-        GenericIndexName,
-        IndexName,
-    },
+    types::IndexName,
     virtual_system_mapping::AssociatedVirtualTable,
 };
 use database::{
@@ -80,19 +77,17 @@ pub mod args;
 pub mod types;
 pub mod virtual_table;
 
-pub static SCHEDULED_JOBS_TABLE: TableName = TableName::const_new("_scheduled_jobs");
+pub const SCHEDULED_JOBS_TABLE: TableName = TableName::const_new("_scheduled_jobs");
 
-pub static SCHEDULED_JOBS_VIRTUAL_TABLE: TableName = TableName::const_new("_scheduled_functions");
+pub const SCHEDULED_JOBS_VIRTUAL_TABLE: TableName = TableName::const_new("_scheduled_functions");
 
-static SCHEDULED_JOBS_INDEX_BY_ID: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_id(SCHEDULED_JOBS_TABLE.clone()));
-
-static SCHEDULED_JOBS_INDEX_BY_CREATION_TIME: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_creation_time(SCHEDULED_JOBS_TABLE.clone()));
-static SCHEDULED_JOBS_VIRTUAL_INDEX_BY_ID: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_id(SCHEDULED_JOBS_VIRTUAL_TABLE.clone()));
-static SCHEDULED_JOBS_VIRTUAL_INDEX_BY_CREATION_TIME: LazyLock<IndexName> =
-    LazyLock::new(|| GenericIndexName::by_creation_time(SCHEDULED_JOBS_VIRTUAL_TABLE.clone()));
+const SCHEDULED_JOBS_INDEX_BY_ID: IndexName = IndexName::by_id(SCHEDULED_JOBS_TABLE);
+const SCHEDULED_JOBS_INDEX_BY_CREATION_TIME: IndexName =
+    IndexName::by_creation_time(SCHEDULED_JOBS_TABLE);
+const SCHEDULED_JOBS_VIRTUAL_INDEX_BY_ID: IndexName =
+    IndexName::by_id(SCHEDULED_JOBS_VIRTUAL_TABLE);
+const SCHEDULED_JOBS_VIRTUAL_INDEX_BY_CREATION_TIME: IndexName =
+    IndexName::by_creation_time(SCHEDULED_JOBS_VIRTUAL_TABLE);
 
 /// By next ts. Used to efficiently find next jobs to execute next.
 pub static SCHEDULED_JOBS_INDEX: LazyLock<SystemIndex<ScheduledJobsTable>> =
@@ -123,9 +118,7 @@ pub struct ScheduledJobsTable;
 impl SystemTable for ScheduledJobsTable {
     type Metadata = ScheduledJobMetadata;
 
-    fn table_name() -> &'static TableName {
-        &SCHEDULED_JOBS_TABLE
-    }
+    const TABLE_NAME: TableName = SCHEDULED_JOBS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![
@@ -137,12 +130,12 @@ impl SystemTable for ScheduledJobsTable {
 
     fn virtual_table() -> Option<AssociatedVirtualTable> {
         Some(AssociatedVirtualTable::Primary {
-            virtual_table_name: SCHEDULED_JOBS_VIRTUAL_TABLE.clone(),
+            virtual_table_name: SCHEDULED_JOBS_VIRTUAL_TABLE,
             virtual_to_system_indexes: ordmap! {
-                SCHEDULED_JOBS_VIRTUAL_INDEX_BY_CREATION_TIME.clone() =>
-                    SCHEDULED_JOBS_INDEX_BY_CREATION_TIME.clone(),
-                SCHEDULED_JOBS_VIRTUAL_INDEX_BY_ID.clone() =>
-                    SCHEDULED_JOBS_INDEX_BY_ID.clone()
+                SCHEDULED_JOBS_VIRTUAL_INDEX_BY_CREATION_TIME =>
+                    SCHEDULED_JOBS_INDEX_BY_CREATION_TIME,
+                SCHEDULED_JOBS_VIRTUAL_INDEX_BY_ID =>
+                    SCHEDULED_JOBS_INDEX_BY_ID
             },
             doc_mapper: Arc::new(ScheduledJobsDocMapper),
         })

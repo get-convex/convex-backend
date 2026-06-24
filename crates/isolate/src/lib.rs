@@ -10,6 +10,7 @@
 #![feature(impl_trait_in_fn_trait_return)]
 #![feature(ptr_metadata)]
 #![feature(exit_status_error)]
+#![feature(vec_deque_extract_if)]
 
 mod array_buffer_allocator;
 pub mod bundled_js;

@@ -1,6 +1,10 @@
 # Building from source
 
-## Installing dependencies
+## Building the local backend
+
+These instructions allow you to build and run the full Convex backend.
+
+### Installing dependencies
 
 You will need to first install the following dependencies if you don't already
 have them on your machine:
@@ -35,7 +39,7 @@ To [build the backend from source](#building-from-source):
 - Convex JavaScript dependencies
   - `just rush install`
 
-### Building from source
+#### Building from source
 
 Build and run the local backend from the source in this repo:
 
@@ -43,7 +47,7 @@ Build and run the local backend from the source in this repo:
 just run-local-backend
 ```
 
-## Provisioning a demo app locally
+### Provisioning a demo app locally
 
 This example will go through running the backend with the included demo project.
 
@@ -92,3 +96,31 @@ If you're using both the local backend and the hosted cloud platform, make sure
 to run `npx convex dev` or `just convex dev` before you start testing your
 client. The `dev` command will take care of updating your `.env.local` file with
 the correct `CONVEX_URL`.
+
+## Building NPM packages (client, CLI, docs, dashboard, ESLint plugin…)
+
+If you want to make changes to individual NPM packages (such as `convex`,
+`@convex-dev/eslint-plugin`, the dashboard, and docs), you can install the
+required dependencies and build the packages this way:
+
+```sh
+npm clean-install --prefix scripts
+just rush install
+
+# Builds the entire monorepo
+just rush build
+# You can also build individual packages and their dependencies, for example: just rush build -t docs
+```
+
+For development, individual packages have useful commands in their
+`package.json` file. For example, to run a dev server for docs, you will need to
+run:
+
+```sh
+cd npm-packages/docs
+just rush build --to-expect docs # builds the packages docs rely on
+npm run dev
+```
+
+If you need to modify the dependencies of monorepo packages, modify the right
+`package.json` file, and then run `just rush update`.

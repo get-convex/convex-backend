@@ -24,15 +24,13 @@ use crate::{
 
 pub mod types;
 
-pub static AWS_LAMBDA_VERSIONS_TABLE: TableName = TableName::const_new("_aws_lambda_versions");
+pub const AWS_LAMBDA_VERSIONS_TABLE: TableName = TableName::const_new("_aws_lambda_versions");
 
 pub struct AwsLambdaVersionsTable;
 impl SystemTable for AwsLambdaVersionsTable {
     type Metadata = AwsLambdaVersion;
 
-    fn table_name() -> &'static TableName {
-        &AWS_LAMBDA_VERSIONS_TABLE
-    }
+    const TABLE_NAME: TableName = AWS_LAMBDA_VERSIONS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

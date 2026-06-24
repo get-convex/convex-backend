@@ -428,12 +428,11 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         T::Metadata: Send + Sync + Clone,
         for<'a> &'a PackedDocument: ParseDocument<T::Metadata>,
     {
-        let tablet_id =
-            table_mapping.namespace(namespace).name_to_tablet()(T::table_name().clone())?;
+        let tablet_id = table_mapping.namespace(namespace).name_to_tablet()(T::TABLE_NAME.clone())?;
         let by_id = index_registry.must_get_by_id(tablet_id)?.id();
         let docs = in_memory_indexes
             .range(by_id, &Interval::all(), Order::Asc)?
-            .with_context(|| format!("table {} is not in-memory?", T::table_name()))?;
+            .with_context(|| format!("table {} is not in-memory?", T::TABLE_NAME))?;
         docs.into_iter()
             .map(|doc| doc.2.force().map(Arc::unwrap_or_clone))
             .try_collect()
@@ -1347,7 +1346,7 @@ impl<RT: Runtime> Database<RT> {
         for table in bootstrap_system_tables() {
             let table_name = table.table_name();
             let table_number = *DEFAULT_BOOTSTRAP_TABLE_NUMBERS
-                .get(table_name)
+                .get(&table_name)
                 .context(format!("Table name {table_name} not found"))?;
             let tablet_id = TabletId(id_generator.generate_internal());
             let global_table_mapping = table_mapping.namespace(TableNamespace::Global);
@@ -1397,7 +1396,7 @@ impl<RT: Runtime> Database<RT> {
             let table_name = table.table_name();
             let table_id = table_mapping
                 .namespace(TableNamespace::Global)
-                .id(table_name)?;
+                .id(&table_name)?;
             let document_id = ResolvedDocumentId::new(
                 tables_table_id.tablet_id,
                 DeveloperDocumentId::new(tables_table_id.table_number, table_id.tablet_id.0),
@@ -1428,7 +1427,7 @@ impl<RT: Runtime> Database<RT> {
 
             // Create the `by_creation_time` index for all tables except "_index", which can
             // only have the "by_id" index.
-            if table_name != &INDEX_TABLE {
+            if table_name != INDEX_TABLE {
                 let index_id = id_generator.generate_resolved(index_table_id);
                 let metadata = IndexMetadata::new_enabled(
                     GenericIndexName::by_creation_time(table_id.tablet_id),

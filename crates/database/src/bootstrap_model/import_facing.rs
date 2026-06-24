@@ -66,7 +66,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         anyhow::ensure!(
             bootstrap_system_tables()
                 .iter()
-                .all(|t| t.table_name() != table_name),
+                .all(|t| t.table_name() != *table_name),
             "Cannot import into bootstrap system table {table_name}"
         );
         self.tx
@@ -144,7 +144,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         anyhow::ensure!(
             bootstrap_system_tables()
                 .iter()
-                .all(|t| t.table_name() != table_name),
+                .all(|t| t.table_name() != *table_name),
             "Cannot import into bootstrap system table {table_name}"
         );
         self.tx
@@ -218,7 +218,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         anyhow::ensure!(
             bootstrap_system_tables()
                 .iter()
-                .all(|t| t.table_name() != table_name),
+                .all(|t| t.table_name() != *table_name),
             "Cannot import into bootstrap system table {table_name}"
         );
         self.tx

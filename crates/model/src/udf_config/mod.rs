@@ -23,15 +23,13 @@ use crate::{
     SystemTable,
 };
 
-pub static UDF_CONFIG_TABLE: TableName = TableName::const_new("_udf_config");
+pub const UDF_CONFIG_TABLE: TableName = TableName::const_new("_udf_config");
 
 pub struct UdfConfigTable;
 impl SystemTable for UdfConfigTable {
     type Metadata = UdfConfig;
 
-    fn table_name() -> &'static TableName {
-        &UDF_CONFIG_TABLE
-    }
+    const TABLE_NAME: TableName = UDF_CONFIG_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

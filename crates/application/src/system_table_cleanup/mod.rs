@@ -476,7 +476,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         let mut num_deleted = 0;
         'deletes: for namespace in tx
             .table_mapping()
-            .namespaces_for_name(SourcePackagesTable::table_name())
+            .namespaces_for_name(&SourcePackagesTable::TABLE_NAME)
         {
             let mut source_package_ids: BTreeSet<SourcePackageId> = BTreeSet::new();
             for module in ModuleModel::new(&mut tx)

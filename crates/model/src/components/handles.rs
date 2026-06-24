@@ -50,7 +50,7 @@ use value::{
 
 use crate::modules::module_versions::AnalyzedModule;
 
-pub static FUNCTION_HANDLES_TABLE: TableName = TableName::const_new("_function_handles");
+pub const FUNCTION_HANDLES_TABLE: TableName = TableName::const_new("_function_handles");
 
 pub static BY_COMPONENT_PATH_INDEX: LazyLock<SystemIndex<FunctionHandlesTable>> =
     LazyLock::new(|| {
@@ -68,9 +68,7 @@ pub struct FunctionHandlesTable;
 impl SystemTable for FunctionHandlesTable {
     type Metadata = FunctionHandleMetadata;
 
-    fn table_name() -> &'static TableName {
-        &FUNCTION_HANDLES_TABLE
-    }
+    const TABLE_NAME: TableName = FUNCTION_HANDLES_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![BY_COMPONENT_PATH_INDEX.clone()]
