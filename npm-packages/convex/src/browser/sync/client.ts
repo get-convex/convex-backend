@@ -137,6 +137,22 @@ export interface BaseConvexClientOptions {
    * Defaults to false, not waiting for an auth token.
    */
   expectAuth?: boolean;
+  /**
+   * This API is experimental: it may change or disappear.
+   *
+   * When true, the client reuses the initial cached auth token instead
+   * of immediately fetching a fresh one. This avoids a second
+   * Authenticate message that causes the server to re-execute all
+   * authenticated queries.
+   *
+   * The cached token's remaining lifetime is estimated using the
+   * server's clock skew measurement, and a refresh is scheduled
+   * before it expires.
+   *
+   * Defaults to false, preserving the original behavior of immediately
+   * fetching a fresh token after the cached token is confirmed.
+   */
+  initialAuthTokenReuse?: boolean;
 }
 
 /**
@@ -358,6 +374,7 @@ export class BaseConvexClient {
       {
         logger: this.logger,
         refreshTokenLeewaySeconds: authRefreshTokenLeewaySeconds,
+        initialAuthTokenReuse: options.initialAuthTokenReuse ?? false,
       },
     );
     this.optimisticQueryResults = new OptimisticQueryResults();
