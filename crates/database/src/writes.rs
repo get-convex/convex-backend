@@ -462,3 +462,109 @@ impl Writes {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod nested_writes_tests {
+    //! These exercise the exact mechanism behind `Transaction::is_readonly()`,
+    //! which gates `ctx.runQuery` memoization (see `crate::subquery_cache`).
+    //! `is_readonly()` is `self.writes.is_empty()`, and
+    //! `begin_subtransaction()` -- entered for every nested UDF call --
+    //! calls `self.writes.begin_nested()`. So the question "does a nested
+    //! query inside a mutation see the mutation's pending writes?" reduces
+    //! to the layering of `NestedWrites<W>` below: a nested layer is seeded
+    //! with a *clone* of its parent's pending writes, so `is_empty()`
+    //! (reached through `Deref<Target = W>`) reports the ancestor's
+    //! writes at any nesting depth.
+    use super::{
+        NestedWrites,
+        PendingWrites,
+    };
+
+    /// Minimal `PendingWrites` standing in for `Writes`. `is_empty()` is
+    /// reached through `NestedWrites`'s `Deref`, exactly like
+    /// `Transaction::is_readonly` reaches `Writes::is_empty`.
+    #[derive(Clone)]
+    struct TestWrites {
+        writes: usize,
+    }
+    impl TestWrites {
+        fn is_empty(&self) -> bool {
+            self.writes == 0
+        }
+    }
+    impl PendingWrites for TestWrites {}
+
+    fn new() -> NestedWrites<TestWrites> {
+        NestedWrites::new(TestWrites { writes: 0 })
+    }
+
+    /// Mutation -> Query -> Query: a write buffered by the mutation stays
+    /// visible (`is_empty() == false`) inside nested query subtransactions
+    /// at every depth, so memoization stays disabled. (The case
+    /// @ianmacartney asked about.)
+    #[test]
+    fn nested_layers_observe_ancestor_pending_writes() {
+        let mut w = new();
+        assert!(w.is_empty(), "a fresh transaction is read-only");
+        w.pending().writes = 1; // the mutation buffers a write
+        assert!(!w.is_empty());
+
+        let t1 = w.begin_nested(); // -> runQuery (nested udf)
+        assert!(!w.is_empty(), "1-level nested query still sees the write");
+        let t2 = w.begin_nested(); // -> runQuery -> runQuery
+        assert!(!w.is_empty(), "2-level nested query still sees the write");
+
+        w.commit_nested(t2).unwrap();
+        w.commit_nested(t1).unwrap();
+        assert!(
+            !w.is_empty(),
+            "write persists after the nested calls return"
+        );
+    }
+
+    /// Pure query tree (no writes anywhere): read-only at every depth, so
+    /// memoization stays enabled.
+    #[test]
+    fn write_free_tree_is_readonly_at_every_depth() {
+        let mut w = new();
+        let t1 = w.begin_nested();
+        let t2 = w.begin_nested();
+        assert!(
+            w.is_empty(),
+            "a write-free query tree is read-only at any depth"
+        );
+        w.commit_nested(t2).unwrap();
+        w.commit_nested(t1).unwrap();
+        assert!(w.is_empty());
+    }
+
+    /// A nested write that COMMITS propagates up: a later sibling query sees it
+    /// (not read-only), so it won't serve a stale memo.
+    #[test]
+    fn committed_nested_write_propagates_up() {
+        let mut w = new();
+        let t1 = w.begin_nested();
+        w.pending().writes = 1; // e.g. a nested mutation writes
+        w.commit_nested(t1).unwrap();
+        assert!(
+            !w.is_empty(),
+            "a committed nested write is visible to later reads"
+        );
+    }
+
+    /// A nested write that ROLLS BACK is discarded: the transaction returns to
+    /// read-only, so memoization may safely resume.
+    #[test]
+    fn rolled_back_nested_write_restores_readonly() {
+        let mut w = new();
+        assert!(w.is_empty());
+        let t1 = w.begin_nested();
+        w.pending().writes = 1;
+        assert!(!w.is_empty());
+        w.rollback_nested(t1).unwrap();
+        assert!(
+            w.is_empty(),
+            "a rolled-back write leaves the tx read-only again"
+        );
+    }
+}
