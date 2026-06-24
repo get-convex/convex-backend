@@ -713,3 +713,20 @@ pub fn log_user_function_execution_time(udf_type: UdfType, execution_time: Durat
         )],
     );
 }
+
+register_convex_counter!(
+    REUSABLE_CONTEXT_INIT_TOTAL,
+    "Number of times we initialized a reusable context",
+    &["udf_type", "reused"],
+);
+
+pub fn log_reusable_context_init(udf_type: UdfType, reused: bool) {
+    log_counter_with_labels(
+        &REUSABLE_CONTEXT_INIT_TOTAL,
+        1,
+        vec![
+            StaticMetricLabel::new("udf_type", udf_type.to_lowercase_string()),
+            StaticMetricLabel::new("reused", reused.as_label()),
+        ],
+    );
+}
