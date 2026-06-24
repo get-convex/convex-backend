@@ -1178,7 +1178,9 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     /// The max number of workers this scheduler is permitted to create.
     max_workers: usize,
     handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
-    max_percent_per_client: usize,
+    /// The max number of active workers (per `in_progress_count`) allowed for a
+    /// single client_id.
+    max_active_workers_per_client: usize,
 }
 
 struct IdleWorkerState {
@@ -1209,7 +1211,9 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             available_workers: HashMap::new(),
             max_workers,
             handles,
-            max_percent_per_client,
+            max_active_workers_per_client: (max_workers * max_percent_per_client)
+                .div_ceil(100)
+                .max(1),
         }
     }
 
@@ -1349,11 +1353,11 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             .get(client_id)
             .copied()
             .unwrap_or_default();
-        if (active_worker_count * 100) / (self.max_workers) >= self.max_percent_per_client {
+        if active_worker_count >= self.max_active_workers_per_client {
             tracing::warn!(
-                "Client {} is using >= {}% of scheduler capacity; rejecting new request",
+                "Client {} is using >= {} of scheduler capacity; rejecting new request",
                 client_id,
-                self.max_percent_per_client,
+                self.max_active_workers_per_client,
             );
             return None;
         }
