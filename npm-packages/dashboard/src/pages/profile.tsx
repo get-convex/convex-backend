@@ -7,6 +7,7 @@ import { RadioGroup } from "@headlessui/react";
 import classNames from "classnames";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
+import { logout } from "lib/logout";
 import Head from "next/head";
 import {
   useDeleteAccount,
@@ -96,8 +97,9 @@ export function Profile() {
                         // skip the hosted WorkOS logout (which would render a
                         // blank page for the now-nonexistent user) and just
                         // clear our session cookie before sending them to login.
-                        window.location.href =
-                          "/api/auth/logout?sessionDeleted=true&returnTo=/login";
+                        logout(
+                          "/api/auth/logout?sessionDeleted=true&returnTo=/login",
+                        );
                       } catch (e: any) {
                         setDeleteAccountError(e.message);
                         throw e;

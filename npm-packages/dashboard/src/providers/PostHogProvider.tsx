@@ -1,5 +1,5 @@
 import { useProfile } from "api/profile";
-import { Router } from "next/router";
+import { useCurrentTeam } from "api/teams";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import React, { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ export function PostHogProvider({
   children: React.ReactElement;
 }) {
   const profile = useProfile();
+  const team = useCurrentTeam();
   const [postHogReady, setPostHogReady] = useState(() => posthog.__loaded);
 
   useEffect(() => {
@@ -19,10 +20,12 @@ export function PostHogProvider({
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const api_host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
-    const shouldInitialize =
-      (isProduction || isDebugMode) && key && api_host && !posthog.__loaded;
-
-    if (!shouldInitialize) {
+    if (
+      (!isProduction && !isDebugMode) ||
+      !key ||
+      !api_host ||
+      posthog.__loaded
+    ) {
       return;
     }
 
@@ -32,8 +35,9 @@ export function PostHogProvider({
       ui_host: "https://us.posthog.com/",
       // Logs event details to the console.
       debug: isDebugMode,
-      // Since we're using the pages router, this captures the initial pageview.
-      capture_pageview: true,
+      // Capture pageviews for initial load and client-side route changes.
+      // See https://posthog.com/tutorials/single-page-app-pageviews
+      capture_pageview: "history_change",
       session_recording: {
         recordHeaders: false,
         maskTextSelector: "*", // Masks all text elements (not including inputs)
@@ -43,33 +47,33 @@ export function PostHogProvider({
         setPostHogReady(true);
       },
     });
-
-    // Capture pageview events on route change.
-    const handleRouteChange = () => posthog?.capture("$pageview");
-    Router.events.on("routeChangeComplete", handleRouteChange);
-
-    return () => {
-      Router.events.off("routeChangeComplete", handleRouteChange);
-    };
   }, []);
 
-  // We wait for PostHog so it can read the shared subdomain cookie first, which
-  // may contain an anonymous ID from an earlier visit to the website, docs,
-  // Stack, etc. Calling identify() before that loads would skip the merge and
-  // we'd lose $anon_distinct_id on this person.
+  // Associates events with the selected team ("company" in PostHog).
+  useEffect(() => {
+    if (!team || !postHogReady) {
+      return;
+    }
+
+    posthog.group("company", team.id.toString(), {
+      name: team.name,
+      slug: team.slug,
+    });
+  }, [team, postHogReady]);
+
+  // Associates events with the user. We wait for PostHog to read the shared
+  // subdomain cookie first, which may contain an anonymous ID from an earlier
+  // visit to the website, docs, Stack, etc. Calling identify() before that
+  // loads would skip the merge and we'd lose $anon_distinct_id on this person.
   useEffect(() => {
     if (!profile || !postHogReady) {
       return;
     }
 
     const profileId = profile.id.toString();
-    const postHogId = posthog.get_distinct_id();
-    if (postHogId === profileId) {
-      // This user has already been identified.
-      return;
+    if (posthog.get_distinct_id() !== profileId) {
+      posthog.identify(profileId);
     }
-
-    posthog.identify(profileId);
   }, [profile, postHogReady]);
 
   return <PHProvider client={posthog}>{children}</PHProvider>;

@@ -36,6 +36,7 @@ import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { ExitIcon, LockClosedIcon } from "@radix-ui/react-icons";
 import { useDashboardVersion } from "hooks/useDashboardVersion";
+import { logout } from "lib/logout";
 
 declare global {
   interface Window {
@@ -142,7 +143,7 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                       </span>
                       <Button
                         className="ml-auto w-fit"
-                        href="/api/auth/logout?returnTo=/api/auth/login"
+                        onClick={() => logout()}
                         icon={<ExitIcon />}
                       >
                         Log Out

@@ -11,6 +11,7 @@ import { LoadingLogo } from "@ui/Loading";
 import { Link } from "@ui/Link";
 import { UIProvider } from "@ui/UIContext";
 import { useWorkOS } from "hooks/useWorkOS";
+import { logout } from "lib/logout";
 import { User } from "@workos-inc/node";
 
 interface UserProps {
@@ -144,7 +145,7 @@ function withSWRFallback(Page: NextPage) {
               </Callout>
               <UIProvider>
                 <Button
-                  href="/api/auth/logout?returnTo=/api/auth/login"
+                  onClick={() => logout()}
                   variant="neutral"
                   className="ml-auto w-fit"
                 >
