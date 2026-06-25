@@ -139,6 +139,7 @@
 /client/react                       /client/react/overview
 /client/javascript                  /client/javascript/overview
 /client/vue                         /client/vue/overview
+/client/svelte                      /client/svelte/overview
 /client/swift                       /client/swift/overview
 /client/android                     /client/android/overview
 /dashboard                          /dashboard/overview
