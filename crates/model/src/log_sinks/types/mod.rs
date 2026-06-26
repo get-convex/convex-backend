@@ -300,4 +300,17 @@ impl SinkConfig {
             Self::PostHogErrorTracking(_) => SinkType::PostHogErrorTracking,
         }
     }
+
+    /// The set of topics this sink is subscribed to. `Some(None)` for
+    /// subscriptions to all topics, and `None` for sink types that do not
+    /// support topic subscriptions.
+    pub fn topics_mut(&mut self) -> Option<&mut Option<BTreeSet<LogTopic>>> {
+        match self {
+            Self::Datadog(config) => Some(&mut config.topics),
+            Self::Webhook(config) => Some(&mut config.topics),
+            Self::Axiom(config) => Some(&mut config.topics),
+            Self::PostHogLogs(config) => Some(&mut config.topics),
+            Self::Local(_) | Self::Sentry(_) | Self::PostHogErrorTracking(_) => None,
+        }
+    }
 }
