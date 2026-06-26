@@ -1,3 +1,4 @@
+use ::metrics::IntoLabel;
 use astral_future::AstralBody;
 use common::{
     self,
@@ -18,6 +19,7 @@ use common::{
     execution_context::ExecutionContext,
     knobs::ISOLATE_MAX_USER_HEAP_SIZE,
 };
+use fastrace::local::LocalSpan;
 use futures::{
     future::{
         self,
@@ -763,7 +765,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok((this, result))
     }
 
-    #[fastrace::trace(properties = {"is_reused": "{is_reused}"})]
+    #[fastrace::trace(properties = {"reusable_context": "{reusable_context}", "is_reused": "{is_reused}"})]
     async fn initialize_context<'c>(
         v8_scope: &'_ mut v8::PinScope<'c, '_>,
         timeout: &mut Timeout<RT>,
@@ -1348,6 +1350,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         else {
             return Ok(None);
         };
+        let mut reusable = scopeguard::guard(false, |reusable| {
+            LocalSpan::add_property(|| ("reuse_success", reusable.as_label()));
+        });
         let tx = self.phase.tx_mut()?;
         for (namespace, tablet_index_name, table_name, intervals, hash) in &read_set.range_hashes {
             let tablet = *tablet_index_name.table();
@@ -1368,6 +1373,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 return Ok(None);
             }
         }
+        *reusable = true;
         // All hashes match, so make sure to merge the saved read set into `tx`
         tx.apply_reads(read_set.read_set.clone());
         Ok(Some((context, module_map, read_set)))
