@@ -438,6 +438,14 @@ pub fn log_heap_statistics(stats: &v8::HeapStatistics) {
     );
 }
 
+register_convex_histogram!(
+    ISOLATE_AFTER_UDF_GC_FREED_BYTES,
+    "Amount of memory freed by triggering a GC after finishing function execution"
+);
+pub fn log_gc_freed_memory(bytes: usize) {
+    log_distribution(&ISOLATE_AFTER_UDF_GC_FREED_BYTES, bytes as f64);
+}
+
 register_convex_gauge!(
     ISOLATE_TOTAL_USED_HEAP_SIZE_BYTES,
     "Total isolate used heap size across all isolates"
