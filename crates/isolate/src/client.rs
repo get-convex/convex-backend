@@ -95,6 +95,8 @@ use errors::{
 use fastrace::{
     func_path,
     future::FutureExt as _,
+    local::LocalSpan,
+    Event,
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
@@ -1605,19 +1607,16 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                             req.parent_trace.clone(),
                         );
                         root.add_property(|| ("reused_isolate", reused.as_label()));
-                        // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
-                        let mut isolate_clean = false;
-                        let debug_str = self
+                        let (debug_str, isolate_clean) = self
                             .handle_request(
                                 &mut isolate,
                                 &mut context_cache,
-                                &mut isolate_clean,
                                 req,
                                 heap_stats.clone(),
                             )
                             .in_span(root)
                             .await;
-                        if !isolate_clean || should_recreate_isolate(&mut isolate, &debug_str) {
+                        if !isolate_clean {
                             continue 'recreate_isolate;
                         }
                         last_request = Some(debug_str);
@@ -1631,10 +1630,9 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         &self,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
-        isolate_clean: &mut bool,
         req: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
-    ) -> String;
+    ) -> (String, bool);
 
     fn config(&self) -> &IsolateConfig;
     fn rt(&self) -> RT;
@@ -1654,6 +1652,11 @@ pub(crate) fn should_recreate_isolate<RT: Runtime>(
             e.reason()
         );
         metrics::log_recreate_isolate(e.reason());
+        LocalSpan::add_event(
+            Event::new("isolate_unclean")
+                .with_property(|| ("reason", e.reason()))
+                .with_property(|| ("last_executed", last_executed.to_owned())),
+        );
         return true;
     }
 
