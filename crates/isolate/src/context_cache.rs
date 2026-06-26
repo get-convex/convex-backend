@@ -141,20 +141,15 @@ impl ContextCache {
 
 impl CachedContexts {
     pub fn can_serve_request<RT: Runtime>(&self, request: &Request<RT>) -> bool {
+        let this = self.inner.lock();
         match &request.inner {
-            RequestType::Udf { request: inner, .. } => {
-                inner.path_and_args.reuse_context()
-                    && request
-                        .module()
-                        .is_some_and(|m| self.inner.lock().saved_database_udf_contexts.contains(&m))
+            RequestType::Udf { request: inner, .. } if inner.path_and_args.reuse_context() => {
+                request
+                    .module()
+                    .is_some_and(|m| this.saved_database_udf_contexts.contains(&m))
             },
-            RequestType::Action { .. }
-            | RequestType::HttpAction { .. }
-            | RequestType::Analyze { .. }
-            | RequestType::EvaluateSchema { .. }
-            | RequestType::EvaluateAuthConfig { .. }
-            | RequestType::EvaluateAppDefinitions { .. }
-            | RequestType::EvaluateComponentInitializer { .. } => false,
+            // Prefer routing other requests to isolates that don't have warmed contexts
+            _ => this.saved_database_udf_contexts.is_empty(),
         }
     }
 }
