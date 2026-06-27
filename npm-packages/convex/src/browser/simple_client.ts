@@ -11,7 +11,6 @@ import {
   FunctionArgs,
   FunctionReference,
   FunctionReturnType,
-  PaginationResult,
 } from "../server/index.js";
 import { getFunctionName } from "../server/api.js";
 import { AuthTokenFetcher } from "./sync/authentication_manager.js";
@@ -264,7 +263,9 @@ export class ConvexClient {
     query: Query,
     args: FunctionArgs<Query>,
     options: { initialNumItems: number },
-    callback: (result: PaginationResult<FunctionReturnType<Query>>) => unknown,
+    callback: (
+      result: PaginatedQueryResult<FunctionReturnType<Query>>,
+    ) => unknown,
     onError?: (e: Error) => unknown,
   ): Unsubscribe<PaginatedQueryResult<FunctionReturnType<Query>[]>> {
     if (this.disabled) {
