@@ -3,6 +3,7 @@ use std::{
         BTreeMap,
         HashMap,
     },
+    pin::Pin,
     sync::{
         atomic::{
             AtomicU64,
@@ -18,6 +19,7 @@ use bytes::Bytes;
 use errors::ErrorMetadata;
 use futures::{
     future::BoxFuture,
+    Stream,
     StreamExt,
 };
 use futures_async_stream::try_stream;
@@ -104,17 +106,16 @@ impl FetchClient for ProxiedFetchClient {
             .http_client
             .request(request.method, request.url.as_str());
         let request_size = Arc::new(AtomicU64::new(0));
-        let body = Body::wrap_stream(request.body.inspect({
-            let request_size = request_size.clone();
-            move |b| {
-                if let Ok(b) = b {
-                    request_size
-                        .clone()
-                        .fetch_add(b.len() as u64, Ordering::Relaxed);
-                }
-            }
-        }));
-        request_builder = request_builder.body(body);
+        // Only attach a body when the request has one. `Body::wrap_stream` (used
+        // by `streaming_body`) reports `is_end_stream() == false`, so hyper omits
+        // END_STREAM from the HTTP/2 HEADERS frame and closes the stream with a
+        // trailing empty DATA frame -- which strict servers reject for a body-less
+        // GET (https://github.com/get-convex/convex-backend/issues/497). Omitting
+        // the body uses `Body::empty()` (`is_end_stream() == true`), so hyper sets
+        // END_STREAM on HEADERS and sends no DATA frame.
+        if let Some(body) = request.body {
+            request_builder = request_builder.body(streaming_body(body, request_size.clone()));
+        }
         for (name, value) in &request.headers {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
@@ -148,6 +149,23 @@ impl FetchClient for ProxiedFetchClient {
         };
         Ok(response)
     }
+}
+
+/// Wraps a request body stream into a reqwest [`Body`], counting the bytes that
+/// flow through it into `request_size`.
+///
+/// This is intentionally a lazy, non-awaiting wrap: the body stream may be a
+/// full-duplex body whose first chunk is only produced after the response
+/// headers arrive, so we must not poll it before the request is sent.
+fn streaming_body(
+    body: Pin<Box<dyn Stream<Item = anyhow::Result<Bytes>> + Sync + Send>>,
+    request_size: Arc<AtomicU64>,
+) -> Body {
+    Body::wrap_stream(body.inspect(move |b| {
+        if let Ok(b) = b {
+            request_size.fetch_add(b.len() as u64, Ordering::Relaxed);
+        }
+    }))
 }
 
 #[try_stream(boxed, ok = Bytes, error = anyhow::Error)]

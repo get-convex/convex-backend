@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    pin::Pin,
+    str::FromStr,
+};
 
 use common::{
     http::{
@@ -11,6 +14,7 @@ use common::{
 use futures::{
     stream::BoxStream,
     FutureExt,
+    Stream,
     StreamExt,
 };
 use headers::{
@@ -53,12 +57,19 @@ impl HttpRequestV8 {
         for (name, value) in &self.header_pairs {
             header_map.append(HeaderName::from_str(name)?, byte_string_to_header(value)?);
         }
-        let (body_sender, body_receiver) = spsc::unbounded_channel();
-        match self.stream_id {
+        // A `None` stream id means the request has no body (e.g. a plain GET).
+        // Keep that as `None` so the request is sent without a body and framed
+        // correctly over HTTP/2 -- do not substitute an empty stream.
+        let body = match self.stream_id {
             Some(stream_id) => {
+                let (body_sender, body_receiver) = spsc::unbounded_channel();
                 provider.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?;
+                Some(Box::pin(body_receiver.into_stream())
+                    as Pin<
+                        Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send>,
+                    >)
             },
-            None => drop(body_sender),
+            None => None,
         };
         let signal = {
             let (signal_sender, signal_receiver) = spsc::unbounded_channel();
@@ -68,7 +79,7 @@ impl HttpRequestV8 {
         };
 
         Ok(HttpRequestStream {
-            body: Box::pin(body_receiver.into_stream()),
+            body,
             headers: header_map,
             url: Url::parse(&self.url)?,
             method: Method::from_str(&self.method)?,

@@ -125,7 +125,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                 url: decide_url,
                 method: http::Method::POST,
                 headers: header_map,
-                body: Box::pin(futures::stream::once(async { Ok(body) })),
+                body: Some(Box::pin(futures::stream::once(async { Ok(body) }))),
                 signal: Box::pin(futures::future::pending()),
             })
             .await;
@@ -323,7 +323,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                     url: self.capture_url.clone(),
                     method: http::Method::POST,
                     headers: header_map.clone(),
-                    body: Box::pin(futures::stream::once(async { Ok(batch_json) })),
+                    body: Some(Box::pin(futures::stream::once(async { Ok(batch_json) }))),
                     signal: Box::pin(futures::future::pending()),
                 })
                 .await;

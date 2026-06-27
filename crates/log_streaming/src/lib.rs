@@ -32,6 +32,7 @@ use common::{
     log_streaming::{
         LogEvent,
         LogSender,
+        LogTopic,
         StructuredLogEvent,
     },
     runtime::{
@@ -524,6 +525,10 @@ impl<RT: Runtime> LogManager<RT> {
 
         let mut tx = database.begin(Identity::system()).await?;
 
+        let custom_audit_allowed = BackendInfoModel::new(&mut tx)
+            .is_custom_audit_logs_in_log_streams_allowed()
+            .await?;
+
         // Order is important! Handle any `Tombstoned` rows first in case they were
         // replaced with a new LogSink for the same provider that's in state `Pending`.
         //
@@ -559,7 +564,11 @@ impl<RT: Runtime> LogManager<RT> {
 
             let sink_type = row.config.sink_type();
             let sink_id = row.id();
-            let sink_config = row.config.clone();
+            let mut sink_config = row.config.clone();
+            // Ignore the `custom_audit` topic if the deployment isn't entitled.
+            if !custom_audit_allowed && let Some(Some(topics)) = sink_config.topics_mut() {
+                topics.remove(&LogTopic::CustomAudit);
+            }
             let sink_status = row.status.clone();
             let timed_startup_result = runtime
                 .with_timeout(
