@@ -36,7 +36,7 @@ File URLs can be used in `img` elements to render images:
 
 <Snippet title="src/App.tsx" source={App} snippet="imageComponent" />
 
-:::caution Security consideration
+<Admonition type="caution" title="Security consideration">
 
 File URLs are unauthenticated. **Anyone with the URL can access the file**
 without further authentication from your app.
@@ -49,6 +49,8 @@ authorized users.
 If you need to authenticate or authorize access each time the file is requested,
 use [HTTP actions](#serving-files-from-http-actions) and avoid exposing direct
 file URLs to the client.
+
+</Admonition>
 
 ## Serving files from HTTP actions
 

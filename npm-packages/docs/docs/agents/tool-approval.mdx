@@ -134,9 +134,13 @@ export const continueAfterApprovals = internalAction({
 });
 ```
 
-:::tip You can approve a tool call and continue generation in the same server
-function. For example, an action can call `approveToolCall` and then immediately
-call `streamText` to resume — no separate scheduling step needed. :::
+<Admonition type="tip">
+
+You can approve a tool call and continue generation in the same server function.
+For example, an action can call `approveToolCall` and then immediately call
+`streamText` to resume — no separate scheduling step needed.
+
+</Admonition>
 
 ## Handling multiple tool calls
 
