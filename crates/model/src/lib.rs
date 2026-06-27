@@ -209,6 +209,11 @@ use crate::{
         ScheduledJobArgsTable,
         SCHEDULED_JOBS_ARGS_TABLE,
     },
+    usage_limits::{
+        UsageLimitsTable,
+        USAGE_LIMITS_INDEX_BY_SELECTOR,
+        USAGE_LIMITS_TABLE,
+    },
 };
 
 pub mod airbyte_import;
@@ -237,6 +242,7 @@ pub mod session_requests;
 pub mod snapshot_imports;
 pub mod source_packages;
 pub mod udf_config;
+pub mod usage_limits;
 
 /// Default best effort table number when creating the table. If it is taken
 /// already, another number is selected. Legacy deployments don't
@@ -276,9 +282,10 @@ enum DefaultTableNumber {
     SchemaValidationProgress = 37,
     ScheduledJobArgs = 38,
     AuditLogConfig = 39,
+    UsageLimits = 40,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 40 - reece
+    // Next Number - 41 - andycai
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -324,6 +331,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::SchemaValidationProgress => &SchemaValidationProgressTable,
             DefaultTableNumber::ScheduledJobArgs => &ScheduledJobArgsTable,
             DefaultTableNumber::AuditLogConfig => &AuditLogConfigTable,
+            DefaultTableNumber::UsageLimits => &UsageLimitsTable,
         }
     }
 }
@@ -561,6 +569,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &AuditLogConfigTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
+        &UsageLimitsTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());
@@ -597,6 +606,7 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
         BACKEND_INFO_TABLE.clone(),
         AWS_LAMBDA_VERSIONS_TABLE.clone(),
         SOURCE_PACKAGES_TABLE.clone(),
+        USAGE_LIMITS_TABLE.clone(),
     }
 });
 
@@ -647,6 +657,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         SCHEMA_VALIDATION_PROGRESS_TABLE.clone() => 122,
         SCHEDULED_JOBS_ARGS_TABLE.clone() => 123,
         AUDIT_LOG_CONFIG_TABLE.clone() => 124,
+        USAGE_LIMITS_TABLE.clone() => 126,
     }
 });
 
@@ -673,5 +684,6 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         EXPORTS_BY_REQUESTOR.name() => 110,
         INDEX_BACKFILLS_BY_INDEX_ID.name() => 120,
         SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID.name() => 122,
+        USAGE_LIMITS_INDEX_BY_SELECTOR.name() => 126,
     }
 });
