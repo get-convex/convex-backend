@@ -855,7 +855,7 @@ impl PendingWrites {
         }
 
         self.by_ts.insert(ts, (writes, write_source, snapshot));
-        PendingWriteHandle(Some(ts))
+        PendingWriteHandle(ts)
     }
 
     pub fn latest_snapshot(&self) -> Option<Snapshot> {
@@ -905,19 +905,18 @@ impl PendingWrites {
 
     pub fn pop_first(
         &mut self,
-        mut handle: PendingWriteHandle,
-    ) -> Option<(Timestamp, OrderedDocumentWrites, WriteSource, Snapshot)> {
-        let first = self.by_ts.pop_first();
-        if let Some((ts, (writes, write_source, snapshot))) = first {
-            if let Some(expected_ts) = handle.0
-                && ts == expected_ts
-            {
-                handle.0.take();
-            }
-            Some((ts, writes, write_source, snapshot))
-        } else {
-            None
-        }
+        handle: PendingWriteHandle,
+    ) -> (OrderedDocumentWrites, WriteSource, Snapshot) {
+        let (ts, write) = self
+            .by_ts
+            .pop_first()
+            .unwrap_or_else(|| panic!("commit at {} not pending", handle.0));
+        assert_eq!(
+            ts, handle.0,
+            "pending write handle ts {} does not match first pending write {ts}",
+            handle.0,
+        );
+        write
     }
 
     pub fn min_ts(&self) -> Option<Timestamp> {
@@ -925,10 +924,10 @@ impl PendingWrites {
     }
 }
 
-pub struct PendingWriteHandle(Option<Timestamp>);
+pub struct PendingWriteHandle(Timestamp);
 
 impl PendingWriteHandle {
     pub fn must_commit_ts(&self) -> Timestamp {
-        self.0.expect("pending write already committed")
+        self.0
     }
 }

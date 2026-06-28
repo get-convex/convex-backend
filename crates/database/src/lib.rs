@@ -45,7 +45,6 @@ mod writes;
 
 mod component_registry;
 mod schema_registry;
-mod table_iteration;
 pub use committer::{
     table_dependency_sort_key,
     AFTER_PENDING_WRITE_SNAPSHOT,
@@ -81,6 +80,11 @@ pub use subquery_cache::{
     SubqueryCache,
     SubqueryCacheKey,
     SubqueryCacheValue,
+};
+pub use table_iteration::{
+    MultiTableIterator,
+    TableIterator,
+    TableScanCursor,
 };
 pub use table_registry::TableRegistry;
 pub use token::{
@@ -200,11 +204,6 @@ pub use self::{
     subscription::{
         InvalidationEvent,
         Subscription,
-    },
-    table_iteration::{
-        MultiTableIterator,
-        TableIterator,
-        TableScanCursor,
     },
     table_summary::{
         TableSummary,

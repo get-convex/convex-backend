@@ -112,7 +112,7 @@ function Billing({ team }: { team: TeamResponse }) {
             >
               <div
                 className={cn(
-                  "scrollbar flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pr-2",
+                  "scrollbar flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pr-2 pb-6",
                   showUpgrade ? "pointer-events-none select-none" : "",
                 )}
                 // @ts-expect-error https://github.com/facebook/react/issues/17157

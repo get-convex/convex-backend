@@ -11,6 +11,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { logout } from "lib/logout";
 
 export function ConnectedIdentities() {
   const identities = useIdentities();
@@ -29,7 +30,7 @@ export function ConnectedIdentities() {
     setConfirmUnlinkId(null);
     try {
       await unlinkIdentity({ userId: confirmUnlinkId });
-      window.location.href = "/api/auth/logout?returnTo=/api/auth/login";
+      logout();
     } finally {
       setUnlinkingId(null);
     }

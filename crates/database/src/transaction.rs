@@ -1441,7 +1441,10 @@ impl FinalTransaction {
             &self.table_mapping,
             base_snapshot,
             &modified_tables,
-            base_snapshot.text_indexes.in_memory_sizes().into_iter(),
+            base_snapshot
+                .text_indexes
+                .flushable_in_memory_index_sizes()
+                .into_iter(),
             search_size_limit,
             SearchType::Text,
         )?;
@@ -1449,7 +1452,10 @@ impl FinalTransaction {
             &self.table_mapping,
             base_snapshot,
             &modified_tables,
-            base_snapshot.vector_indexes.in_memory_sizes().into_iter(),
+            base_snapshot
+                .vector_indexes
+                .flushable_in_memory_index_sizes()
+                .into_iter(),
             vector_size_limit,
             SearchType::Vector,
         )?;

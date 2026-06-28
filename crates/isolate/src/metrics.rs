@@ -103,7 +103,7 @@ pub fn log_pool_allocated_count(name: &'static str, count: usize) {
 register_convex_counter!(UDF_EXECUTE_FULL_TOTAL, "UDF execution queue full count");
 pub fn execute_full_error() -> ErrorMetadata {
     log_counter(&UDF_EXECUTE_FULL_TOTAL, 1);
-    ErrorMetadata::overloaded(
+    ErrorMetadata::rejected_before_execution(
         "ExecuteFullError",
         "Too many concurrent requests in a short period of time. Spread out your requests out \
          over time or throttle them to avoid errors.",
@@ -438,6 +438,14 @@ pub fn log_heap_statistics(stats: &v8::HeapStatistics) {
     );
 }
 
+register_convex_histogram!(
+    ISOLATE_AFTER_UDF_GC_FREED_BYTES,
+    "Amount of memory freed by triggering a GC after finishing function execution"
+);
+pub fn log_gc_freed_memory(bytes: usize) {
+    log_distribution(&ISOLATE_AFTER_UDF_GC_FREED_BYTES, bytes as f64);
+}
+
 register_convex_gauge!(
     ISOLATE_TOTAL_USED_HEAP_SIZE_BYTES,
     "Total isolate used heap size across all isolates"
@@ -726,5 +734,22 @@ pub fn log_user_function_execution_time(udf_type: UdfType, execution_time: Durat
             "udf_type",
             udf_type.to_lowercase_string(),
         )],
+    );
+}
+
+register_convex_counter!(
+    REUSABLE_CONTEXT_INIT_TOTAL,
+    "Number of times we initialized a reusable context",
+    &["udf_type", "reused"],
+);
+
+pub fn log_reusable_context_init(udf_type: UdfType, reused: bool) {
+    log_counter_with_labels(
+        &REUSABLE_CONTEXT_INIT_TOTAL,
+        1,
+        vec![
+            StaticMetricLabel::new("udf_type", udf_type.to_lowercase_string()),
+            StaticMetricLabel::new("reused", reused.as_label()),
+        ],
     );
 }

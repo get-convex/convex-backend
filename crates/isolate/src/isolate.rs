@@ -27,6 +27,7 @@ use errors::ErrorMetadata;
 use fastrace::{
     local::LocalSpan,
     Event,
+    Span,
 };
 use humansize::{
     FormatSize,
@@ -41,6 +42,7 @@ use crate::{
     metrics::{
         create_isolate_timer,
         destroy_isolate_timer,
+        log_gc_freed_memory,
         log_heap_statistics,
     },
     request_scope::RequestState,
@@ -272,13 +274,25 @@ impl<RT: Runtime> Isolate<RT> {
         // The heap should have enough memory available.
         let stats = self.v8_isolate.get_heap_statistics();
         log_heap_statistics(&stats);
-        if stats.total_available_size() < *ISOLATE_MAX_USER_HEAP_SIZE {
-            self.handle
-                .terminate(IsolateTerminationReason::OutOfMemory.into());
-            return Err(IsolateNotClean::TooMuchMemoryCarryOver(
-                stats.total_available_size().format_size(BINARY),
-                stats.heap_size_limit().format_size(BINARY),
-            ));
+        let available_before_gc = stats.total_available_size();
+        if available_before_gc < *ISOLATE_MAX_USER_HEAP_SIZE {
+            // Trigger a GC.
+            {
+                let _span = Span::enter_with_local_parent("low_memory_notification");
+                self.v8_isolate.low_memory_notification();
+            }
+            let stats = self.v8_isolate.get_heap_statistics();
+            let available_after_gc = stats.total_available_size();
+            log_gc_freed_memory(available_after_gc.saturating_sub(available_before_gc));
+            if available_after_gc < *ISOLATE_MAX_USER_HEAP_SIZE {
+                // If there still isn't enough memory, destroy the isolate.
+                self.handle
+                    .terminate(IsolateTerminationReason::OutOfMemory.into());
+                return Err(IsolateNotClean::TooMuchMemoryCarryOver(
+                    stats.total_available_size().format_size(BINARY),
+                    stats.heap_size_limit().format_size(BINARY),
+                ));
+            }
         }
         if stats.number_of_detached_contexts() > 0 {
             return Err(IsolateNotClean::DetachedContext(

@@ -214,38 +214,6 @@ url = "https://nodejs.org/dist/v22.22.2/node-v22.22.2-darwin-x64.tar.gz"
 checksum = "sha256:7c93e9d92bf68c07182b471aa187e35ee6cd08ef0f24ab060dfff605fcc1c57c"
 url = "https://nodejs.org/dist/v22.22.2/node-v22.22.2-win-x64.zip"
 
-[[tools.opentofu]]
-version = "1.10.0"
-backend = "aqua:opentofu/opentofu"
-
-[tools.opentofu."platforms.linux-arm64"]
-checksum = "sha256:df4d875ab635390caf54fb07f3e2b5fdd2c88b06bf04f601da1df63bb0da7e95"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_linux_arm64.tar.gz"
-
-[tools.opentofu."platforms.linux-arm64-musl"]
-checksum = "sha256:df4d875ab635390caf54fb07f3e2b5fdd2c88b06bf04f601da1df63bb0da7e95"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_linux_arm64.tar.gz"
-
-[tools.opentofu."platforms.linux-x64"]
-checksum = "sha256:9f4e7473608f55bbc8eb64178228569a14af6463f5332607deecdf3f9bf31e8b"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_linux_amd64.tar.gz"
-
-[tools.opentofu."platforms.linux-x64-musl"]
-checksum = "sha256:9f4e7473608f55bbc8eb64178228569a14af6463f5332607deecdf3f9bf31e8b"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_linux_amd64.tar.gz"
-
-[tools.opentofu."platforms.macos-arm64"]
-checksum = "sha256:2bcfecbb325d68cad6f81990fd29a75ec674da88699003a0b92d63f326ad58e8"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_darwin_arm64.tar.gz"
-
-[tools.opentofu."platforms.macos-x64"]
-checksum = "sha256:a1b6b6cc18d88f6033e409333abd779d683b3065fae8c154d1e4c667989712cb"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_darwin_amd64.tar.gz"
-
-[tools.opentofu."platforms.windows-x64"]
-checksum = "sha256:e73b73754350d5f13cdb4ea0c3c63d535a660e858e30d82233935ebf6961478f"
-url = "https://github.com/opentofu/opentofu/releases/download/v1.10.0/tofu_1.10.0_windows_amd64.tar.gz"
-
 [[tools.protoc]]
 version = "21.12"
 backend = "aqua:protocolbuffers/protobuf/protoc"

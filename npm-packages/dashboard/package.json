@@ -63,7 +63,7 @@
     "swr-openapi": "~5.3.0",
     "openapi-fetch": "~0.17.0",
     "react-sparklines": "~1.7.0",
-    "posthog-js": "~1.359.0",
+    "posthog-js": "~1.393.0",
     "shx": "~0.4.0",
     "cmdk": "~1.1.1",
     "react-hotkeys-hook": "~4.6.0",
@@ -71,7 +71,7 @@
     "@workos-inc/node": "~7.69.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.27.1",
+    "@babel/core": "^7.29.6",
     "@jest/types": "^30.0.0",
     "@storybook/nextjs": "^10.3.3",
     "@tailwindcss/forms": "^0.5.10",

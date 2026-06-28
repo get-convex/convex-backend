@@ -201,10 +201,9 @@ pub fn mark_as_soft_deleted(object: ConvexObject) -> anyhow::Result<ConvexObject
 
     new_value.insert(
         metadata_key,
-        ConvexValue::Object(metadata_object.shallow_merge(ConvexObject::for_value(
-            FieldName::from(SOFT_DELETE_CONVEX_FIELD_NAME.clone()),
-            ConvexValue::Boolean(true),
-        )?)?),
+        ConvexValue::Object(
+            metadata_object.insert(SOFT_DELETE_CONVEX_FIELD_NAME.into(), true.into())?,
+        ),
     );
     new_value.try_into()
 }

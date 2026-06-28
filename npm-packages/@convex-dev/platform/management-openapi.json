@@ -1829,7 +1829,14 @@
             "description": "Caller is not authorized to create team access tokens"
           }
         },
-        "security": []
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_audit_log_events": {
@@ -2009,12 +2016,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
           }
         ]
       }
@@ -2573,6 +2574,13 @@
               "kind"
             ],
             "properties": {
+              "client_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Client ID of the OAuth application the token was issued to or is\nmanaged by, if any."
+              },
               "kind": {
                 "type": "string",
                 "enum": [

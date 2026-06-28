@@ -29,7 +29,7 @@ use crate::{
     Transaction,
 };
 
-pub static SCHEMA_VALIDATION_PROGRESS_TABLE: TableName =
+pub const SCHEMA_VALIDATION_PROGRESS_TABLE: TableName =
     TableName::const_new("_schema_validation_progress");
 
 pub static SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID: LazyLock<
@@ -50,9 +50,7 @@ pub struct SchemaValidationProgressTable;
 impl SystemTable for SchemaValidationProgressTable {
     type Metadata = types::SchemaValidationProgressMetadata;
 
-    fn table_name() -> &'static TableName {
-        &SCHEMA_VALIDATION_PROGRESS_TABLE
-    }
+    const TABLE_NAME: TableName = SCHEMA_VALIDATION_PROGRESS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID.clone()]

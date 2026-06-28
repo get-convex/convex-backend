@@ -13,6 +13,7 @@ use udf::{
 
 use crate::{
     client::{
+        should_recreate_isolate,
         IsolateWorker,
         Request,
         RequestType,
@@ -55,15 +56,16 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
         &self,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
-        isolate_clean: &mut bool,
         Request {
             client_id,
             inner,
             parent_trace: _,
         }: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
-    ) -> String {
-        match inner {
+    ) -> (String, bool) {
+        // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
+        let mut isolate_clean = false;
+        let debug_str = match inner {
             RequestType::Udf {
                 request,
                 environment_data,
@@ -93,7 +95,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         client_id,
                         isolate,
                         context_cache,
-                        isolate_clean,
+                        &mut isolate_clean,
                         response.closed().boxed(),
                         args,
                         function_started_sender,
@@ -152,7 +154,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         client_id,
                         isolate,
                         context_cache,
-                        isolate_clean,
+                        &mut isolate_clean,
                         request.params.clone(),
                         response.closed().boxed(),
                         function_started_sender,
@@ -185,7 +187,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     client_id,
                     isolate,
                     context_cache,
-                    isolate_clean,
+                    &mut isolate_clean,
                     udf_config,
                     modules,
                     to_analyze,
@@ -233,7 +235,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         client_id,
                         isolate,
                         context_cache,
-                        isolate_clean,
+                        &mut isolate_clean,
                         request.http_module_path,
                         request.routed_path,
                         request.http_request,
@@ -333,7 +335,11 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let _ = response.send(r);
                 "EvaluateComponentInitializer".to_string()
             },
+        };
+        if isolate_clean && should_recreate_isolate(isolate, &debug_str) {
+            isolate_clean = false;
         }
+        (debug_str, isolate_clean)
     }
 }
 
@@ -344,10 +350,9 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         &self,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
-        isolate_clean: &mut bool,
         request: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
-    ) -> String {
+    ) -> (String, bool) {
         let pause_client = self.rt.pause_client();
         pause_client.wait(PAUSE_REQUEST).await;
         let client_id = &request.client_id;
@@ -359,7 +364,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         // Also add the tag to tracing so it shows up in DataDog logs.
         let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
         let result = self
-            .handle_request_inner(isolate, context_cache, isolate_clean, request, heap_stats)
+            .handle_request_inner(isolate, context_cache, request, heap_stats)
             .instrument(span)
             .await;
         sentry::configure_scope(|scope| scope.remove_tag("client_id"));

@@ -14,7 +14,6 @@ just     = "1.52.0"
 jq       = "1.8.1"
 cmake    = "3.31.12"   # 3.x line; 4.x drops compat with our older CMakeLists
 protoc   = "21.12"
-opentofu = "1.10.0"
 
 # Dev Cargo lint tools (prebuilt via cargo-binstall, no compile). `mise install`
 # pulls them in dev + CI (cached); the release images install only specific tools.
@@ -32,6 +31,11 @@ SODIUM_USE_PKG_CONFIG = "1"
 # Resolve the rocksdb lib dir per-OS via mise's os(); Windows falls through to
 # empty (and windows.yml unsets it before cargo regardless).
 ROCKSDB_LIB_DIR = "{% if os() == 'macos' %}/opt/homebrew/lib{% elif os() == 'linux' %}/usr/lib{% endif %}"
+# Force librocksdb-sys to build bundled rocksdb when the system lib isn't the 8.x its
+# bindings need (Ubuntu 22.04 ships only 6.x). It's checked before ROCKSDB_LIB_DIR so it
+# wins; empty is ignored. (Unsetting ROCKSDB_LIB_DIR isn't an option: a Tera-empty value
+# is "", which librocksdb-sys still reads as "use system".)
+ROCKSDB_COMPILE = "{% if os() == 'linux' and exec(command='pkg-config --atleast-version=8 rocksdb && ! pkg-config --atleast-version=9 rocksdb && echo y || echo n') == 'n' %}1{% endif %}"
 
 [settings]
 # Read Node's version from the existing .nvmrc.
@@ -48,10 +52,13 @@ lockfile = true
 "apt:pkg-config" = "latest"
 "apt:libssl-dev" = "latest"
 "apt:libsodium-dev" = "latest"
-"apt:librocksdb8.9" = "latest"
+# librocksdb-dev (not librocksdb8.9): the -dev package exists on every Ubuntu (8.x on
+# 24.04, 6.x on 22.04) with the headers + unversioned .so linking needs. 22.04's 6.x is
+# ABI-incompatible, so ROCKSDB_COMPILE forces the bundled build there.
+"apt:librocksdb-dev" = "latest"
 "apt:libsnappy-dev" = "latest"
-"brew:pkg-config" = "latest"
-"brew:openssl" = "latest"
+"brew:pkgconf" = "latest"
+"brew:openssl@3" = "latest"
 "brew:libsodium" = "latest"
 "brew:rocksdb" = "latest"
 "brew:snappy" = "latest"

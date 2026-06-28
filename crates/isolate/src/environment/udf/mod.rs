@@ -1,3 +1,4 @@
+use ::metrics::IntoLabel;
 use astral_future::AstralBody;
 use common::{
     self,
@@ -18,6 +19,7 @@ use common::{
     execution_context::ExecutionContext,
     knobs::ISOLATE_MAX_USER_HEAP_SIZE,
 };
+use fastrace::local::LocalSpan;
 use futures::{
     future::{
         self,
@@ -684,9 +686,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                         .phase
                         .snoop_reads()?;
                 }
-                let initialize_result =
-                    Self::initialize_context(&mut *v8_scope, timeout, context_read_set.is_some())
-                        .await;
+                let initialize_result = Self::initialize_context(
+                    &mut *v8_scope,
+                    timeout,
+                    args.reuse_context,
+                    context_read_set.is_some(),
+                )
+                .await;
                 if snoop {
                     let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
                     let read_set = scope.state_mut()?.environment.phase.finish_snoop()?;
@@ -759,10 +765,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok((this, result))
     }
 
-    #[fastrace::trace(properties = {"is_reused": "{is_reused}"})]
+    #[fastrace::trace(properties = {"reusable_context": "{reusable_context}", "is_reused": "{is_reused}"})]
     async fn initialize_context<'c>(
         v8_scope: &'_ mut v8::PinScope<'c, '_>,
         timeout: &mut Timeout<RT>,
+        reusable_context: bool,
         is_reused: bool,
     ) -> anyhow::Result<Result<v8::Local<'c, v8::Module>, JsError>> {
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
@@ -779,6 +786,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             let environment = &state.environment;
             (environment.udf_type, environment.path.udf_path.clone())
         };
+
+        if reusable_context {
+            metrics::log_reusable_context_init(udf_type, is_reused);
+        }
 
         // Don't allow directly running a UDF within the `_deps` directory. We don't
         // really expect users to hit this unless someone is trying to exploit
@@ -1339,6 +1350,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         else {
             return Ok(None);
         };
+        let mut reusable = scopeguard::guard(false, |reusable| {
+            LocalSpan::add_property(|| ("reuse_success", reusable.as_label()));
+        });
         let tx = self.phase.tx_mut()?;
         for (namespace, tablet_index_name, table_name, intervals, hash) in &read_set.range_hashes {
             let tablet = *tablet_index_name.table();
@@ -1359,6 +1373,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 return Ok(None);
             }
         }
+        *reusable = true;
         // All hashes match, so make sure to merge the saved read set into `tx`
         tx.apply_reads(read_set.read_set.clone());
         Ok(Some((context, module_map, read_set)))

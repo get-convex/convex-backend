@@ -29,15 +29,13 @@ use crate::{
 pub mod types;
 pub mod upload_download;
 
-pub static SOURCE_PACKAGES_TABLE: TableName = TableName::const_new("_source_packages");
+pub const SOURCE_PACKAGES_TABLE: TableName = TableName::const_new("_source_packages");
 
 pub struct SourcePackagesTable;
 impl SystemTable for SourcePackagesTable {
     type Metadata = SourcePackage;
 
-    fn table_name() -> &'static TableName {
-        &SOURCE_PACKAGES_TABLE
-    }
+    const TABLE_NAME: TableName = SOURCE_PACKAGES_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

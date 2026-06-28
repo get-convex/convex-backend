@@ -81,9 +81,7 @@ pub struct IndexTable;
 impl SystemTable for IndexTable {
     type Metadata = TabletIndexMetadata;
 
-    fn table_name() -> &'static TableName {
-        &INDEX_TABLE
-    }
+    const TABLE_NAME: TableName = INDEX_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

@@ -146,27 +146,12 @@ impl ConvexObject {
         Some(v)
     }
 
-    /// Shallow merge all fields in the provided object with this one,
-    /// over-writing existing field values.
-    ///
-    /// e.g.,
-    ///   `{ name: { first: "Mr", last: "Fantastik" }, job: "mechanic" }`
-    /// merged with
-    ///   `{ name: { first: "Mr.", surname: "Fantastik" }, age: 42 }`
-    /// will result in
-    ///   `{
-    ///     name: { first: "Mr.", surname: "Fantastik" },
-    ///     job: "mechanic",
-    ///     age: 42,
-    ///   }`.
-    pub fn shallow_merge(self, other: ConvexObject) -> anyhow::Result<Self> {
-        let mut self_fields: BTreeMap<_, _> = self.into();
-        let other_fields: BTreeMap<_, _> = other.into();
-
-        for (field, value) in other_fields {
-            self_fields.insert(field, value);
-        }
-        self_fields.try_into()
+    /// Inserts the provided key-value pair, replacing any existing field.
+    /// Returns an error if the resulting object would exceed size limits.
+    pub fn insert(self, key: FieldName, value: ConvexValue) -> anyhow::Result<Self> {
+        let mut fields = self.fields;
+        fields.insert(key, value);
+        fields.try_into()
     }
 
     /// Returns a new object with only the fields that match the filter.
@@ -251,8 +236,9 @@ pub fn remove_nullable_int64(
 ) -> anyhow::Result<Option<i64>> {
     match fields.remove(field) {
         Some(ConvexValue::Int64(i)) => Ok(Some(i)),
+        Some(ConvexValue::Null) => Ok(None),
         None => Ok(None),
-        v => anyhow::bail!("expected int for {field}, got {v:?}"),
+        v => anyhow::bail!("expected int or null for {field}, got {v:?}"),
     }
 }
 

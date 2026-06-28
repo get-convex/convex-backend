@@ -10,33 +10,6 @@ import { Id } from "system-udfs/convex/_generated/dataModel";
 import { logDeploymentEvent } from "convex-analytics";
 import { reportHttpError } from "hooks/fetching";
 import { ConnectedDeploymentContext } from "@common/lib/deploymentContext";
-import { AuthorizeArgs, AuthorizeResponse } from "generatedApi";
-
-export const deviceTokenDeploymentAuth = async (
-  accessTokenArgs: {
-    name: string;
-    teamId: number;
-    deploymentId: number | null;
-    projectId: number | null;
-    permissions: string[] | null;
-  },
-  accessToken: string,
-  createAccessToken: (body: AuthorizeArgs) => Promise<AuthorizeResponse>,
-): Promise<
-  | { adminKey: string; ok: true }
-  | { ok: false; errorMessage: string; errorCode: string }
-> => {
-  const data = await createAccessToken({
-    authnToken: accessToken,
-    deviceName: accessTokenArgs.name,
-    teamId: accessTokenArgs.teamId,
-    deploymentId: accessTokenArgs.deploymentId,
-    projectId: accessTokenArgs.projectId,
-    permissions: accessTokenArgs.permissions,
-  });
-
-  return { adminKey: data.accessToken, ok: true };
-};
 
 export function useGetZipExport(
   format: CompletedExport["format"],

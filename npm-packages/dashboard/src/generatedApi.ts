@@ -797,9 +797,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** This endpoint is a placeholder for generating our own access tokens.
-         *     Right now, it is a no-op for the token.
-         *     Version 1 of the token is the WorkOS access token */
+        /** DEPRECATED: Replaced by the platform's `/create_personal_access_token`
+         *     endpoint. */
         post: operations["authorize_device"];
         delete?: never;
         options?: never;
@@ -1089,38 +1088,6 @@ export interface paths {
         get: operations["get_spending_limits"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/environment_variables/list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_environment_variables"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/environment_variables/update_batch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["update_environment_variables"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1730,11 +1697,13 @@ export interface components {
             };
         } | {
             serviceAccount: {
+                client_id?: string | null;
                 member_id: components["schemas"]["MemberId"];
                 token_id: components["schemas"]["AccessTokenId"];
             };
         } | {
             team: {
+                client_id?: string | null;
                 team_id: components["schemas"]["TeamId"];
                 token_id: components["schemas"]["AccessTokenId"];
             };
@@ -1776,18 +1745,7 @@ export interface components {
             anonymousId?: string | null;
             /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
-            deploymentId?: null | components["schemas"]["DeploymentId"];
             deviceName?: null | components["schemas"]["DeviceName"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this token will expire. Must be at
-             *     least 30 minutes in the future.
-             */
-            expiresAt?: number | null;
-            oauthApp?: null | components["schemas"]["OauthAppMetadata"];
-            permissions?: string[] | null;
-            projectId?: null | components["schemas"]["ProjectId"];
-            teamId?: null | components["schemas"]["TeamId"];
         };
         AuthorizeCodeResponse: {
             /** @description A code that the application can use to retrieve the token */
@@ -1984,15 +1942,6 @@ export interface components {
             requiresPaymentMethod: boolean;
         };
         EnableSSORequest: Record<string, never>;
-        EnvVariableConfigJson: {
-            deploymentTypes: components["schemas"]["DeploymentType"][];
-            name: string;
-            value: string;
-        };
-        EnvironmentVariableJson: {
-            name: string;
-            value: string;
-        };
         GenerateSSOConfigurationLinkRequest: {
             intent: components["schemas"]["SSOPortalIntent"];
         };
@@ -2113,9 +2062,6 @@ export interface components {
         /** @description Indicates whether the deployment is the default prod deployment for the
          *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
-        ListEnvVariableResponse: {
-            configs: components["schemas"]["EnvVariableConfigJson"][];
-        };
         ListMyCustomRolesResponse: {
             customRoles: components["schemas"]["CustomRoleResponse"][];
             /** @description The team member's built-in role. When `custom`, `customRoles` lists
@@ -2148,10 +2094,6 @@ export interface components {
             email: string;
             id: components["schemas"]["MemberId"];
             name?: string | null;
-        };
-        OauthAppMetadata: {
-            clientId: string;
-            clientSecret: string;
         };
         OauthAppResponse: {
             appName: components["schemas"]["AppName"];
@@ -2571,13 +2513,6 @@ export interface components {
             email: string;
             name: string;
         };
-        UpdateEnvironmentVariable: {
-            newConfig?: null | components["schemas"]["EnvVariableConfigJson"];
-            oldVariable?: null | components["schemas"]["EnvironmentVariableJson"];
-        };
-        UpdateEnvironmentVariables: {
-            changes: components["schemas"]["UpdateEnvironmentVariable"][];
-        };
         UpdateOauthAppArgs: {
             appName?: null | components["schemas"]["AppName"];
             redirectUris?: string[] | null;
@@ -2713,8 +2648,6 @@ export type DiscordId = components['schemas']['DiscordId'];
 export type DiscordLoginUrlResponse = components['schemas']['DiscordLoginUrlResponse'];
 export type DiscountedPlanResponse = components['schemas']['DiscountedPlanResponse'];
 export type EnableSsoRequest = components['schemas']['EnableSSORequest'];
-export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson'];
-export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
 export type GenerateSsoConfigurationLinkRequest = components['schemas']['GenerateSSOConfigurationLinkRequest'];
 export type GenerateSsoConfigurationLinkResponse = components['schemas']['GenerateSSOConfigurationLinkResponse'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
@@ -2734,7 +2667,6 @@ export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOS
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
-export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
@@ -2742,7 +2674,6 @@ export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type MemberResponse = components['schemas']['MemberResponse'];
-export type OauthAppMetadata = components['schemas']['OauthAppMetadata'];
 export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
@@ -2805,8 +2736,6 @@ export type UnlinkDiscordAccountRequest = components['schemas']['UnlinkDiscordAc
 export type UnlinkIdentityRequest = components['schemas']['UnlinkIdentityRequest'];
 export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddressArgs'];
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
-export type UpdateEnvironmentVariable = components['schemas']['UpdateEnvironmentVariable'];
-export type UpdateEnvironmentVariables = components['schemas']['UpdateEnvironmentVariables'];
 export type UpdateOauthAppArgs = components['schemas']['UpdateOauthAppArgs'];
 export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethodArgs'];
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
@@ -4345,50 +4274,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GetSpendingLimitsResponse"];
                 };
-            };
-        };
-    };
-    list_environment_variables: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListEnvVariableResponse"];
-                };
-            };
-        };
-    };
-    update_environment_variables: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateEnvironmentVariables"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

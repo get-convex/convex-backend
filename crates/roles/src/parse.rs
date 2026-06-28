@@ -16,6 +16,7 @@ use common::types::{
 };
 
 use super::types::{
+    ComponentSelector,
     CreatorMatcher,
     DeploymentSelector,
     ProjectSelector,
@@ -87,6 +88,42 @@ fn parse_token_selector(s: &str) -> anyhow::Result<TokenSelector> {
     bail!("Invalid selector for token resource: {s} (valid: *, creator=id, creator=self)")
 }
 
+/// A leading `/` on a written component path is optional and ignored, so
+/// `path=/foo` and `path=foo` are equivalent.
+fn strip_leading_slash(value: &str) -> &str {
+    value.strip_prefix('/').unwrap_or(value)
+}
+
+fn parse_component_selector(s: &str) -> anyhow::Result<ComponentSelector> {
+    if s == "*" {
+        return Ok(ComponentSelector::Any);
+    }
+    if let Some(value) = s.strip_prefix("path=") {
+        // A trailing `*` makes it a (literal) prefix match; otherwise it's an
+        // exact path. The component path is matched as a string, so the prefix
+        // is stored verbatim (a trailing `/` in the prefix gives path-boundary
+        // matching — see `ComponentSelector::PathStartsWith`).
+        if let Some(prefix) = value.strip_suffix('*') {
+            return Ok(ComponentSelector::PathStartsWith(
+                strip_leading_slash(prefix).to_string(),
+            ));
+        }
+        if value == "/" {
+            return Ok(ComponentSelector::Path(String::new()));
+        }
+        if value.is_empty() {
+            bail!("Component path cannot be empty; use `path=/` for the root app component");
+        }
+        return Ok(ComponentSelector::Path(
+            strip_leading_slash(value).to_string(),
+        ));
+    }
+    bail!(
+        "Invalid selector for component resource: {s} (valid: *, path=/ for the root app, \
+         path=foo/bar, path=foo/bar/*, path=foo*)"
+    )
+}
+
 fn parse_segment(kind: ResourceKind, selector_str: &str) -> anyhow::Result<ResourceSegment> {
     let parts: Vec<&str> = selector_str.split(',').map(|p| p.trim()).collect();
     match kind {
@@ -109,6 +146,13 @@ fn parse_segment(kind: ResourceKind, selector_str: &str) -> anyhow::Result<Resou
                 .map(|s| parse_deployment_selector(s))
                 .collect::<anyhow::Result<_>>()?;
             Ok(ResourceSegment::Deployment(selectors))
+        },
+        ResourceKind::Component => {
+            let selectors: Vec<ComponentSelector> = parts
+                .iter()
+                .map(|s| parse_component_selector(s))
+                .collect::<anyhow::Result<_>>()?;
+            Ok(ResourceSegment::Component(selectors))
         },
         ResourceKind::Member => {
             if parts != ["*"] {
@@ -176,8 +220,9 @@ fn valid_children(kind: ResourceKind) -> &'static [ResourceKind] {
             ResourceKind::Token,
             ResourceKind::DefaultEnvironmentVariable,
         ],
-        ResourceKind::Deployment => &[ResourceKind::Token],
-        ResourceKind::Member
+        ResourceKind::Deployment => &[ResourceKind::Token, ResourceKind::Component],
+        ResourceKind::Component
+        | ResourceKind::Member
         | ResourceKind::Token
         | ResourceKind::CustomRole
         | ResourceKind::Billing
@@ -195,7 +240,10 @@ fn valid_children(kind: ResourceKind) -> &'static [ResourceKind] {
 fn is_valid_root(kind: ResourceKind) -> bool {
     !matches!(
         kind,
-        ResourceKind::Deployment | ResourceKind::Token | ResourceKind::DefaultEnvironmentVariable
+        ResourceKind::Deployment
+            | ResourceKind::Component
+            | ResourceKind::Token
+            | ResourceKind::DefaultEnvironmentVariable
     )
 }
 
@@ -272,6 +320,21 @@ impl fmt::Display for TokenSelector {
     }
 }
 
+impl fmt::Display for ComponentSelector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ComponentSelector::Any => write!(f, "*"),
+            // The path is stored canonically (root = ""); the root renders as
+            // `/`.
+            ComponentSelector::Path(p) if p.is_empty() => write!(f, "path=/"),
+            ComponentSelector::Path(p) => write!(f, "path={p}"),
+            // The stored prefix keeps its (significant) trailing slash, so just
+            // re-append the `*`: `foo` -> `path=foo*`, `foo/` -> `path=foo/*`.
+            ComponentSelector::PathStartsWith(p) => write!(f, "path={p}*"),
+        }
+    }
+}
+
 /// Helper macro to write comma-separated selectors for a segment.
 macro_rules! write_segment {
     ($f:expr, $kind:expr, $selectors:expr) => {{
@@ -292,6 +355,7 @@ impl fmt::Display for ResourceSegment {
             ResourceSegment::Team => write!(f, "team:*"),
             ResourceSegment::Project(s) => write_segment!(f, ResourceKind::Project, s),
             ResourceSegment::Deployment(s) => write_segment!(f, ResourceKind::Deployment, s),
+            ResourceSegment::Component(s) => write_segment!(f, ResourceKind::Component, s),
             ResourceSegment::Member => write!(f, "member:*"),
             ResourceSegment::Token(s) => write_segment!(f, ResourceKind::Token, s),
             ResourceSegment::CustomRole => write!(f, "customRole:*"),

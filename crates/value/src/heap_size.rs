@@ -122,10 +122,7 @@ impl<T: Ord> Ord for WithHeapSize<T> {
 
 impl<T: Debug> Debug for WithHeapSize<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WithHeapSize")
-            .field("inner", &self.inner)
-            .field("elements_heap_size", &self.elements_heap_size)
-            .finish()
+        Debug::fmt(&self.inner, f)
     }
 }
 

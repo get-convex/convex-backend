@@ -45,7 +45,7 @@ use crate::{
     Transaction,
 };
 
-pub static SCHEMAS_TABLE: TableName = TableName::const_new("_schemas");
+pub const SCHEMAS_TABLE: TableName = TableName::const_new("_schemas");
 
 pub static SCHEMAS_STATE_INDEX: LazyLock<SystemIndex<SchemasTable>> =
     LazyLock::new(|| SystemIndex::new("by_state", [&SCHEMA_STATE_FIELD]).unwrap());
@@ -59,9 +59,7 @@ pub struct SchemasTable;
 impl SystemTable for SchemasTable {
     type Metadata = SchemaMetadata;
 
-    fn table_name() -> &'static TableName {
-        &SCHEMAS_TABLE
-    }
+    const TABLE_NAME: TableName = SCHEMAS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![SCHEMAS_STATE_INDEX.clone()]

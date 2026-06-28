@@ -196,15 +196,10 @@ pub struct HttpRequest {
 
 impl From<HttpRequest> for HttpRequestStream {
     fn from(value: HttpRequest) -> Self {
-        let body: Pin<
-            Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send + 'static>,
-        > = if let Some(b) = value.body {
-            Box::pin(futures::stream::once(
-                async move { Ok::<_, anyhow::Error>(b) },
-            ))
-        } else {
-            Box::pin(futures::stream::empty())
-        };
+        let body = value.body.map(|b| {
+            Box::pin(futures::stream::once(async move { Ok(b) }))
+                as Pin<Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send>>
+        });
 
         Self {
             headers: value.headers,
@@ -232,7 +227,14 @@ pub struct HttpRequestStream {
     pub headers: HeaderMap,
     pub url: Url,
     pub method: Method,
-    pub body: Pin<Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send + 'static>>,
+    /// The request body, or `None` for a body-less request such as a plain GET.
+    /// This distinction must be preserved end-to-end: a body-less request has
+    /// to be sent without a body so it is framed correctly over HTTP/2 (see
+    /// the `fetch` impl in `fetch.rs`). It deliberately cannot be recovered
+    /// by inspecting the stream, because the stream may be a full-duplex
+    /// body whose first chunk is only produced after the response headers
+    /// arrive.
+    pub body: Option<Pin<Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send>>>,
     pub signal: Pin<Box<dyn Future<Output = ()> + Sync + Send + 'static>>,
 }
 
@@ -829,6 +831,14 @@ pub async fn stats_middleware<RM: RouteMapper>(
 }
 
 pub struct InstanceNameExt(pub String);
+
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginationMetadata {
+    pub has_more: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
 
 #[derive(ToSchema, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]

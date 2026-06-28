@@ -112,8 +112,6 @@ export type RequestMetadata = {
    * calls (e.g. a mutation invoked via `runMutation` by a scheduled action),
    * propagating the top-level scheduled function's ID down the call tree. It is
    * `null` when the function was not scheduled.
-   *
-   * @internal
    */
   scheduledFunctionId: string | null;
 };

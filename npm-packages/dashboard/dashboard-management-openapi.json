@@ -1330,7 +1330,7 @@
     },
     "/authorize": {
       "post": {
-        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the WorkOS access token",
+        "summary": "DEPRECATED: Replaced by the platform's `/create_personal_access_token`\nendpoint.",
         "operationId": "authorize_device",
         "requestBody": {
           "content": {
@@ -1840,59 +1840,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/environment_variables/list": {
-      "get": {
-        "operationId": "list_environment_variables",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListEnvVariableResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/environment_variables/update_batch": {
-      "post": {
-        "operationId": "update_environment_variables",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateEnvironmentVariables"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
           }
         }
       }
@@ -3221,6 +3168,12 @@
                   "token_id"
                 ],
                 "properties": {
+                  "client_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "member_id": {
                     "$ref": "#/components/schemas/MemberId"
                   },
@@ -3244,6 +3197,12 @@
                   "token_id"
                 ],
                 "properties": {
+                  "client_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "team_id": {
                     "$ref": "#/components/schemas/TeamId"
                   },
@@ -3410,16 +3369,6 @@
             "type": "string",
             "description": "Authentication token is expected to be the access token from WorkOS"
           },
-          "deploymentId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DeploymentId"
-              }
-            ]
-          },
           "deviceName": {
             "oneOf": [
               {
@@ -3427,53 +3376,6 @@
               },
               {
                 "$ref": "#/components/schemas/DeviceName"
-              }
-            ]
-          },
-          "expiresAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "Timestamp in milliseconds when this token will expire. Must be at\nleast 30 minutes in the future."
-          },
-          "oauthApp": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/OauthAppMetadata"
-              }
-            ]
-          },
-          "permissions": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "projectId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ProjectId"
-              }
-            ]
-          },
-          "teamId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/TeamId"
               }
             ]
           }
@@ -4212,43 +4114,6 @@
       "EnableSSORequest": {
         "type": "object"
       },
-      "EnvVariableConfigJson": {
-        "type": "object",
-        "required": [
-          "name",
-          "value",
-          "deploymentTypes"
-        ],
-        "properties": {
-          "deploymentTypes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DeploymentType"
-            }
-          },
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
-      "EnvironmentVariableJson": {
-        "type": "object",
-        "required": [
-          "name",
-          "value"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      },
       "GenerateSSOConfigurationLinkRequest": {
         "type": "object",
         "required": [
@@ -4678,20 +4543,6 @@
         "type": "boolean",
         "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
       },
-      "ListEnvVariableResponse": {
-        "type": "object",
-        "required": [
-          "configs"
-        ],
-        "properties": {
-          "configs": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EnvVariableConfigJson"
-            }
-          }
-        }
-      },
       "ListMyCustomRolesResponse": {
         "type": "object",
         "required": [
@@ -4825,22 +4676,6 @@
             ]
           }
         }
-      },
-      "OauthAppMetadata": {
-        "type": "object",
-        "required": [
-          "clientId",
-          "clientSecret"
-        ],
-        "properties": {
-          "clientId": {
-            "type": "string"
-          },
-          "clientSecret": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
       },
       "OauthAppResponse": {
         "type": "object",
@@ -6276,45 +6111,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "UpdateEnvironmentVariable": {
-        "type": "object",
-        "properties": {
-          "newConfig": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/EnvVariableConfigJson"
-              }
-            ]
-          },
-          "oldVariable": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/EnvironmentVariableJson"
-              }
-            ]
-          }
-        }
-      },
-      "UpdateEnvironmentVariables": {
-        "type": "object",
-        "required": [
-          "changes"
-        ],
-        "properties": {
-          "changes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UpdateEnvironmentVariable"
-            }
-          }
-        }
       },
       "UpdateOauthAppArgs": {
         "type": "object",

@@ -1,34 +1,56 @@
 use std::sync::LazyLock;
 
 use common::{
+    document::CREATION_TIME_FIELD_PATH,
     execution_context::RequestMetadata,
-    obj,
+    query::{
+        Cursor,
+        CursorPosition,
+        IndexRange,
+        IndexRangeExpression,
+        Order,
+        Query,
+    },
     runtime::Runtime,
-    types::MemberId,
+    types::{
+        IndexName,
+        MemberId,
+    },
 };
 use database::{
+    query::{
+        PaginationOptions,
+        TableFilter,
+    },
     unauthorized_error,
+    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
 use value::{
+    val,
     ConvexObject,
+    FieldName,
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 mod developer_index_config;
 pub mod types;
 
-use types::DeploymentAuditLogEvent;
+use types::{
+    DeploymentAuditLogEntry,
+    DeploymentAuditLogEvent,
+};
 
 use crate::{
     SystemIndex,
     SystemTable,
 };
 
-pub static DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
+pub const DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
 
 pub static ACTION_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "action".parse().expect("invalid action field"));
@@ -37,9 +59,7 @@ pub struct DeploymentAuditLogsTable;
 impl SystemTable for DeploymentAuditLogsTable {
     type Metadata = DeploymentAuditLogEvent;
 
-    fn table_name() -> &'static TableName {
-        &DEPLOYMENT_AUDIT_LOG_TABLE
-    }
+    const TABLE_NAME: TableName = DEPLOYMENT_AUDIT_LOG_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
@@ -93,34 +113,87 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
         let mut deployment_audit_log_ids = vec![];
         for event in events {
             let mut event_object: ConvexObject = event.try_into()?;
-            event_object = match member_id_value {
-                Some(member_id) => event_object.shallow_merge(obj!("member_id" => member_id)?)?,
-                None => event_object.shallow_merge(obj!("member_id" => null)?)?,
-            };
-            event_object = match token_id {
-                Some(token_id) => event_object.shallow_merge(obj!("token_id" => token_id)?)?,
-                None => event_object.shallow_merge(obj!("token_id" => null)?)?,
-            };
-            event_object = match app_client_id {
-                Some(ref app_client_id) => {
-                    event_object.shallow_merge(obj!("app_client_id" => app_client_id.as_str())?)?
+            event_object = event_object.insert(
+                const { FieldName::const_new("member_id") },
+                match member_id_value {
+                    Some(member_id) => val!(member_id),
+                    None => val!(null),
                 },
-                None => event_object.shallow_merge(obj!("app_client_id" => null)?)?,
-            };
-            event_object = match request_metadata.ip.clone() {
-                Some(ip) => event_object.shallow_merge(obj!("client_ip" => ip.into_string())?)?,
-                None => event_object.shallow_merge(obj!("client_ip" => null)?)?,
-            };
-            event_object = match request_metadata.user_agent.clone() {
-                Some(user_agent) => event_object
-                    .shallow_merge(obj!("client_user_agent" => user_agent.into_string())?)?,
-                None => event_object.shallow_merge(obj!("client_user_agent" => null)?)?,
-            };
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("token_id") },
+                match token_id {
+                    Some(token_id) => val!(token_id),
+                    None => val!(null),
+                },
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("app_client_id") },
+                match &app_client_id {
+                    Some(app_client_id) => val!(app_client_id.as_str()),
+                    None => val!(null),
+                },
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("client_ip") },
+                match &request_metadata.ip {
+                    Some(ip) => val!(ip.as_str()),
+                    None => val!(null),
+                },
+            )?;
+            event_object = event_object.insert(
+                const { FieldName::const_new("client_user_agent") },
+                match &request_metadata.user_agent {
+                    Some(user_agent) => val!(user_agent.as_str()),
+                    None => val!(null),
+                },
+            )?;
             let id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&DEPLOYMENT_AUDIT_LOG_TABLE, event_object)
                 .await?;
             deployment_audit_log_ids.push(id);
         }
         Ok(deployment_audit_log_ids)
+    }
+
+    pub async fn list_events_from_time(
+        &mut self,
+        from_ts_ms: u64,
+        cursor: Option<Cursor>,
+        limit: usize,
+    ) -> anyhow::Result<(Vec<DeploymentAuditLogEntry>, Option<Cursor>)> {
+        let query = Query::index_range(IndexRange {
+            index_name: IndexName::by_creation_time(DEPLOYMENT_AUDIT_LOG_TABLE.clone()),
+            range: vec![IndexRangeExpression::Gte(
+                CREATION_TIME_FIELD_PATH.clone(),
+                (from_ts_ms as f64).into(),
+            )],
+            order: Order::Asc,
+        });
+        let mut query_stream = ResolvedQuery::new_bounded(
+            self.tx,
+            TableNamespace::Global,
+            query,
+            PaginationOptions::ManualPagination {
+                start_cursor: cursor,
+                maximum_rows_read: Some(limit),
+                maximum_bytes_read: None,
+            },
+            None,
+            TableFilter::IncludePrivateSystemTables,
+        )?;
+
+        let mut events = Vec::with_capacity(limit);
+        while events.len() < limit
+            && let Some(document) = query_stream.next(self.tx, None).await?
+        {
+            events.push(DeploymentAuditLogEntry::try_from(document)?);
+        }
+
+        let next_cursor = match query_stream.cursor() {
+            Some(cursor) if !matches!(cursor.position, CursorPosition::End) => Some(cursor),
+            _ => None,
+        };
+        Ok((events, next_cursor))
     }
 }

@@ -23,15 +23,13 @@ use crate::{
 
 pub mod types;
 
-pub static BACKEND_INFO_TABLE: TableName = TableName::const_new("_backend_info");
+pub const BACKEND_INFO_TABLE: TableName = TableName::const_new("_backend_info");
 
 pub struct BackendInfoTable;
 impl SystemTable for BackendInfoTable {
     type Metadata = BackendInfoPersisted;
 
-    fn table_name() -> &'static TableName {
-        &BACKEND_INFO_TABLE
-    }
+    const TABLE_NAME: TableName = BACKEND_INFO_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

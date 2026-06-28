@@ -23,6 +23,7 @@ common = { workspace = true }
 data-url = { workspace = true }
 derive_more = { workspace = true }
 errors = { workspace = true }
+fastrace = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
 keybroker = { workspace = true }
