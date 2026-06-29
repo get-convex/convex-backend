@@ -1128,6 +1128,7 @@ impl FunctionUsageStats {
                 .sum(),
             network_egress_bytes: self.fetch_egress.values().sum(),
             vector_index_write_query_bytes: self.vector_ingress_v2.values().sum(),
+            audit_log_egress_bytes: self.audit_log_egress,
         }
     }
 
@@ -1468,4 +1469,5 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_read_query_bytes: u64,
     pub network_egress_bytes: u64,
     pub vector_index_write_query_bytes: u64,
+    pub audit_log_egress_bytes: u64,
 }
