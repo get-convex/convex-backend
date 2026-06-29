@@ -70,6 +70,7 @@ export type {
   GenericTableVectorIndexes,
   FieldTypeFromFieldPath,
   FieldTypeFromFieldPathInner,
+  NarrowedDocumentByEquality,
   GenericTableInfo,
   DocumentByInfo,
   FieldPaths,
@@ -114,7 +115,11 @@ export type {
   MutationMeta,
   ActionMeta,
 } from "./meta.js";
-export type { IndexRange, IndexRangeBuilder } from "./index_range_builder.js";
+export type {
+  IndexRange,
+  IndexRangeBuilder,
+  ResultDocumentFromIndexRange,
+} from "./index_range_builder.js";
 export * from "./pagination.js";
 export type { OrderedQuery, Query, QueryInitializer } from "./query.js";
 export type {

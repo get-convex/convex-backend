@@ -2,7 +2,17 @@ import {
   FieldTypeFromFieldPath,
   GenericDocument,
   GenericSearchIndexConfig,
+  NarrowedDocumentByEquality,
 } from "./data_model.js";
+
+declare const searchFilterResultDocument: unique symbol;
+
+/**
+ * Extract the document type carried by a {@link SearchFilter}.
+ * @public
+ */
+export type ResultDocumentFromSearchFilter<Filter extends SearchFilter> =
+  Filter[typeof searchFilterResultDocument];
 
 /**
  * Builder for defining search filters.
@@ -55,7 +65,7 @@ export interface SearchFilterBuilder<
 export interface SearchFilterFinalizer<
   Document extends GenericDocument,
   SearchIndexConfig extends GenericSearchIndexConfig,
-> extends SearchFilter {
+> extends SearchFilter<Document> {
   /**
    * Restrict this query to documents where `doc[fieldName] === value`.
    *
@@ -63,10 +73,16 @@ export interface SearchFilterFinalizer<
    * the search index's `filterFields`.
    * @param value - The value to compare against.
    */
-  eq<FieldName extends SearchIndexConfig["filterFields"]>(
+  eq<
+    FieldName extends SearchIndexConfig["filterFields"],
+    Value extends FieldTypeFromFieldPath<Document, FieldName>,
+  >(
     fieldName: FieldName,
-    value: FieldTypeFromFieldPath<Document, FieldName>,
-  ): SearchFilterFinalizer<Document, SearchIndexConfig>;
+    value: Value,
+  ): SearchFilterFinalizer<
+    NarrowedDocumentByEquality<Document, FieldName, Value>,
+    SearchIndexConfig
+  >;
 }
 
 /**
@@ -75,9 +91,12 @@ export interface SearchFilterFinalizer<
  *
  * @public
  */
-export abstract class SearchFilter {
+export abstract class SearchFilter<
+  ResultDocument extends GenericDocument = GenericDocument,
+> {
   // Property for nominal type support.
   private _isSearchFilter: undefined;
+  declare readonly [searchFilterResultDocument]: ResultDocument;
 
   /**
    * @internal

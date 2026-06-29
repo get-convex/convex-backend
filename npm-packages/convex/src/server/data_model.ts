@@ -1,4 +1,5 @@
 import { Value } from "../values/index.js";
+import { BetterOmit, Expand } from "../type_utils.js";
 import type { SystemIndexes } from "./system_fields.js";
 
 // Document Types  /////////////////////////////////////////////////////////////
@@ -136,6 +137,76 @@ export type FieldTypeFromFieldPathInner<
       : undefined
     : undefined
   : ValueFromUnion<Document, FieldPath, undefined>;
+
+type NarrowableEqualityPart<ValueType> = ValueType extends unknown
+  ? ValueType extends string | number | bigint | boolean | null
+    ? ValueType
+    : never
+  : never;
+
+type NonNarrowableEqualityPart<ValueType> = ValueType extends unknown
+  ? [NarrowableEqualityPart<ValueType>] extends [never]
+    ? ValueType
+    : never
+  : never;
+
+type NarrowableEqualityValue<ValueType> = string extends ValueType
+  ? never
+  : number extends ValueType
+    ? never
+    : bigint extends ValueType
+      ? never
+      : boolean extends ValueType
+        ? never
+        : [NonNarrowableEqualityPart<ValueType>] extends [never]
+          ? ValueType
+          : never;
+
+type NarrowDocumentVariantByTopLevelEquality<
+  Document extends GenericDocument,
+  FieldName extends string,
+  EqualityValue,
+> = Document extends unknown
+  ? FieldName extends keyof Document
+    ? Extract<EqualityValue, Document[FieldName]> extends infer NarrowedValue
+      ? [NarrowedValue] extends [never]
+        ? never
+        : Expand<
+            BetterOmit<Document, FieldName> & {
+              [Property in FieldName]: NarrowedValue;
+            }
+          >
+      : never
+    : never
+  : never;
+
+/**
+ * Narrow a document type based on a top-level literal equality predicate.
+ *
+ * This intentionally does not narrow nested field paths or equality values with
+ * broad primitive/object types. Those cases can be added later without changing
+ * the public query builder API.
+ * @public
+ */
+export type NarrowedDocumentByEquality<
+  Document extends GenericDocument,
+  FieldPath extends string,
+  EqualityValue,
+> = string extends FieldPath
+  ? Document
+  : FieldPath extends `${string}.${string}`
+    ? Document
+    : [NarrowableEqualityValue<EqualityValue>] extends [never]
+      ? Document
+      : NarrowDocumentVariantByTopLevelEquality<
+            Document,
+            FieldPath,
+            NarrowableEqualityValue<EqualityValue>
+          > extends infer NarrowedDocument
+        ? NarrowedDocument extends GenericDocument
+          ? NarrowedDocument
+          : never
+        : never;
 
 // Table Types /////////////////////////////////////////////////////////////////
 
