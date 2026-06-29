@@ -14,11 +14,9 @@ how to set up Claude Code for the best possible results with Convex.
 
 From an empty directory, launch Claude Code with what you want to build:
 
-<AgentLaunchCommand
-  command="claude"
-  dangerousFlag="--dangerously-skip-permissions"
-  prompt="build me a todo app with Convex"
-/>
+```sh
+claude "build me a todo app with Convex" --permission-mode auto
+```
 
 Claude Code handles the rest. It runs `npm create convex@latest`,
 `npx convex ai-files install` (which writes a managed Convex section into
