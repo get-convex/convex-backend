@@ -13,6 +13,7 @@ use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
     errors::is_transient_db_error,
+    fmt::format_read_write_balance,
     knobs::{
         INDEX_BACKFILL_CHUNK_RATE,
         INDEX_BACKFILL_CHUNK_SIZE,
@@ -36,6 +37,10 @@ use common::{
         RevisionPair,
     },
     query::Order,
+    read_write_balance::{
+        ReadWriteBalance,
+        ReadWriteReporter,
+    },
     retry::{
         retry_with_backoff,
         RetryConfig,
@@ -173,6 +178,9 @@ pub struct IndexWriter<RT: Runtime> {
     runtime: RT,
     progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
     mode: IndexWriterMode,
+    // Optional sink for the read-vs-write timing measured during backfill, so a
+    // caller with extra labels (e.g. a db-cluster migration) can emit a metric.
+    read_write_reporter: Option<ReadWriteReporter>,
 }
 
 pub struct TabletBackfillProgress {
@@ -211,7 +219,15 @@ impl<RT: Runtime> IndexWriter<RT> {
             runtime,
             progress_tx,
             mode,
+            read_write_reporter: None,
         }
+    }
+
+    /// Attach a sink that receives the read- and write-side durations of each
+    /// backfill reporting window, so callers can report read- vs write-bound.
+    pub fn with_read_write_reporter(mut self, reporter: ReadWriteReporter) -> Self {
+        self.read_write_reporter = Some(reporter);
+        self
     }
 
     /// Backfill indexes based on a snapshot at the current time.  After the
@@ -294,18 +310,26 @@ impl<RT: Runtime> IndexWriter<RT> {
         );
 
         let (index_update_tx, index_update_rx) = mpsc::channel(32);
+        let balance = ReadWriteBalance::new();
         let producer = async {
             let by_id = index_registry.must_get_by_id(tablet_id)?.id();
             let mut stream =
                 std::pin::pin!(table_iterator.stream_documents_in_table(tablet_id, by_id, cursor));
             let mut docs_sent = 0;
-            while let Some(item) = stream.try_next().await? {
+            loop {
+                let read_start = self.runtime.monotonic_now();
+                let next = stream.try_next().await?;
+                balance.record_read(self.runtime.monotonic_now() - read_start);
+                let Some(item) = next else {
+                    break;
+                };
                 let LatestDocument {
                     ts,
                     value: document,
                     prev_ts,
                 } = item;
                 docs_sent += 1;
+                let write_start = self.runtime.monotonic_now();
                 _ = index_update_tx
                     .send(RevisionPair {
                         id: document.id().into(),
@@ -317,6 +341,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                         prev_rev: prev_ts.map(|ts| DocumentRevision { ts, document: None }),
                     })
                     .await;
+                balance.record_write(self.runtime.monotonic_now() - write_start);
             }
             drop(index_update_tx);
             Ok(docs_sent)
@@ -328,6 +353,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             ReceiverStream::new(index_update_rx),
             index_selector,
             retry_config,
+            &balance,
         );
         let (docs_indexed, _) = future::try_join(producer, consumer).await?;
         Ok(docs_indexed)
@@ -365,6 +391,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             self.retention_validator.clone(),
         );
         let (tx, rx) = mpsc::channel(32);
+        let balance = ReadWriteBalance::new();
         let producer = async {
             let revision_stream = repeatable_persistence.load_revision_pairs(
                 index_selector.tablet_id(),
@@ -372,8 +399,16 @@ impl<RT: Runtime> IndexWriter<RT> {
                 Order::Asc,
             );
             futures::pin_mut!(revision_stream);
-            while let Some(revision_pair) = revision_stream.try_next().await? {
+            loop {
+                let read_start = self.runtime.monotonic_now();
+                let next = revision_stream.try_next().await?;
+                balance.record_read(self.runtime.monotonic_now() - read_start);
+                let Some(revision_pair) = next else {
+                    break;
+                };
+                let write_start = self.runtime.monotonic_now();
                 tx.send(revision_pair).await?;
+                balance.record_write(self.runtime.monotonic_now() - write_start);
             }
             drop(tx);
             Ok(())
@@ -384,6 +419,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             ReceiverStream::new(rx),
             index_selector,
             retry_config,
+            &balance,
         );
 
         // Consider ourselves successful if both the producer and consumer exit
@@ -418,6 +454,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         revision_pairs: impl Stream<Item = RevisionPair>,
         index_selector: &IndexSelector,
         retry_config: Option<RetryConfig>,
+        read_write_balance: &ReadWriteBalance,
     ) -> anyhow::Result<()> {
         let should_send_progress = self.progress_tx.is_some();
         let approx_num_indexes = match index_selector {
@@ -469,6 +506,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 // present indexes in `index_registry`.
                 if !index_updates.is_empty() || !documents.is_empty() {
                     if let Some(num_entries_written) = NonZeroU32::new(num_entries_written) {
+                        let throttle_start = self.runtime.monotonic_now();
                         while let Err(not_until) = rate_limiter
                             .check_n(num_entries_written)
                             .expect("RateLimiter capacity impossibly small")
@@ -477,6 +515,8 @@ impl<RT: Runtime> IndexWriter<RT> {
                                 not_until.wait_time_from(self.runtime.monotonic_now().into());
                             self.runtime.wait(delay).await;
                         }
+                        read_write_balance
+                            .record_throttle(self.runtime.monotonic_now() - throttle_start);
                     }
                     self.write_chunk_with_optional_retry(
                         &persistence,
@@ -494,6 +534,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         let mut last_logged = self.runtime.system_time();
         let mut last_checkpointed = self.runtime.system_time();
         let mut last_logged_docs_indexed = 0;
+        let mut last_logged_balance = (Duration::ZERO, Duration::ZERO, Duration::ZERO);
         let mut num_docs_indexed_total = 0;
         let mut num_docs_indexed_since_progress_reported = 0;
         let mut backfill_bytes_read = 0;
@@ -532,14 +573,23 @@ impl<RT: Runtime> IndexWriter<RT> {
             }
             if last_logged.elapsed()? >= Duration::from_secs(60) {
                 let now = self.runtime.system_time();
+                let (read_total, write_total, throttle_total) = read_write_balance.totals();
+                let read_delta = read_total - last_logged_balance.0;
+                let write_delta = write_total - last_logged_balance.1;
+                let throttle_delta = throttle_total - last_logged_balance.2;
                 tracing::info!(
                     "Backfilled {num_docs_indexed_total} docs into indexes: {index_selector} \
-                     {phase} ({} rows/s)",
+                     {phase} ({} rows/s) [{}]",
                     (num_docs_indexed_total - last_logged_docs_indexed) as f64
                         / (now.duration_since(last_logged).unwrap_or_default()).as_secs_f64(),
+                    format_read_write_balance(read_delta, write_delta, throttle_delta),
                 );
+                if let Some(reporter) = self.read_write_reporter.as_ref() {
+                    reporter(read_delta, write_delta, throttle_delta);
+                }
                 last_logged = now;
                 last_logged_docs_indexed = num_docs_indexed_total;
+                last_logged_balance = (read_total, write_total, throttle_total);
             }
         }
         // Flush any remaining accumulated bytes that weren't sent during the loop
@@ -556,6 +606,17 @@ impl<RT: Runtime> IndexWriter<RT> {
                 backfill_bytes_written,
             })
             .await?;
+        }
+
+        // Flush read/write time accumulated since the last periodic log so the
+        // metric captures the full phase, including a final partial window.
+        if let Some(reporter) = self.read_write_reporter.as_ref() {
+            let (read_total, write_total, throttle_total) = read_write_balance.totals();
+            reporter(
+                read_total - last_logged_balance.0,
+                write_total - last_logged_balance.1,
+                throttle_total - last_logged_balance.2,
+            );
         }
 
         tracing::info!(
