@@ -14,11 +14,9 @@ the best possible results with Convex.
 
 From an empty directory, launch Codex with what you want to build:
 
-<AgentLaunchCommand
-  command="codex"
-  dangerousFlag="--dangerously-bypass-approvals-and-sandbox"
-  prompt="build me a todo app with Convex"
-/>
+```sh
+codex "build me a todo app with Convex"
+```
 
 Codex handles the rest. It runs `npm create convex@latest`,
 `npx convex ai-files install` (which writes a managed Convex section into

@@ -354,11 +354,7 @@ fn start_local_usher(logs: &LogInterleaver, release: bool) -> anyhow::Result<Chi
     )
 }
 
-fn start_local_funrun(
-    logs: &LogInterleaver,
-    release: bool,
-    db_path: &PathBuf,
-) -> anyhow::Result<Child> {
+fn start_local_funrun(logs: &LogInterleaver, release: bool) -> anyhow::Result<Child> {
     let funrun_binary = if release {
         REPO_ROOT.join("target/release/funrun")
     } else {
@@ -367,11 +363,6 @@ fn start_local_funrun(
     logs.spawn_with_prefixed_logs(
         "funrun".into(),
         Command::new(funrun_binary)
-            .arg("--register-database")
-            .arg(format!(
-                "local=sqlite=sqlite://{}",
-                db_path.to_str().expect("Invalid db path")
-            ))
             .arg("--metrics-addr")
             .arg("0.0.0.0:9101")
             .kill_on_drop(true),
@@ -478,7 +469,7 @@ async fn provision(
             )?;
             let usher_handle = start_local_usher(logs, release)?;
             let funrun_handle = udf_use_funrun
-                .then(|| start_local_funrun(logs, release, &db_path))
+                .then(|| start_local_funrun(logs, release))
                 .transpose()?;
             // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(

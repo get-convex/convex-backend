@@ -476,6 +476,17 @@ export default function Badge() {
 }
 ```
 
+### Factor verification age
+
+Clerk's `fva` (factor verification age) claim updates every minute until it hits
+99, so it's
+[excluded from the Convex identity](/auth/functions-auth.mdx#clerk-claims-configuration)
+to avoid rerunning authenticated queries on every token refresh.
+
+If you need step-up auth for sensitive actions, use Clerk's
+[reverification](https://clerk.com/docs/guides/secure/reverification) rather
+than reading `fva` directly.
+
 ## Configuring dev and prod instances
 
 To configure a different Clerk instance between your Convex development and
