@@ -283,7 +283,8 @@
               "text_search_write_query_bytes",
               "vector_search_query_bytes",
               "vector_search_write_query_bytes",
-              "network_egress_bytes"
+              "network_egress_bytes",
+              "audit_log_egress_bytes"
             ],
             "properties": {
               "action_memory_used_mb": {
@@ -291,6 +292,11 @@
                   "integer",
                   "null"
                 ],
+                "format": "int64",
+                "minimum": 0
+              },
+              "audit_log_egress_bytes": {
+                "type": "integer",
                 "format": "int64",
                 "minimum": 0
               },

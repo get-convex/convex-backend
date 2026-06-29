@@ -301,6 +301,7 @@ impl FunctionExecution {
                     network_egress_bytes: self.usage_stats.network_egress_bytes,
                     memory_used_mb: self.memory_used_mb,
                     return_bytes: self.return_bytes,
+                    audit_log_egress_bytes: self.usage_stats.audit_log_egress_bytes,
                 },
             },
         }];

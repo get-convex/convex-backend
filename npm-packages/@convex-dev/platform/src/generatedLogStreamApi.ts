@@ -66,6 +66,8 @@ export interface components {
                 /** Format: int64 */
                 action_memory_used_mb?: number | null;
                 /** Format: int64 */
+                audit_log_egress_bytes: number;
+                /** Format: int64 */
                 database_io_read_bytes: number;
                 /** Format: int64 */
                 database_io_write_bytes: number;

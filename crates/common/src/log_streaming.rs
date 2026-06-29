@@ -78,6 +78,7 @@ pub struct AggregatedFunctionUsageStats {
     pub network_egress_bytes: u64,
     pub memory_used_mb: u64,
     pub return_bytes: Option<u64>,
+    pub audit_log_egress_bytes: u64,
 }
 
 pub use errors::OccInfo;
@@ -594,6 +595,7 @@ impl LogEvent {
                         network_egress_bytes: u64,
                         memory_used_mb: u64,
                         action_memory_used_mb: Option<u64>,
+                        audit_log_egress_bytes: u64,
                     }
                     let action_memory_used_mb = if source.udf_type == UdfType::Action
                         || source.udf_type == UdfType::HttpAction
@@ -632,6 +634,7 @@ impl LogEvent {
                             network_egress_bytes: usage_stats.network_egress_bytes,
                             memory_used_mb: usage_stats.memory_used_mb,
                             action_memory_used_mb,
+                            audit_log_egress_bytes: usage_stats.audit_log_egress_bytes,
                         }
                     })
                 },

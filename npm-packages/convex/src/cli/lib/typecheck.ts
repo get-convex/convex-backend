@@ -139,18 +139,34 @@ async function runTsc(
   tscArgs: string[],
   handleResult: TypecheckResultHandler,
 ): Promise<void> {
-  // Check if tsc is even installed
-  const tscPath =
-    typescriptCompiler === "tsgo"
-      ? path.join(
+  // Check if the TypeScript compiler is even installed
+  let compilerPath: string | undefined;
+  switch (typescriptCompiler) {
+    case "tsgo": {
+      // @typescript/native-preview@7.0.0-dev.20260626.1 switched to using `bin/tsgo` instead of `bin/tsgo.js`.
+      const tsgoPaths = ["tsgo", "tsgo.js"].map((filename) =>
+        path.join(
           "node_modules",
           "@typescript",
           "native-preview",
           "bin",
-          "tsgo.js",
-        )
-      : path.join("node_modules", "typescript", "bin", "tsc");
-  if (!ctx.fs.exists(tscPath)) {
+          filename,
+        ),
+      );
+      compilerPath = tsgoPaths.find((path) => ctx.fs.exists(path));
+      break;
+    }
+    case "tsc": {
+      const tscPath = path.join("node_modules", "typescript", "bin", "tsc");
+      if (ctx.fs.exists(tscPath)) {
+        compilerPath = tscPath;
+      }
+      break;
+    }
+    default:
+      typescriptCompiler satisfies never;
+  }
+  if (!compilerPath) {
     return handleResult("cantTypeCheck", () => {
       logError(
         chalkStderr.gray(
@@ -162,14 +178,14 @@ async function runTsc(
 
   // Check the TypeScript version matches the recommendation from Convex
   const versionResult = await spawnAsync(ctx, process.execPath, [
-    tscPath,
+    compilerPath,
     "--version",
   ]);
 
   const version = versionResult.stdout.match(/Version (.*)/)?.[1] ?? null;
   const hasOlderTypeScriptVersion = version && semver.lt(version, "4.8.4");
 
-  await runTscInner(ctx, tscPath, tscArgs, handleResult);
+  await runTscInner(ctx, compilerPath, tscArgs, handleResult);
 
   // Print this warning after any logs from running `tsc`
   if (hasOlderTypeScriptVersion) {
