@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.42.1
+
+- Fixed an issue where the CLI would be unable to find the `tsgo` binary in
+  newer versions of `@typescript/native-preview`.
+- Added a new `initialAuthTokenReuse` option to `ConvexReactClient` that
+  prevents extra function calls when users re-authenticate.
+
 ## 1.42.0
 
 - Added a new `npx convex project create` command that can be used

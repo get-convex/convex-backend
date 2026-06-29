@@ -39,6 +39,8 @@ use common::{
     runtime::UnixTimestamp,
     types::{
         FunctionCaller,
+        SessionId,
+        SessionRequestSeqNumber,
         UdfIdentifier,
     },
     RequestContext,
@@ -49,6 +51,7 @@ use fastrace::future::FutureExt;
 use http::HeaderMap;
 use isolate::UdfArgsJson;
 use keybroker::Identity;
+use model::session_requests::types::SessionRequestIdentifier;
 use serde::{
     Deserialize,
     Serialize,
@@ -90,6 +93,29 @@ pub struct NodeCallbackUdfPostRequest {
     pub args: UdfArgsJson,
 
     pub format: Option<String>,
+
+    /// Identifier used to make a mutation called from an action idempotent
+    /// across client-side retries. Only sent for mutation callbacks.
+    pub mutation_identifier: Option<MutationIdentifierJson>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MutationIdentifierJson {
+    pub session_id: String,
+    pub request_id: SessionRequestSeqNumber,
+}
+
+impl TryFrom<MutationIdentifierJson> for SessionRequestIdentifier {
+    type Error = anyhow::Error;
+
+    fn try_from(value: MutationIdentifierJson) -> Result<Self, Self::Error> {
+        let session_id: SessionId = value.session_id.parse()?;
+        Ok(SessionRequestIdentifier {
+            session_id,
+            request_id: value.request_id,
+        })
+    }
 }
 
 /// This is like `public_query_post`, except it allows calling internal
@@ -161,6 +187,10 @@ pub async fn internal_mutation_post(
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<NodeCallbackUdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let mutation_identifier = req
+        .mutation_identifier
+        .map(SessionRequestIdentifier::try_from)
+        .transpose()?;
     let path = st
         .application
         .canonicalized_function_path(
@@ -178,7 +208,7 @@ pub async fn internal_mutation_post(
             PublicFunctionPath::Component(path),
             req.args.into_serialized_args()?,
             identity,
-            None,
+            mutation_identifier,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
                 parent_execution_id: Some(context.execution_id),

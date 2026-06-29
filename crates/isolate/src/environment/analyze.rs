@@ -1063,7 +1063,7 @@ fn cron_analyze<RT: Runtime>(
     let mut cron_specs = BTreeMap::new();
 
     for (k, v) in export_json {
-        let (identifier, cronspec) = match (k.parse(), CronSpec::try_from(v)) {
+        let (identifier, cronspec) = match (k.parse(), CronSpec::from_exported_json(v)) {
             (Ok(k), Ok(v)) => (k, v),
             (Err(e), _) | (_, Err(e)) => {
                 let msg = e.to_string();
