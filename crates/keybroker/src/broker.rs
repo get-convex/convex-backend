@@ -492,6 +492,9 @@ impl UserIdentity {
         let mut custom_claims = BTreeMap::new();
         if let serde_json::Value::Object(ref properties) = payload.private {
             custom_claims = extract_custom_jwt_claims(properties);
+            // `fva` (factor verification age) grows over time, so it changes
+            // across token refreshes and would bust the query cache.
+            custom_claims.remove("fva");
         }
         Ok(UserIdentity {
             subject: subject.clone(),
@@ -522,9 +525,11 @@ impl UserIdentity {
         let issuer = claims.issuer().to_string();
         let mut custom_claims = BTreeMap::new();
         for claim in &claims.additional_claims().0 {
-            // Filter out standard claims and claims set by auth providers
             match claim.0.as_str() {
-                // Standard claims that we support: see https://docs.convex.dev/api/interfaces/server.UserIdentity
+                // Standard OIDC claims. These are surfaced as typed fields on
+                // the identity below (see the struct literal / `get_string!`
+                // calls and https://docs.convex.dev/api/interfaces/server.UserIdentity),
+                // so we don't also duplicate them into `custom_claims`.
                 "sub"
                 | "iss"
                 | "exp"
@@ -545,9 +550,15 @@ impl UserIdentity {
                 | "phone_number"
                 | "phone_number_verified"
                 | "address"
-                | "updated_at"
-                // Clerk claims: see https://clerk.com/docs/backend-requests/resources/session-tokens
-                | "jti" | "nbf" => {
+                | "updated_at" => {
+                    continue;
+                },
+                // Claims we deliberately drop because they vary across token
+                // refreshes and would bust the query cache. `jti`/`nbf` are JWT
+                // housekeeping; `fva` (Clerk factor verification age) grows over
+                // time. See
+                // https://clerk.com/docs/backend-requests/resources/session-tokens
+                "jti" | "nbf" | "fva" => {
                     continue;
                 },
                 _ => {
