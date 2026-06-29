@@ -264,10 +264,8 @@ mod codegen_cron_spec {
     codegen_convex_serialization!(CronSpec, SerializedCronSpec);
 }
 
-impl TryFrom<JsonValue> for CronSpec {
-    type Error = anyhow::Error;
-
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
+impl CronSpec {
+    pub fn from_exported_json(value: JsonValue) -> anyhow::Result<Self> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         enum DayOfWeek {
@@ -458,7 +456,11 @@ impl TryFrom<JsonValue> for CronSpec {
                 }
             },
             ScheduleJson::Cron { cron } => {
-                cron.parse::<saffron::Cron>()?;
+                let parsed = cron.parse::<saffron::Cron>()?;
+                anyhow::ensure!(
+                    parsed.any(),
+                    "The cron spec {cron:?} will never match any time"
+                );
                 CronSchedule::Cron { cron_expr: cron }
             },
         };
