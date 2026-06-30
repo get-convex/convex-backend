@@ -225,6 +225,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             .collect()
     }
 
+    #[fastrace::trace]
     pub async fn get_file_stream(
         &self,
         component_path: ComponentPath,
@@ -376,6 +377,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     /// in the _file_storage system table and it does not count towards
     /// usage. The caller is responsible to call `store_file_entry` to
     /// actually persist the entry and manually account for usage.
+    #[fastrace::trace]
     pub async fn upload_file(
         &self,
         content_length: Option<ContentLength>,

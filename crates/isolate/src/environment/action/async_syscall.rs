@@ -54,7 +54,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         self.component_id
     }
 
-    #[fastrace::trace]
+    #[fastrace::trace(properties = {"name": "{{name}}"})]
     pub async fn run_async_syscall(&self, name: String, args: JsonValue) -> anyhow::Result<String> {
         let start = self.rt.monotonic_now();
         let timer = async_syscall_timer(&name);
