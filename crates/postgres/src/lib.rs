@@ -1,6 +1,5 @@
 #![feature(coroutines)]
 #![feature(proc_macro_hygiene)]
-#![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 mod connection;
 mod metrics;

@@ -1,4 +1,3 @@
-#![feature(try_blocks)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(impl_trait_in_fn_trait_return)]
 

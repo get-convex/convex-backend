@@ -1,4 +1,3 @@
-#![feature(bound_as_ref)]
 #![feature(coroutines)]
 #![feature(once_cell_try)]
 #![feature(proc_macro_hygiene)]
@@ -6,7 +5,6 @@
 #![feature(iter_from_coroutine)]
 #![feature(try_blocks)]
 #![feature(try_blocks_heterogeneous)]
-#![feature(anonymous_lifetime_in_impl_trait)]
 
 pub mod atomic_cache;
 pub mod database_index_snapshot;

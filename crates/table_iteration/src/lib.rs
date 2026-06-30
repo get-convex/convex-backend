@@ -1,6 +1,4 @@
 #![feature(coroutines)]
-#![feature(try_blocks)]
-#![feature(try_blocks_heterogeneous)]
 
 mod table_iterator;
 

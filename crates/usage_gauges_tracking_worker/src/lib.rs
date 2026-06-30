@@ -1,5 +1,3 @@
-#![feature(iterator_try_collect)]
-
 use std::{
     collections::BTreeMap,
     ops::Deref,

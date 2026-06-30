@@ -1003,13 +1003,9 @@ impl<RT: Runtime> Database<RT> {
             "race while loading DatabaseSnapshot: max ts {snapshot_ts} at start, {max_ts} at end",
         );
         let DatabaseSnapshot {
-            runtime: _,
             bootstrap_metadata,
-            persistence_snapshot: _,
             ts,
             snapshot,
-            persistence_reader: _,
-            retention_validator: _,
             ..
         } = db_snapshot;
 

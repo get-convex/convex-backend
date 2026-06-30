@@ -1,7 +1,6 @@
 //! Tools for dynamically loading a configuration file from disk upon receiving
 //! a signal
 
-#![feature(try_blocks)]
 #![feature(trait_alias)]
 
 use std::{

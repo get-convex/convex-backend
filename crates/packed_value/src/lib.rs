@@ -1,7 +1,4 @@
-#![feature(type_alias_impl_trait)]
-#![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(try_blocks)]
 use std::{
     collections::BTreeMap,
     ops::Deref,
