@@ -12,6 +12,7 @@ export const flagDefaults: {
   scopedDeployKeys: boolean;
   customRoles: boolean;
   logStreamTopicFilters: boolean;
+  nonDefaultTeamDevsInMainMenu: number;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -23,6 +24,7 @@ export const flagDefaults: {
   scopedDeployKeys: false,
   customRoles: false,
   logStreamTopicFilters: false,
+  nonDefaultTeamDevsInMainMenu: 10,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(
