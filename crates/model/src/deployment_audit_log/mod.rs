@@ -28,9 +28,6 @@ use database::{
     Transaction,
 };
 use value::{
-    val,
-    ConvexObject,
-    FieldName,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -110,43 +107,19 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
             .map(|id| i64::try_from(id.0))
             .transpose()?;
         let app_client_id = self.tx.identity().app_client_id();
+        let client_ip = request_metadata.ip.as_ref().map(|ip| ip.as_str());
+        let client_user_agent = request_metadata
+            .user_agent
+            .as_ref()
+            .map(|user_agent| user_agent.as_str());
         let mut deployment_audit_log_ids = vec![];
         for event in events {
-            let mut event_object: ConvexObject = event.try_into()?;
-            event_object = event_object.insert(
-                const { FieldName::const_new("member_id") },
-                match member_id_value {
-                    Some(member_id) => val!(member_id),
-                    None => val!(null),
-                },
-            )?;
-            event_object = event_object.insert(
-                const { FieldName::const_new("token_id") },
-                match token_id {
-                    Some(token_id) => val!(token_id),
-                    None => val!(null),
-                },
-            )?;
-            event_object = event_object.insert(
-                const { FieldName::const_new("app_client_id") },
-                match &app_client_id {
-                    Some(app_client_id) => val!(app_client_id.as_str()),
-                    None => val!(null),
-                },
-            )?;
-            event_object = event_object.insert(
-                const { FieldName::const_new("client_ip") },
-                match &request_metadata.ip {
-                    Some(ip) => val!(ip.as_str()),
-                    None => val!(null),
-                },
-            )?;
-            event_object = event_object.insert(
-                const { FieldName::const_new("client_user_agent") },
-                match &request_metadata.user_agent {
-                    Some(user_agent) => val!(user_agent.as_str()),
-                    None => val!(null),
-                },
+            let event_object = event.into_audit_log_object(
+                member_id_value,
+                token_id,
+                app_client_id.as_deref(),
+                client_ip,
+                client_user_agent,
             )?;
             let id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&DEPLOYMENT_AUDIT_LOG_TABLE, event_object)

@@ -33,7 +33,6 @@ use value::{
     codegen_convex_serialization,
     obj,
     remove_int64,
-    remove_nullable_int64,
     remove_nullable_string,
     remove_object,
     remove_string,
@@ -608,6 +607,27 @@ impl DeploymentAuditLogEvent {
         }
     }
 
+    pub fn into_audit_log_object(
+        self,
+        member_id: Option<i64>,
+        token_id: Option<i64>,
+        app_client_id: Option<&str>,
+        client_ip: Option<&str>,
+        client_user_agent: Option<&str>,
+    ) -> anyhow::Result<ConvexObject> {
+        let action = self.action().to_string();
+        let metadata = self.metadata()?;
+        value::serde::to_object(SerializedDeploymentAuditLogEntry {
+            action,
+            metadata,
+            member_id,
+            token_id,
+            app_client_id: app_client_id.map(str::to_string),
+            client_ip: client_ip.map(str::to_string),
+            client_user_agent: client_user_agent.map(str::to_string),
+        })
+    }
+
     pub fn to_log_event(
         event: DeploymentAuditLogEvent,
         timestamp: UnixTimestamp,
@@ -647,6 +667,17 @@ pub enum DeploymentAuditLogActor {
     System,
 }
 
+#[derive(Serialize, Deserialize)]
+struct SerializedDeploymentAuditLogEntry {
+    action: String,
+    metadata: ConvexObject,
+    member_id: Option<i64>,
+    token_id: Option<i64>,
+    app_client_id: Option<String>,
+    client_ip: Option<String>,
+    client_user_agent: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct DeploymentAuditLogEntry {
     pub client_ip: Option<String>,
@@ -656,31 +687,28 @@ pub struct DeploymentAuditLogEntry {
     pub action: DeploymentAuditLogEvent,
 }
 
-impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
-    type Error = anyhow::Error;
+impl DeploymentAuditLogEntry {
+    pub fn from_audit_log_object(object: ConvexObject, create_time: i64) -> anyhow::Result<Self> {
+        let SerializedDeploymentAuditLogEntry {
+            action,
+            metadata,
+            member_id,
+            token_id,
+            app_client_id,
+            client_ip,
+            client_user_agent,
+        } = value::serde::from_object(object)?;
 
-    fn try_from(document: ResolvedDocument) -> anyhow::Result<Self> {
-        let create_time = f64::from(document.creation_time()) as i64;
-        let object: ConvexObject = document.into_value().into_value();
-
-        let mut fields = BTreeMap::from(object.clone());
-        let member_id = match fields.remove("member_id") {
-            Some(ConvexValue::Int64(id)) => Some(MemberId(u64::try_from(id)?)),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("expected int or null for member_id, got {v:?}"),
-        };
-        let token_id = remove_nullable_int64(&mut fields, "token_id")?;
-        let client_id = remove_nullable_string(&mut fields, "app_client_id")?;
-        let client_ip = remove_nullable_string(&mut fields, "client_ip")?;
-        let client_user_agent = remove_nullable_string(&mut fields, "client_user_agent")?;
-
+        let member_id = member_id
+            .map(|id| anyhow::Ok(MemberId(u64::try_from(id)?)))
+            .transpose()?;
         let actor = match token_id {
             Some(token_id) => DeploymentAuditLogActor::Token {
                 member_id,
                 token_id: u64::try_from(token_id)
                     .map(AccessTokenId)
                     .unwrap_or_else(|_| AccessTokenId::unknown()),
-                client_id,
+                client_id: app_client_id,
             },
             None => match member_id {
                 Some(member_id) => DeploymentAuditLogActor::Member { member_id },
@@ -688,7 +716,10 @@ impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
             },
         };
 
-        let action = DeploymentAuditLogEvent::try_from(object)?;
+        let action = DeploymentAuditLogEvent::try_from(obj!(
+            "action" => action,
+            "metadata" => metadata,
+        )?)?;
         Ok(Self {
             client_ip,
             client_user_agent,
@@ -696,6 +727,16 @@ impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
             actor,
             action,
         })
+    }
+}
+
+impl TryFrom<ResolvedDocument> for DeploymentAuditLogEntry {
+    type Error = anyhow::Error;
+
+    fn try_from(document: ResolvedDocument) -> anyhow::Result<Self> {
+        let create_time = f64::from(document.creation_time()) as i64;
+        let object: ConvexObject = document.into_value().into_value();
+        Self::from_audit_log_object(object, create_time)
     }
 }
 
