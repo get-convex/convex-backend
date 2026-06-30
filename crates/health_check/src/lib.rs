@@ -26,67 +26,13 @@ pub async fn wait_for_http_health(
     num_retries: usize,
     initial_backoff: Duration,
 ) -> anyhow::Result<String> {
-    wait_for_http_health_inner(
-        service_url,
-        None,
-        expected_version,
-        expected_deployment_name,
-        "instance_version",
-        num_retries,
-        initial_backoff,
-    )
-    .await
-}
-
-pub async fn wait_for_conductor_http_health(
-    service_name: &str,
-    service_url: &Url,
-    expected_version: Option<&str>,
-    num_retries: usize,
-    initial_backoff: Duration,
-) -> anyhow::Result<String> {
-    let version = wait_for_http_health_inner(
-        service_url,
-        Some(service_name),
-        expected_version,
-        None,
-        "version",
-        num_retries,
-        initial_backoff,
-    )
-    .await?;
-
-    // Provide a better error message than parse if we hit a common default version.
-    if version == "unknown" {
-        anyhow::bail!(
-            "Health check on {service_name} on url {service_url} failed with invalid version: \
-             {version}"
-        )
-    }
-
-    Ok(version)
-}
-
-async fn wait_for_http_health_inner(
-    service_url: &Url,
-    service_name: Option<&str>,
-    expected_version: Option<&str>,
-    expected_deployment_name: Option<&str>,
-    health_check_endpoint: &str,
-    num_retries: usize,
-    initial_backoff: Duration,
-) -> anyhow::Result<String> {
     let start = Instant::now();
-    let service_name = service_name
-        .map(|n| format!(" ({n}) "))
-        .unwrap_or_else(|| "".into());
-
-    tracing::info!("Waiting for health to {service_url}{service_name}");
+    tracing::info!("Waiting for health to {service_url}");
     match health_check_with_retries(
         service_url,
         expected_version,
         expected_deployment_name,
-        health_check_endpoint,
+        "instance_version",
         num_retries,
         initial_backoff,
     )
@@ -100,7 +46,7 @@ async fn wait_for_http_health_inner(
             Ok(version)
         },
         None => anyhow::bail!(
-            "Timed out waiting for service health: {service_url}{service_name} after {:?}",
+            "Timed out waiting for service health: {service_url} after {:?}",
             start.elapsed()
         ),
     }
