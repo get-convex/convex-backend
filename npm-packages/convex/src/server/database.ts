@@ -140,8 +140,9 @@ export interface BaseTableReader<
  * @see https://docs.convex.dev/database/reading-data
  * @public
  */
-export interface GenericDatabaseReader<DataModel extends GenericDataModel>
-  extends BaseDatabaseReader<DataModel> {
+export interface GenericDatabaseReader<
+  DataModel extends GenericDataModel,
+> extends BaseDatabaseReader<DataModel> {
   /**
    * An interface to read from the system tables within Convex query functions.
    *
@@ -216,8 +217,9 @@ export interface GenericDatabaseReaderWithTable<
  * @see https://docs.convex.dev/database/writing-data
  * @public
  */
-export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
-  extends GenericDatabaseReader<DataModel> {
+export interface GenericDatabaseWriter<
+  DataModel extends GenericDataModel,
+> extends GenericDatabaseReader<DataModel> {
   /**
    * Insert a new document into a table.
    *

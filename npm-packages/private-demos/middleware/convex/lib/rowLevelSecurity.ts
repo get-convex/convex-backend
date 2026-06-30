@@ -221,9 +221,9 @@ class WrapQuery<T extends GenericTableInfo> implements Query<T> {
   }
 }
 
-class WrapQueryInitializer<T extends GenericTableInfo>
-  implements QueryInitializer<T>
-{
+class WrapQueryInitializer<
+  T extends GenericTableInfo,
+> implements QueryInitializer<T> {
   q: QueryInitializer<T>;
   p: AuthPredicate<T>;
   constructor(q: QueryInitializer<T>, p: AuthPredicate<T>) {
@@ -290,9 +290,10 @@ class WrapQueryInitializer<T extends GenericTableInfo>
   }
 }
 
-class WrapReader<Ctx, DataModel extends GenericDataModel>
-  implements Omit<GenericDatabaseReader<DataModel>, "system">
-{
+class WrapReader<Ctx, DataModel extends GenericDataModel> implements Omit<
+  GenericDatabaseReader<DataModel>,
+  "system"
+> {
   ctx: Ctx;
   db: GenericDatabaseReader<DataModel>;
   rules: Rules<Ctx, DataModel>;
@@ -357,9 +358,10 @@ class WrapReader<Ctx, DataModel extends GenericDataModel>
   }
 }
 
-class WrapWriter<Ctx, DataModel extends GenericDataModel>
-  implements Omit<GenericDatabaseWriter<DataModel>, "system">
-{
+class WrapWriter<Ctx, DataModel extends GenericDataModel> implements Omit<
+  GenericDatabaseWriter<DataModel>,
+  "system"
+> {
   ctx: Ctx;
   db: GenericDatabaseWriter<DataModel>;
   reader: Omit<GenericDatabaseReader<DataModel>, "system">;

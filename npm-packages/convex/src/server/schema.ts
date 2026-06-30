@@ -899,7 +899,8 @@ const _systemSchema = defineSchema({
   }),
 });
 
-export interface SystemDataModel
-  extends DataModelFromSchemaDefinition<typeof _systemSchema> {}
+export interface SystemDataModel extends DataModelFromSchemaDefinition<
+  typeof _systemSchema
+> {}
 
 export type SystemTableNames = TableNamesInDataModel<SystemDataModel>;
