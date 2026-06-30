@@ -192,7 +192,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             creation_time,
             value,
         )?;
-        document.check_user_size()?;
         let document_id = self.tx.insert_document(document).await?;
 
         Ok(document_id.into())
@@ -218,11 +217,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
         let new_document = self.tx.patch_inner(id_, value).await?;
 
-        // Check the size of the patched document.
-        if !self.tx.is_system(self.namespace, id.table()) {
-            new_document.check_user_size()?;
-        }
-
         let developer_document = new_document.to_developer();
         Ok(developer_document)
     }
@@ -244,9 +238,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
-        if !self.tx.is_system(self.namespace, id.table()) {
-            new_document.check_user_size()?;
-        }
+
         let developer_document = new_document.to_developer();
         Ok(developer_document)
     }

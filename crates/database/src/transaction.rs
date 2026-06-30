@@ -1105,6 +1105,9 @@ impl<RT: Runtime> Transaction<RT> {
         // metadata and then let inserting into writes the commit
         // point so that the Transaction is never in an inconsistent state.
         let is_system_document = self.table_mapping().is_system_tablet(id.tablet_id);
+        if !is_system_document && let Some(new_document) = &new_document {
+            new_document.check_user_size()?;
+        }
         let bootstrap_tables = self.bootstrap_tables();
         let old_document = old_document_and_ts.as_ref().map(|(doc, _)| doc);
         let index_update = self
