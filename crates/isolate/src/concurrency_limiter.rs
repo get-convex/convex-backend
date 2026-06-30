@@ -137,7 +137,7 @@ impl ActivePermitsTracker {
     fn reset_start_time(&mut self) -> Vec<(Arc<String>, Instant)> {
         let now = Instant::now();
         let result = self.active_permits.values().cloned().collect();
-        for (_, (_, start)) in self.active_permits.iter_mut() {
+        for (_, start) in self.active_permits.values_mut() {
             *start = now;
         }
         result

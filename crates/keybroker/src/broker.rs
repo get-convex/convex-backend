@@ -1093,11 +1093,10 @@ impl KeyBroker {
         persistence_version: PersistenceVersion,
     ) -> SerializedQueryJournal {
         let query_journal_version = persistence_version.index_key_version(QUERY_JOURNAL_VERSION);
-        let cursor = match &journal.end_cursor {
-            Some(cursor) => Some(cursor_to_proto(&self.deployment_name, cursor)),
-            None => return None,
+        let cursor = journal.end_cursor.as_ref()?;
+        let proto = InstanceQueryJournalProto {
+            end_cursor: Some(cursor_to_proto(&self.deployment_name, cursor)),
         };
-        let proto = InstanceQueryJournalProto { end_cursor: cursor };
         Some(
             self.journal_encryptor
                 .encrypt_proto(query_journal_version, &proto),

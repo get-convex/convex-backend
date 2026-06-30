@@ -34,6 +34,7 @@ proptest-derive = { version = "0.5.0" }
 
 [lints.rust]
 unused_extern_crates = "warn"
+unused_features = "allow"
 
 [lints.clippy]
 await_holding_lock = "warn"
@@ -51,3 +52,5 @@ type_complexity = "allow"
 upper_case_acronyms = "allow"
 useless_format = "allow"
 useless_vec = "allow"
+collapsible_match = "allow"
+chunks_exact_to_as_chunks = "allow"

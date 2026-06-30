@@ -1,4 +1,3 @@
-#![feature(try_blocks)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(coroutines)]
 

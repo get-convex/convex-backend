@@ -308,8 +308,8 @@ impl IndexesToBootstrap {
         let tables_with_indexes = self.tables_with_indexes();
         let text_index_manager = TextIndexManager::new(TextIndexManagerState::Ready(
             self.table_to_text_indexes
-                .into_iter()
-                .flat_map(|(_id, text_indexes)| {
+                .into_values()
+                .flat_map(|text_indexes| {
                     text_indexes
                         .into_iter()
                         .map(
@@ -325,8 +325,8 @@ impl IndexesToBootstrap {
         ));
         let indexes = IndexState::Ready(
             self.table_to_vector_indexes
-                .into_iter()
-                .flat_map(|(_id, vector_indexes)| {
+                .into_values()
+                .flat_map(|vector_indexes| {
                     vector_indexes
                         .into_iter()
                         .map(

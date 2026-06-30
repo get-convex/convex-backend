@@ -226,7 +226,7 @@ async fn messages_to_confirm_replace<RT: Runtime>(
         if !component_path.is_root() {
             message_lines.push(format!("Component {}", String::from(component_path)));
         }
-        message_lines.extend(render_table_changes(table_changes.collect()).into_iter());
+        message_lines.extend(render_table_changes(table_changes.collect()));
     }
     Ok((message_lines, require_manual_confirmation, new_checkpoints))
 }

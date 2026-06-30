@@ -1,4 +1,3 @@
-#![feature(impl_trait_in_assoc_type)]
 #![feature(coroutines)]
 #![feature(iterator_try_collect)]
 #![feature(try_blocks)]

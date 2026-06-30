@@ -470,7 +470,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                 .transpose()?;
             new_and_modified_segments = updated_segments
                 .into_iter()
-                .chain(new_segment.into_iter())
+                .chain(new_segment)
                 .collect_vec();
         }
         let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
@@ -575,7 +575,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                 .transpose()?;
             new_and_modified_segments = updated_segments
                 .into_iter()
-                .chain(new_segment.into_iter())
+                .chain(new_segment)
                 .collect_vec();
             tx = self.database.begin(Identity::system()).await?;
         }

@@ -283,6 +283,7 @@ shuttle-parking_lot = { git = "https://github.com/awslabs/shuttle" }
 
 [workspace.lints.rust]
 unused_extern_crates = "warn"
+unused_features = "allow"
 
 [workspace.lints.clippy]
 await_holding_lock = "warn"
@@ -300,6 +301,8 @@ type_complexity = "allow"
 upper_case_acronyms = "allow"
 useless_format = "allow"
 useless_vec = "allow"
+collapsible_match = "allow"
+chunks_exact_to_as_chunks = "allow"
 
 [profile.dev.package.proptest]
 opt-level = 3
