@@ -1342,10 +1342,15 @@ h2.zen-header {
   margin: 0 auto;
 }
 
-/* Fix pages should not be too wide, except for all the quick starts and management API docs */
-html:not([class*="docs-doc-id-quickstart/"]):not(
-    [class*="docs-doc-id-management-api/"]
-  ):not([class*="docs-doc-id-deployment-api/"])
+/* Fix pages should not be too wide, except for all the quick starts (other than
+   the quickstarts overview landing page) and management API docs */
+html:not(
+    [class*="docs-doc-id-quickstart/"]:not(
+      [class*="docs-doc-id-quickstart/overview"]
+    )
+  ):not([class*="docs-doc-id-management-api/"]):not(
+    [class*="docs-doc-id-deployment-api/"]
+  )
   main
   > .container
   > .row
@@ -1355,9 +1360,13 @@ html:not([class*="docs-doc-id-quickstart/"]):not(
 }
 
 @media (min-width: 997px) {
-  html:not([class*="docs-doc-id-quickstart/"]):not(
-      [class*="docs-doc-id-management-api/"]
-    ):not([class*="docs-doc-id-deployment-api/"])
+  html:not(
+      [class*="docs-doc-id-quickstart/"]:not(
+        [class*="docs-doc-id-quickstart/overview"]
+      )
+    ):not([class*="docs-doc-id-management-api/"]):not(
+      [class*="docs-doc-id-deployment-api/"]
+    )
     main
     > .container
     > .row
