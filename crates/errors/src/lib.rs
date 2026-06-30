@@ -379,15 +379,6 @@ impl ErrorMetadata {
         }
     }
 
-    pub fn service_unavailable() -> Self {
-        Self {
-            code: ErrorCode::Overloaded,
-            short_msg: "ServiceUnavailable".into(),
-            msg: "Service temporarily unavailable".into(),
-            source: None,
-        }
-    }
-
     /// Responds with HTTP 425 Too Early.
     /// Not intended to be user-facing, but is used to indicate to the
     /// consistency checker that it should skip this unloaded instance rather

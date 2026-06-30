@@ -469,7 +469,9 @@ export function IndexOption({
         <div>
           {value.type !== "default" && inButton && (
             <>
-              <span>{value.type === "search" ? "Search index" : "Index"}:</span>{" "}
+              <span>
+                {value.type === "search" ? "Search index" : "Index"}:
+              </span>{" "}
             </>
           )}
           <span className={cn(value.type !== "default" && "font-mono")}>

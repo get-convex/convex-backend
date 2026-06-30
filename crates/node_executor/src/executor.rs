@@ -336,9 +336,7 @@ impl<RT: Runtime> Actions<RT> {
         let response: BuildDepsResponse =
             serde_json::from_value(response.clone()).map_err(|e| {
                 anyhow::anyhow!(
-                    "Failed to deserialize build_deps response: {}. Response: {}",
-                    e.to_string(),
-                    response,
+                    "Failed to deserialize build_deps response: {e}. Response: {response}",
                 )
             })?;
 
@@ -424,11 +422,7 @@ impl<RT: Runtime> Actions<RT> {
             log_lines,
         ) = self.invoke_analyze(request).await?;
         let response: AnalyzeResponse = serde_json::from_value(response.clone()).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to deserialize analyze response: {}. Response: {}",
-                e.to_string(),
-                response
-            )
+            anyhow::anyhow!("Failed to deserialize analyze response: {e}. Response: {response}")
         })?;
         tracing::info!(
             "Analyze took {:?}. aws_request_id={:?}",

@@ -763,8 +763,8 @@ export type MutationBuilder<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     mutation:
       | {
@@ -856,8 +856,8 @@ export type MutationBuilderWithTable<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     mutation:
       | {
@@ -949,8 +949,8 @@ export type QueryBuilder<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     query:
       | {
@@ -1038,8 +1038,8 @@ export type QueryBuilderWithTable<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     query:
       | {
@@ -1127,8 +1127,8 @@ export type ActionBuilder<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     func:
       | {

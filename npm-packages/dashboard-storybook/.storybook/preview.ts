@@ -45,9 +45,7 @@ sb.mock(import("dashboard-common/src/elements/LocalDevCallout.tsx"), {
   spy: true,
 });
 sb.mock(
-  import(
-    "dashboard-common/src/features/disconnectOverlay/CloudDisconnectOverlay.tsx"
-  ),
+  import("dashboard-common/src/features/disconnectOverlay/CloudDisconnectOverlay.tsx"),
   {
     spy: true,
   },
