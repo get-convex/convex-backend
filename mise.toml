@@ -60,5 +60,7 @@ lockfile = true
 "brew:pkgconf" = "latest"
 "brew:openssl@3" = "latest"
 "brew:libsodium" = "latest"
-"brew:rocksdb" = "latest"
 "brew:snappy" = "latest"
+# rocksdb (+ gflags) can't live here: they need pinning to match the librocksdb-sys
+# bindings, which brew can't do for core formulae. setup_env.py installs them from
+# the get-convex/tap tap instead.
