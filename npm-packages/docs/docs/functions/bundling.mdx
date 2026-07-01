@@ -38,6 +38,11 @@ Thanks to bundling you can write your code using both modern ECMAScript Modules
 
 </Details>
 
+The bundler can also compile `.wasm` files that you `import` directly, exposing
+them as `WebAssembly.Module` default exports. See
+[Running WebAssembly](/functions/runtimes.mdx#running-webassembly) in the
+runtimes docs for how to run WebAssembly in the default Convex runtime.
+
 ## Bundling limitations
 
 The nature of bundling comes with a few limitations.
