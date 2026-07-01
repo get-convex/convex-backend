@@ -90,6 +90,14 @@ use crate::{
 pub const PERFORM_BACKFILL_LABEL: &str = "perform_backfill";
 pub const UPDATE_BACKFILL_PROGRESS_LABEL: &str = "update_backfill_progress";
 
+pub enum IndexRateLimit {
+    /// Apply the default quota (`INDEX_BACKFILL_CHUNK_RATE *
+    /// INDEX_BACKFILL_CHUNK_SIZE`).
+    Default,
+    /// No rate limit — use for migrations where maximum throughput is needed.
+    Unlimited,
+}
+
 #[derive(Clone)]
 pub enum IndexSelector {
     All(IndexRegistry),
@@ -174,7 +182,8 @@ pub struct IndexWriter<RT: Runtime> {
     // Reader must have by_id index fully populated.
     reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
-    rate_limiter: Arc<RateLimiter<RT>>,
+    // None means unlimited — skip rate limiting entirely.
+    rate_limiter: Option<Arc<RateLimiter<RT>>>,
     runtime: RT,
     progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
     mode: IndexWriterMode,
@@ -200,22 +209,29 @@ impl<RT: Runtime> IndexWriter<RT> {
         runtime: RT,
         progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
         mode: IndexWriterMode,
+        rate_limit: IndexRateLimit,
     ) -> Self {
-        let entries_per_second =
-            INDEX_BACKFILL_CHUNK_RATE.saturating_mul(*INDEX_BACKFILL_CHUNK_SIZE);
-        debug_assert!(
-            entries_per_second >= *INDEX_BACKFILL_CHUNK_SIZE,
-            "Entries per second must be at least {}",
-            *INDEX_BACKFILL_CHUNK_SIZE
-        );
+        let rate_limiter = match rate_limit {
+            IndexRateLimit::Unlimited => None,
+            IndexRateLimit::Default => {
+                let entries_per_second =
+                    INDEX_BACKFILL_CHUNK_RATE.saturating_mul(*INDEX_BACKFILL_CHUNK_SIZE);
+                debug_assert!(
+                    entries_per_second >= *INDEX_BACKFILL_CHUNK_SIZE,
+                    "Entries per second must be at least {}",
+                    *INDEX_BACKFILL_CHUNK_SIZE
+                );
+                Some(Arc::new(new_rate_limiter(
+                    runtime.clone(),
+                    Quota::per_second(entries_per_second),
+                )))
+            },
+        };
         Self {
             persistence,
             reader,
             retention_validator,
-            rate_limiter: Arc::new(new_rate_limiter(
-                runtime.clone(),
-                Quota::per_second(entries_per_second),
-            )),
+            rate_limiter,
             runtime,
             progress_tx,
             mode,
@@ -505,7 +521,9 @@ impl<RT: Runtime> IndexWriter<RT> {
                 // backfilling forward through historical documents that have no
                 // present indexes in `index_registry`.
                 if !index_updates.is_empty() || !documents.is_empty() {
-                    if let Some(num_entries_written) = NonZeroU32::new(num_entries_written) {
+                    if let (Some(rate_limiter), Some(num_entries_written)) =
+                        (&rate_limiter, NonZeroU32::new(num_entries_written))
+                    {
                         let throttle_start = self.runtime.monotonic_now();
                         while let Err(not_until) = rate_limiter
                             .check_n(num_entries_written)
