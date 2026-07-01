@@ -184,6 +184,9 @@ pub trait Storage: Send + Sync + Debug {
     /// Return a fully qualified key, including info on bucket name
     /// and suitable for access in multi-tenant scenario
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey;
+    fn s3_object_location(&self, _key: &ObjectKey) -> Option<S3ObjectLocation> {
+        None
+    }
     fn test_only_decompose_fully_qualified_key(
         &self,
         key: FullyQualifiedObjectKey,
@@ -194,6 +197,25 @@ pub trait Storage: Send + Sync + Debug {
 
 pub struct ObjectAttributes {
     pub size: u64,
+}
+
+pub struct S3ObjectLocation {
+    pub bucket: String,
+    pub key: String,
+}
+
+pub struct CompletedUpload {
+    pub object_key: ObjectKey,
+    pub storage_version: Option<String>,
+}
+
+impl CompletedUpload {
+    pub fn new(object_key: ObjectKey, storage_version: Option<String>) -> Self {
+        Self {
+            object_key,
+            storage_version,
+        }
+    }
 }
 
 pub struct SizeAndHash {
@@ -261,7 +283,7 @@ pub trait Upload: Send + Sync {
     async fn abort(self: Box<Self>) -> anyhow::Result<()>;
 
     /// Completes the multipart object.
-    async fn complete(self: Box<Self>) -> anyhow::Result<ObjectKey>;
+    async fn complete(self: Box<Self>) -> anyhow::Result<CompletedUpload>;
 }
 
 /// Helper functions for working with uploads for functions that have generic
@@ -442,7 +464,7 @@ impl Upload for BufferedUpload {
         self.upload.abort().await
     }
 
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<CompletedUpload> {
         let Self {
             buffer: ready,
             mut upload,
@@ -1060,12 +1082,12 @@ impl Upload for LocalDirUpload {
         Ok(())
     }
 
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<CompletedUpload> {
         let object_key = self.object_key;
 
         let file = self.file.take().context("Completing inactive file")?;
         file.sync_all()?;
-        Ok(object_key)
+        Ok(CompletedUpload::new(object_key, None))
     }
 }
 

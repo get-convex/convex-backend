@@ -68,7 +68,9 @@ use storage::{
     BufferedUpload,
     ClientDrivenUploadPartToken,
     ClientDrivenUploadToken,
+    CompletedUpload,
     ObjectAttributes,
+    S3ObjectLocation,
     Storage,
     StorageCacheKey,
     StorageGetStream,
@@ -372,7 +374,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             uploaded_parts,
             next_part_number.try_into()?,
         )?);
-        s3_upload.complete().await
+        Ok(s3_upload.complete().await?.object_key)
     }
 
     async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<String> {
@@ -414,6 +416,13 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
 
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey {
         format!("{}/{}{}", self.bucket, self.key_prefix, &**key).into()
+    }
+
+    fn s3_object_location(&self, key: &ObjectKey) -> Option<S3ObjectLocation> {
+        Some(S3ObjectLocation {
+            bucket: self.bucket.clone(),
+            key: format!("{}{}", self.key_prefix, &**key),
+        })
     }
 
     fn test_only_decompose_fully_qualified_key(
@@ -662,7 +671,7 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
     }
 
     #[fastrace::trace]
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<CompletedUpload> {
         let mut completed_parts = Vec::new();
         for part in &self.uploaded_parts {
             let mut builder = CompletedPart::builder()
@@ -681,7 +690,8 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
         let completed_multipart_upload = CompletedMultipartUpload::builder()
             .set_parts(Some(completed_parts))
             .build();
-        self.client
+        let output = self
+            .client
             .complete_multipart_upload()
             .bucket(self.bucket.clone())
             .key(&self.s3_key.0)
@@ -690,7 +700,10 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
             .send()
             .await?;
         self.needs_abort_on_drop = false;
-        Ok(self.key.clone())
+        Ok(CompletedUpload::new(
+            self.key.clone(),
+            output.version_id().map(str::to_owned),
+        ))
     }
 }
 

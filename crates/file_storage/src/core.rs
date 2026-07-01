@@ -406,7 +406,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         }
 
         // Key in underlying storage is a different UUID from the one we hand out.
-        let storage_key = upload.complete().await?;
+        let storage_key = upload.complete().await?.object_key;
 
         let elapsed = timer.finish();
         tracing::info!(
