@@ -65,7 +65,7 @@ export function TeamSettingsLayout({
             className={classNames(
               "flex sm:flex-col gap-1",
               "min-w-40 sm:w-fit",
-              "min-h-fit",
+              "h-fit sm:h-auto sm:min-h-fit",
               "px-3 py-2",
               "overflow-x-auto scrollbar-none",
               "bg-background-secondary",

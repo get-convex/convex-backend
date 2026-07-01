@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { Checkbox } from "@ui/Checkbox";
 import { HelpTooltip } from "@ui/HelpTooltip";
+import { Link } from "@ui/Link";
 import type { LogTopic } from "@convex-dev/platform/deploymentApi";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
@@ -14,6 +15,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 const TOPICS: {
   key: LogTopic;
   description: string;
+  docsUrl?: string;
   requiresCustomAuditEntitlement?: boolean;
 }[] = [
   {
@@ -60,7 +62,8 @@ const TOPICS: {
   {
     key: "custom_audit",
     description:
-      "Custom audit events emitted via audit.log() in your functions.",
+      "Custom audit events emitted via log.audit() in your functions.",
+    docsUrl: "https://docs.convex.dev/production/integrations/audit-logging",
     requiresCustomAuditEntitlement: true,
   },
 ];
@@ -152,6 +155,14 @@ export function LogTopicsSelector({
                 {topic.requiresCustomAuditEntitlement &&
                   !customAuditEnabled &&
                   " Your plan doesn't have access to custom audit logs."}
+                {topic.docsUrl && (
+                  <>
+                    {" "}
+                    <Link href={topic.docsUrl} target="_blank">
+                      Learn more
+                    </Link>
+                  </>
+                )}
               </HelpTooltip>
             </label>
           );
