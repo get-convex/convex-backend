@@ -315,7 +315,10 @@ export function CreateDeployKeyForm({
                         }
                       }}
                     >
-                      <div className="scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4">
+                      {/* `--scroll-fade-height` sizes the sticky fade gradient
+                        at the bottom of this scroll area (see the trailing
+                        sticky div below). */}
+                      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 [--scroll-fade-height:3rem]">
                         <TextInput
                           label="Name"
                           id="name"
@@ -422,6 +425,14 @@ export function CreateDeployKeyForm({
                             {error}
                           </Callout>
                         )}
+                        {/* Sticky fade that pins to the bottom of the scroll
+                            area to hint there's more to scroll. As a sticky
+                            child it lives in the content box (left of the
+                            scrollbar, so it never covers it). */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none sticky bottom-0 h-(--scroll-fade-height) shrink-0 bg-linear-to-b from-transparent to-background-secondary"
+                        />
                       </div>
                       <div className="flex items-center justify-end gap-2 px-6 py-4">
                         {scopedDeployKeys &&

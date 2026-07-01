@@ -21,7 +21,6 @@ const project: ProjectDetails = {
   teamId: mockTeam.id,
   name: "My amazing app",
   slug: "my-amazing-app",
-  isDemo: false,
   createTime: Date.now(),
   prodDeploymentName: "musical-otter-456",
   devDeploymentName: "happy-capybara-123",

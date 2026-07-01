@@ -68,6 +68,7 @@ use super::{
     IsolateEnvironment,
 };
 use crate::{
+    context_cache::ContextCache,
     environment::{
         helpers::syscall_error::{
             syscall_description_for_error,
@@ -113,6 +114,7 @@ impl AppDefinitionEvaluator {
 
     pub async fn evaluate<RT: Runtime>(
         self,
+        context_cache: &mut ContextCache,
         client_id: String,
         isolate: &mut Isolate<RT>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
@@ -170,6 +172,7 @@ impl AppDefinitionEvaluator {
                         .evaluate_definition(
                             client_id.clone(),
                             isolate,
+                            context_cache,
                             &path,
                             &definitions,
                             filename,
@@ -188,6 +191,7 @@ impl AppDefinitionEvaluator {
         &self,
         client_id: String,
         isolate: &mut Isolate<RT>,
+        context_cache: &mut ContextCache,
         path: &ComponentDefinitionPath,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         filename: &str,
@@ -207,7 +211,9 @@ impl AppDefinitionEvaluator {
             environment_variables,
         };
 
-        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), env).await?;
+        let (handle, state, mut timeout) = isolate
+            .start_request(context_cache, client_id.into(), env)
+            .await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
@@ -353,6 +359,7 @@ impl ComponentInitializerEvaluator {
 
     pub async fn evaluate<RT: Runtime>(
         self,
+        context_cache: &mut ContextCache,
         client_id: String,
         isolate: &mut Isolate<RT>,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
@@ -366,7 +373,9 @@ impl ComponentInitializerEvaluator {
             evaluated_definitions: self.evaluated_definitions,
             environment_variables: None,
         };
-        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), env).await?;
+        let (handle, state, mut timeout) = isolate
+            .start_request(context_cache, client_id.into(), env)
+            .await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);

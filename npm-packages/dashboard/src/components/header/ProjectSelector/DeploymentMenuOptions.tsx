@@ -23,6 +23,7 @@ import {
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { Key } from "@ui/KeyboardShortcut";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export function DeploymentMenuOptions({
   team,
@@ -77,7 +78,9 @@ export function DeploymentMenuOptions({
   }
 
   // If there are too many non-default team devs, move them all to "Other Deployments"
-  const showNonDefaultTeamDevsInMainMenu = nonDefaultTeamDevs.length < 10;
+  const { nonDefaultTeamDevsInMainMenu } = useLaunchDarkly();
+  const showNonDefaultTeamDevsInMainMenu =
+    nonDefaultTeamDevs.length < (nonDefaultTeamDevsInMainMenu ?? 10);
   const otherDeployments = teamMemberDevDeployments
     .filter((d) => (showNonDefaultTeamDevsInMainMenu ? d.isDefault : true))
     .map(mapTeamDev)

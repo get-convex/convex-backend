@@ -29,6 +29,12 @@ import Link from "@docusaurus/Link";
 import { ReactNode } from "@mdx-js/react/lib";
 import Heading from "@theme/Heading";
 
+function ConductorLogo({ height = 40 }: { height?: number }) {
+  return (
+    <img src={conductorLogoUrl} height={height} alt="" aria-hidden="true" />
+  );
+}
+
 // This is a variant of DocsCardList.tsx specifically for the Quickstarts page.
 type Item = {
   docId: string;
@@ -48,11 +54,13 @@ type LargeCardItem = {
 export function DocCardList(props: { items: Item[] }) {
   const { items } = props;
   return (
-    <div className="qs-cards">
+    <ul className="qs-cards">
       {items.map((item, index) => (
-        <CardLink key={index} item={item} />
+        <li key={index}>
+          <CardLink item={item} />
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -76,9 +84,9 @@ export function CardLink({
     >
       {icon}
       <div>
-        <Heading as="h2" className="text--truncate" title={item.label}>
+        <div className="card__title text--truncate" title={item.label}>
           {item.label}
-        </Heading>
+        </div>
       </div>
     </Link>
   );
@@ -87,14 +95,16 @@ export function CardLink({
 // Add this new component before Quick*List
 export function LargeCardList(props: { items: LargeCardItem[] }) {
   return (
-    <div className="large-cards">
+    <ul className="large-cards">
       {props.items.map((item, index) => (
-        <Link key={index} href={item.href} className="large-card">
-          <Heading as="h2">{item.title}</Heading>
-          <p>{item.description}</p>
-        </Link>
+        <li key={index}>
+          <Link href={item.href} className="large-card">
+            <Heading as="h2">{item.title}</Heading>
+            <p>{item.description}</p>
+          </Link>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -207,10 +217,41 @@ export function QuickHarnessesList() {
           label: "GitHub Copilot",
         },
         {
-          icon: (
-            <img src={conductorLogoUrl} height={40} alt="" aria-hidden="true" />
-          ),
+          icon: <ConductorLogo height={40} />,
           href: "/ai/using-conductor",
+          docId: "ai/using-conductor",
+          label: "Conductor",
+        },
+      ]}
+    />
+  );
+}
+
+export function McpHarnessesList() {
+  return (
+    <DocCardList
+      items={[
+        {
+          icon: <CodexLogo height={40} />,
+          href: "/ai/using-codex#setup-the-convex-mcp-server",
+          docId: "ai/using-codex",
+          label: "Codex",
+        },
+        {
+          icon: <CursorLogo height={40} />,
+          href: "/ai/using-cursor#setup-the-convex-mcp-server",
+          docId: "ai/using-cursor",
+          label: "Cursor",
+        },
+        {
+          icon: <GitHubCopilotLogo height={40} />,
+          href: "/ai/using-github-copilot#setup-the-convex-mcp-server",
+          docId: "ai/using-github-copilot",
+          label: "GitHub Copilot",
+        },
+        {
+          icon: <ConductorLogo height={40} />,
+          href: "/ai/using-conductor#setup-the-convex-mcp-server",
           docId: "ai/using-conductor",
           label: "Conductor",
         },

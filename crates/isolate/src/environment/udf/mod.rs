@@ -541,7 +541,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let executor = UdfRecursiveExecutor::new();
 
         let client_id = Arc::new(client_id);
-        let (handle, state, mut timeout) = isolate.start_request(client_id, self).await?;
+        let (handle, state, mut timeout) = isolate
+            .start_request(context_cache, client_id, self)
+            .await?;
         let heap_stats = state.environment.heap_stats.clone();
         let path_for_logging = format!("{:?}", state.environment.path.clone().for_logging());
         if let Some(tx) = function_started {

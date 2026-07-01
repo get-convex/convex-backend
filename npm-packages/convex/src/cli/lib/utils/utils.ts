@@ -602,18 +602,10 @@ export async function validateOrSelectProject(
     });
   }
   if (!projectSlug) {
-    const nonDemoProjects = projects.filter((project) => !project.isDemo);
-    if (nonDemoProjects.length === 0) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `No existing non-demo projects! Run this command again and choose "create a new project."`,
-      });
-    }
     // Prompt the user to select project.
-    switch (nonDemoProjects.length) {
+    switch (projects.length) {
       case 1: {
-        const project = nonDemoProjects[0];
+        const project = projects[0];
         const confirmed = await promptYesNo(ctx, {
           message: `${singleProjectPrompt} ${project.name} (${project.slug})?`,
         });
@@ -621,12 +613,12 @@ export async function validateOrSelectProject(
         if (!confirmed) {
           return null;
         }
-        return nonDemoProjects[0].slug;
+        return projects[0].slug;
       }
       default:
         return await promptSearch(ctx, {
           message: multiProjectPrompt,
-          choices: nonDemoProjects.map((project: Project) => ({
+          choices: projects.map((project: Project) => ({
             name: `${project.name} (${project.slug})`,
             value: project.slug,
           })),

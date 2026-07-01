@@ -7,7 +7,7 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import udfs from "@common/udfs";
 import { ConvexProvider } from "convex/react";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { DeploymentSettingsPage } from "pages/t/[team]/[project]/[deploymentName]/settings";
 
 const mockTeam = {
@@ -115,3 +115,33 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+/**
+ * The Create Deploy Key panel, opened from the deployment settings page, with
+ * the `deployment:deploy` permission selected — as you would for a CI deploy
+ * key.
+ */
+export const CreateDeployKey: Story = {
+  parameters: {
+    // The deploy key permission picker is gated behind the `scopedDeployKeys`
+    // LaunchDarkly flag. Force it on so the screenshot shows the permissions.
+    docsPage: {
+      launchDarkly: { scopedDeployKeys: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Create Deploy Key" }),
+    );
+
+    // The Headless UI Dialog renders in a portal at document.body, outside the
+    // story's canvasElement.
+    const body = within(document.body);
+    const nameInput = await body.findByPlaceholderText(
+      "Enter a memorable name for your deploy key",
+    );
+    await userEvent.type(nameInput, "CI Deploy Key");
+    await userEvent.click(await body.findByText("deployment:deploy"));
+  },
+};

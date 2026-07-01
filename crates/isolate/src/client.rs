@@ -1527,7 +1527,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                 // Check again whether the isolate has enough free heap memory
                 // before starting the next request
                 if let Some(debug_str) = &last_request
-                    && should_recreate_isolate(&mut isolate, debug_str)
+                    && should_recreate_isolate(&mut isolate, &mut context_cache, debug_str)
                 {
                     continue 'recreate_isolate;
                 }
@@ -1640,13 +1640,14 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
 
 pub(crate) fn should_recreate_isolate<RT: Runtime>(
     isolate: &mut Isolate<RT>,
+    context_cache: &mut ContextCache,
     last_executed: &str,
 ) -> bool {
     if !*REUSE_ISOLATES {
         metrics::log_recreate_isolate("env_disabled");
         return true;
     }
-    if let Err(e) = isolate.check_isolate_clean() {
+    if let Err(e) = isolate.check_isolate_clean(context_cache) {
         tracing::error!(
             "Restarting Isolate {}: {e:?}, last request: {last_executed:?}",
             e.reason()

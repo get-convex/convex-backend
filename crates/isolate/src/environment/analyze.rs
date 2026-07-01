@@ -277,7 +277,9 @@ impl AnalyzeEnvironment {
             collected_logs: VecDeque::new(),
         };
         let client_id = Arc::new(client_id);
-        let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
+        let (handle, state, mut timeout) = isolate
+            .start_request(context_cache, client_id, environment)
+            .await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = context_cache.get_or_create_fresh_context(handle_scope);
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);

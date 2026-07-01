@@ -23,7 +23,6 @@ const mockProject: ProjectDetails = {
   slug: "test-project",
   teamId: 1,
   createTime: Date.now(),
-  isDemo: false,
 };
 
 let nextId = 0;

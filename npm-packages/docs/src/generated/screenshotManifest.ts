@@ -211,19 +211,6 @@ export const screenshots = [
     }
   },
   {
-    "storyTitle": "docs/pages/CreateDeployKey",
-    "light": {
-      "filename": "pages_create_deploy_key_light.webp",
-      "width": 1600,
-      "height": 1400
-    },
-    "dark": {
-      "filename": "pages_create_deploy_key_dark.webp",
-      "width": 1600,
-      "height": 1400
-    }
-  },
-  {
     "storyTitle": "docs/pages/Profile",
     "light": {
       "filename": "pages_profile_light.webp",
@@ -492,6 +479,19 @@ export const screenshots = [
     },
     "dark": {
       "filename": "pages_project_deployment_deployment_settings_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/DeploymentSettings#Create Deploy Key",
+    "light": {
+      "filename": "pages_project_deployment_deployment_settings_create_deploy_key_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_deployment_settings_create_deploy_key_dark.webp",
       "width": 2048,
       "height": 1400
     }

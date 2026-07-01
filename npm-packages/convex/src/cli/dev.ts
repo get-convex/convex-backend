@@ -9,6 +9,7 @@ import { devAgainstDeployment } from "./lib/dev.js";
 import {
   CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
+  ensureHasConvexDependency,
 } from "./lib/utils/utils.js";
 import {
   getDeploymentSelection,
@@ -209,6 +210,12 @@ Same format as .env.local or .env files, and overrides them.`,
     }
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
+
+    // Check that we're in a Convex project (a package.json with a `convex`
+    // dependency) before doing anything else, so we fail fast with a clear
+    // error instead of prompting to create/select a project and only then
+    // crashing because there's nothing to push.
+    await ensureHasConvexDependency(ctx, "run `npx convex dev`");
 
     if (cmdOptions.configure === undefined) {
       if (cmdOptions.team || cmdOptions.project || cmdOptions.devDeployment)
