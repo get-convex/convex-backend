@@ -184,9 +184,6 @@ pub trait Storage: Send + Sync + Debug {
     /// Return a fully qualified key, including info on bucket name
     /// and suitable for access in multi-tenant scenario
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey;
-    fn s3_object_location(&self, _key: &ObjectKey) -> Option<S3ObjectLocation> {
-        None
-    }
     fn test_only_decompose_fully_qualified_key(
         &self,
         key: FullyQualifiedObjectKey,
@@ -199,23 +196,25 @@ pub struct ObjectAttributes {
     pub size: u64,
 }
 
-pub struct S3ObjectLocation {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VersionedS3Object {
     pub bucket: String,
     pub key: String,
+    pub version_id: String,
 }
 
-pub struct CompletedUpload {
-    pub object_key: ObjectKey,
-    pub storage_version: Option<String>,
-}
+#[async_trait]
+pub trait VersionedS3Storage: Send + Sync + Debug {
+    async fn put_versioned_object(
+        &self,
+        key: ObjectKey,
+        bytes: Bytes,
+    ) -> anyhow::Result<VersionedS3Object>;
 
-impl CompletedUpload {
-    pub fn new(object_key: ObjectKey, storage_version: Option<String>) -> Self {
-        Self {
-            object_key,
-            storage_version,
-        }
-    }
+    async fn latest_versioned_object(
+        &self,
+        key: &ObjectKey,
+    ) -> anyhow::Result<Option<VersionedS3Object>>;
 }
 
 pub struct SizeAndHash {
@@ -283,7 +282,7 @@ pub trait Upload: Send + Sync {
     async fn abort(self: Box<Self>) -> anyhow::Result<()>;
 
     /// Completes the multipart object.
-    async fn complete(self: Box<Self>) -> anyhow::Result<CompletedUpload>;
+    async fn complete(self: Box<Self>) -> anyhow::Result<ObjectKey>;
 }
 
 /// Helper functions for working with uploads for functions that have generic
@@ -464,7 +463,7 @@ impl Upload for BufferedUpload {
         self.upload.abort().await
     }
 
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<CompletedUpload> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
         let Self {
             buffer: ready,
             mut upload,
@@ -1082,12 +1081,12 @@ impl Upload for LocalDirUpload {
         Ok(())
     }
 
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<CompletedUpload> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
         let object_key = self.object_key;
 
         let file = self.file.take().context("Completing inactive file")?;
         file.sync_all()?;
-        Ok(CompletedUpload::new(object_key, None))
+        Ok(object_key)
     }
 }
 

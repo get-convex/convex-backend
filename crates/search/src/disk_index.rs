@@ -274,7 +274,7 @@ pub async fn upload_single_file<R: AsyncBufRead + Unpin>(
     };
     let archiver = write_single_file(reader, filename, writer, file_type);
     tokio::try_join!(archiver, uploader)?;
-    let key = upload.complete().await?.object_key;
+    let key = upload.complete().await?;
     timer.finish();
     Ok(key)
 }
@@ -317,7 +317,7 @@ pub async fn upload_index_archive_from_path<P: AsRef<Path>>(
     let writer = ChannelWriter::new(sender, 5 * (1 << 20));
     let archiver = write_index_archive(directory, writer);
     let ((), ()) = futures::try_join!(archiver, uploader)?;
-    let key = upload.complete().await?.object_key;
+    let key = upload.complete().await?;
     timer.finish();
     Ok(key)
 }

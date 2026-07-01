@@ -203,7 +203,7 @@ where
                 update_progress,
             );
             let (_, ()) = try_join!(uploader, zipper)?;
-            let zip_object_key = upload.complete().await?.object_key;
+            let zip_object_key = upload.complete().await?;
             (zip_object_key, usage)
         },
     };

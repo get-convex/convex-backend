@@ -68,15 +68,15 @@ use storage::{
     BufferedUpload,
     ClientDrivenUploadPartToken,
     ClientDrivenUploadToken,
-    CompletedUpload,
     ObjectAttributes,
-    S3ObjectLocation,
     Storage,
     StorageCacheKey,
     StorageGetStream,
     StorageUseCase,
     Upload,
     UploadId,
+    VersionedS3Object,
+    VersionedS3Storage,
     MAXIMUM_PARALLEL_UPLOADS,
 };
 
@@ -181,6 +181,43 @@ impl<RT: Runtime> S3Storage<RT> {
 
         upload_builder
     }
+
+    fn versioned_location(&self, key: &ObjectKey, version_id: String) -> VersionedS3Object {
+        VersionedS3Object {
+            bucket: self.bucket.clone(),
+            key: format!("{}{}", self.key_prefix, &**key),
+            version_id,
+        }
+    }
+
+    async fn start_upload_with_key(&self, key: ObjectKey) -> anyhow::Result<S3Upload<RT>> {
+        let s3_key = S3Key(self.key_prefix.clone() + &key);
+        let upload_builder = self
+            .client
+            .create_multipart_upload()
+            .bucket(self.bucket.clone())
+            .key(&s3_key.0);
+
+        let upload_builder = self.configure_multipart_upload_builder(upload_builder);
+
+        let output = upload_builder
+            .send()
+            .await
+            .context("Failed to create multipart upload")?;
+        let upload_id = output
+            .upload_id()
+            .ok_or_else(|| anyhow::anyhow!("Multipart upload is missing an upload_id."))?;
+        let s3_upload = S3Upload::new(
+            self.client.clone(),
+            self.bucket.clone(),
+            upload_id.to_string().into(),
+            key,
+            s3_key,
+            self.runtime.clone(),
+        )
+        .await?;
+        Ok(s3_upload)
+    }
 }
 
 async fn s3_client() -> Result<Client, anyhow::Error> {
@@ -252,33 +289,8 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
     #[fastrace::trace]
     async fn start_upload(&self) -> anyhow::Result<Box<BufferedUpload>> {
         let key: ObjectKey = self.runtime.new_uuid_v4().to_string().try_into()?;
-        let s3_key = S3Key(self.key_prefix.clone() + &key);
-        let upload_builder = self
-            .client
-            .create_multipart_upload()
-            .bucket(self.bucket.clone())
-            .key(&s3_key.0);
-
-        let upload_builder = self.configure_multipart_upload_builder(upload_builder);
-
-        let output = upload_builder
-            .send()
-            .await
-            .context("Failed to create multipart upload")?;
-        let upload_id = output
-            .upload_id()
-            .ok_or_else(|| anyhow::anyhow!("Multipart upload is missing an upload_id."))?;
-        let s3_upload = S3Upload::new(
-            self.client.clone(),
-            self.bucket.clone(),
-            upload_id.to_string().into(),
-            key,
-            s3_key,
-            self.runtime.clone(),
-        )
-        .await?;
         let upload = BufferedUpload::new(
-            s3_upload,
+            self.start_upload_with_key(key).await?,
             MIN_S3_INTERMEDIATE_PART_SIZE,
             std::cmp::min(
                 MAX_S3_INTERMEDIATE_PART_SIZE,
@@ -374,7 +386,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             uploaded_parts,
             next_part_number.try_into()?,
         )?);
-        Ok(s3_upload.complete().await?.object_key)
+        s3_upload.complete().await
     }
 
     async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<String> {
@@ -416,13 +428,6 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
 
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey {
         format!("{}/{}{}", self.bucket, self.key_prefix, &**key).into()
-    }
-
-    fn s3_object_location(&self, key: &ObjectKey) -> Option<S3ObjectLocation> {
-        Some(S3ObjectLocation {
-            bucket: self.bucket.clone(),
-            key: format!("{}{}", self.key_prefix, &**key),
-        })
     }
 
     fn test_only_decompose_fully_qualified_key(
@@ -525,6 +530,50 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
     }
 }
 
+#[async_trait]
+impl<RT: Runtime> VersionedS3Storage for S3Storage<RT> {
+    async fn put_versioned_object(
+        &self,
+        key: ObjectKey,
+        bytes: Bytes,
+    ) -> anyhow::Result<VersionedS3Object> {
+        let mut upload = self.start_upload_with_key(key.clone()).await?;
+        upload.write(bytes).await?;
+        let version_id = Box::new(upload)
+            .complete_inner()
+            .await?
+            .context("S3 upload is missing version")?;
+        Ok(self.versioned_location(&key, version_id.to_owned()))
+    }
+
+    async fn latest_versioned_object(
+        &self,
+        key: &ObjectKey,
+    ) -> anyhow::Result<Option<VersionedS3Object>> {
+        let s3_key = S3Key(self.key_prefix.clone() + key);
+        let result: Result<HeadObjectOutput, aws_sdk_s3::error::SdkError<HeadObjectError>> = self
+            .client
+            .head_object()
+            .bucket(self.bucket.clone())
+            .key(&s3_key.0)
+            .send()
+            .await;
+        match result {
+            Ok(output) => {
+                let version_id = output
+                    .version_id()
+                    .context("S3 object is missing version")?;
+                Ok(Some(self.versioned_location(key, version_id.to_owned())))
+            },
+            Err(aws_sdk_s3::error::SdkError::ServiceError(err)) => match err.err() {
+                HeadObjectError::NotFound(_) => Ok(None),
+                _ => Err(err.into_err().into()),
+            },
+            Err(err) => Err(err.into()),
+        }
+    }
+}
+
 struct S3Key(String);
 
 pub struct S3Upload<RT: Runtime> {
@@ -616,6 +665,39 @@ impl<RT: Runtime> S3Upload<RT> {
             builder,
         })
     }
+
+    #[fastrace::trace]
+    async fn complete_inner(mut self: Box<Self>) -> anyhow::Result<Option<String>> {
+        let mut completed_parts = Vec::new();
+        for part in &self.uploaded_parts {
+            let mut builder = CompletedPart::builder()
+                .part_number(Into::<u16>::into(part.part_number()) as i32)
+                .e_tag(part.etag());
+
+            if !are_checksums_disabled() {
+                builder = builder.checksum_crc32(part.checksum());
+            }
+
+            let part = builder.build();
+            completed_parts.push(part);
+        }
+        // parallel_writes will write out of order.
+        completed_parts.sort_by_key(|part| part.part_number());
+        let completed_multipart_upload = CompletedMultipartUpload::builder()
+            .set_parts(Some(completed_parts))
+            .build();
+        let output = self
+            .client
+            .complete_multipart_upload()
+            .bucket(self.bucket.clone())
+            .key(&self.s3_key.0)
+            .upload_id(self.upload_id.to_string())
+            .multipart_upload(completed_multipart_upload)
+            .send()
+            .await?;
+        self.needs_abort_on_drop = false;
+        Ok(output.version_id().map(str::to_owned))
+    }
 }
 
 struct UploadPart {
@@ -671,39 +753,10 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
     }
 
     #[fastrace::trace]
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<CompletedUpload> {
-        let mut completed_parts = Vec::new();
-        for part in &self.uploaded_parts {
-            let mut builder = CompletedPart::builder()
-                .part_number(Into::<u16>::into(part.part_number()) as i32)
-                .e_tag(part.etag());
-
-            if !are_checksums_disabled() {
-                builder = builder.checksum_crc32(part.checksum());
-            }
-
-            let part = builder.build();
-            completed_parts.push(part);
-        }
-        // parallel_writes will write out of order.
-        completed_parts.sort_by_key(|part| part.part_number());
-        let completed_multipart_upload = CompletedMultipartUpload::builder()
-            .set_parts(Some(completed_parts))
-            .build();
-        let output = self
-            .client
-            .complete_multipart_upload()
-            .bucket(self.bucket.clone())
-            .key(&self.s3_key.0)
-            .upload_id(self.upload_id.to_string())
-            .multipart_upload(completed_multipart_upload)
-            .send()
-            .await?;
-        self.needs_abort_on_drop = false;
-        Ok(CompletedUpload::new(
-            self.key.clone(),
-            output.version_id().map(str::to_owned),
-        ))
+    async fn complete(self: Box<Self>) -> anyhow::Result<ObjectKey> {
+        let key = self.key.clone();
+        self.complete_inner().await?;
+        Ok(key)
     }
 }
 

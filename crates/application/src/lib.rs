@@ -2498,7 +2498,7 @@ impl<RT: Runtime> Application<RT> {
         let mut body_stream = body_stream;
         upload.try_write_parallel(&mut body_stream).await?;
         drop(body_stream);
-        let object_key = upload.complete().await?.object_key;
+        let object_key = upload.complete().await?;
         Ok(self
             .application_storage
             .snapshot_imports_storage
