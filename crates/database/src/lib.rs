@@ -26,6 +26,7 @@ mod search_index_bootstrap;
 mod snapshot_manager;
 mod stack_traces;
 pub mod streaming_export_selection;
+pub mod subquery_cache;
 pub mod subscription;
 pub mod system_query;
 pub mod system_tables;
@@ -75,6 +76,11 @@ pub use reads::{
 };
 pub use schema_registry::SchemaRegistry;
 pub use search_index_bootstrap::FINISHED_BOOTSTRAP_UPDATES;
+pub use subquery_cache::{
+    SubqueryCache,
+    SubqueryCacheKey,
+    SubqueryCacheValue,
+};
 pub use table_iteration::{
     MultiTableIterator,
     TableIterator,
