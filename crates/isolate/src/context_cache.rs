@@ -17,6 +17,10 @@ use deno_core::v8::{
     self,
     scope,
 };
+use fastrace::{
+    local::LocalSpan,
+    Event,
+};
 use parking_lot::Mutex;
 use value::{
     sha256::Sha256Digest,
@@ -39,6 +43,7 @@ pub struct ContextCache {
         CanonicalizedComponentModulePath,
         (v8::Global<v8::Context>, ModuleMap, ContextReadSet),
     >,
+    is_under_memory_pressure: bool,
     cached_contexts: Arc<CachedContexts>,
 }
 
@@ -65,10 +70,11 @@ pub(crate) struct ContextReadSet {
 }
 
 impl ContextCache {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             fresh_context: None,
             saved_database_udf_contexts: HashMap::new(),
+            is_under_memory_pressure: false,
             cached_contexts: Arc::new(CachedContexts {
                 inner: Mutex::new(CachedContextsInner {
                     saved_database_udf_contexts: HashSet::new(),
@@ -78,11 +84,26 @@ impl ContextCache {
     }
 
     pub(crate) fn prepare(&mut self, isolate: &mut v8::Isolate) {
-        if self.fresh_context.is_none() {
+        if self.fresh_context.is_none() && !self.is_under_memory_pressure {
             scope!(let scope, isolate);
             let context = make_context(scope);
             self.fresh_context = Some(v8::Global::new(scope, context));
         }
+    }
+
+    /// Report that the isolate's memory usage has exceeded a threshold.
+    /// If there are any saved contexts, they will be scheduled to be cleared
+    /// unless they are immediately reused.
+    ///
+    /// Returns whether there are any contexts that would be cleared.
+    pub(crate) fn report_memory_pressure(&mut self, is_under_memory_pressure: bool) -> bool {
+        if self.saved_database_udf_contexts.is_empty() {
+            // Ignore the signal in this case as there is nothing we can do.
+            self.is_under_memory_pressure = false;
+            return false;
+        }
+        self.is_under_memory_pressure = is_under_memory_pressure;
+        true
     }
 
     pub(crate) fn clear(&mut self) {
@@ -99,7 +120,12 @@ impl ContextCache {
         &mut self,
         scope: &v8::PinScope<'s, '_, ()>,
     ) -> v8::Local<'s, v8::Context> {
-        if let Some(context) = self.fresh_context.take() {
+        let fresh_context = self.fresh_context.take();
+        if self.is_under_memory_pressure {
+            LocalSpan::add_event(Event::new("cleared_contexts_under_memory_pressure"));
+            self.clear();
+        }
+        if let Some(context) = fresh_context {
             v8::Local::new(scope, context)
         } else {
             make_context(scope)

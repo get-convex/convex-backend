@@ -312,7 +312,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     user_environment_variables,
                     system_env_vars,
                 );
-                let r = env.evaluate(client_id, isolate).await;
+                let r = env.evaluate(context_cache, client_id, isolate).await;
                 let _ = response.send(r);
                 "EvaluateAppDefinitions".to_string()
             },
@@ -331,12 +331,12 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     args,
                     name,
                 );
-                let r = env.evaluate(client_id, isolate).await;
+                let r = env.evaluate(context_cache, client_id, isolate).await;
                 let _ = response.send(r);
                 "EvaluateComponentInitializer".to_string()
             },
         };
-        if isolate_clean && should_recreate_isolate(isolate, &debug_str) {
+        if isolate_clean && should_recreate_isolate(isolate, context_cache, &debug_str) {
             isolate_clean = false;
         }
         (debug_str, isolate_clean)

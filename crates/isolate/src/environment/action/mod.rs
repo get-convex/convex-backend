@@ -346,7 +346,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let udf_path = &component_function_path.udf_path;
 
         let heap_stats = self.heap_stats.clone();
-        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), self).await?;
+        let (handle, state, mut timeout) = isolate
+            .start_request(context_cache, client_id.into(), self)
+            .await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
@@ -677,7 +679,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let start_unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
 
-        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), self).await?;
+        let (handle, state, mut timeout) = isolate
+            .start_request(context_cache, client_id.into(), self)
+            .await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
