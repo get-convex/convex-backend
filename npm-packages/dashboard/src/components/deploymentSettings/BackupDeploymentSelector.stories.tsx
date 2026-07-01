@@ -29,7 +29,6 @@ const mockProjects: ProjectDetails[] = [
     slug: "project-alpha",
     teamId: 1,
     createTime: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    isDemo: false,
   },
   {
     id: 2,
@@ -37,7 +36,6 @@ const mockProjects: ProjectDetails[] = [
     slug: "project-beta",
     teamId: 1,
     createTime: Date.now() - 60 * 24 * 60 * 60 * 1000,
-    isDemo: false,
   },
 ];
 
@@ -215,7 +213,6 @@ const generateManyProjects = (
       slug: `project-${lastId}`,
       teamId: 1,
       createTime: Date.now() - index * 24 * 60 * 60 * 1000,
-      isDemo: index % 10 === 0, // Every 10th project is a demo
     };
   });
 };

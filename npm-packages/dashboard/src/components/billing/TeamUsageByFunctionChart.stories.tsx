@@ -41,7 +41,6 @@ const project: ProjectDetails = {
   teamId: 42,
   slug: "my-project",
   name: "My Project",
-  isDemo: false,
   createTime: 0,
 };
 

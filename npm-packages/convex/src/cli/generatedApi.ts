@@ -405,7 +405,6 @@ export interface components {
             createTime: number;
             devDeploymentName?: string | null;
             id: components["schemas"]["ProjectId"];
-            isDemo: boolean;
             name: components["schemas"]["ProjectName"];
             prodDeploymentName?: string | null;
             slug: components["schemas"]["ProjectSlug"];

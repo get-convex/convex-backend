@@ -858,7 +858,6 @@
           "id",
           "name",
           "slug",
-          "isDemo",
           "teamId",
           "createTime"
         ],
@@ -875,9 +874,6 @@
           },
           "id": {
             "$ref": "#/components/schemas/ProjectId"
-          },
-          "isDemo": {
-            "type": "boolean"
           },
           "name": {
             "$ref": "#/components/schemas/ProjectName"

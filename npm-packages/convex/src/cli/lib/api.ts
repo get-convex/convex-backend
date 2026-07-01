@@ -35,7 +35,6 @@ export type Project = {
   id: number;
   name: string;
   slug: string;
-  isDemo: boolean;
 };
 
 type AdminKey = string;
