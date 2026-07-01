@@ -434,6 +434,21 @@ article code {
   margin: 1.5rem 0 2.5rem;
 }
 
+/* The card lists use <ul>/<li> for semantics; reset the list styling and let
+   the card links act as the grid items so the layout is unchanged. */
+.cards,
+.qs-cards,
+.large-cards {
+  padding: 0;
+  list-style: none;
+}
+
+.cards > li,
+.qs-cards > li,
+.large-cards > li {
+  display: contents;
+}
+
 .component-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -550,7 +565,7 @@ a.card:hover {
   text-decoration: none;
 }
 
-a.card h2 {
+a.card .card__title {
   font-size: 0.9375rem;
 }
 
@@ -558,7 +573,7 @@ a.card p {
   font-size: 0.75rem;
 }
 
-a.card h2,
+a.card .card__title,
 a.card p {
   margin-bottom: 0;
   overflow: hidden;
@@ -579,7 +594,7 @@ a.card.convex-hero-card p {
 }
 
 @media (min-width: 997px) {
-  a.card.convex-hero-card h2 {
+  a.card.convex-hero-card .card__title {
     font-size: 1.25rem;
   }
 

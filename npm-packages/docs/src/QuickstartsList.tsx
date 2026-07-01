@@ -54,11 +54,13 @@ type LargeCardItem = {
 export function DocCardList(props: { items: Item[] }) {
   const { items } = props;
   return (
-    <div className="qs-cards">
+    <ul className="qs-cards">
       {items.map((item, index) => (
-        <CardLink key={index} item={item} />
+        <li key={index}>
+          <CardLink item={item} />
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -82,9 +84,9 @@ export function CardLink({
     >
       {icon}
       <div>
-        <Heading as="h2" className="text--truncate" title={item.label}>
+        <div className="card__title text--truncate" title={item.label}>
           {item.label}
-        </Heading>
+        </div>
       </div>
     </Link>
   );
@@ -93,14 +95,16 @@ export function CardLink({
 // Add this new component before Quick*List
 export function LargeCardList(props: { items: LargeCardItem[] }) {
   return (
-    <div className="large-cards">
+    <ul className="large-cards">
       {props.items.map((item, index) => (
-        <Link key={index} href={item.href} className="large-card">
-          <Heading as="h2">{item.title}</Heading>
-          <p>{item.description}</p>
-        </Link>
+        <li key={index}>
+          <Link href={item.href} className="large-card">
+            <Heading as="h2">{item.title}</Heading>
+            <p>{item.description}</p>
+          </Link>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
