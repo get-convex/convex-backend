@@ -346,42 +346,6 @@ pub async fn test_streaming_export_connection(
     Ok(Json(()))
 }
 
-/// Used by fivetran -- returns a mapping from table name to a list of top level
-/// fields in the table, taken from the shape.
-///
-/// It's ok for the list of columns to be incomplete since fivetran can handle
-/// extra fields during an export.
-///
-/// TODO(nicolas): Remove this endpoint (replaced by
-/// get_table_column_names)
-pub async fn get_tables_and_columns(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    st.application
-        .ensure_streaming_export_enabled(identity.clone())
-        .await?;
-    let mut out = serde_json::Map::new();
-
-    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
-    let snapshot = st.application.latest_snapshot()?;
-    let mapping = snapshot.table_mapping();
-
-    for (namespace, table_name) in snapshot.table_registry.user_table_names() {
-        let table_summary = snapshot.must_table_summary(namespace, table_name)?;
-        let shape = ReducedShape::from_type(
-            table_summary.inferred_type(),
-            &mapping.namespace(namespace).table_number_exists(),
-        );
-        let columns = get_columns_for_table(shape)
-            .into_iter()
-            .map(JsonValue::String)
-            .collect();
-        out.insert(String::from(table_name.clone()), JsonValue::Array(columns));
-    }
-    Ok(Json(out))
-}
-
 /// Used by Fivetran -- returns a mapping from table name to a list of top level
 /// fields in the table, taken from the shape.
 ///

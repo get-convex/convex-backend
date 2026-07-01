@@ -144,7 +144,6 @@ use crate::{
         document_deltas_get,
         document_deltas_post,
         get_table_column_names,
-        get_tables_and_columns,
         json_schemas,
         list_snapshot_get,
         list_snapshot_post,
@@ -613,7 +612,6 @@ where
             "/test_streaming_export_connection",
             get(test_streaming_export_connection),
         )
-        .route("/get_tables_and_columns", get(get_tables_and_columns))
         .route("/get_table_column_names", get(get_table_column_names))
 }
 

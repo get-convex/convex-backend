@@ -196,6 +196,27 @@ pub struct ObjectAttributes {
     pub size: u64,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VersionedS3Object {
+    pub bucket: String,
+    pub key: String,
+    pub version_id: String,
+}
+
+#[async_trait]
+pub trait VersionedS3Storage: Send + Sync + Debug {
+    async fn put_versioned_object(
+        &self,
+        key: ObjectKey,
+        bytes: Bytes,
+    ) -> anyhow::Result<VersionedS3Object>;
+
+    async fn latest_versioned_object(
+        &self,
+        key: &ObjectKey,
+    ) -> anyhow::Result<Option<VersionedS3Object>>;
+}
+
 pub struct SizeAndHash {
     sha256: Sha256,
     size: usize,
