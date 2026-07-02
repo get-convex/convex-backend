@@ -328,6 +328,9 @@ function SchemaFlowInner({
           type: "elk",
           data: active ? EDGE_DATA_ACTIVE : EDGE_DATA_INACTIVE,
           style,
+          // Raise highlighted edges (and their arrowheads) above the rest so
+          // they aren't painted over by later edges in the array.
+          zIndex: active ? 1 : 0,
         };
       }),
     [graph.edges, hover, selectedTable],
