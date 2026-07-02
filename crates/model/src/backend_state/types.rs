@@ -4,6 +4,7 @@ pub use common::types::{
 };
 use common::types::{
     SystemStopState,
+    UsageLimitStopState,
     UserStopState,
 };
 use serde::{
@@ -21,8 +22,19 @@ pub enum PersistedBackendState {
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SerializedBackendState {
-    Old { state: String },
-    New { system: String, user: String },
+    Old {
+        state: String,
+    },
+    New {
+        system: String,
+        #[serde(default = "default_usage_limit_stop_state")]
+        usage_limit: String,
+        user: String,
+    },
+}
+
+fn default_usage_limit_stop_state() -> String {
+    UsageLimitStopState::None.to_string()
 }
 
 impl From<PersistedBackendState> for SerializedBackendState {
@@ -33,6 +45,7 @@ impl From<PersistedBackendState> for SerializedBackendState {
             },
             PersistedBackendState::New(state) => Self::New {
                 system: state.system.to_string(),
+                usage_limit: state.usage_limit.to_string(),
                 user: state.user.to_string(),
             },
         }
@@ -45,8 +58,13 @@ impl TryFrom<SerializedBackendState> for PersistedBackendState {
     fn try_from(object: SerializedBackendState) -> anyhow::Result<Self> {
         Ok(match object {
             SerializedBackendState::Old { state } => Self::Old(state.parse()?),
-            SerializedBackendState::New { system, user } => Self::New(BackendState {
+            SerializedBackendState::New {
+                system,
+                usage_limit,
+                user,
+            } => Self::New(BackendState {
                 system: system.parse()?,
+                usage_limit: usage_limit.parse()?,
                 user: user.parse()?,
             }),
         })
@@ -66,18 +84,22 @@ impl PersistedBackendState {
             PersistedBackendState::Old(old_backend_state) => match old_backend_state {
                 OldBackendState::Disabled => BackendState {
                     system: SystemStopState::Disabled,
+                    usage_limit: UsageLimitStopState::None,
                     user: UserStopState::None,
                 },
                 OldBackendState::Paused => BackendState {
                     system: SystemStopState::None,
+                    usage_limit: UsageLimitStopState::None,
                     user: UserStopState::Paused,
                 },
                 OldBackendState::Running => BackendState {
                     system: SystemStopState::None,
+                    usage_limit: UsageLimitStopState::None,
                     user: UserStopState::None,
                 },
                 OldBackendState::Suspended => BackendState {
                     system: SystemStopState::Suspended,
+                    usage_limit: UsageLimitStopState::None,
                     user: UserStopState::None,
                 },
             },

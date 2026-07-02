@@ -28,6 +28,7 @@ use common::{
         AllowedVisibility,
         SystemStopState,
         UdfType,
+        UsageLimitStopState,
         UserStopState,
     },
     version::{
@@ -91,6 +92,10 @@ pub const DISABLED_ERROR_MESSAGE_FREE_PLAN: &str =
 pub const DISABLED_ERROR_MESSAGE_PAID_PLAN: &str =
     "You have exceeded your spending limits, so your deployments have been disabled. Please \
      increase your spending limit on the Convex dashboard or wait until limits reset.";
+pub const USAGE_LIMIT_DISABLED_ERROR_MESSAGE: &str =
+    "This deployment has been disabled because it exceeded a configured usage limit. Update or \
+     disable the usage limit in the Convex dashboard in deployment settings to resume function \
+     execution.";
 pub const PAUSED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is paused. \
                                         Resume the deployment in the dashboard settings to allow \
                                         functions to run.";
@@ -120,8 +125,12 @@ pub async fn fail_while_not_running<RT: Runtime>(
         .get_backend_state()
         .await?
         .into_value();
-    match (backend_state.system, backend_state.user) {
-        (SystemStopState::Disabled, _) => {
+    match (
+        backend_state.system,
+        backend_state.usage_limit,
+        backend_state.user,
+    ) {
+        (SystemStopState::Disabled, ..) => {
             if is_paid {
                 return Ok(Err(JsError::from_message(
                     DISABLED_ERROR_MESSAGE_PAID_PLAN.to_string(),
@@ -132,15 +141,20 @@ pub async fn fail_while_not_running<RT: Runtime>(
                 )));
             }
         },
-        (SystemStopState::Suspended, _) => {
+        (SystemStopState::None, UsageLimitStopState::Disabled, _) => {
+            return Ok(Err(JsError::from_message(
+                USAGE_LIMIT_DISABLED_ERROR_MESSAGE.to_string(),
+            )));
+        },
+        (SystemStopState::Suspended, ..) => {
             return Ok(Err(JsError::from_message(
                 SUSPENDED_ERROR_MESSAGE.to_string(),
             )));
         },
-        (_, UserStopState::Paused) => {
+        (_, _, UserStopState::Paused) => {
             return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
         },
-        (SystemStopState::None, UserStopState::None) => {},
+        (SystemStopState::None, UsageLimitStopState::None, UserStopState::None) => {},
     }
 
     Ok(Ok(()))
