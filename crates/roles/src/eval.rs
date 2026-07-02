@@ -217,6 +217,8 @@ pub const ALL_DEPLOYMENT_OPS: &[DeploymentOp] = &[
     DeploymentOp::RunInternalActions,
     DeploymentOp::RunTestQuery,
     DeploymentOp::ViewAuditLog,
+    DeploymentOp::ViewUsageLimits,
+    DeploymentOp::WriteUsageLimits,
 ];
 
 /// Authoritative mapping from a keybroker [`DeploymentOp`] to the
@@ -247,6 +249,8 @@ pub fn deployment_op_action(op: DeploymentOp) -> Option<RoleStatementAction> {
         O::RunInternalActions => A::RunInternalActions,
         O::RunTestQuery => A::RunTestQuery,
         O::ViewAuditLog => A::ViewAuditLog,
+        O::ViewUsageLimits => A::ViewUsageLimits,
+        O::WriteUsageLimits => A::WriteUsageLimits,
         O::Unknown => return None,
     })
 }

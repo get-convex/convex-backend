@@ -327,6 +327,7 @@ export type DeploymentInfo = (
   deploymentBackendOwnsAdminKeys?: boolean;
   workosIntegrationEnabled: boolean;
   logStreamTopicFiltersEnabled: boolean;
+  schemaPageEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 

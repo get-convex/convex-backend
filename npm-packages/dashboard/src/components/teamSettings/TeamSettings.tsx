@@ -19,7 +19,10 @@ import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useCallback, useState } from "react";
 import startCase from "lodash/startCase";
 import { OpenInVercel } from "components/OpenInVercel";
-import { TeamForm } from "./TeamForm";
+import { TeamNameForm } from "./TeamNameForm";
+import { TeamSlugForm } from "./TeamSlugForm";
+import { TeamIdSheet } from "./TeamIdSheet";
+import { DefaultRegionForm } from "./DefaultRegionForm";
 
 export function TeamSettings({ team }: { team: TeamResponse }) {
   const updateTeam = useUpdateTeam(team.id);
@@ -59,7 +62,22 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
   return (
     <>
       <h2>Team Settings</h2>
-      <TeamForm team={team} onUpdateTeam={updateTeam} canUpdate={canUpdate} />
+      <TeamNameForm
+        team={team}
+        onUpdateTeam={updateTeam}
+        canUpdate={canUpdate}
+      />
+      <TeamSlugForm
+        team={team}
+        onUpdateTeam={updateTeam}
+        canUpdate={canUpdate}
+      />
+      <TeamIdSheet team={team} />
+      <DefaultRegionForm
+        team={team}
+        onUpdateTeam={updateTeam}
+        canUpdate={canUpdate}
+      />
       <Sheet>
         <h3 className="mb-4">Delete Team</h3>
         <p className="mb-4">

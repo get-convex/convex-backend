@@ -1,10 +1,6 @@
 import React, { useContext } from "react";
-import { ArrowsUpDownIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
-import {
-  ClockIcon,
-  IdCardIcon,
-  MagnifyingGlassIcon,
-} from "@radix-ui/react-icons";
+import { ArrowsUpDownIcon } from "@heroicons/react/24/outline";
+import { ClockIcon, IdCardIcon } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
 import { convexToJson, ValidatorJSON } from "convex/values";
 import {
@@ -22,6 +18,7 @@ import { HelpTooltip } from "@ui/HelpTooltip";
 import { SchemaJson } from "@common/lib/format";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Index } from "@common/features/data/lib/api";
+import { IndexIcon } from "@common/elements/icons";
 import { cn } from "@ui/cn";
 import { DatabaseIndexFilterEditor } from "./DatabaseIndexFilterEditor";
 import { SearchValueEditor } from "./SearchValueEditor";
@@ -444,10 +441,10 @@ export function IndexOption({
     <div className="flex items-center gap-2 text-xs">
       <div className="text-content-tertiary">
         {inButton ? (
-          <FingerPrintIcon className="size-4 text-content-primary" />
+          <IndexIcon kind="database" className="text-content-primary" />
         ) : value.type === "database" ? (
           <Tooltip side="left" tip="Index" aria-label="Index">
-            <FingerPrintIcon className="size-4" />
+            <IndexIcon kind="database" />
           </Tooltip>
         ) : value.type === "search" ? (
           <Tooltip
@@ -456,7 +453,7 @@ export function IndexOption({
             aria-label="Search index"
             className="inline-flex size-4 justify-center"
           >
-            <MagnifyingGlassIcon />
+            <IndexIcon kind="search" />
           </Tooltip>
         ) : value.name === DEFAULT_INDEX_NAME ? (
           <ClockIcon />

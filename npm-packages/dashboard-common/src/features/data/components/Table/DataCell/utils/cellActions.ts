@@ -103,7 +103,7 @@ export function useCellActions({
       linkUrl.search = new URLSearchParams(
         idReferenceLink.query as Record<string, string>,
       ).toString();
-      window.open(linkUrl.toString(), "_blank");
+      window.open(linkUrl.toString(), "_self");
     }
   }, [idReferenceLink]);
 

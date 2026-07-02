@@ -192,7 +192,7 @@ export function FileStorageHeader({
             </div>
           </div>
           <div className="w-fit min-w-60">
-            <NentSwitcher />
+            <NentSwitcher className="mb-4" />
           </div>
         </div>
       </div>

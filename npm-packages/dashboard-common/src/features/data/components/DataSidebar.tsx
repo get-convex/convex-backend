@@ -28,7 +28,7 @@ export function DataSidebar({
 }: {
   tableData: TableMetadata;
   onSelectTable?: () => void;
-  showSchema: { hasSaved: boolean; showSchema: () => void } | undefined;
+  showSchema: { hasSaved: boolean; showSchema: () => void } | undefined | null;
   onTableCreated?: () => void;
 }) {
   const { name: selectedTable, tables } = tableData;
@@ -45,7 +45,7 @@ export function DataSidebar({
       )}
     >
       <div className="mb-2 flex flex-col px-3">
-        <NentSwitcher />
+        <NentSwitcher className="mb-4" />
         <div className="flex w-full max-w-full flex-wrap items-center justify-between gap-2">
           <h5>Tables</h5>
         </div>
@@ -88,20 +88,22 @@ export function DataSidebar({
         </div>
         <CreateNewTable tableData={tableData} onTableCreated={onTableCreated} />
       </div>
-      <div className="flex justify-around border-t pt-4">
-        {showSchema === undefined ? (
-          <Loading className="h-9" fullHeight={false} />
-        ) : (
-          <Button
-            variant="neutral"
-            onClick={showSchema.showSchema}
-            icon={<CubeIcon />}
-            className="animate-fadeInFromLoading overflow-hidden"
-          >
-            <span className="truncate">Schema</span>
-          </Button>
-        )}
-      </div>
+      {showSchema !== null && (
+        <div className="flex justify-around border-t pt-4">
+          {showSchema === undefined ? (
+            <Loading className="h-9" fullHeight={false} />
+          ) : (
+            <Button
+              variant="neutral"
+              onClick={showSchema.showSchema}
+              icon={<CubeIcon />}
+              className="animate-fadeInFromLoading overflow-hidden"
+            >
+              <span className="truncate">Schema</span>
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

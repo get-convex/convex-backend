@@ -12,6 +12,7 @@ export const flagDefaults: {
   scopedDeployKeys: boolean;
   customRoles: boolean;
   logStreamTopicFilters: boolean;
+  schemaPage: boolean;
   nonDefaultTeamDevsInMainMenu: number;
 } = {
   commandPalette: false,
@@ -24,6 +25,7 @@ export const flagDefaults: {
   scopedDeployKeys: false,
   customRoles: false,
   logStreamTopicFilters: false,
+  schemaPage: false,
   nonDefaultTeamDevsInMainMenu: 10,
 };
 
