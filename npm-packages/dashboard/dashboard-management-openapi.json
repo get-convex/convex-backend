@@ -4764,6 +4764,13 @@
           "nextBillingPeriodStart"
         ],
         "properties": {
+          "accountBalance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The customer's account balance in their billing currency, as a decimal\nstring (e.g. \"25.00\"). This is a credit that is automatically applied to\nfuture invoices. Only populated for actors that can view billing\ndetails."
+          },
           "billingAddress": {
             "oneOf": [
               {
@@ -4790,6 +4797,13 @@
               "null"
             ],
             "format": "int64"
+          },
+          "invoicingThreshold": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The subscription's invoicing threshold in USD (e.g. \"10.00\"). When\nuninvoiced usage crosses this amount mid-cycle, an invoice is issued\nimmediately, so a customer can receive multiple invoices in one billing\nperiod. `None` if no threshold is configured on the subscription."
           },
           "nextBillingPeriodStart": {
             "type": "string"
