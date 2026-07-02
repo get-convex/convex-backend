@@ -1,4 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
+import { type ContextType } from "react";
 import {
   ConnectedDeploymentContext,
   DeploymentInfoContext,
@@ -64,6 +65,42 @@ const mockConnectedDeployment = {
   isDisconnected: false,
 };
 
+function renderIntegrations(
+  deploymentInfoOverrides: Partial<
+    ContextType<typeof DeploymentInfoContext>
+  > = {},
+) {
+  return (
+    <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
+      <ConvexProvider client={mockClient}>
+        <DeploymentInfoContext.Provider
+          value={
+            {
+              ...mockDeploymentInfo,
+              useCurrentTeam: () => mockTeam,
+              useCurrentProject: () => mockProject,
+              useCurrentDeployment: () => mockDeployment,
+              useIsDeploymentPaused: () => false,
+              useLogDeploymentEvent: () => fn(),
+              useTeamEntitlements: () => ({
+                logStreamingEnabled: true,
+                streamingExportEnabled: true,
+              }),
+              deploymentsURI: "/t/acme/my-amazing-app/musical-otter-456",
+              projectsURI: "/t/acme/my-amazing-app",
+              teamsURI: "/t/acme",
+              isSelfHosted: false,
+              ...deploymentInfoOverrides,
+            } as ContextType<typeof DeploymentInfoContext>
+          }
+        >
+          <IntegrationsView />
+        </DeploymentInfoContext.Provider>
+      </ConvexProvider>
+    </ConnectedDeploymentContext.Provider>
+  );
+}
+
 const meta = {
   component: IntegrationsView,
   parameters: {
@@ -84,32 +121,7 @@ const meta = {
     },
     a11y: { test: "todo" },
   },
-  render: () => (
-    <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
-      <ConvexProvider client={mockClient}>
-        <DeploymentInfoContext.Provider
-          value={{
-            ...mockDeploymentInfo,
-            useCurrentTeam: () => mockTeam,
-            useCurrentProject: () => mockProject,
-            useCurrentDeployment: () => mockDeployment,
-            useIsDeploymentPaused: () => false,
-            useLogDeploymentEvent: () => fn(),
-            useTeamEntitlements: () => ({
-              logStreamingEnabled: true,
-              streamingExportEnabled: true,
-            }),
-            deploymentsURI: "/t/acme/my-amazing-app/musical-otter-456",
-            projectsURI: "/t/acme/my-amazing-app",
-            teamsURI: "/t/acme",
-            isSelfHosted: false,
-          }}
-        >
-          <IntegrationsView />
-        </DeploymentInfoContext.Provider>
-      </ConvexProvider>
-    </ConnectedDeploymentContext.Provider>
-  ),
+  render: () => renderIntegrations(),
 } satisfies Meta<typeof IntegrationsView>;
 
 export default meta;
@@ -141,5 +153,34 @@ export const ConfigureSentry: Story = {
 export const ConfigureDatadog: Story = {
   play: async ({ canvasElement }) => {
     await openConfigure(canvasElement, "Datadog");
+  },
+};
+
+export const CustomAuditTopic: Story = {
+  parameters: {
+    screenshotSelector: '[role="dialog"]',
+  },
+  render: () =>
+    renderIntegrations({
+      logStreamTopicFiltersEnabled: true,
+      useTeamEntitlements: () => ({
+        logStreamingEnabled: true,
+        streamingExportEnabled: true,
+        customAuditLogsInLogStreamsConfigEnabled: true,
+      }),
+    }),
+  play: async ({ canvasElement }) => {
+    // The Webhook config panel has few fields above the topic selector, so the
+    // whole selector (including custom_audit) fits in the screenshot viewport.
+    await openConfigure(canvasElement, "Webhook");
+    const dialog = within(document.querySelector('[role="dialog"]')!);
+    // Fill the URL so toggling a topic doesn't surface a "URL required" error.
+    await userEvent.type(
+      dialog.getByPlaceholderText("Enter a URL to send logs to"),
+      "https://example.com/logs",
+    );
+    // Each checkbox shares the aria-label "Selected", so target the topic by its
+    // label text; clicking it toggles the associated checkbox.
+    await userEvent.click(dialog.getByText("custom_audit"));
   },
 };

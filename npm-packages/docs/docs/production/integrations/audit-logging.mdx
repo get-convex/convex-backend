@@ -7,6 +7,7 @@ sidebar_class_name: "convex-sidebar-beta-badge"
 ---
 
 import getDocumentExample from "!!raw-loader!@site/../private-demos/audit-logging/convex/example.ts";
+import { Screenshot } from "@site/src/components/Screenshot";
 
 Convex offers the ability to emit transactional, durable logs to a S3 bucket in
 your own AWS account. This can be useful for when you need to audit log your
@@ -114,6 +115,23 @@ throw an error.
 Audit logs are rounded up to the nearest 5KB when calculating bandwidth for
 billing. See more information about billing on our
 [pricing page](https://www.convex.dev/enterprise/pricing).
+
+## Development
+
+While developing, you can enable the `custom_audit` topic on a configured
+[log stream](/production/integrations/log-streams/log-streams.mdx) to see your
+audit logs without setting up S3 delivery. To do so, select `custom_audit` in
+the “Topics” section of the log stream configuration.
+
+<Screenshot
+  story="docs/pages/project/deployment/settings/Integrations#Custom Audit Topic"
+  alt="Enabling the custom_audit topic on a log stream"
+/>
+
+The `custom_audit` topic is intended for testing. `custom_audit` logs sent
+through a log stream do not share the same durability guarantees as S3 delivery,
+and are billed the same as other
+[log streams](/production/integrations/log-streams/log-streams.mdx).
 
 ## Configuration
 

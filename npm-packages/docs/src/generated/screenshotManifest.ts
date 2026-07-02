@@ -625,5 +625,18 @@ export const screenshots = [
       "width": 2048,
       "height": 1400
     }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/settings/Integrations#Custom Audit Topic",
+    "light": {
+      "filename": "pages_project_deployment_settings_integrations_custom_audit_topic_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_settings_integrations_custom_audit_topic_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
   }
 ] as const;
