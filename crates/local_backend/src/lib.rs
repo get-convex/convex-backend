@@ -28,9 +28,9 @@ use common::{
         RouteMapper,
     },
     knobs::{
-        ACTION_USER_TIMEOUT,
         DOCUMENT_RETENTION_RATE_LIMIT,
         INDEX_CACHE_SIZE,
+        NODE_ACTION_USER_TIMEOUT,
         UDF_CACHE_MAX_SIZE,
     },
     persistence::Persistence,
@@ -197,12 +197,12 @@ pub async fn make_app(
         region: None,
         class: DeploymentClass::S16,
     };
-    let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
+    let node_process_timeout = *NODE_ACTION_USER_TIMEOUT + Duration::from_secs(5);
     let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout).await?);
     let node_actions = NodeActions::new(
         node_executor,
         config.convex_origin_url()?,
-        *ACTION_USER_TIMEOUT,
+        *NODE_ACTION_USER_TIMEOUT,
         runtime.clone(),
         deployment.clone(),
     );

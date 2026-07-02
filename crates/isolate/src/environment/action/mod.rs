@@ -29,10 +29,10 @@ use common::{
         RoutedHttpPath,
     },
     knobs::{
-        ACTION_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
         FUNCTION_MAX_RESULT_SIZE,
         V8_ACTION_SYSTEM_TIMEOUT,
+        V8_ACTION_USER_TIMEOUT,
     },
     log_lines::{
         LogLevel,
@@ -1444,7 +1444,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
     }
 
     fn user_timeout(&self) -> std::time::Duration {
-        *ACTION_USER_TIMEOUT
+        *V8_ACTION_USER_TIMEOUT
     }
 
     fn system_timeout(&self) -> std::time::Duration {

@@ -22,7 +22,8 @@ jobs:
       backend:
         image: ghcr.io/get-convex/convex-backend@${{ inputs.image_digest_x64 }}
         env:
-          ACTIONS_USER_TIMEOUT_SECS: "20"
+          V8_ACTION_USER_TIMEOUT_SECS: "20"
+          NODE_ACTION_USER_TIMEOUT_SECS: "20"
           CONVEX_CLOUD_ORIGIN: "http://127.0.0.1:3210"
           CONVEX_SITE_ORIGIN: "http://127.0.0.1:3211"
           DISABLE_BEACON: "true"

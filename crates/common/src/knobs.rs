@@ -113,8 +113,17 @@ pub static HEAP_WORKER_REPORT_INTERVAL_SECONDS: LazyLock<Duration> =
 ///
 /// NOTE: If you update this, make sure to update the actions resource limits in
 /// the docs.
-pub static ACTION_USER_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("ACTIONS_USER_TIMEOUT_SECS", 600)));
+pub static V8_ACTION_USER_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_USER_TIMEOUT_SECS", 600)));
+
+/// This is the action timeout for Node.js actions. This is how much the user
+/// code should be allowed to run. Note that we buffer some overhead and the
+/// actual Node.js process timeout is higher.
+///
+/// NOTE: If you update this, make sure to update the actions resource limits in
+/// the docs.
+pub static NODE_ACTION_USER_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("NODE_ACTION_USER_TIMEOUT_SECS", 600)));
 
 /// Max number of rows we will read when calculating document deltas.
 pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
@@ -1716,7 +1725,7 @@ pub static SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS: LazyLock<Duration> =
 /// Identity. Notably ACTION_USER_TIMEOUT.
 pub static ADMIN_IDENTITY_EXPIRATION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
     max(
-        *ACTION_USER_TIMEOUT,
+        *V8_ACTION_USER_TIMEOUT,
         Duration::from_secs(env_config("ADMIN_IDENTITY_EXPIRATION_DELAY_SECS", 900)),
     )
 });
