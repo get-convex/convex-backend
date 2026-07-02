@@ -38,6 +38,7 @@ import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { Invoices } from "./Invoices";
+import { SubscriptionCredits } from "./SubscriptionCredits";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import {
   SpendingLimitsForm,
@@ -148,6 +149,11 @@ export function SubscriptionOverview({
               </span>
             </div>
           ) : null}
+          {/* The backend only populates these financial fields for actors that
+              can view billing details. */}
+          {canViewBillingDetails === true && (
+            <SubscriptionCredits accountBalance={subscription.accountBalance} />
+          )}
           <hr />
           <SpendingLimitsSectionContainer
             subscription={subscription}
@@ -220,6 +226,7 @@ export function SubscriptionOverview({
         (invoices.length > 0 || subscription) && (
           <Invoices
             invoices={invoices}
+            invoicingThreshold={subscription?.invoicingThreshold}
             onShowMore={
               invoicesHasMore
                 ? () => setInvoicesLimit(invoicesLimit + 10)
