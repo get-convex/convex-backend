@@ -16,7 +16,6 @@ pub mod source_package;
 pub use crate::executor::{
     error_response_json,
     handle_node_executor_stream,
-    Actions,
     AnalyzeRequest,
     AnalyzeResponse,
     BuildDepsRequest,
@@ -24,6 +23,7 @@ pub use crate::executor::{
     ExecutorRequest,
     InvokeResponse,
     NodeActionOutcome,
+    NodeActions,
     NodeExecutor,
     NodeExecutorStreamPart,
     Package,

@@ -2,10 +2,13 @@ use common::{
     execution_context::RequestMetadata,
     runtime::Runtime,
     types::{
+        BackendState,
         SystemStopState,
+        UsageLimitStopState,
         UserStopState,
     },
 };
+use database::Transaction;
 use keybroker::Identity;
 use model::{
     backend_state::BackendStateModel,
@@ -63,5 +66,15 @@ impl<RT: Runtime> Application<RT> {
         )
         .await?;
         Ok(())
+    }
+
+    pub async fn set_usage_limit_stop_state(
+        &self,
+        transaction: &mut Transaction<RT>,
+        new_usage_limit_state: UsageLimitStopState,
+    ) -> anyhow::Result<Option<BackendState>> {
+        BackendStateModel::new(transaction)
+            .set_usage_limit_stop_state(new_usage_limit_state)
+            .await
     }
 }

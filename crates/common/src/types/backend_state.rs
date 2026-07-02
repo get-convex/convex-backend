@@ -27,6 +27,7 @@ pub enum OldBackendState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BackendState {
     pub system: SystemStopState,
+    pub usage_limit: UsageLimitStopState,
     pub user: UserStopState,
 }
 
@@ -56,6 +57,19 @@ pub enum UserStopState {
     Paused,
 }
 
+/// Indicates whether the backend has been stopped by a configured usage limit.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Serialize, Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum UsageLimitStopState {
+    None,
+
+    /// Stopped by exceeding a deployment usage limit.
+    Disabled,
+}
+
 impl BackendState {
     // TODO(nicolas) Remove once consistency-check is updated to stop using
     // /get_deployment_state
@@ -71,6 +85,8 @@ impl BackendState {
 
 impl BackendState {
     pub fn is_stopped(&self) -> bool {
-        self.system != SystemStopState::None || self.user != UserStopState::None
+        self.system != SystemStopState::None
+            || self.usage_limit != UsageLimitStopState::None
+            || self.user != UserStopState::None
     }
 }

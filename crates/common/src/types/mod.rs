@@ -55,6 +55,7 @@ pub use backend_state::{
     BackendState,
     OldBackendState,
     SystemStopState,
+    UsageLimitStopState,
     UserStopState,
 };
 pub use deployments::{
