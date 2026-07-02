@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Fieldset, Legend, RadioGroup } from "@headlessui/react";
+import { Fieldset, RadioGroup } from "@headlessui/react";
 import { Region, sortRegions } from "elements/Region";
 import {
   DeploymentRegionMetadata,
@@ -27,10 +27,12 @@ export function DefaultRegionSelector({
 
   return (
     <Fieldset>
-      <Legend className="mb-1 text-sm text-content-primary">
-        Region for New Deployments
-      </Legend>
-      <RadioGroup name="defaultRegion" value={value} onChange={onChange}>
+      <RadioGroup
+        name="defaultRegion"
+        aria-label="Default region"
+        value={value}
+        onChange={onChange}
+      >
         <div className="grid max-w-xl auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sortedRegions ? (
             <>
