@@ -72,6 +72,7 @@ export type TableContextMenuProps = {
   resetColumns: () => void;
   canManageTable: boolean;
   isProtectedDeployment: boolean;
+  onClickRenameColumn: (columnName: string) => void;
 };
 
 export function TableContextMenu({
@@ -85,6 +86,7 @@ export function TableContextMenu({
   resetColumns,
   canManageTable,
   isProtectedDeployment,
+  onClickRenameColumn,
 }: TableContextMenuProps) {
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
@@ -182,6 +184,17 @@ export function TableContextMenu({
           {state.selectedCell && !state.selectedCell.rowId && (
             <>
               <hr className="my-1" />
+              {state.selectedCell.column !== "*select" && (
+                <ContextMenu.Item
+                  icon={<Pencil1Icon aria-hidden="true" />}
+                  label="Rename column..."
+                  tipSide="right"
+                  action={() => {
+                    onClickRenameColumn(state.selectedCell!.column);
+                    close();
+                  }}
+                />
+              )}
               <ContextMenu.Item
                 icon={<ResetIcon aria-hidden="true" />}
                 label="Reset column positions and widths"

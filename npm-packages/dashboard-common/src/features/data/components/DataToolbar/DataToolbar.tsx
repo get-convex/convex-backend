@@ -30,6 +30,7 @@ export type DataToolbarProps = {
   selectedRowsIds: Set<string>;
   selectedDocument: Record<string, any> | undefined;
   tableName: string;
+  onClickRenameTable: () => void;
 };
 
 export function DataToolbar({
@@ -42,6 +43,7 @@ export function DataToolbar({
   selectedRowsIds,
   selectedDocument,
   tableName,
+  onClickRenameTable,
 }: DataToolbarProps) {
   const popup = popupState?.type;
 
@@ -182,6 +184,7 @@ export function DataToolbar({
                 });
                 setPopup({ type: "viewIndexes", tableName });
               }}
+              onClickRenameTable={onClickRenameTable}
               onClickMetrics={() => {
                 log("view table metrics", {
                   how: "toolbar",
