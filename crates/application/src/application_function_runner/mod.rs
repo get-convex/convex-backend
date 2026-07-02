@@ -152,10 +152,10 @@ use model::{
     udf_config::types::UdfConfig,
 };
 use node_executor::{
-    Actions,
     AnalyzeRequest,
     BuildDepsRequest,
     ExecuteRequest,
+    NodeActions,
 };
 use serde_json::Value as JsonValue;
 use storage::Storage;
@@ -658,7 +658,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
     isolate_functions: FunctionRouter<RT>,
     // Used for analyze, schema, etc.
-    node_actions: Actions<RT>,
+    node_actions: NodeActions<RT>,
 
     pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
     modules_storage: Arc<dyn Storage>,
@@ -678,7 +678,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         database: Database<RT>,
         key_broker: KeyBroker,
         function_runner: Arc<dyn FunctionRunner<RT>>,
-        node_actions: Actions<RT>,
+        node_actions: NodeActions<RT>,
         file_storage: TransactionalFileStorage<RT>,
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,

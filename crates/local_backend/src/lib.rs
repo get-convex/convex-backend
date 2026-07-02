@@ -69,7 +69,7 @@ use model::{
 };
 use node_executor::{
     local::LocalNodeExecutor,
-    Actions,
+    NodeActions,
 };
 use runtime::prod::ProdRuntime;
 use search::{
@@ -199,7 +199,7 @@ pub async fn make_app(
     };
     let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
     let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout).await?);
-    let actions = Actions::new(
+    let node_actions = NodeActions::new(
         node_executor,
         config.convex_origin_url()?,
         *ACTION_USER_TIMEOUT,
@@ -256,7 +256,7 @@ pub async fn make_app(
         searcher.clone(),
         segment_metadata_fetcher,
         persistence,
-        actions,
+        node_actions,
         Arc::new(RedactLogsToClient::new(config.redact_logs_to_client)),
         Arc::new(ApplicationAuth::new(
             key_broker.clone(),

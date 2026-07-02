@@ -313,7 +313,7 @@ use model::{
         UdfConfigModel,
     },
 };
-use node_executor::Actions;
+use node_executor::NodeActions;
 use parking_lot::Mutex;
 use rand::Rng;
 use roles::RequireDeploymentOp;
@@ -691,7 +691,7 @@ impl<RT: Runtime> Application<RT> {
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         persistence: Arc<dyn Persistence>,
-        node_actions: Actions<RT>,
+        node_actions: NodeActions<RT>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
         app_auth: Arc<ApplicationAuth<RT>>,
         cache: QueryCache,
