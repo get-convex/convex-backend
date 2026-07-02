@@ -35,7 +35,7 @@ export function DataView({
   onTableCreated?: () => void;
   onDocumentsAdded?: (count: number) => void;
 }) {
-  const { useCurrentDeployment, ErrorBoundary } = useContext(
+  const { useCurrentDeployment, ErrorBoundary, schemaPageEnabled } = useContext(
     DeploymentInfoContext,
   );
   const { useIsOperationAllowed } = useContext(PermissionsContext);
@@ -62,13 +62,19 @@ export function DataView({
     tableMetadata?.name ?? "",
   );
 
+  const showSchemaInData = !schemaPageEnabled;
+
   const schemaValidationProgress = useQuery(
     udfs.getSchemas.schemaValidationProgress,
-    canViewData ? { componentId: componentId ?? null } : "skip",
+    canViewData && showSchemaInData
+      ? { componentId: componentId ?? null }
+      : "skip",
   );
 
   const { activeSchema, inProgressSchema } = useMemo(() => {
-    if (!schemas) return {};
+    if (!schemas) {
+      return { activeSchema: undefined, inProgressSchema: undefined };
+    }
 
     return {
       activeSchema: schemas.active
@@ -85,17 +91,19 @@ export function DataView({
   const [isShowingSchema, setIsShowingSchema] = useState(false);
   const showSchemaProps = useMemo(
     () =>
-      activeSchema === undefined || inProgressSchema === undefined
-        ? undefined
-        : {
-            hasSaved: activeSchema !== null || inProgressSchema !== null,
-            showSchema: () => setIsShowingSchema(true),
-          },
-    [activeSchema, inProgressSchema, setIsShowingSchema],
+      !showSchemaInData
+        ? null
+        : activeSchema === undefined || inProgressSchema === undefined
+          ? undefined
+          : {
+              hasSaved: activeSchema !== null || inProgressSchema !== null,
+              showSchema: () => setIsShowingSchema(true),
+            },
+    [showSchemaInData, activeSchema, inProgressSchema, setIsShowingSchema],
   );
 
   useEffect(() => {
-    if (router.query.showSchema === "true") {
+    if (showSchemaInData && router.query.showSchema === "true") {
       setIsShowingSchema(true);
       void router.push(
         {
@@ -106,7 +114,7 @@ export function DataView({
         { shallow: true },
       );
     }
-  }, [router.query.showSchema, router]);
+  }, [showSchemaInData, router.query.showSchema, router]);
 
   if (!canViewData) {
     return (
@@ -126,7 +134,7 @@ export function DataView({
         subtitle={tableMetadata?.name ? "Data" : undefined}
         title={tableMetadata?.name || "Data"}
       />
-      {schemas && tables && isShowingSchema && (
+      {showSchemaInData && schemas && tables && isShowingSchema && (
         <Modal
           onClose={() => setIsShowingSchema(false)}
           title={<div className="px-3">Schema</div>}

@@ -138,6 +138,7 @@ export function DeploymentInfoProvider({
     workOsEnvironmentProvisioningDashboardUi,
     connectionStateCheckIntervalMs,
     logStreamTopicFilters,
+    schemaPage,
   } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
@@ -215,6 +216,7 @@ export function DeploymentInfoProvider({
         isSelfHosted: false,
         workosIntegrationEnabled: workOsEnvironmentProvisioningDashboardUi,
         logStreamTopicFiltersEnabled: logStreamTopicFilters,
+        schemaPageEnabled: schemaPage,
         connectionStateCheckIntervalMs,
       });
     };
@@ -233,6 +235,7 @@ export function DeploymentInfoProvider({
     teamsURI,
     workOsEnvironmentProvisioningDashboardUi,
     logStreamTopicFilters,
+    schemaPage,
     connectionStateCheckIntervalMs,
   ]);
 

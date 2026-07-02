@@ -313,6 +313,7 @@ export type DeploymentInfo = (
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
   logStreamTopicFiltersEnabled: boolean;
+  schemaPageEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 

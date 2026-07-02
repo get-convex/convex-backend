@@ -2,6 +2,7 @@ import { DeploymentInfo } from "@common/lib/deploymentContext";
 
 export const mockDeploymentInfo: DeploymentInfo = {
   ok: true,
+  schemaPageEnabled: true,
   reportHttpError: () => {},
   captureException: () => {},
   captureMessage: () => {},

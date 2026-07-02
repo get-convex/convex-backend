@@ -8,8 +8,10 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function NentSwitcher({
   onChange,
+  className,
 }: {
   onChange?: (nent: string | null) => void;
+  className?: string;
 }) {
   const { nents: allNents, selectedNent, setSelectedNent } = useNents();
   const { deploymentsURI } = useContext(DeploymentInfoContext);
@@ -22,7 +24,7 @@ export function NentSwitcher({
   const unmounted = nents.filter((nent) => nent.state !== "active");
 
   return (
-    <div className="mb-4">
+    <div className={className}>
       <Combobox
         buttonProps={{
           tip: "Switch between components installed in this deployment.",

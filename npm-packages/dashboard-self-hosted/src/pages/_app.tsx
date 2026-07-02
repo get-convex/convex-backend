@@ -320,6 +320,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   isSelfHosted: true,
   workosIntegrationEnabled: false,
   logStreamTopicFiltersEnabled: true,
+  schemaPageEnabled: true,
   connectionStateCheckIntervalMs: 2500,
 };
 

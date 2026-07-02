@@ -7,6 +7,7 @@ import {
   TextAlignBottomIcon,
   GearIcon,
   InfoCircledIcon,
+  CubeIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
 import { Link } from "@ui/Link";
@@ -54,7 +55,9 @@ export function DeploymentDashboardLayout({
     useGlobalLocalStorage("functionRunnerOrientation", false);
   const [isRunnerExpanded, setIsRunnerExpanded] = useState(false);
   const isGlobalRunnerShown = useIsGlobalRunnerShown();
-  const { deploymentsURI: uriPrefix } = useContext(DeploymentInfoContext);
+  const { deploymentsURI: uriPrefix, schemaPageEnabled } = useContext(
+    DeploymentInfoContext,
+  );
   const { canViewDataCached } = useContext(PermissionsContext);
   const { isCloudDeploymentInSelfHostedDashboard, deploymentName } =
     useIsCloudDeploymentInSelfHostedDashboard();
@@ -72,6 +75,17 @@ export function DeploymentDashboardLayout({
       Icon: TableIcon,
       href: `${uriPrefix}/data`,
     },
+    // The schema visualizer is gated behind a feature flag during rollout.
+    ...(schemaPageEnabled
+      ? [
+          {
+            key: "schema",
+            label: "Schema",
+            Icon: CubeIcon,
+            href: `${uriPrefix}/schema`,
+          },
+        ]
+      : []),
     {
       key: `functions`,
       label: "Functions",
