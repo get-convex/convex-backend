@@ -175,9 +175,9 @@ Convex provides a "seeded" strong pseudo-random number generator
 at `Math.random()` so that it can guarantee the determinism of your function.
 The random number generator's seed is an implicit parameter to your function.
 Multiple calls to `Math.random()` in one function call will return different
-random values. Note that Convex does not reevaluate the JavaScript modules on
-every function run, so a call to `Math.random()` stored in a global variable
-will not change between function runs.
+random values. However, a call to `Math.random()` stored in a global variable
+will not change between function runs, because during import-time, the random
+number generator's seed is fixed to a value set at the most recent deployment.
 
 To ensure the logic within your function is reproducible, the system time used
 globally (outside of any function) is "frozen" at deploy time, while the system
