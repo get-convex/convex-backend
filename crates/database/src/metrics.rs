@@ -210,6 +210,15 @@ pub fn bootstrap_table_summaries_timer() -> Timer<VMHistogram> {
     Timer::new(&DATABASE_BOOTSTRAP_SHAPES_SECONDS)
 }
 
+register_convex_histogram!(
+    TABLE_SUMMARY_UPDATE_SECONDS,
+    "Time taken to update the table summary (shape inference + counts) for a single document \
+     update on the commit path"
+);
+pub fn table_summary_update_timer() -> Timer<VMHistogram> {
+    Timer::new(&TABLE_SUMMARY_UPDATE_SECONDS)
+}
+
 register_convex_histogram!(DATABASE_LOAD_SECONDS, "Time to load the database");
 pub fn load_database_timer() -> Timer<VMHistogram> {
     Timer::new(&DATABASE_LOAD_SECONDS)

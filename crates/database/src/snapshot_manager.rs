@@ -176,6 +176,7 @@ impl TableSummaries {
         table_mapping: &TableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<()> {
+        let _timer = crate::metrics::table_summary_update_timer();
         let mut table_summary = self
             .tables
             .get(&document_id.tablet_id)
