@@ -432,19 +432,6 @@ export const screenshots = [
     }
   },
   {
-    "storyTitle": "docs/pages/project/deployment/Data#Generate Schema",
-    "light": {
-      "filename": "pages_project_deployment_data_generate_schema_light.webp",
-      "width": 2048,
-      "height": 1400
-    },
-    "dark": {
-      "filename": "pages_project_deployment_data_generate_schema_dark.webp",
-      "width": 2048,
-      "height": 1400
-    }
-  },
-  {
     "storyTitle": "docs/pages/project/deployment/Data#Component Dropdown",
     "light": {
       "filename": "pages_project_deployment_data_component_dropdown_light.webp",
@@ -518,6 +505,32 @@ export const screenshots = [
     },
     "dark": {
       "filename": "pages_project_deployment_history_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Schema",
+    "light": {
+      "filename": "pages_project_deployment_schema_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_schema_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Schema#Schema File",
+    "light": {
+      "filename": "pages_project_deployment_schema_schema_file_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_schema_schema_file_dark.webp",
       "width": 2048,
       "height": 1400
     }

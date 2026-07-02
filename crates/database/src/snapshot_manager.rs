@@ -176,6 +176,7 @@ impl TableSummaries {
         table_mapping: &TableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<()> {
+        let _timer = crate::metrics::table_summary_update_timer();
         let mut table_summary = self
             .tables
             .get(&document_id.tablet_id)
@@ -184,12 +185,12 @@ impl TableSummaries {
             })?
             .clone();
         if let Some(old_value) = old {
-            table_summary = table_summary
+            table_summary
                 .remove(&old_value.value().0)
                 .with_context(|| format!("removing from table {}", document_id.tablet_id))?;
         }
         if let Some(new_value) = new {
-            table_summary = table_summary.insert(&new_value.value().0);
+            table_summary.insert(&new_value.value().0);
         }
         if let Some(TableUpdate {
             namespace: _,

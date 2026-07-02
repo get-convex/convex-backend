@@ -35,7 +35,7 @@ use common::{
         ExtractClientVersion,
         HttpResponseError,
     },
-    knobs::ACTION_USER_TIMEOUT,
+    knobs::V8_ACTION_USER_TIMEOUT,
     runtime::UnixTimestamp,
     types::{
         FunctionCaller,
@@ -601,7 +601,7 @@ async fn check_actions_token(
 
     // Tokens are valid for 2x the action timeout, which should be more than enough
     // assuming the timeout measures in tens of seconds.
-    let validity = 2 * *ACTION_USER_TIMEOUT;
+    let validity = 2 * *V8_ACTION_USER_TIMEOUT;
     st.application
         .key_broker()
         .check_action_token(&token.to_owned(), validity)

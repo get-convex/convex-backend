@@ -16,7 +16,6 @@ import { fn, mocked, userEvent, within, waitFor, expect } from "storybook/test";
 import { useTableShapes } from "@common/lib/deploymentApi";
 import { Shape } from "shapes";
 import { DataView } from "@common/features/data/components/DataView";
-import { SchemaView } from "@common/features/schema/components/SchemaView";
 import { FunctionsContext } from "@common/lib/functions/FunctionsProvider";
 import { api } from "system-udfs/convex/_generated/api";
 
@@ -607,64 +606,6 @@ export const CustomQueryRunner: Story = {
     if (customQueryItem) {
       await userEvent.click(customQueryItem);
     }
-  },
-};
-
-/**
- * Shows the Schema page with the saved/generated schema code panel open.
- */
-export const GenerateSchema: Story = {
-  parameters: {
-    nextjs: {
-      router: {
-        pathname: "/t/[team]/[project]/[deploymentName]/schema",
-        route: "/t/[team]/[project]/[deploymentName]/schema",
-        asPath: "/t/acme/my-amazing-app/happy-capybara-123/schema",
-        query: {
-          team: "acme",
-          project: "my-amazing-app",
-          deploymentName: "happy-capybara-123",
-        },
-      },
-    },
-  },
-  render: () => (
-    <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
-      <ConvexProvider client={mockConvexClient}>
-        <DeploymentInfoContext.Provider
-          value={{
-            ...mockDeploymentInfo,
-            useCurrentTeam: () => mockTeam,
-            useCurrentProject: () => mockProject,
-            useCurrentDeployment: () => mockDeployment,
-            useIsDeploymentPaused: () => false,
-            useLogDeploymentEvent: () => fn(),
-            deploymentsURI: "/t/acme/my-amazing-app/happy-capybara-123",
-            projectsURI: "/t/acme/my-amazing-app",
-            teamsURI: "/t/acme",
-            isSelfHosted: false,
-          }}
-        >
-          <PermissionsProvider>
-            <FunctionsContext.Provider value={new Map()}>
-              <SchemaView />
-            </FunctionsContext.Provider>
-          </PermissionsProvider>
-        </DeploymentInfoContext.Provider>
-      </ConvexProvider>
-    </ConnectedDeploymentContext.Provider>
-  ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    // Wait for the "View schema file" button to be enabled (data has loaded).
-    await waitFor(async () => {
-      await expect(
-        canvas.queryByRole("button", { name: /view schema/i }),
-      ).toBeTruthy();
-    });
-
-    await userEvent.click(canvas.getByRole("button", { name: /view schema/i }));
   },
 };
 

@@ -2123,10 +2123,20 @@ export interface components {
             optIn: components["schemas"]["OptIn"];
         };
         OrbSubscriptionResponse: {
+            /** @description The customer's account balance in their billing currency, as a decimal
+             *     string (e.g. "25.00"). This is a credit that is automatically applied to
+             *     future invoices. Only populated for actors that can view billing
+             *     details. */
+            accountBalance?: string | null;
             billingAddress?: null | components["schemas"]["Address"];
             billingContact?: null | components["schemas"]["BillingContactResponse"];
             /** Format: int64 */
             endDate?: number | null;
+            /** @description The subscription's invoicing threshold in USD (e.g. "10.00"). When
+             *     uninvoiced usage crosses this amount mid-cycle, an invoice is issued
+             *     immediately, so a customer can receive multiple invoices in one billing
+             *     period. `None` if no threshold is configured on the subscription. */
+            invoicingThreshold?: string | null;
             nextBillingPeriodStart: string;
             paymentMethod?: null | components["schemas"]["PaymentMethodResponse"];
             plan: components["schemas"]["PlanResponse"];
