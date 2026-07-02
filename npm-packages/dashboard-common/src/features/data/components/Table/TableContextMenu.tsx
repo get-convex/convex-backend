@@ -336,6 +336,7 @@ function CellActions({
                     : "Go to Reference",
                 disabled: false,
                 tip: null,
+                blankTarget: false,
               }
             : {
                 action: viewCb,
@@ -395,6 +396,7 @@ function CellActions({
           disabled={action.disabled}
           tip={action.tip}
           tipSide="right"
+          blankTarget={"blankTarget" in action ? action.blankTarget : undefined}
         />
       ))}
       {filterAction}
