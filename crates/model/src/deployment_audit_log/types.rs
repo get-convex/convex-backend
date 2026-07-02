@@ -68,6 +68,7 @@ use crate::{
         NodeVersionDiff,
         SerializedNodeVersionDiff,
     },
+    usage_limits::types::UsageLimitConfig,
 };
 
 pub const DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deployment_audit_log");
@@ -126,6 +127,26 @@ pub enum DeploymentAuditLogEvent {
     },
     DeleteEnvironmentVariable {
         name: EnvVarName,
+    },
+    // The config fields are pinned to fixed values in proptests: generating
+    // nested arbitrary `UsageLimitConfig`s inside this large derived enum
+    // strategy overflows the test thread's stack.
+    CreateUsageLimit {
+        id: String,
+        config: UsageLimitConfig,
+    },
+    UpdateUsageLimit {
+        id: String,
+        previous: UsageLimitConfig,
+        current: UsageLimitConfig,
+    },
+    DeleteUsageLimit {
+        id: String,
+        config: UsageLimitConfig,
+    },
+    UsageLimitExceeded {
+        id: String,
+        config: UsageLimitConfig,
     },
     ReplaceEnvironmentVariable {
         previous_name: EnvVarName,
@@ -303,6 +324,25 @@ impl DeploymentAuditLogEvent {
             | DeploymentAuditLogEvent::UpdateEnvironmentVariable { name }
             | DeploymentAuditLogEvent::DeleteEnvironmentVariable { name } => {
                 obj!("variable_name" => name.to_string())
+            },
+            DeploymentAuditLogEvent::CreateUsageLimit { id, config }
+            | DeploymentAuditLogEvent::DeleteUsageLimit { id, config }
+            | DeploymentAuditLogEvent::UsageLimitExceeded { id, config } => {
+                obj!(
+                    "id" => id,
+                    "config" => ConvexValue::try_from(config)?,
+                )
+            },
+            DeploymentAuditLogEvent::UpdateUsageLimit {
+                id,
+                previous,
+                current,
+            } => {
+                obj!(
+                    "id" => id,
+                    "previous" => ConvexValue::try_from(previous)?,
+                    "current" => ConvexValue::try_from(current)?,
+                )
             },
             DeploymentAuditLogEvent::ReplaceEnvironmentVariable {
                 previous_name,
@@ -768,6 +808,23 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
             },
             "update_environment_variable" => DeploymentAuditLogEvent::UpdateEnvironmentVariable {
                 name: remove_string(&mut fields, "variable_name")?.parse()?,
+            },
+            "create_usage_limit" => DeploymentAuditLogEvent::CreateUsageLimit {
+                id: remove_string(&mut fields, "id")?,
+                config: remove_object(&mut fields, "config")?,
+            },
+            "update_usage_limit" => DeploymentAuditLogEvent::UpdateUsageLimit {
+                id: remove_string(&mut fields, "id")?,
+                previous: remove_object(&mut fields, "previous")?,
+                current: remove_object(&mut fields, "current")?,
+            },
+            "delete_usage_limit" => DeploymentAuditLogEvent::DeleteUsageLimit {
+                id: remove_string(&mut fields, "id")?,
+                config: remove_object(&mut fields, "config")?,
+            },
+            "usage_limit_exceeded" => DeploymentAuditLogEvent::UsageLimitExceeded {
+                id: remove_string(&mut fields, "id")?,
+                config: remove_object(&mut fields, "config")?,
             },
             "replace_environment_variable" => DeploymentAuditLogEvent::ReplaceEnvironmentVariable {
                 previous_name: remove_string(&mut fields, "previous_variable_name")?.parse()?,

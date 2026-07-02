@@ -350,6 +350,7 @@ pub fn router(st: LocalAppState) -> Router {
             .merge(platform_router())
             .merge(crate::deployment_audit_log::platform_router())
             .merge(crate::deployment_info::platform_router())
+            .merge(crate::usage_limits::platform_router())
             .merge(crate::canonical_urls::platform_router())
             .merge(crate::log_sinks::platform_router())
             .merge(crate::deployment_state::platform_router())
