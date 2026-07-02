@@ -72,10 +72,99 @@ use crate::{
     TableIterator,
 };
 
+/// Document count and byte size of the documents in a table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TableCount {
+    num_values: u64,
+    total_size: u64,
+}
+
+impl TableCount {
+    pub fn empty() -> Self {
+        Self {
+            num_values: 0,
+            total_size: 0,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.num_values == 0 && self.total_size == 0
+    }
+
+    pub fn num_values(&self) -> u64 {
+        self.num_values
+    }
+
+    pub fn total_size(&self) -> u64 {
+        self.total_size
+    }
+
+    pub fn insert(&mut self, object: &ConvexObject) {
+        self.num_values += 1;
+        self.total_size += object.size() as u64;
+    }
+
+    pub fn remove(&mut self, object: &ConvexObject) -> anyhow::Result<()> {
+        self.num_values = self
+            .num_values
+            .checked_sub(1)
+            .context("num_values went negative?")?;
+        self.total_size = self
+            .total_size
+            .checked_sub(object.size() as u64)
+            .context("total_size went negative?")?;
+        Ok(())
+    }
+}
+
+/// Inferred shape of the documents in a table.
+/// TODO: Add `ts` that the shape is valid at.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableShape {
+    inferred_type: CountedShape<ProdConfig>,
+}
+
+impl fmt::Display for TableShape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.inferred_type)
+    }
+}
+
+impl TableShape {
+    pub fn empty() -> Self {
+        Self {
+            inferred_type: Shape::empty(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inferred_type.is_empty()
+    }
+
+    pub fn inferred_type(&self) -> &CountedShape<ProdConfig> {
+        &self.inferred_type
+    }
+
+    pub fn insert(&mut self, object: &ConvexObject) {
+        self.inferred_type = self.inferred_type.insert(object);
+    }
+
+    pub fn remove(&mut self, object: &ConvexObject) -> anyhow::Result<()> {
+        self.inferred_type = self.inferred_type.remove(object)?;
+        Ok(())
+    }
+
+    /// Drop the tracked shape while preserving the document count, replacing it
+    /// with an `Unknown` shape of the given size.
+    pub fn reset(&mut self, num_values: u64) {
+        self.inferred_type = CountedShape::new(ShapeEnum::Unknown, num_values);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableSummary {
-    inferred_type: CountedShape<ProdConfig>,
-    total_size: u64,
+    count: TableCount,
+    shape: TableShape,
 }
 
 impl fmt::Display for TableSummary {
@@ -83,7 +172,7 @@ impl fmt::Display for TableSummary {
         write!(
             f,
             "TableSummary {{ inferred_type: {}, total_size: {} }}",
-            self.inferred_type, self.total_size
+            self.shape.inferred_type, self.count.total_size
         )
     }
 }
@@ -91,48 +180,48 @@ impl fmt::Display for TableSummary {
 impl TableSummary {
     pub fn empty() -> Self {
         Self {
-            inferred_type: Shape::empty(),
-            total_size: 0,
+            count: TableCount::empty(),
+            shape: TableShape::empty(),
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.inferred_type.is_empty() && self.total_size == 0
+        self.count.is_empty() && self.shape.is_empty()
+    }
+
+    pub fn count(&self) -> &TableCount {
+        &self.count
+    }
+
+    pub fn shape(&self) -> &TableShape {
+        &self.shape
     }
 
     pub fn total_size(&self) -> u64 {
-        self.total_size
+        self.count.total_size()
     }
 
     pub fn num_values(&self) -> u64 {
-        *self.inferred_type.num_values()
+        self.count.num_values()
     }
 
     pub fn inferred_type(&self) -> &CountedShape<ProdConfig> {
-        &self.inferred_type
+        self.shape.inferred_type()
     }
 
-    pub fn insert(&self, object: &ConvexObject) -> Self {
-        let total_size = self.total_size + object.size() as u64;
-        Self {
-            inferred_type: self.inferred_type.insert(object),
-            total_size,
-        }
+    pub fn insert(&mut self, object: &ConvexObject) {
+        self.count.insert(object);
+        self.shape.insert(object);
     }
 
-    pub fn remove(&self, object: &ConvexObject) -> anyhow::Result<Self> {
-        let size = object.size() as u64;
-        Ok(Self {
-            inferred_type: self.inferred_type.remove(object)?,
-            total_size: self
-                .total_size
-                .checked_sub(size)
-                .context("total_size went negative?")?,
-        })
+    pub fn remove(&mut self, object: &ConvexObject) -> anyhow::Result<()> {
+        self.shape.remove(object)?;
+        self.count.remove(object)?;
+        Ok(())
     }
 
     pub fn reset_shape(&mut self) {
-        self.inferred_type = CountedShape::new(ShapeEnum::Unknown, self.num_values());
+        self.shape.reset(self.count.num_values());
     }
 
     pub fn persistence_key() -> PersistenceGlobalKey {
@@ -143,8 +232,8 @@ impl TableSummary {
 impl From<&TableSummary> for JsonValue {
     fn from(summary: &TableSummary) -> Self {
         json!({
-            "totalSize": JsonInteger::encode(summary.total_size as i64),
-            "inferredTypeWithOptionalFields": JsonValue::from(&summary.inferred_type)
+            "totalSize": JsonInteger::encode(summary.count.total_size as i64),
+            "inferredTypeWithOptionalFields": JsonValue::from(&summary.shape.inferred_type)
         })
     }
 }
@@ -164,9 +253,16 @@ impl TryFrom<JsonValue> for TableSummary {
                     Some(v) => CountedShape::<ProdConfig>::json_deserialize_value(v)?,
                     None => anyhow::bail!("Missing field inferredTypeWithOptionalFields"),
                 };
+                // The document count is derived from the shape's own counter on
+                // load; from here on it is maintained authoritatively in
+                // `TableCount`.
+                let num_values = *inferred_type.num_values();
                 Ok(TableSummary {
-                    inferred_type,
-                    total_size,
+                    count: TableCount {
+                        num_values,
+                        total_size,
+                    },
+                    shape: TableShape { inferred_type },
                 })
             },
             _ => anyhow::bail!("Wrong type of json value for TableSummaryJson"),
@@ -297,8 +393,8 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         futures::pin_mut!(revision_stream);
         let mut summary = TableSummary::empty();
         while let Some(rev) = revision_stream.try_next().await? {
-            summary = summary.insert(rev.value.value());
-            let num_values = summary.inferred_type.num_values();
+            summary.insert(rev.value.value());
+            let num_values = summary.num_values();
             if num_values % 10000 == 0 {
                 tracing::info!("Collecting table summary with {num_values} documents")
             }
@@ -512,10 +608,10 @@ fn add_revision(
         TableSummary::empty,
     );
     if let Some(old_document) = revision_pair.prev_document() {
-        *summary = summary.remove(old_document.value())?;
+        summary.remove(old_document.value())?;
     }
     if let Some(new_document) = revision_pair.document() {
-        *summary = summary.insert(new_document.value());
+        summary.insert(new_document.value());
     }
     Ok(())
 }

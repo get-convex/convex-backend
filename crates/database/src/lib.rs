@@ -201,6 +201,8 @@ pub use self::{
         Subscription,
     },
     table_summary::{
+        TableCount,
+        TableShape,
         TableSummary,
         TableSummaryWriter,
     },
