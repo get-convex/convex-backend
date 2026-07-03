@@ -14,6 +14,7 @@ export function AskAI() {
         data-project-name="Convex"
         data-project-color="#3F5295"
         data-project-logo="https://img.stackshare.io/service/41143/default_f1d33b63d360437ba28c8ac981dd68d7d2478b22.png"
+        data-color-scheme-selector=".dark"
         data-user-analytics-fingerprint-enabled="true"
         data-user-analytics-cookie-enabled="true"
         data-search-mode-enabled="true"
