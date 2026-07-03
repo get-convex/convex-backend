@@ -102,6 +102,50 @@ pub static UDF_METRICS_SIGNIFICANT_FIGURES: LazyLock<u8> =
 pub static UDF_ANALYTICS_POLL_TIME: LazyLock<u64> =
     LazyLock::new(|| env_config("UDF_ANALYTICS_POLL_TIME", 60));
 
+/// How often conductor's app-metrics seed worker wakes up to check for
+/// deployments whose Databricks seed query is due.
+pub static APP_METRICS_SEED_SWEEP_INTERVAL: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("APP_METRICS_SEED_SWEEP_INTERVAL_SECS", 10)));
+
+/// Delay before re-querying Databricks to backfill the most recent window that
+/// Databricks had not yet ingested at initial seed time. Databricks ingestion
+/// lags, so each deployment is seeded once at load and once
+/// again after this delay.
+pub static APP_METRICS_SEED_GAP_FILL_DELAY: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("APP_METRICS_SEED_GAP_FILL_DELAY_SECS", 90 * 60))
+});
+
+/// Maximum number of deployments included in a single Databricks app-metrics
+/// seed query batch (a comma-separated `instance_names` parameter). Extra due
+/// deployments are processed on subsequent sweeps. Kept small to keep each
+/// query's result well under the Databricks INLINE-disposition 25 MiB response
+/// cap, which fails (rather than truncates) the whole statement if exceeded.
+/// Estimate: 100 bytes per row * 13 metrics * 150 data points = ~.2 MiB per
+/// deployment
+pub static APP_METRICS_SEED_MAX_BATCH: LazyLock<usize> =
+    LazyLock::new(|| env_config("APP_METRICS_SEED_MAX_BATCH", 100));
+
+/// Maximum random delay the app-metrics seed worker waits before its first
+/// sweep. A uniformly random delay in `[0, this]` is chosen once at startup.
+/// This spreads the initial Databricks query across conductors so a
+/// fleet-wide restart (e.g. a bad deploy crash-looping many conductors) does
+/// not align every conductor's re-seed into a thundering herd on Databricks.
+pub static APP_METRICS_SEED_STARTUP_JITTER: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("APP_METRICS_SEED_STARTUP_JITTER_SECS", 5 * 60))
+});
+
+/// Kill switch for conductor's app-metrics seed worker. When set, the worker
+/// does not run and deployments are not tracked for seeding.
+pub static KILL_APP_METRICS_SEED_WORKER: LazyLock<bool> =
+    LazyLock::new(|| env_config("KILL_APP_METRICS_SEED_WORKER", false));
+
+/// Databricks query id (UUID) for the conductor app-metrics seed query, which
+/// takes a comma-separated `instance_names` parameter and returns rolled up
+/// usage data. Defaults to the the empty string, which means the worker will be
+/// disabled.
+pub static APP_METRICS_SEED_QUERY_ID: LazyLock<String> =
+    LazyLock::new(|| env_config("APP_METRICS_SEED_QUERY_ID", "".to_string()));
+
 /// How often the heap worker reports metrics.
 pub static HEAP_WORKER_REPORT_INTERVAL_SECONDS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("HEAP_WORKER_REPORT_INTERVAL_SECONDS", 30)));
