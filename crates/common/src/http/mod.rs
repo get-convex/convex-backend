@@ -1194,7 +1194,7 @@ fn is_high_volume_path(path: &str) -> bool {
     path == "/instance_version"
         || path == "/instance_name"
         || path == "/get_backend_info"
-        || path == "/get_deployment_state"
+        || path == "/get_system_stop_state"
         || path == "/api/shapes2"
         || path == "/api/actions/query"
         || path == "/api/actions/mutation"
