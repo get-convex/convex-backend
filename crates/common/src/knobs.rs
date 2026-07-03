@@ -1722,11 +1722,11 @@ pub static SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS: LazyLock<Duration> =
 
 /// Admin identities expire after this delay. Then they need revalidation. This
 /// needs to be longer than the longest living sessions that maintain a single
-/// Identity. Notably ACTION_USER_TIMEOUT.
+/// Identity. Notably V8_ACTION_USER_TIMEOUT and NODE_ACTION_USER_TIMEOUT.
 pub static ADMIN_IDENTITY_EXPIRATION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
     max(
         *V8_ACTION_USER_TIMEOUT,
-        Duration::from_secs(env_config("ADMIN_IDENTITY_EXPIRATION_DELAY_SECS", 900)),
+        Duration::from_secs(env_config("ADMIN_IDENTITY_EXPIRATION_DELAY_SECS", 2000)),
     )
 });
 
