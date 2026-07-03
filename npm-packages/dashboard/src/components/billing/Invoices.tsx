@@ -3,18 +3,24 @@ import {
   DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@ui/Button";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { Sheet } from "@ui/Sheet";
 import { cn } from "@ui/cn";
 import { formatDate } from "@common/lib/format";
+import { formatUsd } from "@common/lib/utils";
 import { InvoiceResponse } from "generatedApi";
 import startCase from "lodash/startCase";
 
 export function Invoices({
   invoices,
+  invoicingThreshold,
   onShowMore,
   isLoadingMore = false,
 }: {
   invoices: InvoiceResponse[];
+  // The subscription's mid-cycle invoicing threshold in USD (e.g. "10.00"), or
+  // null/undefined when the team has no threshold configured.
+  invoicingThreshold?: string | null;
   onShowMore?: () => void;
   isLoadingMore?: boolean;
 }) {
@@ -26,6 +32,7 @@ export function Invoices({
           Preview or download your upcoming and past invoices.
         </span>
       </div>
+      <InvoicingThresholdExplainer invoicingThreshold={invoicingThreshold} />
       {invoices.length > 0 ? (
         <InvoicesTable
           invoices={invoices}
@@ -36,6 +43,32 @@ export function Invoices({
         <EmptyState />
       )}
     </Sheet>
+  );
+}
+
+function InvoicingThresholdExplainer({
+  invoicingThreshold,
+}: {
+  invoicingThreshold?: string | null;
+}) {
+  const threshold =
+    typeof invoicingThreshold === "string"
+      ? parseFloat(invoicingThreshold)
+      : NaN;
+  if (!Number.isFinite(threshold) || threshold <= 0) {
+    // No mid-cycle threshold configured (e.g. the team is invoiced only at the
+    // end of each billing period), so there's nothing to explain.
+    return null;
+  }
+  const formatted = formatUsd(threshold);
+  return (
+    <div className="flex items-center gap-1 text-sm text-content-secondary">
+      Invoice threshold:
+      <span className="font-medium text-content-primary">{formatted}</span>
+      <HelpTooltip tipSide="top">
+        {`Usage is invoiced in ${formatted} increments, so you may receive multiple invoices in a single billing period if your usage exceeds ${formatted}. For usage incurred within a short amount of time, invoices may be aggregated to multiple threshold increments.`}
+      </HelpTooltip>
+    </div>
   );
 }
 

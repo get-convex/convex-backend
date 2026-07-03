@@ -183,7 +183,7 @@ const button = tv({
     },
     accent: {
       none: "border",
-      inline: "",
+      inline: "border border-transparent",
     },
     disabled: {
       true: "cursor-not-allowed opacity-50 disabled:cursor-not-allowed disabled:opacity-50",

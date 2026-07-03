@@ -72,6 +72,15 @@ export const WithInvoices: Story = {
   },
 };
 
+// Shows the "why you might get more than one invoice a month" explainer that
+// appears when the subscription has a mid-cycle invoicing threshold.
+export const WithInvoicingThreshold: Story = {
+  args: {
+    invoices: generateInvoices(5),
+    invoicingThreshold: "10.00",
+  },
+};
+
 export const WithPagesOfInvoices: Story = {
   args: {
     invoices: generateInvoices(55),
