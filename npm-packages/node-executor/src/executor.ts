@@ -72,37 +72,49 @@ export function setupGlobals(modulePath: string) {
 
 let numInvocations = 0;
 
+// Tracks concurrent runWithEnvironmentVariables calls. All concurrent
+// invocations in a single executor process serve the same deployment, so they
+// share the same env set. We only swap process.env on the first concurrent
+// entry and restore it on the last exit, preventing the race where one
+// invocation’s finally-block restores the pre-sanitized env while a sibling
+// invocation is still running and reading its user-defined vars.
+let activeEnvInvocations = 0;
+let savedLambdaEnv: NodeJS.ProcessEnv | null = null;
+
 async function runWithEnvironmentVariables<T>(
   envs: EnvironmentVariable[],
   fn: (envHash: string) => Promise<T>,
 ): Promise<T> {
-  const savedEnv = process.env;
+  if (activeEnvInvocations === 0) {
+    savedLambdaEnv = process.env;
 
-  // AWS Lambda populates a number of environment variables, like Lambda version,
-  // handler name, session, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc. We
-  // don't want to expose any of that. Only expose variables that are common
-  // between local Node.js and AWS Lambda.
-  //
-  // Note: This sanitization is for consistency between environments, not for security.
-  // While user code can still access underlying environment variables through
-  // other means, sensitive variables (such as AWS credentials) are protected
-  // through restrictive IAM policies that limit what the Lambda function can do
-  // with those credentials.
-  const allowedEnvs = ["PATH", "PWD", "LANG", "NODE_PATH", "TZ", "UTC"];
-  const sanitized: { [name: string]: string } = {};
-  for (const name of allowedEnvs) {
-    const value = process.env[name];
-    if (value !== undefined) {
-      sanitized[name] = value;
+    // AWS Lambda populates a number of environment variables, like Lambda
+    // version, handler name, session, AWS_ACCESS_KEY_ID,
+    // AWS_SECRET_ACCESS_KEY, etc. We don’t want to expose any of that. Only
+    // expose variables that are common between local Node.js and AWS Lambda.
+    //
+    // Note: This sanitization is for consistency between environments, not for
+    // security. While user code can still access underlying environment
+    // variables through other means, sensitive variables (such as AWS
+    // credentials) are protected through restrictive IAM policies that limit
+    // what the Lambda function can do with those credentials.
+    const allowedEnvs = ["PATH", "PWD", "LANG", "NODE_PATH", "TZ", "UTC"];
+    const sanitized: { [name: string]: string } = {};
+    for (const name of allowedEnvs) {
+      const value = process.env[name];
+      if (value !== undefined) {
+        sanitized[name] = value;
+      }
+    }
+    process.env = sanitized;
+
+    // Set the user defined environment variables
+    envs.sort((a, b) => a.name.localeCompare(b.name));
+    for (const e of envs) {
+      process.env[e.name] = e.value;
     }
   }
-  process.env = sanitized;
-
-  // Set the user defined environment variables
-  envs.sort((a, b) => a.name.localeCompare(b.name));
-  for (const e of envs) {
-    process.env[e.name] = e.value;
-  }
+  activeEnvInvocations++;
 
   // Compute a hash based on the user defined environment variables.
   const envHash = createHash("md5").update(JSON.stringify(envs)).digest("hex");
@@ -110,10 +122,15 @@ async function runWithEnvironmentVariables<T>(
   try {
     return await fn(envHash);
   } finally {
-    // Restore the initial environment when we’re done.
-    // This is helpful to bypass a AWS Lambda bug affecting Node.js 24 where the lambda
-    // would crash when AWS’s own env vars are missing after a second function execution.
-    process.env = savedEnv;
+    activeEnvInvocations--;
+    if (activeEnvInvocations === 0 && savedLambdaEnv !== null) {
+      // Restore the initial environment when we’re done.
+      // This is helpful to bypass a AWS Lambda bug affecting Node.js 24 where
+      // the lambda would crash when AWS’s own env vars are missing after a
+      // second function execution.
+      process.env = savedLambdaEnv;
+      savedLambdaEnv = null;
+    }
   }
 }
 
