@@ -7,7 +7,11 @@ sidebar_position: 0
 pagination_next: ai/using-cursor
 ---
 
-import { QuickHarnessesList } from "@site/src/QuickstartsList.tsx";
+import {
+  AgentPluginsList,
+  RulesHarnessesList,
+  ClaudeCodeInlineMention,
+} from "@site/src/QuickstartsList.tsx";
 
 Convex is designed around a small set of composable abstractions with strong
 guarantees that result in code that is not only faster to write, but easier to
@@ -34,6 +38,21 @@ guarantees prevent common failure modes. For up-to-date information on which
 models work best with Convex, check out our LLM
 [leaderboard](https://convex.dev/llm-leaderboard).
 
+## Agent plugins
+
+Convex publishes official plugins for coding agents that include:
+
+- **Tools** that let your agent securely interact with your dev deployment (e.g.
+  read the data/logs/insights or run functions).
+- **Hooks and monitors** that help your agent automatically identify issues in
+  your code.
+- **Skills and specialized agents** that teach your agent how to use Convex the
+  most effectively.
+
+See these documents for install instructions:
+
+<AgentPluginsList />
+
 ## Convex AI rules
 
 AI code generation is most effective when you provide it with a set of rules to
@@ -41,12 +60,16 @@ follow.
 
 See these documents for install instructions:
 
-<QuickHarnessesList />
+<RulesHarnessesList />
 
 For all other IDEs, add the following rules file to your project and refer to it
 when prompting for changes:
 
 - [convex_rules.txt](https://convex.link/convex_rules.txt)
+
+<ClaudeCodeInlineMention /> gets these rules from the [Convex
+plugin](/ai/using-claude-code.mdx#install-the-convex-plugin-in-claude-code)
+instead.
 
 We're constantly working on improving the quality of these rules for Convex by
 using rigorous evals. You can help by
