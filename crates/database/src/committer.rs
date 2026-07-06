@@ -3,7 +3,6 @@ use std::{
     collections::BTreeSet,
     ops::Bound,
     sync::Arc,
-    time::Duration,
 };
 
 use ::metrics::{
@@ -42,6 +41,7 @@ use common::{
         COMMITTER_QUEUE_SIZE,
         COMMIT_TRACE_THRESHOLD,
         INITIAL_PERSISTENCE_WRITES_BACKOFF,
+        MAX_PERSISTENCE_WRITES_BACKOFF,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
         SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS,
@@ -152,8 +152,6 @@ use crate::{
     Transaction,
     TransactionReadSet,
 };
-
-const MAX_PERSISTENCE_WRITES_BACKOFF: Duration = Duration::from_secs(60);
 
 enum PersistenceWrite {
     Commit {
@@ -659,7 +657,7 @@ impl<RT: Runtime> Committer<RT> {
                 // load-related issues.
                 let mut backoff = Backoff::new(
                     *INITIAL_PERSISTENCE_WRITES_BACKOFF,
-                    MAX_PERSISTENCE_WRITES_BACKOFF,
+                    *MAX_PERSISTENCE_WRITES_BACKOFF,
                 );
                 loop {
                     match persistence
@@ -980,7 +978,7 @@ impl<RT: Runtime> Committer<RT> {
 
                 let mut backoff = Backoff::new(
                     *INITIAL_PERSISTENCE_WRITES_BACKOFF,
-                    MAX_PERSISTENCE_WRITES_BACKOFF,
+                    *MAX_PERSISTENCE_WRITES_BACKOFF,
                 );
                 let mut write_bytes: u64 = 0;
                 let document_writes = Arc::new(

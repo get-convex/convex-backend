@@ -1804,5 +1804,10 @@ pub static INDEX_CACHE_VERIFY_PERCENT: LazyLock<u8> =
 
 /// Initial backoff for retrying failed persistence writes.
 pub static INITIAL_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_millis(env_config("INITIAL_PERSISTENCE_WRITES_BACKOFF_MS", 1000))
+    Duration::from_millis(env_config("INITIAL_PERSISTENCE_WRITES_BACKOFF_MS", 100))
+});
+
+/// Max backoff for retrying failed persistence writes.
+pub static MAX_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_millis(env_config("MAX_PERSISTENCE_WRITES_BACKOFF_MS", 10 * 1000))
 });
