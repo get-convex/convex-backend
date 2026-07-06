@@ -1801,3 +1801,8 @@ pub static ALLOW_FUNCTION_CONTEXT_REUSE: LazyLock<bool> =
 /// cache results match.
 pub static INDEX_CACHE_VERIFY_PERCENT: LazyLock<u8> =
     LazyLock::new(|| env_config("INDEX_CACHE_VERIFY_PERCENT", 100));
+
+/// Initial backoff for retrying failed persistence writes.
+pub static INITIAL_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_millis(env_config("INITIAL_PERSISTENCE_WRITES_BACKOFF_MS", 1000))
+});

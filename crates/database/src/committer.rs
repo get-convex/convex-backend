@@ -41,6 +41,7 @@ use common::{
     knobs::{
         COMMITTER_QUEUE_SIZE,
         COMMIT_TRACE_THRESHOLD,
+        INITIAL_PERSISTENCE_WRITES_BACKOFF,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
         SEND_COMMIT_MESSAGE_TIMEOUT_MILLIS,
@@ -152,7 +153,6 @@ use crate::{
     TransactionReadSet,
 };
 
-const INITIAL_PERSISTENCE_WRITES_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_PERSISTENCE_WRITES_BACKOFF: Duration = Duration::from_secs(60);
 
 enum PersistenceWrite {
@@ -658,7 +658,7 @@ impl<RT: Runtime> Committer<RT> {
                 // instance if we can avoid it, as that would exacerbate any
                 // load-related issues.
                 let mut backoff = Backoff::new(
-                    INITIAL_PERSISTENCE_WRITES_BACKOFF,
+                    *INITIAL_PERSISTENCE_WRITES_BACKOFF,
                     MAX_PERSISTENCE_WRITES_BACKOFF,
                 );
                 loop {
@@ -979,7 +979,7 @@ impl<RT: Runtime> Committer<RT> {
                 );
 
                 let mut backoff = Backoff::new(
-                    INITIAL_PERSISTENCE_WRITES_BACKOFF,
+                    *INITIAL_PERSISTENCE_WRITES_BACKOFF,
                     MAX_PERSISTENCE_WRITES_BACKOFF,
                 );
                 let mut write_bytes: u64 = 0;
