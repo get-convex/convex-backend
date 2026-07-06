@@ -861,6 +861,82 @@ impl<RT: Runtime> Committer<RT> {
         Ok(())
     }
 
+    /// Records usage, converts the validated writes into persistence entries,
+    /// and writes them to persistence, retrying on transient errors. Returns
+    /// the total size of the persistence entries in bytes.
+    async fn track_and_write_to_persistence(
+        rt: RT,
+        persistence: Arc<dyn Persistence>,
+        usage_tracking: FunctionUsageTracker,
+        index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        document_writes: Vec<ValidatedDocumentWrite>,
+        table_mapping: TableMapping,
+        component_registry: ComponentRegistry,
+        virtual_system_mapping: VirtualSystemMapping,
+        write_source: WriteSource,
+    ) -> anyhow::Result<u64> {
+        Self::track_commit(
+            usage_tracking,
+            &index_writes,
+            &document_writes,
+            &table_mapping,
+            &component_registry,
+            &virtual_system_mapping,
+        );
+
+        let mut write_bytes: u64 = 0;
+        let document_writes = Arc::new(
+            document_writes
+                .into_iter()
+                .map(|write| {
+                    let entry = DocumentLogEntry {
+                        ts: write.commit_ts,
+                        id: write.id,
+                        value: write.write,
+                        prev_ts: write.prev_ts,
+                    };
+                    write_bytes += entry.size();
+                    entry
+                })
+                .collect_vec(),
+        );
+        let index_writes = Arc::new(
+            index_writes
+                .into_iter()
+                .map(|(ts, update)| {
+                    let entry = PersistenceIndexEntry::from_index_update(ts, &update);
+                    write_bytes += entry.size();
+                    entry
+                })
+                .collect_vec(),
+        );
+        let mut backoff = Backoff::new(
+            *INITIAL_PERSISTENCE_WRITES_BACKOFF,
+            *MAX_PERSISTENCE_WRITES_BACKOFF,
+        );
+        loop {
+            if let Err(mut e) = Self::write_to_persistence(
+                persistence.clone(),
+                index_writes.clone(),
+                document_writes.clone(),
+                write_source.clone(),
+            )
+            .await
+            {
+                if is_transient_db_error(&e) {
+                    let delay = backoff.fail(&mut rt.rng());
+                    tracing::error!("Failed to write to persistence because database timed out");
+                    report_error(&mut e).await;
+                    rt.wait(delay).await;
+                } else {
+                    return Err(e);
+                }
+            } else {
+                return Ok(write_bytes);
+            }
+        }
+    }
+
     /// After writing the new rows to persistence, mark the commit as complete
     /// and allow the updated rows to be read by other transactions.
     #[fastrace::trace]
@@ -967,81 +1043,34 @@ impl<RT: Runtime> Committer<RT> {
         let virtual_system_mapping = self.virtual_system_mapping.clone();
         Some(
             async move {
-                Self::track_commit(
-                    usage_tracking,
-                    &index_writes,
-                    &document_writes,
-                    &table_mapping,
-                    &component_registry,
-                    &virtual_system_mapping,
-                );
-
-                let mut backoff = Backoff::new(
-                    *INITIAL_PERSISTENCE_WRITES_BACKOFF,
-                    *MAX_PERSISTENCE_WRITES_BACKOFF,
-                );
-                let mut write_bytes: u64 = 0;
-                let document_writes = Arc::new(
-                    document_writes
-                        .into_iter()
-                        .map(|write| {
-                            let entry = DocumentLogEntry {
-                                ts: write.commit_ts,
-                                id: write.id,
-                                value: write.write,
-                                prev_ts: write.prev_ts,
-                            };
-                            write_bytes += entry.size();
-                            entry
-                        })
-                        .collect_vec(),
-                );
-                let index_writes = Arc::new(
-                    index_writes
-                        .into_iter()
-                        .map(|(ts, update)| {
-                            let entry = PersistenceIndexEntry::from_index_update(ts, &update);
-                            write_bytes += entry.size();
-                            entry
-                        })
-                        .collect_vec(),
-                );
-                loop {
-                    // Inline try_join so we don't recapture the stacktrace on error
-                    let name = "Commit::write_to_persistence";
-                    let handle = AbortOnDropHandle::new(tokio_spawn(
-                        name,
-                        Self::write_to_persistence(
-                            persistence.clone(),
-                            index_writes.clone(),
-                            document_writes.clone(),
-                            write_source.clone(),
-                        )
-                        .in_span(Span::enter_with_local_parent(name)),
-                    ));
-                    if let Err(mut e) = handle.await? {
-                        if is_transient_db_error(&e) {
-                            let delay = backoff.fail(&mut rt.rng());
-                            tracing::error!(
-                                "Failed to write to persistence because database timed out"
-                            );
-                            report_error(&mut e).await;
-                            rt.wait(delay).await;
-                        } else {
-                            return Err(e);
-                        }
-                    } else {
-                        pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
-                        return Ok(PersistenceWrite::Commit {
-                            pending_write,
-                            commit_timer,
-                            result,
-                            parent_trace: parent_trace_copy,
-                            commit_id,
-                            write_bytes,
-                        });
-                    }
-                }
+                let name = "Commit::write_to_persistence";
+                // Spawn a new task for tracking commit, serializing writes, and writing to
+                // persistence so it doesn't block the committer thread
+                let handle = AbortOnDropHandle::new(tokio_spawn(
+                    name,
+                    Self::track_and_write_to_persistence(
+                        rt,
+                        persistence,
+                        usage_tracking,
+                        index_writes,
+                        document_writes,
+                        table_mapping,
+                        component_registry,
+                        virtual_system_mapping,
+                        write_source,
+                    )
+                    .in_span(Span::enter_with_local_parent(name)),
+                ));
+                let write_bytes = handle.await??;
+                pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
+                Ok(PersistenceWrite::Commit {
+                    pending_write,
+                    commit_timer,
+                    result,
+                    parent_trace: parent_trace_copy,
+                    commit_id,
+                    write_bytes,
+                })
             }
             .in_span(outer_span)
             .boxed(),
