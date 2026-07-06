@@ -71,19 +71,6 @@ pub enum UsageLimitStopState {
 }
 
 impl BackendState {
-    // TODO(nicolas) Remove once consistency-check is updated to stop using
-    // /get_deployment_state
-    pub fn to_old_lossy(self) -> OldBackendState {
-        match (self.system, self.user) {
-            (SystemStopState::Disabled, _) => OldBackendState::Disabled,
-            (SystemStopState::Suspended, _) => OldBackendState::Suspended,
-            (SystemStopState::None, UserStopState::Paused) => OldBackendState::Paused,
-            (SystemStopState::None, UserStopState::None) => OldBackendState::Running,
-        }
-    }
-}
-
-impl BackendState {
     pub fn is_stopped(&self) -> bool {
         self.system != SystemStopState::None
             || self.usage_limit != UsageLimitStopState::None
