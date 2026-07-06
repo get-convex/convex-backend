@@ -261,7 +261,7 @@ impl<RT: Runtime> NodeActions<RT> {
             format!("Failed to deserialize execute (aws_request_id: {aws_request_id:?}) Response: {response}")
         })?;
 
-        tracing::info!(
+        tracing::debug!(
             "Total:{:?}, executor:{:?}, download:{:?}, import:{:?}, udf:{:?}, \
              env_invocations:{:?}, memory_allocated_mb:{:?}, egress_bytes:{:?}, aws_request_id:{:?}",
             timer.elapsed(),
