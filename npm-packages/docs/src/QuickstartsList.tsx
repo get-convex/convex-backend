@@ -35,6 +35,20 @@ function ConductorLogo({ height = 40 }: { height?: number }) {
   );
 }
 
+// An inline "Claude Code" reference (icon + name) for use in a sentence,
+// e.g. "<ClaudeCodeInlineMention /> gets these rules from the plugin instead."
+export function ClaudeCodeInlineMention() {
+  return (
+    <span className="inline-flex items-baseline">
+      <ClaudeCodeLogo
+        aria-hidden="true"
+        className="size-[1em] shrink-0 self-center"
+      />
+      &nbsp;<span className="font-semibold">Claude Code</span>
+    </span>
+  );
+}
+
 // This is a variant of DocsCardList.tsx specifically for the Quickstarts page.
 type Item = {
   docId: string;
@@ -198,6 +212,60 @@ export function QuickHarnessesList() {
           docId: "ai/using-claude-code",
           label: "Claude Code",
         },
+        {
+          icon: <CodexLogo height={40} />,
+          href: "/ai/using-codex",
+          docId: "ai/using-codex",
+          label: "Codex",
+        },
+        {
+          icon: <CursorLogo height={40} />,
+          href: "/ai/using-cursor",
+          docId: "ai/using-cursor",
+          label: "Cursor",
+        },
+        {
+          icon: <GitHubCopilotLogo height={40} />,
+          href: "/ai/using-github-copilot",
+          docId: "ai/using-github-copilot",
+          label: "GitHub Copilot",
+        },
+        {
+          icon: <ConductorLogo height={40} />,
+          href: "/ai/using-conductor",
+          docId: "ai/using-conductor",
+          label: "Conductor",
+        },
+      ]}
+    />
+  );
+}
+
+export function AgentPluginsList() {
+  return (
+    <DocCardList
+      items={[
+        {
+          icon: <ClaudeCodeLogo height={40} />,
+          href: "/ai/using-claude-code#install-the-convex-plugin-in-claude-code",
+          docId: "ai/using-claude-code",
+          label: "Claude Code",
+        },
+        {
+          icon: <CodexLogo height={40} />,
+          href: "/ai/using-codex#install-the-convex-plugin",
+          docId: "ai/using-codex",
+          label: "Codex",
+        },
+      ]}
+    />
+  );
+}
+
+export function RulesHarnessesList() {
+  return (
+    <DocCardList
+      items={[
         {
           icon: <CodexLogo height={40} />,
           href: "/ai/using-codex",
