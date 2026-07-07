@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     str::FromStr,
+    sync::Arc,
     time::SystemTime,
 };
 
@@ -36,6 +37,7 @@ use common::{
     },
     shapes::reduced::ReducedShape,
     types::{
+        RepeatableTimestamp,
         Timestamp,
         UdfIdentifier,
     },
@@ -47,10 +49,12 @@ use common::{
 };
 use database::{
     streaming_export_selection::StreamingExportSelection,
+    table_summary::table_summary_bootstrapping_error,
     BootstrapComponentsModel,
     DocumentDeltas,
     SchemaModel,
     SnapshotPage,
+    TableShapes,
 };
 use errors::ErrorMetadata;
 use fivetran_source::api_types::{
@@ -368,7 +372,9 @@ pub async fn get_table_column_names(
         .await?;
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
-    let snapshot = st.application.latest_snapshot()?;
+    let ts = st.application.now_ts_for_reads();
+    let snapshot = st.application.snapshot(ts)?;
+    let table_shapes = st.application.table_shapes_at(ts).await?;
     let mapping = snapshot.table_mapping();
     let component_paths = snapshot.component_ids_to_paths();
 
@@ -387,14 +393,16 @@ pub async fn get_table_column_names(
                     return None;
                 };
 
-                let table_summary = match snapshot.must_table_summary(namespace, table_name) {
-                    Ok(table_summary) => table_summary,
+                let shape = match reduced_table_shape(
+                    &table_shapes,
+                    ts,
+                    &mapping.namespace(namespace),
+                    table_name,
+                ) {
+                    Ok(shape) => shape,
                     Err(err) => return Some(Err(err)),
                 };
-                let columns = get_columns_for_table(ReducedShape::from_type(
-                    table_summary.inferred_type(),
-                    &mapping.namespace(namespace).table_number_exists(),
-                ));
+                let columns = get_columns_for_table(shape);
 
                 Some(Ok((
                     component_path,
@@ -472,6 +480,7 @@ pub async fn json_schemas(
 
     let mut tx = st.application.begin(identity.clone()).await?;
     let snapshot = st.application.snapshot(tx.begin_timestamp())?;
+    let table_shapes = st.application.table_shapes_at(tx.begin_timestamp()).await?;
     let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
     for (component_id, component_path) in component_paths {
         let component_out = if query_args.by_component {
@@ -502,11 +511,8 @@ pub async fn json_schemas(
             .transpose()?
             .unwrap_or(ValueFormat::ConvexCleanJSON);
         for (_, _, table_name) in mapping.iter_active_user_tables() {
-            let table_summary = snapshot.must_table_summary(namespace, table_name)?;
-            let shape = ReducedShape::from_type(
-                table_summary.inferred_type(),
-                &mapping.table_number_exists(),
-            );
+            let shape =
+                reduced_table_shape(&table_shapes, tx.begin_timestamp(), &mapping, table_name)?;
             let mut json_schema = shape_to_json_schema(
                 &shape,
                 active_schema.as_deref(),
@@ -531,6 +537,33 @@ pub async fn json_schemas(
         }
     }
     Ok(Json(out))
+}
+
+/// A table's shape from the table shapes, reduced for export.
+/// Errors while shapes have never been published (still bootstrapping).
+/// The shapes must be exact at the snapshot's timestamp (`table_shapes_at`),
+/// so a table missing from them has no documents and gets `Never`.
+fn reduced_table_shape(
+    table_shapes: &Option<Arc<TableShapes>>,
+    snapshot_ts: RepeatableTimestamp,
+    mapping: &NamespacedTableMapping,
+    table_name: &TableName,
+) -> anyhow::Result<ReducedShape> {
+    let Some(table_shapes) = table_shapes else {
+        return Err(table_summary_bootstrapping_error(None));
+    };
+    anyhow::ensure!(
+        table_shapes.ts == *snapshot_ts,
+        "Table shapes ts {} does not match the snapshot ts {}",
+        table_shapes.ts,
+        *snapshot_ts,
+    );
+    Ok(match table_shapes.table_shape(mapping, table_name) {
+        Some(table_shape) => {
+            ReducedShape::from_type(table_shape.inferred_type(), &mapping.table_number_exists())
+        },
+        None => ReducedShape::Never,
+    })
 }
 
 fn empty_table_schema(table_name: &TableName, value_format: ValueFormat) -> serde_json::Value {

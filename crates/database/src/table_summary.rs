@@ -41,8 +41,10 @@ use common::{
     value::{
         ConvexObject,
         JsonInteger,
+        NamespacedTableMapping,
         Size,
         TableMapping,
+        TableName,
         TabletId,
     },
 };
@@ -197,6 +199,10 @@ impl TableSummary {
         &self.shape
     }
 
+    pub fn into_shape(self) -> TableShape {
+        self.shape
+    }
+
     pub fn total_size(&self) -> u64 {
         self.count.total_size()
     }
@@ -274,6 +280,45 @@ impl TryFrom<JsonValue> for TableSummary {
 pub struct TableSummarySnapshot {
     pub tables: BTreeMap<TabletId, TableSummary>,
     pub ts: Timestamp,
+}
+
+/// The inferred shapes of every table, as of a timestamp.
+#[derive(Debug, Clone)]
+pub struct TableShapes {
+    pub tables: BTreeMap<TabletId, TableShape>,
+    /// Timestamp of the snapshot these shapes are accurate for
+    pub ts: Timestamp,
+}
+
+impl TableShapes {
+    pub fn tablet_shape(&self, tablet: &TabletId) -> Option<&TableShape> {
+        self.tables.get(tablet)
+    }
+
+    /// Shape for a table resolved against the given (possibly newer) table
+    /// mapping. `None` when the table doesn't resolve or was created after
+    /// `ts`, i.e. no shape has been computed for it yet.
+    pub fn table_shape(
+        &self,
+        mapping: &NamespacedTableMapping,
+        table: &TableName,
+    ) -> Option<&TableShape> {
+        let table_id = mapping.id(table).ok()?;
+        self.tables.get(&table_id.tablet_id)
+    }
+}
+
+impl From<TableSummarySnapshot> for TableShapes {
+    fn from(snapshot: TableSummarySnapshot) -> Self {
+        Self {
+            tables: snapshot
+                .tables
+                .into_iter()
+                .map(|(tablet, summary)| (tablet, summary.into_shape()))
+                .collect(),
+            ts: snapshot.ts,
+        }
+    }
 }
 
 impl TableSummarySnapshot {
@@ -402,6 +447,18 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         Ok(summary)
     }
 
+    /// Compute a fresh table summary from the last persisted checkpoint,
+    /// persist it as the new checkpoint, and publish its shapes to the
+    /// [`Database`]'s in-memory store. Returns the checkpoint's timestamp.
+    pub async fn checkpoint(&self) -> anyhow::Result<Timestamp> {
+        let snapshot = self.compute_from_last_checkpoint().await?;
+        let ts = snapshot.ts;
+        tracing::info!("Writing table summary checkpoint at ts {ts}");
+        write_snapshot(self.persistence.as_ref(), &snapshot).await?;
+        self.database.publish_table_shapes(snapshot.into());
+        Ok(ts)
+    }
+
     pub async fn compute_from_last_checkpoint(&self) -> anyhow::Result<TableSummarySnapshot> {
         self.compute(BootstrapKind::FromCheckpoint).await
     }
@@ -425,6 +482,11 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
     }
 }
 
+/// Persist a table summary checkpoint. On a live deployment, use
+/// [`TableSummaryWriter::checkpoint`] instead so the checkpoint's shapes are
+/// also published to the in-memory store; this free function exists for
+/// tooling (e.g. cluster migration) that writes to a persistence with no
+/// running `Database`.
 pub async fn write_snapshot(
     persistence: &dyn Persistence,
     snapshot: &TableSummarySnapshot,

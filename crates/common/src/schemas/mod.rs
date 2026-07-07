@@ -226,7 +226,7 @@ impl DatabaseSchema {
         shape_provider: &F,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
     where
-        F: Fn(&TableName) -> Option<Shape<C, S>>,
+        F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
     {
         if !new_schema.schema_validation {
             tracing::info!("Schema validation is disabled, no tables to check");
@@ -237,13 +237,14 @@ impl DatabaseSchema {
             .tables
             .iter()
             .map(|(table_name, table_definition)| {
+                let table_shape = shape_provider(table_name)?;
                 Self::must_revalidate_table(
                     table_name,
                     table_definition,
                     active_schema,
                     table_mapping,
                     virtual_system_mapping,
-                    &shape_provider(table_name),
+                    &table_shape,
                 )
                 .map(|must_revalidate| must_revalidate.then_some(table_name))
             })

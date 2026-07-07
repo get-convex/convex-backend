@@ -203,6 +203,7 @@ pub use self::{
     table_summary::{
         TableCount,
         TableShape,
+        TableShapes,
         TableSummary,
         TableSummaryWriter,
     },

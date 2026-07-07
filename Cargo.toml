@@ -8,6 +8,7 @@ aes = { version = "0.8.4" }
 ahash = "0.8"
 anyhow = "1"
 application = { path = "crates/application" }
+arc-swap = "1.7.1"
 async-broadcast = "0.7.0"
 async-channel = "2.3.1"
 async-compression = { version = "0.4.11", features = [ "tokio", "zstd", "gzip" ] }

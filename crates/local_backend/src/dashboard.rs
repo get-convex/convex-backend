@@ -103,20 +103,24 @@ pub async fn shapes2(
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let snapshot = st.application.latest_snapshot()?;
+    let table_shapes = st.application.table_shapes();
     let mapping = snapshot.table_mapping().namespace(component.into());
 
     for (namespace, table_name) in snapshot.table_registry.user_table_names() {
         if TableNamespace::from(component) != namespace {
             continue;
         }
-        let table_summary = snapshot.table_summary(namespace, table_name);
+        let table_shape = table_shapes
+            .as_ref()
+            .and_then(|shapes| shapes.table_shape(&mapping, table_name));
 
-        let shape = match table_summary {
-            Some(table_summary) => ReducedShape::from_type(
-                table_summary.inferred_type(),
-                &mapping.table_number_exists(),
-            ),
-            // Table summaries are still bootstrapping, use `Unknown` in the meantime
+        let shape = match table_shape {
+            Some(table_shape) => {
+                ReducedShape::from_type(table_shape.inferred_type(), &mapping.table_number_exists())
+            },
+            // Table shapes haven't been published yet, or the table was
+            // created after the last shape checkpoint; use `Unknown` in the
+            // meantime.
             None => ReducedShape::Unknown,
         };
         let json = dashboard_shape_json(&shape, &mapping, virtual_system_mapping())?;

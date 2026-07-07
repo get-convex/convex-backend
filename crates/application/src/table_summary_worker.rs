@@ -24,7 +24,6 @@ use common::{
     shutdown::ShutdownSignal,
 };
 use database::{
-    table_summary::write_snapshot,
     Database,
     TableSummaryWriter,
 };
@@ -107,17 +106,15 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         {
             return Ok(());
         }
-        let snapshot = writer.compute_from_last_checkpoint().await?;
-        // The order of these is important -- we write the snapshot, and then we
-        // signal that we're ready to propagate the snapshot (+ any new writes)
-        // to `Database` via `finish_table_summary_bootstrap`.
+        // The order of these is important -- we write the checkpoint, and then
+        // we signal that we're ready to propagate the snapshot (+ any new
+        // writes) to `Database` via `finish_table_summary_bootstrap`.
         // If we do this in the other order, `finish_table_summary_bootstrap`
         // will end up re-doing the work from the line above.
-        tracing::info!("Writing table summary checkpoint at ts {}", snapshot.ts);
         log_table_summary_checkpoint(!*has_bootstrapped);
-        write_snapshot(self.persistence.as_ref(), &snapshot).await?;
+        let snapshot_ts = writer.checkpoint().await?;
         if !*has_bootstrapped {
-            let is_recent = self.database.now_ts_for_reads().secs_since_f64(snapshot.ts)
+            let is_recent = self.database.now_ts_for_reads().secs_since_f64(snapshot_ts)
                 < (*TABLE_SUMMARY_BOOTSTRAP_RECENT_THRESHOLD).as_secs_f64();
             if is_recent {
                 tracing::info!("Finishing table summary bootstrap");

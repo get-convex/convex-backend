@@ -28,6 +28,8 @@ use database::{
     SchemaModel,
     SchemaValidationProgressModel,
     Snapshot,
+    TableShape,
+    TableShapes,
     Token,
     Transaction,
     SCHEMAS_TABLE,
@@ -43,6 +45,10 @@ use metrics::{
     log_document_bytes,
     log_document_validated,
     schema_validation_timer,
+};
+use shape_inference::{
+    CountedShape,
+    ProdConfig,
 };
 use value::{
     NamespacedTableMapping,
@@ -79,6 +85,14 @@ pub struct PendingSchemaValidation {
     by_id_indexes: BTreeMap<TabletId, IndexId>,
 }
 
+pub struct SchemaValidationResult {
+    pub token: Token,
+    /// For each pending schema that was validated, the tables whose documents
+    /// were walked. Tables whose shape are a subset of the schema should not be
+    /// walked.
+    pub walked_tables: BTreeMap<TableNamespace, BTreeSet<TableName>>,
+}
+
 impl<RT: Runtime> SchemaWorker<RT> {
     pub fn start(runtime: RT, database: Database<RT>) -> impl Future<Output = ()> + Send {
         let worker = Self { runtime, database };
@@ -87,7 +101,18 @@ impl<RT: Runtime> SchemaWorker<RT> {
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
             loop {
                 let result: anyhow::Result<()> = async {
-                    let token = Box::pin(worker.run()).await?;
+                    let SchemaValidationResult {
+                        token,
+                        walked_tables,
+                    } = Box::pin(worker.run()).await?;
+                    let num_walked: usize = walked_tables.values().map(|tables| tables.len()).sum();
+                    if !walked_tables.is_empty() {
+                        tracing::info!(
+                            "SchemaWorker validated {} pending schema(s), walking {num_walked} \
+                             table(s)",
+                            walked_tables.len()
+                        );
+                    }
                     worker
                         .database
                         .subscribe_and_wait_for_invalidation(token)
@@ -144,12 +169,23 @@ impl<RT: Runtime> SchemaWorker<RT> {
         Ok(pending_schema_work)
     }
 
-    pub async fn run(&self) -> anyhow::Result<Token> {
+    pub async fn run(&self) -> anyhow::Result<SchemaValidationResult> {
         let status = log_worker_starting("SchemaWorker");
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
-        let snapshot = self.database.snapshot(tx.begin_timestamp())?;
+        let ts = tx.begin_timestamp();
         let pending_validations = SchemaWorker::pending_schema_validations(&mut tx).await?;
         let token = tx.into_token()?;
+
+        let mut walked_tables = BTreeMap::new();
+        if pending_validations.is_empty() {
+            drop(status);
+            tracing::debug!("SchemaWorker waiting...");
+            return Ok(SchemaValidationResult {
+                token,
+                walked_tables,
+            });
+        }
+        let table_shapes = self.database.table_shapes_at(ts).await?;
 
         for pending_validation in pending_validations {
             // FIXME: Remove clone
@@ -159,19 +195,55 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 pending_validation.active_schema.as_deref(),
                 &pending_validation.table_mapping,
                 &pending_validation.virtual_system_mapping,
-                &|table_name| {
-                    snapshot
-                        .table_summary(pending_validation.namespace, table_name)
-                        .map(|t| t.inferred_type().clone())
-                },
+                &Self::table_shape_provider(&table_shapes, &pending_validation),
             )?;
+            walked_tables.insert(
+                pending_validation.namespace,
+                tables_to_validate.iter().map(|&t| t.clone()).collect(),
+            );
             self.validate_tables(tables_to_validate, pending_validation)
                 .await?;
         }
 
         drop(status);
         tracing::debug!("SchemaWorker waiting...");
-        Ok(token)
+        Ok(SchemaValidationResult {
+            token,
+            walked_tables,
+        })
+    }
+
+    /// Shape provider for [`DatabaseSchema::tables_to_validate`]: a table
+    /// whose shape at the validation timestamp is already a subset of the
+    /// schema being validated can skip the document walk. Returning `None`
+    /// means "shape unavailable" and the table gets walked.
+    fn table_shape_provider<'a>(
+        table_shapes: &'a Option<Arc<TableShapes>>,
+        pending_validation: &'a PendingSchemaValidation,
+    ) -> impl Fn(&TableName) -> anyhow::Result<Option<CountedShape<ProdConfig>>> + 'a {
+        move |table_name| {
+            let Some(table_shapes) = table_shapes.as_ref() else {
+                return Ok(None);
+            };
+            let Ok(table_id) = pending_validation.table_mapping.id(table_name) else {
+                // Nonexistent tables have no documents to validate, so an
+                // empty shape lets them skip validation.
+                return Ok(Some(TableShape::empty().inferred_type().clone()));
+            };
+            // The shapes are caught up to exactly the validation timestamp the
+            // table mapping is from, so every tablet in the mapping must have
+            // a shape.
+            let shape = table_shapes
+                .tablet_shape(&table_id.tablet_id)
+                .with_context(|| {
+                    format!(
+                        "table {table_name} (tablet {}) is in the table mapping at ts {} but has \
+                         no shape in the table shapes at ts {}",
+                        table_id.tablet_id, *pending_validation.ts, table_shapes.ts,
+                    )
+                })?;
+            Ok(Some(shape.inferred_type().clone()))
+        }
     }
 
     async fn validate_tables(

@@ -164,6 +164,7 @@ use database::{
     SchemaModel,
     Snapshot,
     TableModel,
+    TableShapes,
     Token,
     Transaction,
     UserFacingModel,
@@ -1081,6 +1082,23 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot> {
         self.database.latest_snapshot()
+    }
+
+    /// The latest table shapes published by the `TableSummaryWorker`, or
+    /// `None` if the worker has not published yet. These may lag the latest
+    /// snapshot -- see [`TableShapes`].
+    pub fn table_shapes(&self) -> Option<Arc<TableShapes>> {
+        self.database.table_shapes()
+    }
+
+    /// Table shapes exact at `ts`, catching up the published shapes by
+    /// replaying the documents log if they are stale. `None` if the
+    /// `TableSummaryWorker` has not published yet.
+    pub async fn table_shapes_at(
+        &self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Option<Arc<TableShapes>>> {
+        self.database.table_shapes_at(ts).await
     }
 
     pub fn app_auth(&self) -> &Arc<ApplicationAuth<RT>> {

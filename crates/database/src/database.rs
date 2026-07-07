@@ -21,6 +21,7 @@ use anyhow::{
     Context,
     Error,
 };
+use arc_swap::ArcSwapOption;
 use async_lru::async_lru::AsyncLru;
 use cmd_util::env::env_config;
 use common::{
@@ -223,6 +224,7 @@ use crate::{
     table_summary::{
         self,
         BootstrapKind,
+        TableShapes,
     },
     table_usage::TablesUsage,
     token::Token,
@@ -293,6 +295,9 @@ pub struct Database<RT: Runtime> {
     subscriptions: SubscriptionsClient,
     log: LogReader,
     snapshot_manager: Reader<SnapshotManager>,
+    /// Table shapes maintained asynchronously by the `TableSummaryWorker`,
+    /// `None` until the worker has published for the first time.
+    table_shapes: Arc<ArcSwapOption<TableShapes>>,
     pub(crate) runtime: RT,
     reader: Arc<dyn PersistenceReader>,
     write_commits_since_load: Arc<AtomicUsize>,
@@ -1056,6 +1061,7 @@ impl<RT: Runtime> Database<RT> {
             retention_manager,
             retention_workers,
             snapshot_manager: snapshot_reader,
+            table_shapes: Arc::new(ArcSwapOption::empty()),
             reader: persistence_reader.clone(),
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
@@ -1088,6 +1094,55 @@ impl<RT: Runtime> Database<RT> {
             .set(search_storage.clone())
             .expect("Tried to set search storage more than once");
         tracing::info!("Set search storage to {search_storage:?}");
+    }
+
+    /// The latest table shapes published by the `TableSummaryWorker`, or `None`
+    /// if the worker has not published yet. These are maintained asynchronously
+    /// and may be stale and inconsistent with the latest snapshot.
+    pub fn table_shapes(&self) -> Option<Arc<TableShapes>> {
+        self.table_shapes.load_full()
+    }
+
+    /// Publish table shapes to the in-memory store. Deliberately
+    /// `pub(crate)`: the only caller should be
+    /// `TableSummaryWriter::checkpoint`, which persists a checkpoint first.
+    /// [`Database::table_shapes_at`] relies on every published [`TableShapes`]
+    /// having a persisted checkpoint to replay the documents log from.
+    pub(crate) fn publish_table_shapes(&self, shapes: TableShapes) {
+        self.table_shapes.store(Some(Arc::new(shapes)));
+    }
+
+    /// Table shapes exact at `ts`, for consumers (like schema validation) that
+    /// cannot tolerate the staleness of the published [`TableShapes`].
+    ///
+    /// Returns `None` if the `TableSummaryWorker` has not published yet. When
+    /// the published shapes lag (or lead) `ts`, this catches them up by
+    /// replaying the documents log between the last persisted checkpoint and
+    /// `ts`
+    pub async fn table_shapes_at(
+        &self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Option<Arc<TableShapes>>> {
+        let Some(published) = self.table_shapes() else {
+            return Ok(None);
+        };
+        if published.ts == *ts {
+            return Ok(Some(published));
+        }
+        tracing::info!(
+            "Catching up table shapes from published ts {} to {}",
+            published.ts,
+            *ts
+        );
+        let (snapshot, _) = table_summary::bootstrap(
+            self.runtime.clone(),
+            self.reader.clone(),
+            self.retention_validator(),
+            ts,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
+        Ok(Some(Arc::new(snapshot.into())))
     }
 
     pub fn start_search_and_vector_bootstrap(&self) -> Box<dyn SpawnHandle> {
