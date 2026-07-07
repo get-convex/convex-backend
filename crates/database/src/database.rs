@@ -21,6 +21,7 @@ use anyhow::{
     Context,
     Error,
 };
+use arc_swap::ArcSwapOption;
 use async_lru::async_lru::AsyncLru;
 use cmd_util::env::env_config;
 use common::{
@@ -202,7 +203,7 @@ use crate::{
     snapshot_manager::{
         Snapshot,
         SnapshotManager,
-        TableSummaries,
+        TableCounts,
     },
     stack_traces::StackTrace,
     streaming_export_selection::{
@@ -223,6 +224,8 @@ use crate::{
     table_summary::{
         self,
         BootstrapKind,
+        TableShapes,
+        TableSummaries,
     },
     table_usage::TablesUsage,
     token::Token,
@@ -293,6 +296,9 @@ pub struct Database<RT: Runtime> {
     subscriptions: SubscriptionsClient,
     log: LogReader,
     snapshot_manager: Reader<SnapshotManager>,
+    /// Table shapes maintained asynchronously by the `TableSummaryWorker`,
+    /// `None` until the worker has published for the first time.
+    table_shapes: Arc<ArcSwapOption<TableShapes>>,
     pub(crate) runtime: RT,
     reader: Arc<dyn PersistenceReader>,
     write_commits_since_load: Arc<AtomicUsize>,
@@ -336,6 +342,10 @@ pub struct DatabaseSnapshot<RT: Runtime> {
     ts: RepeatableTimestamp,
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
+    /// Counts and shapes for offline tools (`db-info`, `db-verifier`),
+    /// populated by `load_table_summaries`. The inner `snapshot` only holds
+    /// counts.
+    table_summaries: Option<TableSummaries>,
     pub persistence_snapshot: PersistenceSnapshot,
     index_cache_handle: Option<IndexCacheHandle>,
 
@@ -636,9 +646,9 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             anyhow::bail!(unauthorized_error("get_document_counts"));
         }
         let mut document_counts = vec![];
-        for entry in self.snapshot.iter_table_summaries()? {
-            let (_namespace, component_path, table_name, summary) = entry?;
-            let count = summary.num_values();
+        for entry in self.snapshot.iter_table_counts()? {
+            let (_namespace, component_path, table_name, table_count) = entry?;
+            let count = table_count.num_values();
             // exclude orphaned tables (in incomplete component namespaces)
             if let Some(component_path) = component_path {
                 document_counts.push((component_path, table_name, count));
@@ -801,13 +811,14 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 table_registry,
                 schema_registry,
                 component_registry,
-                table_summaries: None,
+                table_counts: None,
                 index_registry,
                 in_memory_indexes,
                 virtual_system_mapping,
                 text_indexes: search,
                 vector_indexes: vector,
             },
+            table_summaries: None,
             persistence_snapshot,
             index_cache_handle: None,
 
@@ -826,7 +837,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     /// committer in these services).
     #[fastrace::trace]
     pub async fn load_table_summaries(&mut self) -> anyhow::Result<()> {
-        if self.snapshot.table_summaries.is_some() {
+        if self.table_summaries.is_some() {
             return Ok(());
         }
 
@@ -839,12 +850,16 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             BootstrapKind::FromCheckpoint,
         )
         .await?;
-        let table_summaries = TableSummaries::new(
-            table_summary_snapshot,
+        let table_counts = TableCounts::new(
+            table_summary_snapshot.clone(),
             self.table_registry().table_mapping(),
             &self.snapshot.virtual_system_mapping,
         )?;
-        self.snapshot.table_summaries = Some(table_summaries);
+        self.snapshot.table_counts = Some(table_counts);
+        self.table_summaries = Some(TableSummaries::new(
+            table_summary_snapshot,
+            self.table_registry().table_mapping(),
+        ));
         tracing::info!("Bootstrapped table summaries (read {summaries_num_rows} rows)");
         Ok(())
     }
@@ -890,7 +905,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     }
 
     pub fn table_summaries(&self) -> Option<&TableSummaries> {
-        self.snapshot.table_summaries.as_ref()
+        self.table_summaries.as_ref()
     }
 
     /// Create a [`Transaction`] at the snapshot's timestamp. This allows using
@@ -930,7 +945,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             self.snapshot.table_registry.clone(),
             self.snapshot.schema_registry.clone(),
             self.snapshot.component_registry.clone(),
-            Arc::new(self.snapshot.table_summaries.clone()),
+            Arc::new(self.snapshot.table_counts.clone()),
             self.runtime.clone(),
             usage_tracker,
             virtual_system_mapping,
@@ -1056,6 +1071,7 @@ impl<RT: Runtime> Database<RT> {
             retention_manager,
             retention_workers,
             snapshot_manager: snapshot_reader,
+            table_shapes: Arc::new(ArcSwapOption::empty()),
             reader: persistence_reader.clone(),
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
@@ -1088,6 +1104,55 @@ impl<RT: Runtime> Database<RT> {
             .set(search_storage.clone())
             .expect("Tried to set search storage more than once");
         tracing::info!("Set search storage to {search_storage:?}");
+    }
+
+    /// The latest table shapes published by the `TableSummaryWorker`, or `None`
+    /// if the worker has not published yet. These are maintained asynchronously
+    /// and may be stale and inconsistent with the latest snapshot.
+    pub fn table_shapes(&self) -> Option<Arc<TableShapes>> {
+        self.table_shapes.load_full()
+    }
+
+    /// Publish table shapes to the in-memory store. Deliberately
+    /// `pub(crate)`: the only caller should be
+    /// `TableSummaryWriter::checkpoint`, which persists a checkpoint first.
+    /// [`Database::table_shapes_at`] relies on every published [`TableShapes`]
+    /// having a persisted checkpoint to replay the documents log from.
+    pub(crate) fn publish_table_shapes(&self, shapes: TableShapes) {
+        self.table_shapes.store(Some(Arc::new(shapes)));
+    }
+
+    /// Table shapes exact at `ts`, for consumers (like schema validation) that
+    /// cannot tolerate the staleness of the published [`TableShapes`].
+    ///
+    /// Returns `None` if the `TableSummaryWorker` has not published yet. When
+    /// the published shapes lag (or lead) `ts`, this catches them up by
+    /// replaying the documents log between the last persisted checkpoint and
+    /// `ts`
+    pub async fn table_shapes_at(
+        &self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Option<Arc<TableShapes>>> {
+        let Some(published) = self.table_shapes() else {
+            return Ok(None);
+        };
+        if published.ts == *ts {
+            return Ok(Some(published));
+        }
+        tracing::info!(
+            "Catching up table shapes from published ts {} to {}",
+            published.ts,
+            *ts
+        );
+        let (snapshot, _) = table_summary::bootstrap(
+            self.runtime.clone(),
+            self.reader.clone(),
+            self.retention_validator(),
+            ts,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
+        Ok(Some(Arc::new(snapshot.into())))
     }
 
     pub fn start_search_and_vector_bootstrap(&self) -> Box<dyn SpawnHandle> {
@@ -1827,7 +1892,7 @@ impl<RT: Runtime> Database<RT> {
                 self.search_storage.clone(),
             )),
         );
-        let count_snapshot = Arc::new(snapshot.table_summaries);
+        let count_snapshot = Arc::new(snapshot.table_counts);
         let tx = Transaction::new(
             identity,
             id_generator,
@@ -1880,6 +1945,7 @@ impl<RT: Runtime> Database<RT> {
             ts,
             bootstrap_metadata: self.bootstrap_metadata.clone(),
             snapshot,
+            table_summaries: None,
             persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
             index_cache_handle: self.index_cache_handle.clone(),
             persistence_reader: self.reader.clone(),
@@ -2417,11 +2483,11 @@ impl<RT: Runtime> Database<RT> {
         Ok(())
     }
 
-    pub fn has_table_summaries_bootstrapped(&self) -> bool {
+    pub fn has_table_counts_bootstrapped(&self) -> bool {
         self.snapshot_manager
             .lock()
             .latest_snapshot()
-            .table_summaries
+            .table_counts
             .is_some()
     }
 

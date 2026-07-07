@@ -70,7 +70,7 @@ use crate::{
     Token,
 };
 
-type OrderedDocumentWrites = Vec<(ResolvedDocumentId, PackedDocumentUpdate)>;
+pub type OrderedDocumentWrites = Vec<(ResolvedDocumentId, PackedDocumentUpdate)>;
 
 #[derive(Clone)]
 pub struct PackedDocumentUpdate {
@@ -133,6 +133,7 @@ pub fn index_keys_from_full_documents(
     ordered_writes: OrderedDocumentWrites,
     index_registry: &IndexRegistry,
 ) -> OrderedIndexKeyWrites {
+    let _timer = metrics::pending_writes_to_write_log_timer();
     let mut database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>> =
         BTreeMap::new();
     let mut text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>> = BTreeMap::new();

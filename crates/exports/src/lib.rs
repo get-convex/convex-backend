@@ -34,7 +34,7 @@ use database::{
     IndexModel,
     MultiTableIterator,
     SearchNotEnabled,
-    TableSummary,
+    TableCount,
     COMPONENTS_TABLE,
 };
 use fastrace::future::FutureExt;
@@ -123,11 +123,11 @@ where
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
         drop(tx);
         let mut database = components.database.clone();
-        if database.snapshot.table_summaries.is_none() {
+        if database.snapshot.table_counts.is_none() {
             database.load_table_summaries().await?;
         }
         let snapshot = &database.snapshot;
-        let table_summaries = snapshot.must_table_summaries()?;
+        let table_counts = snapshot.must_table_counts()?;
         let tables: BTreeMap<_, _> = snapshot
             .table_registry
             .iter_active_user_tables()
@@ -138,7 +138,7 @@ where
                         table_namespace,
                         table_number,
                         table_name.clone(),
-                        table_summaries.tablet_summary(&tablet_id),
+                        table_counts.tablet_count(&tablet_id),
                     ),
                 )
             })
@@ -152,7 +152,7 @@ where
         let storage_table_counts: BTreeMap<TableNamespace, u64> = system_tables
             .iter()
             .filter(|((_, name), _)| *name == FILE_STORAGE_TABLE)
-            .map(|((ns, _), id)| (*ns, table_summaries.tablet_summary(id).num_values()))
+            .map(|((ns, _), id)| (*ns, table_counts.tablet_count(id).num_values()))
             .collect();
         (
             tables,
@@ -215,7 +215,7 @@ async fn write_tables_table<'a, 'b: 'a>(
     path_prefix: &str,
     zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
     namespace: TableNamespace,
-    tables: &'a BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
+    tables: &'a BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableCount)>,
 ) -> anyhow::Result<()> {
     // _tables
     let mut table_upload = zip_snapshot_upload
@@ -315,7 +315,7 @@ where
 async fn construct_zip_snapshot<F, Fut, RT: Runtime>(
     components: &ExportComponents<RT>,
     mut writer: ChannelWriter,
-    tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
+    tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableCount)>,
     mut table_iterator: MultiTableIterator<RT>,
     component_ids_to_paths: BTreeMap<ComponentId, ComponentPath>,
     by_id_indexes: BTreeMap<TabletId, IndexId>,
@@ -362,8 +362,8 @@ where
 
     // sort tables small to large, and write them to the zip.
     let mut sorted_tables: Vec<_> = tables.iter().collect();
-    sorted_tables.sort_by_key(|(_, (_, _, _, table_summary))| table_summary.total_size());
-    for (tablet_id, (namespace, _, table_name, table_summary)) in sorted_tables {
+    sorted_tables.sort_by_key(|(_, (_, _, _, table_count))| table_count.total_size());
+    for (tablet_id, (namespace, _, table_name, table_count)) in sorted_tables {
         let component_id: ComponentId = (*namespace).into();
         let Some(component_path) = component_ids_to_paths.get(&component_id) else {
             tracing::info!(
@@ -401,7 +401,7 @@ where
             by_id,
             &usage,
             &update_progress,
-            table_summary.num_values(),
+            table_count.num_values(),
             &in_component_str,
         )
         .in_span(root)

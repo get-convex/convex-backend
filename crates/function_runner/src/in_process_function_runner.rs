@@ -227,7 +227,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         pause_client.wait("run_function").await;
 
         let snapshot = self.database.snapshot(ts)?;
-        let table_count_snapshot = Arc::new(snapshot.table_summaries);
+        let table_count_snapshot = Arc::new(snapshot.table_counts);
         let text_index_snapshot = Arc::new(TextIndexManagerSnapshot::new(
             snapshot.index_registry,
             snapshot.text_indexes,

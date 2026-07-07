@@ -11,6 +11,7 @@ import {
   AgentPluginsList,
   RulesHarnessesList,
   ClaudeCodeInlineMention,
+  CursorInlineMention,
 } from "@site/src/QuickstartsList.tsx";
 
 Convex is designed around a small set of composable abstractions with strong
@@ -38,7 +39,7 @@ guarantees prevent common failure modes. For up-to-date information on which
 models work best with Convex, check out our LLM
 [leaderboard](https://convex.dev/llm-leaderboard).
 
-## Agent plugins
+## Agent plugins \{#plugins}
 
 Convex publishes official plugins for coding agents that include:
 
@@ -62,14 +63,14 @@ See these documents for install instructions:
 
 <RulesHarnessesList />
 
+When using <ClaudeCodeInlineMention /> or <CursorInlineMention />, we recommend
+installing the [Convex plugin](/ai/overview.mdx#plugins), which automatically
+include these rules.
+
 For all other IDEs, add the following rules file to your project and refer to it
 when prompting for changes:
 
 - [convex_rules.txt](https://convex.link/convex_rules.txt)
-
-<ClaudeCodeInlineMention /> gets these rules from the [Convex
-plugin](/ai/using-claude-code.mdx#install-the-convex-plugin-in-claude-code)
-instead.
 
 We're constantly working on improving the quality of these rules for Convex by
 using rigorous evals. You can help by

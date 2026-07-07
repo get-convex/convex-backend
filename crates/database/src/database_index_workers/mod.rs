@@ -413,9 +413,9 @@ impl<RT: Runtime> IndexWorker<RT> {
                     "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
                     needs_backfill.len(),
                 );
-                let table_summary =
-                    snapshot.table_summary(table_mapping.tablet_namespace(tablet_id)?, table_name);
-                let total_docs = table_summary.map(|summary| summary.num_values());
+                let table_count =
+                    snapshot.table_count(table_mapping.tablet_namespace(tablet_id)?, table_name);
+                let total_docs = table_count.map(|count| count.num_values());
                 let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
                 for index_id in needs_backfill.keys() {
                     index_backfill_model

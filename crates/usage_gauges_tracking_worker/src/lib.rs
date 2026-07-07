@@ -146,7 +146,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
     // We ignore server errors and we do not recover logs on other failures.
     #[fastrace::trace]
     async fn send_usage(&mut self) -> anyhow::Result<()> {
-        if !self.database.has_table_summaries_bootstrapped() {
+        if !self.database.has_table_counts_bootstrapped() {
             tracing::warn!("Skipping usage tracking because table summaries are not bootstrapped");
             return Ok(());
         }
