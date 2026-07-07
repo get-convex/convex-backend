@@ -141,6 +141,7 @@ use crate::{
     write_log::{
         index_keys_from_full_documents,
         LogWriter,
+        OrderedDocumentWrites,
         OrderedIndexKeyWrites,
         PackedDocumentUpdate,
         PendingWriteHandle,
@@ -161,6 +162,7 @@ enum PersistenceWrite {
         parent_trace: EncodedSpan,
         commit_id: usize,
         write_bytes: u64,
+        index_key_writes: OrderedIndexKeyWrites,
     },
     MaxRepeatableTimestamp {
         new_max_repeatable: Timestamp,
@@ -302,6 +304,7 @@ impl<RT: Runtime> Committer<RT> {
                             result,
                             parent_trace,
                             write_bytes,
+                            index_key_writes,
                             ..
                         } => {
                             let publish_commit_span = initialize_root_from_parent(
@@ -315,7 +318,7 @@ impl<RT: Runtime> Committer<RT> {
                             }
                             let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
-                            self.publish_commit(pending_write, write_bytes);
+                            self.publish_commit(pending_write, write_bytes, index_key_writes);
                             let _ = result.send(Ok(commit_ts));
 
                             // When we next get free cycles and there is no ongoing bump,
@@ -757,21 +760,23 @@ impl<RT: Runtime> Committer<RT> {
         // with another one, and the latter never ended up committing. This
         // should be very rare, and false positives are acceptable by design.
         let timer = metrics::pending_writes_append_timer();
-        let pending_write = self.pending_writes.push_back(
-            commit_ts,
-            ordered_updates
-                .into_iter()
-                .map(|update| (update.id, PackedDocumentUpdate::pack(update)))
-                .collect(),
-            write_source,
-            snapshot,
-        );
+        let packed_updates: OrderedDocumentWrites = ordered_updates
+            .into_iter()
+            .map(|update| (update.id, PackedDocumentUpdate::pack(update)))
+            .collect();
+        let ordered_updates = packed_updates.clone();
+        let index_registry = snapshot.index_registry.clone();
+        let pending_write =
+            self.pending_writes
+                .push_back(commit_ts, packed_updates, write_source, snapshot);
         drop(timer);
 
         Ok(ValidatedCommit {
             index_writes,
             document_writes,
             pending_write,
+            ordered_updates,
+            index_registry,
         })
     }
 
@@ -858,7 +863,8 @@ impl<RT: Runtime> Committer<RT> {
 
     /// Records usage, converts the validated writes into persistence entries,
     /// and writes them to persistence, retrying on transient errors. Returns
-    /// the total size of the persistence entries in bytes.
+    /// the total size of the persistence entries in bytes and the index key
+    /// writes for the write log.
     async fn track_and_write_to_persistence(
         rt: RT,
         persistence: Arc<dyn Persistence>,
@@ -866,11 +872,13 @@ impl<RT: Runtime> Committer<RT> {
         commit_ts: Timestamp,
         index_writes: Vec<DatabaseIndexUpdate>,
         document_writes: Vec<ValidatedDocumentWrite>,
+        ordered_updates: OrderedDocumentWrites,
+        index_registry: IndexRegistry,
         table_mapping: TableMapping,
         component_registry: ComponentRegistry,
         virtual_system_mapping: VirtualSystemMapping,
         write_source: WriteSource,
-    ) -> anyhow::Result<u64> {
+    ) -> anyhow::Result<(u64, OrderedIndexKeyWrites)> {
         Self::track_commit(
             usage_tracking,
             &index_writes,
@@ -879,6 +887,8 @@ impl<RT: Runtime> Committer<RT> {
             &component_registry,
             &virtual_system_mapping,
         );
+
+        let index_key_writes = index_keys_from_full_documents(ordered_updates, &index_registry);
 
         let mut write_bytes: u64 = 0;
         let document_writes = Arc::new(
@@ -928,7 +938,7 @@ impl<RT: Runtime> Committer<RT> {
                     return Err(e);
                 }
             } else {
-                return Ok(write_bytes);
+                return Ok((write_bytes, index_key_writes));
             }
         }
     }
@@ -936,7 +946,12 @@ impl<RT: Runtime> Committer<RT> {
     /// After writing the new rows to persistence, mark the commit as complete
     /// and allow the updated rows to be read by other transactions.
     #[fastrace::trace]
-    fn publish_commit(&mut self, pending_write: PendingWriteHandle, write_bytes: u64) {
+    fn publish_commit(
+        &mut self,
+        pending_write: PendingWriteHandle,
+        write_bytes: u64,
+        writes: OrderedIndexKeyWrites,
+    ) {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
@@ -945,12 +960,8 @@ impl<RT: Runtime> Committer<RT> {
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
+        drop(ordered_updates);
 
-        let timer = metrics::pending_writes_to_write_log_timer();
-        // See the comment in `writes_overlap_by_index` for why it’s safe
-        // to use indexes from the current snapshot.
-        let writes = index_keys_from_full_documents(ordered_updates, &new_snapshot.index_registry);
-        drop(timer);
         metrics::write_log_commit_bytes(write_bytes as usize);
 
         let timer = metrics::write_log_append_timer();
@@ -1018,6 +1029,8 @@ impl<RT: Runtime> Committer<RT> {
             index_writes,
             document_writes,
             pending_write,
+            ordered_updates,
+            index_registry,
         } = match block_in_place(|| self.validate_commit(transaction, write_source.clone())) {
             Ok(v) => v,
             Err(e) => {
@@ -1052,6 +1065,8 @@ impl<RT: Runtime> Committer<RT> {
                         commit_ts,
                         index_writes,
                         document_writes,
+                        ordered_updates,
+                        index_registry,
                         table_mapping,
                         component_registry,
                         virtual_system_mapping,
@@ -1059,7 +1074,7 @@ impl<RT: Runtime> Committer<RT> {
                     )
                     .in_span(Span::enter_with_local_parent(name)),
                 ));
-                let write_bytes = handle.await??;
+                let (write_bytes, index_key_writes) = handle.await??;
                 pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
                 Ok(PersistenceWrite::Commit {
                     pending_write,
@@ -1068,6 +1083,7 @@ impl<RT: Runtime> Committer<RT> {
                     parent_trace: parent_trace_copy,
                     commit_id,
                     write_bytes,
+                    index_key_writes,
                 })
             }
             .in_span(outer_span)
@@ -1484,4 +1500,6 @@ struct ValidatedCommit {
     index_writes: Vec<DatabaseIndexUpdate>,
     document_writes: Vec<ValidatedDocumentWrite>,
     pending_write: PendingWriteHandle,
+    ordered_updates: OrderedDocumentWrites,
+    index_registry: IndexRegistry,
 }
