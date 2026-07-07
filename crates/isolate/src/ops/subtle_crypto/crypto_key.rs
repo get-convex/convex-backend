@@ -22,6 +22,7 @@ use crate::{
         DOMExceptionName,
         FromV8,
         ToV8,
+        TypeError,
     },
     strings,
 };
@@ -119,7 +120,7 @@ impl FromV8 for CryptoKey {
         let input = input.try_cast::<v8::Object>()?;
         anyhow::ensure!(
             input.instance_of(scope, crypto_key_constructor.into()) == Some(true),
-            "TypeError"
+            TypeError::new("not of type CryptoKey")
         );
         let (id, ok) = input
             .get_internal_field(scope, 0)
