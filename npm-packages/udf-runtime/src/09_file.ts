@@ -47,7 +47,7 @@ class BlobReference {
 }
 
 class BlobStreamReference {
-  private _stream: ReadableStream<Uint8Array>;
+  private _stream: ReadableStream<Uint8Array> | null;
   private _size: number;
 
   constructor(stream: ReadableStream<Uint8Array>, size: number) {
@@ -56,6 +56,10 @@ class BlobStreamReference {
   }
 
   slice(start: number, end: number): BlobStreamReference {
+    if (this._stream === null) {
+      throw new TypeError("Can't re-read streaming Blob");
+    }
+
     const size = end - start;
     const [original, toSlice] = this._stream.tee();
     this._stream = original;
@@ -83,7 +87,13 @@ class BlobStreamReference {
   }
 
   stream(): ReadableStream<Uint8Array> {
-    return this._stream;
+    if (this._stream === null) {
+      // TODO: Blobs aren't really supposed to be streaming
+      throw new TypeError("Can't re-read streaming Blob");
+    }
+    const stream = this._stream;
+    this._stream = null;
+    return stream;
   }
 
   get size() {
