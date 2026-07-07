@@ -577,7 +577,7 @@ impl<RT: Runtime> Committer<RT> {
             panic!("Snapshots were changed concurrently during commit?");
         }
         if let Err(e) = snapshot_manager
-            .overwrite_last_snapshot_table_summary(table_summary_snapshot, &mut self.pending_writes)
+            .overwrite_last_snapshot_table_counts(table_summary_snapshot, &mut self.pending_writes)
         {
             let _ = result.send(Err(e));
             return;
@@ -979,11 +979,11 @@ impl<RT: Runtime> Committer<RT> {
             .append(commit_ts, writes, write_source, apply_writes_callback);
         drop(timer);
 
-        if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
-            metrics::log_num_keys(table_summaries.num_user_documents);
-            metrics::log_user_table_documents_size(table_summaries.user_tables_size);
+        if let Some(table_counts) = new_snapshot.table_counts.as_ref() {
+            metrics::log_num_keys(table_counts.num_user_documents);
+            metrics::log_user_table_documents_size(table_counts.user_tables_size);
             self.user_documents_size_gauge
-                .set(table_summaries.user_docs_size as i64);
+                .set(table_counts.user_docs_size as i64);
         }
 
         // Publish the new version of our database metadata and the index.

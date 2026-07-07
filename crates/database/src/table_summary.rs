@@ -321,6 +321,39 @@ impl From<TableSummarySnapshot> for TableShapes {
     }
 }
 
+/// A [`TableSummarySnapshot`] filtered to tables that exist: counts and shapes
+/// together, exact at a single timestamp.
+///
+/// This is for offline tools (`db-info`, `db-verifier`) that load summaries
+/// via `DatabaseSnapshot::load_table_summaries`. The live `Snapshot` holds
+/// only counts (`TableCounts`); live shape readers use the asynchronously
+/// published [`TableShapes`] instead.
+#[derive(Clone)]
+pub struct TableSummaries {
+    pub tables: BTreeMap<TabletId, TableSummary>,
+}
+
+impl TableSummaries {
+    pub fn new(
+        TableSummarySnapshot { tables, ts: _ }: TableSummarySnapshot,
+        table_mapping: &TableMapping,
+    ) -> Self {
+        Self {
+            tables: tables
+                .into_iter()
+                .filter(|(table_id, _table_summary)| table_mapping.tablet_id_exists(*table_id))
+                .collect(),
+        }
+    }
+
+    pub fn tablet_summary(&self, table: &TabletId) -> TableSummary {
+        self.tables
+            .get(table)
+            .cloned()
+            .unwrap_or_else(TableSummary::empty)
+    }
+}
+
 impl TableSummarySnapshot {
     pub async fn load(
         reader: &dyn PersistenceReader,

@@ -1441,10 +1441,22 @@ pub static MAX_SEARCHLIGHT_REQUEST_SIZE: LazyLock<usize> =
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
     LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 500));
 
-/// Update table summaries for idle instances once every 4 hours.
+/// Checkpoint table summaries unconditionally -- even with no writes -- once
+/// every 4 hours. This must stay bounded so the checkpoint keeps advancing and
+/// document retention can make progress (see [`DATABASE_WORKERS_MIN_COMMITS`]).
 pub static TABLE_SUMMARY_MAX_CHECKPOINT_AGE: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("TABLE_SUMMARY_MAX_CHECKPOINT_AGE", 4 * 60 * 60))
 });
+
+/// When an deployment has committed writes since the last table summary
+/// checkpoint, checkpoint (and republish table shapes) at least this often.
+/// This bounds how stale the published table shapes -- the dashboard's
+/// generated schema and streaming export's column names -- can get on
+/// deployments with write traffic too low to hit
+/// [`DATABASE_WORKERS_MIN_COMMITS`]. Deployments with no writes at all fall
+/// back to the slower [`TABLE_SUMMARY_MAX_CHECKPOINT_AGE`] cadence.
+pub static TABLE_SUMMARY_MAX_STALENESS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("TABLE_SUMMARY_MAX_AGE_WITH_WRITES", 10 * 60)));
 
 /// The TableSummaryWorker must checkpoint every
 /// [`TABLE_SUMMARY_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.

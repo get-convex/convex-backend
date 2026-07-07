@@ -71,8 +71,8 @@ use crate::{
     write_log::PendingWrites,
     write_throughput_limiter::WriteThroughputLimiter,
     ComponentRegistry,
+    TableCount,
     TableRegistry,
-    TableSummary,
     TableUsage,
     TablesUsage,
     TransactionReadSet,
@@ -93,10 +93,10 @@ pub struct SnapshotManager {
 }
 
 #[derive(Clone)]
-/// This is a wrapper on [TableSummarySnapshot] that is filtered to tables that
-/// exist and tracks the user document and size counts.
-pub struct TableSummaries {
-    pub tables: OrdMap<TabletId, TableSummary>,
+/// Per-table document counts and sizes, filtered to tables that exist, plus
+/// aggregate user document and size counts.
+pub struct TableCounts {
+    pub tables: OrdMap<TabletId, TableCount>,
     pub num_user_documents: u64,
     /// Size of user documents in user tables
     pub user_tables_size: u64,
@@ -105,14 +105,14 @@ pub struct TableSummaries {
 }
 
 #[async_trait]
-impl TableCountSnapshot for Option<TableSummaries> {
+impl TableCountSnapshot for Option<TableCounts> {
     async fn count(&self, table: TabletId) -> anyhow::Result<Option<u64>> {
         let result = match self {
-            Some(table_summaries) => {
-                let count = table_summaries
+            Some(table_counts) => {
+                let count = table_counts
                     .tables
                     .get(&table)
-                    .map_or(0, |summary| summary.num_values());
+                    .map_or(0, |count| count.num_values());
                 Some(count)
             },
             None => None,
@@ -121,7 +121,7 @@ impl TableCountSnapshot for Option<TableSummaries> {
     }
 }
 
-impl TableSummaries {
+impl TableCounts {
     pub fn new(
         TableSummarySnapshot { tables, ts: _ }: TableSummarySnapshot,
         table_mapping: &TableMapping,
@@ -129,25 +129,23 @@ impl TableSummaries {
     ) -> anyhow::Result<Self> {
         // Filter out non-existent tables before counting. Otherwise is_system_table
         // will return false and count non-existent tables toward user document counts.
-        let tables: OrdMap<TabletId, TableSummary> = tables
+        let tables: OrdMap<TabletId, TableCount> = tables
             .into_iter()
             .filter(|(table_id, _table_summary)| table_mapping.tablet_id_exists(*table_id))
+            .map(|(table_id, table_summary)| (table_id, *table_summary.count()))
             .collect::<OrdMap<_, _>>();
         let (num_user_documents, user_tables_size) = tables
             .iter()
-            .filter(|(table_id, _summary)| !table_mapping.is_system_tablet(**table_id))
-            .fold((0, 0), |(acc_docs, acc_size), (_, summary)| {
-                (
-                    acc_docs + summary.num_values(),
-                    acc_size + summary.total_size(),
-                )
+            .filter(|(table_id, _count)| !table_mapping.is_system_tablet(**table_id))
+            .fold((0, 0), |(acc_docs, acc_size), (_, count)| {
+                (acc_docs + count.num_values(), acc_size + count.total_size())
             });
-        let user_docs_size = tables.iter().try_fold(0, |acc_size, (table_id, summary)| {
+        let user_docs_size = tables.iter().try_fold(0, |acc_size, (table_id, count)| {
             let is_system_table = table_mapping.is_system_tablet(*table_id);
             let has_virtual_table =
                 virtual_table_mapping.has_virtual_table(&table_mapping.tablet_name(*table_id)?);
             anyhow::Ok(if has_virtual_table || !is_system_table {
-                acc_size + summary.total_size()
+                acc_size + count.total_size()
             } else {
                 acc_size
             })
@@ -160,11 +158,11 @@ impl TableSummaries {
         })
     }
 
-    pub fn tablet_summary(&self, table: &TabletId) -> TableSummary {
+    pub fn tablet_count(&self, table: &TabletId) -> TableCount {
         self.tables
             .get(table)
-            .cloned()
-            .unwrap_or(TableSummary::empty())
+            .copied()
+            .unwrap_or_else(TableCount::empty)
     }
 
     pub(crate) fn update(
@@ -177,20 +175,17 @@ impl TableSummaries {
         virtual_system_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<()> {
         let _timer = crate::metrics::table_summary_update_timer();
-        let mut table_summary = self
+        let mut table_count = *self
             .tables
             .get(&document_id.tablet_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!("Updating non-existent table {}", document_id.tablet_id)
-            })?
-            .clone();
+            .with_context(|| format!("Updating non-existent table {}", document_id.tablet_id))?;
         if let Some(old_value) = old {
-            table_summary
+            table_count
                 .remove(&old_value.value().0)
                 .with_context(|| format!("removing from table {}", document_id.tablet_id))?;
         }
         if let Some(new_value) = new {
-            table_summary.insert(&new_value.value().0);
+            table_count.insert(&new_value.value().0);
         }
         if let Some(TableUpdate {
             namespace: _,
@@ -203,7 +198,7 @@ impl TableSummaries {
                 TableUpdateMode::Create(_) => {
                     assert!(self
                         .tables
-                        .insert(table_id_and_number.tablet_id, TableSummary::empty())
+                        .insert(table_id_and_number.tablet_id, TableCount::empty())
                         .is_none());
                 },
                 TableUpdateMode::Activate => {},
@@ -213,29 +208,29 @@ impl TableSummaries {
                 TableUpdateMode::HardDelete => {
                     assert!(
                         self.tables.remove(&table_id_and_number.tablet_id).is_none(),
-                        "Hard-deleted tablet found in table summaries, but it should have already \
+                        "Hard-deleted tablet found in table counts, but it should have already \
                          been removed when it was marked Deleting"
                     );
                 },
             }
         }
-        let new_info_num_values = table_summary.num_values();
-        let new_info_total_size = table_summary.total_size();
-        match self.tables.insert(document_id.tablet_id, table_summary) {
-            Some(old_summary) => {
+        let new_info_num_values = table_count.num_values();
+        let new_info_total_size = table_count.total_size();
+        match self.tables.insert(document_id.tablet_id, table_count) {
+            Some(old_count) => {
                 let is_system_table = table_mapping.is_system_tablet(document_id.tablet_id);
                 if !is_system_table {
                     self.num_user_documents =
-                        self.num_user_documents + new_info_num_values - old_summary.num_values();
+                        self.num_user_documents + new_info_num_values - old_count.num_values();
                     self.user_tables_size =
-                        self.user_tables_size + new_info_total_size - old_summary.total_size();
+                        self.user_tables_size + new_info_total_size - old_count.total_size();
                 }
                 if virtual_system_mapping
                     .has_virtual_table(&table_mapping.tablet_name(document_id.tablet_id)?)
                     || !is_system_table
                 {
                     self.user_docs_size =
-                        self.user_docs_size + new_info_total_size - old_summary.total_size();
+                        self.user_docs_size + new_info_total_size - old_count.total_size();
                 }
             },
             None => panic!("Applying update for non-existent table!"),
@@ -249,7 +244,7 @@ pub struct Snapshot {
     pub table_registry: TableRegistry,
     pub schema_registry: SchemaRegistry,
     pub component_registry: ComponentRegistry,
-    pub table_summaries: Option<TableSummaries>,
+    pub table_counts: Option<TableCounts>,
     pub index_registry: IndexRegistry,
     pub in_memory_indexes: BackendInMemoryIndexes,
     pub virtual_system_mapping: VirtualSystemMapping,
@@ -292,8 +287,8 @@ impl Snapshot {
                 removal,
                 insertion,
             )?;
-            if let Some(table_summaries) = self.table_summaries.as_mut() {
-                table_summaries
+            if let Some(table_counts) = self.table_counts.as_mut() {
+                table_counts
                     .update(
                         document_id,
                         removal,
@@ -302,7 +297,7 @@ impl Snapshot {
                         self.table_registry.table_mapping(),
                         &self.virtual_system_mapping,
                     )
-                    .context("Table summaries update failed")?;
+                    .context("Table counts update failed")?;
             };
 
             self.index_registry
@@ -342,13 +337,13 @@ impl Snapshot {
         })
     }
 
-    pub fn must_table_summaries(&self) -> anyhow::Result<&TableSummaries> {
-        self.table_summaries
+    pub fn must_table_counts(&self) -> anyhow::Result<&TableCounts> {
+        self.table_counts
             .as_ref()
             .ok_or_else(|| table_summary_bootstrapping_error(None))
     }
 
-    pub fn iter_table_summaries(
+    pub fn iter_table_counts(
         &self,
     ) -> anyhow::Result<
         impl Iterator<
@@ -356,12 +351,12 @@ impl Snapshot {
                     TableNamespace,
                     Option<ComponentPath>,
                     TableName,
-                    &'_ TableSummary,
+                    &'_ TableCount,
                 )>,
             > + '_,
     > {
         let result = self
-            .must_table_summaries()?
+            .must_table_counts()?
             .tables
             .iter()
             .filter(|(table_id, _)| {
@@ -370,7 +365,7 @@ impl Snapshot {
                     Some(TableState::Active)
                 )
             })
-            .map(|(table_id, summary)| {
+            .map(|(table_id, table_count)| {
                 let namespace = self
                     .table_mapping()
                     .tablet_namespace(*table_id)
@@ -385,8 +380,8 @@ impl Snapshot {
                 );
 
                 if component_path.is_none() && !table_name.is_system() {
-                    let count = summary.num_values();
-                    let table_size = summary.total_size();
+                    let count = table_count.num_values();
+                    let table_size = table_count.total_size();
                     if count != 0 {
                         // If there is no component path for this table namespace, this must be an
                         // empty user table left over from incomplete
@@ -405,7 +400,7 @@ impl Snapshot {
                         );
                     }
                 }
-                Ok((namespace, component_path, table_name, summary))
+                Ok((namespace, component_path, table_name, table_count))
             });
         Ok(result)
     }
@@ -414,25 +409,21 @@ impl Snapshot {
         self.table_registry.table_mapping()
     }
 
-    pub fn table_summary(
-        &self,
-        namespace: TableNamespace,
-        table: &TableName,
-    ) -> Option<TableSummary> {
+    pub fn table_count(&self, namespace: TableNamespace, table: &TableName) -> Option<TableCount> {
         let table_id = match self.table_mapping().namespace(namespace).id(table) {
             Ok(table_id) => table_id,
-            Err(_) => return Some(TableSummary::empty()),
+            Err(_) => return Some(TableCount::empty()),
         };
-        let table_summaries = self.table_summaries.as_ref()?;
-        Some(table_summaries.tablet_summary(&table_id.tablet_id))
+        let table_counts = self.table_counts.as_ref()?;
+        Some(table_counts.tablet_count(&table_id.tablet_id))
     }
 
-    pub fn must_table_summary(
+    pub fn must_table_count(
         &self,
         namespace: TableNamespace,
         table: &TableName,
-    ) -> anyhow::Result<TableSummary> {
-        self.table_summary(namespace, table)
+    ) -> anyhow::Result<TableCount> {
+        self.table_count(namespace, table)
             .context(table_summary_bootstrapping_error(None))
     }
 
@@ -443,10 +434,10 @@ impl Snapshot {
         let mut user_document_storage_by_table = BTreeMap::new();
         let mut system_document_storage_by_table = BTreeMap::new();
         let mut orphaned_document_storage_by_table = BTreeMap::new();
-        for entry in self.iter_table_summaries()? {
-            let (namespace, component_path, table_name, summary) = entry?;
+        for entry in self.iter_table_counts()? {
+            let (namespace, component_path, table_name, table_count) = entry?;
             let usage = TableUsage {
-                document_size: summary.total_size(),
+                document_size: table_count.total_size(),
                 index_size: 0,
                 system_index_size: 0,
             };
@@ -710,19 +701,19 @@ impl SnapshotManager {
         pending_writes.recompute_pending_snapshots(snapshot.clone());
     }
 
-    pub fn overwrite_last_snapshot_table_summary(
+    pub fn overwrite_last_snapshot_table_counts(
         &mut self,
         table_summary: TableSummarySnapshot,
         pending_writes: &mut PendingWrites,
     ) -> anyhow::Result<()> {
         let (_ts, snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         let table_mapping = snapshot.table_mapping();
-        let table_summaries = TableSummaries::new(
+        let table_counts = TableCounts::new(
             table_summary,
             table_mapping,
             &snapshot.virtual_system_mapping,
         )?;
-        snapshot.table_summaries = Some(table_summaries);
+        snapshot.table_counts = Some(table_counts);
         pending_writes.recompute_pending_snapshots(snapshot.clone());
         Ok(())
     }

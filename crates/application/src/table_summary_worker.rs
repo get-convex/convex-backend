@@ -14,6 +14,7 @@ use common::{
         TABLE_SUMMARY_AGE_JITTER_SECONDS,
         TABLE_SUMMARY_BOOTSTRAP_RECENT_THRESHOLD,
         TABLE_SUMMARY_MAX_CHECKPOINT_AGE,
+        TABLE_SUMMARY_MAX_STALENESS,
     },
     persistence::Persistence,
     runtime::{
@@ -101,10 +102,19 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         let now = self.runtime.unix_timestamp();
         if let Some(last_write_info) = last_write_info
             && *has_bootstrapped
-            && commits_since_load - last_write_info.observed_commits < *DATABASE_WORKERS_MIN_COMMITS
-            && now - last_write_info.ts < *jittered_max_age
         {
-            return Ok(());
+            let new_commits = commits_since_load - last_write_info.observed_commits;
+            let age = now - last_write_info.ts;
+            let enough_commits = new_commits >= *DATABASE_WORKERS_MIN_COMMITS;
+            // Bound the staleness of the published table shapes on deployments
+            // with writes but not enough traffic to hit the commit threshold.
+            let stale_with_writes = new_commits > 0 && age >= *TABLE_SUMMARY_MAX_STALENESS;
+            // Even with no writes, the checkpoint must keep advancing so
+            // document retention can make progress.
+            let too_old = age >= *jittered_max_age;
+            if !enough_commits && !stale_with_writes && !too_old {
+                return Ok(());
+            }
         }
         // The order of these is important -- we write the checkpoint, and then
         // we signal that we're ready to propagate the snapshot (+ any new

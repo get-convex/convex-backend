@@ -427,16 +427,15 @@ impl<RT: Runtime> SchemaValidationProgressTracker<RT> {
         tables_to_validate: &BTreeSet<TableName>,
         namespace: TableNamespace,
     ) -> anyhow::Result<Option<u64>> {
-        let total_docs = if snapshot.table_summaries.is_some() {
+        let total_docs = if snapshot.table_counts.is_some() {
             let doc_counts = tables_to_validate
                 .iter()
                 .map(|table_name| {
                     anyhow::Ok(
                         snapshot
-                            .table_summary(namespace, table_name)
+                            .table_count(namespace, table_name)
                             .context(
-                                "Failed to retrieve table summary when table summaries were \
-                                 present",
+                                "Failed to retrieve table count when table counts were present",
                             )?
                             .num_values(),
                     )

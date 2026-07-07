@@ -137,9 +137,8 @@ async fn messages_to_confirm_replace<RT: Runtime>(
                 } else {
                     table_name
                 };
-                let table_summary =
-                    db_snapshot.must_table_summary(component_id.into(), table_name)?;
-                anyhow::Ok(table_summary.num_values())
+                let table_count = db_snapshot.must_table_count(component_id.into(), table_name)?;
+                anyhow::Ok(table_count.num_values())
             })
             .transpose()?
             .unwrap_or(0);

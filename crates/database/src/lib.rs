@@ -194,7 +194,7 @@ pub use self::{
     },
     snapshot_manager::{
         Snapshot,
-        TableSummaries,
+        TableCounts,
     },
     subscription::{
         InvalidationEvent,
@@ -204,6 +204,7 @@ pub use self::{
         TableCount,
         TableShape,
         TableShapes,
+        TableSummaries,
         TableSummary,
         TableSummaryWriter,
     },
