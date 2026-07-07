@@ -782,7 +782,7 @@ impl<RT: Runtime> Committer<RT> {
         ordered_updates: &Vec<&DocumentUpdateWithPrevTs>,
     ) -> anyhow::Result<(
         Vec<ValidatedDocumentWrite>,
-        BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        Vec<DatabaseIndexUpdate>,
         Snapshot,
     )> {
         let timer = metrics::commit_prepare_writes_timer();
@@ -811,11 +811,6 @@ impl<RT: Runtime> Committer<RT> {
                 prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
             });
         }
-        let index_writes = index_writes
-            .into_iter()
-            .map(|index_update| (commit_ts, index_update))
-            .collect();
-
         timer.finish();
         Ok((document_writes, index_writes, latest_pending_snapshot))
     }
@@ -868,7 +863,8 @@ impl<RT: Runtime> Committer<RT> {
         rt: RT,
         persistence: Arc<dyn Persistence>,
         usage_tracking: FunctionUsageTracker,
-        index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        commit_ts: Timestamp,
+        index_writes: Vec<DatabaseIndexUpdate>,
         document_writes: Vec<ValidatedDocumentWrite>,
         table_mapping: TableMapping,
         component_registry: ComponentRegistry,
@@ -903,8 +899,8 @@ impl<RT: Runtime> Committer<RT> {
         let index_writes = Arc::new(
             index_writes
                 .into_iter()
-                .map(|(ts, update)| {
-                    let entry = PersistenceIndexEntry::from_index_update(ts, &update);
+                .map(|update| {
+                    let entry = PersistenceIndexEntry::from_index_update(commit_ts, &update);
                     write_bytes += entry.size();
                     entry
                 })
@@ -1041,6 +1037,7 @@ impl<RT: Runtime> Committer<RT> {
         let pause_client = self.runtime.pause_client();
         let rt = self.runtime.clone();
         let virtual_system_mapping = self.virtual_system_mapping.clone();
+        let commit_ts = pending_write.must_commit_ts();
         Some(
             async move {
                 let name = "Commit::write_to_persistence";
@@ -1052,6 +1049,7 @@ impl<RT: Runtime> Committer<RT> {
                         rt,
                         persistence,
                         usage_tracking,
+                        commit_ts,
                         index_writes,
                         document_writes,
                         table_mapping,
@@ -1080,13 +1078,13 @@ impl<RT: Runtime> Committer<RT> {
     #[fastrace::trace]
     fn track_commit(
         usage_tracker: FunctionUsageTracker,
-        index_writes: &BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        index_writes: &[DatabaseIndexUpdate],
         document_writes: &Vec<ValidatedDocumentWrite>,
         table_mapping: &TableMapping,
         component_registry: &ComponentRegistry,
         virtual_system_mapping: &VirtualSystemMapping,
     ) {
-        for (_, index_write) in index_writes {
+        for index_write in index_writes {
             if let DatabaseIndexValue::NonClustered(doc) = index_write.value {
                 let tablet_id = doc.tablet_id;
                 let Ok(table_namespace) = table_mapping.tablet_namespace(tablet_id) else {
@@ -1098,12 +1096,13 @@ impl<RT: Runtime> Committer<RT> {
                     // It's possible that the component gets deleted in this transaction. In that case, miscount the usage as root.
                     .unwrap_or(ComponentPath::root());
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
+                    let index_key_size = index_write.key.size() as u64;
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress(
                         component_path.clone(),
                         table_name.to_string(),
-                        index_write.key.size() as u64,
+                        index_key_size,
                         // Exclude indexes on system tables or reserved system indexes on user
                         // tables
                         table_name.is_system() || index_write.is_system_index,
@@ -1111,7 +1110,7 @@ impl<RT: Runtime> Committer<RT> {
                     usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
                         table_name.to_string(),
-                        index_write.key.size() as u64,
+                        index_key_size,
                         table_name.is_system() || index_write.is_system_index,
                     );
                     if let Some(virtual_table_name) =
@@ -1120,7 +1119,7 @@ impl<RT: Runtime> Committer<RT> {
                         usage_tracker.track_virtual_table_ingress(
                             component_path,
                             virtual_table_name.to_string(),
-                            index_write.key.size() as u64,
+                            index_key_size,
                         );
                     }
                 }
@@ -1482,7 +1481,7 @@ pub fn table_dependency_sort_key(
 }
 
 struct ValidatedCommit {
-    index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+    index_writes: Vec<DatabaseIndexUpdate>,
     document_writes: Vec<ValidatedDocumentWrite>,
     pending_write: PendingWriteHandle,
 }
