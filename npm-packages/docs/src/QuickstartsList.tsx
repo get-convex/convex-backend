@@ -49,6 +49,20 @@ export function ClaudeCodeInlineMention() {
   );
 }
 
+// An inline "Cursor" reference (icon + name) for use in a sentence,
+// e.g. "<CursorInlineMention /> gets these rules from the plugin instead."
+export function CursorInlineMention() {
+  return (
+    <span className="inline-flex items-baseline">
+      <CursorLogo
+        aria-hidden="true"
+        className="size-[1em] shrink-0 self-center"
+      />
+      &nbsp;<span className="font-semibold">Cursor</span>
+    </span>
+  );
+}
+
 // This is a variant of DocsCardList.tsx specifically for the Quickstarts page.
 type Item = {
   docId: string;
@@ -257,6 +271,12 @@ export function AgentPluginsList() {
           docId: "ai/using-codex",
           label: "Codex",
         },
+        {
+          icon: <CursorLogo height={40} />,
+          href: "/ai/using-cursor#install-the-convex-plugin-in-cursor",
+          docId: "ai/using-cursor",
+          label: "Cursor",
+        },
       ]}
     />
   );
@@ -271,12 +291,6 @@ export function RulesHarnessesList() {
           href: "/ai/using-codex",
           docId: "ai/using-codex",
           label: "Codex",
-        },
-        {
-          icon: <CursorLogo height={40} />,
-          href: "/ai/using-cursor",
-          docId: "ai/using-cursor",
-          label: "Cursor",
         },
         {
           icon: <GitHubCopilotLogo height={40} />,
@@ -304,12 +318,6 @@ export function McpHarnessesList() {
           href: "/ai/using-codex#setup-the-convex-mcp-server",
           docId: "ai/using-codex",
           label: "Codex",
-        },
-        {
-          icon: <CursorLogo height={40} />,
-          href: "/ai/using-cursor#setup-the-convex-mcp-server",
-          docId: "ai/using-cursor",
-          label: "Cursor",
         },
         {
           icon: <GitHubCopilotLogo height={40} />,
