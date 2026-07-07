@@ -25,7 +25,10 @@ export function useTableFields(
         );
         // If schema validation is enforced and fields are complete, use only these fields
         if (activeSchema.schemaValidation && result.areFieldsComplete) {
-          return sortColumns(result.fields, { maintainOrder: true });
+          return {
+            fields: sortColumns(result.fields, { maintainOrder: true }),
+            isComplete: true,
+          };
         }
         result.fields.forEach((f) => allFields.add(f));
       }
@@ -35,24 +38,36 @@ export function useTableFields(
     const shapeFields = shape === null ? [] : topLevelFieldsFromShape(shape);
     shapeFields.forEach((f) => allFields.add(f));
 
-    return sortColumns(Array.from(allFields));
+    return { fields: sortColumns(Array.from(allFields)), isComplete: false };
   }, [tableName, shape, activeSchema]);
 
-  return useMemo(() => {
-    // If we have data from schema or shapes, use it
-    if (shapeAndSchemaFields.length > 0) {
-      return shapeAndSchemaFields;
-    }
-
-    // No shape available — compute from the data itself.
-    // This can happen when there is no schema and the computed shape
-    // is a Record<string, …>, because there are two many fields or
-    // some field names are invalid identifiers
+  const observedFields = useMemo(() => {
     const allFields = new Set<string>();
     data.forEach((document) => {
       Object.keys(document).forEach((field) => allFields.add(field));
     });
+    return Array.from(allFields).sort();
+  }, [data]);
 
-    return sortColumns(Array.from(allFields));
-  }, [shapeAndSchemaFields, data]);
+  return useMemo(
+    () => {
+      if (shapeAndSchemaFields.isComplete) {
+        return shapeAndSchemaFields.fields;
+      }
+
+      // The shape is computed asynchronously and may lag behind recent writes. Include the
+      // fields observed in the loaded documents so they are always visible.
+      const allFields = new Set([
+        ...shapeAndSchemaFields.fields,
+        ...observedFields,
+      ]);
+
+      return sortColumns(Array.from(allFields));
+    },
+    // Depend on the contents of observedFields rather than its identity so
+    // that a new page of documents with the same fields keeps the same
+    // fields array (consumers memoize on it).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shapeAndSchemaFields, JSON.stringify(observedFields)],
+  );
 }

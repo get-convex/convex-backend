@@ -57,7 +57,8 @@ export function GenerateSchema({
         {displayedSchema ? (
           <div className="flex flex-col gap-2">
             <div>
-              We've generated a schema based on the data available in your table
+              We've generated an approximate schema based on the data available
+              in your table
               {shapes.size > 1 ? "s" : ""}. {showLearnMoreLink && learnMoreLink}
             </div>
             {showUsageInstructions && (
