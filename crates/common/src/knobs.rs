@@ -431,6 +431,15 @@ pub static MAX_SYSCALL_BATCH_SIZE: LazyLock<usize> =
 pub static MAX_REACTOR_CALL_DEPTH: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_REACTOR_CALL_DEPTH", 8));
 
+/// Maximum number of distinct subquery (`ctx.runQuery`) results memoized within
+/// a single query transaction. Bounds the entry *count* of the in-transaction
+/// subquery cache (not its byte size — individual result sizes are already
+/// bounded by the transaction's read limits). Once the limit is hit, additional
+/// distinct subqueries simply re-execute instead of being memoized (still
+/// correct, just not cached).
+pub static MAX_SUBQUERY_CACHE_ENTRIES: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_SUBQUERY_CACHE_ENTRIES", 1024));
+
 /// Default number of records to fetch from an index if a prefetch hint is not
 /// provided.
 pub static DEFAULT_QUERY_PREFETCH: LazyLock<usize> =
