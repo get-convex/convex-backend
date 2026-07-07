@@ -258,19 +258,17 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                     )
                     .context(ErrorMetadata::bad_request(
                         "InvalidArgument",
-                        format!(
-                            "Invalid storage ID. Storage ID cannot be an ID on any table other \
-                             than '_storage'.",
-                        ),
+                        "Invalid storage ID. Storage ID cannot be an ID on any table other than \
+                         '_storage'."
+                            .to_string(),
                     ))?;
                 anyhow::ensure!(
                     table_name == FILE_STORAGE_VIRTUAL_TABLE,
                     ErrorMetadata::bad_request(
                         "InvalidArgument",
-                        format!(
-                            "Invalid storage ID. Storage ID cannot be an ID on any table other \
-                             than '_storage'.",
-                        ),
+                        "Invalid storage ID. Storage ID cannot be an ID on any table other than \
+                         '_storage'."
+                            .to_string(),
                     )
                 );
                 let table_mapping = self.tx.table_mapping().clone();

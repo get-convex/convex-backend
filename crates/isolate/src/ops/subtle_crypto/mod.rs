@@ -300,7 +300,7 @@ impl FromV8 for KeyDeriveParams {
             "hkdf" => Ok(Self::Hkdf),
             "x25519" => Ok(Self::X25519),
             _ => anyhow::bail!(DOMException::new(
-                format!("invalid algorithm for key"),
+                "invalid algorithm for key".to_string(),
                 DOMExceptionName::InvalidAccessError
             )),
         }

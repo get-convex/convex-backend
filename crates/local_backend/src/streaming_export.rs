@@ -588,7 +588,7 @@ fn json_schema_from_active_schema(
     let Some(active_schema) = active_schema else {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoSchemaForExport",
-            format!("There is no active schema, which is needed for streaming export.")
+            "There is no active schema, which is needed for streaming export.".to_string()
         ));
     };
 

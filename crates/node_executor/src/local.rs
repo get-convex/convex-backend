@@ -140,7 +140,7 @@ impl InnerLocalNodeExecutor {
 
     async fn check_server_health(client: &Client) -> anyhow::Result<bool> {
         match client
-            .get(format!("http://localhost/health"))
+            .get("http://localhost/health".to_string())
             .timeout(Duration::from_secs(1))
             .send()
             .await
@@ -258,7 +258,7 @@ impl NodeExecutor for LocalNodeExecutor {
         let request_json = JsonValue::try_from(request)?;
 
         let response_result = client
-            .post(format!("http://localhost/invoke"))
+            .post("http://localhost/invoke".to_string())
             .json(&request_json)
             .timeout(self.config.node_process_timeout)
             .send()

@@ -92,10 +92,9 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
                 let Some(existing_document) = existing_document else {
                     anyhow::bail!(ErrorMetadata::not_found(
                         "FivetranMissingUpdatedRow",
-                        format!(
-                            "Fivetran is trying to update a row that doesn’t exist in the Convex \
-                             destination.",
-                        ),
+                        "Fivetran is trying to update a row that doesn’t exist in the Convex \
+                         destination."
+                            .to_string(),
                     ));
                 };
 

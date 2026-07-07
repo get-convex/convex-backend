@@ -306,10 +306,7 @@ fn main() -> anyhow::Result<()> {
                 );
                 let out_with_project = out_dir.join(suffix);
                 fs::create_dir_all(&out_with_project)?;
-                write_start_push_request(
-                    &path,
-                    &out_with_project.join(format!("start_push_request")),
-                )?;
+                write_start_push_request(&path, &out_with_project.join("start_push_request"))?;
             }
         }
 

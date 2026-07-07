@@ -51,12 +51,13 @@ pub async fn info_message_for_import<RT: Runtime>(
     message_lines.extend(content_confirmation_messages);
     // Consider adding confirmation messages about bandwidth usage.
     if !message_lines.is_empty() {
-        message_lines.insert(0, format!("Import change summary:"))
+        message_lines.insert(0, "Import change summary:".to_string())
     }
-    message_lines.push(format!(
+    message_lines.push(
         "Once the import has started, it will run in the background.\nInterrupting `npx convex \
          import` will not cancel it."
-    ));
+            .to_string(),
+    );
     Ok((
         message_lines.join("\n"),
         require_manual_confirmation,
