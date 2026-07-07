@@ -762,7 +762,7 @@ impl<RT: Runtime> Committer<RT> {
         let timer = metrics::pending_writes_append_timer();
         let packed_updates: OrderedDocumentWrites = ordered_updates
             .into_iter()
-            .map(|update| (update.id, PackedDocumentUpdate::pack(update)))
+            .map(PackedDocumentUpdate::pack)
             .collect();
         let ordered_updates = packed_updates.clone();
         let index_registry = snapshot.index_registry.clone();

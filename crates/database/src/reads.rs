@@ -25,7 +25,6 @@ use common::{
         TabletIndexName,
         Timestamp,
     },
-    value::ResolvedDocumentId,
     virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
@@ -192,14 +191,14 @@ impl ReadSet {
         updates: impl Iterator<
             Item = (
                 &'a Timestamp,
-                impl Iterator<Item = &'a (ResolvedDocumentId, PackedDocumentUpdate)>,
+                impl Iterator<Item = &'a PackedDocumentUpdate>,
                 &'a WriteSource,
             ),
         >,
     ) -> Option<ConflictingReadWithWriteSource> {
         let mut buffer = IndexKeyBuffer::new();
         for (update_ts, updates, write_source) in updates {
-            for (_, update) in updates {
+            for update in updates {
                 if let Some(ref document) = update.new_document
                     && let Some(conflicting_read) = self.overlaps_document(document, &mut buffer)
                 {
