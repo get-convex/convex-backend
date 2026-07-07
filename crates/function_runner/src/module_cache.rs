@@ -97,7 +97,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             .cache
             .0
             .get_and_prepopulate(
-                key.clone(),
+                key,
                 async move {
                     let modules =
                         get_modules_and_prefetch(modules_storage, &source_package).await?;

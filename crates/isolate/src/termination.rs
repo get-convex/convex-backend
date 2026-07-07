@@ -9,6 +9,10 @@ use common::errors::{
 };
 use deno_core::v8;
 use errors::ErrorMetadata;
+use fastrace::{
+    local::LocalSpan,
+    Event,
+};
 use parking_lot::Mutex;
 use thiserror::Error;
 
@@ -27,7 +31,7 @@ pub enum TerminationReason {
 
 /// An error condition that applies to the entire stack of subfunctions.
 /// These cannot be caught and will also force the isolate to be recycled.
-#[derive(Debug)]
+#[derive(Debug, strum::IntoStaticStr)]
 pub enum IsolateTerminationReason {
     SystemError(Option<anyhow::Error>), // None if error already handled.
     UserTimeout(Duration),
@@ -36,7 +40,7 @@ pub enum IsolateTerminationReason {
 }
 /// An error condition that applies to just the currently running
 /// subfunction, and can be caught by the parent function.
-#[derive(Debug)]
+#[derive(Debug, strum::IntoStaticStr)]
 pub enum ContextTerminationReason {
     UncatchableDeveloperError(JsError),
     UnhandledPromiseRejection(JsError),
@@ -154,6 +158,10 @@ impl IsolateHandle {
     }
 
     fn take_context_termination_error(reason: &ContextTerminationReason) -> JsError {
+        LocalSpan::add_event(
+            Event::new("context_terminated")
+                .with_property(|| ("reason", <&'static str>::from(reason))),
+        );
         match reason {
             ContextTerminationReason::UnhandledPromiseRejection(e) => e.clone(),
             ContextTerminationReason::UncatchableDeveloperError(e) => e.clone(),
@@ -169,53 +177,62 @@ impl IsolateHandle {
         let mut inner = self.inner.lock();
         match &mut inner.reason {
             None => Ok(Ok(())),
-            Some(TerminationReason::Isolate(reason)) => match reason {
-                IsolateTerminationReason::SystemError(e) => match e.take() {
-                    Some(e) => Err(e),
-                    None => anyhow::bail!("isolate terminated and reason already processed"),
-                },
-                IsolateTerminationReason::SystemTimeout(max_duration) => Err(anyhow::anyhow!(
-                    "Hit maximum total syscall duration (maximum duration: {max_duration:?})"
-                )
-                .context(ErrorMetadata::bad_request(
-                    // Ideally, requests would *always* hit a limit OR a user timeout, and never a
-                    // system timeout. It is non-deterministic, and not necessarily the user's
-                    // fault. However, in practice, we haven't had time to prioritize that, and we
-                    // have users hitting system timeouts deterministically, so just
-                    // compromising and making the system timeout a "bad_request". Perhaps one day
-                    // this can become a retriable overloaded error again.
-                    "SystemTimeoutError",
-                    SYSTEM_TIMEOUT_ERROR_MESSAGE,
-                ))),
-                // OutOfMemory and timeout errors are always the user's fault.
-                IsolateTerminationReason::UserTimeout(max_duration) => Ok(Err(
-                    JsError::from_message(format!("{}", UserTimeoutError(*max_duration))),
-                )),
-                IsolateTerminationReason::OutOfMemory => {
-                    log_isolate_out_of_memory();
-                    // We report this error here because otherwise it is only surfaced to users
-                    // since it is a JsError. Reporting to sentry
-                    // enables us to see what instance the request came from.
-                    let error = ErrorMetadata::bad_request(
-                        "IsolateOutOfMemory",
-                        format!(
-                            "Isolate ran out of memory during execution with request_stream_size: \
-                             {:?},  heap stats: {heap_stats:?} in {source:?}",
-                            inner.request_stream_bytes
-                        ),
-                    );
-                    report_error_sync(&mut error.into());
-                    let error_message =
-                        if let Some(request_stream_bytes) = inner.request_stream_bytes {
+            Some(TerminationReason::Isolate(reason)) => {
+                LocalSpan::add_event(
+                    Event::new("isolate_terminated")
+                        .with_property(|| ("reason", <&'static str>::from(&*reason))),
+                );
+                match reason {
+                    IsolateTerminationReason::SystemError(e) => match e.take() {
+                        Some(e) => Err(e),
+                        None => anyhow::bail!("isolate terminated and reason already processed"),
+                    },
+                    IsolateTerminationReason::SystemTimeout(max_duration) => Err(anyhow::anyhow!(
+                        "Hit maximum total syscall duration (maximum duration: {max_duration:?})"
+                    )
+                    .context(ErrorMetadata::bad_request(
+                        // Ideally, requests would *always* hit a limit OR a user timeout, and
+                        // never a system timeout. It is non-deterministic,
+                        // and not necessarily the user's fault. However,
+                        // in practice, we haven't had time to prioritize that, and we
+                        // have users hitting system timeouts deterministically, so just
+                        // compromising and making the system timeout a "bad_request". Perhaps one
+                        // day this can become a retriable overloaded error
+                        // again.
+                        "SystemTimeoutError",
+                        SYSTEM_TIMEOUT_ERROR_MESSAGE,
+                    ))),
+                    // OutOfMemory and timeout errors are always the user's fault.
+                    IsolateTerminationReason::UserTimeout(max_duration) => Ok(Err(
+                        JsError::from_message(format!("{}", UserTimeoutError(*max_duration))),
+                    )),
+                    IsolateTerminationReason::OutOfMemory => {
+                        log_isolate_out_of_memory();
+                        // We report this error here because otherwise it is only surfaced to users
+                        // since it is a JsError. Reporting to sentry
+                        // enables us to see what instance the request came from.
+                        let error = ErrorMetadata::bad_request(
+                            "IsolateOutOfMemory",
                             format!(
-                                "{OutOfMemoryError}: request stream size was \
-                                 {request_stream_bytes} bytes"
-                            )
-                        } else {
-                            format!("{OutOfMemoryError}")
-                        };
-                    Ok(Err(JsError::from_message(error_message)))
-                },
+                                "Isolate ran out of memory during execution with \
+                                 request_stream_size: {:?},  heap stats: {heap_stats:?} in \
+                                 {source:?}",
+                                inner.request_stream_bytes
+                            ),
+                        );
+                        report_error_sync(&mut error.into());
+                        let error_message =
+                            if let Some(request_stream_bytes) = inner.request_stream_bytes {
+                                format!(
+                                    "{OutOfMemoryError}: request stream size was \
+                                     {request_stream_bytes} bytes"
+                                )
+                            } else {
+                                format!("{OutOfMemoryError}")
+                            };
+                        Ok(Err(JsError::from_message(error_message)))
+                    },
+                }
             },
             Some(TerminationReason::Context(reason)) => {
                 let error = Self::take_context_termination_error(reason);

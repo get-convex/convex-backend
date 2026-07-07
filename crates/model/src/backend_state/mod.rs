@@ -52,7 +52,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &BACKEND_STATE_TABLE,
-                PersistedBackendState::New(BackendState {
+                PersistedBackendState(BackendState {
                     system: SystemStopState::None,
                     usage_limit: UsageLimitStopState::None,
                     user: UserStopState::None,
@@ -73,7 +73,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             .unique()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Backend must have a state."))?;
-        (*backend_state).clone().map(|bs| Ok(bs.to_new()))
+        (*backend_state).clone().map(|bs| Ok(bs.0))
     }
 
     pub async fn set_user_stop_state(
@@ -87,7 +87,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         let old = current;
         current.user = new_user_state;
         SystemMetadataModel::new_global(self.tx)
-            .replace(id, PersistedBackendState::New(current).try_into()?)
+            .replace(id, PersistedBackendState(current).try_into()?)
             .await?;
         Ok(Some(old))
     }
@@ -103,7 +103,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         let old = current;
         current.system = new_system_state;
         SystemMetadataModel::new_global(self.tx)
-            .replace(id, PersistedBackendState::New(current).try_into()?)
+            .replace(id, PersistedBackendState(current).try_into()?)
             .await?;
         Ok(Some(old))
     }
@@ -119,7 +119,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         let old = current;
         current.usage_limit = new_usage_limit_state;
         SystemMetadataModel::new_global(self.tx)
-            .replace(id, PersistedBackendState::New(current).try_into()?)
+            .replace(id, PersistedBackendState(current).try_into()?)
             .await?;
         Ok(Some(old))
     }

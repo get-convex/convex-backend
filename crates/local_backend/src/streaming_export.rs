@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     str::FromStr,
+    time::SystemTime,
 };
 
 use anyhow::Context;
@@ -121,7 +122,14 @@ pub async fn _document_deltas(
     }: DocumentDeltasArgs,
     identity: Identity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!("Got document deltas call with cursor={cursor:?}");
+    let cursor_age_secs = cursor
+        .and_then(|c| Timestamp::try_from(c).ok())
+        .and_then(|cursor_ts| {
+            Timestamp::try_from(SystemTime::now())
+                .ok()
+                .map(|now| now.secs_since_f64(cursor_ts))
+        });
+    tracing::info!("document_deltas call with cursor={cursor:?} (age={cursor_age_secs:?}s)");
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
