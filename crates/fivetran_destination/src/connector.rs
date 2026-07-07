@@ -90,7 +90,7 @@ impl DestinationConnector for ConvexFivetranDestination {
     }
 
     async fn test(&self, request: Request<TestRequest>) -> DestinationResult<TestResponse> {
-        log(&format!("test request"));
+        log("test request");
         let config = match Config::from_parameters(request.into_inner().configuration) {
             Ok(config) => config,
             Err(error) => {
@@ -121,7 +121,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         &self,
         request: Request<DescribeTableRequest>,
     ) -> DestinationResult<DescribeTableResponse> {
-        log(&format!("describe table request"));
+        log("describe table request");
         let DescribeTableRequest {
             configuration,
             schema_name,
@@ -165,7 +165,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         &self,
         request: Request<CreateTableRequest>,
     ) -> DestinationResult<CreateTableResponse> {
-        log(&format!("create table request"));
+        log("create table request");
         let CreateTableRequest {
             configuration,
             schema_name,
@@ -213,7 +213,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         &self,
         request: Request<AlterTableRequest>,
     ) -> DestinationResult<AlterTableResponse> {
-        log(&format!("alter table request"));
+        log("alter table request");
         let AlterTableRequest {
             configuration,
             schema_name,
@@ -261,7 +261,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         &self,
         request: Request<TruncateRequest>,
     ) -> DestinationResult<TruncateResponse> {
-        log(&format!("truncate request"));
+        log("truncate request");
         let TruncateRequest {
             configuration,
             schema_name,
@@ -318,7 +318,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         &self,
         request: Request<WriteBatchRequest>,
     ) -> DestinationResult<WriteBatchResponse> {
-        log(&format!("write batch request"));
+        log("write batch request");
         let WriteBatchRequest {
             configuration,
             schema_name,
@@ -391,7 +391,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         &self,
         _request: Request<WriteHistoryBatchRequest>,
     ) -> DestinationResult<WriteBatchResponse> {
-        log(&format!("write history batch request"));
+        log("write history batch request");
         return Err(Status::unimplemented("write history batch not implemented"));
     }
 }

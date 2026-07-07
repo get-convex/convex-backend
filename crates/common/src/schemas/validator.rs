@@ -173,12 +173,12 @@ impl Validator {
                     key_type.check_value_internal(
                         &ConvexValue::from(key.clone()),
                         all_tables_number_to_name,
-                        context.with(format!(".keys()")),
+                        context.with(".keys()".to_string()),
                     )?;
                     value_type.check_value_internal(
                         value,
                         all_tables_number_to_name,
-                        context.with(format!(".values()")),
+                        context.with(".values()".to_string()),
                     )?;
                 }
             },

@@ -814,10 +814,9 @@ impl<RT: Runtime> Application<RT> {
                 {
                     e.context(ErrorMetadata::bad_request(
                         "ConcurrentPush",
-                        format!(
-                            "Are you running multiple `npx convex dev` processes in the same \
-                             directory?"
-                        ),
+                        "Are you running multiple `npx convex dev` processes in the same \
+                         directory?"
+                            .to_string(),
                     ))
                 } else {
                     e

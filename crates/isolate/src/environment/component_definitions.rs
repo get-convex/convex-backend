@@ -576,7 +576,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             let default_name_string = match def.definition_type {
                 ComponentDefinitionType::App => anyhow::bail!(ErrorMetadata::bad_request(
                     "NoImportAppDuringDefinitionEvaluation",
-                    format!("App should not be imported while evaluating app definition")
+                    "App should not be imported while evaluating app definition".to_string()
                 )),
                 ComponentDefinitionType::ChildComponent { ref name, args: _ } => name.to_string(),
             };

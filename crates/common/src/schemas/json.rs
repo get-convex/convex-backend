@@ -702,13 +702,13 @@ impl TryFrom<ValidatorJson> for Validator {
                 if keys_validator.is_string_subtype_with_string_literal() {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         error_short_code,
-                        format!("Records cannot have string literal keys")
+                        "Records cannot have string literal keys".to_string()
                     ));
                 }
                 if values_validator.optional {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         error_short_code,
-                        format!("Records cannot have optional values")
+                        "Records cannot have optional values".to_string()
                     ));
                 }
                 Ok(Validator::Record(

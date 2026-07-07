@@ -102,7 +102,7 @@ impl SourceConnector for ConvexConnector {
     }
 
     async fn test(&self, request: Request<TestRequest>) -> ConnectorResult<TestResponse> {
-        log(&format!("test request"));
+        log("test request");
         let config = match Config::from_parameters(request.into_inner().configuration) {
             Ok(config) => config,
             Err(error) => {
@@ -126,7 +126,7 @@ impl SourceConnector for ConvexConnector {
     }
 
     async fn schema(&self, request: Request<SchemaRequest>) -> ConnectorResult<SchemaResponse> {
-        log(&format!("schema request"));
+        log("schema request");
         self._schema(request)
             .await
             .map(Response::new)
@@ -134,7 +134,7 @@ impl SourceConnector for ConvexConnector {
     }
 
     async fn update(&self, request: Request<UpdateRequest>) -> ConnectorResult<Self::UpdateStream> {
-        log(&format!("update request"));
+        log("update request");
         let inner = request.into_inner();
         let config = match Config::from_parameters(inner.configuration) {
             Ok(config) => config,
