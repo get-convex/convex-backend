@@ -1,10 +1,4 @@
-import { type CSSProperties } from "react";
-import {
-  Handle,
-  Position,
-  type NodeProps,
-  type NodeTypes,
-} from "@xyflow/react";
+import { type NodeProps, type NodeTypes } from "@xyflow/react";
 import { TableIcon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import { SchemaNode } from "@common/features/schema/lib/buildSchemaGraph";
@@ -33,15 +27,6 @@ export function nodeAriaLabel(node: SchemaNode, references: string[]): string {
   return `Table ${node.table}. ${parts.join(", ")}.`;
 }
 
-const HIDDEN_HANDLE_STYLE: CSSProperties = {
-  width: 1,
-  height: 1,
-  minWidth: 0,
-  minHeight: 0,
-  border: "none",
-  background: "transparent",
-};
-
 function overflow<T>(
   items: T[],
   max: number,
@@ -61,25 +46,12 @@ export function FlowTableNode({ data }: NodeProps<TableFlowNode>) {
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-lg border bg-background-secondary shadow-sm",
+        "flex flex-col overflow-hidden rounded-lg border bg-background-secondary",
         isSelected && "border-border-selected outline-2 outline-util-accent",
       )}
       style={{ width: NODE_WIDTH }}
       onMouseLeave={() => onHover(null)}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        isConnectable={false}
-        style={HIDDEN_HANDLE_STYLE}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        isConnectable={false}
-        style={HIDDEN_HANDLE_STYLE}
-      />
-
       <div
         className="flex items-center gap-1.5 border-b bg-[rgb(226,224,221)] px-2.5 font-mono text-sm font-medium text-content-primary dark:bg-[rgb(74,72,69)]"
         style={{ height: NODE_HEADER_HEIGHT }}
