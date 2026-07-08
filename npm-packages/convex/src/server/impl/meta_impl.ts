@@ -54,9 +54,9 @@ async function getDeploymentMetadata(): Promise<DeploymentMetadata> {
 }
 
 async function getRequestMetadata(): Promise<RequestMetadata> {
-  const { ip, userAgent, requestId, scheduledFunctionId } =
+  const { ip, userAgent, requestId, scheduledFunctionId, authToken } =
     await performAsyncSyscall("1.0/getRequestMetadata", {});
-  return { ip, userAgent, requestId, scheduledFunctionId };
+  return { ip, userAgent, requestId, scheduledFunctionId, authToken };
 }
 
 export function setupQueryMeta(

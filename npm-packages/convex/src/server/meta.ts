@@ -114,6 +114,16 @@ export type RequestMetadata = {
    * `null` when the function was not scheduled.
    */
   scheduledFunctionId: string | null;
+  /**
+   * The raw auth token (a JWT) the request was authenticated with, or `null`
+   * when the request was unauthenticated or authenticated with an admin key.
+   *
+   * This is the same token that `ctx.auth.getUserIdentity()` derives its
+   * attributes from.
+   *
+   * @internal
+   */
+  authToken: string | null;
 };
 
 /**

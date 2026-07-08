@@ -341,7 +341,15 @@ export class SyscallsImpl {
           });
         case "1.0/getDeploymentMetadata":
           return JSON.stringify(this.deployment);
-        case "1.0/getRequestMetadata":
+        case "1.0/getRequestMetadata": {
+          // Expose the raw auth JWT the request was authenticated with, if any.
+          // Only `Bearer` (user) auth carries a JWT; admin keys (`Convex ...`)
+          // and unauthenticated requests have no token.
+          const authToken =
+            this.authHeader !== null &&
+            this.authHeader.slice(0, 7).toLowerCase() === "bearer "
+              ? this.authHeader.slice(7).trim()
+              : null;
           return JSON.stringify({
             ip: this.executionContext.ip,
             userAgent: this.executionContext.userAgent,
@@ -351,7 +359,9 @@ export class SyscallsImpl {
             // down the call tree). It is null when the function was not
             // scheduled.
             scheduledFunctionId: this.executionContext.parentScheduledJob,
+            authToken,
           });
+        }
         case "1.0/auditLog":
           return JSON.stringify(await this.syscallAuditLog(jsonArgs));
         default:
