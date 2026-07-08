@@ -17,6 +17,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use keybroker::Identity;
 use model::{
     components::auth::propagate_component_auth,
     file_storage::FileStorageId,
@@ -379,11 +380,19 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .context
             .parent_scheduled_job
             .map(|(_, job_id)| job_id.encode());
+        // Expose the raw auth JWT the request was authenticated with, if any. Only
+        // `User` identities carry a JWT (an OIDC or custom JWT); admin keys and
+        // logged-out requests have no token.
+        let auth_token = match &self.identity {
+            Identity::User(identity) => Some(identity.original_token.as_str()),
+            _ => None,
+        };
         Ok(json!({
             "ip": metadata.ip.as_ref().map(|ip| ip.as_str()),
             "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
             "requestId": self.context.request_id.as_str(),
             "scheduledFunctionId": scheduled_function_id,
+            "authToken": auth_token,
         }))
     }
 

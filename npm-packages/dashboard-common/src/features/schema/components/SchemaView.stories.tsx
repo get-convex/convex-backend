@@ -523,7 +523,7 @@ function savedSchemaStory(tables: TableJson[]): Story {
 export const ReferenceVarieties: Story = savedSchemaStory([
   table("users", {
     name: str,
-    // Optional self-reference — a dashed self-edge.
+    // Optional self-reference — a self-edge.
     manager: { type: id("users"), optional: true },
   }),
   table("teams", {

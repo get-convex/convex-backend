@@ -1,4 +1,4 @@
-import { type Node, type Edge } from "@xyflow/react";
+import { type Node } from "@xyflow/react";
 import { SchemaNode } from "@common/features/schema/lib/buildSchemaGraph";
 
 // What the cursor is over: a table's header (emphasizes the references pointing
@@ -21,8 +21,3 @@ export type TableNodeData = {
   onHover: (target: HoverTarget | null) => void;
 };
 export type TableFlowNode = Node<TableNodeData, "table">;
-
-// Set on edges touching the hovered/selected table; keeps their arrowheads
-// visible when zoomed out.
-export type ElkEdgeData = { active: boolean };
-export type ElkFlowEdge = Edge<ElkEdgeData, "elk">;

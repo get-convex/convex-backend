@@ -7,7 +7,11 @@ import {
   ReactFlowProvider,
   useReactFlow,
   useNodesState,
+  useStoreApi,
+  getNodesBounds,
+  getViewportForBounds,
 } from "@xyflow/react";
+import { cn } from "@ui/cn";
 import { SchemaGraph as SchemaGraphData } from "@common/features/schema/lib/buildSchemaGraph";
 import {
   NodePositions,
@@ -27,43 +31,26 @@ import {
   nodeTypes,
   nodeAriaLabel,
 } from "@common/features/schema/components/TableNode";
-import { edgeTypes } from "@common/features/schema/components/SchemaEdge";
 import { AdaptiveBackground } from "@common/features/schema/components/SchemaBackground";
+import {
+  SchemaEdge,
+  CanvasEdge,
+} from "@common/features/schema/components/SchemaEdge";
 import { MinimapOverlay } from "@common/features/schema/components/SchemaMinimap";
 import { SchemaControls } from "@common/features/schema/components/SchemaControls";
 import {
   HoverTarget,
   TableFlowNode,
-  ElkFlowEdge,
 } from "@common/features/schema/components/schemaFlowTypes";
 
 const VISIBLE_CULL_THRESHOLD = 80;
 
 const INITIAL_FIT_VIEW = { padding: 0.15, minZoom: 0.4 };
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 2.5;
 
 // Stable empty set so unhighlighted nodes keep a constant data reference.
 const NO_HIGHLIGHTS: ReadonlySet<string> = new Set();
-
-const EDGE_STROKE_ACTIVE = "var(--color-util-accent)";
-const EDGE_STROKE_INACTIVE =
-  "color-mix(in srgb, var(--color-content-tertiary) 60%, var(--color-background-primary))";
-
-const EDGE_DATA_ACTIVE: ElkFlowEdge["data"] = { active: true };
-const EDGE_DATA_INACTIVE: ElkFlowEdge["data"] = { active: false };
-const EDGE_STYLE = {
-  activeSolid: { stroke: EDGE_STROKE_ACTIVE, strokeWidth: 2 },
-  activeDashed: {
-    stroke: EDGE_STROKE_ACTIVE,
-    strokeWidth: 2,
-    strokeDasharray: "5 4",
-  },
-  inactiveSolid: { stroke: EDGE_STROKE_INACTIVE, strokeWidth: 1.5 },
-  inactiveDashed: {
-    stroke: EDGE_STROKE_INACTIVE,
-    strokeWidth: 1.5,
-    strokeDasharray: "5 4",
-  },
-};
 
 function SchemaFlowInner({
   graph,
@@ -84,7 +71,9 @@ function SchemaFlowInner({
   onFocusTable: (table: string) => void;
   onClearSelection: () => void;
 }) {
-  const { fitView, getNodes, setCenter, getViewport } = useReactFlow();
+  const { fitView, getNodes, setCenter, getViewport, setViewport } =
+    useReactFlow();
+  const storeApi = useStoreApi();
 
   const isTouch = useMediaQuery("(pointer: coarse)");
 
@@ -146,8 +135,14 @@ function SchemaFlowInner({
             node,
             referencesByTable.get(node.table) ?? [],
           ),
-          className:
+          className: cn(
             "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-util-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background-primary",
+            // Promote each node to its own compositing layer. WebKit (unlike
+            // Chrome) doesn't composite elements just for having an animated
+            // 2D transform, so without this Safari repaints every node's
+            // content on each pan/zoom frame, making large graphs very slow.
+            "will-change-transform",
+          ),
           data: {
             node,
             // Selection and highlights are overlaid at render by
@@ -165,27 +160,58 @@ function SchemaFlowInner({
     [graph.nodes, sizes, referencesByTable],
   );
 
+  // Place a new layout and fit the viewport to it in the same commit, so the
+  // first painted frame is already fitted. Fitting a frame later (fitView
+  // needs the nodes committed to the store first) would paint the whole graph
+  // once at the stale viewport and then jump — an expensive wrong-layout flash
+  // on large graphs, especially in Safari. The nodes' estimated sizes stand in
+  // for measurements here; rows have fixed heights, so they agree.
+  const placeAndFit = useCallback(
+    (positions: NodePositions) => {
+      const flowNodes = buildNodes(positions);
+      // A focus-into-view request owns the viewport; don't fit over it.
+      const fit = !pendingFocusRef.current;
+      const { width, height } = storeApi.getState();
+      if (fit && width && height) {
+        // Move the viewport before committing the nodes so that the first
+        // frame also culls against the fitted viewport (not just paints at
+        // it).
+        void setViewport(
+          getViewportForBounds(
+            getNodesBounds(flowNodes),
+            width,
+            height,
+            INITIAL_FIT_VIEW.minZoom,
+            MAX_ZOOM,
+            INITIAL_FIT_VIEW.padding,
+          ),
+        );
+      }
+      setNodes(flowNodes);
+      if (fit && (!width || !height)) {
+        // The canvas hasn't been measured yet; fit once it has.
+        window.requestAnimationFrame(() => {
+          if (pendingFocusRef.current) return;
+          void fitView(INITIAL_FIT_VIEW);
+        });
+      }
+    },
+    [buildNodes, setNodes, storeApi, setViewport, fitView],
+  );
+
   // Re-run ELK whenever the graph changes, merging any saved manual layout.
   useEffect(() => {
     let cancelled = false;
     void computeElkLayout(graph, sizes).then(({ positions }) => {
       if (cancelled) return;
-      const merged = mergeSavedLayout(
-        savedPositionsRef.current,
-        positions,
-        sizes,
+      placeAndFit(
+        mergeSavedLayout(savedPositionsRef.current, positions, sizes),
       );
-      setNodes(buildNodes(merged));
-      window.requestAnimationFrame(() => {
-        // A focus-into-view request owns the viewport; don't fit over it.
-        if (pendingFocusRef.current) return;
-        void fitView(INITIAL_FIT_VIEW);
-      });
     });
     return () => {
       cancelled = true;
     };
-  }, [graph, sizes, buildNodes, fitView, setNodes]);
+  }, [graph, sizes, placeAndFit]);
 
   const centerOnTable = useCallback(
     (table: string): boolean => {
@@ -298,43 +324,33 @@ function SchemaFlowInner({
     [nodes, selectedTable, highlights],
   );
 
-  const edges = useMemo<ElkFlowEdge[]>(
-    () =>
-      graph.edges.map((edge) => {
-        const hoverActive =
-          hover?.kind === "field"
-            ? edge.source === hover.table && edge.field === hover.field
-            : hover?.kind === "header"
-              ? edge.target === hover.table
-              : false;
-        const active =
-          hoverActive ||
-          (selectedTable !== null &&
-            (edge.source === selectedTable || edge.target === selectedTable));
-        let style: ElkFlowEdge["style"];
-        if (active) {
-          style = edge.optional
-            ? EDGE_STYLE.activeDashed
-            : EDGE_STYLE.activeSolid;
-        } else {
-          style = edge.optional
-            ? EDGE_STYLE.inactiveDashed
-            : EDGE_STYLE.inactiveSolid;
-        }
-        return {
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          type: "elk",
-          data: active ? EDGE_DATA_ACTIVE : EDGE_DATA_INACTIVE,
-          style,
-          // Raise highlighted edges (and their arrowheads) above the rest so
-          // they aren't painted over by later edges in the array.
-          zIndex: active ? 1 : 0,
-        };
-      }),
-    [graph.edges, hover, selectedTable],
-  );
+  // Edges draw on canvas layers, not SVG: SVG path costs scale with each
+  // path's extent in both WebKit and Gecko — hundreds of long-range reference
+  // edges freeze Firefox below 1fps, and dragging a selected hub node
+  // (reshaping all of its edges every frame) ran at ~2.5fps in Safari as SVG.
+  // Active (selected/hovered) edges go on their own layer, drawn above.
+  const { inactiveEdges, activeEdges } = useMemo(() => {
+    const inactive: CanvasEdge[] = [];
+    const active: CanvasEdge[] = [];
+    graph.edges.forEach((edge) => {
+      const hoverActive =
+        hover?.kind === "field"
+          ? edge.source === hover.table && edge.field === hover.field
+          : hover?.kind === "header"
+            ? edge.target === hover.table
+            : false;
+      const isActive =
+        hoverActive ||
+        (selectedTable !== null &&
+          (edge.source === selectedTable || edge.target === selectedTable));
+      (isActive ? active : inactive).push({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+      });
+    });
+    return { inactiveEdges: inactive, activeEdges: active };
+  }, [graph.edges, hover, selectedTable]);
 
   const persistPositions = useCallback(() => {
     const positions: NodePositions = {};
@@ -347,10 +363,9 @@ function SchemaFlowInner({
   const resetLayout = useCallback(() => {
     clearSavedPositions();
     void computeElkLayout(graph, sizes).then(({ positions }) => {
-      setNodes(buildNodes(positions));
-      window.requestAnimationFrame(() => fitView(INITIAL_FIT_VIEW));
+      placeAndFit(positions);
     });
-  }, [clearSavedPositions, graph, sizes, buildNodes, setNodes, fitView]);
+  }, [clearSavedPositions, graph, sizes, placeAndFit]);
 
   // Cull offscreen elements on large graphs only.
   const cullOffscreen =
@@ -359,10 +374,8 @@ function SchemaFlowInner({
   return (
     <ReactFlow
       nodes={decoratedNodes}
-      edges={edges}
       onlyRenderVisibleElements={cullOffscreen}
       nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       onNodeClick={(_, node) => onSelectNode(node.id)}
       onNodeDragStop={persistPositions}
@@ -387,15 +400,12 @@ function SchemaFlowInner({
           }
         }
       }}
-      minZoom={0.15}
-      maxZoom={2.5}
+      minZoom={MIN_ZOOM}
+      maxZoom={MAX_ZOOM}
       nodesDraggable={!isTouch}
       nodesConnectable={false}
       // Tab between tables; arrow keys move the focused one (React Flow built-in).
-      // Edges stay out of the tab order - too many, and references are already
-      // spoken in the node label.
       nodesFocusable
-      edgesFocusable={false}
       // Mark as an application region so a screen reader passes arrow keys
       // through to move the focused table rather than capturing them.
       aria-label="Database schema diagram. Press Tab to move between tables, then use the arrow keys to reposition the focused table and Enter to open its details."
@@ -408,12 +418,23 @@ function SchemaFlowInner({
       className="bg-background-primary"
     >
       <AdaptiveBackground />
+      {/* After the background so they paint above the dots (all z-index -1,
+          DOM order breaks the tie) and below the nodes; active above
+          inactive. */}
+      <SchemaEdge edges={inactiveEdges} appearance="inactive" />
+      <SchemaEdge edges={activeEdges} appearance="active" />
       <SchemaSearch
         entries={searchEntries}
         onPick={onFocusTable}
         onOpenChange={setSearchOpen}
       />
-      {!searchOpen && <MinimapOverlay nodes={decoratedNodes} edges={edges} />}
+      {!searchOpen && (
+        <MinimapOverlay
+          nodes={decoratedNodes}
+          inactiveEdges={inactiveEdges}
+          activeEdges={activeEdges}
+        />
+      )}
       <SchemaControls onResetLayout={resetLayout} />
     </ReactFlow>
   );

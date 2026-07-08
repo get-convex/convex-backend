@@ -8,12 +8,12 @@ import {
 } from "@xyflow/react";
 import { nodeSize } from "@common/features/schema/lib/layout";
 import { nodeTypes } from "@common/features/schema/components/TableNode";
-import { edgeTypes } from "@common/features/schema/components/SchemaEdge";
 import { BASE_GAP } from "@common/features/schema/components/SchemaBackground";
 import {
-  TableFlowNode,
-  ElkFlowEdge,
-} from "@common/features/schema/components/schemaFlowTypes";
+  SchemaEdge,
+  CanvasEdge,
+} from "@common/features/schema/components/SchemaEdge";
+import { TableFlowNode } from "@common/features/schema/components/schemaFlowTypes";
 
 // When zoomed out far enough that labels are unreadable, show a minimap-style
 // inset (pinned top-right) of the area under the cursor at a readable zoom.
@@ -54,11 +54,13 @@ function hasNodeInView(nodes: TableFlowNode[], focus: FlowPoint): boolean {
 
 function ZoomPreviewCanvas({
   nodes,
-  edges,
+  inactiveEdges,
+  activeEdges,
   focus,
 }: {
   nodes: TableFlowNode[];
-  edges: ElkFlowEdge[];
+  inactiveEdges: CanvasEdge[];
+  activeEdges: CanvasEdge[];
   focus: FlowPoint;
 }) {
   const { setViewport } = useReactFlow();
@@ -71,15 +73,14 @@ function ZoomPreviewCanvas({
     });
   }, [setViewport, focus.x, focus.y]);
 
-  // Memoize on [nodes, edges] so the inner React Flow subtree doesn't reconcile
-  // on every cursor-move/pan frame (focus is applied via setViewport above).
+  // Memoize on the graph inputs so the inner React Flow subtree doesn't
+  // reconcile on every cursor-move/pan frame (focus is applied via setViewport
+  // above).
   return useMemo(
     () => (
       <ReactFlow
         nodes={nodes}
-        edges={edges}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
         onNodesChange={noop}
         defaultViewport={{ x: 0, y: 0, zoom: PREVIEW_ZOOM }}
         minZoom={PREVIEW_ZOOM}
@@ -99,18 +100,22 @@ function ZoomPreviewCanvas({
         className="bg-background-primary"
       >
         <Background gap={BASE_GAP} className="text-border-transparent" />
+        <SchemaEdge edges={inactiveEdges} appearance="inactive" />
+        <SchemaEdge edges={activeEdges} appearance="active" />
       </ReactFlow>
     ),
-    [nodes, edges],
+    [nodes, inactiveEdges, activeEdges],
   );
 }
 
 export function MinimapOverlay({
   nodes,
-  edges,
+  inactiveEdges,
+  activeEdges,
 }: {
   nodes: TableFlowNode[];
-  edges: ElkFlowEdge[];
+  inactiveEdges: CanvasEdge[];
+  activeEdges: CanvasEdge[];
 }) {
   // Subscribe to zoom only; the inset depends on the viewport only via `active`.
   const zoom = useStore((s) => s.transform[2]);
@@ -204,7 +209,12 @@ export function MinimapOverlay({
       style={{ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }}
     >
       <ReactFlowProvider>
-        <ZoomPreviewCanvas nodes={nodes} edges={edges} focus={focus} />
+        <ZoomPreviewCanvas
+          nodes={nodes}
+          inactiveEdges={inactiveEdges}
+          activeEdges={activeEdges}
+          focus={focus}
+        />
       </ReactFlowProvider>
     </div>
   );

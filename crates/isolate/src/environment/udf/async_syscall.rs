@@ -96,6 +96,7 @@ use serde_json::{
 use sync_types::{
     types::SerializedArgs,
     udf_path::CanonicalizedUdfPath,
+    AuthenticationToken,
 };
 use udf::{
     validation::{
@@ -907,6 +908,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 format!("Cannot get request metadata in a {}", provider.udf_type())
             )
         );
+        // Expose the raw auth JWT the request was authenticated with, if any. Only
+        // `User` identities carry a JWT (an OIDC or custom JWT); admin keys and
+        // logged-out requests have no token.
+        provider.observe_identity()?;
+        let auth_token = match provider.tx()?.authentication_token() {
+            AuthenticationToken::User(token) => Some(token),
+            AuthenticationToken::Admin(..) | AuthenticationToken::None => None,
+        };
         let context = provider.context();
         let metadata = &context.request_metadata;
         // The top-level scheduled function and all of its descendants (e.g. a
@@ -921,6 +930,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
             "requestId": context.request_id.as_str(),
             "scheduledFunctionId": scheduled_function_id,
+            "authToken": auth_token,
         }))
     }
 
