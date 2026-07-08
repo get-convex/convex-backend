@@ -432,6 +432,7 @@ pub mod snapshot_import;
 mod streaming_export;
 mod system_table_cleanup;
 mod table_summary_worker;
+pub mod usage_limits;
 pub mod valid_identifier;
 mod worker_handles;
 
