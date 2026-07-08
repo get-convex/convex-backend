@@ -41,10 +41,14 @@ export function TeamNameForm({
   return (
     <Sheet className="text-sm">
       <h3 className="mb-4">Team Name</h3>
-      <form onSubmit={formState.handleSubmit} aria-label="Edit team name">
-        <div className="mb-6">
+      <form
+        onSubmit={formState.handleSubmit}
+        aria-label="Edit team name"
+        className="flex items-start gap-2"
+      >
+        <div className="max-w-[20rem] flex-1">
           <Tooltip
-            className="block max-w-[20rem]"
+            className="block"
             tip={
               !canUpdate
                 ? permissionDeniedTip(
@@ -57,7 +61,6 @@ export function TeamNameForm({
             <TextInput
               label="Team Name"
               labelHidden
-              outerClassname="max-w-[20rem]"
               placeholder="Enter a name for your team"
               onChange={formState.handleChange}
               value={formState.values.name}
@@ -69,7 +72,6 @@ export function TeamNameForm({
         </div>
 
         <Button
-          className="float-right"
           disabled={
             !formState.dirty ||
             formState.isSubmitting ||

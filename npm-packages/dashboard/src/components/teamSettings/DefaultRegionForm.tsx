@@ -1,6 +1,5 @@
-import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
-import { useFormik } from "formik";
+import { useState } from "react";
 import { RegionName, TeamResponse } from "generatedApi";
 import { useDeploymentRegions } from "api/deployments";
 import { DefaultRegionSelector } from "./DefaultRegionSelector";
@@ -17,15 +16,11 @@ export function DefaultRegionForm({
   canUpdate,
 }: DefaultRegionFormProps) {
   const { regions } = useDeploymentRegions(team.id);
-  const formState = useFormik<{ defaultRegion: RegionName | null }>({
-    initialValues: {
-      defaultRegion: team.defaultRegion ?? null,
-    },
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      await onUpdateTeam({ defaultRegion: values.defaultRegion });
-    },
-  });
+  // Track the selection locally so it updates immediately on click, while the
+  // team data refetches in the background.
+  const [selectedRegion, setSelectedRegion] = useState<RegionName | null>(
+    team.defaultRegion ?? null,
+  );
 
   return (
     <Sheet className="text-sm">
@@ -33,33 +28,16 @@ export function DefaultRegionForm({
       <p className="mb-4 max-w-prose text-content-secondary">
         The region where new deployments in this team are created.
       </p>
-      <form onSubmit={formState.handleSubmit} aria-label="Edit default region">
-        <div className="mb-6">
-          <DefaultRegionSelector
-            value={formState.values.defaultRegion}
-            onChange={(region) =>
-              formState.setFieldValue("defaultRegion", region)
-            }
-            regions={regions}
-            teamSlug={team.slug}
-            disabledDueToPermissions={!canUpdate}
-          />
-        </div>
-
-        <Button
-          className="float-right"
-          disabled={
-            !formState.dirty ||
-            formState.isSubmitting ||
-            !formState.isValid ||
-            !canUpdate
-          }
-          type="submit"
-          aria-label="Save default region"
-        >
-          Save
-        </Button>
-      </form>
+      <DefaultRegionSelector
+        value={selectedRegion}
+        onChange={(region) => {
+          setSelectedRegion(region);
+          void onUpdateTeam({ defaultRegion: region });
+        }}
+        regions={regions}
+        teamSlug={team.slug}
+        disabledDueToPermissions={!canUpdate}
+      />
     </Sheet>
   );
 }

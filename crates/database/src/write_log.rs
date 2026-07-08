@@ -70,7 +70,7 @@ use crate::{
     Token,
 };
 
-pub type OrderedDocumentWrites = Vec<(ResolvedDocumentId, PackedDocumentUpdate)>;
+pub type OrderedDocumentWrites = Vec<PackedDocumentUpdate>;
 
 #[derive(Clone)]
 pub struct PackedDocumentUpdate {
@@ -137,7 +137,7 @@ pub fn index_keys_from_full_documents(
     let mut database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>> =
         BTreeMap::new();
     let mut text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>> = BTreeMap::new();
-    for (_id, update) in ordered_writes.into_iter() {
+    for update in ordered_writes.into_iter() {
         for (index_name, index_update) in index_registry
             .document_index_keys(
                 update.id,
@@ -870,7 +870,7 @@ impl PendingWrites {
     /// pending writes on the new base snapshot provided.
     pub fn recompute_pending_snapshots(&mut self, mut base_snapshot: Snapshot) {
         for (ts, (ordered_writes, _, snapshot)) in self.by_ts.iter_mut() {
-            for (_id, document_update) in ordered_writes.iter() {
+            for document_update in ordered_writes.iter() {
                 base_snapshot
                     .update(&document_update.unpack(), *ts)
                     .expect("Failed to update snapshot");
@@ -886,7 +886,7 @@ impl PendingWrites {
     ) -> impl Iterator<
         Item = (
             &Timestamp,
-            impl Iterator<Item = &(ResolvedDocumentId, PackedDocumentUpdate)>,
+            impl Iterator<Item = &PackedDocumentUpdate>,
             &WriteSource,
         ),
     > {

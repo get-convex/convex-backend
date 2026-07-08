@@ -53,10 +53,14 @@ export function TeamSlugForm({
       <p className="mb-4 max-w-prose text-content-secondary">
         The unique identifier for your team in dashboard URLs.
       </p>
-      <form onSubmit={formState.handleSubmit} aria-label="Edit team slug">
-        <div className="mb-6">
+      <form
+        onSubmit={formState.handleSubmit}
+        aria-label="Edit team slug"
+        className="flex items-start gap-2"
+      >
+        <div className="max-w-[20rem] flex-1">
           <Tooltip
-            className="block max-w-[20rem]"
+            className="block"
             tip={
               !canUpdate
                 ? permissionDeniedTip(
@@ -69,7 +73,10 @@ export function TeamSlugForm({
             <TextInput
               label="Team Slug"
               labelHidden
-              outerClassname="max-w-[20rem]"
+              // Cap the input at the wrapper width: the copy icon's negative
+              // margin otherwise makes the input overgrow by a few px, eating
+              // into the gap before the Save button.
+              className="max-w-full"
               placeholder="Enter a slug for your team"
               onChange={formState.handleChange}
               value={formState.values.slug}
@@ -85,7 +92,6 @@ export function TeamSlugForm({
         </div>
 
         <Button
-          className="float-right"
           disabled={
             !formState.dirty ||
             formState.isSubmitting ||
