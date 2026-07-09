@@ -1155,7 +1155,7 @@
           "Deploy Keys"
         ],
         "summary": "Create preview deploy key",
-        "description": "Create a preview deploy key like \"preview:team-slug:project-slug|ey...\"\nwhich can be used with the Convex CLI to create and manage preview\ndeployments within the project.",
+        "description": "Create a preview deploy key like \"preview:team-slug:project-slug|ey...\"\nwhich can be used with the Convex CLI to create and manage preview\ndeployments within the project.\n\nWhen access to the project is granted through an OAuth token this preview\ndeploy key will use the same OAuth-granted token.\n\nWhen access to the project is granted any other way a new token scoped to\npreview deployments in this project will be created.",
         "operationId": "create preview deploy key",
         "parameters": [
           {

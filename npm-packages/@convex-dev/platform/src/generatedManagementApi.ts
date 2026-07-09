@@ -422,6 +422,12 @@ export interface paths {
          * @description Create a preview deploy key like "preview:team-slug:project-slug|ey..."
          *     which can be used with the Convex CLI to create and manage preview
          *     deployments within the project.
+         *
+         *     When access to the project is granted through an OAuth token this preview
+         *     deploy key will use the same OAuth-granted token.
+         *
+         *     When access to the project is granted any other way a new token scoped to
+         *     preview deployments in this project will be created.
          */
         post: operations["create preview deploy key"];
         delete?: never;
