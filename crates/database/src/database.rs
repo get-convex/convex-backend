@@ -54,6 +54,10 @@ use common::{
     index::IndexKeyBytes,
     interval::Interval,
     knobs::{
+        DATA_SYNC_BY_ID_FRESHNESS,
+        DATA_SYNC_MAX_ROWS_READ,
+        DATA_SYNC_PAGE_BYTES_LIMIT,
+        DATA_SYNC_PAGE_SIZE_LIMIT,
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         LIST_SNAPSHOT_MAX_AGE_SECS,
         SNAPSHOT_LIST_TIME_LIMIT,
@@ -242,6 +246,7 @@ use crate::{
     BootstrapComponentsModel,
     ComponentRegistry,
     ComponentsTable,
+    DataSyncIterator,
     MultiTableIterator,
     SchemasTable,
     TableIterator,
@@ -1270,6 +1275,20 @@ impl<RT: Runtime> Database<RT> {
             persistence,
             retention_validator,
             page_size,
+        )
+    }
+
+    /// A streaming-export iterator that syncs many tables with bounded reads
+    /// and a small, resumable cursor. See [`DataSyncIterator`].
+    pub fn data_sync_iterator(&self) -> anyhow::Result<DataSyncIterator<RT>> {
+        DataSyncIterator::new(
+            self.runtime.clone(),
+            self.reader.clone(),
+            self.retention_validator(),
+            *DATA_SYNC_PAGE_SIZE_LIMIT,
+            *DATA_SYNC_PAGE_BYTES_LIMIT,
+            *DATA_SYNC_MAX_ROWS_READ,
+            *DATA_SYNC_BY_ID_FRESHNESS,
         )
     }
 

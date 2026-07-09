@@ -183,6 +183,37 @@ pub static SNAPSHOT_LIST_LIMIT: LazyLock<usize> =
 pub static SNAPSHOT_LIST_TIME_LIMIT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("SNAPSHOT_LIST_TIME_LIMIT_SECONDS", 60)));
 
+/// Target number of entries `DataSyncIterator` will emit in a single page. A
+/// page *may* emit more than this: all of a transaction's writes are emitted on
+/// the same page, since a page boundary never splits a transaction, so a single
+/// transaction larger than this limit overflows the page.
+pub static DATA_SYNC_PAGE_SIZE_LIMIT: LazyLock<usize> =
+    LazyLock::new(|| env_config("DATA_SYNC_PAGE_SIZE_LIMIT", 16384));
+
+/// Soft limit on the total byte size of documents emitted in a single
+/// `DataSyncIterator` page, bounding page/response size on deployments with
+/// large documents. Like `DATA_SYNC_PAGE_SIZE_LIMIT`, a transaction is never
+/// split across pages, so a single transaction larger than this overflows it.
+pub static DATA_SYNC_PAGE_BYTES_LIMIT: LazyLock<usize> =
+    LazyLock::new(|| env_config("DATA_SYNC_PAGE_BYTES_LIMIT", 1 << 26)); // 64 MiB
+
+/// Max number of rows `DataSyncIterator` will read from persistence when
+/// computing a single page. A page can read many more rows than it emits when
+/// catching up the document log with a narrow table filter (lots of skipping).
+///
+/// Must be `>= DATA_SYNC_PAGE_SIZE_LIMIT`: the `by_id` dimension reads up to
+/// `page_size_limit` rows per page, so the row-read bound can't be smaller than
+/// the page-size bound. We clamp up to enforce this regardless of the env var.
+pub static DATA_SYNC_MAX_ROWS_READ: LazyLock<usize> =
+    LazyLock::new(|| env_config("DATA_SYNC_MAX_ROWS_READ", 32768).max(*DATA_SYNC_PAGE_SIZE_LIMIT));
+
+/// How close `synced_ts` must be to the latest repeatable timestamp before
+/// `DataSyncIterator` iterates the `by_id` dimension. When `synced_ts` falls
+/// further behind than this, the iterator catches up along the `ts` dimension
+/// instead, keeping `synced_ts` within index retention.
+pub static DATA_SYNC_BY_ID_FRESHNESS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("DATA_SYNC_BY_ID_FRESHNESS_SECONDS", 30)));
+
 /// The size of the log manager's event receive buffer.
 pub static LOG_MANAGER_EVENT_RECV_BUFFER_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("LOG_MANAGER_EVENT_RECV_BUFFER_SIZE", 4096));
