@@ -16,6 +16,7 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentId,
     },
+    document::ParsedDocument,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -44,7 +45,10 @@ use model::{
         module_versions::FullModuleSource,
         ModuleModel,
     },
-    source_packages::SourcePackageModel,
+    source_packages::{
+        types::SourcePackage,
+        SourcePackageModel,
+    },
     udf_config::UdfConfigModel,
 };
 use rand::{
@@ -126,6 +130,7 @@ enum UdfPreloaded {
         component: ComponentId,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
         component_env: Option<ComponentEnvCtx>,
+        source_package: Option<Arc<ParsedDocument<SourcePackage>>>,
     },
 }
 
@@ -283,6 +288,28 @@ impl<RT: Runtime> UdfPhase<RT> {
             }
         }
 
+        let source_package = timeout
+            .with_release_permit(PauseReason::LoadSourcePackage, async {
+                if ModuleModel::new(self.tx_mut()?).has_pending_module(component) {
+                    // If there is a pending write in ModulesTable, this may be an
+                    // ad-hoc test query (`execute_standalone_module`).
+                    // Reading the source package from a snapshot query doesn't
+                    // work in that case since it doesn't see pending writes.
+                    // TODO: even if it did, the test query codepath breaks the
+                    // get_latest() invariant since it leaves behind modules
+                    // with mixed source packages.
+                    return Ok(None);
+                }
+                let mut snapshot_tx = self.tx_mut()?.clone_for_snapshot_query();
+                // Load all modules from the latest source package, but don't
+                // record a read dependency on all the modules and their source
+                // packages.
+                SourcePackageModel::new(&mut snapshot_tx, component.into())
+                    .get_latest()
+                    .await
+            })
+            .await?;
+
         self.preloaded = UdfPreloaded::Ready {
             rng,
             observed_rng_during_execution: false,
@@ -295,6 +322,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             component,
             component_arguments: component_args,
             component_env,
+            source_package,
         };
         Ok(())
     }
@@ -341,7 +369,12 @@ impl<RT: Runtime> UdfPhase<RT> {
                 format!("Can't dynamically import {module_path:?} in a query or mutation")
             ));
         }
-        let UdfPreloaded::Ready { component, .. } = &self.preloaded else {
+        let UdfPreloaded::Ready {
+            component,
+            source_package,
+            ..
+        } = &self.preloaded
+        else {
             anyhow::bail!("Phase not initialized");
         };
         let component = *component;
@@ -349,6 +382,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             component,
             module_path: module_path.clone().canonicalize(),
         };
+        let source_package = source_package.clone();
         let Some((module_metadata, source_package)) = timeout
             .with_release_permit(PauseReason::LoadModuleMetadata, async {
                 match ModuleModel::new(self.tx_mut()?)
@@ -357,10 +391,13 @@ impl<RT: Runtime> UdfPhase<RT> {
                 {
                     None => anyhow::Ok(None),
                     Some(module_metadata) => {
-                        let source_package =
+                        let source_package = if let Some(pkg) = source_package {
+                            pkg
+                        } else {
                             SourcePackageModel::new(self.tx_mut()?, component.into())
                                 .get(module_metadata.source_package_id)
-                                .await?;
+                                .await?
+                        };
                         anyhow::Ok(Some((module_metadata, source_package)))
                     },
                 }

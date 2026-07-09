@@ -69,6 +69,7 @@ use tokio::task;
 use value::{
     DeveloperDocumentId,
     FieldPath,
+    TabletId,
 };
 
 use crate::{
@@ -148,6 +149,16 @@ impl TransactionIndex {
         .into_iter()
         .flatten();
         Ok(iter)
+    }
+
+    pub(crate) fn pending_writes_for_by_id_index(
+        &self,
+        tablet_id: TabletId,
+    ) -> Option<&TransactionIndexMap> {
+        let index = self
+            .index_registry
+            .get_enabled(&TabletIndexName::by_id(tablet_id))?;
+        self.database_index_updates.get(&index.id())
     }
 
     /// Range over a index including pending updates.
@@ -684,6 +695,10 @@ impl TransactionIndexMap {
 
     pub fn insert(&mut self, k: IndexKeyBytes, v: Option<&ResolvedDocument>) {
         self.inner.insert(k.0, v.map(PackedDocument::pack));
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 }
 

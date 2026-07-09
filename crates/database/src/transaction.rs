@@ -1022,6 +1022,12 @@ impl<RT: Runtime> Transaction<RT> {
             system_tx_size,
         );
     }
+
+    pub fn has_pending_write(&self, tablet_id: TabletId) -> bool {
+        self.index
+            .pending_writes_for_by_id_index(tablet_id)
+            .is_some_and(|map| !map.is_empty())
+    }
 }
 
 // Private methods for `Transaction`: Place all authorization checks closer to
@@ -1292,8 +1298,8 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     /// Clone the transaction to use for a snapshot query.
-    pub fn clone_for_snapshot_query(&self) -> anyhow::Result<Transaction<RT>> {
-        Ok(Transaction {
+    pub fn clone_for_snapshot_query(&self) -> Transaction<RT> {
+        Transaction {
             identity: self.identity.clone(),
             id_generator: self.id_generator.clone_for_snapshot_query(),
             next_creation_time: self.next_creation_time,
@@ -1323,7 +1329,7 @@ impl<RT: Runtime> Transaction<RT> {
             usage_tracker: self.usage_tracker.clone(),
             virtual_system_mapping: self.virtual_system_mapping.clone(),
 
-        })
+        }
     }
 
 }

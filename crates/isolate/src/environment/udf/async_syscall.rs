@@ -625,7 +625,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let (initial_tx, rng_seed, unix_timestamp) = self.phase.start_nested_udf()?;
         let (mut nested_tx, saved_tx) = match nested_udf_type {
             NestedUdfType::SnapshotQuery => {
-                (initial_tx.clone_for_snapshot_query()?, Some(initial_tx))
+                (initial_tx.clone_for_snapshot_query(), Some(initial_tx))
             },
             _ => (initial_tx, None),
         };
