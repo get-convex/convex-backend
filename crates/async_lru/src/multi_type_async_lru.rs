@@ -104,11 +104,11 @@ impl<RT: Runtime> MultiTypeAsyncLru<RT> {
     where
         Arc<Key::Value>: From<V>,
     {
-        let key_ = key.clone();
         let result = self
             .inner
             .get_and_prepopulate(
-                Box::new(key_),
+                Box::new(key.clone()),
+                Box::new(key.clone()),
                 Box::pin(async move {
                     let mut hashmap = HashMap::new();
                     hashmap.insert(
