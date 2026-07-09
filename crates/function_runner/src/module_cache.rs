@@ -10,7 +10,10 @@ use common::{
         FUNRUN_MODULE_MAX_CONCURRENCY,
         FUNRUN_MODULE_QUEUE_SIZE,
     },
-    runtime::Runtime,
+    runtime::{
+        try_join,
+        Runtime,
+    },
 };
 use futures::FutureExt;
 use isolate::environment::helpers::module_loader::get_modules_and_prefetch;
@@ -99,8 +102,10 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             .get_and_prepopulate(
                 key,
                 async move {
-                    let modules =
-                        get_modules_and_prefetch(modules_storage, &source_package).await?;
+                    let modules = try_join("get_modules_and_prefetch", async move {
+                        get_modules_and_prefetch(modules_storage, &source_package).await
+                    })
+                    .await?;
                     Ok(modules
                         .into_iter()
                         .map(move |((module_path, sha256), source)| {
