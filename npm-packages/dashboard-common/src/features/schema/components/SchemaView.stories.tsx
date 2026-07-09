@@ -648,10 +648,6 @@ export const ManyIndexes: Story = savedSchemaStory([
   ),
 ]);
 
-/**
- * A discriminated-union document type: fields are merged across union members,
- * and a field present in only some members is marked optional.
- */
 export const UnionDocumentType: Story = savedSchemaStory([
   table("users", { name: str }),
   {
@@ -674,6 +670,64 @@ export const UnionDocumentType: Story = savedSchemaStory([
     vectorIndexes: [],
   },
 ]);
+
+export const UnionDocumentTypeNoDiscriminator: Story = savedSchemaStory([
+  {
+    tableName: "payloads",
+    documentType: union(
+      obj({
+        text: { type: str },
+        length: { type: num },
+      }),
+      obj({
+        blob: { type: { type: "bytes" } },
+        size: { type: num },
+      }),
+    ),
+    indexes: [],
+    searchIndexes: [],
+    vectorIndexes: [],
+  },
+]);
+
+const inferredUnionShapes = new Map<string, Shape>([
+  [
+    "events",
+    {
+      type: "Union",
+      shapes: [
+        objectShape([
+          { name: "_id", shape: { type: "Id", tableName: "events" } },
+          {
+            name: "_creationTime",
+            shape: { type: "Float64", float64Range: {} },
+          },
+          { name: "name", shape: { type: "String" } },
+          { name: "count", shape: { type: "Float64", float64Range: {} } },
+        ]),
+        { type: "String" },
+      ],
+    } as Shape,
+  ],
+]);
+
+export const InferredUnionShape: Story = {
+  decorators: [
+    (Story) => {
+      mocked(useTableShapes).mockReturnValue({
+        tables: inferredUnionShapes,
+        hadError: false,
+      });
+      return (
+        <ConvexProvider client={makeClient()}>
+          <DeploymentInfoContext.Provider value={deploymentInfo}>
+            <Story />
+          </DeploymentInfoContext.Provider>
+        </ConvexProvider>
+      );
+    },
+  ],
+};
 
 /**
  * One table referenced by many others (a fan-in star) — exercises a high-fan-in

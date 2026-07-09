@@ -1,13 +1,18 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useState } from "react";
 import {
   Cross2Icon,
   ChevronDownIcon,
   ChevronUpIcon,
   TableIcon,
+  TargetIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
-import { SchemaNode } from "@common/features/schema/lib/buildSchemaGraph";
+import {
+  SchemaNode,
+  SchemaUnion,
+} from "@common/features/schema/lib/buildSchemaGraph";
 import { FieldIcon } from "@common/elements/icons";
 import { IndexList } from "@common/features/data/components/IndexList";
 
@@ -114,6 +119,33 @@ function TypeLabel({
   );
 }
 
+function UnionVariantSelector({
+  union,
+  selected,
+  onSelect,
+}: {
+  union: SchemaUnion;
+  selected: number;
+  onSelect: (variant: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {union.variants.map((variant, i) => (
+        <Button
+          key={i}
+          size="xs"
+          variant="neutral"
+          focused={selected === i}
+          onClick={() => onSelect(i)}
+          className="font-mono"
+        >
+          {variant.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 export const SchemaSidePanel = forwardRef<
   HTMLDivElement,
   {
@@ -135,6 +167,19 @@ export const SchemaSidePanel = forwardRef<
       }
       return next;
     });
+
+  const { union } = node;
+  const [selectedVariant, setSelectedVariant] = useState(0);
+  useEffect(() => {
+    setSelectedVariant(0);
+    setExpandedTypes(new Set());
+  }, [node.table]);
+  const variantIndex =
+    union && selectedVariant < union.variants.length ? selectedVariant : 0;
+  const fields = useMemo(
+    () => (union ? (union.variants[variantIndex]?.fields ?? []) : node.fields),
+    [union, variantIndex, node.fields],
+  );
 
   return (
     <div
@@ -186,21 +231,39 @@ export const SchemaSidePanel = forwardRef<
             <FieldIcon className="text-[1.25rem] text-content-secondary" />
             <h5 className="text-base font-medium">Fields</h5>
           </header>
+          {union && (
+            <UnionVariantSelector
+              union={union}
+              selected={variantIndex}
+              onSelect={setSelectedVariant}
+            />
+          )}
           <div className="rounded-md border">
-            {node.fields.length === 0 ? (
+            {fields.length === 0 ? (
               <div className="px-2 py-1.5 text-content-tertiary italic">
                 This table has no fields.
               </div>
             ) : (
-              node.fields.map((field) => (
+              fields.map((field) => (
                 <div
                   key={field.name}
                   className="flex items-start gap-1.5 border-b px-2 py-1.5 last:border-b-0"
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono text-content-primary">
-                    {field.name}
-                    {field.optional && (
-                      <span className="text-content-tertiary">?</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="min-w-0 truncate font-mono text-content-primary">
+                      {field.name}
+                      {field.optional && (
+                        <span className="text-content-tertiary">?</span>
+                      )}
+                    </span>
+                    {union?.discriminator === field.name && (
+                      <Tooltip
+                        tip="This field's value is what selects this member of the union."
+                        aria-label="Discriminator field"
+                        className="flex shrink-0"
+                      >
+                        <TargetIcon className="size-3.5 text-content-tertiary" />
+                      </Tooltip>
                     )}
                   </span>
                   <TypeLabel
