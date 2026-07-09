@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { DeploymentMetadata, UserIdentity } from "convex/server";
@@ -12,6 +13,28 @@ const STATUS_CODE_BAD_REQUEST = 400;
 //
 // Must match the constant of the same name in Rust.
 const STATUS_CODE_UDF_FAILED = 560;
+
+// Retry settings for transient (5xx) failures when an action calls back into
+// the backend to run a query or mutation.
+const CALLBACK_MAX_ATTEMPTS = 5;
+const CALLBACK_INITIAL_BACKOFF_MS = 1000;
+const CALLBACK_MAX_BACKOFF_MS = 20000;
+
+function callbackBackoffMs(attempt: number): number {
+  const base = Math.min(
+    CALLBACK_MAX_BACKOFF_MS,
+    CALLBACK_INITIAL_BACKOFF_MS * 2 ** attempt,
+  );
+  // Full jitter to avoid synchronized retries across concurrent callbacks.
+  return Math.random() * base;
+}
+
+// A 5xx status other than STATUS_CODE_UDF_FAILED (which represents a real
+// error thrown by the called function) is a transient backend/proxy failure
+// that is safe to retry.
+function isTransientStatus(status: number): boolean {
+  return status >= 500 && status < 600 && status !== STATUS_CODE_UDF_FAILED;
+}
 
 const runFunctionArgs = z.object({
   name: z.optional(z.string()),
@@ -92,6 +115,12 @@ export class SyscallsImpl {
 
   deployment: DeploymentMetadata;
 
+  // Identifies this action execution as a "session" for the purpose of making
+  // the mutations it runs idempotent across client-side retries. Each mutation
+  // callback gets a monotonically increasing `requestId` within this session.
+  mutationSessionId: string;
+  nextMutationRequestId: number;
+
   constructor(
     udfPath: UdfPath,
     lambdaExecuteId: string,
@@ -114,6 +143,8 @@ export class SyscallsImpl {
     this.executionContext = executionContext;
     this.encodedParentTrace = encodedParentTrace;
     this.deployment = deployment;
+    this.mutationSessionId = randomUUID();
+    this.nextMutationRequestId = 0;
   }
 
   async actionCallback<ResponseValidator extends z.ZodType>(args: {
@@ -126,14 +157,27 @@ export class SyscallsImpl {
       operationName: string,
     ) => Promise<void>;
     responseValidator: ResponseValidator;
+    // Whether to retry transient (5xx) failures. Only safe for read-only
+    // queries and for mutations carrying a `mutationIdentifier` (which makes
+    // the backend dedupe a retried mutation that already committed).
+    retryTransient: boolean;
   }): Promise<z.infer<ResponseValidator>> {
     const headers = this.headers(args.version);
     const url = new URL(args.path, this.backendAddress);
-    const response = await fetch(url, {
-      body: JSON.stringify(args.body),
-      method: "POST",
-      headers,
-    });
+    const body = JSON.stringify(args.body);
+    const maxAttempts = args.retryTransient ? CALLBACK_MAX_ATTEMPTS : 1;
+    let response: Response;
+    let attempt = 0;
+    for (;;) {
+      response = await fetch(url, { body, method: "POST", headers });
+      attempt += 1;
+      if (!isTransientStatus(response.status) || attempt >= maxAttempts) {
+        break;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, callbackBackoffMs(attempt - 1)),
+      );
+    }
     const errorHandler =
       args.handleResponseErrorCode ?? defaultHandleResponseError;
     await errorHandler(response, args.operationName);
@@ -424,6 +468,8 @@ export class SyscallsImpl {
       operationName,
       responseValidator: runFunctionReturn,
       handleResponseErrorCode,
+      // Queries are read-only, so retrying a transient failure is always safe.
+      retryTransient: true,
     });
     switch (queryResult.status) {
       case "success":
@@ -454,6 +500,14 @@ export class SyscallsImpl {
         throw new Error(text);
       }
     };
+    // Capture the identifier once, before any retry, so every retry of this
+    // mutation reuses it. The backend records the outcome atomically with the
+    // mutation, so a retry that lands after the original already committed
+    // returns the recorded result instead of running the mutation again.
+    const mutationIdentifier = {
+      sessionId: this.mutationSessionId,
+      requestId: this.nextMutationRequestId++,
+    };
     const mutationResult = await this.actionCallback({
       version: mutationArgs.version,
       body: {
@@ -461,11 +515,15 @@ export class SyscallsImpl {
         reference: mutationArgs.reference,
         functionHandle: mutationArgs.functionHandle,
         args: mutationArgs.args,
+        mutationIdentifier,
       },
       path: "/api/actions/mutation",
       operationName,
       responseValidator: runFunctionReturn,
       handleResponseErrorCode,
+      // Safe to retry because `mutationIdentifier` makes the mutation
+      // idempotent on the backend.
+      retryTransient: true,
     });
     switch (mutationResult.status) {
       case "success":
@@ -508,6 +566,8 @@ export class SyscallsImpl {
       operationName,
       responseValidator: runFunctionReturn,
       handleResponseErrorCode,
+      // Actions are not idempotent, so a retried action could run twice.
+      retryTransient: false,
     });
     switch (actionResult.status) {
       case "success":
@@ -545,6 +605,7 @@ export class SyscallsImpl {
       path: "/api/actions/vector_search",
       operationName,
       responseValidator: vectorSearchReturn,
+      retryTransient: false,
     });
   }
 
@@ -570,6 +631,7 @@ export class SyscallsImpl {
       path: "/api/actions/schedule_job",
       operationName,
       responseValidator: scheduleReturn,
+      retryTransient: false,
     });
     return jobId;
   }
@@ -589,6 +651,7 @@ export class SyscallsImpl {
       path: "/api/actions/cancel_job",
       operationName,
       responseValidator: z.any(),
+      retryTransient: false,
     });
     return null;
   }
@@ -622,6 +685,7 @@ export class SyscallsImpl {
       path: "/api/actions/storage_generate_upload_url",
       operationName,
       responseValidator: storageGenerateUploadUrlReturn,
+      retryTransient: false,
     });
     return result.url;
   }
@@ -649,6 +713,7 @@ export class SyscallsImpl {
       path: "/api/actions/storage_get_url",
       operationName,
       responseValidator: storageGetUrlReturn,
+      retryTransient: false,
     });
     return result.url;
   }
@@ -662,6 +727,7 @@ export class SyscallsImpl {
       path: "/api/actions/storage_get_metadata",
       operationName,
       responseValidator: z.any(),
+      retryTransient: false,
     });
   }
 
@@ -674,6 +740,7 @@ export class SyscallsImpl {
       path: "/api/actions/storage_delete",
       operationName,
       responseValidator: z.any(),
+      retryTransient: false,
     });
   }
 
@@ -695,6 +762,7 @@ export class SyscallsImpl {
       path: "/api/actions/audit_log",
       operationName,
       responseValidator: z.any(),
+      retryTransient: false,
     });
   }
 
@@ -785,6 +853,7 @@ export class SyscallsImpl {
       path: "/api/actions/create_function_handle",
       operationName,
       responseValidator: z.any(),
+      retryTransient: false,
     });
     return handle;
   }
