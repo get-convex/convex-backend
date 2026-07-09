@@ -70,6 +70,105 @@
         ]
       }
     },
+    "/projects/{project_id}": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get project by ID",
+        "description": "Get a project by its ID.",
+        "operationId": "get project by id",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Update project",
+        "description": "Update a project's name and/or slug. Returns the updated project.",
+        "operationId": "update project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformUpdateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/teams/{team_id}/list_projects": {
       "get": {
         "tags": [
@@ -417,53 +516,6 @@
           },
           {
             "Team Token": []
-          }
-        ]
-      }
-    },
-    "/projects/{project_id}": {
-      "get": {
-        "tags": [
-          "Projects"
-        ],
-        "summary": "Get project by ID",
-        "description": "Get a project by its ID.",
-        "operationId": "get project by id",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "Project ID",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/ProjectId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlatformProjectDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "PAT": []
-          },
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
-          },
-          {
-            "OAuth Project Token": []
           }
         ]
       }
@@ -4038,12 +4090,26 @@
             "format": "int64",
             "description": "Timestamp in milliseconds."
           },
+          "devDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name of the requesting member's default development deployment for\nthis project, if one exists (an active local deployment or default\ncloud dev deployment)."
+          },
           "id": {
             "$ref": "#/components/schemas/ProjectId"
           },
           "name": {
             "$ref": "#/components/schemas/ProjectName",
             "description": "The full project name, including spaces and punctuation."
+          },
+          "prodDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name of the default production deployment for this project, if one\nexists (e.g. \"happy-otter-123\")."
           },
           "slug": {
             "$ref": "#/components/schemas/ProjectSlug",
@@ -4200,6 +4266,34 @@
               "null"
             ],
             "description": "Whether to send function logs to the client. If set to `null`, the\nsetting is reset to the deployment-type default (true for dev/preview,\nfalse for prod). If set to `true` or `false`, the setting is explicitly\noverridden."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformUpdateProjectArgs": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectName",
+                "description": "New name for the project. If omitted, the name is left unchanged."
+              }
+            ]
+          },
+          "slug": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectSlug",
+                "description": "New slug for the project. If omitted, the slug is left unchanged."
+              }
+            ]
           }
         },
         "additionalProperties": false
