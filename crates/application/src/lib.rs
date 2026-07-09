@@ -412,6 +412,7 @@ use crate::{
 
 pub mod airbyte_import;
 pub mod api;
+pub mod app_metric_seed;
 pub mod application_function_runner;
 pub mod audit_logging;
 mod cache;
