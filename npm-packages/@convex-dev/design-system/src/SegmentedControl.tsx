@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { Tooltip } from "./Tooltip";
 
 export type SegmentedControlOption<T extends string> = {
-  label: string;
+  label: ReactNode;
   value: T;
   disabled?: boolean;
   /** Shown in a tooltip when the option is disabled. */
@@ -16,11 +16,13 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   className,
+  size = "md",
 }: {
   options: SegmentedControlOption<T>[];
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  size?: "sm" | "md";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<T, HTMLButtonElement>>(new Map());
@@ -107,14 +109,16 @@ export function SegmentedControl<T extends string>({
       ref={containerRef}
       role="radiogroup"
       className={cn(
-        "relative inline-flex rounded-full border bg-background-tertiary p-1",
+        "relative inline-flex rounded-full border bg-background-tertiary",
+        size === "sm" ? "p-0.5" : "p-1",
         className,
       )}
     >
       {highlightStyle && (
         <div
           className={cn(
-            "absolute inset-y-1 rounded-full bg-background-secondary shadow-sm",
+            "absolute rounded-full bg-background-secondary shadow-sm",
+            size === "sm" ? "inset-y-0.5" : "inset-y-1",
             animate && "transition-all duration-200 ease-in-out",
           )}
           style={{
@@ -143,7 +147,8 @@ export function SegmentedControl<T extends string>({
             aria-disabled={option.disabled || undefined}
             tabIndex={!option.disabled && value === option.value ? 0 : -1}
             className={cn(
-              "relative z-10 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-border-selected focus-visible:ring-inset",
+              "relative z-10 rounded-full font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-border-selected focus-visible:ring-inset",
+              size === "sm" ? "px-2.5 py-1 text-xs" : "px-4 py-1.5 text-sm",
               option.disabled
                 ? "cursor-not-allowed text-content-secondary opacity-50"
                 : "text-content-primary",

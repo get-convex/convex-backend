@@ -71,6 +71,10 @@ export type DeploymentInfo = (
     | undefined;
   useTeamUsageState(teamId: number | null): string | undefined;
   useCurrentUsageBanner(teamId: number | null): string | null;
+  // The team's Orb plan type (e.g. "CONVEX_BUSINESS"), or null when there is no
+  // subscription (Free) or plan tier isn't available (self-hosted). Note that
+  // Business and Enterprise share the "CONVEX_BUSINESS" plan type.
+  useTeamPlanType(teamId: number | null): string | null | undefined;
   useCurrentProject():
     | {
         id: number;
@@ -314,6 +318,7 @@ export type DeploymentInfo = (
   workosIntegrationEnabled: boolean;
   logStreamTopicFiltersEnabled: boolean;
   schemaPageEnabled: boolean;
+  usageLimitsEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 

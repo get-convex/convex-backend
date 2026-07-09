@@ -10,6 +10,7 @@ import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsClou
 export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   general: "General",
   "environment-variables": "Environment Variables",
+  "usage-limits": "Usage Limits",
   authentication: "Authentication",
   "custom-domains": "Custom Domains",
   snapshots: "Snapshot Import & Export",
@@ -155,6 +156,7 @@ export function SettingsSidebar({
 
 function useAllowedPages() {
   const { nents } = useNents();
+  const { usageLimitsEnabled } = useContext(DeploymentInfoContext);
 
   let pages = DEPLOYMENT_SETTINGS_PAGES;
 
@@ -163,6 +165,11 @@ function useAllowedPages() {
   }
 
   pages = pages.filter((d) => d !== "snapshots");
+
+  // Usage limits is feature-flagged; hide it from the sidebar when off.
+  if (!usageLimitsEnabled) {
+    pages = pages.filter((d) => d !== "usage-limits");
+  }
 
   return pages;
 }

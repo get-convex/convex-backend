@@ -91,6 +91,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list_usage_limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List usage limits
+         * @description Get all usage limit configs for a deployment.
+         */
+        get: operations["list_usage_limits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/create_usage_limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create usage limit
+         * @description Create a new usage limit config for a deployment.
+         */
+        post: operations["create_usage_limit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update_usage_limit/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update usage limit
+         * @description Replace an existing usage limit config for a deployment.
+         */
+        post: operations["update_usage_limit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/delete_usage_limit/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete usage limit
+         * @description Delete an existing usage limit config for a deployment.
+         */
+        post: operations["delete_usage_limit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update_canonical_url": {
         parameters: {
             query?: never;
@@ -528,6 +608,9 @@ export interface components {
                 [key: string]: string;
             };
         };
+        ListUsageLimitsResponse: {
+            usageLimits: components["schemas"]["UsageLimitConfigResponse"][];
+        };
         LogStreamConfig: (components["schemas"]["DatadogLogStreamConfig"] & {
             /** @enum {string} */
             logStreamType: "datadog";
@@ -712,6 +795,28 @@ export interface components {
             /** @description URL to send logs to. */
             url?: string | null;
         };
+        UsageLimitConfigRequest: {
+            enabled: boolean;
+            /** Format: int64 */
+            limit: number;
+            limitType: string;
+            metric: string;
+            name?: string | null;
+            window: string;
+        };
+        UsageLimitConfigResponse: {
+            enabled: boolean;
+            id: string;
+            /** Format: int64 */
+            limit: number;
+            limitType: string;
+            metric: string;
+            name?: string | null;
+            window: string;
+        };
+        UsageLimitResponse: {
+            usageLimit: components["schemas"]["UsageLimitConfigResponse"];
+        };
         Value: unknown;
         /** @enum {string} */
         WebhookFormat: "json" | "jsonl";
@@ -760,6 +865,7 @@ export type DeploymentType = components['schemas']['DeploymentType'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
 export type ListDeploymentAuditLogEventsResponse = components['schemas']['ListDeploymentAuditLogEventsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
+export type ListUsageLimitsResponse = components['schemas']['ListUsageLimitsResponse'];
 export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
 export type LogTopic = components['schemas']['LogTopic'];
@@ -782,6 +888,9 @@ export type UpdatePostHogErrorTrackingSinkArgs = components['schemas']['UpdatePo
 export type UpdatePostHogLogsSinkArgs = components['schemas']['UpdatePostHogLogsSinkArgs'];
 export type UpdateSentrySinkArgs = components['schemas']['UpdateSentrySinkArgs'];
 export type UpdateWebhookSinkArgs = components['schemas']['UpdateWebhookSinkArgs'];
+export type UsageLimitConfigRequest = components['schemas']['UsageLimitConfigRequest'];
+export type UsageLimitConfigResponse = components['schemas']['UsageLimitConfigResponse'];
+export type UsageLimitResponse = components['schemas']['UsageLimitResponse'];
 export type Value = components['schemas']['Value'];
 export type WebhookFormat = components['schemas']['WebhookFormat'];
 export type WebhookLogStreamConfig = components['schemas']['WebhookLogStreamConfig'];
@@ -870,6 +979,94 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DeploymentInfoResponse"];
                 };
+            };
+        };
+    };
+    list_usage_limits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListUsageLimitsResponse"];
+                };
+            };
+        };
+    };
+    create_usage_limit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsageLimitConfigRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageLimitResponse"];
+                };
+            };
+        };
+    };
+    update_usage_limit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id of the usage limit to update */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsageLimitConfigRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageLimitResponse"];
+                };
+            };
+        };
+    };
+    delete_usage_limit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id of the usage limit to delete */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
