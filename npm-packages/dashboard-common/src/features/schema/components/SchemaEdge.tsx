@@ -8,6 +8,13 @@ export type CanvasEdge = { id: string; source: string; target: string };
 // this zoom step (see `zoomStep`). Active edges keep theirs at any zoom.
 const ARROWHEAD_HIDE_LEVEL = 2;
 
+// Below this zoom we stop compensating edge weight for zoom. The compensation
+// keeps a steady on-screen weight while zoomed in, but once the whole graph has
+// shrunk to a speck a constant-weight edge overwhelms it — so past this point
+// the cap lets edges thin out with everything else instead of staying fat.
+const MIN_WEIGHT_COMPENSATION_ZOOM = 0.15;
+const MAX_EDGE_LEVEL = zoomStep(MIN_WEIGHT_COMPENSATION_ZOOM);
+
 // Stroke color and weight per appearance. Colors may be CSS color-mix()/var()
 // expressions: they're set as the canvas element's `color`, so the browser
 // resolves them against the current theme and each redraw reads the resolved
@@ -151,10 +158,11 @@ export function SchemaEdge({
       }
 
       const [x, y, zoom] = transform;
-      const level = zoomStep(zoom);
       // On-screen stroke weight is strokeWidth * zoom, so edges thin out when
-      // zoomed out. Compensate with the quantized zoom factor to keep a
-      // steady weight.
+      // zoomed out. Compensate with the quantized zoom factor to keep a steady
+      // weight — but cap the compensation below MIN_WEIGHT_COMPENSATION_ZOOM so
+      // edges thin out with the graph instead of dominating a zoomed-out speck.
+      const level = Math.min(zoomStep(zoom), MAX_EDGE_LEVEL);
       const strokeWidth = APPEARANCE[appearance].strokeWidth * 2 ** level;
       const showArrowheads =
         APPEARANCE[appearance].arrowheads === "always" ||

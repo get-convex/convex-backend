@@ -27,10 +27,15 @@ import {
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useMediaQuery } from "@common/lib/useMediaQuery";
 import { computeElkLayout } from "@common/features/schema/lib/elkLayout";
+import { computeClusters } from "@common/features/schema/lib/clustering";
 import {
   nodeTypes,
   nodeAriaLabel,
 } from "@common/features/schema/components/TableNode";
+import {
+  SchemaClusters,
+  SchemaClusterHandles,
+} from "@common/features/schema/components/SchemaClusters";
 import { AdaptiveBackground } from "@common/features/schema/components/SchemaBackground";
 import {
   SchemaEdge,
@@ -45,9 +50,12 @@ import {
 
 const VISIBLE_CULL_THRESHOLD = 80;
 
-const INITIAL_FIT_VIEW = { padding: 0.15, minZoom: 0.4 };
-const MIN_ZOOM = 0.15;
+const MIN_ZOOM = 0.01;
 const MAX_ZOOM = 2.5;
+// Initial view fits the entire schema — allow zooming out all the way down to
+// MIN_ZOOM so even a large graph fits in full rather than being clamped and
+// cropped.
+const INITIAL_FIT_VIEW = { padding: 0.15, minZoom: MIN_ZOOM };
 
 // Stable empty set so unhighlighted nodes keep a constant data reference.
 const NO_HIGHLIGHTS: ReadonlySet<string> = new Set();
@@ -57,6 +65,7 @@ function SchemaFlowInner({
   storageKey,
   selectedTable,
   focusRequest,
+  clustering = false,
   onSelectNode,
   onFocusTable,
   onClearSelection,
@@ -67,6 +76,9 @@ function SchemaFlowInner({
   // Bump-on-each-request signal to pan a table into view (e.g. a side-panel
   // reference link). The nonce lets repeated requests for the same table re-fire.
   focusRequest: { table: string; nonce: number } | null;
+  // When true, group related tables: lay each group out together and draw a
+  // labelled hull behind it. Opt-in while we compare layouts on large graphs.
+  clustering?: boolean;
   onSelectNode: (table: string, opts?: { fromKeyboard?: boolean }) => void;
   onFocusTable: (table: string) => void;
   onClearSelection: () => void;
@@ -84,6 +96,20 @@ function SchemaFlowInner({
     });
     return result;
   }, [graph]);
+
+  // Whether automatic grouping is on. Persisted per deployment/component; the
+  // `clustering` prop is only the initial default (so the toggle, once used,
+  // sticks, and the comparison stories still honour their prop until toggled).
+  const [clusteringEnabled, setClusteringEnabled] = useGlobalLocalStorage(
+    `${storageKey}/clustering`,
+    clustering,
+  );
+
+  // Related-table groups. Empty (and layout unchanged) unless clustering is on.
+  const clusters = useMemo(
+    () => (clusteringEnabled ? computeClusters(graph) : []),
+    [graph, clusteringEnabled],
+  );
 
   // Tables each table references (from edge source -> target), for node labels.
   const referencesByTable = useMemo<Map<string, string[]>>(() => {
@@ -103,9 +129,15 @@ function SchemaFlowInner({
     return map;
   }, [graph.edges]);
 
-  // Persisted under its own key, independent of the force-directed view's layout.
+  // Manual layout is saved per grouping mode: grouped and ungrouped arrange the
+  // tables differently, so a custom arrangement in one mode must not overwrite
+  // the other's. Ungrouped keeps the original key; grouped gets its own prefix.
+  // Switching the toggle re-reads positions from the matching key.
   const [savedPositions, setSavedPositions, clearSavedPositions] =
-    useGlobalLocalStorage<NodePositions>(`${storageKey}/elk`, {});
+    useGlobalLocalStorage<NodePositions>(
+      clusteringEnabled ? `${storageKey}/elk-grouped` : `${storageKey}/elk`,
+      {},
+    );
   const savedPositionsRef = useRef(savedPositions);
   savedPositionsRef.current = savedPositions;
 
@@ -113,7 +145,25 @@ function SchemaFlowInner({
   const [hover, setHover] = useState<HoverTarget | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const searchEntries = useMemo(() => buildSearchEntries(graph), [graph]);
+  const searchEntries = useMemo(
+    () => buildSearchEntries(graph, clusters),
+    [graph, clusters],
+  );
+
+  // Frame a whole group in the viewport (picked from search): zoom/pan to fit
+  // exactly its member tables.
+  const fitCluster = useCallback(
+    (tables: string[]) => {
+      void fitView({
+        nodes: tables.map((table) => ({ id: table })),
+        padding: 0.3,
+        // Cap the zoom so framing a small group doesn't blast in to 250%.
+        maxZoom: 1,
+        duration: 400,
+      });
+    },
+    [fitView],
+  );
 
   const pendingFocusRef = useRef<string | null>(null);
   const handledFocusNonceRef = useRef<number | null>(null);
@@ -199,10 +249,11 @@ function SchemaFlowInner({
     [buildNodes, setNodes, storeApi, setViewport, fitView],
   );
 
-  // Re-run ELK whenever the graph changes, merging any saved manual layout.
+  // Re-run ELK whenever the graph (or clustering) changes, merging any saved
+  // manual layout.
   useEffect(() => {
     let cancelled = false;
-    void computeElkLayout(graph, sizes).then(({ positions }) => {
+    void computeElkLayout(graph, sizes, clusters).then(({ positions }) => {
       if (cancelled) return;
       placeAndFit(
         mergeSavedLayout(savedPositionsRef.current, positions, sizes),
@@ -211,7 +262,7 @@ function SchemaFlowInner({
     return () => {
       cancelled = true;
     };
-  }, [graph, sizes, placeAndFit]);
+  }, [graph, sizes, clusters, placeAndFit]);
 
   const centerOnTable = useCallback(
     (table: string): boolean => {
@@ -360,83 +411,112 @@ function SchemaFlowInner({
     setSavedPositions(positions);
   }, [getNodes, setSavedPositions]);
 
+  // Move a set of tables to new positions in one commit (dragging a cluster).
+  const moveClusterNodes = useCallback(
+    (positions: NodePositions) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          positions[n.id] ? { ...n, position: positions[n.id] } : n,
+        ),
+      );
+    },
+    [setNodes],
+  );
+
   const resetLayout = useCallback(() => {
     clearSavedPositions();
-    void computeElkLayout(graph, sizes).then(({ positions }) => {
+    void computeElkLayout(graph, sizes, clusters).then(({ positions }) => {
       placeAndFit(positions);
     });
-  }, [clearSavedPositions, graph, sizes, placeAndFit]);
+  }, [clearSavedPositions, graph, sizes, clusters, placeAndFit]);
 
   // Cull offscreen elements on large graphs only.
   const cullOffscreen =
     graph.nodes.length + graph.edges.length > VISIBLE_CULL_THRESHOLD;
 
   return (
-    <ReactFlow
-      nodes={decoratedNodes}
-      onlyRenderVisibleElements={cullOffscreen}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      onNodeClick={(_, node) => onSelectNode(node.id)}
-      onNodeDragStop={persistPositions}
-      // Only fires while focus is within the flow, so it doesn't hijack keys
-      // elsewhere on the page.
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && selectedTable) {
-          onClearSelection();
-          return;
-        }
-        // Open the focused table with Enter/Space, mirroring a click: React Flow
-        // toggles its own selection on these keys but never fires onNodeClick.
-        // Act only when the node wrapper itself is focused.
-        if (e.key === "Enter" || e.key === " ") {
-          const active = document.activeElement;
-          if (
-            active instanceof HTMLElement &&
-            active.classList.contains("react-flow__node") &&
-            active.dataset.id
-          ) {
-            onSelectNode(active.dataset.id, { fromKeyboard: true });
-          }
-        }
-      }}
-      minZoom={MIN_ZOOM}
-      maxZoom={MAX_ZOOM}
-      nodesDraggable={!isTouch}
-      nodesConnectable={false}
-      // Tab between tables; arrow keys move the focused one (React Flow built-in).
-      nodesFocusable
-      // Mark as an application region so a screen reader passes arrow keys
-      // through to move the focused table rather than capturing them.
-      aria-label="Database schema diagram. Press Tab to move between tables, then use the arrow keys to reposition the focused table and Enter to open its details."
-      role="application"
-      // Read-only viewer: never delete nodes via the keyboard.
-      deleteKeyCode={null}
-      proOptions={{ hideAttribution: true }}
-      fitView
-      fitViewOptions={INITIAL_FIT_VIEW}
-      className="bg-background-primary"
-    >
-      <AdaptiveBackground />
-      {/* After the background so they paint above the dots (all z-index -1,
-          DOM order breaks the tie) and below the nodes; active above
-          inactive. */}
-      <SchemaEdge edges={inactiveEdges} appearance="inactive" />
-      <SchemaEdge edges={activeEdges} appearance="active" />
-      <SchemaSearch
-        entries={searchEntries}
-        onPick={onFocusTable}
-        onOpenChange={setSearchOpen}
+    <div className="relative size-full">
+      {/* Rendered before <ReactFlow> so Tab reaches the toggle ahead of the
+          nodes (React Flow renders children after its tabIndex-0 nodes). */}
+      <SchemaControls
+        onResetLayout={resetLayout}
+        clusteringEnabled={clusteringEnabled}
+        onToggleClustering={() => setClusteringEnabled((prev) => !prev)}
       />
-      {!searchOpen && (
-        <MinimapOverlay
-          nodes={decoratedNodes}
-          inactiveEdges={inactiveEdges}
-          activeEdges={activeEdges}
+      <ReactFlow
+        nodes={decoratedNodes}
+        onlyRenderVisibleElements={cullOffscreen}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onNodeClick={(_, node) => onSelectNode(node.id)}
+        onNodeDragStop={persistPositions}
+        // Only fires while focus is within the flow, so it doesn't hijack keys
+        // elsewhere on the page.
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && selectedTable) {
+            onClearSelection();
+            return;
+          }
+          // Open the focused table with Enter/Space, mirroring a click: React Flow
+          // toggles its own selection on these keys but never fires onNodeClick.
+          // Act only when the node wrapper itself is focused.
+          if (e.key === "Enter" || e.key === " ") {
+            const active = document.activeElement;
+            if (
+              active instanceof HTMLElement &&
+              active.classList.contains("react-flow__node") &&
+              active.dataset.id
+            ) {
+              onSelectNode(active.dataset.id, { fromKeyboard: true });
+            }
+          }
+        }}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        nodesDraggable={!isTouch}
+        nodesConnectable={false}
+        // Tab between tables; arrow keys move the focused one (React Flow built-in).
+        nodesFocusable
+        // Mark as an application region so a screen reader passes arrow keys
+        // through to move the focused table rather than capturing them.
+        aria-label="Database schema diagram. Press Tab to move between tables, then use the arrow keys to reposition the focused table and Enter to open its details."
+        role="application"
+        // Read-only viewer: never delete nodes via the keyboard.
+        deleteKeyCode={null}
+        proOptions={{ hideAttribution: true }}
+        fitView
+        fitViewOptions={INITIAL_FIT_VIEW}
+        className="bg-background-primary"
+      >
+        <AdaptiveBackground />
+        {/* After the background so they paint above the dots (all z-index -1,
+            DOM order breaks the tie) and below the nodes; active above
+            inactive. Cluster hulls go first so edges paint on top of them. */}
+        {clusters.length > 0 && <SchemaClusters clusters={clusters} />}
+        <SchemaEdge edges={inactiveEdges} appearance="inactive" />
+        <SchemaEdge edges={activeEdges} appearance="active" />
+        <SchemaSearch
+          entries={searchEntries}
+          onPick={onFocusTable}
+          onPickCluster={fitCluster}
+          onOpenChange={setSearchOpen}
         />
-      )}
-      <SchemaControls onResetLayout={resetLayout} />
-    </ReactFlow>
+        {!searchOpen && (
+          <MinimapOverlay
+            nodes={decoratedNodes}
+            inactiveEdges={inactiveEdges}
+            activeEdges={activeEdges}
+          />
+        )}
+        {clusters.length > 0 && !isTouch && (
+          <SchemaClusterHandles
+            clusters={clusters}
+            onMove={moveClusterNodes}
+            onDragStop={persistPositions}
+          />
+        )}
+      </ReactFlow>
+    </div>
   );
 }
 
@@ -445,6 +525,7 @@ export function SchemaFlow(props: {
   storageKey: string;
   selectedTable: string | null;
   focusRequest: { table: string; nonce: number } | null;
+  clustering?: boolean;
   onSelectNode: (table: string, opts?: { fromKeyboard?: boolean }) => void;
   onFocusTable: (table: string) => void;
   onClearSelection: () => void;

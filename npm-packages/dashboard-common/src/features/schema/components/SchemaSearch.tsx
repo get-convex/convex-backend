@@ -13,6 +13,7 @@ import {
   MagnifyingGlassIcon,
   Cross2Icon,
   TableIcon,
+  BoxModelIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { cn } from "@ui/cn";
@@ -20,6 +21,7 @@ import {
   SchemaGraph,
   SchemaIndex,
 } from "@common/features/schema/lib/buildSchemaGraph";
+import { Cluster } from "@common/features/schema/lib/clustering";
 import { IndexIcon, FieldIcon, INDEX_KIND_LABEL } from "@common/elements/icons";
 
 const SEARCH_HOTKEY = "/";
@@ -27,6 +29,15 @@ const RESULT_ROW_HEIGHT = 32;
 const MAX_VISIBLE_RESULTS = 8;
 
 export type SchemaSearchEntry =
+  // A cluster carries all its member tables (so picking it can frame the whole
+  // group) plus a representative `table` for the plain pan fallback.
+  | {
+      kind: "cluster";
+      table: string;
+      tables: string[];
+      label: string;
+      name: string;
+    }
   | { kind: "table"; table: string; label: string; name: string }
   | { kind: "field"; table: string; label: string; name: string }
   | {
@@ -37,8 +48,24 @@ export type SchemaSearchEntry =
       name: string;
     };
 
-export function buildSearchEntries(graph: SchemaGraph): SchemaSearchEntry[] {
+export function buildSearchEntries(
+  graph: SchemaGraph,
+  clusters: Cluster[] = [],
+): SchemaSearchEntry[] {
   const entries: SchemaSearchEntry[] = [];
+  // Clusters first, so they surface at the top of the results. A lone cluster
+  // spans the whole diagram (and isn't drawn), so it's not offered in search.
+  if (clusters.length >= 2) {
+    clusters.forEach((cluster) => {
+      entries.push({
+        kind: "cluster",
+        table: cluster.tables[0],
+        tables: cluster.tables,
+        label: cluster.label,
+        name: cluster.label,
+      });
+    });
+  }
   graph.nodes.forEach((node) => {
     entries.push({
       kind: "table",
@@ -122,7 +149,10 @@ function highlightMatch(text: string, query: string): ReactNode {
 function EntryIcon({ entry }: { entry: SchemaSearchEntry }) {
   let icon: ReactNode;
   let title: string;
-  if (entry.kind === "table") {
+  if (entry.kind === "cluster") {
+    icon = <BoxModelIcon className="size-3.5 text-content-secondary" />;
+    title = "Group";
+  } else if (entry.kind === "table") {
     icon = <TableIcon className="size-3.5 text-content-secondary" />;
     title = "Table";
   } else if (entry.kind === "field") {
@@ -206,10 +236,13 @@ const ResultRow = memo(function ResultRow({
 export function SchemaSearch({
   entries,
   onPick,
+  onPickCluster,
   onOpenChange,
 }: {
   entries: SchemaSearchEntry[];
   onPick: (table: string) => void;
+  // Frame a whole group when a cluster result is picked.
+  onPickCluster: (tables: string[]) => void;
   // Notified when the dropdown opens/closes (used to suppress the minimap).
   onOpenChange: (open: boolean) => void;
 }) {
@@ -270,8 +303,8 @@ export function SchemaSearch({
 
   const matches = useMemo<SchemaSearchEntry[]>(() => {
     if (query.trim() === "") {
-      // No query: list every table (fields and indexes would be too noisy).
-      return entries.filter((e) => e.kind === "table");
+      // No query: list groups and tables (fields/indexes would be too noisy).
+      return entries.filter((e) => e.kind === "cluster" || e.kind === "table");
     }
     // A "." means the user is qualifying `table.name`, so match against the full
     // `table.name` label (surfacing that table's fields/indexes). Otherwise match
@@ -281,9 +314,9 @@ export function SchemaSearch({
     const ranked = fuzzyFilter(query, entries, {
       extract: (e) => (byLabel ? e.label : e.name),
     }).map((result) => result.original);
-    // Prioritize tables, then fields, then indexes. Array.sort is stable, so
-    // fuzzy's relevance order is preserved within each kind.
-    const rank = { table: 0, field: 1, index: 2 };
+    // Prioritize groups, then tables, then fields, then indexes. Array.sort is
+    // stable, so fuzzy's relevance order is preserved within each kind.
+    const rank = { cluster: 0, table: 1, field: 2, index: 3 };
     return ranked.sort((a, b) => rank[a.kind] - rank[b.kind]);
   }, [query, entries]);
 
@@ -296,12 +329,16 @@ export function SchemaSearch({
 
   const pick = useCallback(
     (entry: SchemaSearchEntry) => {
-      onPick(entry.table);
+      if (entry.kind === "cluster") {
+        onPickCluster(entry.tables);
+      } else {
+        onPick(entry.table);
+      }
       changeQuery("");
       setOpenAndNotify(false);
       inputRef.current?.blur();
     },
-    [onPick, setOpenAndNotify, changeQuery],
+    [onPick, onPickCluster, setOpenAndNotify, changeQuery],
   );
 
   // Stable so react-window only re-renders rows whose data actually changed
@@ -331,7 +368,7 @@ export function SchemaSearch({
           ref={inputRef}
           value={query}
           placeholder={`${SEARCH_HOTKEY} to search`}
-          aria-label="Search tables, fields, and indexes"
+          aria-label="Search groups, tables, fields, and indexes"
           className="h-8 w-full bg-transparent text-sm text-content-primary placeholder:text-content-tertiary focus:outline-none"
           onChange={(e) => {
             changeQuery(e.target.value);
