@@ -29,6 +29,7 @@ use common::{
     },
     errors::JsError,
     execution_context::RequestMetadata,
+    knobs::FINISH_PUSH_MAX_OCC_FAILURES,
     runtime::Runtime,
     schemas::DatabaseSchema,
     types::{
@@ -46,6 +47,7 @@ use database::{
     OccRetryStats,
     Token,
     WriteSource,
+    MAX_OCC_FAILURES,
     SCHEMAS_TABLE,
 };
 use errors::{
@@ -334,6 +336,7 @@ impl<RT: Runtime> Application<RT> {
             .execute_with_occ_retries(
                 Identity::system(),
                 FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
                 WriteSource::system("start_push"),
                 |tx| {
                     async move {
@@ -698,6 +701,7 @@ impl<RT: Runtime> Application<RT> {
                 identity.clone(),
                 request_metadata,
                 finish_push_write_source,
+                *FINISH_PUSH_MAX_OCC_FAILURES,
                 |tx| {
                     let start_push = &start_push;
                     let downloaded_source_packages = &downloaded_source_packages;
