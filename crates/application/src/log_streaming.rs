@@ -6,7 +6,10 @@ use common::{
     execution_context::RequestMetadata,
     runtime::Runtime,
 };
-use database::Database;
+use database::{
+    Database,
+    MAX_OCC_FAILURES,
+};
 use errors::ErrorMetadata;
 use futures::FutureExt;
 use keybroker::Identity;
@@ -140,6 +143,7 @@ impl<RT: Runtime> Application<RT> {
         self.execute_with_occ_retries(
             Identity::system(),
             FunctionUsageTracker::new(),
+            MAX_OCC_FAILURES,
             "reset_log_sink_to_pending",
             |tx| {
                 async move {

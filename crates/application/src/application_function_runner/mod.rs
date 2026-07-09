@@ -83,6 +83,7 @@ use database::{
     Database,
     Transaction,
     WriteSource,
+    MAX_OCC_FAILURES,
 };
 use errors::{
     ErrorMetadata,
@@ -2161,6 +2162,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
                 "app_funrun_storage_store_file_entry",
                 |tx| {
                     async {
@@ -2192,6 +2194,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
                 "app_funrun_storage_delete",
                 |tx| {
                     async {
@@ -2222,6 +2225,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
                 "app_funrun_schedule_job",
                 |tx| {
                     let path = scheduled_path.clone();
@@ -2275,6 +2279,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
                 "app_funrun_cancel_job",
                 |tx| {
                     async {

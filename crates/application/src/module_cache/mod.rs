@@ -30,7 +30,7 @@ mod metrics;
 pub struct ModuleCache<RT: Runtime> {
     modules_storage: Arc<dyn Storage>,
 
-    cache: AsyncLru<RT, (CanonicalizedModulePath, Sha256Digest), FullModuleSource>,
+    cache: AsyncLru<RT, (CanonicalizedModulePath, Sha256Digest), FullModuleSource, Sha256Digest>,
 }
 
 impl<RT: Runtime> ModuleCache<RT> {
@@ -67,6 +67,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
             .cache
             .get_and_prepopulate(
                 key,
+                source_package.sha256.clone(),
                 async move { get_modules_and_prefetch(modules_storage, &source_package).await }
                     .boxed(),
             )

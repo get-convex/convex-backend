@@ -460,6 +460,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn has_http(&mut self, component: ComponentId) -> anyhow::Result<bool> {
         Ok(self.get_http(component).await?.is_some())
     }
+
+    pub fn has_pending_module(&mut self, component: ComponentId) -> bool {
+        self.tx
+            .table_mapping()
+            .namespace(component.into())
+            .id_if_exists(&MODULES_TABLE)
+            .is_some_and(|tablet_id| self.tx.has_pending_write(tablet_id))
+    }
 }
 
 /// Hash a module's source and source map. This same hash is also computed in

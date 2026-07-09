@@ -1754,6 +1754,7 @@ impl<RT: Runtime> Database<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
+        max_failures: u32,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1765,7 +1766,7 @@ impl<RT: Runtime> Database<RT> {
         let is_retriable = |e: &Error| e.is_occ();
         self.execute_with_retries(
             identity,
-            MAX_OCC_FAILURES,
+            max_failures,
             backoff,
             usage,
             is_retriable,

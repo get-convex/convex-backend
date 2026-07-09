@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::HashSet,
+    sync::Arc,
+};
 
 use anyhow::Context;
 use common::{
@@ -85,10 +88,15 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             TableNamespace::ByComponent(id) => ComponentId::Child(id),
         };
 
+        let mut seen = HashSet::new();
         for module in ModuleModel::new(self.tx)
             .get_all_metadata(component)
             .await?
         {
+            if !seen.insert(module.source_package_id) {
+                // Small CPU optimization to avoid going through the transaction fetch machinery
+                continue;
+            }
             let src_package = self.get(module.source_package_id).await?;
             if let Some(latest) = &latest_source_pkg {
                 if src_package.creation_time() > latest.creation_time() {

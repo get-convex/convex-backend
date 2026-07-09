@@ -235,6 +235,13 @@ pub static UDF_EXECUTOR_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
 pub static UDF_EXECUTOR_OCC_MAX_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("UDF_EXECUTOR_OCC_MAX_BACKOFF_MS", 2000)));
 
+/// Max number of times `finish_push` retries due to OCC conflicts. It reads the
+/// `_index` documents that `start_push` just created, contending with the
+/// index/search backfill workers, so it needs more room than the default
+/// `MAX_OCC_FAILURES` to ride out that churn.
+pub static FINISH_PUSH_MAX_OCC_FAILURES: LazyLock<u32> =
+    LazyLock::new(|| env_config("FINISH_PUSH_MAX_OCC_FAILURES", 8));
+
 /// Initial backoff when the scheduler encounters an OCC conflict
 pub static SCHEDULER_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("SCHEDULER_OCC_INITIAL_BACKOFF_MS", 100)));

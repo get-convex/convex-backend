@@ -52,6 +52,7 @@ pub enum PauseReason {
     LoadSystemEnvironmentVariables,
     LoadModuleMetadata,
     LoadModuleSource,
+    LoadSourcePackage,
     LoadCanonicalUrls,
     LoadResources,
 }
@@ -67,6 +68,7 @@ impl PauseReason {
             Self::LoadSystemEnvironmentVariables => "load_system_environment_variables".to_string(),
             Self::LoadModuleMetadata => "load_module_metadata".to_string(),
             Self::LoadModuleSource => "load_module_source".to_string(),
+            Self::LoadSourcePackage => "load_source_package".to_string(),
             Self::LoadCanonicalUrls => "load_canonical_urls".to_string(),
             Self::LoadResources => "load_resources".to_string(),
         }

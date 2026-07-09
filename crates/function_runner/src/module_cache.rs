@@ -10,7 +10,10 @@ use common::{
         FUNRUN_MODULE_MAX_CONCURRENCY,
         FUNRUN_MODULE_QUEUE_SIZE,
     },
-    runtime::Runtime,
+    runtime::{
+        try_join,
+        Runtime,
+    },
 };
 use futures::FutureExt;
 use isolate::environment::helpers::module_loader::get_modules_and_prefetch;
@@ -37,7 +40,9 @@ pub(crate) struct ModuleCacheKey {
 }
 
 #[derive(Clone)]
-pub(crate) struct ModuleCache<RT: Runtime>(AsyncLru<RT, ModuleCacheKey, FullModuleSource>);
+pub(crate) struct ModuleCache<RT: Runtime>(
+    AsyncLru<RT, ModuleCacheKey, FullModuleSource, (String, Sha256Digest)>,
+);
 
 impl<RT: Runtime> ModuleCache<RT> {
     pub(crate) fn new(rt: RT) -> Self {
@@ -98,9 +103,12 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             .0
             .get_and_prepopulate(
                 key,
+                (deployment_name.clone(), source_package.sha256.clone()),
                 async move {
-                    let modules =
-                        get_modules_and_prefetch(modules_storage, &source_package).await?;
+                    let modules = try_join("get_modules_and_prefetch", async move {
+                        get_modules_and_prefetch(modules_storage, &source_package).await
+                    })
+                    .await?;
                     Ok(modules
                         .into_iter()
                         .map(move |((module_path, sha256), source)| {

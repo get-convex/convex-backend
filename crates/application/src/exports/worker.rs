@@ -22,6 +22,7 @@ use database::{
     Database,
     SystemMetadataModel,
     Token,
+    MAX_OCC_FAILURES,
 };
 use exports::{
     interface::ExportProvider,
@@ -216,6 +217,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .execute_with_occ_retries(
                     Identity::system(),
                     FunctionUsageTracker::new(),
+                    MAX_OCC_FAILURES,
                     what,
                     move |tx| {
                         let f = f.clone();
@@ -341,6 +343,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             .execute_with_occ_retries(
                 Identity::system(),
                 FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
                 "export_worker_mark_complete",
                 |tx| {
                     let object_key = object_key.clone();

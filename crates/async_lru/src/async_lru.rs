@@ -1,6 +1,7 @@
 use core::hash::Hash;
 use std::{
     collections::{
+        hash_map::Entry,
         BTreeMap,
         HashMap,
     },
@@ -9,6 +10,7 @@ use std::{
 };
 
 use ::metrics::StatusTimer;
+use anyhow::Context as _;
 use async_broadcast::Receiver as BroadcastReceiver;
 use common::{
     codel_queue::{
@@ -72,9 +74,9 @@ const PAUSE_DURING_GENERATE_VALUE_LABEL: &str = "generate_value";
 /// errors for other requests to the same key that happen to be waiting. The
 /// cost is that we have to spawn more value calculating threads and that the
 /// desired concurrency of the cache may not match that of the caller.
-pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized> {
+pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized, FetchKey = Key> {
     runtime: RT,
-    inner: Arc<Mutex<Inner<RT, Key, Value>>>,
+    inner: Arc<Mutex<Inner<RT, Key, Value, FetchKey>>>,
     label: &'static str,
     handle: Arc<Box<dyn SpawnHandle>>,
 }
@@ -82,7 +84,7 @@ pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized> {
 pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
 pub type ValueGenerator<Key, Value> = BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>;
 
-impl<RT: Runtime, Key, Value: ?Sized> Clone for AsyncLru<RT, Key, Value> {
+impl<RT: Runtime, Key, Value: ?Sized, FetchKey> Clone for AsyncLru<RT, Key, Value, FetchKey> {
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime.clone(),
@@ -92,42 +94,35 @@ impl<RT: Runtime, Key, Value: ?Sized> Clone for AsyncLru<RT, Key, Value> {
         }
     }
 }
-enum CacheResult<Value: ?Sized> {
-    Ready {
-        value: Arc<Value>,
-        // Memoize the size to guard against implementations of `SizedValue`
-        // that (unexpectedly) change while the value is in the cache.
-        size: u64,
-        added: tokio::time::Instant,
-    },
-    Waiting {
-        receiver: BroadcastReceiver<Result<Arc<Value>, Arc<anyhow::Error>>>,
-    },
+struct CacheEntry<Value: ?Sized> {
+    value: Arc<Value>,
+    // Memoize the size to guard against implementations of `SizedValue`
+    // that (unexpectedly) change while the value is in the cache.
+    size: u64,
+    added: tokio::time::Instant,
 }
 
-impl<Value: SizedValue + ?Sized> SizedValue for CacheResult<Value> {
+impl<Value: SizedValue + ?Sized> SizedValue for CacheEntry<Value> {
     fn size(&self) -> u64 {
-        match self {
-            CacheResult::Ready { size, .. } => *size,
-            CacheResult::Waiting { .. } => 0,
-        }
+        self.size
     }
 }
 
-struct Inner<RT: Runtime, Key, Value: ?Sized> {
-    cache: LruCache<Key, CacheResult<Value>>,
+struct Inner<RT: Runtime, Key, Value: ?Sized, FetchKey> {
+    cache: LruCache<Key, CacheEntry<Value>>,
     current_size: u64,
     max_size: u64,
     label: &'static str,
-    tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value>>,
+    tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value, FetchKey>>,
+    in_progress: HashMap<FetchKey, BroadcastReceiver<BuildValueResult<Key, Value>>>,
 }
 
-impl<RT: Runtime, Key, Value: ?Sized> Inner<RT, Key, Value> {
+impl<RT: Runtime, Key, Value: ?Sized, FetchKey> Inner<RT, Key, Value, FetchKey> {
     fn new(
-        cache: LruCache<Key, CacheResult<Value>>,
+        cache: LruCache<Key, CacheEntry<Value>>,
         max_size: u64,
         label: &'static str,
-        tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value>>,
+        tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value, FetchKey>>,
     ) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             cache,
@@ -135,6 +130,7 @@ impl<RT: Runtime, Key, Value: ?Sized> Inner<RT, Key, Value> {
             max_size,
             label,
             tx,
+            in_progress: HashMap::new(),
         }))
     }
 }
@@ -178,24 +174,24 @@ impl SizedValue for BTreeMap<ComponentId, ComponentPath> {
     }
 }
 
-type BuildValueResult<Value> = Result<Arc<Value>, Arc<anyhow::Error>>;
+type BuildValueResult<Key, Value> = Result<Arc<HashMap<Key, Arc<Value>>>, Arc<anyhow::Error>>;
 
-type BuildValueRequest<Key, Value> = (
-    Key,
+type BuildValueRequest<Key, Value, FetchKey> = (
+    FetchKey,
     ValueGenerator<Key, Value>,
-    async_broadcast::Sender<BuildValueResult<Value>>,
+    async_broadcast::Sender<BuildValueResult<Key, Value>>,
 );
 
-enum Status<Value: ?Sized> {
+enum Status<Key, Value: ?Sized> {
     Ready(Arc<Value>),
-    Waiting(async_broadcast::Receiver<BuildValueResult<Value>>),
+    Waiting(async_broadcast::Receiver<BuildValueResult<Key, Value>>),
     Kickoff(
-        async_broadcast::Receiver<BuildValueResult<Value>>,
+        async_broadcast::Receiver<BuildValueResult<Key, Value>>,
         StatusTimer,
     ),
 }
 
-impl<Value: ?Sized> std::fmt::Display for Status<Value> {
+impl<Key, Value: ?Sized> std::fmt::Display for Status<Key, Value> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Status::Ready(_) => write!(f, "Ready"),
@@ -209,7 +205,8 @@ impl<
         RT: Runtime,
         Key: Hash + Eq + Debug + Clone + Send + Sync + 'static,
         Value: Send + Sync + 'static + SizedValue + ?Sized,
-    > AsyncLru<RT, Key, Value>
+        FetchKey: Hash + Eq + Debug + Clone + Send + Sync + 'static,
+    > AsyncLru<RT, Key, Value, FetchKey>
 {
     /// Create a new fixed size LRU where the maximum size is determined by
     /// `max_size` and the size of each entry is determined by the
@@ -242,9 +239,9 @@ impl<
     }
 
     fn _new(
-        queue: CoDelQueue<RT, BuildValueRequest<Key, Value>>,
+        queue: CoDelQueue<RT, BuildValueRequest<Key, Value, FetchKey>>,
         rt: RT,
-        cache: LruCache<Key, CacheResult<Value>>,
+        cache: LruCache<Key, CacheEntry<Value>>,
         max_size: u64,
         concurrency: usize,
         label: &'static str,
@@ -263,42 +260,33 @@ impl<
         }
     }
 
-    fn drop_waiting(inner: Arc<Mutex<Inner<RT, Key, Value>>>, key: &Key) {
+    fn drop_waiting(inner: &Mutex<Inner<RT, Key, Value, FetchKey>>, key: &FetchKey) {
         let mut inner = inner.lock();
-        // Only remove if still Waiting
-        if matches!(inner.cache.peek(key), Some(CacheResult::Waiting { .. })) {
-            inner.cache.pop(key);
-        }
+        inner.in_progress.remove(key);
     }
 
     fn update_value(
         rt: &RT,
-        inner: &Arc<Mutex<Inner<RT, Key, Value>>>,
+        inner: &Arc<Mutex<Inner<RT, Key, Value, FetchKey>>>,
         key: Key,
         result: &Arc<Value>,
     ) {
         let mut inner = inner.lock();
-        let new_value = CacheResult::Ready {
+        let new_value = CacheEntry {
             size: result.size(),
             value: result.clone(),
             added: rt.monotonic_now(),
         };
         inner.current_size += new_value.size();
-        // Ideally we'd not change the LRU order by putting here...
         if let Some(old_value) = inner.cache.put(key, new_value) {
-            // Allow overwriting entries (Waiting or Ready) which may have been populated
+            // Allow overwriting entries which may have been populated
             // by racing requests with prefetches.
             inner.current_size -= old_value.size();
         }
         Self::trim_to_size(&mut inner);
     }
 
-    // This may evict 'waiting' entries under high load. That will
-    // cause a channel error for callers who could choose to retry.
-    // If this becomes an issue, we can iterate over the entries,
-    // collect a set of keys to evict and manually pop each key
-    // from the LRU.
-    fn trim_to_size(inner: &mut Inner<RT, Key, Value>) {
+    fn trim_to_size(inner: &mut Inner<RT, Key, Value, FetchKey>) {
         while inner.current_size > inner.max_size {
             let (_, evicted) = inner
                 .cache
@@ -306,23 +294,17 @@ impl<
                 .expect("Over max size, but no more entries");
             // This isn't catastrophic necessarily, but it may lead to
             // under / over counting of the cache's size.
-            if let CacheResult::Ready {
-                ref value,
-                size,
-                ref added,
-            } = evicted
-            {
-                if size != value.size() {
-                    tracing::warn!(
-                        "Value changed size from {} to {} while in the {} cache!",
-                        size,
-                        value.size(),
-                        inner.label
-                    )
-                }
-                async_lru_log_eviction(inner.label, added.elapsed());
+            let CacheEntry { value, size, added } = evicted;
+            if size != value.size() {
+                tracing::warn!(
+                    "Value changed size from {} to {} while in the {} cache!",
+                    size,
+                    value.size(),
+                    inner.label
+                )
             }
-            inner.current_size -= evicted.size();
+            async_lru_log_eviction(inner.label, added.elapsed());
+            inner.current_size -= size;
         }
     }
 
@@ -331,13 +313,23 @@ impl<
         inner.current_size
     }
 
+    /// Get `key`. If it is not present, run `value_generator` and cache every
+    /// key/value pair it returns.
+    ///
+    /// Concurrent fetches are deduplicated by `fetch_key`: if a fetch with the
+    /// same `fetch_key` is already in flight, this call waits for its result
+    /// instead of running `value_generator`. Callers must therefore ensure
+    /// that any generator passed with a given `fetch_key` produces a map
+    /// containing every `key` that may be requested alongside that
+    /// `fetch_key`; otherwise the deduplicated calls will fail.
     pub async fn get_and_prepopulate(
         &self,
         key: Key,
+        fetch_key: FetchKey,
         value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Arc<Value>> {
         let timer = async_lru_get_timer(self.label);
-        let result = self._get(&key, value_generator).await;
+        let result = self._get(&key, fetch_key, value_generator).await;
         timer.finish(result.is_ok());
         result
     }
@@ -350,12 +342,14 @@ impl<
     where
         Key: Clone,
         Arc<Value>: From<V>,
+        FetchKey: From<Key>,
     {
         let timer = async_lru_get_timer(self.label);
         let key_ = key.clone();
         let result = self
             ._get(
                 &key_,
+                key.clone().into(),
                 Box::pin(async move {
                     let mut hashmap = HashMap::new();
                     hashmap.insert(key, <Arc<Value>>::from(value_generator.await?));
@@ -370,10 +364,11 @@ impl<
     async fn _get(
         &self,
         key: &Key,
+        fetch_key: FetchKey,
         value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Arc<Value>> {
         let pause_client = self.runtime.pause_client();
-        let status = self.get_sync(key, value_generator)?;
+        let status = self.get_sync(key, fetch_key, value_generator)?;
         tracing::debug!("Getting key {key:?} with status {status}");
         match status {
             Status::Ready(value) => Ok(value),
@@ -390,21 +385,22 @@ impl<
     fn get_sync(
         &self,
         key: &Key,
+        fetch_key: FetchKey,
         value_generator: ValueGenerator<Key, Value>,
-    ) -> anyhow::Result<Status<Value>> {
+    ) -> anyhow::Result<Status<Key, Value>> {
         let mut inner = self.inner.lock();
+        let inner = &mut *inner;
         log_async_lru_size(inner.cache.len(), inner.current_size, self.label);
-        match inner.cache.get(key) {
-            Some(CacheResult::Ready { value, .. }) => {
-                log_async_lru_cache_hit(self.label);
-                Ok(Status::Ready(value.clone()))
-            },
-            Some(CacheResult::Waiting { receiver }) => {
+        if let Some(CacheEntry { value, .. }) = inner.cache.get(key) {
+            log_async_lru_cache_hit(self.label);
+            return Ok(Status::Ready(value.clone()));
+        }
+        match inner.in_progress.entry(fetch_key) {
+            Entry::Occupied(waiting) => {
                 log_async_lru_cache_waiting(self.label);
-                let receiver = receiver.clone();
-                Ok(Status::Waiting(receiver))
+                Ok(Status::Waiting(waiting.get().clone()))
             },
-            None => {
+            Entry::Vacant(v) => {
                 log_async_lru_cache_miss(self.label);
 
                 // Run the value_generator in the span context of the original client that
@@ -420,16 +416,11 @@ impl<
                 // there can't be any other waiters for this key right now, so
                 // it should be safe to abort.
                 inner.tx.clone().try_send((
-                    key.clone(),
+                    v.key().clone(),
                     value_generator.in_span(span).boxed(),
                     tx,
                 ))?;
-                inner.cache.put(
-                    key.clone(),
-                    CacheResult::Waiting {
-                        receiver: rx.clone(),
-                    },
-                );
+                v.insert(rx.clone());
                 Ok(Status::Kickoff(rx, timer))
             },
         }
@@ -438,7 +429,7 @@ impl<
     #[fastrace::trace]
     async fn wait_for_value(
         key: &Key,
-        mut receiver: async_broadcast::Receiver<BuildValueResult<Value>>,
+        mut receiver: async_broadcast::Receiver<BuildValueResult<Key, Value>>,
     ) -> anyhow::Result<Arc<Value>> {
         // No work should be canceled while anyone is waiting on it, so it's a
         // developer error if recv ever returns a failure due to the channel
@@ -447,7 +438,10 @@ impl<
         match recv_result {
             Ok(value) => {
                 tracing::debug!("Finished waiting on another task to fetch key {key:?}");
-                Ok(value)
+                value
+                    .get(key)
+                    .context("Value generator did not produce requested key")
+                    .cloned()
             },
             // We recapture the error in the string so that we don't lose the stacktrace since the
             // original stacktrace is stuck inside an Arc<anyhow::Error>
@@ -457,35 +451,32 @@ impl<
 
     async fn value_generating_worker_thread(
         rt: RT,
-        rx: CoDelQueueReceiver<RT, BuildValueRequest<Key, Value>>,
-        inner: Arc<Mutex<Inner<RT, Key, Value>>>,
+        rx: CoDelQueueReceiver<RT, BuildValueRequest<Key, Value, FetchKey>>,
+        inner: Arc<Mutex<Inner<RT, Key, Value, FetchKey>>>,
         concurrency: usize,
     ) {
-        rx.for_each_concurrent(concurrency, |((key, generator, tx), expired)| {
+        rx.for_each_concurrent(concurrency, |((fetch_key, generator, tx), expired)| {
             let inner = inner.clone();
             let rt = rt.clone();
             async move {
                 if let Some(expired) = expired {
-                    Self::drop_waiting(inner, &key);
+                    Self::drop_waiting(&inner, &fetch_key);
                     let _ = tx.broadcast(Err(Arc::new(anyhow::anyhow!(expired)))).await;
                     return;
                 }
 
                 match generator.await {
                     Ok(values) => {
-                        for (k, value) in values {
-                            let is_requested_key = k == key;
-                            Self::update_value(&rt, &inner, k, &value);
-                            if is_requested_key {
-                                let _ = tx.broadcast(Ok(value)).await;
-                            }
+                        for (k, value) in &values {
+                            Self::update_value(&rt, &inner, k.clone(), value);
                         }
+                        _ = tx.broadcast(Ok(values.into())).await;
                     },
                     Err(e) => {
-                        Self::drop_waiting(inner, &key);
                         _ = tx.broadcast(Err(Arc::new(e))).await;
                     },
                 }
+                Self::drop_waiting(&inner, &fetch_key);
             }
         })
         .await;

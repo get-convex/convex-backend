@@ -169,6 +169,7 @@ use database::{
     Transaction,
     UserFacingModel,
     WriteSource,
+    MAX_OCC_FAILURES,
 };
 use either::Either;
 use errors::{
@@ -3545,6 +3546,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         request_metadata: RequestMetadata,
         write_source: impl Into<WriteSource>,
+        max_occ_failures: u32,
         f: F,
     ) -> anyhow::Result<(T, Timestamp)>
     where
@@ -3557,9 +3559,16 @@ impl<RT: Runtime> Application<RT> {
     {
         let db = self.database.clone();
         let (ts, (t, events), _stats) = db
-            .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
-                Self::insert_deployment_audit_log_events(tx, &f, request_metadata.clone()).into()
-            })
+            .execute_with_occ_retries(
+                identity,
+                FunctionUsageTracker::new(),
+                max_occ_failures,
+                write_source,
+                |tx| {
+                    Self::insert_deployment_audit_log_events(tx, &f, request_metadata.clone())
+                        .into()
+                },
+            )
             .await?;
         // Send deployment audit logs
         let logs = events
@@ -3590,9 +3599,16 @@ impl<RT: Runtime> Application<RT> {
     {
         let db = self.database.clone();
         let (ts, (t, events), stats) = db
-            .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
-                Self::insert_deployment_audit_log_events(tx, &f, request_metadata.clone()).into()
-            })
+            .execute_with_occ_retries(
+                identity,
+                FunctionUsageTracker::new(),
+                MAX_OCC_FAILURES,
+                write_source,
+                |tx| {
+                    Self::insert_deployment_audit_log_events(tx, &f, request_metadata.clone())
+                        .into()
+                },
+            )
             .await?;
         // Send deployment audit logs
         // TODO CX-5139 Remove this when audit logs are being processed in LogManager.
@@ -3611,6 +3627,7 @@ impl<RT: Runtime> Application<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
+        max_failures: u32,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T)>
@@ -3620,7 +3637,7 @@ impl<RT: Runtime> Application<RT> {
         F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         self.database
-            .execute_with_occ_retries(identity, usage, write_source, f)
+            .execute_with_occ_retries(identity, usage, max_failures, write_source, f)
             .await
             .map(|(ts, t, _)| (ts, t))
     }
