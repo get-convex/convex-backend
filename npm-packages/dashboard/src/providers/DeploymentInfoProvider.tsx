@@ -31,6 +31,7 @@ import { useLogDeploymentEvent } from "hooks/deploymentApi";
 import { useAccessToken } from "hooks/useServerSideData";
 import { Fallback } from "pages/500";
 import { useTeamUsageState } from "api/usage";
+import { useTeamOrbSubscription } from "api/billing";
 import { useProjectEnvironmentVariables } from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
@@ -139,6 +140,7 @@ export function DeploymentInfoProvider({
     connectionStateCheckIntervalMs,
     logStreamTopicFilters,
     schemaPage,
+    usageLimits,
   } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
@@ -162,6 +164,10 @@ export function DeploymentInfoProvider({
         useCurrentProject,
         useCurrentUsageBanner,
         useTeamUsageState,
+        useTeamPlanType: (teamId) => {
+          const { subscription } = useTeamOrbSubscription(teamId ?? undefined);
+          return subscription?.plan?.planType ?? null;
+        },
         useCurrentDeployment: () => {
           const deployment = useCurrentDeployment();
           if (!deployment) return undefined;
@@ -217,6 +223,7 @@ export function DeploymentInfoProvider({
         workosIntegrationEnabled: workOsEnvironmentProvisioningDashboardUi,
         logStreamTopicFiltersEnabled: logStreamTopicFilters,
         schemaPageEnabled: schemaPage,
+        usageLimitsEnabled: usageLimits,
         connectionStateCheckIntervalMs,
       });
     };
@@ -236,6 +243,7 @@ export function DeploymentInfoProvider({
     workOsEnvironmentProvisioningDashboardUi,
     logStreamTopicFilters,
     schemaPage,
+    usageLimits,
     connectionStateCheckIntervalMs,
   ]);
 

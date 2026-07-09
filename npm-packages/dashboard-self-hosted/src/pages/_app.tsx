@@ -314,6 +314,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   ),
   DisconnectOverlay: () => <SelfHostedDisconnectOverlay />,
   useTeamUsageState: () => "Default",
+  useTeamPlanType: () => null,
   teamsURI: "",
   projectsURI: "",
   deploymentsURI: "",
@@ -321,6 +322,9 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   workosIntegrationEnabled: false,
   logStreamTopicFiltersEnabled: true,
   schemaPageEnabled: true,
+  // Gated off until the usage limits feature ships; self-hosted has no
+  // LaunchDarkly, so flip this to true at launch.
+  usageLimitsEnabled: false,
   connectionStateCheckIntervalMs: 2500,
 };
 

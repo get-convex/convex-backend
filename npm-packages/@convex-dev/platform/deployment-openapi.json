@@ -207,6 +207,185 @@
         ]
       }
     },
+    "/list_usage_limits": {
+      "get": {
+        "tags": [
+          "Usage Limits"
+        ],
+        "summary": "List usage limits",
+        "description": "Get all usage limit configs for a deployment.",
+        "operationId": "list_usage_limits",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListUsageLimitsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/create_usage_limit": {
+      "post": {
+        "tags": [
+          "Usage Limits"
+        ],
+        "summary": "Create usage limit",
+        "description": "Create a new usage limit config for a deployment.",
+        "operationId": "create_usage_limit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageLimitConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageLimitResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/update_usage_limit/{id}": {
+      "post": {
+        "tags": [
+          "Usage Limits"
+        ],
+        "summary": "Update usage limit",
+        "description": "Replace an existing usage limit config for a deployment.",
+        "operationId": "update_usage_limit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of the usage limit to update",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageLimitConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageLimitResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/delete_usage_limit/{id}": {
+      "post": {
+        "tags": [
+          "Usage Limits"
+        ],
+        "summary": "Delete usage limit",
+        "description": "Delete an existing usage limit config for a deployment.",
+        "operationId": "delete_usage_limit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of the usage limit to delete",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
     "/update_canonical_url": {
       "post": {
         "tags": [
@@ -1493,6 +1672,20 @@
           }
         }
       },
+      "ListUsageLimitsResponse": {
+        "type": "object",
+        "required": [
+          "usageLimits"
+        ],
+        "properties": {
+          "usageLimits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageLimitConfigResponse"
+            }
+          }
+        }
+      },
       "LogStreamConfig": {
         "oneOf": [
           {
@@ -2274,6 +2467,91 @@
               "null"
             ],
             "description": "URL to send logs to."
+          }
+        }
+      },
+      "UsageLimitConfigRequest": {
+        "type": "object",
+        "required": [
+          "metric",
+          "window",
+          "limitType",
+          "limit",
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "limitType": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "window": {
+            "type": "string"
+          }
+        }
+      },
+      "UsageLimitConfigResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "metric",
+          "window",
+          "limitType",
+          "limit",
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "limitType": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "window": {
+            "type": "string"
+          }
+        }
+      },
+      "UsageLimitResponse": {
+        "type": "object",
+        "required": [
+          "usageLimit"
+        ],
+        "properties": {
+          "usageLimit": {
+            "$ref": "#/components/schemas/UsageLimitConfigResponse"
           }
         }
       },

@@ -3,6 +3,7 @@ import { DeploymentInfo } from "@common/lib/deploymentContext";
 export const mockDeploymentInfo: DeploymentInfo = {
   ok: true,
   schemaPageEnabled: true,
+  usageLimitsEnabled: true,
   reportHttpError: () => {},
   captureException: () => {},
   captureMessage: () => {},
@@ -103,6 +104,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   ),
   DisconnectOverlay: () => <div>Disconnected</div>,
   useTeamUsageState: () => "Default",
+  useTeamPlanType: () => null,
   teamsURI: "",
   projectsURI: "",
   deploymentsURI: "",

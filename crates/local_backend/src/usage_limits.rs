@@ -336,24 +336,9 @@ where
     LocalAppState: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
-    // These routes are intentionally registered with `route` instead of
-    // `routes!` so that the endpoints stay available on the deployment API but
-    // are hidden from the generated OpenAPI spec (and therefore the public API
-    // docs) while we're still shipping the usage limits feature. Once the
-    // feature ships, switch these back to `routes!(...)` to publish them (the
-    // `#[utoipa::path]` annotations on the handlers are kept for that purpose).
     OpenApiRouter::new()
-        .route("/list_usage_limits", axum::routing::get(list_usage_limits))
-        .route(
-            "/create_usage_limit",
-            axum::routing::post(create_usage_limit),
-        )
-        .route(
-            "/update_usage_limit/{id}",
-            axum::routing::post(update_usage_limit),
-        )
-        .route(
-            "/delete_usage_limit/{id}",
-            axum::routing::post(delete_usage_limit),
-        )
+        .routes(utoipa_axum::routes!(list_usage_limits))
+        .routes(utoipa_axum::routes!(create_usage_limit))
+        .routes(utoipa_axum::routes!(update_usage_limit))
+        .routes(utoipa_axum::routes!(delete_usage_limit))
 }

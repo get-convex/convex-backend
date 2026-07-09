@@ -13,6 +13,7 @@ export const flagDefaults: {
   customRoles: boolean;
   logStreamTopicFilters: boolean;
   schemaPage: boolean;
+  usageLimits: boolean;
   nonDefaultTeamDevsInMainMenu: number;
 } = {
   commandPalette: false,
@@ -26,6 +27,7 @@ export const flagDefaults: {
   customRoles: false,
   logStreamTopicFilters: false,
   schemaPage: false,
+  usageLimits: false,
   nonDefaultTeamDevsInMainMenu: 10,
 };
 
