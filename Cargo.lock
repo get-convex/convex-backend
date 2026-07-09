@@ -1507,7 +1507,7 @@ dependencies = [
  "bitflags 2.10.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -7634,7 +7634,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18bec9b0adc4eba778b33684b7ba3e7137789434769ee3ce3930463ef904cfca"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.118",
@@ -11146,9 +11146,8 @@ dependencies = [
 
 [[package]]
 name = "v8"
-version = "149.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46dccf61a364b61bbaac70a8ba64a1a1006e87123b7d62eaeec999a3ba31ecdb"
+version = "149.2.2"
+source = "git+https://github.com/get-convex/rusty_v8?rev=8815e2158c8f9c284b55e3be137e82c6f40f1d19#8815e2158c8f9c284b55e3be137e82c6f40f1d19"
 dependencies = [
  "bindgen 0.72.1",
  "bitflags 2.10.0",
