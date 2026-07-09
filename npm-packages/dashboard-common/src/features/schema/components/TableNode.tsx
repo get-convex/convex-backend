@@ -70,6 +70,18 @@ export function FlowTableNode({ data }: NodeProps<TableFlowNode>) {
             </span>
           )}
         </div>
+        {node.union && (
+          <span
+            title={
+              node.union.discriminator
+                ? `Union of ${node.union.variants.length} members, discriminated by "${node.union.discriminator}". Open this table to switch between members.`
+                : `Union of ${node.union.variants.length} members. Open this table to switch between members.`
+            }
+            className="ml-auto shrink-0 rounded-sm border px-1 font-sans text-[10px] font-medium text-content-tertiary"
+          >
+            union
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col">
