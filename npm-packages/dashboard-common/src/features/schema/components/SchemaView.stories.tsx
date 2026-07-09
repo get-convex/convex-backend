@@ -249,6 +249,11 @@ const deploymentInfo = {
 
 const meta = {
   component: SchemaView,
+  args: { clustering: false },
+  argTypes: {
+    // Toggle table grouping live to compare grouped vs. ungrouped layouts.
+    clustering: { control: "boolean" },
+  },
   parameters: {
     layout: "fullscreen",
     nextjs: {
@@ -749,27 +754,182 @@ export const HubTable: Story = savedSchemaStory([
  * nodes per level — a roughly rectangular graph rather than the very wide, short
  * one a bushy tree would produce. Each node references its parent.
  */
-export const ManyTables: Story = savedSchemaStory(
-  (() => {
-    const COUNT = 300;
-    const WIDTH = 18;
-    const FIELD_COUNT = 10;
-    const name = (n: number) => `table_${String(n).padStart(3, "0")}`;
-    return Array.from({ length: COUNT }, (_, i) => {
-      const fields: Record<string, Field> = { name: str };
-      if (i > 0) {
-        // First WIDTH nodes hang off the root; each later node extends the chain
-        // WIDTH slots above it.
-        const parent = i <= WIDTH ? 0 : i - WIDTH;
-        fields.parent = { type: id(name(parent)) };
-      }
-      // Pad to FIELD_COUNT fields with assorted scalars (no extra edges).
-      let f = 1;
-      while (Object.keys(fields).length < FIELD_COUNT) {
-        fields[`field${f}`] = f % 2 === 0 ? num : str;
-        f += 1;
-      }
-      return table(name(i), fields);
-    });
-  })(),
-);
+const manyTablesSchema = (() => {
+  const COUNT = 300;
+  const WIDTH = 18;
+  const FIELD_COUNT = 10;
+  const name = (n: number) => `table_${String(n).padStart(3, "0")}`;
+  return Array.from({ length: COUNT }, (_, i) => {
+    const fields: Record<string, Field> = { name: str };
+    if (i > 0) {
+      // First WIDTH nodes hang off the root; each later node extends the chain
+      // WIDTH slots above it.
+      const parent = i <= WIDTH ? 0 : i - WIDTH;
+      fields.parent = { type: id(name(parent)) };
+    }
+    // Pad to FIELD_COUNT fields with assorted scalars (no extra edges).
+    let f = 1;
+    while (Object.keys(fields).length < FIELD_COUNT) {
+      fields[`field${f}`] = f % 2 === 0 ? num : str;
+      f += 1;
+    }
+    return table(name(i), fields);
+  });
+})();
+
+export const ManyTables: Story = savedSchemaStory(manyTablesSchema);
+
+/**
+ * The same large schema with clustering on: one giant connected component, so
+ * connected-component grouping does nothing and community detection carries
+ * the load — it splits the tree of chains into contiguous sub-groups, each
+ * laid out together and drawn inside a labelled hull. Compare against
+ * `ManyTables` to judge grouped vs. ungrouped layout on a large graph.
+ */
+export const ManyTablesClustered: Story = {
+  ...savedSchemaStory(manyTablesSchema),
+  args: { clustering: true },
+};
+
+/**
+ * Several disconnected islands plus two fully isolated tables, clustering on.
+ * Each island of 2+ tables becomes its own labelled group; the isolated tables
+ * (`settings`, `migrations`) stay ungrouped. Exercises the connected-component
+ * half of the grouping.
+ */
+export const DisconnectedComponents: Story = {
+  ...savedSchemaStory([
+    // Island 1: a blog-ish cluster around `users`.
+    table("users", { name: str }),
+    table("posts", { title: str, author: { type: id("users") } }),
+    table("comments", {
+      body: str,
+      post: { type: id("posts") },
+      author: { type: id("users") },
+    }),
+    // Island 2: a commerce cluster around `orders`.
+    table("products", { name: str, price: num }),
+    table("orders", { total: num }),
+    table("orderItems", {
+      order: { type: id("orders") },
+      product: { type: id("products") },
+      quantity: num,
+    }),
+    // Island 3: a mutual pair.
+    table("teams", { name: str, owner: { type: id("teamMembers") } }),
+    table("teamMembers", { name: str, team: { type: id("teams") } }),
+    // Isolated tables — left ungrouped.
+    table("settings", { key: str, value: str }),
+    table("migrations", { version: num, appliedAt: num }),
+  ]),
+  args: { clustering: true },
+};
+
+/**
+ * One connected component that community detection splits into three
+ * internally-dense groups linked by a few cross-group references. Those
+ * cross-group edges "escape" their clusters and are drawn crossing the hull
+ * boundaries — the case where grouping is a heuristic, not a hard partition.
+ */
+export const ConnectedClusters: Story = {
+  ...savedSchemaStory([
+    // Commerce group (dense internally), with edges out to catalog and users.
+    table("orders", { user: { type: id("users") }, total: num }),
+    table("orderItems", {
+      order: { type: id("orders") },
+      product: { type: id("products") },
+      quantity: num,
+    }),
+    table("payments", { order: { type: id("orders") }, amount: num }),
+    table("shipments", {
+      order: { type: id("orders") },
+      address: { type: id("addresses") },
+    }),
+    table("refunds", { payment: { type: id("payments") }, amount: num }),
+    // Catalog group.
+    table("products", {
+      category: { type: id("categories") },
+      supplier: { type: id("suppliers") },
+      name: str,
+    }),
+    table("categories", { name: str }),
+    table("variants", { product: { type: id("products") }, sku: str }),
+    table("inventory", { product: { type: id("products") }, count: num }),
+    table("suppliers", { name: str }),
+    // Users group (star around `users`).
+    table("users", { name: str }),
+    table("profiles", { user: { type: id("users") }, bio: str }),
+    table("sessions", { user: { type: id("users") }, token: str }),
+    table("addresses", { user: { type: id("users") }, line1: str }),
+    table("preferences", { user: { type: id("users") }, theme: str }),
+  ]),
+  args: { clustering: true },
+};
+
+/**
+ * A more tangled schema: loose content / social / commerce groups, but with
+ * heavy cross-linking (almost everything references `users`, and tables
+ * reference across groups freely). Community detection has to make judgement
+ * calls here, so this is the story for eyeballing how sensible — or arbitrary —
+ * the groupings look when the structure is genuinely muddy.
+ */
+export const TangledClusters: Story = {
+  ...savedSchemaStory([
+    table("users", {
+      name: str,
+      invitedBy: { type: id("users"), optional: true },
+    }),
+    table("posts", {
+      author: { type: id("users") },
+      product: { type: id("products"), optional: true },
+    }),
+    table("comments", {
+      author: { type: id("users") },
+      post: { type: id("posts") },
+      replyTo: { type: id("comments"), optional: true },
+    }),
+    table("reactions", {
+      user: { type: id("users") },
+      post: { type: id("posts"), optional: true },
+      comment: { type: id("comments"), optional: true },
+    }),
+    table("tags", { name: str, createdBy: { type: id("users") } }),
+    table("postTags", {
+      post: { type: id("posts") },
+      tag: { type: id("tags") },
+    }),
+    table("follows", {
+      follower: { type: id("users") },
+      following: { type: id("users") },
+    }),
+    table("messages", {
+      from: { type: id("users") },
+      to: { type: id("users") },
+      aboutPost: { type: id("posts"), optional: true },
+    }),
+    table("notifications", {
+      user: { type: id("users") },
+      post: { type: id("posts"), optional: true },
+      comment: { type: id("comments"), optional: true },
+      message: { type: id("messages"), optional: true },
+    }),
+    table("products", {
+      seller: { type: id("users") },
+      featuredPost: { type: id("posts"), optional: true },
+    }),
+    table("orders", {
+      buyer: { type: id("users") },
+      product: { type: id("products") },
+    }),
+    table("reviews", {
+      author: { type: id("users") },
+      product: { type: id("products") },
+      order: { type: id("orders") },
+    }),
+    table("carts", {
+      user: { type: id("users") },
+      product: { type: id("products") },
+    }),
+  ]),
+  args: { clustering: true },
+};

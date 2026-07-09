@@ -28,13 +28,15 @@ import {
 } from "@common/features/schema/lib/buildSchemaGraph";
 import { SchemaFlow } from "@common/features/schema/components/SchemaFlow";
 import { SchemaSidePanel } from "@common/features/schema/components/SchemaSidePanel";
-import {
-  SafariLargeSchemaWarning,
-  SAFARI_LARGE_SCHEMA_TABLE_COUNT,
-} from "@common/features/schema/components/SafariLargeSchemaWarning";
-import { useIsSafari } from "@common/lib/useIsSafari";
 
-export function SchemaView() {
+export function SchemaView({
+  // Initial automatic-grouping state used only when the user hasn't toggled it
+  // yet (the choice is then persisted per deployment). Defaults on; exposed as
+  // a prop so stories can compare grouped vs. ungrouped layouts.
+  clustering = true,
+}: {
+  clustering?: boolean;
+}) {
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewData = useIsOperationAllowed("ViewData");
 
@@ -81,11 +83,6 @@ export function SchemaView() {
 
   const [isShowingSchema, setIsShowingSchema] = useState(false);
 
-  // Safari can struggle to render large schema graphs, so we gate rendering
-  // behind an explicit opt-in for those users once the schema is large enough.
-  const isSafari = useIsSafari();
-  const [renderAnyway, setRenderAnyway] = useState(false);
-
   // The schema page is feature-flagged; if it's off, don't render it even when
   // reached by a direct URL — send the user to the data page.
   const router = useRouter();
@@ -118,12 +115,6 @@ export function SchemaView() {
   const isLoading =
     activeSchema === undefined || (shapes === undefined && !hadError);
 
-  const shouldWarnLargeSchemaInSafari =
-    isSafari &&
-    !renderAnyway &&
-    graph !== null &&
-    graph.nodes.length > SAFARI_LARGE_SCHEMA_TABLE_COUNT;
-
   return (
     <div className="flex h-full max-w-full grow flex-col overflow-hidden p-6">
       <DeploymentPageTitle title="Schema" />
@@ -154,17 +145,12 @@ export function SchemaView() {
           </div>
         ) : graph === null || graph.nodes.length === 0 ? (
           <EmptySchema hadError={hadError} />
-        ) : shouldWarnLargeSchemaInSafari ? (
-          <div className="h-full overflow-hidden rounded-lg border">
-            <SafariLargeSchemaWarning
-              onRenderAnyway={() => setRenderAnyway(true)}
-            />
-          </div>
         ) : (
           <div className="h-full overflow-hidden rounded-lg border">
             <SchemaGraphWithNavigation
               graph={graph}
               componentId={componentId}
+              clustering={clustering}
             />
           </div>
         )}
@@ -203,9 +189,11 @@ function SchemaHeader({
 function SchemaGraphWithNavigation({
   graph,
   componentId,
+  clustering,
 }: {
   graph: SchemaGraphData;
   componentId: ComponentId | undefined;
+  clustering: boolean;
 }) {
   const router = useRouter();
   const { deploymentsURI, useCurrentDeployment } = useContext(
@@ -292,6 +280,7 @@ function SchemaGraphWithNavigation({
           storageKey={storageKey}
           selectedTable={selectedTable}
           focusRequest={focusRequest}
+          clustering={clustering}
           onSelectNode={selectTable}
           onFocusTable={focusTable}
           onClearSelection={() => setSelectedTable(null)}
