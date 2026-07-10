@@ -37,16 +37,16 @@ export interface paths {
          * @description Get a project by its ID.
          */
         get: operations["get project by id"];
-        /**
-         * Update project
-         * @description Update a project's name and/or slug. Returns the updated project.
-         */
-        put: operations["update project"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update project
+         * @description Update a project's name and/or slug. Returns the updated project.
+         */
+        patch: operations["update project"];
         trace?: never;
     };
     "/teams/{team_id}/list_projects": {
