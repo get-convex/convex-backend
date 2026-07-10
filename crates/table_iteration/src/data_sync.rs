@@ -194,7 +194,14 @@ pub struct ProgressStatus {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DataSyncStatus {
     /// The entries emitted so far represent a consistent snapshot at `ts`.
-    Synced { ts: Timestamp },
+    Synced {
+        ts: Timestamp,
+        /// Whether `ts` is behind the latest timestamp — i.e. the snapshot is
+        /// consistent but not fully caught up to the most recent commit.
+        /// `false` means the sync read all the way to latest. Callers use this
+        /// to decide whether to keep iterating or take a break.
+        has_more: bool,
+    },
     /// More pages are required before the view is consistent.
     InProgress { progress: ProgressStatus },
 }
@@ -413,7 +420,12 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             };
         }
 
-        let status = status(cursor, target_tables.len() as u64, entries.len() as u64);
+        let status = status(
+            cursor,
+            *latest,
+            target_tables.len() as u64,
+            entries.len() as u64,
+        );
         Ok((entries, status))
     }
 
@@ -536,19 +548,23 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         }
 
         cursor.synced_ts = new_synced_ts;
-        let status = status(cursor, target_tables.len() as u64, 0);
+        let status = status(cursor, *latest, target_tables.len() as u64, 0);
         Ok((entries, status))
     }
 }
 
 fn status(
     cursor: &DataSyncCursor,
+    latest: Timestamp,
     total_tables: u64,
     num_documents_in_current_table: u64,
 ) -> DataSyncStatus {
     match &cursor.table_cursor {
         TableCursor::Synced => DataSyncStatus::Synced {
             ts: cursor.synced_ts,
+            // `synced_ts <= latest` always holds; if it's strictly behind there
+            // are commits past the snapshot still to sync.
+            has_more: cursor.synced_ts < latest,
         },
         TableCursor::InProgress { current_table, .. } => DataSyncStatus::InProgress {
             progress: ProgressStatus {
