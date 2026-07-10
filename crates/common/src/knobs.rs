@@ -107,6 +107,11 @@ pub static UDF_ANALYTICS_POLL_TIME: LazyLock<u64> =
 pub static APP_METRICS_SEED_SWEEP_INTERVAL: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("APP_METRICS_SEED_SWEEP_INTERVAL_SECS", 10)));
 
+/// How often the usage-limit worker evaluates recorded usage against the
+/// configured limits.
+pub static USAGE_LIMIT_EVALUATE_INTERVAL: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("USAGE_LIMIT_EVALUATE_INTERVAL_SECS", 10)));
+
 /// Delay before re-querying Databricks to backfill the most recent window that
 /// Databricks had not yet ingested at initial seed time. Databricks ingestion
 /// lags, so each deployment is seeded once at load and once
@@ -158,7 +163,7 @@ pub static HEAP_WORKER_REPORT_INTERVAL_SECONDS: LazyLock<Duration> =
 /// NOTE: If you update this, make sure to update the actions resource limits in
 /// the docs.
 pub static V8_ACTION_USER_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_USER_TIMEOUT_SECS", 600)));
+    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_USER_TIMEOUT_SECS", 1800)));
 
 /// This is the action timeout for Node.js actions. This is how much the user
 /// code should be allowed to run. Note that we buffer some overhead and the

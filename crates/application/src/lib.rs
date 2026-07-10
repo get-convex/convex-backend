@@ -318,6 +318,7 @@ use model::{
         types::UdfConfig,
         UdfConfigModel,
     },
+    usage_limits::UsageLimitsModel,
 };
 use node_executor::NodeActions;
 use parking_lot::Mutex;
@@ -413,6 +414,11 @@ use crate::{
     snapshot_import::{
         clear_tables,
         SnapshotImportWorker,
+    },
+    usage_limits::{
+        UsageLimitRecorder,
+        UsageLimitWorker,
+        UsageMeter,
     },
 };
 
@@ -604,6 +610,7 @@ pub struct Application<RT: Runtime> {
     application_storage: ApplicationStorage,
     usage_counter: UsageCounter,
     usage_event_logger: Arc<dyn UsageEventLogger>,
+    usage_meter: Arc<UsageMeter>,
     key_broker: KeyBroker,
     deployment: DeploymentMetadata,
     workers: WorkerHandles,
@@ -714,6 +721,12 @@ impl<RT: Runtime> Application<RT> {
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
+        // Wrap the usage logger so usage is recorded for enforcement before
+        // being forwarded downstream.
+        let usage_meter = Arc::new(UsageMeter::new(runtime.system_time())?);
+        let usage_event_logger: Arc<dyn UsageEventLogger> =
+            UsageLimitRecorder::new(runtime.clone(), usage_meter.clone(), usage_event_logger);
+
         let deployment_name = deployment.name.clone();
         let deployment_region = deployment.region.clone();
         let module_cache =
@@ -808,6 +821,26 @@ impl<RT: Runtime> Application<RT> {
             &deployment.name,
         )
         .await?;
+
+        let usage_limit_configs = UsageLimitsModel::new(&mut tx)
+            .list()
+            .await?
+            .into_iter()
+            .map(|config| {
+                let id = config.id();
+                (id, config.into_value())
+            })
+            .collect();
+        usage_meter.refresh_configs(usage_limit_configs);
+        let usage_limit_worker = Arc::new(Mutex::new(runtime.spawn(
+            "usage_limit_worker",
+            UsageLimitWorker::start(
+                runtime.clone(),
+                database.clone(),
+                Arc::new(log_manager_client.clone()),
+                usage_meter.clone(),
+            ),
+        )));
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
@@ -923,6 +956,7 @@ impl<RT: Runtime> Application<RT> {
             periodic_backup_worker,
             system_table_cleanup_worker,
             migration_worker,
+            usage_limit_worker,
         };
 
         let admin_keys_cache = {
@@ -953,6 +987,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage,
             usage_event_logger,
             usage_counter,
+            usage_meter,
             key_broker,
             deployment,
             workers,
@@ -965,6 +1000,10 @@ impl<RT: Runtime> Application<RT> {
             oidc_http_client,
             admin_keys_cache,
         })
+    }
+
+    pub fn usage_meter(&self) -> &Arc<UsageMeter> {
+        &self.usage_meter
     }
 
     pub fn runtime(&self) -> RT {
