@@ -139,6 +139,13 @@ use value::{
 
 use crate::TableScanCursor;
 
+/// Bump a test-only [`coverage`] counter. Expands to nothing outside
+/// `test`/`testing` builds, so the instrumentation is zero-cost in production.
+macro_rules! cover {
+    ($counter:path) => {
+    };
+}
+
 /// Where a `DataSyncIterator` is in its traversal of the `by_id` (document ID)
 /// dimension across the target tables.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -269,10 +276,13 @@ impl<RT: Runtime> DataSyncIterator<RT> {
 
         // Cold start, or reconcile an existing cursor against `target_tables`.
         let mut cursor = match cursor {
-            None => DataSyncCursor {
-                synced_ts: *latest,
-                synced_tables: BTreeSet::new(),
-                table_cursor: advance_to_next_table(&BTreeSet::new(), target_tables),
+            None => {
+                cover!(coverage::COLD_START);
+                DataSyncCursor {
+                    synced_ts: *latest,
+                    synced_tables: BTreeSet::new(),
+                    table_cursor: advance_to_next_table(&BTreeSet::new(), target_tables),
+                }
             },
             Some(mut cursor) => {
                 reconcile_target_tables(&mut cursor, target_tables);
@@ -283,11 +293,18 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         let use_by_id = match &cursor.table_cursor {
             // Nothing left to traverse in the ID dimension; only the `ts`
             // dimension can make progress (or hold us at a consistent snapshot).
-            TableCursor::Synced => false,
+            TableCursor::Synced => {
+                cover!(coverage::TS_SELECTED_SYNCED);
+                false
+            },
             TableCursor::InProgress { .. } => {
                 // `latest >= synced_ts` always holds, so this subtraction is safe.
                 let lag = *latest - cursor.synced_ts;
-                lag < self.by_id_freshness
+                let fresh = lag < self.by_id_freshness;
+                if !fresh {
+                    cover!(coverage::TS_SELECTED_LAG);
+                }
+                fresh
             },
         };
 
@@ -319,6 +336,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         else {
             anyhow::bail!("by_id_page called while Synced");
         };
+        cover!(coverage::BY_ID_PAGE);
         let by_id = *target_tables
             .get(&current_table)
             .context("current_table missing from target_tables")?;
@@ -346,6 +364,9 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         );
         let page: Vec<_> = stream.take(self.page_size_limit).try_collect().await?;
         let count_limited = page.len() >= self.page_size_limit;
+        if page.is_empty() {
+            cover!(coverage::BY_ID_EMPTY_PAGE);
+        }
 
         let mut entries = Vec::with_capacity(page.len());
         let mut new_current_id = current_id;
@@ -371,10 +392,20 @@ impl<RT: Runtime> DataSyncIterator<RT> {
 
         // The table is exhausted only if we emitted the whole fetched page and it
         // wasn't a full page. If either limit stopped us, there is more to read.
+        if count_limited {
+            cover!(coverage::BY_ID_COUNT_LIMITED);
+        }
+        if bytes_limited {
+            cover!(coverage::BY_ID_BYTES_LIMITED);
+        }
         let reached_end = !count_limited && !bytes_limited;
         if reached_end {
+            cover!(coverage::BY_ID_REACHED_END);
             cursor.synced_tables.insert(current_table);
             cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
+            if matches!(cursor.table_cursor, TableCursor::Synced) {
+                cover!(coverage::SYNC_COMPLETE);
+            }
         } else {
             cursor.table_cursor = TableCursor::InProgress {
                 current_table,
@@ -395,6 +426,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         latest: RepeatableTimestamp,
         target_tables: &BTreeMap<TabletId, IndexId>,
     ) -> anyhow::Result<(Vec<DocumentLogEntry>, DataSyncStatus)> {
+        cover!(coverage::TS_PAGE);
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
             latest,
@@ -442,10 +474,19 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                         committed_any = true;
                         // `page_size_limit`/`page_bytes_limit` are soft, checked
                         // only here so a transaction is never split across pages.
-                        if rows_read >= self.max_rows_read
-                            || entries.len() >= self.page_size_limit
-                            || page_bytes >= self.page_bytes_limit
-                        {
+                        let over_rows = rows_read >= self.max_rows_read;
+                        let over_size = entries.len() >= self.page_size_limit;
+                        let over_bytes = page_bytes >= self.page_bytes_limit;
+                        if over_rows || over_size || over_bytes {
+                            if over_rows {
+                                cover!(coverage::TS_LIMIT_ROWS);
+                            }
+                            if over_size {
+                                cover!(coverage::TS_LIMIT_PAGE_SIZE);
+                            }
+                            if over_bytes {
+                                cover!(coverage::TS_LIMIT_PAGE_BYTES);
+                            }
                             // Stop on this complete-timestamp boundary. `entry`
                             // (the first row of the next timestamp) is dropped
                             // and re-read on the next page.
@@ -457,8 +498,11 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                 }
                 rows_read += 1;
                 if is_captured(&entry.id, cursor) {
+                    cover!(coverage::TS_CAPTURED_EMITTED);
                     cur_batch_bytes += entry.value.as_ref().map_or(0, |doc| doc.size());
                     cur_batch.push(entry);
+                } else {
+                    cover!(coverage::TS_SKIPPED_UNCAPTURED);
                 }
                 // Enforce `max_rows_read` mid-transaction: if reading this
                 // transaction has taken us over the limit, cut the page short at
@@ -467,16 +511,28 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                 // transaction larger than `max_rows_read`: with nothing yet
                 // committed this page we must read it in full.
                 if rows_read >= self.max_rows_read && committed_any {
+                    cover!(coverage::TS_MIDTXN_CUT);
                     hit_limit = true;
                     break;
+                }
+                if rows_read > self.max_rows_read {
+                    // Reaching here implies `!committed_any`, and strictly
+                    // exceeding the budget means we read a row *past* it: a single
+                    // transaction larger than `max_rows_read`, read in full. (The
+                    // exactly-at-budget case is covered by `TS_LIMIT_ROWS`.)
+                    cover!(coverage::TS_LARGE_TXN_OVERRUN);
                 }
             }
             if !hit_limit {
                 // Stream exhausted: the final batch is complete and we are
                 // caught up all the way to `latest`.
+                cover!(coverage::TS_CAUGHT_UP);
                 entries.append(&mut cur_batch);
                 new_synced_ts = *latest;
             }
+        } else {
+            // `synced_ts` is already at `latest`; nothing to scan this page.
+            cover!(coverage::TS_NOOP);
         }
 
         cursor.synced_ts = new_synced_ts;
@@ -511,6 +567,7 @@ fn status(
 fn is_captured(id: &InternalDocumentId, cursor: &DataSyncCursor) -> bool {
     let tablet = id.table();
     if cursor.synced_tables.contains(&tablet) {
+        cover!(coverage::CAPTURED_VIA_SYNCED_TABLE);
         return true;
     }
     match &cursor.table_cursor {
@@ -520,7 +577,11 @@ fn is_captured(id: &InternalDocumentId, cursor: &DataSyncCursor) -> bool {
         } if *current_table == tablet => {
             // Within a tablet the `by_id` order matches `InternalId` order, so
             // comparing internal ids is equivalent to comparing index keys.
-            id.internal_id() <= current_id.internal_id()
+            let captured = id.internal_id() <= current_id.internal_id();
+            if captured {
+                cover!(coverage::CAPTURED_VIA_CURRENT_TABLE);
+            }
+            captured
         },
         _ => false,
     }

@@ -29,6 +29,54 @@ function callbackBackoffMs(attempt: number): number {
   return Math.random() * base;
 }
 
+// Sleep for `ms`, returning early if `signal` aborts. Callers check
+// `signal.aborted` afterwards to distinguish a completed backoff from an abort.
+function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    // Remove the listener when the backoff completes normally. `{ once: true }`
+    // only fires on an actual abort, so without this each completed sleep would
+    // leak a listener on the shared signal (MaxListenersExceededWarning).
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+// A promise that never settles. Used for dangling callbacks whose owning action
+// has already returned: not settling means they can never reject and be
+// reported as an `unhandledRejection` against an unrelated later invocation.
+function neverSettle(): Promise<never> {
+  return new Promise<never>(() => {});
+}
+
+// Run `fn`, but if it rejects once `signal` has aborted (i.e. the owning action
+// already settled, so this is a dangling call), park it by never settling
+// instead of letting the rejection surface as an `unhandledRejection` against
+// an unrelated later invocation. Errors on a still-live call propagate normally.
+async function parkIfAborted<T>(
+  signal: AbortSignal,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (signal.aborted) {
+      return await neverSettle();
+    }
+    throw e;
+  }
+}
+
 // A 5xx status other than STATUS_CODE_UDF_FAILED (which represents a real
 // error thrown by the called function) is a transient backend/proxy failure
 // that is safe to retry.
@@ -78,6 +126,7 @@ export interface Syscalls {
   asyncJsSyscall(op: string, args: Record<string, any>): Promise<any>;
 
   assertNoPendingSyscalls(): void;
+  dispose(): void;
 }
 
 async function defaultHandleResponseError(
@@ -121,6 +170,13 @@ export class SyscallsImpl {
   mutationSessionId: string;
   nextMutationRequestId: number;
 
+  // Aborted by `dispose()` once the owning action has settled. Any callback
+  // still in flight after that point is a dangling promise the user didn't
+  // await; we stop retrying it and never settle it, so its eventual failure
+  // can't surface as an `unhandledRejection` attributed to the next,
+  // unrelated invocation that reuses this process.
+  abortController: AbortController;
+
   constructor(
     udfPath: UdfPath,
     lambdaExecuteId: string,
@@ -145,6 +201,14 @@ export class SyscallsImpl {
     this.deployment = deployment;
     this.mutationSessionId = randomUUID();
     this.nextMutationRequestId = 0;
+    this.abortController = new AbortController();
+  }
+
+  // Called once the owning action has settled (success, error, or timeout).
+  // Aborts any callback still in flight so a dangling promise can't leak into
+  // a subsequent invocation on a reused process.
+  dispose() {
+    this.abortController.abort();
   }
 
   async actionCallback<ResponseValidator extends z.ZodType>(args: {
@@ -165,27 +229,57 @@ export class SyscallsImpl {
     const headers = this.headers(args.version);
     const url = new URL(args.path, this.backendAddress);
     const body = JSON.stringify(args.body);
+    const signal = this.abortController.signal;
     const maxAttempts = args.retryTransient ? CALLBACK_MAX_ATTEMPTS : 1;
     let response: Response;
     let attempt = 0;
     for (;;) {
-      response = await fetch(url, { body, method: "POST", headers });
+      try {
+        response = await fetch(url, { body, method: "POST", headers, signal });
+      } catch (e) {
+        // If the owning action has already settled, this is a dangling call.
+        // Never settle so its failure can't be misattributed to a later,
+        // unrelated invocation that reuses this process. Otherwise it's a real
+        // network error for a call the action is still awaiting; propagate it.
+        if (signal.aborted) {
+          return await neverSettle();
+        }
+        throw e;
+      }
       attempt += 1;
       if (!isTransientStatus(response.status) || attempt >= maxAttempts) {
         break;
       }
-      await new Promise((resolve) =>
-        setTimeout(resolve, callbackBackoffMs(attempt - 1)),
-      );
+      await abortableSleep(callbackBackoffMs(attempt - 1), signal);
+      // The action settled while we were backing off; stop retrying a dangling
+      // call rather than holding it open (and out of the next invocation).
+      if (signal.aborted) {
+        return await neverSettle();
+      }
     }
     const errorHandler =
       args.handleResponseErrorCode ?? defaultHandleResponseError;
-    await errorHandler(response, args.operationName);
+    // Reading the response body (here and in `response.json()` below) is tied to
+    // the same abort signal as the fetch, so a `dispose()` mid-read rejects with
+    // an `AbortError`. On a dangling call whose action already settled, never
+    // settle instead — otherwise that rejection would leak into a later,
+    // unrelated invocation just like an aborted fetch would.
+    try {
+      await errorHandler(response, args.operationName);
+    } catch (e) {
+      if (signal.aborted) {
+        return await neverSettle();
+      }
+      throw e;
+    }
     try {
       const body = await response.json();
       const parsedBody = args.responseValidator.parse(body);
       return parsedBody;
     } catch {
+      if (signal.aborted) {
+        return await neverSettle();
+      }
       // This probably represents an error on our side where we're returning the wrong
       // response type, and should ideally never happen. Throw a generic error when
       // it does happen though.
@@ -791,21 +885,28 @@ export class SyscallsImpl {
     }
 
     const uploadUrl = await this._storageGenerateUploadUrl(args["version"]);
-    const response = await fetch(uploadUrl, {
-      method: "POST",
-      body: blob,
-      headers: headers,
-    });
+    const signal = this.abortController.signal;
+    // The upload (and reading its response) can still be in flight when the
+    // action settles; park it like any other dangling call rather than let its
+    // abort leak into a later invocation on a reused process.
+    return await parkIfAborted(signal, async () => {
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        body: blob,
+        headers: headers,
+        signal,
+      });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Error uploading file: ${text}`);
-    }
-    const respJSON = await response.json();
-    if (respJSON.storageId === undefined) {
-      throw new Error("Did not get a storageId in store blob response");
-    }
-    return respJSON.storageId;
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Error uploading file: ${text}`);
+      }
+      const respJSON = await response.json();
+      if (respJSON.storageId === undefined) {
+        throw new Error("Did not get a storageId in store blob response");
+      }
+      return respJSON.storageId;
+    });
   }
 
   async syscallGetBlob(args: Record<string, any>): Promise<any> {
@@ -827,8 +928,14 @@ export class SyscallsImpl {
     if (getUrl === null) {
       return null;
     }
-    const getResult = await fetch(getUrl);
-    return await getResult.blob();
+    const signal = this.abortController.signal;
+    // The download (and reading its body) can still be in flight when the
+    // action settles; park it rather than let its abort leak into a later
+    // invocation on a reused process.
+    return await parkIfAborted(signal, async () => {
+      const getResult = await fetch(getUrl, { signal });
+      return await getResult.blob();
+    });
   }
 
   async syscallCreateFunctionHandle(rawArgs: string): Promise<JSONValue> {
