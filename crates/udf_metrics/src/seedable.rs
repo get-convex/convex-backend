@@ -1,9 +1,11 @@
-//! An exact-count, time-bucketed counter store for usage-limit enforcement.
+//! A time-bucketed counter store for usage-limit enforcement.
 //!
 //! Usage is grouped into fixed-width time buckets and kept for a bounded
 //! window.
 //!
-//! - **u64**: adding a small delta to a large u64 retains its precision
+//! - **f64**: integer counts stay exact up to 2^53, so adding a small delta to
+//!   a large count retains its precision (f32 would absorb it), and fractional
+//!   units like GB·s are representable
 //! - **Writes can arrive out of order**: seed rows can lag live usage by up to
 //!   ~90 minutes, so a write can land in an older bucket.
 //! - **Seeding keeps the larger value**: a seed row and live recording can
@@ -26,7 +28,7 @@ pub struct SeedableCounterStore {
     base_ts: SystemTime,
     bucket_width: Duration,
     max_buckets: u64,
-    counters: HashMap<String, BTreeMap<u64, u64>>,
+    counters: HashMap<String, BTreeMap<u64, f64>>,
 }
 
 impl SeedableCounterStore {
@@ -61,7 +63,7 @@ impl SeedableCounterStore {
         Some(index)
     }
 
-    fn bucket_entry(&mut self, metric_name: &str, index: u64) -> &mut u64 {
+    fn bucket_entry(&mut self, metric_name: &str, index: u64) -> &mut f64 {
         if !self.counters.contains_key(metric_name) {
             // First write for this metric; allocate its bucket map.
             self.counters
@@ -71,7 +73,7 @@ impl SeedableCounterStore {
             .counters
             .get_mut(metric_name)
             .expect("metric inserted above");
-        buckets.entry(index).or_insert(0)
+        buckets.entry(index).or_insert(0.0)
     }
 
     /// Drop buckets that are now too old to fall in any window.
@@ -95,7 +97,7 @@ impl SeedableCounterStore {
         metric_name: &str,
         index: u64,
         now: SystemTime,
-        merge: impl FnOnce(&mut u64),
+        merge: impl FnOnce(&mut f64),
     ) {
         merge(self.bucket_entry(metric_name, index));
         self.prune(now);
@@ -103,13 +105,13 @@ impl SeedableCounterStore {
 
     /// Add live usage to the bucket for `ts`. A `ts` too old to matter is
     /// dropped; a `ts` past `now` (clock skew) is treated as `now`.
-    pub fn add(&mut self, metric_name: &str, ts: SystemTime, delta: u64, now: SystemTime) {
+    pub fn add(&mut self, metric_name: &str, ts: SystemTime, delta: f64, now: SystemTime) {
         let ts = ts.min(now);
         let Some(index) = self.retained_bucket_index(ts, now) else {
             return;
         };
         self.write_bucket(metric_name, index, now, |count| {
-            *count = count.saturating_add(delta);
+            *count += delta;
         });
     }
 
@@ -117,7 +119,7 @@ impl SeedableCounterStore {
     /// seeded value. Safe to replay and to mix with live recording. A value
     /// above the true total would stick, so seeds are assumed not to exceed
     /// it. A `ts` more than one bucket past `now` is dropped as clock skew.
-    pub fn seed_counter(&mut self, metric_name: &str, ts: SystemTime, value: u64, now: SystemTime) {
+    pub fn seed_counter(&mut self, metric_name: &str, ts: SystemTime, value: f64, now: SystemTime) {
         if ts > now + self.bucket_width {
             return;
         }
@@ -125,28 +127,26 @@ impl SeedableCounterStore {
             return;
         };
         self.write_bucket(metric_name, index, now, |count| {
-            *count = (*count).max(value);
+            *count = count.max(value);
         });
     }
 
     /// Total across the buckets in `range` (start included, end excluded;
     /// both must land on bucket boundaries). An unknown metric or empty
     /// range totals 0.
-    pub fn sum_counter(&self, metric_name: &str, range: &Range<SystemTime>) -> u64 {
+    pub fn sum_counter(&self, metric_name: &str, range: &Range<SystemTime>) -> f64 {
         let Some(buckets) = self.counters.get(metric_name) else {
-            return 0;
+            return 0.0;
         };
         if range.end <= range.start {
-            return 0;
+            return 0.0;
         }
         // A start before `base_ts` counts from the first bucket.
         let start_index = self.bucket_index(range.start).unwrap_or(0);
         let Some(end_index) = self.bucket_index(range.end - Duration::from_nanos(1)) else {
             // The whole range is before `base_ts`.
-            return 0;
+            return 0.0;
         };
-        buckets
-            .range(start_index..=end_index)
-            .fold(0u64, |total, (_, count)| total.saturating_add(*count))
+        buckets.range(start_index..=end_index).map(|(_, c)| c).sum()
     }
 }

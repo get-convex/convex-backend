@@ -28,6 +28,7 @@ pub struct WorkerHandles {
     pub(crate) export_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     pub(crate) migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    pub(crate) usage_limit_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
 }
 
 impl WorkerHandles {
@@ -57,6 +58,7 @@ impl WorkerHandles {
         if let Some(migration_worker) = migration_worker {
             shutdown_and_join(migration_worker).await?;
         }
+        self.usage_limit_worker.lock().shutdown();
         Ok(())
     }
 }

@@ -107,6 +107,11 @@ pub static UDF_ANALYTICS_POLL_TIME: LazyLock<u64> =
 pub static APP_METRICS_SEED_SWEEP_INTERVAL: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("APP_METRICS_SEED_SWEEP_INTERVAL_SECS", 10)));
 
+/// How often the usage-limit worker evaluates recorded usage against the
+/// configured limits.
+pub static USAGE_LIMIT_EVALUATE_INTERVAL: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("USAGE_LIMIT_EVALUATE_INTERVAL_SECS", 10)));
+
 /// Delay before re-querying Databricks to backfill the most recent window that
 /// Databricks had not yet ingested at initial seed time. Databricks ingestion
 /// lags, so each deployment is seeded once at load and once

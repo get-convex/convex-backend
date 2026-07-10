@@ -88,6 +88,43 @@ pub enum UsageLimitMetric {
     ActionComputeCpuGBHours,
 }
 
+impl UsageLimitMetric {
+    /// Canonical name for this metric in the in-memory usage metric stores.
+    /// The seed pipeline's finer-grained metrics are combined into these
+    /// buckets at hydration (e.g. `function_calls` sums the seed's
+    /// `udf_calls`, `storage_calls`, and `udf_storage_calls`).
+    ///
+    /// TODO(ENG-10801): pin the seed-metric-to-bucket mapping.
+    pub fn metric_name(&self) -> &'static str {
+        match self {
+            Self::FunctionCalls => "function_calls",
+            Self::DatabaseIoGB => "database_io_bytes",
+            Self::DataEgressGB => "data_egress_bytes",
+            Self::SearchQueryGB => "search_query_gb",
+            Self::QueryMutationComputeGBHours => "query_mutation_compute_gbs",
+            Self::ActionComputeConvexGBHours => "action_compute_convex_gbs",
+            Self::ActionComputeNodeJsGBHours => "action_compute_nodejs_gbs",
+            Self::ActionComputeCpuGBHours => "action_compute_cpu_gbs",
+        }
+    }
+
+    /// Convert a configured limit from this metric's user-facing unit
+    /// (calls, GB, or GB-hours) into the raw unit its store counts in
+    /// (calls, bytes, GB, or GB·s).
+    pub fn limit_in_raw_units(&self, limit: u64) -> f64 {
+        const BYTES_PER_GB: f64 = (1u64 << 30) as f64;
+        const SECS_PER_HOUR: f64 = 3600.0;
+        match self {
+            Self::FunctionCalls | Self::SearchQueryGB => limit as f64,
+            Self::DatabaseIoGB | Self::DataEgressGB => limit as f64 * BYTES_PER_GB,
+            Self::QueryMutationComputeGBHours
+            | Self::ActionComputeConvexGBHours
+            | Self::ActionComputeNodeJsGBHours
+            | Self::ActionComputeCpuGBHours => limit as f64 * SECS_PER_HOUR,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "camelCase")]
 pub enum UsageLimitWindow {
