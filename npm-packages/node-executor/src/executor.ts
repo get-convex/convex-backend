@@ -339,6 +339,11 @@ export async function execute(
       name: e.name,
       exitingProcess: false,
     };
+  } finally {
+    // The action has settled. Abort any callbacks still in flight so a dangling
+    // (un-awaited) promise can't outlive this invocation and reject into the
+    // next, unrelated one that reuses this warm process.
+    syscalls.dispose();
   }
 
   const totalExecutorTimeMs = logDurationMs("totalExecutorTime", start);
