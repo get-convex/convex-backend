@@ -25,6 +25,7 @@ testing = [
     "runtime/testing",
     "search/testing",
     "storage/testing",
+    "streaming_export/testing",
     "udf/testing",
     "usage_tracking/testing",
     "value/testing",
@@ -85,6 +86,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 storage = { workspace = true }
+streaming_export = { workspace = true }
 sync = { workspace = true }
 sync_types = { workspace = true }
 tempfile = { workspace = true }
@@ -134,6 +136,7 @@ runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
+streaming_export = { workspace = true, features = ["testing"] }
 sync = { workspace = true, features = ["testing"] }
 tokio-tungstenite = { workspace = true }
 udf = { workspace = true, features = ["testing"] }

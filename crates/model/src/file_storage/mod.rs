@@ -13,6 +13,7 @@ use common::{
         ParseDocument,
         ParsedDocument,
     },
+    errors::report_error,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -21,6 +22,7 @@ use common::{
     },
     runtime::Runtime,
     types::{
+        IndexId,
         IndexName,
         StorageUuid,
     },
@@ -32,11 +34,14 @@ use database::{
         TableFilter,
     },
     unauthorized_error,
+    DataSyncStatus,
+    Database,
     DatabaseSnapshot,
     IndexModel,
     ResolvedQuery,
     SearchNotEnabled,
     SystemMetadataModel,
+    TableIterator,
     TableModel,
     Transaction,
 };
@@ -57,6 +62,7 @@ use value::{
     ResolvedDocumentId,
     TableName,
     TableNamespace,
+    TabletId,
 };
 
 use self::virtual_table::FileStorageDocMapper;
@@ -314,49 +320,136 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
     }
 }
 
-#[fastrace::trace]
-pub async fn get_total_file_storage_size<RT: Runtime>(
+/// The `_file_storage` tablets to iterate, mapped to their `by_id` index id.
+async fn file_storage_target_tables<RT: Runtime>(
     identity: &Identity,
-    db: &DatabaseSnapshot<RT>,
+    snapshot: &DatabaseSnapshot<RT>,
+) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
+    let mut tx = snapshot.begin_tx(
+        identity.clone(),
+        Arc::new(SearchNotEnabled),
+        FunctionUsageTracker::new(),
+        virtual_system_mapping().clone(),
+    )?;
+    let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
+    let table_mapping = tx.table_mapping();
+    table_mapping
+        .iter()
+        .filter(|(tablet_id, _, _, table_name)| {
+            **table_name == FILE_STORAGE_TABLE && table_mapping.is_active(*tablet_id)
+        })
+        .map(|(tablet_id, ..)| {
+            anyhow::Ok((
+                tablet_id,
+                *by_id_indexes
+                    .get(&tablet_id)
+                    .context("_file_storage by_id index not found")?,
+            ))
+        })
+        .try_collect()
+}
+
+/// Sum the sizes of every `_file_storage` document by walking `target_tables`
+/// with the (legacy) `TableIterator` at its snapshot.
+async fn total_size_via_table_iterator<RT: Runtime>(
+    table_iterator: TableIterator<RT>,
+    target_tables: &BTreeMap<TabletId, IndexId>,
 ) -> anyhow::Result<u64> {
-    let tablet_id_to_by_id_index = {
-        let mut tx = db.begin_tx(
-            identity.clone(),
-            Arc::new(SearchNotEnabled),
-            FunctionUsageTracker::new(),
-            virtual_system_mapping().clone(),
-        )?;
-        let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-        let table_mapping = tx.table_mapping();
-        let tablet_id_to_by_id_index: BTreeMap<_, _> = table_mapping
-            .iter()
-            .filter(|(tablet_id, _, _, table_name)| {
-                **table_name == FILE_STORAGE_TABLE && table_mapping.is_active(*tablet_id)
-            })
-            .map(|(tablet_id, ..)| {
-                anyhow::Ok((
-                    tablet_id,
-                    *by_id_indexes
-                        .get(&tablet_id)
-                        .context("_file_storage by_id index not found")?,
-                ))
-            })
-            .try_collect()?;
-        tablet_id_to_by_id_index
-    };
-    let mut table_iterator = db
-        .table_iterator()
-        .multi(tablet_id_to_by_id_index.keys().copied().collect());
-    let mut total_size = 0;
-    for (tablet_id, by_id_index) in tablet_id_to_by_id_index {
+    let mut table_iterator = table_iterator.multi(target_tables.keys().copied().collect());
+    let mut total_size = 0u64;
+    for (tablet_id, by_id_index) in target_tables {
         let mut table_stream =
-            Box::pin(table_iterator.stream_documents_in_table(tablet_id, by_id_index, None));
+            Box::pin(table_iterator.stream_documents_in_table(*tablet_id, *by_id_index, None));
         while let Some(storage_document) = table_stream.try_next().await? {
             let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.value.parse()?;
             total_size += storage_entry.size as u64;
         }
         drop(table_stream);
-        table_iterator.unregister_table(tablet_id)?;
+        table_iterator.unregister_table(*tablet_id)?;
     }
     Ok(total_size)
+}
+
+/// Total size of all `_file_storage` documents across the deployment.
+///
+/// Computed with the `DataSyncIterator` (which picks its consistent snapshot,
+/// `Synced { ts }`, at the *end* of the sync) and cross-checked against the
+/// legacy `TableIterator` re-run at that exact `ts`. This is the first
+/// `DataSyncIterator` callsite, so the cross-check validates the new API in
+/// production: on a mismatch we report an error and fall back to the trusted
+/// `TableIterator` result.
+#[fastrace::trace]
+pub async fn get_total_file_storage_size<RT: Runtime>(
+    identity: &Identity,
+    database: &Database<RT>,
+) -> anyhow::Result<u64> {
+    let target_tables =
+        file_storage_target_tables(identity, &database.latest_database_snapshot()?).await?;
+
+    // New API: drive the data sync iterator to a consistent snapshot, keeping a
+    // running total via deltas. It may emit a document more than once (a `ts`
+    // page re-emits a captured document at a newer revision), so we add each
+    // revision's size and subtract its predecessor's — supplied only when the
+    // iterator previously emitted that predecessor. Memory stays constant rather
+    // than materializing a per-document size map.
+    let iterator = database.data_sync_iterator()?;
+    let mut total_size: i64 = 0;
+    let mut cursor = None;
+    let synced_ts = loop {
+        let page = iterator.next_page(cursor, &target_tables).await?;
+        for entry in page.entries {
+            if let Some(value) = entry.log_entry.value {
+                let storage_entry: ParsedDocument<FileStorageEntry> = value.parse()?;
+                total_size += storage_entry.size;
+            }
+            if let Some(prev_rev) = entry.prev_rev {
+                let prev_entry: ParsedDocument<FileStorageEntry> = prev_rev.parse()?;
+                total_size -= prev_entry.size;
+            }
+        }
+        cursor = Some(page.cursor);
+        if let DataSyncStatus::Synced { ts, .. } = page.status {
+            break ts;
+        }
+    };
+
+    // Backup/validation: recompute at the same snapshot with the legacy
+    // `TableIterator` and compare. `synced_ts` is the iterator's *persisted*
+    // max-repeatable timestamp, which the in-memory snapshot (`now_ts_for_reads`)
+    // may not have caught up to yet, so wait for it before deriving a repeatable
+    // timestamp there.
+    database.wait_for_write_ts(synced_ts).await;
+    let synced_ts = database.now_ts_for_reads().prior_ts(synced_ts)?;
+    let table_iterator_total =
+        total_size_via_table_iterator(database.table_iterator(synced_ts, 1000), &target_tables)
+            .await?;
+
+    // Trust the (battle-tested) `TableIterator` on any disagreement while the new
+    // API is validated. A negative running total means a `DataSyncIterator` bug —
+    // the very failure this cross-check absorbs — so treat it as a mismatch and
+    // fall back rather than erroring the whole gauge run.
+    if let Ok(data_sync_total) = u64::try_from(total_size)
+        && data_sync_total == table_iterator_total
+    {
+        return Ok(data_sync_total);
+    }
+    report_error(&mut anyhow::anyhow!(
+        "file storage size mismatch at {}: DataSyncIterator returned {total_size}, TableIterator \
+         returned {table_iterator_total}",
+        *synced_ts
+    ))
+    .await;
+    Ok(table_iterator_total)
+}
+
+/// Total size of all `_file_storage` documents at `snapshot`, via the legacy
+/// `TableIterator`. For offline tooling that only has a [`DatabaseSnapshot`]
+/// and wants the total at a specific (possibly historical) snapshot.
+#[fastrace::trace]
+pub async fn get_total_file_storage_size_from_snapshot<RT: Runtime>(
+    identity: &Identity,
+    snapshot: &DatabaseSnapshot<RT>,
+) -> anyhow::Result<u64> {
+    let target_tables = file_storage_target_tables(identity, snapshot).await?;
+    total_size_via_table_iterator(snapshot.table_iterator(), &target_tables).await
 }

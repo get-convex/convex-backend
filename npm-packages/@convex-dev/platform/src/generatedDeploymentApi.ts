@@ -382,6 +382,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/data/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Data sync
+         * @description **Early access:** this API is not yet stable and may change in
+         *     backwards-incompatible ways without notice. Contact the Convex team before
+         *     depending on it.
+         *
+         *     Streams a consistent, resumable export of a deployment's data — either the
+         *     whole deployment or a subset of components, tables, and columns (see the
+         *     request body). Streaming export must be enabled on the deployment.
+         *
+         *     Call this endpoint repeatedly, passing the `cursor` from each response back
+         *     in the next request; omit `cursor` on the first call. The cursor is opaque —
+         *     store and send it back verbatim. Each response contains:
+         *
+         *     - `values`: document revisions in the order they should be applied. A value
+         *       with `_deleted: true` is a tombstone marking that document as deleted.
+         *     - `truncates`: tables whose contents were replaced wholesale (for example by
+         *       an `npx convex import`). Drop everything you have stored for each listed
+         *       table; the `values` in this and later responses re-populate it.
+         *     - `status`: `inProgress` while the export is still being assembled — the
+         *       data returned so far is not yet a consistent view, so keep calling. Once
+         *       it becomes `synced`, the values applied so far form a consistent snapshot
+         *       of the deployment as of the returned `snapshot` timestamp. You can keep
+         *       calling to continue streaming later changes; `hasMore` tells you whether
+         *       more data is already available (`true`) or you've caught up to the latest
+         *       commit (`false`).
+         *
+         *     Persist the cursor and keep calling within the deployment's data retention
+         *     window so the export can resume where it left off. If the cursor falls
+         *     outside that window, start over with no cursor.
+         */
+        post: operations["data_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -537,6 +584,74 @@ export interface components {
             /** @description Use this secret to verify webhook signatures. */
             hmacSecret: string;
             id: string;
+        };
+        /** @description Arguments to the data sync (streaming export) API (`/api/v1/data/sync`). */
+        DataSyncArgs: Record<string, never> & {
+            /** @description Opaque cursor returned by a previous call. Omit to start from scratch. */
+            cursor?: string | null;
+        };
+        /** @description Progress indicator returned while a data sync is `InProgress`. */
+        DataSyncProgress: {
+            currentComponent?: string | null;
+            currentTable?: string | null;
+            /** Format: int64 */
+            numDocumentsInCurrentTable: number;
+            /** Format: int64 */
+            numTablesSynced: number;
+            /** Format: int64 */
+            totalTables: number;
+        };
+        /** @description One page returned by the data sync API. */
+        DataSyncResponse: {
+            /** @description Opaque cursor to pass back in as `cursor` on the next call. */
+            cursor: string;
+            /** @description The consistency state of the sync after this page. */
+            status: components["schemas"]["DataSyncStatus"];
+            /** @description Tables truncated by this page: the consumer should drop everything it
+             *     previously synced for each, then apply `values` (which re-sync them from
+             *     scratch). Logically applies before `values`. */
+            truncates: components["schemas"]["DataSyncTruncate"][];
+            /** @description Documents and tombstones produced by this page. */
+            values: components["schemas"]["DataSyncValue"][];
+        };
+        /** @description The consistency state reported alongside a data sync page. */
+        DataSyncStatus: {
+            /** @description Whether `snapshot` is behind the latest timestamp — i.e. it's a
+             *     consistent snapshot but not fully caught up to the most recent
+             *     commit. Callers use this to decide whether to keep calling the API
+             *     or pause until later. */
+            hasMore: boolean;
+            /** Format: int64 */
+            snapshot: number;
+            /** @enum {string} */
+            type: "synced";
+        } | (components["schemas"]["DataSyncProgress"] & {
+            /** @enum {string} */
+            type: "inProgress";
+        });
+        /** @description A table whose contents were replaced wholesale (e.g. by `npx convex
+         *     import`). Reported separately from `values` since it carries none of the
+         *     per-document fields. */
+        DataSyncTruncate: {
+            /** @description The path of the component the table is in. */
+            _component: string;
+            /** @description The name of the truncated table. */
+            _table: string;
+        };
+        /** @description A single document-level entry emitted by the data sync API: a Convex
+         *     document (or a tombstone, for a deletion) with some special fields added. */
+        DataSyncValue: Record<string, never> & {
+            /** @description The path of the component this entry is from. */
+            _component: string;
+            /** @description Whether the document was deleted (a tombstone). */
+            _deleted: boolean;
+            /** @description The name of the table this entry is from. */
+            _table: string;
+            /**
+             * Format: int64
+             * @description The timestamp at which this revision was written.
+             */
+            _ts: number;
         };
         /** DatadogConfig */
         DatadogLogStreamConfig: {
@@ -856,6 +971,12 @@ export type CreatePostHogLogsLogStreamArgs = components['schemas']['CreatePostHo
 export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogStreamArgs'];
 export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
+export type DataSyncArgs = components['schemas']['DataSyncArgs'];
+export type DataSyncProgress = components['schemas']['DataSyncProgress'];
+export type DataSyncResponse = components['schemas']['DataSyncResponse'];
+export type DataSyncStatus = components['schemas']['DataSyncStatus'];
+export type DataSyncTruncate = components['schemas']['DataSyncTruncate'];
+export type DataSyncValue = components['schemas']['DataSyncValue'];
 export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
 export type DatadogSiteLocation = components['schemas']['DatadogSiteLocation'];
 export type DeploymentAuditLogEventResponse = components['schemas']['DeploymentAuditLogEventResponse'];
@@ -1271,6 +1392,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    data_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataSyncArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataSyncResponse"];
+                };
             };
         };
     };

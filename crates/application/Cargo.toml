@@ -37,6 +37,7 @@ testing = [
     "vector/testing",
     "exports/testing",
     "storage_zip_reader/testing",
+    "streaming_export/testing",
     "convex_macro/testing",
 ]
 
@@ -103,6 +104,7 @@ slugify = { workspace = true }
 smallvec = { workspace = true }
 storage = { workspace = true }
 storage_zip_reader = { workspace = true }
+streaming_export = { workspace = true }
 strum = { workspace = true }
 sync_types = { workspace = true }
 tempfile = { workspace = true }
@@ -153,6 +155,7 @@ search_index_workers = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
 storage_zip_reader = { workspace = true, features = ["testing"] }
+streaming_export = { workspace = true, features = ["testing"] }
 udf = { workspace = true, features = ["testing"] }
 usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }

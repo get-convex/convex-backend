@@ -52,7 +52,10 @@ use itertools::{
 use keybroker::Identity;
 use model::{
     exports::ExportsModel,
-    file_storage::get_total_file_storage_size,
+    file_storage::{
+        get_total_file_storage_size,
+        get_total_file_storage_size_from_snapshot,
+    },
     virtual_system_mapping,
 };
 use parking_lot::Mutex;
@@ -152,11 +155,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
         }
         let timer = metrics::usage_gauges_tracking_worker_timer();
 
-        let gauge_metrics = get_gauge_metrics(
-            &Identity::system(),
-            &self.database.latest_database_snapshot()?,
-        )
-        .await?;
+        let gauge_metrics = get_gauge_metrics(&Identity::system(), &self.database).await?;
 
         self.send_usage_events(gauge_metrics).await;
         let duration = timer.finish();
@@ -338,17 +337,48 @@ pub struct AggregatedStorageUsage {
     pub system_table_document_sizes: BTreeMap<String, u64>,
 }
 
+/// Gauge metrics for the usage worker. The file storage total is computed with
+/// the `DataSyncIterator` (cross-checked against the `TableIterator`); every
+/// other gauge is read from the latest snapshot, which may differ slightly.
 #[fastrace::trace]
 pub async fn get_gauge_metrics<RT: Runtime>(
     identity: &Identity,
-    database: &DatabaseSnapshot<RT>,
+    database: &Database<RT>,
 ) -> anyhow::Result<GaugeMetrics> {
-    let document_and_index_storage = database.get_document_and_index_storage(identity)?;
-    let vector_index_storage = database.get_vector_index_storage(identity)?;
-    let text_index_storage = database.get_text_index_storage(identity)?;
-    let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, database).await?;
-    let document_counts = database.get_document_counts(identity)?;
+    let snapshot = database.latest_database_snapshot()?;
+    let document_and_index_storage = snapshot.get_document_and_index_storage(identity)?;
+    let vector_index_storage = snapshot.get_vector_index_storage(identity)?;
+    let text_index_storage = snapshot.get_text_index_storage(identity)?;
+    let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, &snapshot).await?;
+    let document_counts = snapshot.get_document_counts(identity)?;
     let storage_total_size = get_total_file_storage_size(identity, database).await?;
+
+    Ok(GaugeMetrics {
+        document_and_index_storage,
+        vector_index_storage,
+        text_index_storage,
+        storage_total_size,
+        cloud_snapshot_total_size,
+        document_counts,
+    })
+}
+
+/// Like [`get_gauge_metrics`] but for offline tooling (e.g. `db-info`) that
+/// only has a [`DatabaseSnapshot`] and inspects a specific, possibly
+/// historical, snapshot. The file storage total uses the `TableIterator` since
+/// the `DataSyncIterator` picks its own recent snapshot rather than a given
+/// one.
+#[fastrace::trace]
+pub async fn get_gauge_metrics_from_snapshot<RT: Runtime>(
+    identity: &Identity,
+    snapshot: &DatabaseSnapshot<RT>,
+) -> anyhow::Result<GaugeMetrics> {
+    let document_and_index_storage = snapshot.get_document_and_index_storage(identity)?;
+    let vector_index_storage = snapshot.get_vector_index_storage(identity)?;
+    let text_index_storage = snapshot.get_text_index_storage(identity)?;
+    let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, snapshot).await?;
+    let document_counts = snapshot.get_document_counts(identity)?;
+    let storage_total_size = get_total_file_storage_size_from_snapshot(identity, snapshot).await?;
 
     Ok(GaugeMetrics {
         document_and_index_storage,

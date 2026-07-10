@@ -106,10 +106,12 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    document::ResolvedDocument,
     index::IndexKey,
     persistence::{
         new_static_repeatable_recent,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -178,6 +180,52 @@ pub struct DataSyncCursor {
     table_cursor: TableCursor,
 }
 
+impl DataSyncCursor {
+    /// The timestamp all captured documents have a revision `<=` of.
+    pub fn synced_ts(&self) -> Timestamp {
+        self.synced_ts
+    }
+
+    /// Tables whose entire ID space has been traversed at `synced_ts`.
+    pub fn synced_tables(&self) -> &BTreeSet<TabletId> {
+        &self.synced_tables
+    }
+
+    /// The table currently being traversed in the `by_id` dimension and the
+    /// last id walked in it (`None` id means the traversal hasn't started), or
+    /// `None` if every target table has been fully traversed (`Synced`).
+    pub fn in_progress_table(&self) -> Option<(TabletId, Option<DeveloperDocumentId>)> {
+        match &self.table_cursor {
+            TableCursor::Synced => None,
+            TableCursor::InProgress {
+                current_table,
+                current_id,
+            } => Some((*current_table, *current_id)),
+        }
+    }
+
+    /// Reconstruct a cursor from its serialized parts. `in_progress` mirrors
+    /// [`Self::in_progress_table`].
+    pub fn from_parts(
+        synced_ts: Timestamp,
+        synced_tables: BTreeSet<TabletId>,
+        in_progress: Option<(TabletId, Option<DeveloperDocumentId>)>,
+    ) -> Self {
+        let table_cursor = match in_progress {
+            None => TableCursor::Synced,
+            Some((current_table, current_id)) => TableCursor::InProgress {
+                current_table,
+                current_id,
+            },
+        };
+        Self {
+            synced_ts,
+            synced_tables,
+            table_cursor,
+        }
+    }
+}
+
 /// Progress indicator returned while a sync is still
 /// [`DataSyncStatus::InProgress`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -194,16 +242,40 @@ pub struct ProgressStatus {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DataSyncStatus {
     /// The entries emitted so far represent a consistent snapshot at `ts`.
-    Synced { ts: Timestamp },
+    Synced {
+        ts: Timestamp,
+        /// Whether `ts` is behind the latest timestamp — i.e. the snapshot is
+        /// consistent but not fully caught up to the most recent commit.
+        /// `false` means the sync read all the way to latest. Callers use this
+        /// to decide whether to keep iterating or take a break.
+        has_more: bool,
+    },
     /// More pages are required before the view is consistent.
     InProgress { progress: ProgressStatus },
 }
 
+/// A single emitted document revision.
+pub struct DataSyncEntry {
+    /// The emitted revision. `value: None` is a tombstone (delete); `prev_ts`
+    /// is preserved for CDC/delete handling by consumers.
+    pub log_entry: DocumentLogEntry,
+    /// The document's previous revision, present *only* when this iterator
+    /// already emitted that revision. Lets a consumer keep a running aggregate
+    /// over documents (e.g. total file size) via deltas — add the new
+    /// revision's contribution, subtract `prev_rev`'s — without materializing
+    /// every document.
+    ///
+    /// `None` on `by_id` pages and on a document's first emission. `Some` when
+    /// a `ts` page re-emits a *captured* document, whose predecessor was
+    /// necessarily emitted first (on the `by_id` page that captured it, or — if
+    /// created mid-sync — on an earlier `ts` page). Also `None` in the rare
+    /// case the predecessor's value was garbage collected past retention.
+    pub prev_rev: Option<ResolvedDocument>,
+}
+
 /// A single page of sync output.
 pub struct DataSyncPage {
-    /// Emitted entries. `value: None` is a tombstone (delete); `prev_ts` is
-    /// preserved for CDC/delete handling by consumers.
-    pub entries: Vec<DocumentLogEntry>,
+    pub entries: Vec<DataSyncEntry>,
     /// The cursor to pass to the next [`DataSyncIterator::next_page`] call.
     pub cursor: DataSyncCursor,
     pub status: DataSyncStatus,
@@ -328,7 +400,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
         target_tables: &BTreeMap<TabletId, IndexId>,
-    ) -> anyhow::Result<(Vec<DocumentLogEntry>, DataSyncStatus)> {
+    ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         let TableCursor::InProgress {
             current_table,
             current_id,
@@ -373,13 +445,20 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         let mut page_bytes = 0usize;
         let mut bytes_limited = false;
         for (_key, latest_doc) in page {
-            page_bytes += latest_doc.value.size();
-            new_current_id = Some(latest_doc.value.id().developer_id);
-            entries.push(DocumentLogEntry {
-                ts: latest_doc.ts,
-                id: latest_doc.value.id_with_table_id(),
-                value: Some(latest_doc.value),
-                prev_ts: latest_doc.prev_ts,
+            let value = latest_doc.value;
+            page_bytes += value.size();
+            let id = value.id_with_table_id();
+            new_current_id = Some(value.id().developer_id);
+            // Initial capture of this document, so it has no previously-emitted
+            // revision.
+            entries.push(DataSyncEntry {
+                log_entry: DocumentLogEntry {
+                    ts: latest_doc.ts,
+                    id,
+                    value: Some(value),
+                    prev_ts: latest_doc.prev_ts,
+                },
+                prev_rev: None,
             });
             // Soft byte limit: stop once the page is large enough. We push before
             // checking, so a single document larger than the limit is still
@@ -413,7 +492,12 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             };
         }
 
-        let status = status(cursor, target_tables.len() as u64, entries.len() as u64);
+        let status = status(
+            cursor,
+            *latest,
+            target_tables.len() as u64,
+            entries.len() as u64,
+        );
         Ok((entries, status))
     }
 
@@ -425,7 +509,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
         target_tables: &BTreeMap<TabletId, IndexId>,
-    ) -> anyhow::Result<(Vec<DocumentLogEntry>, DataSyncStatus)> {
+    ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         cover!(coverage::TS_PAGE);
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
@@ -536,19 +620,75 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         }
 
         cursor.synced_ts = new_synced_ts;
-        let status = status(cursor, target_tables.len() as u64, 0);
+        // Every re-emitted document is captured, so its predecessor was already
+        // emitted by this iterator — attach it so consumers can compute deltas.
+        let entries = self
+            .attach_prev_revs(&repeatable_persistence, entries)
+            .await?;
+        let status = status(cursor, *latest, target_tables.len() as u64, 0);
         Ok((entries, status))
+    }
+
+    /// Batch-fetch, for each emitted entry, the document revision at its
+    /// `prev_ts` and pair it up as a [`DataSyncEntry`]. On a `ts` page every
+    /// entry is a captured document, so a `Some(prev_ts)` points to a revision
+    /// this iterator already emitted (see [`DataSyncEntry::prev_rev`]). One
+    /// batched persistence lookup per page keeps this cheap.
+    async fn attach_prev_revs(
+        &self,
+        repeatable_persistence: &RepeatablePersistence,
+        entries: Vec<DocumentLogEntry>,
+    ) -> anyhow::Result<Vec<DataSyncEntry>> {
+        let queries: BTreeSet<_> = entries
+            .iter()
+            .filter_map(|entry| {
+                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
+                    id: entry.id,
+                    ts: entry.ts,
+                    prev_ts,
+                })
+            })
+            .collect();
+        let mut prev_revs = if queries.is_empty() {
+            BTreeMap::new()
+        } else {
+            repeatable_persistence
+                .previous_revisions_of_documents(queries)
+                .await?
+        };
+        Ok(entries
+            .into_iter()
+            .map(|log_entry| {
+                let prev_rev = log_entry.prev_ts.and_then(|prev_ts| {
+                    prev_revs
+                        .remove(&DocumentPrevTsQuery {
+                            id: log_entry.id,
+                            ts: log_entry.ts,
+                            prev_ts,
+                        })
+                        .and_then(|entry| entry.value)
+                });
+                DataSyncEntry {
+                    log_entry,
+                    prev_rev,
+                }
+            })
+            .collect())
     }
 }
 
 fn status(
     cursor: &DataSyncCursor,
+    latest: Timestamp,
     total_tables: u64,
     num_documents_in_current_table: u64,
 ) -> DataSyncStatus {
     match &cursor.table_cursor {
         TableCursor::Synced => DataSyncStatus::Synced {
             ts: cursor.synced_ts,
+            // `synced_ts <= latest` always holds; if it's strictly behind there
+            // are commits past the snapshot still to sync.
+            has_more: cursor.synced_ts < latest,
         },
         TableCursor::InProgress { current_table, .. } => DataSyncStatus::InProgress {
             progress: ProgressStatus {
@@ -597,9 +737,16 @@ fn advance_to_next_table(
         .keys()
         .find(|tablet| !synced_tables.contains(tablet))
     {
-        Some(tablet) => TableCursor::InProgress {
-            current_table: *tablet,
-            current_id: None,
+        Some(tablet) => {
+            // At least one other table is already fully synced, so this is a
+            // multi-table sync advancing to its next table.
+            if !synced_tables.is_empty() {
+                cover!(coverage::MULTI_TABLE_ADVANCE);
+            }
+            TableCursor::InProgress {
+                current_table: *tablet,
+                current_id: None,
+            }
         },
         None => TableCursor::Synced,
     }
@@ -612,20 +759,29 @@ fn reconcile_target_tables(
     cursor: &mut DataSyncCursor,
     target_tables: &BTreeMap<TabletId, IndexId>,
 ) {
+    let synced_before = cursor.synced_tables.len();
     cursor
         .synced_tables
         .retain(|tablet| target_tables.contains_key(tablet));
+    if cursor.synced_tables.len() != synced_before {
+        cover!(coverage::RECONCILE_DROP_SYNCED_TABLE);
+    }
 
     match &cursor.table_cursor {
         TableCursor::InProgress { current_table, .. }
             if !target_tables.contains_key(current_table) =>
         {
             // The in-progress table was removed; cancel it and move on.
+            cover!(coverage::RECONCILE_CANCEL_IN_PROGRESS);
             cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
         },
         TableCursor::Synced => {
             // A new table may have been added since we last reached Synced.
-            cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
+            let next = advance_to_next_table(&cursor.synced_tables, target_tables);
+            if matches!(next, TableCursor::InProgress { .. }) {
+                cover!(coverage::RECONCILE_START_ADDED_TABLE);
+            }
+            cursor.table_cursor = next;
         },
         TableCursor::InProgress { .. } => {},
     }

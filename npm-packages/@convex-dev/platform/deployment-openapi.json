@@ -787,6 +787,52 @@
           }
         ]
       }
+    },
+    "/data/sync": {
+      "post": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Data sync",
+        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nStreams a consistent, resumable export of a deployment's data — either the\nwhole deployment or a subset of components, tables, and columns (see the\nrequest body). Streaming export must be enabled on the deployment.\n\nCall this endpoint repeatedly, passing the `cursor` from each response back\nin the next request; omit `cursor` on the first call. The cursor is opaque —\nstore and send it back verbatim. Each response contains:\n\n- `values`: document revisions in the order they should be applied. A value\n  with `_deleted: true` is a tombstone marking that document as deleted.\n- `truncates`: tables whose contents were replaced wholesale (for example by\n  an `npx convex import`). Drop everything you have stored for each listed\n  table; the `values` in this and later responses re-populate it.\n- `status`: `inProgress` while the export is still being assembled — the\n  data returned so far is not yet a consistent view, so keep calling. Once\n  it becomes `synced`, the values applied so far form a consistent snapshot\n  of the deployment as of the returned `snapshot` timestamp. You can keep\n  calling to continue streaming later changes; `hasMore` tells you whether\n  more data is already available (`true`) or you've caught up to the latest\n  commit (`false`).\n\nPersist the cursor and keep calling within the deployment's data retention\nwindow so the export can resume where it left off. If the cursor falls\noutside that window, start over with no cursor.",
+        "operationId": "data_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataSyncArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataSyncResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1402,6 +1448,207 @@
             "type": "string"
           }
         }
+      },
+      "DataSyncArgs": {
+        "allOf": [
+          {
+            "type": "object",
+            "description": "The components, tables, and columns to export. When omitted, everything\nis exported. Supports the shorthand forms `{\"tableName\": \"...\",\n\"component\": \"...\"}` and `{\"component\": \"...\"}`, or the exact form\n`{\"selection\": {...}}` (a map of component -> table -> column\ninclusion)."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Opaque cursor returned by a previous call. Omit to start from scratch."
+              }
+            }
+          }
+        ],
+        "description": "Arguments to the data sync (streaming export) API (`/api/v1/data/sync`)."
+      },
+      "DataSyncProgress": {
+        "type": "object",
+        "description": "Progress indicator returned while a data sync is `InProgress`.",
+        "required": [
+          "numTablesSynced",
+          "totalTables",
+          "numDocumentsInCurrentTable"
+        ],
+        "properties": {
+          "currentComponent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currentTable": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "numDocumentsInCurrentTable": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "numTablesSynced": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalTables": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "DataSyncResponse": {
+        "type": "object",
+        "description": "One page returned by the data sync API.",
+        "required": [
+          "truncates",
+          "values",
+          "cursor",
+          "status"
+        ],
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Opaque cursor to pass back in as `cursor` on the next call."
+          },
+          "status": {
+            "$ref": "#/components/schemas/DataSyncStatus",
+            "description": "The consistency state of the sync after this page."
+          },
+          "truncates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataSyncTruncate"
+            },
+            "description": "Tables truncated by this page: the consumer should drop everything it\npreviously synced for each, then apply `values` (which re-sync them from\nscratch). Logically applies before `values`."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataSyncValue"
+            },
+            "description": "Documents and tombstones produced by this page."
+          }
+        }
+      },
+      "DataSyncStatus": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "The entries emitted so far represent a consistent snapshot at\n`snapshot`. The cursor can be persisted and used to continue the sync\nlater (within the document retention window).",
+            "required": [
+              "snapshot",
+              "hasMore",
+              "type"
+            ],
+            "properties": {
+              "hasMore": {
+                "type": "boolean",
+                "description": "Whether `snapshot` is behind the latest timestamp — i.e. it's a\nconsistent snapshot but not fully caught up to the most recent\ncommit. Callers use this to decide whether to keep calling the API\nor pause until later."
+              },
+              "snapshot": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "synced"
+                ]
+              }
+            }
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DataSyncProgress"
+              },
+              {
+                "type": "object",
+                "description": "More pages are required before the view is consistent.",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "inProgress"
+                    ]
+                  }
+                }
+              }
+            ],
+            "description": "More pages are required before the view is consistent."
+          }
+        ],
+        "description": "The consistency state reported alongside a data sync page."
+      },
+      "DataSyncTruncate": {
+        "type": "object",
+        "description": "A table whose contents were replaced wholesale (e.g. by `npx convex\nimport`). Reported separately from `values` since it carries none of the\nper-document fields.",
+        "required": [
+          "_component",
+          "_table"
+        ],
+        "properties": {
+          "_component": {
+            "type": "string",
+            "description": "The path of the component the table is in."
+          },
+          "_table": {
+            "type": "string",
+            "description": "The name of the truncated table."
+          }
+        }
+      },
+      "DataSyncValue": {
+        "allOf": [
+          {
+            "type": "object",
+            "description": "The fields of the document. Connectors must ignore fields prefixed by\n`_` (except `_id` and `_creationTime`) since they could be used by\nfuture versions of the API for new fields. For tombstones, only `_id`\nis present."
+          },
+          {
+            "type": "object",
+            "required": [
+              "_component",
+              "_table",
+              "_ts",
+              "_deleted"
+            ],
+            "properties": {
+              "_component": {
+                "type": "string",
+                "description": "The path of the component this entry is from."
+              },
+              "_deleted": {
+                "type": "boolean",
+                "description": "Whether the document was deleted (a tombstone)."
+              },
+              "_table": {
+                "type": "string",
+                "description": "The name of the table this entry is from."
+              },
+              "_ts": {
+                "type": "integer",
+                "format": "int64",
+                "description": "The timestamp at which this revision was written."
+              }
+            }
+          }
+        ],
+        "description": "A single document-level entry emitted by the data sync API: a Convex\ndocument (or a tombstone, for a deletion) with some special fields added."
       },
       "DatadogLogStreamConfig": {
         "type": "object",
