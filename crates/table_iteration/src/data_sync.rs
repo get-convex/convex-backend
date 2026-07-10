@@ -691,9 +691,16 @@ fn advance_to_next_table(
         .keys()
         .find(|tablet| !synced_tables.contains(tablet))
     {
-        Some(tablet) => TableCursor::InProgress {
-            current_table: *tablet,
-            current_id: None,
+        Some(tablet) => {
+            // At least one other table is already fully synced, so this is a
+            // multi-table sync advancing to its next table.
+            if !synced_tables.is_empty() {
+                cover!(coverage::MULTI_TABLE_ADVANCE);
+            }
+            TableCursor::InProgress {
+                current_table: *tablet,
+                current_id: None,
+            }
         },
         None => TableCursor::Synced,
     }
@@ -706,20 +713,29 @@ fn reconcile_target_tables(
     cursor: &mut DataSyncCursor,
     target_tables: &BTreeMap<TabletId, IndexId>,
 ) {
+    let synced_before = cursor.synced_tables.len();
     cursor
         .synced_tables
         .retain(|tablet| target_tables.contains_key(tablet));
+    if cursor.synced_tables.len() != synced_before {
+        cover!(coverage::RECONCILE_DROP_SYNCED_TABLE);
+    }
 
     match &cursor.table_cursor {
         TableCursor::InProgress { current_table, .. }
             if !target_tables.contains_key(current_table) =>
         {
             // The in-progress table was removed; cancel it and move on.
+            cover!(coverage::RECONCILE_CANCEL_IN_PROGRESS);
             cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
         },
         TableCursor::Synced => {
             // A new table may have been added since we last reached Synced.
-            cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
+            let next = advance_to_next_table(&cursor.synced_tables, target_tables);
+            if matches!(next, TableCursor::InProgress { .. }) {
+                cover!(coverage::RECONCILE_START_ADDED_TABLE);
+            }
+            cursor.table_cursor = next;
         },
         TableCursor::InProgress { .. } => {},
     }
