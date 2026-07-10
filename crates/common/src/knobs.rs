@@ -163,7 +163,7 @@ pub static HEAP_WORKER_REPORT_INTERVAL_SECONDS: LazyLock<Duration> =
 /// NOTE: If you update this, make sure to update the actions resource limits in
 /// the docs.
 pub static V8_ACTION_USER_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_USER_TIMEOUT_SECS", 600)));
+    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_USER_TIMEOUT_SECS", 1800)));
 
 /// This is the action timeout for Node.js actions. This is how much the user
 /// code should be allowed to run. Note that we buffer some overhead and the
