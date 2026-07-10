@@ -106,10 +106,12 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    document::ResolvedDocument,
     index::IndexKey,
     persistence::{
         new_static_repeatable_recent,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -206,11 +208,28 @@ pub enum DataSyncStatus {
     InProgress { progress: ProgressStatus },
 }
 
+/// A single emitted document revision.
+pub struct DataSyncEntry {
+    /// The emitted revision. `value: None` is a tombstone (delete); `prev_ts`
+    /// is preserved for CDC/delete handling by consumers.
+    pub log_entry: DocumentLogEntry,
+    /// The document's previous revision, present *only* when this iterator
+    /// already emitted that revision. Lets a consumer keep a running aggregate
+    /// over documents (e.g. total file size) via deltas — add the new
+    /// revision's contribution, subtract `prev_rev`'s — without materializing
+    /// every document.
+    ///
+    /// `None` on `by_id` pages and on a document's first emission. `Some` when
+    /// a `ts` page re-emits a *captured* document, whose predecessor was
+    /// necessarily emitted first (on the `by_id` page that captured it, or — if
+    /// created mid-sync — on an earlier `ts` page). Also `None` in the rare
+    /// case the predecessor's value was garbage collected past retention.
+    pub prev_rev: Option<ResolvedDocument>,
+}
+
 /// A single page of sync output.
 pub struct DataSyncPage {
-    /// Emitted entries. `value: None` is a tombstone (delete); `prev_ts` is
-    /// preserved for CDC/delete handling by consumers.
-    pub entries: Vec<DocumentLogEntry>,
+    pub entries: Vec<DataSyncEntry>,
     /// The cursor to pass to the next [`DataSyncIterator::next_page`] call.
     pub cursor: DataSyncCursor,
     pub status: DataSyncStatus,
@@ -335,7 +354,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
         target_tables: &BTreeMap<TabletId, IndexId>,
-    ) -> anyhow::Result<(Vec<DocumentLogEntry>, DataSyncStatus)> {
+    ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         let TableCursor::InProgress {
             current_table,
             current_id,
@@ -380,13 +399,20 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         let mut page_bytes = 0usize;
         let mut bytes_limited = false;
         for (_key, latest_doc) in page {
-            page_bytes += latest_doc.value.size();
-            new_current_id = Some(latest_doc.value.id().developer_id);
-            entries.push(DocumentLogEntry {
-                ts: latest_doc.ts,
-                id: latest_doc.value.id_with_table_id(),
-                value: Some(latest_doc.value),
-                prev_ts: latest_doc.prev_ts,
+            let value = latest_doc.value;
+            page_bytes += value.size();
+            let id = value.id_with_table_id();
+            new_current_id = Some(value.id().developer_id);
+            // Initial capture of this document, so it has no previously-emitted
+            // revision.
+            entries.push(DataSyncEntry {
+                log_entry: DocumentLogEntry {
+                    ts: latest_doc.ts,
+                    id,
+                    value: Some(value),
+                    prev_ts: latest_doc.prev_ts,
+                },
+                prev_rev: None,
             });
             // Soft byte limit: stop once the page is large enough. We push before
             // checking, so a single document larger than the limit is still
@@ -437,7 +463,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
         target_tables: &BTreeMap<TabletId, IndexId>,
-    ) -> anyhow::Result<(Vec<DocumentLogEntry>, DataSyncStatus)> {
+    ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         cover!(coverage::TS_PAGE);
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
@@ -548,8 +574,60 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         }
 
         cursor.synced_ts = new_synced_ts;
+        // Every re-emitted document is captured, so its predecessor was already
+        // emitted by this iterator — attach it so consumers can compute deltas.
+        let entries = self
+            .attach_prev_revs(&repeatable_persistence, entries)
+            .await?;
         let status = status(cursor, *latest, target_tables.len() as u64, 0);
         Ok((entries, status))
+    }
+
+    /// Batch-fetch, for each emitted entry, the document revision at its
+    /// `prev_ts` and pair it up as a [`DataSyncEntry`]. On a `ts` page every
+    /// entry is a captured document, so a `Some(prev_ts)` points to a revision
+    /// this iterator already emitted (see [`DataSyncEntry::prev_rev`]). One
+    /// batched persistence lookup per page keeps this cheap.
+    async fn attach_prev_revs(
+        &self,
+        repeatable_persistence: &RepeatablePersistence,
+        entries: Vec<DocumentLogEntry>,
+    ) -> anyhow::Result<Vec<DataSyncEntry>> {
+        let queries: BTreeSet<_> = entries
+            .iter()
+            .filter_map(|entry| {
+                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
+                    id: entry.id,
+                    ts: entry.ts,
+                    prev_ts,
+                })
+            })
+            .collect();
+        let mut prev_revs = if queries.is_empty() {
+            BTreeMap::new()
+        } else {
+            repeatable_persistence
+                .previous_revisions_of_documents(queries)
+                .await?
+        };
+        Ok(entries
+            .into_iter()
+            .map(|log_entry| {
+                let prev_rev = log_entry.prev_ts.and_then(|prev_ts| {
+                    prev_revs
+                        .remove(&DocumentPrevTsQuery {
+                            id: log_entry.id,
+                            ts: log_entry.ts,
+                            prev_ts,
+                        })
+                        .and_then(|entry| entry.value)
+                });
+                DataSyncEntry {
+                    log_entry,
+                    prev_rev,
+                }
+            })
+            .collect())
     }
 }
 
