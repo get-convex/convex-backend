@@ -13,6 +13,10 @@ use database::{
 };
 use keybroker::Identity;
 use model::backend_info::BackendInfoModel;
+use streaming_export::{
+    SyncCursor,
+    SyncResult,
+};
 use sync_types::Timestamp;
 use value::ResolvedDocumentId;
 
@@ -45,6 +49,25 @@ impl<RT: Runtime> Application<RT> {
                 *DOCUMENT_DELTAS_LIMIT,
             )
             .await
+    }
+
+    #[fastrace::trace]
+    pub async fn data_sync(
+        &self,
+        identity: Identity,
+        cursor: Option<SyncCursor>,
+        selection: StreamingExportSelection,
+    ) -> anyhow::Result<SyncResult> {
+        streaming_export::data_sync(
+            &self.database,
+            identity,
+            cursor,
+            StreamingExportFilter {
+                selection,
+                ..Default::default()
+            },
+        )
+        .await
     }
 
     #[fastrace::trace]

@@ -393,6 +393,7 @@ dependencies = [
  "smallvec",
  "storage",
  "storage_zip_reader",
+ "streaming_export",
  "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.17",
@@ -3787,6 +3788,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+ "utoipa",
  "uuid",
 ]
 
@@ -5798,6 +5800,7 @@ dependencies = [
  "serde_with",
  "shape_inference",
  "storage",
+ "streaming_export",
  "sync",
  "tempfile",
  "tokio",
@@ -7062,6 +7065,16 @@ version = "0.1.0"
 dependencies = [
  "prost 0.14.3",
  "tonic-prost-build",
+]
+
+[[package]]
+name = "pb_data_sync"
+version = "0.1.0"
+dependencies = [
+ "pb",
+ "pb_build",
+ "prost 0.14.3",
+ "prost-reflect",
 ]
 
 [[package]]
@@ -9589,6 +9602,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42316e70da376f3d113a68d138a60d8a9883c604fe97942721ec2068dab13a9f"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "streaming_export"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+ "database",
+ "fastrace",
+ "keybroker",
+ "pb_data_sync",
+ "prost 0.14.3",
+ "table_iteration",
+ "tracing",
+ "usage_tracking",
+ "value",
 ]
 
 [[package]]

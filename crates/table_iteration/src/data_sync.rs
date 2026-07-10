@@ -180,6 +180,52 @@ pub struct DataSyncCursor {
     table_cursor: TableCursor,
 }
 
+impl DataSyncCursor {
+    /// The timestamp all captured documents have a revision `<=` of.
+    pub fn synced_ts(&self) -> Timestamp {
+        self.synced_ts
+    }
+
+    /// Tables whose entire ID space has been traversed at `synced_ts`.
+    pub fn synced_tables(&self) -> &BTreeSet<TabletId> {
+        &self.synced_tables
+    }
+
+    /// The table currently being traversed in the `by_id` dimension and the
+    /// last id walked in it (`None` id means the traversal hasn't started), or
+    /// `None` if every target table has been fully traversed (`Synced`).
+    pub fn in_progress_table(&self) -> Option<(TabletId, Option<DeveloperDocumentId>)> {
+        match &self.table_cursor {
+            TableCursor::Synced => None,
+            TableCursor::InProgress {
+                current_table,
+                current_id,
+            } => Some((*current_table, *current_id)),
+        }
+    }
+
+    /// Reconstruct a cursor from its serialized parts. `in_progress` mirrors
+    /// [`Self::in_progress_table`].
+    pub fn from_parts(
+        synced_ts: Timestamp,
+        synced_tables: BTreeSet<TabletId>,
+        in_progress: Option<(TabletId, Option<DeveloperDocumentId>)>,
+    ) -> Self {
+        let table_cursor = match in_progress {
+            None => TableCursor::Synced,
+            Some((current_table, current_id)) => TableCursor::InProgress {
+                current_table,
+                current_id,
+            },
+        };
+        Self {
+            synced_ts,
+            synced_tables,
+            table_cursor,
+        }
+    }
+}
+
 /// Progress indicator returned while a sync is still
 /// [`DataSyncStatus::InProgress`].
 #[derive(Clone, Debug, PartialEq, Eq)]

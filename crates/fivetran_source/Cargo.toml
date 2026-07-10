@@ -38,6 +38,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
+utoipa = { workspace = true }
 
 [build-dependencies]
 bytes = { workspace = true }

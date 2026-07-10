@@ -59,6 +59,12 @@ use database::{
 use errors::ErrorMetadata;
 use fivetran_source::api_types::{
     selection::Selection,
+    DataSyncArgs,
+    DataSyncProgress,
+    DataSyncResponse,
+    DataSyncStatus,
+    DataSyncTruncate,
+    DataSyncValue,
     DocumentDeltasArgs,
     DocumentDeltasResponse,
     DocumentDeltasValue,
@@ -80,6 +86,13 @@ use serde::{
 use serde_json::{
     json,
     Value as JsonValue,
+};
+use streaming_export::{
+    SyncCursor,
+    SyncEntry,
+    SyncResult,
+    SyncStatus,
+    SyncTruncate,
 };
 // Import for usage tracking
 use usage_tracking::{
@@ -194,6 +207,200 @@ pub async fn _document_deltas(
     *usage
         .fetch_egress
         .entry("/api/document_deltas".to_string())
+        .or_default() += response_bytes.len() as u64;
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_export".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Export,
+            true,
+            usage,
+        )
+        .await;
+
+    Ok((
+        StatusCode::OK,
+        (
+            [(http::header::CONTENT_TYPE, "application/json")],
+            response_bytes,
+        ),
+    ))
+}
+
+/// Data sync
+///
+/// **Early access:** this API is not yet stable and may change in
+/// backwards-incompatible ways without notice. Contact the Convex team before
+/// depending on it.
+///
+/// Streams a consistent, resumable export of a deployment's data — either the
+/// whole deployment or a subset of components, tables, and columns (see the
+/// request body). Streaming export must be enabled on the deployment.
+///
+/// Call this endpoint repeatedly, passing the `cursor` from each response back
+/// in the next request; omit `cursor` on the first call. The cursor is opaque —
+/// store and send it back verbatim. Each response contains:
+///
+/// - `values`: document revisions in the order they should be applied. A value
+///   with `_deleted: true` is a tombstone marking that document as deleted.
+/// - `truncates`: tables whose contents were replaced wholesale (for example by
+///   an `npx convex import`). Drop everything you have stored for each listed
+///   table; the `values` in this and later responses re-populate it.
+/// - `status`: `inProgress` while the export is still being assembled — the
+///   data returned so far is not yet a consistent view, so keep calling. Once
+///   it becomes `synced`, the values applied so far form a consistent snapshot
+///   of the deployment as of the returned `snapshot` timestamp. You can keep
+///   calling to continue streaming later changes; `hasMore` tells you whether
+///   more data is already available (`true`) or you've caught up to the latest
+///   commit (`false`).
+///
+/// Persist the cursor and keep calling within the deployment's data retention
+/// window so the export can resume where it left off. If the cursor falls
+/// outside that window, start over with no cursor.
+#[utoipa::path(
+    post,
+    path = "/data/sync",
+    tag = "Data Sync",
+    request_body = DataSyncArgs,
+    responses((status = 200, body = DataSyncResponse)),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
+)]
+#[fastrace::trace]
+pub async fn data_sync_post(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Json(args): Json<DataSyncArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    _data_sync(st, args, identity).await
+}
+
+/// Platform (OpenAPI-documented) routes for streaming export.
+pub fn platform_router<S>() -> utoipa_axum::router::OpenApiRouter<S>
+where
+    LocalAppState: axum::extract::FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    utoipa_axum::router::OpenApiRouter::new().routes(utoipa_axum::routes!(data_sync_post))
+}
+
+async fn _data_sync(
+    st: LocalAppState,
+    DataSyncArgs { cursor, selection }: DataSyncArgs,
+    identity: Identity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    st.application
+        .ensure_streaming_export_enabled(identity.clone())
+        .await?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
+
+    let cursor = cursor
+        .map(|cursor| -> anyhow::Result<SyncCursor> {
+            let bytes = base64::decode(&cursor).context(ErrorMetadata::bad_request(
+                "InvalidDataSyncCursor",
+                "Could not base64-decode the data sync cursor",
+            ))?;
+            SyncCursor::from_bytes(&bytes).context(ErrorMetadata::bad_request(
+                "InvalidDataSyncCursor",
+                "Could not parse the data sync cursor",
+            ))
+        })
+        .transpose()?;
+
+    let selection = Selection::from(selection);
+    let selection = StreamingExportSelection::try_from(selection)?;
+
+    // The data sync API always uses the uniform, lossless `ConvexExportJSON`
+    // encoding (the same format as snapshot/zip exports). Callers don't get to
+    // choose, so the wire format is stable.
+    let value_format = ValueFormat::ConvexExportJSON;
+
+    let SyncResult {
+        truncates,
+        entries,
+        cursor: new_cursor,
+        status,
+        mut usage,
+    } = st
+        .application
+        .data_sync(identity, cursor, selection)
+        .await?;
+
+    let truncates = truncates
+        .into_iter()
+        .map(|SyncTruncate { component, table }| DataSyncTruncate {
+            component: component.to_string(),
+            table: table.to_string(),
+        })
+        .collect();
+
+    let values = entries
+        .into_iter()
+        .map(|entry| -> anyhow::Result<DataSyncValue> {
+            Ok(match entry {
+                SyncEntry::Document {
+                    ts,
+                    component,
+                    table,
+                    document,
+                } => DataSyncValue {
+                    component: component.to_string(),
+                    table: table.to_string(),
+                    ts: i64::from(ts),
+                    deleted: false,
+                    fields: document.export_fields(value_format)?,
+                },
+                SyncEntry::Tombstone {
+                    ts,
+                    component,
+                    table,
+                    id,
+                } => DataSyncValue {
+                    component: component.to_string(),
+                    table: table.to_string(),
+                    ts: i64::from(ts),
+                    deleted: true,
+                    fields: btreemap! {
+                        "_id".to_string() => JsonValue::from(id),
+                    },
+                },
+            })
+        })
+        .try_collect()?;
+
+    let status = match status {
+        SyncStatus::Synced { ts, has_more } => DataSyncStatus::Synced {
+            snapshot: i64::from(ts),
+            has_more,
+        },
+        SyncStatus::InProgress { progress } => DataSyncStatus::InProgress {
+            progress: DataSyncProgress {
+                num_tables_synced: progress.num_tables_synced,
+                total_tables: progress.total_tables,
+                current_component: progress.current_component.map(|c| c.to_string()),
+                current_table: progress.current_table.map(|t| t.to_string()),
+                num_documents_in_current_table: progress.num_documents_in_current_table,
+            },
+        },
+    };
+
+    let response = DataSyncResponse {
+        truncates,
+        values,
+        cursor: base64::encode(new_cursor.to_bytes()?),
+        status,
+    };
+    let response_bytes = serde_json::to_vec(&response).context("Failed to serialize response")?;
+
+    *usage
+        .fetch_egress
+        .entry("/api/v1/data/sync".to_string())
         .or_default() += response_bytes.len() as u64;
     st.application
         .usage_counter()

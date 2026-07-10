@@ -4,11 +4,19 @@ import { default as deploymentApiSidebar } from "./docs/deployment-api/sidebar";
 //import { default as publicHttpApiSidebar } from "./docs/public-deployment-api/sidebar";
 import { default as managementApiSidebar } from "./docs/management-api/sidebar";
 
+// Tags whose generated pages stay reachable by URL but are kept out of the
+// sidebar (e.g. early-access APIs shared by direct link only).
+const HIDDEN_API_TAGS = new Set(["Data Sync"]);
+
 // Tag categories and top-level items (skip the info doc at index 0).
 // Flatten any UNTAGGED category so its items appear at the top level.
 function apiSidebarItems(sidebar) {
   return sidebar
     .slice(1)
+    .filter(
+      (entry) =>
+        !(entry.type === "category" && HIDDEN_API_TAGS.has(entry.label)),
+    )
     .flatMap((entry) =>
       entry.type === "category" && entry.label === "UNTAGGED"
         ? entry.items
