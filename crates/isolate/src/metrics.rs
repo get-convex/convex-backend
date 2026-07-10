@@ -706,7 +706,7 @@ register_convex_histogram!(
 pub fn log_user_function_execution_time(udf_type: UdfType, execution_time: Duration) {
     log_distribution_with_labels(
         &USER_FUNCTION_EXECUTION_SECONDS,
-        execution_time.as_millis() as f64,
+        execution_time.as_secs_f64(),
         vec![StaticMetricLabel::new(
             "udf_type",
             udf_type.to_lowercase_string(),
