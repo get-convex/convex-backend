@@ -276,7 +276,7 @@ inherits = "release"
 strip = "debuginfo"
 
 [patch.crates-io]
-v8 = { git = "https://github.com/get-convex/rusty_v8", rev = "8815e2158c8f9c284b55e3be137e82c6f40f1d19" }
+v8 = { git = "https://github.com/get-convex/rusty_v8", rev = "90d633dd98c58779c6f3a1147e671235bef8cf6e" }
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "367f80d0d3678ed7989814fd5864598746a3b946" }
 tokio-postgres = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
 postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }

@@ -1,12 +1,14 @@
 [env]
 CARGO_WORKSPACE_ROOT = { value = "", relative = true }
 CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
-# Custom rusty_v8 build: V8 14.9.207.26 with BOTH leaptiering dispatch-handle
-# UAF fixes — JSFunction (8e1b07549b03, bug 511279942) AND FeedbackCell
-# (bug 512734866). Built by get-convex/rusty_v8 @ tag v149.2.2; the crate is
-# pinned to that tag via [patch.crates-io] in the workspace Cargo.toml so the
-# download URL (…/v149.2.2/…) is content-stable and reproducible. The prior
-# v149.2.0 build shipped only the JSFunction fix; funrun-pro kept crashing.
+# Custom rusty_v8 build: V8 14.9.207.26 with the leaptiering dispatch-handle
+# UAF fixes (JSFunction 8e1b07549b03 + FeedbackCell, bugs 511279942/512734866)
+# plus three post-14.9 backports: SharedFunctionInfo publication race on the
+# background-merge path (35580b908ad, bug 511219512) and two regexp tier-up
+# fixes (2f3fea02141 peephole stale offsets, f55c4ff2410 RegExpData TOCTOU).
+# Built by get-convex/rusty_v8 @ tag v149.2.3; the crate is pinned to that tag
+# via [patch.crates-io] in the workspace Cargo.toml so the download URL
+# (…/v149.2.3/…) is content-stable and reproducible.
 RUSTY_V8_MIRROR = "https://github.com/get-convex/rusty_v8/releases/download"
 
 [target.aarch64-unknown-linux-gnu]
