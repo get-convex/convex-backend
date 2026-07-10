@@ -823,13 +823,18 @@ function UsageLimitThresholdEditor({
           </p>
         )}
       </div>
-      <label className="flex w-fit items-center gap-2 text-xs text-content-secondary">
-        <Checkbox
-          checked={enabled}
-          onChange={() => setEnabled((prev) => !prev)}
-        />
-        Enforced
-      </label>
+      <Tooltip
+        tip="When enabled, this limit is enforced: if usage exceeds the allotted amount, the limit takes effect."
+        side="bottom"
+      >
+        <label className="flex w-fit cursor-help items-center gap-2 text-xs text-content-secondary">
+          <Checkbox
+            checked={enabled}
+            onChange={() => setEnabled((prev) => !prev)}
+          />
+          Enabled
+        </label>
+      </Tooltip>
       <div className="flex items-center gap-2">
         <Button
           size="xs"
@@ -854,18 +859,14 @@ function UsageLimitThresholdEditor({
   );
 }
 
-// Whether the limit is actively being enforced, shown as a filled pill. Both
-// variants use high-contrast content-primary text (the content-success green is
-// too light on the success tint to clear the 4.5:1 a11y bar) and are told apart
-// by fill: a green tint when enforced, a neutral tint when not.
 function StatusBadge({ enabled }: { enabled: boolean }) {
   return (
     <Tooltip
       asChild
       tip={
         enabled
-          ? "This limit is enabled and will be enforced if usage exceeds the allotted amount."
-          : "This limit is disabled and will not be enforced if usage exceeds the allotted amount."
+          ? "This limit is enabled: if usage exceeds the allotted amount, the limit will be enforced."
+          : "This limit is disabled: it will not be enforced even if usage exceeds the allotted amount."
       }
       side="bottom"
     >
@@ -875,7 +876,7 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
           enabled ? "bg-background-success" : "bg-background-tertiary",
         )}
       >
-        {enabled ? "Enforced" : "Not enforced"}
+        {enabled ? "Enabled" : "Disabled"}
       </span>
     </Tooltip>
   );
