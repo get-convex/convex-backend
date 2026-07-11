@@ -69,7 +69,7 @@ pub struct UsageLimitKey {
     pub limit_type: UsageLimitType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "camelCase")]
 pub enum UsageLimitMetric {
     FunctionCalls,
@@ -82,13 +82,13 @@ pub enum UsageLimitMetric {
     ActionComputeCpuGBHours,
 }
 
+const BYTES_PER_GB: f64 = (1u64 << 30) as f64;
+const SECS_PER_HOUR: f64 = 3600.0;
+
 impl UsageLimitMetric {
     /// Canonical name for this metric in the in-memory usage metric stores.
     /// The seed pipeline's finer-grained metrics are combined into these
-    /// buckets at hydration (e.g. `function_calls` sums the seed's
-    /// `udf_calls`, `storage_calls`, and `udf_storage_calls`).
-    ///
-    /// TODO(ENG-10801): pin the seed-metric-to-bucket mapping.
+    /// buckets at hydration; see [`Self::from_seed_metric`].
     pub fn metric_name(&self) -> &'static str {
         match self {
             Self::FunctionCalls => "function_calls",
@@ -102,12 +102,33 @@ impl UsageLimitMetric {
         }
     }
 
+    /// Map one of the usage pipeline's rollup metric names (the
+    /// `metric_name` values in `deployment_usage_*_rollup`) to the
+    /// enforcement bucket it feeds. Several source metrics can feed one
+    /// bucket; hydration sums them.
+    ///
+    /// Every source metric's unit matches its bucket's raw unit, so seeded
+    /// values are used as-is.
+    pub fn from_seed_metric(name: &str) -> Option<Self> {
+        Some(match name {
+            "udf_calls" | "storage_calls" | "udf_storage_calls" => Self::FunctionCalls,
+            "reactor_gbs" => Self::QueryMutationComputeGBHours,
+            "action_gbs" => Self::ActionComputeConvexGBHours,
+            "action_node_gbs" => Self::ActionComputeNodeJsGBHours,
+            "action_user_gbs" => Self::ActionComputeCpuGBHours,
+            "db_ingress" | "db_egress" => Self::DatabaseIoGB,
+            "text_query_search_gb" | "vector_query_search_gb_dims" => Self::SearchQueryGB,
+            "network_egress" | "storage_bandwidth_egress" | "udf_storage_bandwidth_egress" => {
+                Self::DataEgressGB
+            },
+            _ => return None,
+        })
+    }
+
     /// Convert a configured limit from this metric's user-facing unit
     /// (calls, GB, or GB-hours) into the raw unit its store counts in
     /// (calls, bytes, GB, or GB·s).
     pub fn limit_in_raw_units(&self, limit: u64) -> f64 {
-        const BYTES_PER_GB: f64 = (1u64 << 30) as f64;
-        const SECS_PER_HOUR: f64 = 3600.0;
         match self {
             Self::FunctionCalls | Self::SearchQueryGB => limit as f64,
             Self::DatabaseIoGB | Self::DataEgressGB => limit as f64 * BYTES_PER_GB,

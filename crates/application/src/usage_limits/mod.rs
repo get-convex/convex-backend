@@ -12,6 +12,7 @@ mod worker;
 pub use self::{
     meter::{
         ExceededUsageLimit,
+        SeedRow,
         UsageLimitEvaluation,
         UsageMeter,
     },

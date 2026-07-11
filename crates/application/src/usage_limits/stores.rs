@@ -33,7 +33,7 @@ const DAILY_BUCKET_WIDTH: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// The resolutions usage is stored at; a seed row targets exactly one of
 /// them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UsageMetricResolution {
     Minutely,
     Hourly,

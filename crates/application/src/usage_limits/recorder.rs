@@ -17,10 +17,8 @@ use model::usage_limits::types::UsageLimitMetric;
 use super::meter::UsageMeter;
 
 /// Per-metric usage deltas (raw units: calls, bytes, GB, GB·s) derived from a
-/// batch of usage events.
-///
-/// TODO(ENG-10752): the event-to-metric mapping is provisional until the
-/// seed pipeline pins which rollup feeds each metric.
+/// batch of usage events, mirroring the pipeline rollups that
+/// [`UsageLimitMetric::from_seed_metric`] maps.
 pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
     fn gb_s(memory_megabytes: u64, duration_millis: u64) -> f64 {
         memory_megabytes as f64 / 1024.0 * (duration_millis as f64 / 1000.0)

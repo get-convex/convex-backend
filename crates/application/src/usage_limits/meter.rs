@@ -1,7 +1,10 @@
 //! The usage meter: evaluation of configured usage limits against the
 //! in-memory metric stores.
 
-use std::time::SystemTime;
+use std::{
+    collections::HashMap,
+    time::SystemTime,
+};
 
 use common::types::UsageLimitStopState;
 use model::usage_limits::types::{
@@ -36,6 +39,15 @@ pub struct UsageLimitEvaluation {
     /// The stop state the deployment should currently be in: `Disabled`
     /// while any enabled `Disable` limit is exceeded, `None` otherwise.
     pub desired_stop_state: UsageLimitStopState,
+}
+
+/// One usage rollup row to seed, in its bucket's raw unit.
+#[derive(Debug, Clone)]
+pub struct SeedRow {
+    pub metric: UsageLimitMetric,
+    pub resolution: UsageMetricResolution,
+    pub time: SystemTime,
+    pub value: f64,
 }
 
 /// In-memory usage meter: owns the metric stores and the active limit
@@ -100,19 +112,29 @@ impl UsageMeter {
         }
     }
 
-    /// Hydrate one bucket from a seed/gap-fill row.
-    pub fn seed(
-        &self,
-        resolution: UsageMetricResolution,
-        metric_name: &str,
-        ts: SystemTime,
-        value: f64,
-        now: SystemTime,
-    ) {
-        self.inner
-            .lock()
-            .stores
-            .seed(resolution, metric_name, ts, value, now)
+    /// Seed the stores from one complete delivery of usage rollup rows.
+    /// Sums the rows into per-bucket totals first — several source metrics
+    /// feed one bucket, and the stores' max-merge expects each bucket's
+    /// complete total in a single write. The seed query returns at most one
+    /// row per (metric_name, resolution, rollup_time), so the sum only ever
+    /// combines different source metrics. Returns the number of buckets
+    /// seeded.
+    pub fn seed_rows(&self, rows: Vec<SeedRow>, now: SystemTime) -> usize {
+        let mut combined: HashMap<(UsageLimitMetric, UsageMetricResolution, SystemTime), f64> =
+            HashMap::new();
+        for row in rows {
+            *combined
+                .entry((row.metric, row.resolution, row.time))
+                .or_insert(0.0) += row.value;
+        }
+        let num_buckets = combined.len();
+        let mut inner = self.inner.lock();
+        for ((metric, resolution, time), value) in combined {
+            inner
+                .stores
+                .seed(resolution, metric.metric_name(), time, value, now);
+        }
+        num_buckets
     }
 
     /// Evaluate every enabled limit against its current window. A limit is
