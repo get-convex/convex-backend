@@ -99,6 +99,8 @@ export const ACTIONS_BY_CATEGORY: Record<
     "deployment:logs:view",
     "deployment:metrics:view",
     "deployment:auditLog:view",
+    "deployment:usageLimits:view",
+    "deployment:usageLimits:write",
     "deployment:data:view",
     "deployment:data:write",
     "deployment:functions:actAsUser",
