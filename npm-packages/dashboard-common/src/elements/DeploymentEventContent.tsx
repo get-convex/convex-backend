@@ -17,7 +17,17 @@ import {
   componentDiff,
   cronDiffType,
   schemaDiffType,
+  usageLimitConfig,
 } from "system-udfs/convex/tableDefs/deploymentAuditLogTable";
+import {
+  METRIC_CONFIG,
+  WINDOW_SUFFIX,
+  LIMIT_TYPE_LABEL,
+  AMOUNT_FORMAT,
+  type UsageMetric,
+  type UsageLimitWindow,
+  type UsageLimitType,
+} from "@common/features/settings/components/UsageLimits";
 import { SchemaJson, displaySchema } from "@common/lib/format";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -88,6 +98,10 @@ export function DeploymentEventContent({
 
     case "snapshot_import":
       body = <SnapshotImportContent event={event} />;
+      break;
+
+    case "update_usage_limit":
+      body = <UsageLimitUpdateBody event={event} />;
       break;
 
     case "create_environment_variable":
@@ -566,10 +580,126 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
         </>
       );
 
+    case "create_usage_limit":
+      return (
+        <>
+          <span>created a usage limit: </span>
+          <UsageLimitSummary config={event.metadata.config} />
+        </>
+      );
+
+    case "delete_usage_limit":
+      return (
+        <>
+          <span>deleted a usage limit: </span>
+          <UsageLimitSummary config={event.metadata.config} />
+        </>
+      );
+
+    case "usage_limit_exceeded":
+      return (
+        <>
+          <span>reported that a usage limit was exceeded: </span>
+          <UsageLimitSummary
+            config={event.metadata.config}
+            showStatus={false}
+          />
+        </>
+      );
+
+    case "update_usage_limit": {
+      // The changed fields are shown as a diff in the event body; the sentence
+      // just names which limit was updated.
+      const { metricName, typeLabel } = usageLimitLabels(
+        event.metadata.current,
+      );
+      return (
+        <>
+          <span>updated the </span>
+          <span className="font-semibold">{typeLabel}</span>
+          <span> on </span>
+          <span className="font-semibold">{metricName}</span>
+        </>
+      );
+    }
+
     default:
       event satisfies never;
       return null;
   }
+}
+
+function usageLimitLabels(config: Infer<typeof usageLimitConfig>) {
+  const metricConfig = METRIC_CONFIG[config.metric as UsageMetric];
+  return {
+    metricName: metricConfig?.name ?? config.metric,
+    unit: metricConfig?.rawUnitShort ?? "",
+    windowSuffix: WINDOW_SUFFIX[config.window as UsageLimitWindow] ?? "",
+    typeLabel:
+      LIMIT_TYPE_LABEL[config.limitType as UsageLimitType] ?? config.limitType,
+  };
+}
+
+function UsageLimitSummary({
+  config,
+  showStatus = true,
+}: {
+  config: Infer<typeof usageLimitConfig>;
+  showStatus?: boolean;
+}) {
+  const { metricName, unit, windowSuffix, typeLabel } =
+    usageLimitLabels(config);
+  return (
+    <>
+      <span className="font-semibold">{typeLabel}</span>
+      <span> on </span>
+      <span className="font-semibold">{metricName}</span>
+      <span>
+        {" ("}
+        {AMOUNT_FORMAT.format(Number(config.limit))} {unit} {windowSuffix}
+        {showStatus && (config.enabled ? ", enabled" : ", disabled")})
+      </span>
+    </>
+  );
+}
+
+function UsageLimitUpdateBody({
+  event,
+}: {
+  event: DeploymentAuditLogEvent & { action: "update_usage_limit" };
+}) {
+  const { previous, current } = event.metadata;
+  const { unit, windowSuffix } = usageLimitLabels(current);
+  const rows: { label: string; from: string; to: string }[] = [];
+  if (previous.limit !== current.limit) {
+    rows.push({
+      label: "Limit",
+      from: `${AMOUNT_FORMAT.format(Number(previous.limit))} ${unit} ${windowSuffix}`,
+      to: `${AMOUNT_FORMAT.format(Number(current.limit))} ${unit} ${windowSuffix}`,
+    });
+  }
+  if (previous.enabled !== current.enabled) {
+    rows.push({
+      label: "Status",
+      from: previous.enabled ? "Enabled" : "Disabled",
+      to: current.enabled ? "Enabled" : "Disabled",
+    });
+  }
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center gap-1.5">
+          <span className="text-content-secondary">{row.label}</span>
+          <span className="font-mono">{row.from}</span>
+          <span className="text-content-secondary">→</span>
+          <span className="font-mono font-semibold">{row.to}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ItemListTooltip({ items }: { items: string[] }) {

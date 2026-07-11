@@ -46,6 +46,40 @@ const replaceEnvironmentVariable = auditLogEventValidator(
   },
 );
 
+// The serialized shape of a deployment usage limit's configuration, written by
+// the backend's `SerializedUsageLimitConfig` (serde/strum `camelCase`). `metric`,
+// `window`, and `limitType` are the string forms of the backend enums; `limit`
+// is a count of the metric's raw unit, stored as an int64.
+export const usageLimitConfig = v.object({
+  name: v.union(v.string(), v.null()),
+  metric: v.string(),
+  window: v.string(),
+  limitType: v.string(),
+  limit: v.int64(),
+  enabled: v.boolean(),
+});
+
+const createUsageLimit = auditLogEventValidator("create_usage_limit", {
+  id: v.string(),
+  config: usageLimitConfig,
+});
+
+const updateUsageLimit = auditLogEventValidator("update_usage_limit", {
+  id: v.string(),
+  previous: usageLimitConfig,
+  current: usageLimitConfig,
+});
+
+const deleteUsageLimit = auditLogEventValidator("delete_usage_limit", {
+  id: v.string(),
+  config: usageLimitConfig,
+});
+
+const usageLimitExceeded = auditLogEventValidator("usage_limit_exceeded", {
+  id: v.string(),
+  config: usageLimitConfig,
+});
+
 const updateCanonicalUrl = auditLogEventValidator("update_canonical_url", {
   request_destination: v.string(),
   url: v.string(),
@@ -340,6 +374,10 @@ const deploymentAuditLogTable = defineTable(
     deleteEnvironmentVariable,
     updateEnvironmentVariable,
     replaceEnvironmentVariable,
+    createUsageLimit,
+    updateUsageLimit,
+    deleteUsageLimit,
+    usageLimitExceeded,
     updateCanonicalUrl,
     deleteCanonicalUrl,
     buildIndexes,
