@@ -66,6 +66,7 @@ const meta = {
           ? {
               id: 1,
               teamId: 2,
+              teamSlug: "my-team",
               name: "my-cute-app",
               slug: "my-cute-app",
               createTime: Date.now(),
@@ -76,6 +77,7 @@ const meta = {
             ? {
                 id: 2,
                 teamId: 2,
+                teamSlug: "my-team",
                 name: "my-cool-app",
                 slug: "my-cool-app",
                 createTime: Date.now(),

@@ -168,7 +168,10 @@ const getProps: GetServerSideProps<{
     const initialProjectsByTeam = Object.fromEntries(
       teams.map(({ id: teamId }) => [
         `/teams/${teamId}/projects`,
-        projectsByTeam[teamId] ?? [],
+        {
+          items: projectsByTeam[teamId] ?? [],
+          pagination: { hasMore: false },
+        },
       ]),
     );
 

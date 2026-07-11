@@ -1,10 +1,13 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
-import { ProjectDetails, TeamResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { DeploymentLabel } from "./DeploymentDisplay";
-import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import {
+  PlatformDeploymentResponse,
+  PlatformProjectDetails,
+} from "@convex-dev/platform/managementApi";
 
 // Mock data
 const mockTeam: TeamResponse = {
@@ -16,11 +19,12 @@ const mockTeam: TeamResponse = {
   referralCode: "CODE123",
 };
 
-const mockProject: ProjectDetails = {
+const mockProject: PlatformProjectDetails = {
   id: 1,
   name: "Test Project",
   slug: "test-project",
   teamId: 1,
+  teamSlug: "test-team",
   createTime: Date.now(),
 };
 

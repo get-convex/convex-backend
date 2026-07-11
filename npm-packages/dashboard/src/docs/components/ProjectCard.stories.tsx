@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
-import { ProjectDetails, TeamResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
+import { PlatformProjectDetails } from "@convex-dev/platform/managementApi";
 import { ProjectCard } from "components/projects/ProjectCard";
 import { useProjectById } from "api/projects";
 import { useCurrentTeam } from "api/teams";
@@ -16,9 +17,10 @@ const mockTeam: TeamResponse = {
   referredBy: null,
 };
 
-const project: ProjectDetails = {
+const project: PlatformProjectDetails = {
   id: 7,
   teamId: mockTeam.id,
+  teamSlug: mockTeam.slug,
   name: "My amazing app",
   slug: "my-amazing-app",
   createTime: Date.now(),

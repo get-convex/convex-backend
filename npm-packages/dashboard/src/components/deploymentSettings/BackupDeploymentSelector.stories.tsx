@@ -1,12 +1,13 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
-import { TeamResponse, ProjectDetails } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { useProfile } from "api/profile";
 import { useInfiniteProjects, useProjectById } from "api/projects";
 import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import {
   PlatformDeploymentResponse,
+  PlatformProjectDetails,
   TeamMember,
 } from "@convex-dev/platform/managementApi";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
@@ -22,12 +23,13 @@ const team: TeamResponse = {
   referredBy: null,
 };
 
-const mockProjects: ProjectDetails[] = [
+const mockProjects: PlatformProjectDetails[] = [
   {
     id: 1,
     name: "Project Alpha",
     slug: "project-alpha",
     teamId: 1,
+    teamSlug: "test-team",
     createTime: Date.now() - 30 * 24 * 60 * 60 * 1000,
   },
   {
@@ -35,6 +37,7 @@ const mockProjects: ProjectDetails[] = [
     name: "Project Beta",
     slug: "project-beta",
     teamId: 1,
+    teamSlug: "test-team",
     createTime: Date.now() - 60 * 24 * 60 * 60 * 1000,
   },
 ];
@@ -186,7 +189,7 @@ let lastId = 0;
 const generateManyProjects = (
   count: number,
   startOffset: number = 0,
-): ProjectDetails[] => {
+): PlatformProjectDetails[] => {
   const projectNames = [
     "Analytics Dashboard",
     "User Authentication",
@@ -212,6 +215,7 @@ const generateManyProjects = (
       name: `${projectNames[index % projectNames.length]} ${Math.floor(index / projectNames.length) + 1}`,
       slug: `project-${lastId}`,
       teamId: 1,
+      teamSlug: "test-team",
       createTime: Date.now() - index * 24 * 60 * 60 * 1000,
     };
   });
@@ -241,7 +245,7 @@ export const ManyProjects: Story = {
       const TOTAL_AVAILABLE = 200;
       const LOAD_DELAY_MS = 500;
 
-      const [data, setData] = useState<ProjectDetails[][]>(() => [
+      const [data, setData] = useState<PlatformProjectDetails[][]>(() => [
         [
           // Include the project with the default deployment as the first item.
           mockProjects[0],

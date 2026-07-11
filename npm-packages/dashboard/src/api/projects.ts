@@ -1,19 +1,18 @@
 import { useRouter } from "next/router";
 import { SWRConfiguration } from "swr";
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
-import { PaginatedProjectsResponse, operations } from "generatedApi";
 import { useDebounce } from "react-use";
 import { useProjectsPageSize } from "hooks/useProjectsPageSize";
 import { useAuthHeader } from "hooks/fetching";
 import flatMap from "lodash/flatMap";
-import type { PlatformCreateProjectArgs } from "@convex-dev/platform/managementApi";
 import { useCurrentTeam } from "./teams";
+import type { PlatformPaginatedProjectsResponse } from "./managementApi";
 import {
-  useBBInfiniteQuery,
   useBBMutation,
-  useBBQuery,
+  useManagementApiInfiniteQuery,
   useManagementApiMutation,
-  useMutate,
+  useManagementApiQuery,
+  useMutateManagementApi,
 } from "./api";
 
 export function useCurrentProject() {
@@ -24,10 +23,10 @@ export function useCurrentProject() {
 }
 
 export function useProjectById(projectId: number | undefined) {
-  const { data, isLoading, error } = useBBQuery({
+  const { data, isLoading, error } = useManagementApiQuery({
     path: "/projects/{project_id}",
     pathParams: {
-      project_id: projectId?.toString() || "",
+      project_id: projectId ?? 0,
     },
   });
   return { project: data, isLoading, error };
@@ -37,10 +36,10 @@ export function useProjectBySlug(
   teamId: number | undefined,
   projectSlug: string | undefined,
 ) {
-  const { data, isLoading } = useBBQuery({
-    path: "/teams/{team_id}/projects/{project_slug}",
+  const { data, isLoading } = useManagementApiQuery({
+    path: "/teams/{team_id_or_slug}/projects/{project_slug}",
     pathParams: {
-      team_id: teamId || 0,
+      team_id_or_slug: teamId?.toString() || "",
       project_slug: projectSlug || "",
     },
   });
@@ -63,44 +62,42 @@ export function usePaginatedProjects(
     limitOverride?: number;
   },
   refreshInterval?: SWRConfiguration["refreshInterval"],
-): (PaginatedProjectsResponse & { isLoading: boolean }) | undefined {
+): (PlatformPaginatedProjectsResponse & { isLoading: boolean }) | undefined {
   const { pageSize } = useProjectsPageSize();
 
   const queryParams = useMemo(
-    () =>
-      ({
-        cursor: options.cursor,
-        limit: options.limitOverride || pageSize,
-        q: options.q,
-      }) satisfies operations["get_projects_for_team"]["parameters"]["query"],
+    () => ({
+      cursor: options.cursor,
+      limit: options.limitOverride || pageSize,
+      q: options.q,
+    }),
     [options, pageSize],
   );
 
-  const { data, isLoading } = useBBQuery({
+  const { data, isLoading, isValidating } = useManagementApiQuery({
     path: "/teams/{team_id}/projects",
     pathParams: {
       team_id: teamId?.toString() || "",
     },
     queryParams,
-    swrOptions: { refreshInterval },
+    swrOptions: {
+      refreshInterval,
+      // The SSR-seeded projects list is served as SWR fallback data with
+      // `hasMore: false` (see lib/ssr.ts + the bigBrainAuth middleware). Always
+      // revalidate on mount so the correct pagination metadata replaces that
+      // seed promptly rather than waiting for a focus/interval revalidation.
+      revalidateOnMount: true,
+    },
   });
 
   if (data === undefined) {
     return undefined;
   }
 
-  // If it's an array (simple response), convert to paginated format
-  if (Array.isArray(data)) {
-    return {
-      items: data,
-      pagination: {
-        hasMore: false,
-      },
-      isLoading,
-    };
-  }
-
-  return { ...data, isLoading };
+  // Report loading while the mount revalidation is in flight, even though the
+  // SSR seed already populated `data`, so callers don't trust its stale
+  // pagination metadata.
+  return { ...data, isLoading: isLoading || isValidating };
 }
 
 /**
@@ -121,11 +118,11 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
     [searchQuery],
   );
 
-  const { data, isLoading, size, setSize } = useBBInfiniteQuery(
+  const { data, isLoading, size, setSize } = useManagementApiInfiniteQuery(
     "/teams/{team_id}/projects",
     (
       pageIndex: number,
-      previousPageData: PaginatedProjectsResponse | null,
+      previousPageData: PlatformPaginatedProjectsResponse | null,
     ): any => {
       // Stop if we've reached the end (but allow first page)
       if (
@@ -197,39 +194,23 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
 
 export function useCreateProject(teamId?: number) {
   const teamIdNum = teamId ?? 0;
-  const teamIdStr = teamId?.toString() || "";
-  const create = useManagementApiMutation({
+  return useManagementApiMutation({
     path: "/teams/{team_id}/create_project",
     pathParams: { team_id: teamIdNum },
-    mutateKey: "/teams/{team_id}/list_projects",
-    mutatePathParams: { team_id: teamIdNum },
+    mutateKey: "/teams/{team_id}/projects",
+    mutatePathParams: { team_id: teamIdNum.toString() },
     googleAnalyticsEvent: "create_project_dash",
   });
-  // usePaginatedProjects / useInfiniteProjects / useProjectBySlug still read
-  // from the big-brain projects list, which lives on a different SWR cache
-  // namespace than the platform mutation, so invalidate it explicitly.
-  const mutateBB = useMutate();
-  return useCallback(
-    async (args: PlatformCreateProjectArgs) => {
-      const result = await create(args);
-      await mutateBB([
-        "/teams/{team_id}/projects",
-        { params: { path: { team_id: teamIdStr } } },
-      ] as any);
-      return result;
-    },
-    [create, mutateBB, teamIdStr],
-  );
 }
 
 export function useUpdateProject(projectId: number) {
-  return useBBMutation({
+  return useManagementApiMutation({
     path: "/projects/{project_id}",
     pathParams: {
-      project_id: projectId.toString(),
+      project_id: projectId,
     },
     successToast: "Project updated.",
-    method: "put",
+    method: "patch",
   });
 }
 
@@ -238,10 +219,10 @@ export function useDeleteProject(
   projectId?: number,
   projectName?: string,
 ) {
-  return useBBMutation({
-    path: "/delete_project/{project_id}",
+  return useManagementApiMutation({
+    path: "/projects/{project_id}/delete",
     pathParams: {
-      project_id: projectId?.toString() || "",
+      project_id: projectId ?? 0,
     },
     mutateKey: "/teams/{team_id}/projects",
     mutatePathParams: {
@@ -253,13 +234,58 @@ export function useDeleteProject(
 }
 
 export function useDeleteProjects(teamId: number | undefined) {
-  return useBBMutation({
+  const deleteProjects = useBBMutation({
     path: "/delete_projects",
     pathParams: undefined,
-    mutateKey: "/teams/{team_id}/projects",
-    mutatePathParams: {
-      team_id: teamId?.toString() || "",
-    },
     successToast: "Projects deleted.",
   });
+  const mutateManagement = useMutateManagementApi();
+  const teamIdStr = teamId?.toString() || "";
+  return useCallback(
+    async (body: { projectIds: number[] }) => {
+      const result = await deleteProjects(body);
+      await mutateManagement([
+        "/teams/{team_id}/projects",
+        { params: { path: { team_id: teamIdStr } } },
+      ] as any);
+      return result;
+    },
+    [deleteProjects, mutateManagement, teamIdStr],
+  );
+}
+
+export function useTransferProject(
+  projectId?: number,
+  destinationTeamId?: number,
+  originTeamId?: number,
+) {
+  const transfer = useBBMutation({
+    path: "/projects/{project_id}/transfer",
+    pathParams: {
+      project_id: projectId?.toString() || "",
+    },
+    successToast: "Project transferred.",
+  });
+  const mutateManagement = useMutateManagementApi();
+  const destinationTeamIdStr = destinationTeamId?.toString() || "";
+  const originTeamIdStr = originTeamId?.toString() || "";
+  return useCallback(
+    async (body: { destinationTeamId: number }) => {
+      const result = await transfer(body);
+      // Invalidate both the destination team's list (the project now appears
+      // there) and the origin team's list (it no longer belongs there).
+      await Promise.all(
+        [destinationTeamIdStr, originTeamIdStr]
+          .filter(Boolean)
+          .map((teamIdStr) =>
+            mutateManagement([
+              "/teams/{team_id}/projects",
+              { params: { path: { team_id: teamIdStr } } },
+            ] as any),
+          ),
+      );
+      return result;
+    },
+    [transfer, mutateManagement, destinationTeamIdStr, originTeamIdStr],
+  );
 }

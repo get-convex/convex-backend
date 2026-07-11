@@ -1,6 +1,5 @@
-import { useBBMutation } from "api/api";
 import { useProfile } from "api/profile";
-import { useCurrentProject } from "api/projects";
+import { useCurrentProject, useTransferProject } from "api/projects";
 import { useTeams, useCurrentTeam, useTeamMembers } from "api/teams";
 import { useHasCustomRolePermission } from "api/roles";
 import { projectResource } from "lib/permissions";
@@ -12,20 +11,6 @@ import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
-function useTransferProject(projectId?: number, destinationTeamId?: number) {
-  return useBBMutation({
-    path: "/projects/{project_id}/transfer",
-    pathParams: {
-      project_id: projectId?.toString() || "",
-    },
-    mutateKey: "/teams/{team_id}/projects",
-    mutatePathParams: {
-      team_id: destinationTeamId?.toString() || "",
-    },
-    successToast: "Project transferred.",
-  });
-}
-
 export function TransferProject() {
   const project = useCurrentProject();
   const { selectedTeamSlug, teams } = useTeams();
@@ -36,6 +21,7 @@ export function TransferProject() {
   const transferProject = useTransferProject(
     project?.id,
     destinationTeamId ?? undefined,
+    originTeam?.id,
   );
   const destinationTeam = teams?.find((t) => t.id === destinationTeamId);
 
