@@ -5,12 +5,6 @@ use serde::{
 };
 use value::codegen_convex_serialization;
 
-/// Maximum number of usage limit configs allowed per deployment.
-///
-/// Limit evaluation is intended to happen on the function invocation path, so
-/// keep the configured set small and bounded.
-pub const USAGE_LIMITS_LIMIT: usize = 30;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsageLimitConfig {
     pub name: Option<String>,

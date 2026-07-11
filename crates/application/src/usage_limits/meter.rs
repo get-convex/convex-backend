@@ -10,6 +10,7 @@ use model::usage_limits::types::{
     UsageLimitType,
 };
 use parking_lot::Mutex;
+use tokio::sync::watch;
 use value::ResolvedDocumentId;
 
 use super::stores::{
@@ -43,6 +44,7 @@ pub struct UsageLimitEvaluation {
 /// [`super::UsageLimitWorker`].
 pub struct UsageMeter {
     inner: Mutex<Inner>,
+    has_enabled_limit_tx: watch::Sender<bool>,
 }
 
 struct Inner {
@@ -52,24 +54,42 @@ struct Inner {
 
 impl UsageMeter {
     pub fn new(now: SystemTime) -> anyhow::Result<Self> {
+        let (has_enabled_limit_tx, _) = watch::channel(false);
         Ok(Self {
             inner: Mutex::new(Inner {
                 stores: UsageMetricStores::new(now)?,
                 configs: Vec::new(),
             }),
+            has_enabled_limit_tx,
         })
     }
 
-    /// Replace the active configs.
+    /// Replace the active configs, republishing whether any of them is enabled.
     pub fn refresh_configs(&self, configs: Vec<(ResolvedDocumentId, UsageLimitConfig)>) {
+        let has_enabled_limit = configs.iter().any(|(_, config)| config.enabled);
         self.inner.lock().configs = configs;
+        // Publish after updating so a woken observer reads the new config set.
+        self.has_enabled_limit_tx.send_replace(has_enabled_limit);
+    }
+
+    /// Subscribe to whether this deployment currently has at least one enabled
+    /// usage limit. The value is republished on every
+    /// [`Self::refresh_configs`], so it tracks the `_usage_limits` table
+    /// via [`super::UsageLimitWorker`]'s subscription — observers don't need a
+    /// second subscription of their own.
+    pub fn has_enabled_limit(&self) -> watch::Receiver<bool> {
+        self.has_enabled_limit_tx.subscribe()
     }
 
     /// Record live usage deltas (raw units: calls, bytes, GB·s) that occurred
     /// at `ts` (the current time for live recording).
     ///
-    /// Records all metrics, so a limit enabled later already has recent
-    /// in-memory usage and only needs seeding for older history.
+    /// Recording is unconditional: every metric is tracked whether or not a
+    /// limit currently targets it. So enabling a limit mid-window enforces
+    /// against the usage already accrued this window rather than only usage
+    /// from the moment it was enabled. Enforcement stays gated on enabled
+    /// configs (see [`Self::evaluate`]), and seeding stays gated on an enabled
+    /// limit existing.
     pub fn record(&self, ts: SystemTime, deltas: &[(UsageLimitMetric, f64)]) {
         let mut inner = self.inner.lock();
         for (metric, delta) in deltas {
