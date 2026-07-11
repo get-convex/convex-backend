@@ -29,7 +29,6 @@ pub mod types;
 use types::{
     UsageLimitConfig,
     UsageLimitKey,
-    USAGE_LIMITS_LIMIT,
 };
 
 pub const USAGE_LIMITS_TABLE: TableName = TableName::const_new("_usage_limits");
@@ -146,17 +145,6 @@ impl<'a, RT: Runtime> UsageLimitsModel<'a, RT> {
         config.validate()?;
         let key = config.key();
         let existing = self.get_by_key(key).await?;
-        let configs = self.list().await?;
-        if replacing.is_none() && configs.len() >= USAGE_LIMITS_LIMIT {
-            return Err(ErrorMetadata::bad_request(
-                "UsageLimitQuotaExceeded",
-                format!(
-                    "Cannot add more than {USAGE_LIMITS_LIMIT} usage limits for this deployment.",
-                ),
-            )
-            .into());
-        }
-
         if let Some(existing) = existing
             && Some(existing.id()) != replacing
         {

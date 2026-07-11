@@ -156,7 +156,7 @@ const ACTION_DESCRIPTION: Record<UsageLimitType, string> = {
 };
 
 // Short label for each limit type. A metric card shows one row per type.
-const LIMIT_TYPE_LABEL: Record<UsageLimitType, string> = {
+export const LIMIT_TYPE_LABEL: Record<UsageLimitType, string> = {
   warning: "Warning threshold",
   disable: "Disable threshold",
 };
@@ -173,7 +173,7 @@ const WINDOW_LABEL: Record<UsageLimitWindow, string> = {
 
 // Suffix shown after a limit's unit to convey the window it's enforced over
 // (e.g. "10 GB / month").
-const WINDOW_SUFFIX: Record<UsageLimitWindow, string> = {
+export const WINDOW_SUFFIX: Record<UsageLimitWindow, string> = {
   month: "/ month",
   day: "/ day",
   hour: "/ hour",
@@ -187,7 +187,7 @@ const WINDOW_RESET_DESCRIPTION: Record<UsageLimitWindow, string> = {
   hour: "Hourly usage resets at the beginning of each hour.",
 };
 
-const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
+export const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 

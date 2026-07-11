@@ -1,13 +1,5 @@
 import { validateDeploymentUrl } from "../common/index.js";
 import {
-  BaseConvexClient,
-  BaseConvexClientOptions,
-  MutationOptions,
-  PaginatedQueryToken,
-  QueryToken,
-  UserIdentityAttributes,
-} from "./index.js";
-import {
   FunctionArgs,
   FunctionReference,
   FunctionReturnType,
@@ -15,13 +7,23 @@ import {
 } from "../server/index.js";
 import { getFunctionName } from "../server/api.js";
 import { AuthTokenFetcher } from "./sync/authentication_manager.js";
-import { ConnectionState } from "./sync/client.js";
+import {
+  BaseConvexClient,
+  BaseConvexClientOptions,
+  ConnectionState,
+  MutationOptions,
+} from "./sync/client.js";
 import {
   ExtendedTransition,
   PaginatedQueryClient,
 } from "./sync/paginated_query_client.js";
 import { PaginatedQueryResult } from "./sync/pagination.js";
-import { serializedQueryTokenIsPaginated } from "./sync/udf_path_utils.js";
+import { UserIdentityAttributes } from "./sync/protocol.js";
+import {
+  PaginatedQueryToken,
+  QueryToken,
+  serializedQueryTokenIsPaginated,
+} from "./sync/udf_path_utils.js";
 
 // In Node.js builds this points to a bundled WebSocket implementation. If no
 // WebSocket implementation is manually specified or globally available,

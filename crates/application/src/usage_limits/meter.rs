@@ -1,7 +1,10 @@
 //! The usage meter: evaluation of configured usage limits against the
 //! in-memory metric stores.
 
-use std::time::SystemTime;
+use std::{
+    collections::HashMap,
+    time::SystemTime,
+};
 
 use common::types::UsageLimitStopState;
 use model::usage_limits::types::{
@@ -10,6 +13,7 @@ use model::usage_limits::types::{
     UsageLimitType,
 };
 use parking_lot::Mutex;
+use tokio::sync::watch;
 use value::ResolvedDocumentId;
 
 use super::stores::{
@@ -37,12 +41,22 @@ pub struct UsageLimitEvaluation {
     pub desired_stop_state: UsageLimitStopState,
 }
 
+/// One usage rollup row to seed, in its bucket's raw unit.
+#[derive(Debug, Clone)]
+pub struct SeedRow {
+    pub metric: UsageLimitMetric,
+    pub resolution: UsageMetricResolution,
+    pub time: SystemTime,
+    pub value: f64,
+}
+
 /// In-memory usage meter: owns the metric stores and the active limit
 /// configs. Usage is recorded into it from the usage-event stream by
 /// [`super::UsageLimitRecorder`] and evaluated against the limits by
 /// [`super::UsageLimitWorker`].
 pub struct UsageMeter {
     inner: Mutex<Inner>,
+    has_enabled_limit_tx: watch::Sender<bool>,
 }
 
 struct Inner {
@@ -52,24 +66,42 @@ struct Inner {
 
 impl UsageMeter {
     pub fn new(now: SystemTime) -> anyhow::Result<Self> {
+        let (has_enabled_limit_tx, _) = watch::channel(false);
         Ok(Self {
             inner: Mutex::new(Inner {
                 stores: UsageMetricStores::new(now)?,
                 configs: Vec::new(),
             }),
+            has_enabled_limit_tx,
         })
     }
 
-    /// Replace the active configs.
+    /// Replace the active configs, republishing whether any of them is enabled.
     pub fn refresh_configs(&self, configs: Vec<(ResolvedDocumentId, UsageLimitConfig)>) {
+        let has_enabled_limit = configs.iter().any(|(_, config)| config.enabled);
         self.inner.lock().configs = configs;
+        // Publish after updating so a woken observer reads the new config set.
+        self.has_enabled_limit_tx.send_replace(has_enabled_limit);
+    }
+
+    /// Subscribe to whether this deployment currently has at least one enabled
+    /// usage limit. The value is republished on every
+    /// [`Self::refresh_configs`], so it tracks the `_usage_limits` table
+    /// via [`super::UsageLimitWorker`]'s subscription — observers don't need a
+    /// second subscription of their own.
+    pub fn has_enabled_limit(&self) -> watch::Receiver<bool> {
+        self.has_enabled_limit_tx.subscribe()
     }
 
     /// Record live usage deltas (raw units: calls, bytes, GB·s) that occurred
     /// at `ts` (the current time for live recording).
     ///
-    /// Records all metrics, so a limit enabled later already has recent
-    /// in-memory usage and only needs seeding for older history.
+    /// Recording is unconditional: every metric is tracked whether or not a
+    /// limit currently targets it. So enabling a limit mid-window enforces
+    /// against the usage already accrued this window rather than only usage
+    /// from the moment it was enabled. Enforcement stays gated on enabled
+    /// configs (see [`Self::evaluate`]), and seeding stays gated on an enabled
+    /// limit existing.
     pub fn record(&self, ts: SystemTime, deltas: &[(UsageLimitMetric, f64)]) {
         let mut inner = self.inner.lock();
         for (metric, delta) in deltas {
@@ -80,19 +112,29 @@ impl UsageMeter {
         }
     }
 
-    /// Hydrate one bucket from a seed/gap-fill row.
-    pub fn seed(
-        &self,
-        resolution: UsageMetricResolution,
-        metric_name: &str,
-        ts: SystemTime,
-        value: f64,
-        now: SystemTime,
-    ) {
-        self.inner
-            .lock()
-            .stores
-            .seed(resolution, metric_name, ts, value, now)
+    /// Seed the stores from one complete delivery of usage rollup rows.
+    /// Sums the rows into per-bucket totals first — several source metrics
+    /// feed one bucket, and the stores' max-merge expects each bucket's
+    /// complete total in a single write. The seed query returns at most one
+    /// row per (metric_name, resolution, rollup_time), so the sum only ever
+    /// combines different source metrics. Returns the number of buckets
+    /// seeded.
+    pub fn seed_rows(&self, rows: Vec<SeedRow>, now: SystemTime) -> usize {
+        let mut combined: HashMap<(UsageLimitMetric, UsageMetricResolution, SystemTime), f64> =
+            HashMap::new();
+        for row in rows {
+            *combined
+                .entry((row.metric, row.resolution, row.time))
+                .or_insert(0.0) += row.value;
+        }
+        let num_buckets = combined.len();
+        let mut inner = self.inner.lock();
+        for ((metric, resolution, time), value) in combined {
+            inner
+                .stores
+                .seed(resolution, metric.metric_name(), time, value, now);
+        }
+        num_buckets
     }
 
     /// Evaluate every enabled limit against its current window. A limit is

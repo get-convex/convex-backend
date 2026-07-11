@@ -419,8 +419,11 @@ export interface paths {
          *       commit (`false`).
          *
          *     Persist the cursor and keep calling within the deployment's data retention
-         *     window so the export can resume where it left off. If the cursor falls
-         *     outside that window, start over with no cursor.
+         *     window so the export can resume where it left off. This endpoint must be
+         *     called at least once every 3 days; if too much time passes between calls the
+         *     cursor falls outside the retention window and can no longer be resumed. When
+         *     that happens the endpoint responds with a `400` (`DataSyncCursorExpired`),
+         *     and you must restart the sync from scratch by calling again with no cursor.
          */
         post: operations["data_sync_post"];
         delete?: never;

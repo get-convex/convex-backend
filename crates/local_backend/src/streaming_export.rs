@@ -56,7 +56,10 @@ use database::{
     SnapshotPage,
     TableShapes,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use fivetran_source::api_types::{
     selection::Selection,
     DataSyncArgs,
@@ -257,8 +260,11 @@ pub async fn _document_deltas(
 ///   commit (`false`).
 ///
 /// Persist the cursor and keep calling within the deployment's data retention
-/// window so the export can resume where it left off. If the cursor falls
-/// outside that window, start over with no cursor.
+/// window so the export can resume where it left off. This endpoint must be
+/// called at least once every 3 days; if too much time passes between calls the
+/// cursor falls outside the retention window and can no longer be resumed. When
+/// that happens the endpoint responds with a `400` (`DataSyncCursorExpired`),
+/// and you must restart the sync from scratch by calling again with no cursor.
 #[utoipa::path(
     post,
     path = "/data/sync",
@@ -330,7 +336,23 @@ async fn _data_sync(
     } = st
         .application
         .data_sync(identity, cursor, selection)
-        .await?;
+        .await
+        .map_err(|e| {
+            // The cursor points at a snapshot that has aged out of the
+            // deployment's data retention window (see the endpoint docs: call at
+            // least once every 3 days). It can't be resumed, so surface a 400
+            // telling the caller to restart the sync from scratch.
+            if e.is_out_of_retention() {
+                e.context(ErrorMetadata::bad_request(
+                    "DataSyncCursorExpired",
+                    "The data sync cursor is outside the deployment's data retention window and \
+                     can no longer be resumed. Restart the sync from scratch by calling this \
+                     endpoint again without a cursor.",
+                ))
+            } else {
+                e
+            }
+        })?;
 
     let truncates = truncates
         .into_iter()
