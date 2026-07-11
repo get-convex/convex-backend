@@ -26,7 +26,7 @@ export const update = mutation({
       id: v.id("messages"),
     }),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, args);
+    await ctx.db.patch("messages", args.id, args);
   },
 });
 
@@ -39,7 +39,7 @@ export const get = query({
   args: { id: v.id("messages") },
   returns: v.nullable(messageDoc),
   handler: async (ctx, { id }) => {
-    return await ctx.db.get(id);
+    return await ctx.db.get("messages", id);
   },
 });
 

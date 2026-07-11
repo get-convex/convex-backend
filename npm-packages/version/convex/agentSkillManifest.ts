@@ -79,7 +79,7 @@ export const ingest = internalMutation({
         continue;
       }
 
-      await ctx.db.replace(existing._id, nextValue);
+      await ctx.db.replace("agentSkillCatalog", existing._id, nextValue);
     }
 
     // Lets tombstone any skills that are no longer in the get-convex/agent-skills repo
@@ -87,7 +87,7 @@ export const ingest = internalMutation({
       if (liveSkillNames.has(existing.skillName) || existing.isDeleted)
         continue;
 
-      await ctx.db.replace(existing._id, {
+      await ctx.db.replace("agentSkillCatalog", existing._id, {
         skillName: existing.skillName,
         directoryName: existing.directoryName,
         currentHash: existing.currentHash,
@@ -99,7 +99,7 @@ export const ingest = internalMutation({
     }
 
     // Finally let the caller know what the snapshot is
-    return (await ctx.db.get(snapshotId))!;
+    return (await ctx.db.get("agentSkillSnapshots", snapshotId))!;
   },
 });
 

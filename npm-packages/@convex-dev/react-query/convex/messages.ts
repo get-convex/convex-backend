@@ -16,7 +16,7 @@ export const list = query({
     const messages = await ctx.db.query("messages").collect();
     return Promise.all(
       messages.map(async (message) => {
-        const author = await ctx.db.get(message.author);
+        const author = await ctx.db.get("users", message.author);
         if (!author) {
           throw new Error("Author not found");
         }

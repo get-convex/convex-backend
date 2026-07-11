@@ -682,6 +682,7 @@ const config = [
     "**/.nuxt/**",
     "**/.output/**",
     "**/storybook-static/**",
+    "dashboard-self-hosted/out", // Next.js static export output
     "**/node_modules",
     "**/dist",
     "**/.next",
