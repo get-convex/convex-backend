@@ -20,6 +20,7 @@ RUN cargo chef prepare --recipe-path recipe.json --bin convex-local-backend
 # Uses cargo-chef's recipe from the previous stage for optimal caching
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG TARGETARCH
 
 # Update APT configuration for Docker builds
 # Sets retry attempts, assumes yes for prompts, and configures dpkg timeout
@@ -81,7 +82,14 @@ RUN curl -fsSL https://mise.run | MISE_VERSION="v$(sed -nE 's/^min_version = "([
 COPY --from=chef /tmp/recipe.json recipe.json
 # Use cargo-chef to build dependencies from the recipe created in the first stage
 # This step will be cached unless dependencies change
-RUN --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ PROTOC="$(mise which protoc)" cargo chef cook --release --recipe-path recipe.json
+RUN --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
+if [[ "$TARGETARCH" == "arm64" ]]; then
+  # Keep published self-hosted arm64 images compatible with baseline ARMv8-A CPUs.
+  # RUSTFLAGS overrides .cargo/config.toml, so preserve its shared cfg and frame pointers.
+  export RUSTFLAGS="--cfg tokio_unstable -Ctarget-cpu=generic -Cforce-frame-pointers=yes"
+fi
+PROTOC="$(mise which protoc)" cargo chef cook --release --recipe-path recipe.json
+EOF
 # Now copy everything else over -- we've minimized the set of files that cause a full `rush install` or `cargo build` to run.
 COPY . .
 
@@ -92,6 +100,9 @@ ARG VERGEN_GIT_COMMIT_TIMESTAMP
 ENV VERGEN_GIT_SHA=${VERGEN_GIT_SHA}
 ENV VERGEN_GIT_COMMIT_TIMESTAMP=${VERGEN_GIT_COMMIT_TIMESTAMP}
 RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
+if [[ "$TARGETARCH" == "arm64" ]]; then
+  export RUSTFLAGS="--cfg tokio_unstable -Ctarget-cpu=generic -Cforce-frame-pointers=yes"
+fi
 export PROTOC="$(mise which protoc)"
 cargo build --release -p local_backend --bin convex-local-backend
 cp target/release/convex-local-backend .
