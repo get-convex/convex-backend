@@ -101,7 +101,7 @@ export const fetchResults = internalQuery({
   handler: async (ctx, args) => {
     const out: SearchResult[] = [];
     for (const result of args.results) {
-      const doc = await ctx.db.get(result._id);
+      const doc = await ctx.db.get("foods", result._id);
       if (!doc) {
         continue;
       }
