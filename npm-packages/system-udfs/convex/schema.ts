@@ -281,8 +281,11 @@ const logSinksTable = defineTable({
 
 const userStopState = v.union(v.literal("none"), v.literal("paused"));
 
+const usageLimitStopState = v.union(v.literal("none"), v.literal("disabled"));
+
 export const backendState = v.object({
   system: systemStopState,
+  usage_limit: usageLimitStopState,
   user: userStopState,
 });
 
