@@ -1,14 +1,21 @@
 [env]
 CARGO_WORKSPACE_ROOT = { value = "", relative = true }
 CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
-# Custom rusty_v8 build: V8 14.9.207.26 with the leaptiering dispatch-handle
-# UAF fixes (JSFunction 8e1b07549b03 + FeedbackCell, bugs 511279942/512734866)
-# plus three post-14.9 backports: SharedFunctionInfo publication race on the
-# background-merge path (35580b908ad, bug 511219512) and two regexp tier-up
-# fixes (2f3fea02141 peephole stale offsets, f55c4ff2410 RegExpData TOCTOU).
-# Built by get-convex/rusty_v8 @ tag v149.2.3; the crate is pinned to that tag
-# via [patch.crates-io] in the workspace Cargo.toml so the download URL
-# (…/v149.2.3/…) is content-stable and reproducible.
+# Custom rusty_v8 build: V8 14.9.207.26 base with leaptiering dispatch-handle UAF
+# fixes (JSFunction 8e1b07549b03 + FeedbackCell e4f0cfdd659) plus these backports:
+#   - 5e34aa5c30c turboshaft store-store-elimination backedge revisit (never
+#     upstreamed to a release branch; prime fix for the residual corruption family
+#     that produced context/regexp/SFI wrong-object crashes on v149.2.3)
+#   - ac7cb13b60b turboshaft mark array initializing stores as initializing
+#     (bug 527385397 / CVE-2026-15132) — same store-elimination GC-safety family
+#   - 35580b908ad SharedFunctionInfo publication race (bug 511219512)
+#   - 2f3fea02141 regexp peephole stale offsets (bug 511290389)
+#   - f55c4ff2410 regexp RegExpData TOCTOU (bug 513568918)
+# NB: we stay on the .26 base rather than bumping to 14.9.207.39 — the .39 v8 tree
+# collides with this rusty_v8 build harness (duplicate gn arg cppgc_enable_api_checks);
+# a base bump needs a matching harness and is deferred. Built by get-convex/rusty_v8
+# @ tag v149.2.5; pinned by rev via [patch.crates-io] so the mirror download URL
+# (…/v149.2.5/…) is content-stable and reproducible.
 RUSTY_V8_MIRROR = "https://github.com/get-convex/rusty_v8/releases/download"
 
 [target.aarch64-unknown-linux-gnu]

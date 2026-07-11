@@ -11176,8 +11176,8 @@ dependencies = [
 
 [[package]]
 name = "v8"
-version = "149.2.3"
-source = "git+https://github.com/get-convex/rusty_v8?rev=90d633dd98c58779c6f3a1147e671235bef8cf6e#90d633dd98c58779c6f3a1147e671235bef8cf6e"
+version = "149.2.5"
+source = "git+https://github.com/get-convex/rusty_v8?rev=b7ac4f83d113b6f2533cab1f5b9a08742e91355e#b7ac4f83d113b6f2533cab1f5b9a08742e91355e"
 dependencies = [
  "bindgen 0.72.1",
  "bitflags 2.10.0",
