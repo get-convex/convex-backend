@@ -27,6 +27,7 @@ pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
     }
     let mut deltas = Vec::new();
     for event in events {
+        // Match events exhaustively so a new one is a compile error.
         match event {
             UsageEvent::FunctionCall { fields } => {
                 if fields.is_tracked {
@@ -68,7 +69,7 @@ pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
             },
             // Storage calls bill as function calls: the seed pipeline's
             // `udf_storage_calls` and `storage_calls` rollups fold into the
-            // `function_calls` bucket, so live recording counts them too.
+            // `function_calls` bucket.
             UsageEvent::FunctionStorageCalls { count, .. } => {
                 deltas.push((UsageLimitMetric::FunctionCalls, *count as f64));
             },
@@ -85,7 +86,13 @@ pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
                     ingress_v2.saturating_add(*egress_v2) as f64,
                 ));
             },
-            UsageEvent::NetworkBandwidth { egress, .. } => {
+            // Data egress counts network egress plus storage-layer egress,
+            // matching the pipeline's `network_egress`,
+            // `storage_bandwidth_egress`, and `udf_storage_bandwidth_egress`
+            // rollups.
+            UsageEvent::NetworkBandwidth { egress, .. }
+            | UsageEvent::StorageBandwidth { egress, .. }
+            | UsageEvent::FunctionStorageBandwidth { egress, .. } => {
                 deltas.push((UsageLimitMetric::DataEgressGB, *egress as f64));
             },
             // Search usage records in GB, matching the search rollups.
@@ -97,7 +104,19 @@ pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
                     *bytes_searched as f64 / BYTES_PER_GB,
                 ));
             },
-            _ => {},
+            // Index bandwidth and audit-log egress are outside the metered
+            // limit metrics, and read-limit insights are diagnostics.
+            UsageEvent::VectorBandwidth { .. }
+            | UsageEvent::TextWrites { .. }
+            | UsageEvent::AuditLogBandwidth { .. }
+            | UsageEvent::InsightReadLimit { .. } => {},
+            // Current* events are point-in-time storage gauges; the metered
+            // limit metrics count usage deltas.
+            UsageEvent::CurrentVectorStorage { .. }
+            | UsageEvent::CurrentTextStorage { .. }
+            | UsageEvent::CurrentDatabaseStorage { .. }
+            | UsageEvent::CurrentFileStorage { .. }
+            | UsageEvent::CurrentDocumentCounts { .. } => {},
         }
     }
     deltas

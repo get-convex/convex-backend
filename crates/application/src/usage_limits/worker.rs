@@ -177,9 +177,6 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         if newly_exceeded.is_empty() {
             return Ok(());
         }
-        // Reporting for the first time this process lifetime: rehydrate the
-        // reported map from the audit log, which carries the deduplication
-        // state across restarts.
         if !self.primed {
             self.prime_reported(now).await?;
             self.primed = true;
