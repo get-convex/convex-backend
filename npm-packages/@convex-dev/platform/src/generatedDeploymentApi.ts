@@ -399,7 +399,8 @@ export interface paths {
          *
          *     Streams a consistent, resumable export of a deployment's data — either the
          *     whole deployment or a subset of components, tables, and columns (see the
-         *     request body). Streaming export must be enabled on the deployment.
+         *     request body). Streaming export must be enabled on the deployment, and the
+         *     caller must have the `deployment:data:view` permission.
          *
          *     Call this endpoint repeatedly, passing the `cursor` from each response back
          *     in the next request; omit `cursor` on the first call. The cursor is opaque —
