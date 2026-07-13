@@ -90,7 +90,12 @@ impl InnerLocalNodeExecutor {
         };
         let server_handle =
             Self::start_node_with_listener(&source_path, &source_dir, &socket_path).await?;
-        let mut client_builder = Client::builder();
+        // Don't keep idle connections in the pool. The Node HTTP server closes
+        // idle keep-alive connections after its (default 5s) `keepAliveTimeout`,
+        // but hyper's pool would hold one much longer and reuse it right as the
+        // server closes it, surfacing as a spurious "connection reset by peer".
+        // Opening a fresh connection per request is cheap over a local socket.
+        let mut client_builder = Client::builder().pool_max_idle_per_host(0);
         #[cfg(unix)]
         {
             client_builder = client_builder.unix_socket(socket_path);
