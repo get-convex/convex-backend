@@ -24,6 +24,7 @@ ignored = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+common = { workspace = true }
 convex = { workspace = true }
 derive_more = { workspace = true }
 fivetran_common = { workspace = true }
@@ -38,7 +39,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
-utoipa = { workspace = true }
 
 [build-dependencies]
 bytes = { workspace = true }
@@ -50,6 +50,7 @@ tonic-build = { workspace = true }
 
 [dev-dependencies]
 cmd_util = { workspace = true }
+common = { workspace = true, features = ["testing"] }
 convex = { workspace = true, features = ["testing"] }
 fivetran_common = { workspace = true, features = ["testing"] }
 pretty_assertions = { workspace = true }

@@ -28,6 +28,7 @@ mod object_key;
 mod region;
 mod search_index_metric_labels;
 mod snapshot_export;
+pub mod streaming_export;
 mod table;
 mod timestamp;
 

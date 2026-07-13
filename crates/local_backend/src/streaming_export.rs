@@ -37,6 +37,23 @@ use common::{
     },
     shapes::reduced::ReducedShape,
     types::{
+        streaming_export::{
+            selection::Selection,
+            DataSyncArgs,
+            DataSyncProgress,
+            DataSyncResponse,
+            DataSyncStatus,
+            DataSyncTruncate,
+            DataSyncValue,
+            DocumentDeltasArgs,
+            DocumentDeltasResponse,
+            DocumentDeltasValue,
+            GetTableColumnNameTable,
+            GetTableColumnNamesResponse,
+            ListSnapshotArgs,
+            ListSnapshotResponse,
+            ListSnapshotValue,
+        },
         RepeatableTimestamp,
         Timestamp,
         UdfIdentifier,
@@ -59,23 +76,6 @@ use database::{
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
-};
-use fivetran_source::api_types::{
-    selection::Selection,
-    DataSyncArgs,
-    DataSyncProgress,
-    DataSyncResponse,
-    DataSyncStatus,
-    DataSyncTruncate,
-    DataSyncValue,
-    DocumentDeltasArgs,
-    DocumentDeltasResponse,
-    DocumentDeltasValue,
-    GetTableColumnNameTable,
-    GetTableColumnNamesResponse,
-    ListSnapshotArgs,
-    ListSnapshotResponse,
-    ListSnapshotValue,
 };
 use http::StatusCode;
 use keybroker::Identity;

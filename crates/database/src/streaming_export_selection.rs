@@ -90,8 +90,8 @@ use common::{
         ID_FIELD,
     },
     pii::PII,
+    types::streaming_export::selection as serialized,
 };
-use fivetran_source::api_types::selection as serialized;
 use serde_json::Value as JsonValue;
 use value::{
     export::ValueFormat,

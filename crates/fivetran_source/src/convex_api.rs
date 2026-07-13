@@ -6,6 +6,16 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use common::types::streaming_export::{
+    selection::Selection,
+    DocumentDeltasArgs,
+    DocumentDeltasResponse,
+    DocumentDeltasValue,
+    ListSnapshotArgs,
+    ListSnapshotResponse,
+    ListSnapshotValue,
+    SelectionArg,
+};
 use derive_more::{
     Display,
     From,
@@ -22,19 +32,7 @@ use serde::{
     Serialize,
 };
 
-use crate::api_types::{
-    selection::{
-        Selection,
-        DEFAULT_FIVETRAN_SCHEMA_NAME,
-    },
-    DocumentDeltasArgs,
-    DocumentDeltasResponse,
-    DocumentDeltasValue,
-    ListSnapshotArgs,
-    ListSnapshotResponse,
-    ListSnapshotValue,
-    SelectionArg,
-};
+use crate::conversions::selection::DEFAULT_FIVETRAN_SCHEMA_NAME;
 
 #[allow(clippy::declare_interior_mutable_const)]
 const CONVEX_CLIENT_HEADER: HeaderName = HeaderName::from_static("convex-client");

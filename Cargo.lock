@@ -2916,7 +2916,6 @@ dependencies = [
  "errors",
  "events",
  "fastrace",
- "fivetran_source",
  "futures",
  "futures-async-stream",
  "governor",
@@ -3768,6 +3767,7 @@ dependencies = [
  "cfg-if",
  "clap",
  "cmd_util",
+ "common",
  "convex",
  "derive_more",
  "fivetran_common",
@@ -3788,7 +3788,6 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
- "utoipa",
  "uuid",
 ]
 
@@ -5771,7 +5770,6 @@ dependencies = [
  "fastrace",
  "file_storage",
  "fivetran_destination",
- "fivetran_source",
  "function_runner",
  "futures",
  "futures-async-stream",

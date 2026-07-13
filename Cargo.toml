@@ -85,7 +85,6 @@ fastrand = "2.3.0"
 file_storage = { path = "crates/file_storage" }
 fivetran_common = { path = "crates/fivetran_common" }
 fivetran_destination = { path = "crates/fivetran_destination" }
-fivetran_source = { path = "crates/fivetran_source" }
 flate2 = { version = "1.1", features = [ "zlib-rs" ] }
 flexbuffers = "25"
 fnv = "1.0.7"

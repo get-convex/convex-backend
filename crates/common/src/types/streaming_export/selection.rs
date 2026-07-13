@@ -1,12 +1,5 @@
 use std::collections::BTreeMap;
 
-use fivetran_common::fivetran_sdk::{
-    selection::Selection as FivetranSelection,
-    SchemaSelection as FivetranSchemaSelection,
-    Selection as FivetranRootSelection,
-    TableSelection as FivetranTableSelection,
-    TablesWithSchema as FivetranSelectionWithSchema,
-};
 use maplit::btreemap;
 use serde::{
     Deserialize,
@@ -127,110 +120,6 @@ impl From<SelectionArg> for Selection {
                 components: BTreeMap::new(),
                 other_components: InclusionDefault::Included,
             },
-        }
-    }
-}
-
-/// The name of the Fivetran schema that we use for the Convex tables in the
-/// root component (i.e. the “database name” users see for the Convex root
-/// component)
-pub const DEFAULT_FIVETRAN_SCHEMA_NAME: &str = "app";
-
-impl TryFrom<Option<FivetranRootSelection>> for Selection {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Option<FivetranRootSelection>) -> Result<Self, Self::Error> {
-        Selection::try_from(value.and_then(|val| val.selection))
-    }
-}
-
-impl TryFrom<Option<FivetranSelection>> for Selection {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Option<FivetranSelection>) -> Result<Self, Self::Error> {
-        match value {
-            None => Ok(Selection::default()),
-            Some(FivetranSelection::WithSchema(with_schema)) => Ok(with_schema.into()),
-            Some(FivetranSelection::WithoutSchema(_)) => {
-                anyhow::bail!("Fivetran unexpectedly sent a selection setting without a schema.")
-            },
-        }
-    }
-}
-
-impl From<FivetranSelectionWithSchema> for Selection {
-    fn from(value: FivetranSelectionWithSchema) -> Self {
-        Self {
-            components: value
-                .schemas
-                .into_iter()
-                .map(|schema| {
-                    (
-                        if schema.schema_name == DEFAULT_FIVETRAN_SCHEMA_NAME {
-                            String::from("")
-                        } else {
-                            schema.schema_name.clone()
-                        },
-                        schema.into(),
-                    )
-                })
-                .collect(),
-            other_components: if value.include_new_schemas {
-                InclusionDefault::Included
-            } else {
-                InclusionDefault::Excluded
-            },
-        }
-    }
-}
-
-impl From<FivetranSchemaSelection> for ComponentSelection {
-    fn from(value: FivetranSchemaSelection) -> Self {
-        if !value.included {
-            Self::Excluded
-        } else {
-            Self::Included {
-                tables: value
-                    .tables
-                    .into_iter()
-                    .map(|table| (table.table_name.clone(), table.into()))
-                    .collect(),
-                other_tables: if value.include_new_tables {
-                    InclusionDefault::Included
-                } else {
-                    InclusionDefault::Excluded
-                },
-            }
-        }
-    }
-}
-
-impl From<FivetranTableSelection> for TableSelection {
-    fn from(value: FivetranTableSelection) -> Self {
-        if !value.included {
-            Self::Excluded
-        } else {
-            Self::Included {
-                columns: value
-                    .columns
-                    .into_iter()
-                    .map(|(name, included)| {
-                        (
-                            name,
-                            if included {
-                                ColumnInclusion::Included
-                            } else {
-                                ColumnInclusion::Excluded
-                            },
-                        )
-                    })
-                    .collect(),
-                other_columns: if value.include_new_columns {
-                    InclusionDefault::Included
-                } else {
-                    InclusionDefault::Excluded
-                },
-            }
         }
     }
 }
