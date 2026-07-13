@@ -56,6 +56,9 @@ export function DeploymentEventContent({
   inPanel?: boolean;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
+  // Usage limit breaches aren't attributable to a member, so the action text
+  // reads as a standalone sentence rather than "<actor> did X".
+  const hasActor = event.action !== "usage_limit_exceeded";
   let body;
   switch (event.action) {
     case "build_indexes":
@@ -140,10 +143,14 @@ export function DeploymentEventContent({
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center justify-between">
         <span className={cn(!inPanel && "leading-6")}>
-          <TeamMemberLink
-            memberId={Number(event.member_id)}
-            name={event.memberName}
-          />{" "}
+          {hasActor && (
+            <>
+              <TeamMemberLink
+                memberId={Number(event.member_id)}
+                name={event.memberName}
+              />{" "}
+            </>
+          )}
           <ActionText event={event} />
         </span>
         {!inPanel && <TimestampDistance date={new Date(event._creationTime)} />}
@@ -599,7 +606,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
     case "usage_limit_exceeded":
       return (
         <>
-          <span>reported that a usage limit was exceeded: </span>
+          <span>A usage limit was exceeded: </span>
           <UsageLimitSummary
             config={event.metadata.config}
             showStatus={false}
