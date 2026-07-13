@@ -39,7 +39,6 @@ use pb_data_sync::convex_data_sync as pb_ds;
 use prost::Message as _;
 use table_iteration::data_sync::{
     DataSyncCursor,
-    DataSyncEntry,
     DataSyncStatus,
 };
 use usage_tracking::{
@@ -354,13 +353,7 @@ pub async fn data_sync<RT: Runtime>(
         .next_page(cursor.map(|c| c.inner), &target_tables)
         .await?;
 
-    // `prev_rev` (the document's prior revision, for CDC delta consumers) is
-    // available on each entry but not surfaced by this API yet.
-    for DataSyncEntry {
-        log_entry: DocumentLogEntry { ts, id, value, .. },
-        ..
-    } in page.entries
-    {
+    for DocumentLogEntry { ts, id, value, .. } in page.entries {
         let tablet_id = id.table();
         let (component, table) = resolve_name(tablet_id)?;
         match value {

@@ -254,7 +254,8 @@ pub enum DataSyncStatus {
     InProgress { progress: ProgressStatus },
 }
 
-/// A single emitted document revision.
+/// A single emitted document revision, paired with its previous revision.
+/// Produced by [`DataSyncIterator::next_page_with_prev_revs`].
 pub struct DataSyncEntry {
     /// The emitted revision. `value: None` is a tombstone (delete); `prev_ts`
     /// is preserved for CDC/delete handling by consumers.
@@ -273,9 +274,11 @@ pub struct DataSyncEntry {
     pub prev_rev: Option<ResolvedDocument>,
 }
 
-/// A single page of sync output.
-pub struct DataSyncPage {
-    pub entries: Vec<DataSyncEntry>,
+/// A single page of sync output. The entry type `E` is plain
+/// [`DocumentLogEntry`] from [`DataSyncIterator::next_page`], or
+/// [`DataSyncEntry`] from [`DataSyncIterator::next_page_with_prev_revs`].
+pub struct DataSyncPage<E = DocumentLogEntry> {
+    pub entries: Vec<E>,
     /// The cursor to pass to the next [`DataSyncIterator::next_page`] call.
     pub cursor: DataSyncCursor,
     pub status: DataSyncStatus,
@@ -331,11 +334,39 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     /// of tables to sync, mapping each tablet to its `by_id` index id; it
     /// is diffed against the cursor on every call so tables can be added or
     /// removed between pages.
+    ///
+    /// Never reads previous document revisions; consumers that need them for
+    /// delta aggregation should use [`Self::next_page_with_prev_revs`].
     pub async fn next_page(
         &self,
         cursor: Option<DataSyncCursor>,
         target_tables: &BTreeMap<TabletId, IndexId>,
     ) -> anyhow::Result<DataSyncPage> {
+        let page = self.next_page_inner(cursor, target_tables, false).await?;
+        Ok(DataSyncPage {
+            entries: page.entries.into_iter().map(|e| e.log_entry).collect(),
+            cursor: page.cursor,
+            status: page.status,
+        })
+    }
+
+    /// Like [`Self::next_page`], but pairs each entry with its previous
+    /// revision (see [`DataSyncEntry::prev_rev`]), at the cost of one extra
+    /// batched persistence read per `ts` page.
+    pub async fn next_page_with_prev_revs(
+        &self,
+        cursor: Option<DataSyncCursor>,
+        target_tables: &BTreeMap<TabletId, IndexId>,
+    ) -> anyhow::Result<DataSyncPage<DataSyncEntry>> {
+        self.next_page_inner(cursor, target_tables, true).await
+    }
+
+    async fn next_page_inner(
+        &self,
+        cursor: Option<DataSyncCursor>,
+        target_tables: &BTreeMap<TabletId, IndexId>,
+        include_prev_revs: bool,
+    ) -> anyhow::Result<DataSyncPage<DataSyncEntry>> {
         self.runtime
             .pause_client()
             .wait("data_sync_before_page")
@@ -383,7 +414,8 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         let (entries, status) = if use_by_id {
             self.by_id_page(&mut cursor, latest, target_tables).await?
         } else {
-            self.ts_page(&mut cursor, latest, target_tables).await?
+            self.ts_page(&mut cursor, latest, target_tables, include_prev_revs)
+                .await?
         };
 
         Ok(DataSyncPage {
@@ -509,6 +541,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
         target_tables: &BTreeMap<TabletId, IndexId>,
+        include_prev_revs: bool,
     ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         cover!(coverage::TS_PAGE);
         let repeatable_persistence = RepeatablePersistence::new(
@@ -621,10 +654,20 @@ impl<RT: Runtime> DataSyncIterator<RT> {
 
         cursor.synced_ts = new_synced_ts;
         // Every re-emitted document is captured, so its predecessor was already
-        // emitted by this iterator — attach it so consumers can compute deltas.
-        let entries = self
-            .attach_prev_revs(&repeatable_persistence, entries)
-            .await?;
+        // emitted by this iterator — attach it (when requested) so consumers
+        // can compute deltas.
+        let entries = if include_prev_revs {
+            self.attach_prev_revs(&repeatable_persistence, entries)
+                .await?
+        } else {
+            entries
+                .into_iter()
+                .map(|log_entry| DataSyncEntry {
+                    log_entry,
+                    prev_rev: None,
+                })
+                .collect()
+        };
         let status = status(cursor, *latest, target_tables.len() as u64, 0);
         Ok((entries, status))
     }
