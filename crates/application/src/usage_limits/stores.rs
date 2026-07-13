@@ -144,27 +144,22 @@ impl UsageMetricStores {
 }
 
 /// A window is summed from the resolution one step finer. Seed rollups only
-/// exist for completed periods, so the in-progress hour or day is only fully
+/// exist for completed periods, so the in-progress day or month is only fully
 /// covered one resolution down.
 fn window_resolution(window: UsageLimitWindow) -> UsageMetricResolution {
     match window {
-        UsageLimitWindow::Hour => UsageMetricResolution::Minutely,
         UsageLimitWindow::Day => UsageMetricResolution::Hourly,
         UsageLimitWindow::Month => UsageMetricResolution::Daily,
     }
 }
 
-/// The calendar-aligned UTC window containing `now` (hour, day, or calendar
-/// month), start-inclusive/end-exclusive to match `sum_counter`.
+/// The calendar-aligned UTC window containing `now` (day or calendar month),
+/// start-inclusive/end-exclusive to match `sum_counter`.
 pub(super) fn window_range(
     window: UsageLimitWindow,
     now: SystemTime,
 ) -> anyhow::Result<Range<SystemTime>> {
     match window {
-        UsageLimitWindow::Hour => {
-            let start = floor_to_utc_width(now, HOURLY_BUCKET_WIDTH)?;
-            Ok(start..start + HOURLY_BUCKET_WIDTH)
-        },
         UsageLimitWindow::Day => {
             let start = floor_to_utc_width(now, DAILY_BUCKET_WIDTH)?;
             Ok(start..start + DAILY_BUCKET_WIDTH)

@@ -143,7 +143,6 @@ impl UsageLimitMetric {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "camelCase")]
 pub enum UsageLimitWindow {
-    Hour,
     Day,
     Month,
 }

@@ -8,7 +8,6 @@ use serde::{
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
-// TODO(nicolas) remove once /change_deployment_state_system is removed
 /// Represents the different states a backend can be in.
 pub enum OldBackendState {
     /// Disabled - will not serve any requests. Set when exceeds the allowed
