@@ -6,7 +6,7 @@ import { useCurrentProject } from "api/projects";
 import { DeploymentLabel } from "./DeploymentDisplay";
 import {
   PlatformDeploymentResponse,
-  PlatformProjectDetails,
+  ProjectResponse,
 } from "@convex-dev/platform/managementApi";
 
 // Mock data
@@ -19,7 +19,7 @@ const mockTeam: TeamResponse = {
   referralCode: "CODE123",
 };
 
-const mockProject: PlatformProjectDetails = {
+const mockProject: ProjectResponse = {
   id: 1,
   name: "Test Project",
   slug: "test-project",

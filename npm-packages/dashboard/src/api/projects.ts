@@ -6,7 +6,7 @@ import { useProjectsPageSize } from "hooks/useProjectsPageSize";
 import { useAuthHeader } from "hooks/fetching";
 import flatMap from "lodash/flatMap";
 import { useCurrentTeam } from "./teams";
-import type { PlatformPaginatedProjectsResponse } from "./managementApi";
+import type { PlatformPaginatedProjectsResponse } from "@convex-dev/platform/managementApi";
 import {
   useBBMutation,
   useManagementApiInfiniteQuery,
@@ -77,7 +77,7 @@ export function usePaginatedProjects(
   const { data, isLoading, isValidating } = useManagementApiQuery({
     path: "/teams/{team_id}/projects",
     pathParams: {
-      team_id: teamId?.toString() || "",
+      team_id: teamId ?? 0,
     },
     queryParams,
     swrOptions: {
@@ -140,7 +140,7 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
         },
         params: {
           path: {
-            team_id: teamId.toString(),
+            team_id: teamId,
           },
           query: {
             limit: pageSize,
@@ -198,7 +198,7 @@ export function useCreateProject(teamId?: number) {
     path: "/teams/{team_id}/create_project",
     pathParams: { team_id: teamIdNum },
     mutateKey: "/teams/{team_id}/projects",
-    mutatePathParams: { team_id: teamIdNum.toString() },
+    mutatePathParams: { team_id: teamIdNum },
     googleAnalyticsEvent: "create_project_dash",
   });
 }
@@ -226,7 +226,7 @@ export function useDeleteProject(
     },
     mutateKey: "/teams/{team_id}/projects",
     mutatePathParams: {
-      team_id: teamId?.toString() || "",
+      team_id: teamId ?? 0,
     },
     successToast: projectName ? `Deleted project: ${projectName}.` : undefined,
     redirectTo: "/",
@@ -240,17 +240,17 @@ export function useDeleteProjects(teamId: number | undefined) {
     successToast: "Projects deleted.",
   });
   const mutateManagement = useMutateManagementApi();
-  const teamIdStr = teamId?.toString() || "";
+  const teamIdNum = teamId ?? 0;
   return useCallback(
     async (body: { projectIds: number[] }) => {
       const result = await deleteProjects(body);
       await mutateManagement([
         "/teams/{team_id}/projects",
-        { params: { path: { team_id: teamIdStr } } },
+        { params: { path: { team_id: teamIdNum } } },
       ] as any);
       return result;
     },
-    [deleteProjects, mutateManagement, teamIdStr],
+    [deleteProjects, mutateManagement, teamIdNum],
   );
 }
 
@@ -267,25 +267,23 @@ export function useTransferProject(
     successToast: "Project transferred.",
   });
   const mutateManagement = useMutateManagementApi();
-  const destinationTeamIdStr = destinationTeamId?.toString() || "";
-  const originTeamIdStr = originTeamId?.toString() || "";
   return useCallback(
     async (body: { destinationTeamId: number }) => {
       const result = await transfer(body);
       // Invalidate both the destination team's list (the project now appears
       // there) and the origin team's list (it no longer belongs there).
       await Promise.all(
-        [destinationTeamIdStr, originTeamIdStr]
-          .filter(Boolean)
-          .map((teamIdStr) =>
+        [destinationTeamId, originTeamId]
+          .filter((id): id is number => id !== undefined)
+          .map((teamId) =>
             mutateManagement([
               "/teams/{team_id}/projects",
-              { params: { path: { team_id: teamIdStr } } },
+              { params: { path: { team_id: teamId } } },
             ] as any),
           ),
       );
       return result;
     },
-    [transfer, mutateManagement, destinationTeamIdStr, originTeamIdStr],
+    [transfer, mutateManagement, destinationTeamId, originTeamId],
   );
 }

@@ -396,7 +396,9 @@ pub async fn get_total_file_storage_size<RT: Runtime>(
     let mut total_size: i64 = 0;
     let mut cursor = None;
     let synced_ts = loop {
-        let page = iterator.next_page(cursor, &target_tables).await?;
+        let page = iterator
+            .next_page_with_prev_revs(cursor, &target_tables)
+            .await?;
         for entry in page.entries {
             if let Some(value) = entry.log_entry.value {
                 let storage_entry: ParsedDocument<FileStorageEntry> = value.parse()?;
