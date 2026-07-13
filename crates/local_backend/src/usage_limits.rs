@@ -149,6 +149,7 @@ pub struct GetCurrentUsageResponse {
     get,
     path = "/get_current_usage",
     tag = "Usage Limits",
+    tags = ["beta"],
     responses(
         (status = 200, body = GetCurrentUsageResponse)
     ),
