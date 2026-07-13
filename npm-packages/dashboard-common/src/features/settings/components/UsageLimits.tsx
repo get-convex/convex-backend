@@ -33,7 +33,7 @@ export type UsageMetric =
 
 // The window over which a usage limit is enforced. Matches the backend
 // `UsageLimitWindow` enum.
-export type UsageLimitWindow = "hour" | "day" | "month";
+export type UsageLimitWindow = "day" | "month";
 
 // What happens when the limit is exceeded. Matches the backend
 // `UsageLimitType` enum. Convex emails all team members for prod/preview/custom
@@ -191,11 +191,10 @@ export const LIMIT_TYPE_LABEL: Record<UsageLimitType, string> = {
 const LIMIT_TYPE_ORDER: UsageLimitType[] = ["warning", "disable"];
 
 // The window segmented control, ordered coarsest-first per the design.
-const WINDOW_ORDER: UsageLimitWindow[] = ["month", "day", "hour"];
+const WINDOW_ORDER: UsageLimitWindow[] = ["month", "day"];
 const WINDOW_LABEL: Record<UsageLimitWindow, string> = {
   month: "Monthly",
   day: "Daily",
-  hour: "Hourly",
 };
 
 // Suffix shown after a limit's unit to convey the window it's enforced over
@@ -203,7 +202,6 @@ const WINDOW_LABEL: Record<UsageLimitWindow, string> = {
 export const WINDOW_SUFFIX: Record<UsageLimitWindow, string> = {
   month: "/ month",
   day: "/ day",
-  hour: "/ hour",
 };
 
 // Explains when usage resets for the selected window, shown beneath the window
@@ -211,7 +209,6 @@ export const WINDOW_SUFFIX: Record<UsageLimitWindow, string> = {
 const WINDOW_RESET_DESCRIPTION: Record<UsageLimitWindow, string> = {
   month: "Monthly usage resets on the first of the month, at midnight UTC.",
   day: "Daily usage resets at midnight UTC.",
-  hour: "Hourly usage resets at the beginning of each hour.",
 };
 
 export const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
@@ -433,7 +430,7 @@ export function UsageLimits({
       <div className="flex flex-col gap-2">
         <Tooltip
           asChild
-          tip="Configure limits at a monthly, daily, or hourly granularity. Each window's usage is tracked and enforced separately."
+          tip="Configure limits at a monthly or daily granularity. Each window's usage is tracked and enforced separately."
           side="right"
         >
           <span className="inline-flex w-fit cursor-help items-center gap-1 text-sm text-content-secondary">

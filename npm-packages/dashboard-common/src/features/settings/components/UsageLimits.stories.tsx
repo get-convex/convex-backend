@@ -47,7 +47,7 @@ const EXAMPLE_USAGE_LIMITS: UsageLimit[] = [
     id: "example-5",
     metric: "dataEgressGb",
     limit: 10,
-    window: "hour",
+    window: "day",
     limitType: "warning",
     enabled: true,
   },
