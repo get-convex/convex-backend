@@ -32,7 +32,10 @@ use std::{
         Context,
         Poll,
     },
-    time::Duration,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use anyhow::Context as _;
@@ -190,6 +193,12 @@ pub trait Storage: Send + Sync + Debug {
     ) -> anyhow::Result<ObjectKey>;
     /// Delete the given object.
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()>;
+
+    /// Upload `bytes` to `key`, overwriting any object already at that key.
+    async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()>;
+
+    /// List all objects whose key begins with `key_prefix`.
+    async fn list_objects(&self, key_prefix: &str) -> anyhow::Result<Vec<ObjectListing>>;
 }
 
 pub struct ObjectAttributes {
@@ -197,24 +206,9 @@ pub struct ObjectAttributes {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VersionedS3Object {
-    pub bucket: String,
-    pub key: String,
-    pub version_id: String,
-}
-
-#[async_trait]
-pub trait VersionedS3Storage: Send + Sync + Debug {
-    async fn put_versioned_object(
-        &self,
-        key: ObjectKey,
-        bytes: Bytes,
-    ) -> anyhow::Result<VersionedS3Object>;
-
-    async fn latest_versioned_object(
-        &self,
-        key: &ObjectKey,
-    ) -> anyhow::Result<Option<VersionedS3Object>>;
+pub struct ObjectListing {
+    pub key: ObjectKey,
+    pub last_modified: SystemTime,
 }
 
 pub struct SizeAndHash {
@@ -1039,6 +1033,53 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         let path = self.dir.join(key);
         fs::remove_file(path)?;
         Ok(())
+    }
+
+    async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()> {
+        let filename = self.filename_for_key(key);
+        let filepath = self.dir.join(filename);
+        fs::create_dir_all(filepath.parent().expect("Must have parent")).context(
+            "LocalDirStorage file creation failed. Perhaps the storage object key isn't valid?",
+        )?;
+        let mut file = File::create(filepath)?;
+        file.write_all(&bytes)?;
+        Ok(())
+    }
+
+    async fn list_objects(&self, key_prefix: &str) -> anyhow::Result<Vec<ObjectListing>> {
+        fn walk(dir: &Path, out: &mut Vec<(PathBuf, SystemTime)>) -> anyhow::Result<()> {
+            if !dir.exists() {
+                return Ok(());
+            }
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, out)?;
+                } else {
+                    out.push((path, entry.metadata()?.modified()?));
+                }
+            }
+            Ok(())
+        }
+
+        let mut files = Vec::new();
+        walk(&self.dir, &mut files)?;
+        let mut objects = Vec::new();
+        for (path, last_modified) in files {
+            let relative = path.strip_prefix(&self.dir)?.to_string_lossy();
+            let Some(key) = relative.strip_suffix(".blob") else {
+                continue;
+            };
+            if !key.starts_with(key_prefix) {
+                continue;
+            }
+            objects.push(ObjectListing {
+                key: ObjectKey::try_from(key)?,
+                last_modified,
+            });
+        }
+        Ok(objects)
     }
 }
 

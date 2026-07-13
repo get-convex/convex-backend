@@ -36,6 +36,14 @@ pub struct AwsLambdaConfig {
     pub ipv6_enabled: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AwsLambdaCodeStorage {
+    #[serde(rename = "s3Bucket")]
+    pub s3_bucket: String,
+    #[serde(rename = "s3Key")]
+    pub s3_key: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AwsLambdaVersion {
     pub lambda_name: String,
@@ -43,6 +51,10 @@ pub struct AwsLambdaVersion {
     pub node_executor_sha256: Sha256Digest, // hash of our node-executor code
     pub lambda_config: AwsLambdaConfig,
     pub package_desc: AwsLambdaPackageDesc,
+    /// Static Lambdas store the S3 bucket/key of the code object they reference
+    /// (Lambda REFERENCE mode). Dynamic Lambdas execute inline code and keep
+    /// this unset, as do static Lambdas deployed before this field existed.
+    pub code_storage: Option<AwsLambdaCodeStorage>,
 }
 
 /// Stores the configuration information for the Lambda relevant to the type
@@ -83,6 +95,15 @@ impl AwsLambdaType {
                     external_deps_package_id: None,
                 })
             },
+        }
+    }
+}
+
+impl AwsLambdaVersion {
+    pub fn static_code_storage(&self) -> Option<&AwsLambdaCodeStorage> {
+        match self.package_desc {
+            AwsLambdaPackageDesc::Static { .. } => self.code_storage.as_ref(),
+            AwsLambdaPackageDesc::Dynamic { .. } => None,
         }
     }
 }
@@ -246,6 +267,10 @@ pub struct SerializedAwsLambdaVersion {
     pub lambda_config: SerializedAwsLambdaConfig,
     #[serde(rename = "typeConfig")]
     pub package_desc: Option<SerializedAwsLambdaPackageDesc>,
+    #[serde(rename = "codeStorage")]
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code_storage: Option<AwsLambdaCodeStorage>,
 }
 
 impl TryFrom<AwsLambdaVersion> for SerializedAwsLambdaVersion {
@@ -258,6 +283,7 @@ impl TryFrom<AwsLambdaVersion> for SerializedAwsLambdaVersion {
             node_executor_sha256,
             lambda_config,
             package_desc,
+            code_storage,
         }: AwsLambdaVersion,
     ) -> Result<Self, Self::Error> {
         Ok(SerializedAwsLambdaVersion {
@@ -273,6 +299,7 @@ impl TryFrom<AwsLambdaVersion> for SerializedAwsLambdaVersion {
             node_executor_sha256: serde_bytes::ByteBuf::from(node_executor_sha256.to_vec()),
             lambda_config: lambda_config.try_into()?,
             package_desc: Some(package_desc.into()),
+            code_storage,
         })
     }
 }
@@ -332,6 +359,7 @@ impl TryFrom<SerializedAwsLambdaVersion> for AwsLambdaVersion {
             // the sourcePackageId field above.
             None => AwsLambdaPackageDesc::Static { source_package_id },
         };
+        let code_storage = value.code_storage;
 
         Ok(Self {
             lambda_name,
@@ -339,6 +367,7 @@ impl TryFrom<SerializedAwsLambdaVersion> for AwsLambdaVersion {
             node_executor_sha256,
             lambda_config,
             package_desc,
+            code_storage,
         })
     }
 }
