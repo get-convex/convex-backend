@@ -1755,3 +1755,28 @@ table > caption {
   font-size: 105%;
   margin-bottom: 0.5em;
 }
+
+/*
+ * "Beta" badge in the OpenAPI sidebar, next to beta endpoints.
+ *
+ * The openapi-docs plugin only sets `deprecated`/method classes on sidebar
+ * items, so there's no per-operation class to hang a badge on. Instead we key
+ * on the generated route, which is `/deployment-api/<kebab-cased operationId>`.
+ * Keep this in sync with the operations tagged `beta` in the OpenAPI spec (see
+ * scripts/prepare-openapi-specs.js): add one selector per beta endpoint.
+ */
+.menu__link[href*="/deployment-api/get-current-usage"]::after {
+  content: "Beta";
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ifm-color-warning-contrast-foreground, #4d3800);
+  background-color: var(--ifm-color-warning-contrast-background, #fff8e6);
+  vertical-align: middle;
+}

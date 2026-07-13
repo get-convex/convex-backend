@@ -6,52 +6,7 @@ import {
   UsageLimitConfig,
   computeUnbilledMetrics,
 } from "./UsageLimits";
-
-// Example limits spread across windows and both types so the segmented
-// control's enabled/configured counts are non-trivial (Monthly 2/3, Daily 1/1,
-// Hourly 1/1) and at least one metric card shows both rows filled.
-const EXAMPLE_USAGE_LIMITS: UsageLimit[] = [
-  {
-    id: "example-1",
-    metric: "functionCalls",
-    limit: 10_000_000,
-    window: "month",
-    limitType: "warning",
-    enabled: true,
-  },
-  {
-    id: "example-2",
-    metric: "functionCalls",
-    limit: 50_000_000,
-    window: "month",
-    limitType: "disable",
-    enabled: true,
-  },
-  {
-    id: "example-3",
-    metric: "databaseIoGb",
-    limit: 500,
-    window: "month",
-    limitType: "warning",
-    enabled: false,
-  },
-  {
-    id: "example-4",
-    metric: "actionComputeNodeJsGbHours",
-    limit: 80,
-    window: "day",
-    limitType: "disable",
-    enabled: true,
-  },
-  {
-    id: "example-5",
-    metric: "dataEgressGb",
-    limit: 10,
-    window: "day",
-    limitType: "warning",
-    enabled: true,
-  },
-];
+import { EXAMPLE_USAGE_LIMITS } from "./usageLimitsFixtures";
 
 // A Business/Enterprise team on a non-dedicated deployment: Convex runtime and
 // Query/Mutation compute aren't billed. Includes a configured limit for an

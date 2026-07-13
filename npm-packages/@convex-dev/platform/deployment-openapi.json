@@ -210,7 +210,8 @@
     "/get_current_usage": {
       "get": {
         "tags": [
-          "Usage Limits"
+          "Usage Limits",
+          "beta"
         ],
         "summary": "Get current usage",
         "description": "Get the current usage for each metric, in each in-progress window (the\ncurrent day and calendar month).",
