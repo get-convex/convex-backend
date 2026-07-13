@@ -91,6 +91,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/get_current_usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current usage
+         * @description Get the current usage for each metric, in each in-progress window (the
+         *     current day and calendar month).
+         */
+        get: operations["get_current_usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/list_usage_limits": {
         parameters: {
             query?: never;
@@ -717,6 +738,13 @@ export interface components {
             convexCloudUrl: string;
             convexSiteUrl: string;
         };
+        /** @description Current usage across every metric, keyed by the same metric name the usage
+         *     limit config API uses. */
+        GetCurrentUsageResponse: {
+            metrics: {
+                [key: string]: components["schemas"]["MetricUsageResponse"];
+            };
+        };
         ListDeploymentAuditLogEventsResponse: {
             /** @description The audit log events for this page, from least to most recent. */
             items: components["schemas"]["DeploymentAuditLogEventResponse"][];
@@ -771,6 +799,18 @@ export interface components {
         LogTopic: "verification" | "console" | "function_execution" | "exception" | "audit_log" | "scheduler_stats" | "scheduled_job_lag" | "current_storage_usage" | "concurrency_stats" | "storage_api_bandwidth" | "log_stream_egress" | "custom_audit";
         /** Format: int64 */
         MemberId: number;
+        /**
+         * @description The user-facing unit a metric's limits and usage are expressed in.
+         * @enum {string}
+         */
+        MetricUnit: "calls" | "GB" | "Query-GB" | "GB-hours";
+        /** @description Current-window usage for a single metric. */
+        MetricUsageResponse: {
+            /** @description The unit `usage` is expressed in, matching the unit this metric's
+             *     configured limits use. */
+            unit: components["schemas"]["MetricUnit"];
+            usage: components["schemas"]["WindowUsageResponse"];
+        };
         PaginationMetadata: {
             hasMore: boolean;
             nextCursor?: string | null;
@@ -955,6 +995,13 @@ export interface components {
             /** @description URL to send logs to. */
             url: string;
         };
+        /** @description Usage in each calendar-aligned window currently in progress. */
+        WindowUsageResponse: {
+            /** Format: double */
+            current_day: number;
+            /** Format: double */
+            current_month: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -988,6 +1035,7 @@ export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentInfoResponse = components['schemas']['DeploymentInfoResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
+export type GetCurrentUsageResponse = components['schemas']['GetCurrentUsageResponse'];
 export type ListDeploymentAuditLogEventsResponse = components['schemas']['ListDeploymentAuditLogEventsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type ListUsageLimitsResponse = components['schemas']['ListUsageLimitsResponse'];
@@ -995,6 +1043,8 @@ export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
 export type LogTopic = components['schemas']['LogTopic'];
 export type MemberId = components['schemas']['MemberId'];
+export type MetricUnit = components['schemas']['MetricUnit'];
+export type MetricUsageResponse = components['schemas']['MetricUsageResponse'];
 export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PostHogErrorTrackingLogStreamConfig = components['schemas']['PostHogErrorTrackingLogStreamConfig'];
 export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogStreamConfig'];
@@ -1019,6 +1069,7 @@ export type UsageLimitResponse = components['schemas']['UsageLimitResponse'];
 export type Value = components['schemas']['Value'];
 export type WebhookFormat = components['schemas']['WebhookFormat'];
 export type WebhookLogStreamConfig = components['schemas']['WebhookLogStreamConfig'];
+export type WindowUsageResponse = components['schemas']['WindowUsageResponse'];
 export type $defs = Record<string, never>;
 export interface operations {
     update_environment_variables: {
@@ -1103,6 +1154,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeploymentInfoResponse"];
+                };
+            };
+        };
+    };
+    get_current_usage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCurrentUsageResponse"];
                 };
             };
         };

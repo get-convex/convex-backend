@@ -207,6 +207,42 @@
         ]
       }
     },
+    "/get_current_usage": {
+      "get": {
+        "tags": [
+          "Usage Limits"
+        ],
+        "summary": "Get current usage",
+        "description": "Get the current usage for each metric, in each in-progress window (the\ncurrent day and calendar month).",
+        "operationId": "get_current_usage",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCurrentUsageResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
     "/list_usage_limits": {
       "get": {
         "tags": [
@@ -1883,6 +1919,24 @@
           }
         }
       },
+      "GetCurrentUsageResponse": {
+        "type": "object",
+        "description": "Current usage across every metric, keyed by the same metric name the usage\nlimit config API uses.",
+        "required": [
+          "metrics"
+        ],
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MetricUsageResponse"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ListDeploymentAuditLogEventsResponse": {
         "type": "object",
         "required": [
@@ -2169,6 +2223,33 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "MetricUnit": {
+        "type": "string",
+        "description": "The user-facing unit a metric's limits and usage are expressed in.",
+        "enum": [
+          "calls",
+          "GB",
+          "Query-GB",
+          "GB-hours"
+        ]
+      },
+      "MetricUsageResponse": {
+        "type": "object",
+        "description": "Current-window usage for a single metric.",
+        "required": [
+          "unit",
+          "usage"
+        ],
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/MetricUnit",
+            "description": "The unit `usage` is expressed in, matching the unit this metric's\nconfigured limits use."
+          },
+          "usage": {
+            "$ref": "#/components/schemas/WindowUsageResponse"
+          }
+        }
       },
       "PaginationMetadata": {
         "type": "object",
@@ -2849,6 +2930,24 @@
           "url": {
             "type": "string",
             "description": "URL to send logs to."
+          }
+        }
+      },
+      "WindowUsageResponse": {
+        "type": "object",
+        "description": "Usage in each calendar-aligned window currently in progress.",
+        "required": [
+          "current_day",
+          "current_month"
+        ],
+        "properties": {
+          "current_day": {
+            "type": "number",
+            "format": "double"
+          },
+          "current_month": {
+            "type": "number",
+            "format": "double"
           }
         }
       }

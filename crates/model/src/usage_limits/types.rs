@@ -3,7 +3,21 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 use value::codegen_convex_serialization;
+
+/// The user-facing unit a metric's limits and usage are expressed in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub enum MetricUnit {
+    #[serde(rename = "calls")]
+    Calls,
+    #[serde(rename = "GB")]
+    Gb,
+    #[serde(rename = "Query-GB")]
+    QueryGb,
+    #[serde(rename = "GB-hours")]
+    GbHours,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsageLimitConfig {
@@ -69,7 +83,9 @@ pub struct UsageLimitKey {
     pub limit_type: UsageLimitType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "camelCase")]
 pub enum UsageLimitMetric {
     FunctionCalls,
@@ -125,6 +141,21 @@ impl UsageLimitMetric {
         })
     }
 
+    /// The user-facing unit this metric's limits and usage are expressed in.
+    /// Matches the unit `limit_in_raw_units` converts *from* and
+    /// `usage_in_display_units` converts *to*.
+    pub fn unit(&self) -> MetricUnit {
+        match self {
+            Self::FunctionCalls => MetricUnit::Calls,
+            Self::DatabaseIoGB | Self::DataEgressGB => MetricUnit::Gb,
+            Self::SearchQueryGB => MetricUnit::QueryGb,
+            Self::QueryMutationComputeGBHours
+            | Self::ActionComputeConvexGBHours
+            | Self::ActionComputeNodeJsGBHours
+            | Self::ActionComputeCpuGBHours => MetricUnit::GbHours,
+        }
+    }
+
     /// Convert a configured limit from this metric's user-facing unit
     /// (calls, GB, or GB-hours) into the raw unit its store counts in
     /// (calls, bytes, GB, or GB·s).
@@ -136,6 +167,20 @@ impl UsageLimitMetric {
             | Self::ActionComputeConvexGBHours
             | Self::ActionComputeNodeJsGBHours
             | Self::ActionComputeCpuGBHours => limit as f64 * SECS_PER_HOUR,
+        }
+    }
+
+    /// Convert a raw usage total (calls, bytes, GB, or GB·s) back into this
+    /// metric's user-facing unit, so surfaced usage is directly comparable to
+    /// a configured limit. The inverse of `limit_in_raw_units`.
+    pub fn usage_in_display_units(&self, raw: f64) -> f64 {
+        match self {
+            Self::FunctionCalls | Self::SearchQueryGB => raw,
+            Self::DatabaseIoGB | Self::DataEgressGB => raw / BYTES_PER_GB,
+            Self::QueryMutationComputeGBHours
+            | Self::ActionComputeConvexGBHours
+            | Self::ActionComputeNodeJsGBHours
+            | Self::ActionComputeCpuGBHours => raw / SECS_PER_HOUR,
         }
     }
 }
