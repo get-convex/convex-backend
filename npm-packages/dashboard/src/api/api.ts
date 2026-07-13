@@ -15,7 +15,7 @@ import isMatch from "lodash/isMatch";
 import { fireGoogleAnalyticsEvent } from "elements/GoogleAnalytics";
 import { toast } from "@common/lib/utils";
 import type { paths as BigBrainPaths } from "generatedApi";
-import type { paths as ManagementApiPaths } from "./managementApi";
+import type { paths as ManagementApiPaths } from "@convex-dev/platform/managementApi";
 import { SWRConfiguration, SWRResponse, mutate as globalMutate } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";

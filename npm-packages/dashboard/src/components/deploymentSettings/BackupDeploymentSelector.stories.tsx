@@ -7,7 +7,7 @@ import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import {
   PlatformDeploymentResponse,
-  PlatformProjectDetails,
+  ProjectResponse,
   TeamMember,
 } from "@convex-dev/platform/managementApi";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
@@ -23,7 +23,7 @@ const team: TeamResponse = {
   referredBy: null,
 };
 
-const mockProjects: PlatformProjectDetails[] = [
+const mockProjects: ProjectResponse[] = [
   {
     id: 1,
     name: "Project Alpha",
@@ -189,7 +189,7 @@ let lastId = 0;
 const generateManyProjects = (
   count: number,
   startOffset: number = 0,
-): PlatformProjectDetails[] => {
+): ProjectResponse[] => {
   const projectNames = [
     "Analytics Dashboard",
     "User Authentication",
@@ -245,7 +245,7 @@ export const ManyProjects: Story = {
       const TOTAL_AVAILABLE = 200;
       const LOAD_DELAY_MS = 500;
 
-      const [data, setData] = useState<PlatformProjectDetails[][]>(() => [
+      const [data, setData] = useState<ProjectResponse[][]>(() => [
         [
           // Include the project with the default deployment as the first item.
           mockProjects[0],

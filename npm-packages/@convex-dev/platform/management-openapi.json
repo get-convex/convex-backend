@@ -95,7 +95,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                  "$ref": "#/components/schemas/ProjectResponse"
                 }
               }
             }
@@ -150,7 +150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                  "$ref": "#/components/schemas/ProjectResponse"
                 }
               }
             }
@@ -169,13 +169,13 @@
         ]
       }
     },
-    "/teams/{team_id}/list_projects": {
+    "/teams/{team_id}/projects": {
       "get": {
         "tags": [
           "Projects"
         ],
         "summary": "List projects",
-        "description": "List all projects for a team.",
+        "description": "List a page of projects for a team, ordered by descending project ID. Pass\n`limit` to set the page size and the `nextCursor` from the previous response\nas `cursor` to fetch the next page.",
         "operationId": "list projects",
         "parameters": [
           {
@@ -186,6 +186,34 @@
             "schema": {
               "$ref": "#/components/schemas/TeamId"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of projects to return (1-100, defaults to 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query to filter projects by name or slug (case-insensitive)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -194,10 +222,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PlatformProjectDetails"
-                  }
+                  "$ref": "#/components/schemas/PlatformPaginatedProjectsResponse"
                 }
               }
             }
@@ -554,7 +579,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                  "$ref": "#/components/schemas/ProjectResponse"
                 }
               }
             }
@@ -4074,53 +4099,21 @@
           }
         }
       },
-      "PlatformProjectDetails": {
+      "PlatformPaginatedProjectsResponse": {
         "type": "object",
         "required": [
-          "id",
-          "name",
-          "slug",
-          "teamId",
-          "teamSlug",
-          "createTime"
+          "items",
+          "pagination"
         ],
         "properties": {
-          "createTime": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Timestamp in milliseconds."
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectResponse"
+            }
           },
-          "devDeploymentName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The name of the requesting member's default development deployment for\nthis project, if one exists (an active local deployment or default\ncloud dev deployment)."
-          },
-          "id": {
-            "$ref": "#/components/schemas/ProjectId"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ProjectName",
-            "description": "The full project name, including spaces and punctuation."
-          },
-          "prodDeploymentName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The name of the default production deployment for this project, if one\nexists (e.g. \"happy-otter-123\")."
-          },
-          "slug": {
-            "$ref": "#/components/schemas/ProjectSlug",
-            "description": "This shortened version of the name used in Convex Dashboard URLs."
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
-          },
-          "teamSlug": {
-            "$ref": "#/components/schemas/TeamSlug",
-            "description": "The slug of the team that owns this project."
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
           }
         }
       },
@@ -4308,6 +4301,56 @@
       },
       "ProjectName": {
         "type": "string"
+      },
+      "ProjectResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "teamId",
+          "teamSlug",
+          "createTime"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp in milliseconds."
+          },
+          "devDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name of the requesting member's default development deployment for\nthis project, if one exists (an active local deployment or default\ncloud dev deployment)."
+          },
+          "id": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ProjectName",
+            "description": "The full project name, including spaces and punctuation."
+          },
+          "prodDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name of the default production deployment for this project, if one\nexists (e.g. \"happy-otter-123\")."
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug",
+            "description": "This shortened version of the name used in Convex Dashboard URLs."
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug",
+            "description": "The slug of the team that owns this project."
+          }
+        }
       },
       "ProjectSlug": {
         "type": "string"

@@ -49,7 +49,7 @@ export interface paths {
         patch: operations["update project"];
         trace?: never;
     };
-    "/teams/{team_id}/list_projects": {
+    "/teams/{team_id}/projects": {
         parameters: {
             query?: never;
             header?: never;
@@ -58,7 +58,9 @@ export interface paths {
         };
         /**
          * List projects
-         * @description List all projects for a team.
+         * @description List a page of projects for a team, ordered by descending project ID. Pass
+         *     `limit` to set the page size and the `nextCursor` from the previous response
+         *     as `cursor` to fetch the next page.
          */
         get: operations["list projects"];
         put?: never;
@@ -1423,27 +1425,9 @@ export interface components {
         PlatformListTeamMembersResponse: {
             items: components["schemas"]["TeamMember"][];
         };
-        PlatformProjectDetails: {
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds.
-             */
-            createTime: number;
-            /** @description The name of the requesting member's default development deployment for
-             *     this project, if one exists (an active local deployment or default
-             *     cloud dev deployment). */
-            devDeploymentName?: string | null;
-            id: components["schemas"]["ProjectId"];
-            /** @description The full project name, including spaces and punctuation. */
-            name: components["schemas"]["ProjectName"];
-            /** @description The name of the default production deployment for this project, if one
-             *     exists (e.g. "happy-otter-123"). */
-            prodDeploymentName?: string | null;
-            /** @description This shortened version of the name used in Convex Dashboard URLs. */
-            slug: components["schemas"]["ProjectSlug"];
-            teamId: components["schemas"]["TeamId"];
-            /** @description The slug of the team that owns this project. */
-            teamSlug: components["schemas"]["TeamSlug"];
+        PlatformPaginatedProjectsResponse: {
+            items: components["schemas"]["ProjectResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         PlatformTokenDetailsResponse: {
             /**
@@ -1532,6 +1516,28 @@ export interface components {
         /** Format: int64 */
         ProjectId: number;
         ProjectName: string;
+        ProjectResponse: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds.
+             */
+            createTime: number;
+            /** @description The name of the requesting member's default development deployment for
+             *     this project, if one exists (an active local deployment or default
+             *     cloud dev deployment). */
+            devDeploymentName?: string | null;
+            id: components["schemas"]["ProjectId"];
+            /** @description The full project name, including spaces and punctuation. */
+            name: components["schemas"]["ProjectName"];
+            /** @description The name of the default production deployment for this project, if one
+             *     exists (e.g. "happy-otter-123"). */
+            prodDeploymentName?: string | null;
+            /** @description This shortened version of the name used in Convex Dashboard URLs. */
+            slug: components["schemas"]["ProjectSlug"];
+            teamId: components["schemas"]["TeamId"];
+            /** @description The slug of the team that owns this project. */
+            teamSlug: components["schemas"]["TeamSlug"];
+        };
         ProjectSlug: string;
         ProposedTeamName: string;
         ReferralCode: string;
@@ -1707,7 +1713,7 @@ export type PlatformListCustomDomainsResponse = components['schemas']['PlatformL
 export type PlatformListInvitationsResponse = components['schemas']['PlatformListInvitationsResponse'];
 export type PlatformListPreviewDeployKeysResponse = components['schemas']['PlatformListPreviewDeployKeysResponse'];
 export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
-export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
+export type PlatformPaginatedProjectsResponse = components['schemas']['PlatformPaginatedProjectsResponse'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
 export type PlatformTransferDeploymentArgs = components['schemas']['PlatformTransferDeploymentArgs'];
 export type PlatformUpdateDeploymentArgs = components['schemas']['PlatformUpdateDeploymentArgs'];
@@ -1715,6 +1721,7 @@ export type PlatformUpdateProjectArgs = components['schemas']['PlatformUpdatePro
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
+export type ProjectResponse = components['schemas']['ProjectResponse'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ReferralCode = components['schemas']['ReferralCode'];
@@ -1782,7 +1789,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformProjectDetails"];
+                    "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
         };
@@ -1808,14 +1815,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformProjectDetails"];
+                    "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
         };
     };
     "list projects": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Maximum number of projects to return (1-100, defaults to 100) */
+                limit?: number;
+                /** @description Search query to filter projects by name or slug (case-insensitive) */
+                q?: string;
+            };
             header?: never;
             path: {
                 /** @description Team ID */
@@ -1830,7 +1844,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformProjectDetails"][];
+                    "application/json": components["schemas"]["PlatformPaginatedProjectsResponse"];
                 };
             };
         };
@@ -1965,7 +1979,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformProjectDetails"];
+                    "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
         };

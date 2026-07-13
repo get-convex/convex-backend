@@ -25,14 +25,11 @@ The Management API uses a Bearer token Authorization header.
 
 ```ts
 const token = "ey...0=";
-const response = await fetch(
-  "https://api.convex.dev/v1/teams/41/list_projects",
-  {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+const response = await fetch("https://api.convex.dev/v1/teams/41/projects", {
+  headers: {
+    Authorization: `Bearer ${token}`,
   },
-);
+});
 console.log(await response.json());
 ```
 
