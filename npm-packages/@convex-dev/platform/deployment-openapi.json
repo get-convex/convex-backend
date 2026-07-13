@@ -1765,6 +1765,7 @@
               "update_usage_limit",
               "delete_usage_limit",
               "usage_limit_exceeded",
+              "change_usage_limit_stop_state",
               "replace_environment_variable",
               "update_canonical_url",
               "delete_canonical_url",

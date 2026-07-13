@@ -21,6 +21,7 @@ use common::{
         IndexName,
         MemberId,
         SystemStopState,
+        UsageLimitStopState,
     },
 };
 use errors::ErrorMetadata;
@@ -147,6 +148,14 @@ pub enum DeploymentAuditLogEvent {
     UsageLimitExceeded {
         id: String,
         config: UsageLimitConfig,
+    },
+    /// The deployment's usage-limit stop state changed: it was disabled by
+    /// crossing a `Disable` limit, or re-enabled after coming back under
+    /// every enabled `Disable` limit. Deployment-level, unlike the per-limit
+    /// `UsageLimitExceeded`.
+    ChangeUsageLimitStopState {
+        old_state: UsageLimitStopState,
+        new_state: UsageLimitStopState,
     },
     ReplaceEnvironmentVariable {
         previous_name: EnvVarName,
@@ -412,6 +421,12 @@ impl DeploymentAuditLogEvent {
             },
             DeploymentAuditLogEvent::PauseDeployment => obj!(),
             DeploymentAuditLogEvent::UnpauseDeployment => obj!(),
+            DeploymentAuditLogEvent::ChangeUsageLimitStopState {
+                old_state,
+                new_state,
+            } => {
+                obj!("old_state" => old_state.to_string(), "new_state" => new_state.to_string())
+            },
             DeploymentAuditLogEvent::ChangeSystemStopState {
                 old_state,
                 new_state,
@@ -825,6 +840,10 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
             "usage_limit_exceeded" => DeploymentAuditLogEvent::UsageLimitExceeded {
                 id: remove_string(&mut fields, "id")?,
                 config: remove_object(&mut fields, "config")?,
+            },
+            "change_usage_limit_stop_state" => DeploymentAuditLogEvent::ChangeUsageLimitStopState {
+                old_state: remove_string(&mut fields, "old_state")?.parse()?,
+                new_state: remove_string(&mut fields, "new_state")?.parse()?,
             },
             "replace_environment_variable" => DeploymentAuditLogEvent::ReplaceEnvironmentVariable {
                 previous_name: remove_string(&mut fields, "previous_variable_name")?.parse()?,

@@ -48,6 +48,7 @@ function processDeploymentAuditLogEvent(
     case "update_usage_limit":
     case "delete_usage_limit":
     case "usage_limit_exceeded":
+    case "change_usage_limit_stop_state":
     case "update_canonical_url":
     case "delete_canonical_url":
     case "push_config":

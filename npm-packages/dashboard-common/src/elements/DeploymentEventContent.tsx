@@ -56,9 +56,13 @@ export function DeploymentEventContent({
   inPanel?: boolean;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
-  // Usage limit breaches aren't attributable to a member, so the action text
-  // reads as a standalone sentence rather than "<actor> did X".
-  const hasActor = event.action !== "usage_limit_exceeded";
+  // Usage limit breaches and the resulting deployment state changes aren't
+  // attributable to a member, so the action text reads as a standalone
+  // sentence rather than "<actor> did X".
+  const hasActor = ![
+    "usage_limit_exceeded",
+    "change_usage_limit_stop_state",
+  ].includes(event.action);
   let body;
   switch (event.action) {
     case "build_indexes":
@@ -116,6 +120,7 @@ export function DeploymentEventContent({
     case "change_deployment_state":
     case "pause_deployment":
     case "unpause_deployment":
+    case "change_usage_limit_stop_state":
     case "change_system_stop_state":
     case "clear_tables":
     case "delete_scheduled_jobs_table":
@@ -612,6 +617,15 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
             showStatus={false}
           />
         </>
+      );
+
+    case "change_usage_limit_stop_state":
+      return event.metadata.new_state === "disabled" ? (
+        <span>The deployment was disabled after exceeding a usage limit</span>
+      ) : (
+        <span>
+          The deployment was re-enabled after usage fell back under its limits
+        </span>
       );
 
     case "update_usage_limit": {

@@ -80,6 +80,19 @@ const usageLimitExceeded = auditLogEventValidator("usage_limit_exceeded", {
   config: usageLimitConfig,
 });
 
+export const usageLimitStopState = v.union(
+  v.literal("none"),
+  v.literal("disabled"),
+);
+
+const changeUsageLimitStopState = auditLogEventValidator(
+  "change_usage_limit_stop_state",
+  {
+    old_state: usageLimitStopState,
+    new_state: usageLimitStopState,
+  },
+);
+
 const updateCanonicalUrl = auditLogEventValidator("update_canonical_url", {
   request_destination: v.string(),
   url: v.string(),
@@ -378,6 +391,7 @@ const deploymentAuditLogTable = defineTable(
     updateUsageLimit,
     deleteUsageLimit,
     usageLimitExceeded,
+    changeUsageLimitStopState,
     updateCanonicalUrl,
     deleteCanonicalUrl,
     buildIndexes,
