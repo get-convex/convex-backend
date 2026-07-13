@@ -1,5 +1,24 @@
 import { DeploymentType } from "@convex-dev/platform/managementApi";
 
+// The capitalized, human-readable name for a deployment type (e.g.
+// "Production"). Lowercase it for mid-sentence use.
+export function deploymentTypeLabel(deploymentType: DeploymentType): string {
+  switch (deploymentType) {
+    case "prod":
+      return "Production";
+    case "preview":
+      return "Preview";
+    case "dev":
+      return "Development";
+    case "custom":
+      return "Custom";
+    default: {
+      deploymentType satisfies never;
+      return "";
+    }
+  }
+}
+
 export function deploymentTypeColorClasses(
   deploymentType: DeploymentType,
 ): string {

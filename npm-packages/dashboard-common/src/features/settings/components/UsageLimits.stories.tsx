@@ -128,6 +128,7 @@ const meta = {
     onUpdate: () => {},
     onDelete: () => {},
     unbilledMetrics: STANDARD_UNBILLED,
+    deploymentType: "prod",
   },
   render: (args) => <StatefulUsageLimits {...args} />,
 } satisfies Meta<typeof UsageLimits>;
@@ -169,5 +170,25 @@ export const WithUnbilledMetrics: Story = {
   args: {
     usageLimits: UNBILLED_EXAMPLE,
     unbilledMetrics: UNBILLED_METRICS,
+  },
+};
+
+// A dev deployment: no email notifications are sent, so the warning threshold
+// column is disabled with an explanation, and the disable threshold tooltip
+// notes no email is sent.
+export const DevDeployment: Story = {
+  args: {
+    usageLimits: EXAMPLE_USAGE_LIMITS,
+    deploymentType: "dev",
+  },
+};
+
+// Deployment type unknown (e.g. self-hosted): treated like prod/preview/custom,
+// so both thresholds are available and tooltips mention emailing all team
+// members.
+export const UnknownDeploymentType: Story = {
+  args: {
+    usageLimits: EXAMPLE_USAGE_LIMITS,
+    deploymentType: undefined,
   },
 };

@@ -26,10 +26,14 @@ use crate::{
 };
 
 pub mod types;
+use common::types::DeploymentType;
 use types::{
     UsageLimitConfig,
     UsageLimitKey,
+    UsageLimitType,
 };
+
+use crate::backend_info::BackendInfoModel;
 
 pub const USAGE_LIMITS_TABLE: TableName = TableName::const_new("_usage_limits");
 
@@ -153,6 +157,26 @@ impl<'a, RT: Runtime> UsageLimitsModel<'a, RT> {
                 "A usage limit already exists for this metric, window, and limit type.",
             )
             .into());
+        }
+
+        // A "warning" limit's only effect is emailing the team. Dev deployments
+        // don't send usage limit emails, so a warning limit there would silently
+        // never fire; reject it rather than let one be configured. Deployments
+        // with no backend info (e.g. self-hosted) have no dev/prod distinction,
+        // so they're allowed.
+        if config.limit_type == UsageLimitType::Warning {
+            let deployment_type = BackendInfoModel::new(self.tx)
+                .get()
+                .await?
+                .map(|bi| bi.deployment_type);
+            if deployment_type == Some(DeploymentType::Dev) {
+                return Err(ErrorMetadata::bad_request(
+                    "UsageLimitWarningNotSupported",
+                    "Warning usage limits aren't supported on development deployments, which \
+                     don't receive usage limit email notifications.",
+                )
+                .into());
+            }
         }
         Ok(())
     }

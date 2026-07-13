@@ -34,7 +34,10 @@ import {
   DeploymentInfoContext,
   PermissionsContext,
 } from "@common/lib/deploymentContext";
-import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
+import {
+  deploymentTypeColorClasses,
+  deploymentTypeLabel,
+} from "@common/lib/deploymentTypeColorClasses";
 
 function useLatestConvexVersion(currentVersion: string | undefined) {
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -112,25 +115,6 @@ function DeploymentIcon({
     return <WrenchIcon className={className} aria-label="Custom deployment" />;
   }
   return null;
-}
-
-function getDeploymentTypeLabel(
-  deploymentType: PlatformDeploymentResponse["deploymentType"],
-): string {
-  switch (deploymentType) {
-    case "prod":
-      return "Production";
-    case "preview":
-      return "Preview";
-    case "dev":
-      return "Development";
-    case "custom":
-      return "Custom";
-    default: {
-      deploymentType satisfies never;
-      return "";
-    }
-  }
 }
 
 export function DeploymentSummary({
@@ -242,7 +226,7 @@ export function DeploymentSummary({
               )}
             >
               <DeploymentIcon deployment={deployment} className="size-3.5" />
-              <span>{getDeploymentTypeLabel(deployment.deploymentType)}</span>
+              <span>{deploymentTypeLabel(deployment.deploymentType)}</span>
             </div>
             {deployment.kind === "cloud" ? (
               <div className="flex flex-wrap gap-x-1.5 text-sm text-content-primary">

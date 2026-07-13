@@ -93,6 +93,7 @@ function UsageLimitsContent({ canWrite }: { canWrite: boolean }) {
         />
       }
       unbilledMetrics={unbilledMetrics}
+      deploymentType={deployment?.deploymentType}
       onCreate={createUsageLimit}
       onUpdate={updateUsageLimit}
       onDelete={deleteUsageLimit}

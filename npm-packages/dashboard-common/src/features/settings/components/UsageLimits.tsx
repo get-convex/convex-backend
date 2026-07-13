@@ -15,6 +15,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { Loading } from "@ui/Loading";
 import { SegmentedControl } from "@ui/SegmentedControl";
 import { cn } from "@ui/cn";
+import type { DeploymentType } from "@convex-dev/platform/managementApi";
 
 // The usage metrics that a deployment-level usage limit can be applied to.
 // These match the `UsageLimitMetric` enum on the backend (serialized with
@@ -35,10 +36,12 @@ export type UsageMetric =
 export type UsageLimitWindow = "hour" | "day" | "month";
 
 // What happens when the limit is exceeded. Matches the backend
-// `UsageLimitType` enum.
-// - "warning": email all team members.
-// - "disable": email all team members and disable the deployment for the rest
-//   of the usage limit window.
+// `UsageLimitType` enum. Convex emails all team members for prod/preview/custom
+// deployments, but sends no email for dev deployments (see `sendsEmail`).
+// - "warning": email all team members (a no-op on dev deployments, whose only
+//   effect would be the email).
+// - "disable": email all team members (skipped on dev) and disable the
+//   deployment for the rest of the usage limit window.
 export type UsageLimitType = "warning" | "disable";
 
 // The editable configuration of a usage limit. Mirrors the backend
@@ -147,13 +150,37 @@ const METRIC_ORDER: UsageMetric[] = [
   "dataEgressGb",
 ];
 
+// Whether Convex sends a notification email when a usage limit is exceeded.
+// Dev deployments never do (they're personal to the member who created them);
+// prod/preview/custom deployments email all team members. An unknown type
+// (e.g. self-hosted) is treated like the latter.
+function sendsEmail(deploymentType: DeploymentType | undefined) {
+  return deploymentType !== "dev";
+}
+
 // What each limit type does when the limit is exceeded, shown as a tooltip on
-// the row's type label.
-const ACTION_DESCRIPTION: Record<UsageLimitType, string> = {
-  warning: "When exceeded, Convex emails all team members.",
-  disable:
-    "When exceeded, Convex emails all team members and disables the deployment for the rest of the window.",
-};
+// the row's type label. Dev deployments send no email, so their "warning"
+// threshold is disabled and their "disable" threshold notes no email is sent.
+function actionDescription(
+  limitType: UsageLimitType,
+  deploymentType: DeploymentType | undefined,
+): string {
+  const emails = sendsEmail(deploymentType);
+  switch (limitType) {
+    case "warning":
+      return emails
+        ? "When exceeded, Convex emails all team members."
+        : "Development deployments don't receive email notifications, so this threshold isn't available.";
+    case "disable":
+      return emails
+        ? "When exceeded, Convex emails all team members and disables the deployment for the rest of the window."
+        : "When exceeded, Convex disables the deployment for the rest of the window. Development deployments don't receive email notifications.";
+    default: {
+      const _exhaustive: never = limitType;
+      return _exhaustive;
+    }
+  }
+}
 
 // Short label for each limit type. A metric card shows one row per type.
 export const LIMIT_TYPE_LABEL: Record<UsageLimitType, string> = {
@@ -285,6 +312,7 @@ export function UsageLimits({
   isLoading = false,
   title = "Usage Limits",
   unbilledMetrics = {},
+  deploymentType,
   writePermissionTip = "You do not have permission to modify usage limits.",
 }: {
   usageLimits: UsageLimit[];
@@ -303,6 +331,12 @@ export function UsageLimits({
   // Metrics that aren't billed on the current plan/deployment, mapped to a
   // short explanation. See `computeUnbilledMetrics`. Absent = billed.
   unbilledMetrics?: Partial<Record<UsageMetric, string>>;
+  // The current deployment's type. Dev deployments send no email when a limit
+  // is exceeded, so their warning threshold is disabled and their disable
+  // threshold notes no email is sent; prod/preview/custom email all team
+  // members. Omit when unknown (e.g. self-hosted), in which case email is
+  // assumed sent.
+  deploymentType?: DeploymentType;
   // Tooltip shown on disabled write controls when `canWrite` is false. Callers
   // pass a `PermissionDeniedTip` so custom-role members see the missing action.
   writePermissionTip?: ReactNode;
@@ -445,6 +479,7 @@ export function UsageLimits({
               warningLimit={limitFor(metric, "warning")}
               disableLimit={limitFor(metric, "disable")}
               unbilledReason={unbilledMetrics[metric]}
+              deploymentType={deploymentType}
               canWrite={canWrite}
               writePermissionTip={writePermissionTip}
               editingKeys={editingKeys}
@@ -470,6 +505,7 @@ function UsageLimitMetricCard({
   warningLimit,
   disableLimit,
   unbilledReason,
+  deploymentType,
   canWrite,
   writePermissionTip,
   editingKeys,
@@ -485,6 +521,7 @@ function UsageLimitMetricCard({
   warningLimit?: UsageLimit;
   disableLimit?: UsageLimit;
   unbilledReason?: string;
+  deploymentType: DeploymentType | undefined;
   canWrite: boolean;
   writePermissionTip: ReactNode;
   editingKeys: Set<string>;
@@ -521,6 +558,7 @@ function UsageLimitMetricCard({
               window={window}
               limitType={limitType}
               limit={limitByType[limitType]}
+              deploymentType={deploymentType}
               canWrite={canWrite}
               writePermissionTip={writePermissionTip}
               isEditing={editingKeys.has(rowKey)}
@@ -540,9 +578,15 @@ function UsageLimitMetricCard({
 
 // A threshold column's label ("Warning threshold"/"Disable threshold") with a
 // tooltip describing what happens when the limit is exceeded.
-function ThresholdLabel({ limitType }: { limitType: UsageLimitType }) {
+function ThresholdLabel({
+  limitType,
+  deploymentType,
+}: {
+  limitType: UsageLimitType;
+  deploymentType: DeploymentType | undefined;
+}) {
   return (
-    <Tooltip tip={ACTION_DESCRIPTION[limitType]} side="right">
+    <Tooltip tip={actionDescription(limitType, deploymentType)} side="right">
       <span className="inline-flex cursor-help items-center gap-1 text-sm text-content-secondary">
         {LIMIT_TYPE_LABEL[limitType]}
         <QuestionMarkCircledIcon className="text-content-tertiary" />
@@ -559,6 +603,7 @@ function UsageLimitThreshold({
   window,
   limitType,
   limit,
+  deploymentType,
   canWrite,
   writePermissionTip,
   isEditing,
@@ -573,6 +618,7 @@ function UsageLimitThreshold({
   window: UsageLimitWindow;
   limitType: UsageLimitType;
   limit?: UsageLimit;
+  deploymentType: DeploymentType | undefined;
   canWrite: boolean;
   writePermissionTip: ReactNode;
   isEditing: boolean;
@@ -585,6 +631,28 @@ function UsageLimitThreshold({
 }) {
   const config = METRIC_CONFIG[metric];
 
+  // A warning limit's only effect is the email, which dev deployments don't
+  // send, so the whole warning threshold is disabled there (the backend also
+  // rejects warning limits on dev deployments). The Configure limit button is
+  // still shown, but disabled with an explanation.
+  if (limitType === "warning" && !sendsEmail(deploymentType)) {
+    return (
+      <div className={cn(THRESHOLD_COL, "flex flex-col gap-1")}>
+        <div className="flex min-h-6 items-center">
+          <ThresholdLabel
+            limitType={limitType}
+            deploymentType={deploymentType}
+          />
+        </div>
+        <ConfigureLimitButton
+          disabled
+          disabledTip="Not available on development deployments, which don't receive usage limit email notifications."
+          onStartEdit={onStartEdit}
+        />
+      </div>
+    );
+  }
+
   if (isEditing) {
     return (
       <UsageLimitThresholdEditor
@@ -592,6 +660,7 @@ function UsageLimitThreshold({
         window={window}
         limitType={limitType}
         limit={limit}
+        deploymentType={deploymentType}
         onDone={onStopEdit}
         onDirtyChange={onDirtyChange}
         onCreate={onCreate}
@@ -603,7 +672,7 @@ function UsageLimitThreshold({
   return (
     <div className={cn(THRESHOLD_COL, "flex flex-col gap-1")}>
       <div className="flex min-h-6 items-center gap-4">
-        <ThresholdLabel limitType={limitType} />
+        <ThresholdLabel limitType={limitType} deploymentType={deploymentType} />
         {limit && (
           <ThresholdOverflowMenu
             canWrite={canWrite}
@@ -627,8 +696,8 @@ function UsageLimitThreshold({
         </>
       ) : (
         <ConfigureLimitButton
-          canWrite={canWrite}
-          writePermissionTip={writePermissionTip}
+          disabled={!canWrite}
+          disabledTip={writePermissionTip}
           onStartEdit={onStartEdit}
         />
       )}
@@ -636,15 +705,16 @@ function UsageLimitThreshold({
   );
 }
 
-// The "Configure limit" button shown in an empty slot. When the member can't
-// write it's disabled with an explanatory tooltip rather than hidden.
+// The "Configure limit" button shown in an empty slot. When it can't be used
+// (the member lacks write access, or the threshold isn't available on this
+// deployment) it's disabled with an explanatory tooltip rather than hidden.
 function ConfigureLimitButton({
-  canWrite,
-  writePermissionTip,
+  disabled,
+  disabledTip,
   onStartEdit,
 }: {
-  canWrite: boolean;
-  writePermissionTip: ReactNode;
+  disabled: boolean;
+  disabledTip: ReactNode;
   onStartEdit: () => void;
 }) {
   return (
@@ -654,8 +724,8 @@ function ConfigureLimitButton({
       variant="neutral"
       inline
       icon={<PlusCircledIcon />}
-      tip={!canWrite ? writePermissionTip : undefined}
-      disabled={!canWrite}
+      tip={disabled ? disabledTip : undefined}
+      disabled={disabled}
       onClick={onStartEdit}
     >
       Configure limit
@@ -717,6 +787,7 @@ function UsageLimitThresholdEditor({
   window,
   limitType,
   limit,
+  deploymentType,
   onDone,
   onDirtyChange,
   onCreate,
@@ -726,6 +797,7 @@ function UsageLimitThresholdEditor({
   window: UsageLimitWindow;
   limitType: UsageLimitType;
   limit?: UsageLimit;
+  deploymentType: DeploymentType | undefined;
   onDone: () => void;
   onDirtyChange: (key: string, dirty: boolean) => void;
   onCreate: (config: UsageLimitConfig) => Promise<void> | void;
@@ -798,7 +870,7 @@ function UsageLimitThresholdEditor({
   return (
     <div className={cn(THRESHOLD_COL, "flex flex-col gap-2")}>
       <div className="flex min-h-6 items-center">
-        <ThresholdLabel limitType={limitType} />
+        <ThresholdLabel limitType={limitType} deploymentType={deploymentType} />
       </div>
       <div className="flex flex-col gap-1">
         <TextInput
