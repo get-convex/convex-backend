@@ -3474,7 +3474,8 @@
                 "deployment:functions:runTestQuery",
                 "deployment:auditLog:view",
                 "deployment:usageLimits:view",
-                "deployment:usageLimits:write"
+                "deployment:usageLimits:write",
+                "deployment:usage:view"
               ]
             }
           },
@@ -3796,7 +3797,8 @@
                 "deployment:functions:runTestQuery",
                 "deployment:auditLog:view",
                 "deployment:usageLimits:view",
-                "deployment:usageLimits:write"
+                "deployment:usageLimits:write",
+                "deployment:usage:view"
               ]
             }
           },
@@ -4503,7 +4505,8 @@
           "deployment:functions:runTestQuery",
           "deployment:auditLog:view",
           "deployment:usageLimits:view",
-          "deployment:usageLimits:write"
+          "deployment:usageLimits:write",
+          "deployment:usage:view"
         ]
       },
       "RoleStatementActions": {

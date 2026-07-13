@@ -4,6 +4,7 @@ import { withTmpDir, TempDir } from "../../bundler/fs.js";
 import { entryPoints } from "../../bundler/index.js";
 import { apiCodegen } from "../codegen_templates/api.js";
 import { apiCjsCodegen } from "../codegen_templates/api_cjs.js";
+import { compareModulePaths } from "../codegen_templates/common.js";
 import {
   dynamicDataModelDTS,
   dynamicDataModelTS,
@@ -846,7 +847,7 @@ async function doApiCodegen(
   const absModulePaths = await entryPoints(ctx, functionsDir);
   const modulePaths = absModulePaths
     .map((p) => path.relative(functionsDir, p))
-    .sort();
+    .sort(compareModulePaths);
 
   const writtenFiles: string[] = [];
 

@@ -48,7 +48,6 @@ derive_more = { workspace = true }
 errors = { workspace = true }
 events = { workspace = true }
 fastrace = { workspace = true }
-fivetran_source = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }

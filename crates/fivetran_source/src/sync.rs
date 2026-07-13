@@ -4,6 +4,7 @@ use std::collections::{
 };
 
 use anyhow::Context;
+use common::types::streaming_export::selection::Selection;
 use fivetran_common::fivetran_sdk::{
     self,
     update_response,
@@ -25,7 +26,6 @@ use serde::{
 use value_type::Inner as FivetranValue;
 
 use crate::{
-    api_types::selection::Selection,
     convert::to_fivetran_row,
     convex_api::{
         DocumentDeltasCursor,

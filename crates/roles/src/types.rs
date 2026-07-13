@@ -960,6 +960,9 @@ pub enum RoleStatementAction {
     #[serde(rename = "deployment:usageLimits:write")]
     #[strum(serialize = "deployment:usageLimits:write")]
     WriteUsageLimits,
+    #[serde(rename = "deployment:usage:view")]
+    #[strum(serialize = "deployment:usage:view")]
+    ViewDeploymentUsage,
 }
 
 impl RoleStatementAction {
@@ -1046,7 +1049,8 @@ impl RoleStatementAction {
             | A::RunTestQuery
             | A::ViewAuditLog
             | A::ViewUsageLimits
-            | A::WriteUsageLimits => ResourceKind::Deployment,
+            | A::WriteUsageLimits
+            | A::ViewDeploymentUsage => ResourceKind::Deployment,
             // Member
             A::InviteMember
             | A::CancelMemberInvitation

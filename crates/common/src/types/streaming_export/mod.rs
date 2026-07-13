@@ -1,5 +1,6 @@
-// API types for the HTTP APIs used by the Fivetran and Airbyte source
-// connectors
+// API types for the streaming export HTTP APIs. These are consumed by the
+// Fivetran and Airbyte source connectors, as well as any other client of the
+// streaming export API.
 
 pub mod selection;
 
@@ -128,8 +129,6 @@ pub struct ListSnapshotValue {
 }
 
 /// Arguments to the data sync (streaming export) API (`/api/v1/data/sync`).
-// Constructed in the backend (`local_backend`), so unused within this crate.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncArgs {
@@ -147,7 +146,6 @@ pub struct DataSyncArgs {
 }
 
 /// One page returned by the data sync API.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncResponse {
@@ -166,7 +164,6 @@ pub struct DataSyncResponse {
 /// A table whose contents were replaced wholesale (e.g. by `npx convex
 /// import`). Reported separately from `values` since it carries none of the
 /// per-document fields.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct DataSyncTruncate {
     /// The path of the component the table is in.
@@ -180,7 +177,6 @@ pub struct DataSyncTruncate {
 
 /// A single document-level entry emitted by the data sync API: a Convex
 /// document (or a tombstone, for a deletion) with some special fields added.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct DataSyncValue {
     /// The path of the component this entry is from.
@@ -209,7 +205,6 @@ pub struct DataSyncValue {
 }
 
 /// The consistency state reported alongside a data sync page.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum DataSyncStatus {
@@ -237,7 +232,6 @@ pub enum DataSyncStatus {
 }
 
 /// Progress indicator returned while a data sync is `InProgress`.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncProgress {
@@ -285,7 +279,6 @@ impl Default for SelectionArg {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
 pub struct GetTableColumnNamesResponse {
     pub by_component: BTreeMap<String, Vec<GetTableColumnNameTable>>,
 }

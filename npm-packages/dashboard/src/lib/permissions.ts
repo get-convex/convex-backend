@@ -356,6 +356,7 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "deployment:auditLog:view": "deployment",
   "deployment:usageLimits:view": "deployment",
   "deployment:usageLimits:write": "deployment",
+  "deployment:usage:view": "deployment",
   // Member
   "member:invite": "member",
   "member:cancelInvitation": "member",

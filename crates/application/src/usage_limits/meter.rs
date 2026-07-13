@@ -11,8 +11,10 @@ use model::usage_limits::types::{
     UsageLimitConfig,
     UsageLimitMetric,
     UsageLimitType,
+    UsageLimitWindow,
 };
 use parking_lot::Mutex;
+use strum::IntoEnumIterator;
 use tokio::sync::watch;
 use value::ResolvedDocumentId;
 
@@ -48,6 +50,14 @@ pub struct SeedRow {
     pub resolution: UsageMetricResolution,
     pub time: SystemTime,
     pub value: f64,
+}
+
+/// Current-window usage for a single metric, in the store's raw units (calls,
+/// bytes, or GB·s). Convert with `UsageLimitMetric::usage_in_display_units`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MetricWindowUsage {
+    pub current_day: f64,
+    pub current_month: f64,
 }
 
 /// In-memory usage meter: owns the metric stores and the active limit
@@ -135,6 +145,27 @@ impl UsageMeter {
                 .seed(resolution, metric.metric_name(), time, value, now);
         }
         num_buckets
+    }
+
+    /// Current-window usage totals for every metric, in raw units. A metric
+    /// with no recorded usage reads 0 across every window.
+    pub fn usage_snapshot(
+        &self,
+        ts: SystemTime,
+    ) -> anyhow::Result<Vec<(UsageLimitMetric, MetricWindowUsage)>> {
+        let inner = self.inner.lock();
+        UsageLimitMetric::iter()
+            .map(|metric| {
+                let name = metric.metric_name();
+                let usage = MetricWindowUsage {
+                    current_day: inner.stores.window_total(UsageLimitWindow::Day, name, ts)?,
+                    current_month: inner
+                        .stores
+                        .window_total(UsageLimitWindow::Month, name, ts)?,
+                };
+                Ok((metric, usage))
+            })
+            .collect()
     }
 
     /// Evaluate every enabled limit against its current window. A limit is

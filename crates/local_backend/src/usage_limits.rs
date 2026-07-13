@@ -1,15 +1,20 @@
+use std::collections::BTreeMap;
+
 use axum::{
     extract::FromRef,
     response::IntoResponse,
 };
-use common::http::{
-    extract::{
-        Json,
-        MtState,
-        Path,
+use common::{
+    http::{
+        extract::{
+            Json,
+            MtState,
+            Path,
+        },
+        ExtractRequestMetadata,
+        HttpResponseError,
     },
-    ExtractRequestMetadata,
-    HttpResponseError,
+    runtime::Runtime,
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
@@ -17,6 +22,7 @@ use model::{
     deployment_audit_log::types::DeploymentAuditLogEvent,
     usage_limits::{
         types::{
+            MetricUnit,
             UsageLimitConfig,
             UsageLimitMetric,
             UsageLimitType,
@@ -110,6 +116,75 @@ pub struct ListUsageLimitsResponse {
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitResponse {
     usage_limit: UsageLimitConfigResponse,
+}
+
+/// Current-window usage for a single metric.
+#[derive(Serialize, Deserialize, ToSchema, PartialEq, Debug, Clone)]
+pub struct MetricUsageResponse {
+    /// The unit `usage` is expressed in, matching the unit this metric's
+    /// configured limits use.
+    unit: MetricUnit,
+    usage: WindowUsageResponse,
+}
+
+/// Usage in each calendar-aligned window currently in progress.
+#[derive(Serialize, Deserialize, ToSchema, PartialEq, Debug, Clone)]
+pub struct WindowUsageResponse {
+    current_day: f64,
+    current_month: f64,
+}
+
+/// Current usage across every metric, keyed by the same metric name the usage
+/// limit config API uses.
+#[derive(Serialize, Deserialize, ToSchema, PartialEq, Debug, Clone)]
+pub struct GetCurrentUsageResponse {
+    metrics: BTreeMap<String, MetricUsageResponse>,
+}
+
+/// Get current usage
+///
+/// Get the current usage for each metric, in each in-progress window (the
+/// current day and calendar month).
+#[utoipa::path(
+    get,
+    path = "/get_current_usage",
+    tag = "Usage Limits",
+    responses(
+        (status = 200, body = GetCurrentUsageResponse)
+    ),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
+)]
+pub async fn get_current_usage(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    identity.require_operation(keybroker::DeploymentOp::ViewUsage)?;
+
+    let meter = st.application.usage_meter();
+    let now = st.application.runtime().system_time();
+    let metrics = meter
+        .usage_snapshot(now)?
+        .into_iter()
+        .map(|(metric, usage)| {
+            (
+                metric.to_string(),
+                MetricUsageResponse {
+                    unit: metric.unit(),
+                    usage: WindowUsageResponse {
+                        current_day: metric.usage_in_display_units(usage.current_day),
+                        current_month: metric.usage_in_display_units(usage.current_month),
+                    },
+                },
+            )
+        })
+        .collect();
+
+    Ok(Json(GetCurrentUsageResponse { metrics }))
 }
 
 /// List usage limits
@@ -337,6 +412,7 @@ where
     S: Clone + Send + Sync + 'static,
 {
     OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(get_current_usage))
         .routes(utoipa_axum::routes!(list_usage_limits))
         .routes(utoipa_axum::routes!(create_usage_limit))
         .routes(utoipa_axum::routes!(update_usage_limit))
