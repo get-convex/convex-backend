@@ -2010,3 +2010,146 @@ export const PushConfigWithNodeVersionUnset: Story = {
     },
   },
 };
+
+export const CreateUsageLimit: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "create_usage_limit",
+      metadata: {
+        id: "ul_1",
+        config: {
+          name: null,
+          metric: "functionCalls",
+          window: "month",
+          limitType: "disable",
+          limit: BigInt(1_000_000),
+          enabled: true,
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
+    },
+  },
+};
+
+export const UpdateUsageLimit: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "update_usage_limit",
+      metadata: {
+        id: "ul_1",
+        previous: {
+          name: null,
+          metric: "functionCalls",
+          window: "month",
+          limitType: "disable",
+          limit: BigInt(1_000_000),
+          enabled: true,
+        },
+        current: {
+          name: null,
+          metric: "functionCalls",
+          window: "month",
+          limitType: "disable",
+          limit: BigInt(2_000_000),
+          enabled: false,
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
+    },
+  },
+};
+
+// A no-op save (neither the limit nor enabled changed) must render only the
+// sentence, with no empty bordered box below it.
+export const UpdateUsageLimitNoChange: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "update_usage_limit",
+      metadata: {
+        id: "ul_1",
+        previous: {
+          name: null,
+          metric: "functionCalls",
+          window: "month",
+          limitType: "disable",
+          limit: BigInt(1_000_000),
+          enabled: true,
+        },
+        current: {
+          name: null,
+          metric: "functionCalls",
+          window: "month",
+          limitType: "disable",
+          limit: BigInt(1_000_000),
+          enabled: true,
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
+    },
+  },
+};
+
+export const UsageLimitExceeded: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "usage_limit_exceeded",
+      metadata: {
+        id: "ul_2",
+        config: {
+          name: null,
+          metric: "databaseIoGb",
+          window: "day",
+          limitType: "warning",
+          limit: BigInt(50),
+          enabled: true,
+        },
+      },
+      memberName: "System",
+      member_id: null,
+      token_id: null,
+      app_client_id: null,
+    },
+  },
+};
+
+export const DeleteUsageLimit: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "delete_usage_limit",
+      metadata: {
+        id: "ul_2",
+        config: {
+          name: null,
+          metric: "databaseIoGb",
+          window: "day",
+          limitType: "warning",
+          limit: BigInt(50),
+          enabled: false,
+        },
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
+    },
+  },
+};
