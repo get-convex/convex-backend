@@ -222,13 +222,6 @@ const WINDOW_RESET_DESCRIPTION: Record<UsageLimitWindow, string> = {
   day: "Daily usage resets at midnight UTC.",
 };
 
-// Severity of a triggered limit: a triggered "disable" (deployment disabled for
-// the window) outranks a triggered "warning" (email only).
-const TRIGGER_SEVERITY: Record<UsageLimitType, number> = {
-  warning: 1,
-  disable: 2,
-};
-
 // Whether a limit is currently triggered: it's enforced (enabled) and this
 // window's usage has reached its threshold. Derived from the reported current
 // usage, so it only reflects usage the backfill has hydrated (see seed status).
@@ -250,33 +243,6 @@ function windowTriggerCounts(
     warning: triggered.filter((limit) => limit.limitType === "warning").length,
     disable: triggered.filter((limit) => limit.limitType === "disable").length,
   };
-}
-
-// The window whose most severe triggered limit outranks every other window's,
-// or undefined when nothing is triggered. Used to focus the page on the window
-// that needs attention. Ties break toward the coarsest window (WINDOW_ORDER).
-function mostSevereTriggeredWindow(
-  usageLimits: UsageLimit[],
-  currentUsage: CurrentUsage,
-): UsageLimitWindow | undefined {
-  let best: { window: UsageLimitWindow; severity: number } | undefined;
-  for (const window of WINDOW_ORDER) {
-    const { warning, disable } = windowTriggerCounts(
-      usageLimits,
-      currentUsage,
-      window,
-    );
-    const severity =
-      disable > 0
-        ? TRIGGER_SEVERITY.disable
-        : warning > 0
-          ? TRIGGER_SEVERITY.warning
-          : 0;
-    if (severity > 0 && (best === undefined || severity > best.severity)) {
-      best = { window, severity };
-    }
-  }
-  return best?.window;
 }
 
 export const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
@@ -495,10 +461,6 @@ export function UsageLimits({
 }) {
   const [selectedWindow, setSelectedWindow] =
     useState<UsageLimitWindow>("month");
-  // Whether the user has picked a window themselves. Until they do, the page
-  // auto-focuses the window with the most severe triggered limit once the
-  // limits load (see below); after they do, we leave their choice alone.
-  const [windowPickedByUser, setWindowPickedByUser] = useState(false);
   // Keys (`${metric}|${window}|${limitType}`) of the threshold columns whose
   // inline editor is currently open. Several may be open at once.
   const [editingKeys, setEditingKeys] = useState<Set<string>>(new Set());
@@ -506,18 +468,6 @@ export function UsageLimits({
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
 
   useUnsavedChangesWarning(dirtyKeys.size > 0);
-
-  // Default to the window that needs attention. Runs when the limits arrive (or
-  // their triggered state changes) but never overrides a manual selection.
-  useEffect(() => {
-    if (windowPickedByUser) {
-      return;
-    }
-    const severe = mostSevereTriggeredWindow(usageLimits, currentUsage);
-    if (severe !== undefined) {
-      setSelectedWindow(severe);
-    }
-  }, [usageLimits, currentUsage, windowPickedByUser]);
 
   const startEdit = useCallback((key: string) => {
     setEditingKeys((prev) => {
@@ -643,7 +593,6 @@ export function UsageLimits({
               return;
             }
             setSelectedWindow(w);
-            setWindowPickedByUser(true);
             setEditingKeys(new Set());
           }}
         />
