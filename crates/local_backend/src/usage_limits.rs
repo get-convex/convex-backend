@@ -6,6 +6,7 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    execution_context::RequestMetadata,
     http::{
         extract::{
             Json,
@@ -81,14 +82,14 @@ impl UsageLimitConfigRequest {
 #[derive(Serialize, Deserialize, ToSchema, PartialEq, Eq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitConfigResponse {
-    id: String,
-    name: Option<String>,
-    metric: String,
-    window: String,
-    limit_type: String,
+    pub id: String,
+    pub name: Option<String>,
+    pub metric: String,
+    pub window: String,
+    pub limit_type: String,
     #[schema(minimum = 1)]
-    limit: u64,
-    enabled: bool,
+    pub limit: u64,
+    pub enabled: bool,
 }
 
 impl From<common::document::ParsedDocument<UsageLimitConfig>> for UsageLimitConfigResponse {
@@ -116,7 +117,7 @@ pub struct ListUsageLimitsResponse {
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitResponse {
-    usage_limit: UsageLimitConfigResponse,
+    pub usage_limit: UsageLimitConfigResponse,
 }
 
 /// Current-window usage for a single metric.
@@ -281,6 +282,16 @@ pub async fn create_usage_limit(
     ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(req): Json<UsageLimitConfigRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let usage_limit = create_usage_limit_handler(st, identity, request_metadata, req).await?;
+    Ok(Json(UsageLimitResponse { usage_limit }))
+}
+
+pub async fn create_usage_limit_handler(
+    st: LocalAppState,
+    identity: keybroker::Identity,
+    request_metadata: RequestMetadata,
+    req: UsageLimitConfigRequest,
+) -> Result<UsageLimitConfigResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteUsageLimits)?;
 
     let mut tx = st.application.begin(identity).await?;
@@ -300,7 +311,7 @@ pub async fn create_usage_limit(
         .commit_with_audit_log_events(tx, audit_events, request_metadata, "create_usage_limit")
         .await?;
 
-    Ok(Json(UsageLimitResponse { usage_limit }))
+    Ok(usage_limit)
 }
 
 /// Update usage limit
@@ -329,6 +340,17 @@ pub async fn update_usage_limit(
     Path(id): Path<String>,
     Json(req): Json<UsageLimitConfigRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    let usage_limit = update_usage_limit_handler(st, identity, request_metadata, id, req).await?;
+    Ok(Json(UsageLimitResponse { usage_limit }))
+}
+
+pub async fn update_usage_limit_handler(
+    st: LocalAppState,
+    identity: keybroker::Identity,
+    request_metadata: RequestMetadata,
+    id: String,
+    req: UsageLimitConfigRequest,
+) -> Result<UsageLimitConfigResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteUsageLimits)?;
 
     let mut tx = st.application.begin(identity).await?;
@@ -360,7 +382,7 @@ pub async fn update_usage_limit(
         .commit_with_audit_log_events(tx, audit_events, request_metadata, "update_usage_limit")
         .await?;
 
-    Ok(Json(UsageLimitResponse { usage_limit }))
+    Ok(usage_limit)
 }
 
 /// Delete usage limit
@@ -387,6 +409,16 @@ pub async fn delete_usage_limit(
     ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    delete_usage_limit_handler(st, identity, request_metadata, id).await?;
+    Ok(StatusCode::OK)
+}
+
+pub async fn delete_usage_limit_handler(
+    st: LocalAppState,
+    identity: keybroker::Identity,
+    request_metadata: RequestMetadata,
+    id: String,
+) -> Result<UsageLimitConfigResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteUsageLimits)?;
 
     let mut tx = st.application.begin(identity).await?;
@@ -400,14 +432,22 @@ pub async fn delete_usage_limit(
     };
     let audit_events = vec![DeploymentAuditLogEvent::DeleteUsageLimit {
         id: String::from(DeveloperDocumentId::from(id)),
-        config,
+        config: config.clone(),
     }];
 
     st.application
         .commit_with_audit_log_events(tx, audit_events, request_metadata, "delete_usage_limit")
         .await?;
 
-    Ok(StatusCode::OK)
+    Ok(UsageLimitConfigResponse {
+        id: String::from(DeveloperDocumentId::from(id)),
+        name: config.name,
+        metric: config.metric.to_string(),
+        window: config.window.to_string(),
+        limit_type: config.limit_type.to_string(),
+        limit: config.limit,
+        enabled: config.enabled,
+    })
 }
 
 fn usage_limit_not_found() -> ErrorMetadata {
