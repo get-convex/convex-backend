@@ -214,7 +214,7 @@
           "beta"
         ],
         "summary": "Get current usage",
-        "description": "Get the current usage for each metric, in each in-progress window (the\ncurrent day and calendar month).",
+        "description": "Get the current usage for each metric, in each in-progress window (the\ncurrent day and calendar month), along with the status of the\nhistorical-usage backfill.\n\nThe reported usage is only guaranteed to reflect the full window once\n`seedStatus` is `complete`. A `pending` or `partial` status means the\nbackfill is still in progress and the returned usage may understate actual\nusage, so retry later for an accurate total.",
         "operationId": "get_current_usage",
         "responses": {
           "200": {
@@ -1925,7 +1925,8 @@
         "type": "object",
         "description": "Current usage across every metric, keyed by the same metric name the usage\nlimit config API uses.",
         "required": [
-          "metrics"
+          "metrics",
+          "seedStatus"
         ],
         "properties": {
           "metrics": {
@@ -1936,6 +1937,9 @@
             "propertyNames": {
               "type": "string"
             }
+          },
+          "seedStatus": {
+            "$ref": "#/components/schemas/SeedStatusResponse"
           }
         }
       },
@@ -2368,6 +2372,16 @@
               }
             }
           }
+        ]
+      },
+      "SeedStatusResponse": {
+        "type": "string",
+        "description": "Progress of the historical-usage backfill. Only `complete` guarantees the\nreported usage reflects the full window. While the status is `pending` or\n`partial`, history from before this deployment was loaded may not be\nhydrated yet and the numbers can understate actual usage, so retry later for\nan accurate total. `failed` means the backfill couldn't hydrate any history.",
+        "enum": [
+          "pending",
+          "partial",
+          "complete",
+          "failed"
         ]
       },
       "SentryLogStreamConfig": {

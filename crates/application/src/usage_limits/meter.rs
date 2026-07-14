@@ -23,6 +23,7 @@ use super::stores::{
     UsageMetricResolution,
     UsageMetricStores,
 };
+use crate::app_metric_seed::SeedStatus;
 
 /// A limit whose window total reached its configured limit.
 #[derive(Debug, Clone)]
@@ -72,6 +73,8 @@ pub struct UsageMeter {
 struct Inner {
     stores: UsageMetricStores,
     configs: Vec<(ResolvedDocumentId, UsageLimitConfig)>,
+    /// Latest backfill status reported by the seeder; see [`SeedStatus`].
+    seed_status: SeedStatus,
 }
 
 impl UsageMeter {
@@ -81,6 +84,7 @@ impl UsageMeter {
             inner: Mutex::new(Inner {
                 stores: UsageMetricStores::new(now)?,
                 configs: Vec::new(),
+                seed_status: SeedStatus::Pending,
             }),
             has_enabled_limit_tx,
         })
@@ -145,6 +149,14 @@ impl UsageMeter {
                 .seed(resolution, metric.metric_name(), time, value, now);
         }
         num_buckets
+    }
+
+    pub fn set_seed_status(&self, status: SeedStatus) {
+        self.inner.lock().seed_status = status;
+    }
+
+    pub fn seed_status(&self) -> SeedStatus {
+        self.inner.lock().seed_status
     }
 
     /// Current-window usage totals for every metric, in raw units. A metric

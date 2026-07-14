@@ -894,7 +894,7 @@ function UsageLimitThresholdEditor({
       </div>
       <Tooltip
         tip="When enabled, this limit is enforced: if usage exceeds the allotted amount, the limit takes effect."
-        side="bottom"
+        side="right"
       >
         <label className="flex w-fit cursor-help items-center gap-2 text-xs text-content-secondary">
           <Checkbox

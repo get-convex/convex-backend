@@ -114,7 +114,8 @@ pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
             | UsageEvent::CurrentTextStorage { .. }
             | UsageEvent::CurrentDatabaseStorage { .. }
             | UsageEvent::CurrentFileStorage { .. }
-            | UsageEvent::CurrentDocumentCounts { .. } => {},
+            | UsageEvent::CurrentDocumentCounts { .. }
+            | UsageEvent::CurrentBackendState { .. } => {},
         }
     }
     deltas
