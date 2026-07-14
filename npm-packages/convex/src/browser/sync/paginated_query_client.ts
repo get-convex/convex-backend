@@ -17,7 +17,7 @@ import {
   serializePaginatedPathAndArgs,
   canonicalizeUdfPath,
 } from "./udf_path_utils.js";
-import { BaseConvexClient, Transition } from "./client.js";
+import { BaseConvexClientInterface, Transition } from "./client.js";
 import {
   PaginatedQueryResult,
   PaginationStatus,
@@ -74,6 +74,7 @@ export type ExtendedTransition = Transition & {
   }>;
 };
 
+/** @internal */
 export class PaginatedQueryClient {
   private paginatedQuerySet: Map<PaginatedQueryToken, LocalPaginatedQuery> =
     new Map();
@@ -81,7 +82,7 @@ export class PaginatedQueryClient {
   private lastTransitionTs: TS;
 
   constructor(
-    private client: BaseConvexClient,
+    private client: BaseConvexClientInterface,
     private onTransition: (transition: ExtendedTransition) => void,
   ) {
     // Nonsense initial value to construct synthetic Transitions

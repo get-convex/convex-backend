@@ -12,6 +12,7 @@ import {
   AuthTokenFetcher,
   BaseConvexClientOptions,
   ConnectionState,
+  BaseConvexClientInterface,
 } from "../browser/sync/client.js";
 import type { UserIdentityAttributes } from "../browser/sync/protocol.js";
 import { RequestForQueries, useQueries } from "./use_queries.js";
@@ -295,7 +296,7 @@ export interface ConvexReactClientOptions extends BaseConvexClientOptions {
    *
    * @internal
    */
-  baseClient?: BaseConvexClient;
+  baseClient?: BaseConvexClientInterface;
 
   // FIXME: Ideally we define `ConvexReactClientOptions` as
   // `type ConvexReactClientOptions = BaseConvexClientOptions | { baseClient: BaseConvexClient }`
@@ -313,7 +314,7 @@ export interface ConvexReactClientOptions extends BaseConvexClientOptions {
  */
 export class ConvexReactClient {
   private address: string;
-  private cachedSync?: BaseConvexClient | undefined;
+  private cachedSync?: BaseConvexClientInterface | undefined;
   private cachedPaginatedQueryClient?: PaginatedQueryClient | undefined;
   private listeners: Map<QueryToken | PaginatedQueryToken, Set<() => void>>;
   private options: ConvexReactClientOptions;
