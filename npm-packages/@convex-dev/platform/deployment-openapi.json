@@ -831,7 +831,7 @@
           "Data Sync"
         ],
         "summary": "Data sync",
-        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nStreams a consistent, resumable export of a deployment's data — either the\nwhole deployment or a subset of components, tables, and columns (see the\nrequest body). Streaming export must be enabled on the deployment, and the\ncaller must have the `deployment:data:view` permission.\n\nCall this endpoint repeatedly, passing the `pagination.nextCursor` from each\nresponse back in the next request as `cursor`; omit `cursor` on the first\ncall. The cursor is opaque — store and send it back verbatim. Each response\ncontains:\n\n- `values`: document revisions in the order they should be applied. A value\n  with `_deleted: true` is a tombstone marking that document as deleted.\n- `truncates`: tables whose contents were replaced wholesale (for example by\n  an `npx convex import`). Drop everything you have stored for each listed\n  table; the `values` in this and later responses re-populate it.\n- `status`: `inProgress` while the export is still being assembled — the\n  data returned so far is not yet a consistent view, so keep calling. Once\n  it becomes `synced`, the values applied so far form a consistent snapshot\n  of the deployment as of the returned `syncedTs` timestamp. You can keep\n  calling to continue streaming later changes.\n- `pagination`: `nextCursor` to pass back on the next call (always present,\n  since the sync is always resumable) and `hasMore`, which tells you whether\n  more data is already available (`true`) or you've caught up to the latest\n  commit (`false`).\n\nPersist the cursor and keep calling within the deployment's data retention\nwindow so the export can resume where it left off. This endpoint must be\ncalled at least once every 3 days; if too much time passes between calls the\ncursor falls outside the retention window and can no longer be resumed. When\nthat happens the endpoint responds with a `400` (`DataSyncCursorExpired`),\nand you must restart the sync from scratch by calling again with no cursor.\n\nEach sync's progress is periodically recorded while the sync is in\nprogress and can be monitored via `/data/list_active_syncs`, keyed by the\n`syncId` returned in every response.",
+        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nStreams a consistent, resumable export of a deployment's data — either the\nwhole deployment or a subset of components, tables, and columns (see the\nrequest body). Streaming export must be enabled on the deployment, and the\ncaller must have the `deployment:data:view` permission.\n\nCall this endpoint repeatedly, passing the `pagination.nextCursor` from each\nresponse back in the next request as `cursor`; omit `cursor` on the first\ncall. The cursor is opaque — store and send it back verbatim. Each response\ncontains:\n\n- `values`: document revisions in the order they should be applied. Each\n  entry carries the document's fields under `value`; an entry with `deleted:\n  true` is a tombstone marking that document as deleted.\n- `truncates`: tables whose contents were replaced wholesale (for example by\n  an `npx convex import`). Drop everything you have stored for each listed\n  table; the `values` in this and later responses re-populate it.\n- `status`: `inProgress` while the export is still being assembled — the\n  data returned so far is not yet a consistent view, so keep calling. Once\n  it becomes `synced`, the values applied so far form a consistent snapshot\n  of the deployment as of the returned `syncedTs` timestamp. You can keep\n  calling to continue streaming later changes.\n- `pagination`: `nextCursor` to pass back on the next call (always present,\n  since the sync is always resumable) and `hasMore`, which tells you whether\n  more data is already available (`true`) or you've caught up to the latest\n  commit (`false`).\n\nPersist the cursor and keep calling within the deployment's data retention\nwindow so the export can resume where it left off. This endpoint must be\ncalled at least once every 3 days; if too much time passes between calls the\ncursor falls outside the retention window and can no longer be resumed. When\nthat happens the endpoint responds with a `400` (`DataSyncCursorExpired`),\nand you must restart the sync from scratch by calling again with no cursor.\n\nEach sync's progress is periodically recorded while the sync is in\nprogress and can be monitored via `/data/list_active_syncs`, keyed by the\n`syncId` returned in every response.",
         "operationId": "data_sync_post",
         "requestBody": {
           "content": {
@@ -1835,56 +1835,53 @@
         "type": "object",
         "description": "A table whose contents were replaced wholesale (e.g. by `npx convex\nimport`). Reported separately from `values` since it carries none of the\nper-document fields.",
         "required": [
-          "_component",
-          "_table"
+          "component",
+          "table"
         ],
         "properties": {
-          "_component": {
+          "component": {
             "type": "string",
             "description": "The path of the component the table is in."
           },
-          "_table": {
+          "table": {
             "type": "string",
             "description": "The name of the truncated table."
           }
         }
       },
       "DataSyncValue": {
-        "allOf": [
-          {
-            "type": "object",
-            "description": "The fields of the document. Connectors must ignore fields prefixed by\n`_` (except `_id` and `_creationTime`) since they could be used by\nfuture versions of the API for new fields. For tombstones, only `_id`\nis present."
-          },
-          {
-            "type": "object",
-            "required": [
-              "_component",
-              "_table",
-              "_ts",
-              "_deleted"
-            ],
-            "properties": {
-              "_component": {
-                "type": "string",
-                "description": "The path of the component this entry is from."
-              },
-              "_deleted": {
-                "type": "boolean",
-                "description": "Whether the document was deleted (a tombstone)."
-              },
-              "_table": {
-                "type": "string",
-                "description": "The name of the table this entry is from."
-              },
-              "_ts": {
-                "type": "integer",
-                "format": "int64",
-                "description": "The timestamp at which this revision was written."
-              }
-            }
-          }
+        "type": "object",
+        "description": "A single document-level entry emitted by the data sync API: a Convex\ndocument (or a tombstone, for a deletion) nested under `value`, with\nmetadata fields alongside it.",
+        "required": [
+          "component",
+          "table",
+          "ts",
+          "deleted",
+          "value"
         ],
-        "description": "A single document-level entry emitted by the data sync API: a Convex\ndocument (or a tombstone, for a deletion) with some special fields added."
+        "properties": {
+          "component": {
+            "type": "string",
+            "description": "The path of the component this entry is from."
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "Whether the document was deleted (a tombstone)."
+          },
+          "table": {
+            "type": "string",
+            "description": "The name of the table this entry is from."
+          },
+          "ts": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The timestamp at which this revision was written."
+          },
+          "value": {
+            "type": "object",
+            "description": "The fields of the document, including the built-in `_id` and\n`_creationTime`. For tombstones, only `_id` is present."
+          }
+        }
       },
       "DatadogLogStreamConfig": {
         "type": "object",

@@ -2,12 +2,16 @@ import { useCallback, useContext } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { createDeploymentClient } from "@convex-dev/platform";
+import type { UsageLimitConfigResponse } from "@convex-dev/platform/deploymentApi";
 import { useAdminKey, useDeploymentUrl } from "@common/lib/deploymentApi";
 import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import type {
+  CurrentUsage,
   UsageLimit,
   UsageLimitConfig,
+  UsageMetric,
+  UsageSeedStatus,
 } from "@common/features/settings/components/UsageLimits";
 
 export function useUpdateEnvVars(): (
@@ -98,20 +102,6 @@ export function useUnpauseDeployment(): () => Promise<void> {
   };
 }
 
-// --- Usage limits ---
-
-// Shape returned by the usage limits API (UsageLimitConfigResponse). The enum
-// fields are typed loosely by the generated client and narrowed in toUsageLimit.
-type UsageLimitConfigResponse = {
-  id: string;
-  name?: string | null;
-  metric: string;
-  window: string;
-  limitType: string;
-  limit: number;
-  enabled: boolean;
-};
-
 function toUsageLimit(response: UsageLimitConfigResponse): UsageLimit {
   return {
     id: response.id,
@@ -140,15 +130,10 @@ function normalizeUsageLimitError(error: unknown): {
   return { code: "UnknownError", message: "Something went wrong." };
 }
 
-// SWR cache key for the deployment's usage limits list. The read hook and the
-// mutation hooks share it so a successful write revalidates the list.
 function usageLimitsKey(deploymentUrl: string) {
   return ["usageLimits", deploymentUrl] as const;
 }
 
-// Fetch the deployment's usage limits. Backed by SWR so the list is cached,
-// deduped, and revalidated after any mutation. Must be used inside a connected
-// deployment context.
 export function useUsageLimits(): {
   usageLimits: UsageLimit[] | undefined;
   isLoading: boolean;
@@ -175,6 +160,68 @@ export function useUsageLimits(): {
     },
   );
   return { usageLimits: data, isLoading };
+}
+
+const SEED_STATUSES: UsageSeedStatus[] = [
+  "pending",
+  "partial",
+  "complete",
+  "failed",
+];
+function normalizeSeedStatus(value: string): UsageSeedStatus {
+  return (SEED_STATUSES as string[]).includes(value)
+    ? (value as UsageSeedStatus)
+    : "complete";
+}
+
+function currentUsageKey(deploymentUrl: string) {
+  return ["currentUsage", deploymentUrl] as const;
+}
+
+export function useCurrentUsage(): {
+  currentUsage: CurrentUsage | undefined;
+  seedStatus: UsageSeedStatus | undefined;
+  isLoading: boolean;
+} {
+  const deploymentUrl = useDeploymentUrl();
+  const adminKey = useAdminKey();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
+  const { data, isLoading } = useSWR(
+    currentUsageKey(deploymentUrl),
+    async () => {
+      const client = createDeploymentClient(deploymentUrl, adminKey);
+      const {
+        data: body,
+        error,
+        response,
+      } = await client.GET("/get_current_usage");
+      if (error || !response.ok || !body) {
+        const normalized = normalizeUsageLimitError(error);
+        reportHttpError("GET", response.url, normalized);
+        toast("error", normalized.message);
+        throw new Error(normalized.message);
+      }
+      const currentUsage: CurrentUsage = {};
+      for (const [metric, { usage }] of Object.entries(body.metrics)) {
+        currentUsage[metric as UsageMetric] = {
+          day: usage.current_day,
+          month: usage.current_month,
+        };
+      }
+      return {
+        currentUsage,
+        seedStatus: normalizeSeedStatus(body.seedStatus),
+      };
+    },
+    {
+      refreshInterval: 5000,
+    },
+  );
+  return {
+    currentUsage: data?.currentUsage,
+    seedStatus: data?.seedStatus,
+    isLoading,
+  };
 }
 
 export function useCreateUsageLimit(): (

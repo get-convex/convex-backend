@@ -176,41 +176,33 @@ pub struct DataSyncResponse {
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct DataSyncTruncate {
     /// The path of the component the table is in.
-    #[serde(rename = "_component")]
     pub component: String,
 
     /// The name of the truncated table.
-    #[serde(rename = "_table")]
     pub table: String,
 }
 
 /// A single document-level entry emitted by the data sync API: a Convex
-/// document (or a tombstone, for a deletion) with some special fields added.
+/// document (or a tombstone, for a deletion) nested under `value`, with
+/// metadata fields alongside it.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct DataSyncValue {
     /// The path of the component this entry is from.
-    #[serde(rename = "_component")]
     pub component: String,
 
     /// The name of the table this entry is from.
-    #[serde(rename = "_table")]
     pub table: String,
 
     /// The timestamp at which this revision was written.
-    #[serde(rename = "_ts")]
     pub ts: i64,
 
     /// Whether the document was deleted (a tombstone).
-    #[serde(rename = "_deleted")]
     pub deleted: bool,
 
-    /// The fields of the document. Connectors must ignore fields prefixed by
-    /// `_` (except `_id` and `_creationTime`) since they could be used by
-    /// future versions of the API for new fields. For tombstones, only `_id`
-    /// is present.
-    #[serde(flatten)]
+    /// The fields of the document, including the built-in `_id` and
+    /// `_creationTime`. For tombstones, only `_id` is present.
     #[schema(value_type = Object)]
-    pub fields: BTreeMap<String, JsonValue>,
+    pub value: BTreeMap<String, JsonValue>,
 }
 
 /// The literal string `synced`, discriminating "synced" status objects.

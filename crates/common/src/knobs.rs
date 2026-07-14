@@ -174,6 +174,17 @@ pub static V8_ACTION_USER_TIMEOUT: LazyLock<Duration> =
 pub static NODE_ACTION_USER_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("NODE_ACTION_USER_TIMEOUT_SECS", 600)));
 
+/// Ideally, we should have no timeout here but we are relying on defense in
+/// depth in case somehow the upstream get stuck. Use very high timeout here.
+///
+/// This should be at least V8_ACTION_USER_TIMEOUT
+pub static FUNRUN_RUN_FUNCTION_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(
+        env_config("FUNRUN_RUN_FUNCTION_TIMEOUT_SECS", 35 * 60)
+            .max(V8_ACTION_USER_TIMEOUT.as_secs()),
+    )
+});
+
 /// Max number of rows we will read when calculating document deltas.
 pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("DOCUMENT_DELTAS_LIMIT", 128));

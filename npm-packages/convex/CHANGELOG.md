@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.41.2
+## 1.42.2
 - Mutations and actions can now read the raw authentication
   token used in the request by accessing `authToken` in
   `ctx.meta.getRequestMetadata()`.

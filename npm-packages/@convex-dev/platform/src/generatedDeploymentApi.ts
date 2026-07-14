@@ -434,8 +434,9 @@ export interface paths {
          *     call. The cursor is opaque — store and send it back verbatim. Each response
          *     contains:
          *
-         *     - `values`: document revisions in the order they should be applied. A value
-         *       with `_deleted: true` is a tombstone marking that document as deleted.
+         *     - `values`: document revisions in the order they should be applied. Each
+         *       entry carries the document's fields under `value`; an entry with `deleted:
+         *       true` is a tombstone marking that document as deleted.
          *     - `truncates`: tables whose contents were replaced wholesale (for example by
          *       an `npx convex import`). Drop everything you have stored for each listed
          *       table; the `values` in this and later responses re-populate it.
@@ -799,24 +800,28 @@ export interface components {
          *     per-document fields. */
         DataSyncTruncate: {
             /** @description The path of the component the table is in. */
-            _component: string;
+            component: string;
             /** @description The name of the truncated table. */
-            _table: string;
+            table: string;
         };
         /** @description A single document-level entry emitted by the data sync API: a Convex
-         *     document (or a tombstone, for a deletion) with some special fields added. */
-        DataSyncValue: Record<string, never> & {
+         *     document (or a tombstone, for a deletion) nested under `value`, with
+         *     metadata fields alongside it. */
+        DataSyncValue: {
             /** @description The path of the component this entry is from. */
-            _component: string;
+            component: string;
             /** @description Whether the document was deleted (a tombstone). */
-            _deleted: boolean;
+            deleted: boolean;
             /** @description The name of the table this entry is from. */
-            _table: string;
+            table: string;
             /**
              * Format: int64
              * @description The timestamp at which this revision was written.
              */
-            _ts: number;
+            ts: number;
+            /** @description The fields of the document, including the built-in `_id` and
+             *     `_creationTime`. For tombstones, only `_id` is present. */
+            value: Record<string, never>;
         };
         /** DatadogConfig */
         DatadogLogStreamConfig: {

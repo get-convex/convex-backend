@@ -116,7 +116,7 @@ export function DeploymentEventContent({
       break;
 
     case "update_usage_limit":
-      body = <UsageLimitUpdateBody event={event} />;
+      body = UsageLimitUpdateBody({ event });
       break;
 
     case "create_environment_variable":
