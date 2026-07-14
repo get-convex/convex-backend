@@ -90,9 +90,23 @@ pub struct SyncTruncate {
 pub struct SyncProgress {
     pub num_tables_synced: u64,
     pub total_tables: u64,
-    pub current_component: Option<ComponentPath>,
-    pub current_table: Option<TableName>,
+    /// The component of the table currently being traversed. An in-progress
+    /// sync always has a current table: finishing one either starts the next
+    /// or completes the sync ([`SyncStatus::Synced`]).
+    pub current_component: ComponentPath,
+    /// The table currently being traversed.
+    pub current_table: TableName,
+    /// Documents emitted so far from the current table's `by_id` traversal.
     pub num_documents_in_current_table: u64,
+    /// Documents in the current table at a recent snapshot. `None` while
+    /// table summaries are still bootstrapping.
+    pub total_documents_in_current_table: Option<u64>,
+    /// Documents (including tombstones and re-emitted revisions) emitted over
+    /// the sync's lifetime, so this can slightly exceed `total_documents`.
+    pub num_documents_synced: u64,
+    /// Documents across all target tables at a recent snapshot. `None` while
+    /// table summaries are still bootstrapping.
+    pub total_documents: Option<u64>,
 }
 
 /// The consistency state reported alongside a page.
@@ -131,6 +145,9 @@ pub struct SyncCursor {
     /// Names of every tablet captured by `inner` (its synced tables plus the
     /// in-progress table), as resolved when they were captured.
     names: BTreeMap<TabletId, (ComponentPath, TableName)>,
+    /// Unique id assigned when the sync started; keys the
+    /// `_data_sync_progress` row that tracks this sync's progress.
+    sync_id: String,
 }
 
 impl SyncCursor {
@@ -140,6 +157,23 @@ impl SyncCursor {
 
     pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         Self::from_proto(pb_ds::DataSyncCursor::decode(bytes)?)
+    }
+
+    /// Unique id of the sync this cursor belongs to.
+    pub fn sync_id(&self) -> &str {
+        &self.sync_id
+    }
+
+    /// Documents (including tombstones and re-emitted revisions) emitted over
+    /// the sync's lifetime.
+    pub fn num_docs_synced(&self) -> u64 {
+        self.inner.num_docs_synced()
+    }
+
+    /// Tables whose entire ID space has been traversed. When the sync is
+    /// [`SyncStatus::Synced`] this is every target table.
+    pub fn num_synced_tables(&self) -> u64 {
+        self.inner.synced_tables().len() as u64
     }
 
     fn name_of(&self, tablet_id: &TabletId) -> anyhow::Result<(String, String)> {
@@ -173,6 +207,7 @@ impl SyncCursor {
                     component_path: Some(component_path),
                     table_name: Some(table_name),
                     current_id: current_id.map(|id| id.into()),
+                    docs_synced: Some(self.inner.current_table_docs_synced()),
                 })
             },
         };
@@ -180,6 +215,8 @@ impl SyncCursor {
             synced_ts: Some(u64::from(self.inner.synced_ts())),
             synced_tablets,
             table_cursor: Some(table_cursor),
+            sync_id: Some(self.sync_id.clone()),
+            num_docs_synced: Some(self.inner.num_docs_synced()),
         })
     }
 
@@ -188,6 +225,8 @@ impl SyncCursor {
             synced_ts,
             synced_tablets,
             table_cursor,
+            sync_id,
+            num_docs_synced,
         } = proto;
         let synced_ts =
             Timestamp::try_from(synced_ts.ok_or_else(|| anyhow::anyhow!("missing synced_ts"))?)?;
@@ -201,6 +240,7 @@ impl SyncCursor {
             names.insert(tablet_id, (component, table));
         }
 
+        let mut current_table_docs_synced = 0;
         let in_progress =
             match table_cursor.ok_or_else(|| anyhow::anyhow!("missing table_cursor"))? {
                 pb_ds::data_sync_cursor::TableCursor::Synced(()) => None,
@@ -215,13 +255,21 @@ impl SyncCursor {
                         .map(DeveloperDocumentId::try_from)
                         .transpose()?;
                     names.insert(tablet_id, (component, table));
+                    current_table_docs_synced = in_progress.docs_synced.unwrap_or(0);
                     Some((tablet_id, current_id))
                 },
             };
 
         Ok(Self {
-            inner: DataSyncCursor::from_parts(synced_ts, synced_tables, in_progress),
+            inner: DataSyncCursor::from_parts(
+                synced_ts,
+                synced_tables,
+                in_progress,
+                current_table_docs_synced,
+                num_docs_synced.unwrap_or(0),
+            ),
             names,
+            sync_id: sync_id.ok_or_else(|| anyhow::anyhow!("missing sync_id"))?,
         })
     }
 }
@@ -295,12 +343,15 @@ pub async fn data_sync<RT: Runtime>(
     // Resolve the filter to concrete tablets at a recent, consistent snapshot.
     // Tablet ids are stable, so this mapping is valid for the iterator's own
     // (possibly slightly newer) `latest` timestamp.
-    let (table_mapping, component_paths, by_id_indexes) = {
+    let (table_mapping, component_paths, by_id_indexes, table_counts) = {
         let mut tx = database.begin(identity).await?;
         let table_mapping = tx.table_mapping().clone();
         let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-        (table_mapping, component_paths, by_id_indexes)
+        // Incrementally-maintained per-table document counts, used only for
+        // progress reporting. `None` while table summaries are bootstrapping.
+        let table_counts = database.snapshot(tx.begin_timestamp())?.table_counts;
+        (table_mapping, component_paths, by_id_indexes, table_counts)
     };
     let resolve_name = |tablet_id: TabletId| -> anyhow::Result<(ComponentPath, TableName)> {
         let table_name = table_mapping.tablet_name(tablet_id)?;
@@ -346,6 +397,12 @@ pub async fn data_sync<RT: Runtime>(
             }
         }
     }
+
+    // Adopt the cursor's sync id, assigning a fresh one on cold start.
+    let sync_id = cursor
+        .as_ref()
+        .map(|c| c.sync_id.clone())
+        .unwrap_or_else(|| database.runtime().new_uuid_v4().to_string());
 
     let mut entries = Vec::new();
     let iterator = database.data_sync_iterator()?;
@@ -400,13 +457,18 @@ pub async fn data_sync<RT: Runtime>(
     let status = match page.status {
         DataSyncStatus::Synced { ts, has_more } => SyncStatus::Synced { ts, has_more },
         DataSyncStatus::InProgress { progress } => {
-            let (current_component, current_table) = match progress.current_table {
-                Some(tablet_id) => {
-                    let (component, table) = resolve_name(tablet_id)?;
-                    (Some(component), Some(table))
-                },
-                None => (None, None),
-            };
+            let (current_component, current_table) = resolve_name(progress.current_table)?;
+            // Progress denominators from the incrementally-maintained table
+            // counts: no table scans, just map lookups.
+            let total_documents_in_current_table = table_counts
+                .as_ref()
+                .map(|counts| counts.tablet_count(&progress.current_table).num_values());
+            let total_documents = table_counts.as_ref().map(|counts| {
+                target_tables
+                    .keys()
+                    .map(|tablet_id| counts.tablet_count(tablet_id).num_values())
+                    .sum()
+            });
             SyncStatus::InProgress {
                 progress: SyncProgress {
                     num_tables_synced: progress.num_tables_synced,
@@ -414,6 +476,9 @@ pub async fn data_sync<RT: Runtime>(
                     current_component,
                     current_table,
                     num_documents_in_current_table: progress.num_documents_in_current_table,
+                    total_documents_in_current_table,
+                    num_documents_synced: progress.num_documents_synced,
+                    total_documents,
                 },
             }
         },
@@ -425,6 +490,7 @@ pub async fn data_sync<RT: Runtime>(
         cursor: SyncCursor {
             inner: page.cursor,
             names,
+            sync_id,
         },
         status,
         usage: usage.gather_user_stats(),

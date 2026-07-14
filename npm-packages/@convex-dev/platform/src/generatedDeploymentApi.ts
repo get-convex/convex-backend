@@ -441,7 +441,7 @@ export interface paths {
          *     - `status`: `inProgress` while the export is still being assembled — the
          *       data returned so far is not yet a consistent view, so keep calling. Once
          *       it becomes `synced`, the values applied so far form a consistent snapshot
-         *       of the deployment as of the returned `snapshot` timestamp. You can keep
+         *       of the deployment as of the returned `syncedTs` timestamp. You can keep
          *       calling to continue streaming later changes; `hasMore` tells you whether
          *       more data is already available (`true`) or you've caught up to the latest
          *       commit (`false`).
@@ -452,8 +452,43 @@ export interface paths {
          *     cursor falls outside the retention window and can no longer be resumed. When
          *     that happens the endpoint responds with a `400` (`DataSyncCursorExpired`),
          *     and you must restart the sync from scratch by calling again with no cursor.
+         *
+         *     Each sync's progress is periodically recorded while the sync is in
+         *     progress and can be monitored via `/data/list_active_syncs`, keyed by the
+         *     `syncId` returned in every response.
          */
         post: operations["data_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/data/list_active_syncs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active data syncs
+         * @description **Early access:** this API is not yet stable and may change in
+         *     backwards-incompatible ways without notice. Contact the Convex team before
+         *     depending on it.
+         *
+         *     Returns the progress of every active data sync: one that fetched a page
+         *     from `/data/sync` within the past 3 days, whether it is still performing
+         *     its initial traversal or is already synced and streaming changes. Progress
+         *     is recorded periodically, so an in-flight sync's numbers may trail its
+         *     most recent page.
+         *
+         *     Results are paginated, most recently updated first. Pass the returned
+         *     `nextCursor` back as `cursor` to fetch the next page.
+         */
+        get: operations["list_active_syncs_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -466,6 +501,93 @@ export interface components {
     schemas: {
         /** Format: int64 */
         AccessTokenId: number;
+        /** @description The status of one active data sync, as of its most recent page. */
+        ActiveDataSync: {
+            /**
+             * Format: int64
+             * @description Wall-clock time of the last `/data/sync` call made by this sync, as a
+             *     unix timestamp in milliseconds.
+             */
+            lastUpdated: number;
+            /** @description The sync's progress as of its most recently recorded page. */
+            status: components["schemas"]["ActiveDataSyncStatus"];
+            /** @description Unique id of the sync, assigned when it started (i.e. when
+             *     `/api/v1/data/sync` was called without a cursor) and stable across its
+             *     pages. */
+            syncId: string;
+        };
+        /** @description The sync is still traversing its selected tables; the data returned so
+         *     far is not yet a consistent snapshot. */
+        ActiveDataSyncInProgress: {
+            /** @description The component of the table currently being traversed (the empty
+             *     string for the root component). */
+            currentComponent: string;
+            /** @description The table currently being traversed. */
+            currentTable: string;
+            /**
+             * Format: int64
+             * @description Documents synced so far from the current table.
+             */
+            numDocumentsInCurrentTable: number;
+            /**
+             * Format: int64
+             * @description Documents synced over the sync's lifetime, including deletions and
+             *     re-synced revisions of documents that changed mid-sync — so this can
+             *     slightly exceed `totalDocuments`.
+             */
+            numDocumentsSynced: number;
+            /**
+             * Format: int64
+             * @description Tables whose initial traversal has completed.
+             */
+            numTablesSynced: number;
+            /**
+             * Format: int64
+             * @description Total documents across all selected tables, as of a recent snapshot.
+             */
+            totalDocuments: number;
+            /**
+             * Format: int64
+             * @description Total documents in the current table, as of a recent snapshot.
+             */
+            totalDocumentsInCurrentTable: number;
+            /**
+             * Format: int64
+             * @description Total tables selected for the sync.
+             */
+            totalTables: number;
+            /**
+             * @description Always `inProgress`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "inProgress";
+        };
+        /** @description The progress of an active data sync, discriminated by `type`. */
+        ActiveDataSyncStatus: components["schemas"]["ActiveDataSyncInProgress"] | components["schemas"]["ActiveDataSyncSynced"];
+        /** @description The sync reached a consistent snapshot and is streaming later changes. */
+        ActiveDataSyncSynced: {
+            /**
+             * Format: int64
+             * @description Documents synced over the sync's lifetime, including deletions and
+             *     re-synced revisions.
+             */
+            numDocumentsSynced: number;
+            /**
+             * Format: int64
+             * @description The database timestamp at which the synced data is consistent.
+             */
+            syncedTs: number;
+            /**
+             * Format: int64
+             * @description Total tables selected for the sync.
+             */
+            totalTables: number;
+            /**
+             * @description Always `synced`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "synced";
+        };
         /** @description The identity that performed an audit log action. */
         AuditLogActor: {
             /** @enum {string} */
@@ -621,16 +743,15 @@ export interface components {
             /** @description Opaque cursor returned by a previous call. Omit to start from scratch. */
             cursor?: string | null;
         };
-        /** @description Progress indicator returned while a data sync is `InProgress`. */
-        DataSyncProgress: {
-            currentComponent?: string | null;
-            currentTable?: string | null;
-            /** Format: int64 */
-            numDocumentsInCurrentTable: number;
-            /** Format: int64 */
-            numTablesSynced: number;
-            /** Format: int64 */
-            totalTables: number;
+        /** @description More pages are required before the view is consistent. The sync's progress
+         *     can be monitored via `/data/list_active_syncs`, keyed by the response's
+         *     `syncId`. */
+        DataSyncInProgress: {
+            /**
+             * @description Always `inProgress`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "inProgress";
         };
         /** @description One page returned by the data sync API. */
         DataSyncResponse: {
@@ -638,6 +759,9 @@ export interface components {
             cursor: string;
             /** @description The consistency state of the sync after this page. */
             status: components["schemas"]["DataSyncStatus"];
+            /** @description Unique id of the sync, assigned on the first page and stable across
+             *     the sync's lifetime. Identifies this sync in `/data/list_active_syncs`. */
+            syncId: string;
             /** @description Tables truncated by this page: the consumer should drop everything it
              *     previously synced for each, then apply `values` (which re-sync them from
              *     scratch). Logically applies before `values`. */
@@ -645,21 +769,29 @@ export interface components {
             /** @description Documents and tombstones produced by this page. */
             values: components["schemas"]["DataSyncValue"][];
         };
-        /** @description The consistency state reported alongside a data sync page. */
-        DataSyncStatus: {
-            /** @description Whether `snapshot` is behind the latest timestamp — i.e. it's a
-             *     consistent snapshot but not fully caught up to the most recent
-             *     commit. Callers use this to decide whether to keep calling the API
-             *     or pause until later. */
+        /** @description The consistency state reported alongside a data sync page, discriminated
+         *     by `type`. */
+        DataSyncStatus: components["schemas"]["DataSyncSynced"] | components["schemas"]["DataSyncInProgress"];
+        /** @description The entries emitted so far represent a consistent snapshot at `syncedTs`.
+         *     The cursor can be persisted and used to continue the sync later (within
+         *     the document retention window). */
+        DataSyncSynced: {
+            /** @description Whether `syncedTs` is behind the latest timestamp — i.e. it's a
+             *     consistent snapshot but not fully caught up to the most recent commit.
+             *     Use this to decide whether to keep calling the API or pause until
+             *     later. */
             hasMore: boolean;
-            /** Format: int64 */
-            snapshot: number;
-            /** @enum {string} */
+            /**
+             * Format: int64
+             * @description The database timestamp at which the synced data is consistent.
+             */
+            syncedTs: number;
+            /**
+             * @description Always `synced`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
             type: "synced";
-        } | (components["schemas"]["DataSyncProgress"] & {
-            /** @enum {string} */
-            type: "inProgress";
-        });
+        };
         /** @description A table whose contents were replaced wholesale (e.g. by `npx convex
          *     import`). Reported separately from `values` since it carries none of the
          *     per-document fields. */
@@ -751,6 +883,15 @@ export interface components {
                 [key: string]: components["schemas"]["MetricUsageResponse"];
             };
             seedStatus: components["schemas"]["SeedStatusResponse"];
+        };
+        /** @description Response of the active-syncs listing API
+         *     (`/api/v1/data/list_active_syncs`). */
+        ListActiveSyncsResponse: {
+            pagination: components["schemas"]["PaginationMetadata"];
+            /** @description This page of active data syncs, most recently updated first. A sync is
+             *     active if it fetched a page from `/api/v1/data/sync` within the past 3
+             *     days. */
+            syncs: components["schemas"]["ActiveDataSync"][];
         };
         ListDeploymentAuditLogEventsResponse: {
             /** @description The audit log events for this page, from least to most recent. */
@@ -1026,6 +1167,10 @@ export interface components {
     pathItems: never;
 }
 export type AccessTokenId = components['schemas']['AccessTokenId'];
+export type ActiveDataSync = components['schemas']['ActiveDataSync'];
+export type ActiveDataSyncInProgress = components['schemas']['ActiveDataSyncInProgress'];
+export type ActiveDataSyncStatus = components['schemas']['ActiveDataSyncStatus'];
+export type ActiveDataSyncSynced = components['schemas']['ActiveDataSyncSynced'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AxiomAttribute = components['schemas']['AxiomAttribute'];
 export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];
@@ -1039,9 +1184,10 @@ export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogSt
 export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
 export type DataSyncArgs = components['schemas']['DataSyncArgs'];
-export type DataSyncProgress = components['schemas']['DataSyncProgress'];
+export type DataSyncInProgress = components['schemas']['DataSyncInProgress'];
 export type DataSyncResponse = components['schemas']['DataSyncResponse'];
 export type DataSyncStatus = components['schemas']['DataSyncStatus'];
+export type DataSyncSynced = components['schemas']['DataSyncSynced'];
 export type DataSyncTruncate = components['schemas']['DataSyncTruncate'];
 export type DataSyncValue = components['schemas']['DataSyncValue'];
 export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
@@ -1052,6 +1198,7 @@ export type DeploymentInfoResponse = components['schemas']['DeploymentInfoRespon
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
 export type GetCurrentUsageResponse = components['schemas']['GetCurrentUsageResponse'];
+export type ListActiveSyncsResponse = components['schemas']['ListActiveSyncsResponse'];
 export type ListDeploymentAuditLogEventsResponse = components['schemas']['ListDeploymentAuditLogEventsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type ListUsageLimitsResponse = components['schemas']['ListUsageLimitsResponse'];
@@ -1505,6 +1652,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataSyncResponse"];
+                };
+            };
+        };
+    };
+    list_active_syncs_get: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of syncs to return (defaults to 50, capped at 100). */
+                limit?: number | null;
+                /** @description Cursor from a previous response to fetch the next page. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActiveSyncsResponse"];
                 };
             };
         };

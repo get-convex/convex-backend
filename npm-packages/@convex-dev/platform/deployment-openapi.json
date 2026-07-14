@@ -831,7 +831,7 @@
           "Data Sync"
         ],
         "summary": "Data sync",
-        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nStreams a consistent, resumable export of a deployment's data — either the\nwhole deployment or a subset of components, tables, and columns (see the\nrequest body). Streaming export must be enabled on the deployment, and the\ncaller must have the `deployment:data:view` permission.\n\nCall this endpoint repeatedly, passing the `cursor` from each response back\nin the next request; omit `cursor` on the first call. The cursor is opaque —\nstore and send it back verbatim. Each response contains:\n\n- `values`: document revisions in the order they should be applied. A value\n  with `_deleted: true` is a tombstone marking that document as deleted.\n- `truncates`: tables whose contents were replaced wholesale (for example by\n  an `npx convex import`). Drop everything you have stored for each listed\n  table; the `values` in this and later responses re-populate it.\n- `status`: `inProgress` while the export is still being assembled — the\n  data returned so far is not yet a consistent view, so keep calling. Once\n  it becomes `synced`, the values applied so far form a consistent snapshot\n  of the deployment as of the returned `snapshot` timestamp. You can keep\n  calling to continue streaming later changes; `hasMore` tells you whether\n  more data is already available (`true`) or you've caught up to the latest\n  commit (`false`).\n\nPersist the cursor and keep calling within the deployment's data retention\nwindow so the export can resume where it left off. This endpoint must be\ncalled at least once every 3 days; if too much time passes between calls the\ncursor falls outside the retention window and can no longer be resumed. When\nthat happens the endpoint responds with a `400` (`DataSyncCursorExpired`),\nand you must restart the sync from scratch by calling again with no cursor.",
+        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nStreams a consistent, resumable export of a deployment's data — either the\nwhole deployment or a subset of components, tables, and columns (see the\nrequest body). Streaming export must be enabled on the deployment, and the\ncaller must have the `deployment:data:view` permission.\n\nCall this endpoint repeatedly, passing the `cursor` from each response back\nin the next request; omit `cursor` on the first call. The cursor is opaque —\nstore and send it back verbatim. Each response contains:\n\n- `values`: document revisions in the order they should be applied. A value\n  with `_deleted: true` is a tombstone marking that document as deleted.\n- `truncates`: tables whose contents were replaced wholesale (for example by\n  an `npx convex import`). Drop everything you have stored for each listed\n  table; the `values` in this and later responses re-populate it.\n- `status`: `inProgress` while the export is still being assembled — the\n  data returned so far is not yet a consistent view, so keep calling. Once\n  it becomes `synced`, the values applied so far form a consistent snapshot\n  of the deployment as of the returned `syncedTs` timestamp. You can keep\n  calling to continue streaming later changes; `hasMore` tells you whether\n  more data is already available (`true`) or you've caught up to the latest\n  commit (`false`).\n\nPersist the cursor and keep calling within the deployment's data retention\nwindow so the export can resume where it left off. This endpoint must be\ncalled at least once every 3 days; if too much time passes between calls the\ncursor falls outside the retention window and can no longer be resumed. When\nthat happens the endpoint responds with a `400` (`DataSyncCursorExpired`),\nand you must restart the sync from scratch by calling again with no cursor.\n\nEach sync's progress is periodically recorded while the sync is in\nprogress and can be monitored via `/data/list_active_syncs`, keyed by the\n`syncId` returned in every response.",
         "operationId": "data_sync_post",
         "requestBody": {
           "content": {
@@ -870,6 +870,69 @@
           }
         ]
       }
+    },
+    "/data/list_active_syncs": {
+      "get": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "List active data syncs",
+        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nReturns the progress of every active data sync: one that fetched a page\nfrom `/data/sync` within the past 3 days, whether it is still performing\nits initial traversal or is already synced and streaming changes. Progress\nis recorded periodically, so an in-flight sync's numbers may trail its\nmost recent page.\n\nResults are paginated, most recently updated first. Pass the returned\n`nextCursor` back as `cursor` to fetch the next page.",
+        "operationId": "list_active_syncs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of syncs to return (defaults to 50, capped at 100).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor from a previous response to fetch the next page.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListActiveSyncsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -878,6 +941,162 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "ActiveDataSync": {
+        "type": "object",
+        "description": "The status of one active data sync, as of its most recent page.",
+        "required": [
+          "syncId",
+          "lastUpdated",
+          "status"
+        ],
+        "properties": {
+          "lastUpdated": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Wall-clock time of the last `/data/sync` call made by this sync, as a\nunix timestamp in milliseconds."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActiveDataSyncStatus",
+            "description": "The sync's progress as of its most recently recorded page."
+          },
+          "syncId": {
+            "type": "string",
+            "description": "Unique id of the sync, assigned when it started (i.e. when\n`/api/v1/data/sync` was called without a cursor) and stable across its\npages."
+          }
+        }
+      },
+      "ActiveDataSyncInProgress": {
+        "type": "object",
+        "description": "The sync is still traversing its selected tables; the data returned so\nfar is not yet a consistent snapshot.",
+        "required": [
+          "type",
+          "numTablesSynced",
+          "totalTables",
+          "currentComponent",
+          "currentTable",
+          "numDocumentsInCurrentTable",
+          "totalDocumentsInCurrentTable",
+          "numDocumentsSynced",
+          "totalDocuments"
+        ],
+        "properties": {
+          "currentComponent": {
+            "type": "string",
+            "description": "The component of the table currently being traversed (the empty\nstring for the root component)."
+          },
+          "currentTable": {
+            "type": "string",
+            "description": "The table currently being traversed."
+          },
+          "numDocumentsInCurrentTable": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Documents synced so far from the current table.",
+            "minimum": 0
+          },
+          "numDocumentsSynced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Documents synced over the sync's lifetime, including deletions and\nre-synced revisions of documents that changed mid-sync — so this can\nslightly exceed `totalDocuments`.",
+            "minimum": 0
+          },
+          "numTablesSynced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tables whose initial traversal has completed.",
+            "minimum": 0
+          },
+          "totalDocuments": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total documents across all selected tables, as of a recent snapshot.",
+            "minimum": 0
+          },
+          "totalDocumentsInCurrentTable": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total documents in the current table, as of a recent snapshot.",
+            "minimum": 0
+          },
+          "totalTables": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total tables selected for the sync.",
+            "minimum": 0
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `inProgress`, discriminating \"in progress\" status\nobjects.",
+                "enum": [
+                  "inProgress"
+                ]
+              }
+            ],
+            "description": "Always `inProgress`."
+          }
+        }
+      },
+      "ActiveDataSyncStatus": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncInProgress"
+          },
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncSynced"
+          }
+        ],
+        "description": "The progress of an active data sync, discriminated by `type`.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "inProgress": "#/components/schemas/ActiveDataSyncInProgress",
+            "synced": "#/components/schemas/ActiveDataSyncSynced"
+          }
+        }
+      },
+      "ActiveDataSyncSynced": {
+        "type": "object",
+        "description": "The sync reached a consistent snapshot and is streaming later changes.",
+        "required": [
+          "type",
+          "totalTables",
+          "numDocumentsSynced",
+          "syncedTs"
+        ],
+        "properties": {
+          "numDocumentsSynced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Documents synced over the sync's lifetime, including deletions and\nre-synced revisions.",
+            "minimum": 0
+          },
+          "syncedTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
+          },
+          "totalTables": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total tables selected for the sync.",
+            "minimum": 0
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `synced`, discriminating \"synced\" status objects.",
+                "enum": [
+                  "synced"
+                ]
+              }
+            ],
+            "description": "Always `synced`."
+          }
+        }
       },
       "AuditLogActor": {
         "oneOf": [
@@ -1507,41 +1726,24 @@
         ],
         "description": "Arguments to the data sync (streaming export) API (`/api/v1/data/sync`)."
       },
-      "DataSyncProgress": {
+      "DataSyncInProgress": {
         "type": "object",
-        "description": "Progress indicator returned while a data sync is `InProgress`.",
+        "description": "More pages are required before the view is consistent. The sync's progress\ncan be monitored via `/data/list_active_syncs`, keyed by the response's\n`syncId`.",
         "required": [
-          "numTablesSynced",
-          "totalTables",
-          "numDocumentsInCurrentTable"
+          "type"
         ],
         "properties": {
-          "currentComponent": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "currentTable": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "numDocumentsInCurrentTable": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "numTablesSynced": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "totalTables": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `inProgress`, discriminating \"in progress\" status\nobjects.",
+                "enum": [
+                  "inProgress"
+                ]
+              }
+            ],
+            "description": "Always `inProgress`."
           }
         }
       },
@@ -1552,6 +1754,7 @@
           "truncates",
           "values",
           "cursor",
+          "syncId",
           "status"
         ],
         "properties": {
@@ -1562,6 +1765,10 @@
           "status": {
             "$ref": "#/components/schemas/DataSyncStatus",
             "description": "The consistency state of the sync after this page."
+          },
+          "syncId": {
+            "type": "string",
+            "description": "Unique id of the sync, assigned on the first page and stable across\nthe sync's lifetime. Identifies this sync in `/data/list_active_syncs`."
           },
           "truncates": {
             "type": "array",
@@ -1582,55 +1789,52 @@
       "DataSyncStatus": {
         "oneOf": [
           {
-            "type": "object",
-            "description": "The entries emitted so far represent a consistent snapshot at\n`snapshot`. The cursor can be persisted and used to continue the sync\nlater (within the document retention window).",
-            "required": [
-              "snapshot",
-              "hasMore",
-              "type"
-            ],
-            "properties": {
-              "hasMore": {
-                "type": "boolean",
-                "description": "Whether `snapshot` is behind the latest timestamp — i.e. it's a\nconsistent snapshot but not fully caught up to the most recent\ncommit. Callers use this to decide whether to keep calling the API\nor pause until later."
-              },
-              "snapshot": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "type": {
+            "$ref": "#/components/schemas/DataSyncSynced"
+          },
+          {
+            "$ref": "#/components/schemas/DataSyncInProgress"
+          }
+        ],
+        "description": "The consistency state reported alongside a data sync page, discriminated\nby `type`.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "inProgress": "#/components/schemas/DataSyncInProgress",
+            "synced": "#/components/schemas/DataSyncSynced"
+          }
+        }
+      },
+      "DataSyncSynced": {
+        "type": "object",
+        "description": "The entries emitted so far represent a consistent snapshot at `syncedTs`.\nThe cursor can be persisted and used to continue the sync later (within\nthe document retention window).",
+        "required": [
+          "type",
+          "syncedTs",
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether `syncedTs` is behind the latest timestamp — i.e. it's a\nconsistent snapshot but not fully caught up to the most recent commit.\nUse this to decide whether to keep calling the API or pause until\nlater."
+          },
+          "syncedTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
+          },
+          "type": {
+            "oneOf": [
+              {
                 "type": "string",
+                "description": "The literal string `synced`, discriminating \"synced\" status objects.",
                 "enum": [
                   "synced"
                 ]
               }
-            }
-          },
-          {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DataSyncProgress"
-              },
-              {
-                "type": "object",
-                "description": "More pages are required before the view is consistent.",
-                "required": [
-                  "type"
-                ],
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "inProgress"
-                    ]
-                  }
-                }
-              }
             ],
-            "description": "More pages are required before the view is consistent."
+            "description": "Always `synced`."
           }
-        ],
-        "description": "The consistency state reported alongside a data sync page."
+        }
       },
       "DataSyncTruncate": {
         "type": "object",
@@ -1940,6 +2144,26 @@
           },
           "seedStatus": {
             "$ref": "#/components/schemas/SeedStatusResponse"
+          }
+        }
+      },
+      "ListActiveSyncsResponse": {
+        "type": "object",
+        "description": "Response of the active-syncs listing API\n(`/api/v1/data/list_active_syncs`).",
+        "required": [
+          "syncs",
+          "pagination"
+        ],
+        "properties": {
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
+          },
+          "syncs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActiveDataSync"
+            },
+            "description": "This page of active data syncs, most recently updated first. A sync is\nactive if it fetched a page from `/api/v1/data/sync` within the past 3\ndays."
           }
         }
       },

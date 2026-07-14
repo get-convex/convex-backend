@@ -25,6 +25,7 @@ use common::{
             Query,
         },
         HttpResponseError,
+        PaginationMetadata,
     },
     json_schemas,
     schemas::{
@@ -39,10 +40,15 @@ use common::{
     types::{
         streaming_export::{
             selection::Selection,
+            ActiveDataSync,
+            ActiveDataSyncInProgress,
+            ActiveDataSyncStatus,
+            ActiveDataSyncSynced,
             DataSyncArgs,
-            DataSyncProgress,
+            DataSyncInProgress,
             DataSyncResponse,
             DataSyncStatus,
+            DataSyncSynced,
             DataSyncTruncate,
             DataSyncValue,
             DocumentDeltasArgs,
@@ -50,9 +56,12 @@ use common::{
             DocumentDeltasValue,
             GetTableColumnNameTable,
             GetTableColumnNamesResponse,
+            InProgressTag,
+            ListActiveSyncsResponse,
             ListSnapshotArgs,
             ListSnapshotResponse,
             ListSnapshotValue,
+            SyncedTag,
         },
         RepeatableTimestamp,
         Timestamp,
@@ -80,7 +89,10 @@ use errors::{
 use http::StatusCode;
 use keybroker::Identity;
 use maplit::btreemap;
-use model::virtual_system_mapping;
+use model::{
+    data_sync_progress::types::DataSyncState,
+    virtual_system_mapping,
+};
 use roles::RequireDeploymentOp;
 use serde::{
     Deserialize,
@@ -255,7 +267,7 @@ pub async fn _document_deltas(
 /// - `status`: `inProgress` while the export is still being assembled — the
 ///   data returned so far is not yet a consistent view, so keep calling. Once
 ///   it becomes `synced`, the values applied so far form a consistent snapshot
-///   of the deployment as of the returned `snapshot` timestamp. You can keep
+///   of the deployment as of the returned `syncedTs` timestamp. You can keep
 ///   calling to continue streaming later changes; `hasMore` tells you whether
 ///   more data is already available (`true`) or you've caught up to the latest
 ///   commit (`false`).
@@ -266,6 +278,10 @@ pub async fn _document_deltas(
 /// cursor falls outside the retention window and can no longer be resumed. When
 /// that happens the endpoint responds with a `400` (`DataSyncCursorExpired`),
 /// and you must restart the sync from scratch by calling again with no cursor.
+///
+/// Each sync's progress is periodically recorded while the sync is in
+/// progress and can be monitored via `/data/list_active_syncs`, keyed by the
+/// `syncId` returned in every response.
 #[utoipa::path(
     post,
     path = "/data/sync",
@@ -288,13 +304,118 @@ pub async fn data_sync_post(
     _data_sync(st, args, identity).await
 }
 
+#[derive(Deserialize, utoipa::IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct ListActiveSyncsArgs {
+    /// Maximum number of syncs to return (defaults to 50, capped at 100).
+    limit: Option<usize>,
+    /// Cursor from a previous response to fetch the next page.
+    cursor: Option<String>,
+}
+
+/// List active data syncs
+///
+/// **Early access:** this API is not yet stable and may change in
+/// backwards-incompatible ways without notice. Contact the Convex team before
+/// depending on it.
+///
+/// Returns the progress of every active data sync: one that fetched a page
+/// from `/data/sync` within the past 3 days, whether it is still performing
+/// its initial traversal or is already synced and streaming changes. Progress
+/// is recorded periodically, so an in-flight sync's numbers may trail its
+/// most recent page.
+///
+/// Results are paginated, most recently updated first. Pass the returned
+/// `nextCursor` back as `cursor` to fetch the next page.
+#[utoipa::path(
+    get,
+    path = "/data/list_active_syncs",
+    tag = "Data Sync",
+    params(ListActiveSyncsArgs),
+    responses((status = 200, body = ListActiveSyncsResponse)),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
+)]
+#[fastrace::trace]
+pub async fn list_active_syncs_get(
+    MtState(st): MtState<LocalAppState>,
+    Query(args): Query<ListActiveSyncsArgs>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    st.application
+        .ensure_streaming_export_enabled(identity.clone())
+        .await?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
+
+    let (syncs, next_cursor) = st
+        .application
+        .active_data_syncs(identity, args.cursor, args.limit)
+        .await?;
+    let syncs = syncs
+        .into_iter()
+        .map(|doc| {
+            let progress = doc.into_value();
+            ActiveDataSync {
+                sync_id: progress.sync_id,
+                last_updated: progress.last_updated_ms as i64,
+                status: match progress.state {
+                    DataSyncState::InitialSync {
+                        num_tables_synced,
+                        total_tables,
+                        current_component,
+                        current_table,
+                        num_documents_synced_in_current_table,
+                        total_documents_in_current_table,
+                        num_documents_synced,
+                        total_documents,
+                    } => ActiveDataSyncStatus::InProgress(ActiveDataSyncInProgress {
+                        status_type: InProgressTag::InProgress,
+                        num_tables_synced,
+                        total_tables,
+                        current_component: String::from(current_component),
+                        current_table: current_table.to_string(),
+                        num_documents_in_current_table: num_documents_synced_in_current_table,
+                        total_documents_in_current_table,
+                        num_documents_synced,
+                        total_documents,
+                    }),
+                    DataSyncState::Synced {
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    } => ActiveDataSyncStatus::Synced(ActiveDataSyncSynced {
+                        status_type: SyncedTag::Synced,
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    }),
+                },
+            }
+        })
+        .collect();
+
+    Ok(Json(ListActiveSyncsResponse {
+        syncs,
+        pagination: PaginationMetadata {
+            has_more: next_cursor.is_some(),
+            next_cursor,
+        },
+    }))
+}
+
 /// Platform (OpenAPI-documented) routes for streaming export.
 pub fn platform_router<S>() -> utoipa_axum::router::OpenApiRouter<S>
 where
     LocalAppState: axum::extract::FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
-    utoipa_axum::router::OpenApiRouter::new().routes(utoipa_axum::routes!(data_sync_post))
+    utoipa_axum::router::OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(data_sync_post))
+        .routes(utoipa_axum::routes!(list_active_syncs_get))
 }
 
 async fn _data_sync(
@@ -398,24 +519,22 @@ async fn _data_sync(
         .try_collect()?;
 
     let status = match status {
-        SyncStatus::Synced { ts, has_more } => DataSyncStatus::Synced {
-            snapshot: i64::from(ts),
+        SyncStatus::Synced { ts, has_more } => DataSyncStatus::Synced(DataSyncSynced {
+            status_type: SyncedTag::Synced,
+            synced_ts: i64::from(ts),
             has_more,
-        },
-        SyncStatus::InProgress { progress } => DataSyncStatus::InProgress {
-            progress: DataSyncProgress {
-                num_tables_synced: progress.num_tables_synced,
-                total_tables: progress.total_tables,
-                current_component: progress.current_component.map(|c| c.to_string()),
-                current_table: progress.current_table.map(|t| t.to_string()),
-                num_documents_in_current_table: progress.num_documents_in_current_table,
-            },
-        },
+        }),
+        // Progress details are not part of this response; callers monitor
+        // them via `/data/list_active_syncs`, keyed by `sync_id`.
+        SyncStatus::InProgress { .. } => DataSyncStatus::InProgress(DataSyncInProgress {
+            status_type: InProgressTag::InProgress,
+        }),
     };
 
     let response = DataSyncResponse {
         truncates,
         values,
+        sync_id: new_cursor.sync_id().to_string(),
         cursor: base64::encode(new_cursor.to_bytes()?),
         status,
     };

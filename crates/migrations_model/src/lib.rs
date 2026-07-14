@@ -33,7 +33,7 @@ pub type DatabaseVersion = i64;
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 126; // andycai
+pub const DATABASE_VERSION: DatabaseVersion = 127; // nipunn
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -108,6 +108,11 @@ impl<RT: Runtime> MigrationExecutor<RT> {
             126 => {
                 // This is an empty migration because we added a new system
                 // table, _usage_limits.
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            127 => {
+                // This is an empty migration because we added a new system
+                // table, _data_sync_progress.
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
