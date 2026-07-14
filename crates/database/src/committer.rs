@@ -1117,7 +1117,7 @@ impl<RT: Runtime> Committer<RT> {
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress(
                         component_path.clone(),
-                        table_name.to_string(),
+                        &table_name,
                         index_key_size,
                         // Exclude indexes on system tables or reserved system indexes on user
                         // tables
@@ -1125,7 +1125,7 @@ impl<RT: Runtime> Committer<RT> {
                     );
                     usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
-                        table_name.to_string(),
+                        &table_name,
                         index_key_size,
                         table_name.is_system() || index_write.is_system_index,
                     );
@@ -1134,7 +1134,7 @@ impl<RT: Runtime> Committer<RT> {
                     {
                         usage_tracker.track_virtual_table_ingress(
                             component_path,
-                            virtual_table_name.to_string(),
+                            virtual_table_name,
                             index_key_size,
                         );
                     }
@@ -1163,13 +1163,13 @@ impl<RT: Runtime> Committer<RT> {
                     // Database bandwidth for document writes
                     usage_tracker.track_database_ingress(
                         component_path.clone().clone(),
-                        table_name.to_string(),
+                        &table_name,
                         document_write_size as u64,
                         table_name.is_system(),
                     );
                     usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
-                        table_name.to_string(),
+                        &table_name,
                         document_write_size as u64,
                         table_name.is_system(),
                     );
@@ -1178,14 +1178,14 @@ impl<RT: Runtime> Committer<RT> {
                     {
                         usage_tracker.track_virtual_table_ingress(
                             component_path.clone(),
-                            virtual_table_name.to_string(),
+                            virtual_table_name,
                             document_write_size as u64,
                         );
                     }
                     if vector_index_write_size.0 > 0 {
                         usage_tracker.track_vector_ingress(
                             component_path.clone(),
-                            table_name.to_string(),
+                            &table_name,
                             document_write_size as u64,
                             vector_index_write_size.0,
                             table_name.is_system(),
@@ -1194,7 +1194,7 @@ impl<RT: Runtime> Committer<RT> {
                     if text_index_write_size.0 > 0 {
                         usage_tracker.track_text_ingress(
                             component_path.clone(),
-                            table_name.to_string(),
+                            &table_name,
                             text_index_write_size.0,
                             table_name.is_system(),
                         );

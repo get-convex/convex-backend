@@ -288,7 +288,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     if backfill_bytes_read > 0 {
                         usage.track_database_egress_v2(
                             component_path.clone(),
-                            table_name.to_string(),
+                            &table_name,
                             backfill_bytes_read,
                             table_name.is_system(),
                         );
@@ -296,7 +296,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     if backfill_bytes_written > 0 {
                         usage.track_database_ingress_v2(
                             component_path,
-                            table_name.to_string(),
+                            &table_name,
                             backfill_bytes_written,
                             table_name.is_system(),
                         );

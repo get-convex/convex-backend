@@ -272,18 +272,8 @@ where
     let mut last_log_time = Instant::now();
     while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         let doc_size = doc.size() as u64;
-        usage.track_database_egress(
-            component_path.clone(),
-            table_name.to_string(),
-            doc_size,
-            false,
-        );
-        usage.track_database_egress_v2(
-            component_path.clone(),
-            table_name.to_string(),
-            doc_size,
-            false,
-        );
+        usage.track_database_egress(component_path.clone(), &table_name, doc_size, false);
+        usage.track_database_egress_v2(component_path.clone(), &table_name, doc_size, false);
         table_upload.write(doc).await?;
         num_documents += 1;
         total_bytes += doc_size;

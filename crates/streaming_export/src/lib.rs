@@ -460,11 +460,11 @@ pub async fn data_sync<RT: Runtime>(
                 let document = column_filter.filter_document(doc.to_developer())?;
                 usage.track_database_egress_v2(
                     component.clone(),
-                    table.to_string(),
+                    &table,
                     document.size() as u64,
                     false,
                 );
-                usage.track_database_egress_rows(component.clone(), table.to_string(), 1, false);
+                usage.track_database_egress_rows(component.clone(), &table, 1, false);
                 entries.push(SyncEntry::Document {
                     ts,
                     component,

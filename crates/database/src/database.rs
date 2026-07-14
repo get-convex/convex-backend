@@ -2171,16 +2171,11 @@ impl<RT: Runtime> Database<RT> {
                     let doc_size = doc.size();
                     usage.track_database_egress_v2(
                         component_path.clone(),
-                        table_name.to_string(),
+                        &table_name,
                         doc_size as u64,
                         false,
                     );
-                    usage.track_database_egress_rows(
-                        component_path.clone(),
-                        table_name.to_string(),
-                        1,
-                        false,
-                    );
+                    usage.track_database_egress_rows(component_path.clone(), &table_name, 1, false);
                 }
 
                 deltas.push((ts, id, component_path, table_name, filtered_doc));
@@ -2399,16 +2394,11 @@ impl<RT: Runtime> Database<RT> {
             let doc_size = filtered_doc.size();
             usage.track_database_egress_v2(
                 component_path.clone(),
-                table_name.to_string(),
+                &table_name,
                 doc_size as u64,
                 false,
             );
-            usage.track_database_egress_rows(
-                component_path.clone(),
-                table_name.to_string(),
-                1,
-                false,
-            );
+            usage.track_database_egress_rows(component_path.clone(), &table_name, 1, false);
 
             documents.push((ts, component_path, table_name, filtered_doc));
             if rows_read >= rows_read_limit
@@ -2604,7 +2594,7 @@ impl<RT: Runtime> Database<RT> {
         let component_path = snapshot
             .component_registry
             .must_component_path(component_id, &mut TransactionReadSet::new())?;
-        usage.track_vector_egress(component_path.clone(), index_name.table().to_string(), size);
+        usage.track_vector_egress(component_path.clone(), index_name.table(), size);
         usage.track_vector_query(component_path, index_name, index_size, dimensions);
         timer.finish();
         Ok((results, usage.gather_user_stats()))
