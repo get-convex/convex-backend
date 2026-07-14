@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.41.2
+- Mutations and actions can now read the raw authentication
+  token used in the request by accessing `authToken` in
+  `ctx.meta.getRequestMetadata()`.
+- Fixed a circular import in `convex/browser` that caused issues
+  when using the `ConvexHttpClient` in some JavaScript
+  environments.
+- Fixed a bug in `ConvexProviderWithClerk` that caused
+  the Convex client to ignore session changes in some situations.
+- Fixed a bug where the codegen would not sort module paths in
+  an order consistent with other platforms when running
+  on Windows.
+- When running `npx convex dev` outside a Convex project,
+  the CLI now returns an error message immediately instead of
+  first asking the user to select a project and then failing
+  later.
+
 ## 1.42.1
 
 - Fixed an issue where the CLI would be unable to find the `tsgo` binary in
