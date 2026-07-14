@@ -1,6 +1,8 @@
 use std::{
+    cell::Cell,
     ffi,
     mem::ManuallyDrop,
+    os::raw::c_void,
     ptr,
     sync::Arc,
     time::Duration,
@@ -27,11 +29,13 @@ use errors::ErrorMetadata;
 use fastrace::{
     local::LocalSpan,
     Event,
+    Span,
 };
 use humansize::{
     FormatSize,
     BINARY,
 };
+use itertools::Itertools as _;
 
 use crate::{
     array_buffer_allocator::ArrayBufferMemoryLimit,
@@ -200,6 +204,17 @@ impl<RT: Runtime> Isolate<RT> {
         v8_isolate.add_near_heap_limit_callback(
             near_heap_limit_callback,
             heap_ctx_ptr as *mut ffi::c_void,
+        );
+
+        v8_isolate.add_gc_prologue_callback(
+            gc_prologue_callback,
+            ptr::null_mut(),
+            v8::GCType::kGCTypeAll,
+        );
+        v8_isolate.add_gc_epilogue_callback(
+            gc_epilogue_callback,
+            ptr::null_mut(),
+            v8::GCType::kGCTypeAll,
         );
 
         assert!(v8_isolate.set_slot(handle.clone()));
@@ -404,4 +419,74 @@ extern "C" fn near_heap_limit_callback(
     // process if it fails to allocate. We're about to terminate the isolate
     // anyway so any allocation will be very short-lived.
     current_heap_limit * 4
+}
+
+thread_local! {
+    static GC_SPAN: Cell<Option<Span>> = const { Cell::new(None) };
+}
+extern "C" fn gc_prologue_callback(
+    _isolate: v8::UnsafeRawIsolatePtr,
+    gc_type: v8::GCType,
+    gc_flags: v8::GCCallbackFlags,
+    _data: *mut c_void,
+) {
+    GC_SPAN.set(Some(
+        Span::enter_with_local_parent("v8_collect_garbage")
+            .with_property(|| {
+                let gc_type = match gc_type {
+                    v8::GCType::kGCTypeScavenge => "kGCTypeScavenge",
+                    v8::GCType::kGCTypeMinorMarkSweep => "kGCTypeMinorMarkSweep",
+                    v8::GCType::kGCTypeMarkSweepCompact => "kGCTypeMarkSweepCompact",
+                    v8::GCType::kGCTypeIncrementalMarking => "kGCTypeIncrementalMarking",
+                    v8::GCType::kGCTypeProcessWeakCallbacks => "kGCTypeProcessWeakCallbacks",
+                    _ => "unknown",
+                };
+                ("gc_type", gc_type)
+            })
+            .with_property(|| {
+                let gc_flags = [
+                    (
+                        v8::GCCallbackFlags::kGCCallbackFlagConstructRetainedObjectInfos,
+                        "kGCCallbackFlagConstructRetainedObjectInfos",
+                    ),
+                    (
+                        v8::GCCallbackFlags::kGCCallbackFlagForced,
+                        "kGCCallbackFlagForced",
+                    ),
+                    (
+                        v8::GCCallbackFlags::kGCCallbackFlagSynchronousPhantomCallbackProcessing,
+                        "kGCCallbackFlagSynchronousPhantomCallbackProcessing",
+                    ),
+                    (
+                        v8::GCCallbackFlags::kGCCallbackFlagCollectAllAvailableGarbage,
+                        "kGCCallbackFlagCollectAllAvailableGarbage",
+                    ),
+                    (
+                        v8::GCCallbackFlags::kGCCallbackFlagCollectAllExternalMemory,
+                        "kGCCallbackFlagCollectAllExternalMemory",
+                    ),
+                    (
+                        v8::GCCallbackFlags::kGCCallbackScheduleIdleGarbageCollection,
+                        "kGCCallbackScheduleIdleGarbageCollection",
+                    ),
+                    (
+                        v8::GCCallbackFlags::kGCCallbackFlagLastResort,
+                        "kGCCallbackFlagLastResort",
+                    ),
+                ]
+                .into_iter()
+                .filter(|(flag, _)| (gc_flags & *flag).0 != 0)
+                .map(|(_, name)| name)
+                .join("|");
+                ("gc_flags", gc_flags)
+            }),
+    ))
+}
+extern "C" fn gc_epilogue_callback(
+    _isolate: v8::UnsafeRawIsolatePtr,
+    _gc_type: v8::GCType,
+    _gc_flags: v8::GCCallbackFlags,
+    _data: *mut c_void,
+) {
+    GC_SPAN.take(); // drop the span to finish recording it
 }
