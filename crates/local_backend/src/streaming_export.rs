@@ -257,9 +257,10 @@ pub async fn _document_deltas(
 /// request body). Streaming export must be enabled on the deployment, and the
 /// caller must have the `deployment:data:view` permission.
 ///
-/// Call this endpoint repeatedly, passing the `cursor` from each response back
-/// in the next request; omit `cursor` on the first call. The cursor is opaque —
-/// store and send it back verbatim. Each response contains:
+/// Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
+/// response back in the next request as `cursor`; omit `cursor` on the first
+/// call. The cursor is opaque — store and send it back verbatim. Each response
+/// contains:
 ///
 /// - `values`: document revisions in the order they should be applied. A value
 ///   with `_deleted: true` is a tombstone marking that document as deleted.
@@ -270,7 +271,9 @@ pub async fn _document_deltas(
 ///   data returned so far is not yet a consistent view, so keep calling. Once
 ///   it becomes `synced`, the values applied so far form a consistent snapshot
 ///   of the deployment as of the returned `syncedTs` timestamp. You can keep
-///   calling to continue streaming later changes; `hasMore` tells you whether
+///   calling to continue streaming later changes.
+/// - `pagination`: `nextCursor` to pass back on the next call (always present,
+///   since the sync is always resumable) and `hasMore`, which tells you whether
 ///   more data is already available (`true`) or you've caught up to the latest
 ///   commit (`false`).
 ///
@@ -528,25 +531,36 @@ async fn _data_sync(
         })
         .try_collect()?;
 
-    let status = match status {
-        SyncStatus::Synced { ts, has_more } => DataSyncStatus::Synced(DataSyncSynced {
-            status_type: SyncedTag::Synced,
-            synced_ts: i64::from(ts),
+    let (status, has_more) = match status {
+        SyncStatus::Synced { ts, has_more } => (
+            DataSyncStatus::Synced(DataSyncSynced {
+                status_type: SyncedTag::Synced,
+                synced_ts: i64::from(ts),
+            }),
             has_more,
-        }),
+        ),
         // Progress details are not part of this response; callers monitor
-        // them via `/data/list_active_syncs`, keyed by `sync_id`.
-        SyncStatus::InProgress { .. } => DataSyncStatus::InProgress(DataSyncInProgress {
-            status_type: InProgressTag::InProgress,
-        }),
+        // them via `/data/list_active_syncs`, keyed by `sync_id`. The snapshot
+        // isn't consistent yet, so there is always more to fetch.
+        SyncStatus::InProgress { .. } => (
+            DataSyncStatus::InProgress(DataSyncInProgress {
+                status_type: InProgressTag::InProgress,
+            }),
+            true,
+        ),
     };
 
     let response = DataSyncResponse {
         truncates,
         values,
         sync_id: new_cursor.sync_id().to_string(),
-        cursor: base64::encode(new_cursor.to_bytes()?),
         status,
+        pagination: PaginationMetadata {
+            has_more,
+            // The cursor is always resumable, so a data sync never signals the
+            // end with a null cursor the way a finite listing does.
+            next_cursor: Some(base64::encode(new_cursor.to_bytes()?)),
+        },
     };
     let response_bytes = serde_json::to_vec(&response).context("Failed to serialize response")?;
 
