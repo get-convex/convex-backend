@@ -35,6 +35,20 @@ runs:
           echo "SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
+          if [ "$(uname -m)" == "x86_64" ] && command -v ld.mold >/dev/null; then
+            # Nightly rustc defaults to its bundled rust-lld on x86_64-linux
+            # (via an injected gcc -B dir containing "ld"), so the mold
+            # installed above goes unused without an explicit opt-in.
+            # -fuse-ld=mold makes the gcc driver search for "ld.mold" —
+            # absent from the injected dir, found on PATH via setup-mold —
+            # so it wins over the injection. mold links faster and with less
+            # memory than rust-lld, which matters for the giant test-binary
+            # link tail. Jammy's gcc 11.4 accepts -fuse-ld=mold (Ubuntu
+            # backport of the gcc 12.1 feature).
+            # The env var is target-scoped: aarch64 must keep the rustflags in
+            # .cargo/config.toml, which a triple-scoped env var would replace.
+            echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-Clink-arg=-fuse-ld=mold" >> $GITHUB_ENV
+          fi
         fi
         echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" >> $GITHUB_ENV
         echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
