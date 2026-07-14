@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use application::app_metric_seed::SeedStatus;
 use axum::{
     extract::FromRef,
     response::IntoResponse,
@@ -134,17 +135,50 @@ pub struct WindowUsageResponse {
     current_month: f64,
 }
 
+/// Progress of the historical-usage backfill. Only `complete` guarantees the
+/// reported usage reflects the full window. While the status is `pending` or
+/// `partial`, history from before this deployment was loaded may not be
+/// hydrated yet and the numbers can understate actual usage, so retry later for
+/// an accurate total. `failed` means the backfill couldn't hydrate any history.
+#[derive(Serialize, Deserialize, ToSchema, PartialEq, Eq, Debug, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum SeedStatusResponse {
+    Pending,
+    Partial,
+    Complete,
+    Failed,
+}
+
+impl From<SeedStatus> for SeedStatusResponse {
+    fn from(status: SeedStatus) -> Self {
+        match status {
+            SeedStatus::Pending => Self::Pending,
+            SeedStatus::Partial => Self::Partial,
+            SeedStatus::Complete => Self::Complete,
+            SeedStatus::Failed => Self::Failed,
+        }
+    }
+}
+
 /// Current usage across every metric, keyed by the same metric name the usage
 /// limit config API uses.
 #[derive(Serialize, Deserialize, ToSchema, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GetCurrentUsageResponse {
     metrics: BTreeMap<String, MetricUsageResponse>,
+    seed_status: SeedStatusResponse,
 }
 
 /// Get current usage
 ///
 /// Get the current usage for each metric, in each in-progress window (the
-/// current day and calendar month).
+/// current day and calendar month), along with the status of the
+/// historical-usage backfill.
+///
+/// The reported usage is only guaranteed to reflect the full window once
+/// `seedStatus` is `complete`. A `pending` or `partial` status means the
+/// backfill is still in progress and the returned usage may understate actual
+/// usage, so retry later for an accurate total.
 #[utoipa::path(
     get,
     path = "/get_current_usage",
@@ -185,7 +219,10 @@ pub async fn get_current_usage(
         })
         .collect();
 
-    Ok(Json(GetCurrentUsageResponse { metrics }))
+    Ok(Json(GetCurrentUsageResponse {
+        metrics,
+        seed_status: meter.seed_status().into(),
+    }))
 }
 
 /// List usage limits

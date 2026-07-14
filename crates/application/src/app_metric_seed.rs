@@ -52,9 +52,30 @@ pub struct AppMetricSeedError {
 
 pub type AppMetricSeedResult = Result<Vec<AppMetricSeedRow>, AppMetricSeedError>;
 
+/// How much of a deployment's historical-usage backfill has landed. Owned by
+/// the seeder — it knows its own pass protocol — and surfaced by the usage API
+/// so a consumer of live usage knows whether the numbers reflect the full
+/// window. Delivered alongside each seed pass to [`apply_app_metric_seed`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SeedStatus {
+    /// No usable seed has landed yet: usage covers only traffic since load.
+    Pending,
+    /// Some history has been hydrated, but the backfill isn't finished.
+    Partial,
+    /// The backfill finished and hydrated history.
+    Complete,
+    /// The backfill finished without hydrating any history (e.g. every seed
+    /// query failed).
+    Failed,
+}
+
 impl<RT: Runtime> Application<RT> {
-    pub fn apply_app_metric_seed(&self, result: AppMetricSeedResult) {
+    /// Apply one seed pass: record the seeder's `status` and, when the pass
+    /// carried data, hydrate the metric stores from it. The status is stored
+    /// even on failure, so a terminal `Failed`/`Complete` is surfaced.
+    pub fn apply_app_metric_seed(&self, result: AppMetricSeedResult, status: SeedStatus) {
         let deployment_name = self.deployment_name();
+        self.usage_meter().set_seed_status(status);
         let rows = match result {
             Ok(rows) => rows,
             Err(err) => {

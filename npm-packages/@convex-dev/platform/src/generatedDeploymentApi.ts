@@ -101,7 +101,13 @@ export interface paths {
         /**
          * Get current usage
          * @description Get the current usage for each metric, in each in-progress window (the
-         *     current day and calendar month).
+         *     current day and calendar month), along with the status of the
+         *     historical-usage backfill.
+         *
+         *     The reported usage is only guaranteed to reflect the full window once
+         *     `seedStatus` is `complete`. A `pending` or `partial` status means the
+         *     backfill is still in progress and the returned usage may understate actual
+         *     usage, so retry later for an accurate total.
          */
         get: operations["get_current_usage"];
         put?: never;
@@ -744,6 +750,7 @@ export interface components {
             metrics: {
                 [key: string]: components["schemas"]["MetricUsageResponse"];
             };
+            seedStatus: components["schemas"]["SeedStatusResponse"];
         };
         ListDeploymentAuditLogEventsResponse: {
             /** @description The audit log events for this page, from least to most recent. */
@@ -845,6 +852,15 @@ export interface components {
             /** @enum {string} */
             logStreamType: "webhook";
         };
+        /**
+         * @description Progress of the historical-usage backfill. Only `complete` guarantees the
+         *     reported usage reflects the full window. While the status is `pending` or
+         *     `partial`, history from before this deployment was loaded may not be
+         *     hydrated yet and the numbers can understate actual usage, so retry later for
+         *     an accurate total. `failed` means the backfill couldn't hydrate any history.
+         * @enum {string}
+         */
+        SeedStatusResponse: "pending" | "partial" | "complete" | "failed";
         /** SentryConfig */
         SentryLogStreamConfig: {
             id: string;
@@ -1051,6 +1067,7 @@ export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogSt
 export type ProjectId = components['schemas']['ProjectId'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
+export type SeedStatusResponse = components['schemas']['SeedStatusResponse'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
 export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
