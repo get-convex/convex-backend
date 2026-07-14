@@ -30,6 +30,7 @@ use futures::{
 };
 use keybroker::Identity;
 use model::{
+    backend_state::BackendStateModel,
     deployment_audit_log::{
         types::DeploymentAuditLogEvent,
         DeploymentAuditLogModel,
@@ -53,13 +54,11 @@ const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
 /// Background worker that evaluates recorded usage against the configured
-/// limits and records a `UsageLimitExceeded` audit event once per limit per
-/// window. It loads the limit configs and subscribes to `_usage_limits`,
-/// reloading whenever the table changes.
-///
-/// TODO(ENG-10752): set the usage-limit stop state when limits are crossed
-/// so `Disable` limits actually block requests. Enforcement is log-only
-/// until the metric contract is confirmed against the seed pipeline.
+/// limits: it sets the deployment's usage-limit stop state when a `Disable`
+/// limit is crossed or cleared, records a `UsageLimitExceeded` audit event
+/// once per limit per window, and a `ChangeUsageLimitStopState` event on
+/// each disable/re-enable transition. It loads the limit configs and
+/// subscribes to `_usage_limits`, reloading whenever the table changes.
 pub struct UsageLimitWorker<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
@@ -75,10 +74,6 @@ pub struct UsageLimitWorker<RT: Runtime> {
     /// that finds an exceeded limit, and keeps the once-per-limit-per-window
     /// deduplication durable across restarts.
     primed: bool,
-    /// Stop state implied by the last evaluation, used to log transitions
-    /// exactly once. `None` forces the next evaluation to log the current
-    /// state.
-    last_desired: Option<UsageLimitStopState>,
 }
 
 impl<RT: Runtime> UsageLimitWorker<RT> {
@@ -96,14 +91,12 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
             meter,
             reported: HashMap::new(),
             primed: false,
-            last_desired: None,
         };
         let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
             match worker.run().await {
                 Ok(()) => backoff.reset(),
                 Err(mut e) => {
-                    worker.last_desired = None;
                     report_error(&mut e).await;
                     let delay = backoff.fail(&mut worker.rt.rng());
                     worker.rt.wait(delay).await;
@@ -146,25 +139,10 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
     async fn evaluate_once(&mut self) -> anyhow::Result<()> {
         let now = self.rt.system_time();
         let evaluation = self.meter.evaluate(now)?;
-        // TODO(ENG-10752): set the stop state via
-        // `BackendStateModel::set_usage_limit_stop_state` in the transaction
-        // below so exceeded `Disable` limits reject requests.
-        if self.last_desired != Some(evaluation.desired_stop_state) {
-            match evaluation.desired_stop_state {
-                UsageLimitStopState::Disabled => tracing::warn!(
-                    "Usage limit exceeded: deployment would be disabled (enforcement is log-only \
-                     for now)"
-                ),
-                UsageLimitStopState::None => {
-                    if self.last_desired.is_some() {
-                        tracing::info!(
-                            "Usage back under all limits: deployment would be re-enabled"
-                        );
-                    }
-                },
-            }
-            self.last_desired = Some(evaluation.desired_stop_state);
-        }
+
+        // Limits at or over threshold that haven't been reported in their
+        // current window yet. Prime the dedup map from the audit log on the
+        // first report this process lifetime so a restart doesn't re-emit.
         let unreported = |reported: &HashMap<DeveloperDocumentId, SystemTime>,
                           e: &ExceededUsageLimit| {
             reported.get(&DeveloperDocumentId::from(e.id)) != Some(&e.window_start)
@@ -174,39 +152,53 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
             .into_iter()
             .filter(|e| unreported(&self.reported, e))
             .collect();
-        if newly_exceeded.is_empty() {
-            return Ok(());
-        }
-        if !self.primed {
+        if !newly_exceeded.is_empty() && !self.primed {
             self.prime_reported(now).await?;
             self.primed = true;
             newly_exceeded.retain(|e| unreported(&self.reported, e));
-            if newly_exceeded.is_empty() {
-                return Ok(());
-            }
         }
-        // TODO(ENG-10751): this per-limit log is a placeholder. Replace it
-        // with emitting the UsageLimitExceeded event so the postal service
-        // emails the team, and setting the deployment's backend stop state
-        // for Disable limits.
-        for exceeded in &newly_exceeded {
-            tracing::warn!(
-                "Usage limit exceeded: {:?}/{:?}/{:?} limit of {} (id {})",
-                exceeded.config.metric,
-                exceeded.config.window,
-                exceeded.config.limit_type,
-                exceeded.config.limit,
-                exceeded.id,
-            );
-        }
-        let events: Vec<DeploymentAuditLogEvent> = newly_exceeded
+
+        // Apply the desired stop state and record any audit events in one
+        // transaction. `set_usage_limit_stop_state` returns the prior state
+        // only when it actually changed, so the deployment's persisted state
+        // is the source of truth for enable/disable transitions — restart
+        // safe without extra in-memory tracking.
+        let mut tx = self.database.begin(Identity::system()).await?;
+        let previous = BackendStateModel::new(&mut tx)
+            .set_usage_limit_stop_state(evaluation.desired_stop_state)
+            .await?;
+
+        let mut events: Vec<DeploymentAuditLogEvent> = newly_exceeded
             .iter()
             .map(|exceeded| DeploymentAuditLogEvent::UsageLimitExceeded {
                 id: String::from(DeveloperDocumentId::from(exceeded.id)),
                 config: exceeded.config.clone(),
             })
             .collect();
-        let mut tx = self.database.begin(Identity::system()).await?;
+        // `previous` is `Some` only on a real change: record the transition
+        // alongside the per-limit exceeded events.
+        if let Some(prev) = previous {
+            let old_state = prev.usage_limit;
+            let new_state = evaluation.desired_stop_state;
+            match new_state {
+                UsageLimitStopState::Disabled => {
+                    tracing::warn!("Usage limit exceeded: deployment disabled")
+                },
+                UsageLimitStopState::None => {
+                    tracing::info!("Usage back under all limits: deployment re-enabled")
+                },
+            }
+            events.push(DeploymentAuditLogEvent::ChangeUsageLimitStopState {
+                old_state,
+                new_state,
+            });
+        }
+
+        // No state change and nothing new to report: drop the read-only tx.
+        if events.is_empty() {
+            return Ok(());
+        }
+
         DeploymentAuditLogModel::new(&mut tx)
             .insert(events.clone(), &RequestMetadata::system())
             .await?;
