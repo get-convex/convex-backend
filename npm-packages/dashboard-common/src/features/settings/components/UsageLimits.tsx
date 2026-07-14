@@ -1091,7 +1091,6 @@ function UsageLimitThresholdEditor({
     try {
       if (limit) {
         await onUpdate(limit.id, {
-          name: limit.name,
           metric,
           limit: parsedLimit,
           window,

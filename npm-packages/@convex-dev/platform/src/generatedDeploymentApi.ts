@@ -1124,7 +1124,6 @@ export interface components {
             limit: number;
             limitType: string;
             metric: components["schemas"]["UsageLimitMetric"];
-            name?: string | null;
             window: string;
         };
         UsageLimitConfigResponse: {
@@ -1134,7 +1133,6 @@ export interface components {
             limit: number;
             limitType: string;
             metric: components["schemas"]["UsageLimitMetric"];
-            name?: string | null;
             window: string;
         };
         /** @enum {string} */

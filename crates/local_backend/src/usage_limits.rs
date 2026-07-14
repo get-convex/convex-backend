@@ -55,7 +55,6 @@ use crate::{
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitConfigRequest {
-    name: Option<String>,
     metric: UsageLimitMetric,
     window: String,
     limit_type: String,
@@ -67,7 +66,6 @@ pub struct UsageLimitConfigRequest {
 impl UsageLimitConfigRequest {
     fn into_usage_limit_config(self) -> anyhow::Result<UsageLimitConfig> {
         let config = UsageLimitConfig {
-            name: self.name,
             metric: self.metric,
             window: parse_usage_limit_window(self.window)?,
             limit_type: parse_usage_limit_type(self.limit_type)?,
@@ -83,7 +81,6 @@ impl UsageLimitConfigRequest {
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitConfigResponse {
     pub id: String,
-    pub name: Option<String>,
     pub metric: UsageLimitMetric,
     pub window: String,
     pub limit_type: String,
@@ -98,7 +95,6 @@ impl From<common::document::ParsedDocument<UsageLimitConfig>> for UsageLimitConf
         let config = doc.into_value();
         Self {
             id,
-            name: config.name,
             metric: config.metric,
             window: config.window.to_string(),
             limit_type: config.limit_type.to_string(),
@@ -441,7 +437,6 @@ pub async fn delete_usage_limit_handler(
 
     Ok(UsageLimitConfigResponse {
         id: String::from(DeveloperDocumentId::from(id)),
-        name: config.name,
         metric: config.metric,
         window: config.window.to_string(),
         limit_type: config.limit_type.to_string(),

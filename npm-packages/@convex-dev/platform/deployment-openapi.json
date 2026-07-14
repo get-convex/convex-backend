@@ -3054,12 +3054,6 @@
           "metric": {
             "$ref": "#/components/schemas/UsageLimitMetric"
           },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "window": {
             "type": "string"
           }
@@ -3092,12 +3086,6 @@
           },
           "metric": {
             "$ref": "#/components/schemas/UsageLimitMetric"
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "window": {
             "type": "string"
