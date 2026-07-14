@@ -411,6 +411,7 @@ use crate::{
         SnapshotImportWorker,
     },
     usage_limits::{
+        UsageLimitNotifier,
         UsageLimitRecorder,
         UsageLimitWorker,
         UsageMeter,
@@ -694,6 +695,7 @@ impl<RT: Runtime> Application<RT> {
         file_storage: FileStorage<RT>,
         application_storage: ApplicationStorage,
         usage_event_logger: Arc<dyn UsageEventLogger>,
+        usage_limit_notifier: Arc<dyn UsageLimitNotifier>,
         key_broker: KeyBroker,
         deployment: DeploymentMetadata,
         function_runner: Arc<dyn FunctionRunner<RT>>,
@@ -830,6 +832,7 @@ impl<RT: Runtime> Application<RT> {
                 runtime.clone(),
                 database.clone(),
                 Arc::new(log_manager_client.clone()),
+                usage_limit_notifier,
                 usage_meter.clone(),
             ),
         )));

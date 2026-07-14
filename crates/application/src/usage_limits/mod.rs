@@ -5,6 +5,7 @@
 //! historical usage rollups by `AppMetricSeeder` on deployment load.
 
 mod meter;
+mod notifier;
 mod recorder;
 mod stores;
 mod worker;
@@ -16,6 +17,11 @@ pub use self::{
         SeedRow,
         UsageLimitEvaluation,
         UsageMeter,
+    },
+    notifier::{
+        NoopUsageLimitNotifier,
+        UsageLimitNotification,
+        UsageLimitNotifier,
     },
     recorder::{
         usage_deltas,

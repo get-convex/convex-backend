@@ -18,6 +18,7 @@ use application::{
     self,
     api::ApplicationApi,
     log_visibility::RedactLogsToClient,
+    usage_limits::NoopUsageLimitNotifier,
     Application,
     QueryCache,
 };
@@ -244,6 +245,7 @@ pub async fn make_app(
         file_storage.clone(),
         application_storage,
         usage_event_logger,
+        Arc::new(NoopUsageLimitNotifier),
         key_broker.clone(),
         DeploymentMetadata {
             name: config.name(),
