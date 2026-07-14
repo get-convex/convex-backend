@@ -2,6 +2,7 @@
 //! limits and acts on the result.
 
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     sync::Arc,
     time::{
@@ -53,6 +54,13 @@ use super::{
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
+/// The high-water mark of usage-limit reporting for a single limit
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct UsageReportingWatermark {
+    window_start: SystemTime,
+    highest_reported: u64,
+}
+
 /// Background worker that evaluates recorded usage against the configured
 /// limits: it sets the deployment's usage-limit stop state when a `Disable`
 /// limit is crossed or cleared, records a `UsageLimitExceeded` audit event
@@ -64,11 +72,14 @@ pub struct UsageLimitWorker<RT: Runtime> {
     database: Database<RT>,
     log_manager_client: Arc<dyn LogSender>,
     meter: Arc<UsageMeter>,
-    /// Last window each limit was reported exceeded in, so we emit one
-    /// `UsageLimitExceeded` audit event per limit per window. An entry is
-    /// written only after its event commits, so a failed commit retries.
-    /// Keyed by limit id and overwritten on rollover, so it stays bounded.
-    reported: HashMap<DeveloperDocumentId, SystemTime>,
+    /// The reporting watermark for each limit, so we emit one
+    /// `UsageLimitExceeded` audit event per meaningful crossing. Within a
+    /// window, usage only ever increases (every metric is a cumulative
+    /// counter), so exceeding a limit implies every smaller limit is exceeded
+    /// too. Reporting only moves forward: we re-report on a later window, or on
+    /// a higher crossed value within the same window. See
+    /// [`Self::mark_reported`].
+    reported: HashMap<DeveloperDocumentId, UsageReportingWatermark>,
     /// Whether `reported` has been rehydrated from the audit log this
     /// process lifetime. Rehydration happens lazily, on the first evaluation
     /// that finds an exceeded limit, and keeps the once-per-limit-per-window
@@ -136,6 +147,29 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         }
     }
 
+    /// Record that `id`'s limit was reported at `limit` in the window starting
+    /// at `window_start`. Reporting only ever moves forward: a strictly later
+    /// window replaces the entry and resets its value; the same window keeps
+    /// the highest value seen (usage only climbs, so the highest crossing
+    /// subsumes the lower ones); an earlier window is stale and ignored. This
+    /// upholds the invariant even if a caller ever marks out of order.
+    fn mark_reported(&mut self, id: DeveloperDocumentId, window_start: SystemTime, limit: u64) {
+        self.reported
+            .entry(id)
+            .and_modify(|w| match window_start.cmp(&w.window_start) {
+                Ordering::Greater => {
+                    w.window_start = window_start;
+                    w.highest_reported = limit;
+                },
+                Ordering::Equal => w.highest_reported = w.highest_reported.max(limit),
+                Ordering::Less => {},
+            })
+            .or_insert(UsageReportingWatermark {
+                window_start,
+                highest_reported: limit,
+            });
+    }
+
     async fn evaluate_once(&mut self) -> anyhow::Result<()> {
         let now = self.rt.system_time();
         let evaluation = self.meter.evaluate(now)?;
@@ -143,9 +177,18 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         // Limits at or over threshold that haven't been reported in their
         // current window yet. Prime the dedup map from the audit log on the
         // first report this process lifetime so a restart doesn't re-emit.
-        let unreported = |reported: &HashMap<DeveloperDocumentId, SystemTime>,
+        let unreported = |reported: &HashMap<DeveloperDocumentId, UsageReportingWatermark>,
                           e: &ExceededUsageLimit| {
-            reported.get(&DeveloperDocumentId::from(e.id)) != Some(&e.window_start)
+            match reported.get(&DeveloperDocumentId::from(e.id)) {
+                // Report only on a forward crossing: a later window, or the
+                // same window at a higher value. An earlier window is stale.
+                Some(w) => match e.window_start.cmp(&w.window_start) {
+                    Ordering::Greater => true,
+                    Ordering::Equal => e.config.limit > w.highest_reported,
+                    Ordering::Less => false,
+                },
+                None => true,
+            }
         };
         let mut newly_exceeded: Vec<ExceededUsageLimit> = evaluation
             .exceeded
@@ -213,9 +256,10 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         // best-effort log streaming below, so a later failure doesn't
         // re-commit the same events on the next evaluation.
         for exceeded in &newly_exceeded {
-            self.reported.insert(
+            self.mark_reported(
                 DeveloperDocumentId::from(exceeded.id),
                 exceeded.window_start,
+                exceeded.config.limit,
             );
         }
         let logs = events
@@ -258,10 +302,11 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
                 };
                 let event_ts =
                     SystemTime::UNIX_EPOCH + Duration::from_millis(entry.create_time as u64);
-                // The scan is in ascending creation-time order, so the latest
-                // report for each limit wins.
-                self.reported
-                    .insert(id, window_range(config.window, event_ts)?.start);
+                self.mark_reported(
+                    id,
+                    window_range(config.window, event_ts)?.start,
+                    config.limit,
+                );
             }
             match next_cursor {
                 Some(next_cursor) => cursor = Some(next_cursor),

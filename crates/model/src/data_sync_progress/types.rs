@@ -51,6 +51,23 @@ pub enum DataSyncState {
     },
 }
 
+impl DataSyncState {
+    /// Documents (including tombstones and re-emitted revisions) emitted over
+    /// the sync's lifetime, regardless of which phase the sync is in.
+    pub fn num_documents_synced(&self) -> u64 {
+        match self {
+            Self::InitialSync {
+                num_documents_synced,
+                ..
+            }
+            | Self::Synced {
+                num_documents_synced,
+                ..
+            } => *num_documents_synced,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedDataSyncProgressMetadata {

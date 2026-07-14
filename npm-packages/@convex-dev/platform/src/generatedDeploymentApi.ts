@@ -429,9 +429,10 @@ export interface paths {
          *     request body). Streaming export must be enabled on the deployment, and the
          *     caller must have the `deployment:data:view` permission.
          *
-         *     Call this endpoint repeatedly, passing the `cursor` from each response back
-         *     in the next request; omit `cursor` on the first call. The cursor is opaque —
-         *     store and send it back verbatim. Each response contains:
+         *     Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
+         *     response back in the next request as `cursor`; omit `cursor` on the first
+         *     call. The cursor is opaque — store and send it back verbatim. Each response
+         *     contains:
          *
          *     - `values`: document revisions in the order they should be applied. A value
          *       with `_deleted: true` is a tombstone marking that document as deleted.
@@ -442,7 +443,9 @@ export interface paths {
          *       data returned so far is not yet a consistent view, so keep calling. Once
          *       it becomes `synced`, the values applied so far form a consistent snapshot
          *       of the deployment as of the returned `syncedTs` timestamp. You can keep
-         *       calling to continue streaming later changes; `hasMore` tells you whether
+         *       calling to continue streaming later changes.
+         *     - `pagination`: `nextCursor` to pass back on the next call (always present,
+         *       since the sync is always resumable) and `hasMore`, which tells you whether
          *       more data is already available (`true`) or you've caught up to the latest
          *       commit (`false`).
          *
@@ -755,8 +758,12 @@ export interface components {
         };
         /** @description One page returned by the data sync API. */
         DataSyncResponse: {
-            /** @description Opaque cursor to pass back in as `cursor` on the next call. */
-            cursor: string;
+            /** @description Pagination information. The data sync endpoint is an infinite streaming
+             *     endpoint, so `nextCursor` is always present. `hasMore` is `true` while
+             *     data can be fetched immediately. When `hasMore` is `false`, the cursor
+             *     has caught up; in that case, it is recommended to back off significantly
+             *     to wait for more writes before making another call. */
+            pagination: components["schemas"]["PaginationMetadata"];
             /** @description The consistency state of the sync after this page. */
             status: components["schemas"]["DataSyncStatus"];
             /** @description Unique id of the sync, assigned on the first page and stable across
@@ -776,11 +783,6 @@ export interface components {
          *     The cursor can be persisted and used to continue the sync later (within
          *     the document retention window). */
         DataSyncSynced: {
-            /** @description Whether `syncedTs` is behind the latest timestamp — i.e. it's a
-             *     consistent snapshot but not fully caught up to the most recent commit.
-             *     Use this to decide whether to keep calling the API or pause until
-             *     later. */
-            hasMore: boolean;
             /**
              * Format: int64
              * @description The database timestamp at which the synced data is consistent.

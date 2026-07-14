@@ -450,13 +450,13 @@ impl TransactionReadSet {
         let skip_logging_usage = table_name.is_system();
         usage_tracker.track_database_egress(
             component_path.clone(),
-            table_name.to_string(),
+            &table_name,
             document_size as u64,
             skip_logging_usage,
         );
         usage_tracker.track_database_egress_v2(
             component_path.clone(),
-            table_name.to_string(),
+            &table_name,
             document_size as u64,
             table_name.is_system(),
         );
@@ -465,13 +465,13 @@ impl TransactionReadSet {
         {
             usage_tracker.track_virtual_table_egress(
                 component_path.clone(),
-                virtual_table_name.to_string(),
+                virtual_table_name,
                 document_size as u64,
             );
         }
         usage_tracker.track_database_egress_rows(
             component_path,
-            table_name.to_string(),
+            &table_name,
             1,
             skip_logging_usage,
         );

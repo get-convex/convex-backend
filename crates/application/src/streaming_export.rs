@@ -3,6 +3,7 @@ use common::{
     document::ParsedDocument,
     errors::report_error,
     knobs::{
+        DATA_SYNC_PROGRESS_WRITE_INTERVAL,
         DOCUMENT_DELTAS_LIMIT,
         SNAPSHOT_LIST_LIMIT,
     },
@@ -27,6 +28,7 @@ use model::{
     },
 };
 use streaming_export::{
+    DataSyncClient,
     SyncCursor,
     SyncResult,
     SyncStatus,
@@ -74,6 +76,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         cursor: Option<SyncCursor>,
         selection: StreamingExportSelection,
+        sync_client: DataSyncClient,
     ) -> anyhow::Result<SyncResult> {
         let result = streaming_export::data_sync(
             &self.database,
@@ -83,6 +86,7 @@ impl<RT: Runtime> Application<RT> {
                 selection,
                 ..Default::default()
             },
+            sync_client,
         )
         .await?;
         // Progress tracking is best-effort: a failure (e.g. an OCC with a
@@ -156,11 +160,27 @@ impl<RT: Runtime> Application<RT> {
             last_updated_ms: self.runtime.unix_timestamp().as_ms_since_epoch()?,
             state,
         };
+        // A fully caught-up snapshot is the sync's settled progress; flush it
+        // past the throttle so its final document count is recorded even if a
+        // page wrote moments earlier.
+        let caught_up = matches!(
+            &result.status,
+            SyncStatus::Synced {
+                has_more: false,
+                ..
+            }
+        );
         let mut tx = self.database.begin_system().await?;
-        DataSyncProgressModel::new(&mut tx).update(metadata).await?;
-        self.database
-            .commit_with_write_source(tx, "data_sync_progress")
+        let wrote = DataSyncProgressModel::new(&mut tx)
+            .update(metadata, *DATA_SYNC_PROGRESS_WRITE_INTERVAL, caught_up)
             .await?;
+        // Throttled writes leave the transaction empty; skip the commit to
+        // avoid loading the DB with a no-op write.
+        if wrote {
+            self.database
+                .commit_with_write_source(tx, "data_sync_progress")
+                .await?;
+        }
         Ok(())
     }
 

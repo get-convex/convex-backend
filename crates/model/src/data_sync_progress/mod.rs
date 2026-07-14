@@ -92,14 +92,46 @@ impl<'a, RT: Runtime> DataSyncProgressModel<'a, RT> {
         Self { tx }
     }
 
-    /// Upsert the progress row for `metadata.sync_id`.
-    pub async fn update(&mut self, metadata: DataSyncProgressMetadata) -> anyhow::Result<()> {
+    /// Upsert the progress row for `metadata.sync_id`, throttled to at most one
+    /// write per `min_write_interval` while the sync is still advancing.
+    /// Returns whether a write happened, so the caller can skip committing an
+    /// otherwise-empty transaction. Pass `Duration::ZERO` to always write.
+    ///
+    /// `caught_up` marks a page that reached a fully-consistent snapshot with
+    /// nothing left to sync (`Synced` with no more to catch up on). Such a
+    /// settled state is flushed as soon as its document count changes,
+    /// bypassing the throttle, so a sync's final progress is never lost — right
+    /// after an import the first `Synced` page can report zero documents (the
+    /// writes aren't yet visible at the lagging repeatable snapshot), and the
+    /// pages that emit them settle within the throttle window. Intermediate
+    /// progress while still catching up is a disposable estimate and may be
+    /// dropped. A change in state variant (e.g. the transition out of
+    /// `InitialSync`) is likewise always written.
+    pub async fn update(
+        &mut self,
+        metadata: DataSyncProgressMetadata,
+        min_write_interval: Duration,
+        caught_up: bool,
+    ) -> anyhow::Result<bool> {
         let existing = self
             .tx
             .query_system(TableNamespace::Global, &DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID)?
             .eq(&[metadata.sync_id.as_str()])?
             .unique()
             .await?;
+        if let Some(doc) = &existing {
+            let elapsed_ms = metadata.last_updated_ms.saturating_sub(doc.last_updated_ms);
+            let variant_changed =
+                std::mem::discriminant(&doc.state) != std::mem::discriminant(&metadata.state);
+            let progressed =
+                metadata.state.num_documents_synced() != doc.state.num_documents_synced();
+            let should_write = variant_changed
+                || (caught_up && progressed)
+                || elapsed_ms >= min_write_interval.as_millis() as u64;
+            if !should_write {
+                return Ok(false);
+            }
+        }
         let mut model = SystemMetadataModel::new_global(self.tx);
         match existing {
             Some(doc) => {
@@ -111,7 +143,7 @@ impl<'a, RT: Runtime> DataSyncProgressModel<'a, RT> {
                     .await?;
             },
         }
-        Ok(())
+        Ok(true)
     }
 
     /// One page of the progress rows of active syncs — those that completed a

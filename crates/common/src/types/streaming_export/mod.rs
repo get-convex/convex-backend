@@ -157,13 +157,17 @@ pub struct DataSyncResponse {
     pub truncates: Vec<DataSyncTruncate>,
     /// Documents and tombstones produced by this page.
     pub values: Vec<DataSyncValue>,
-    /// Opaque cursor to pass back in as `cursor` on the next call.
-    pub cursor: String,
     /// Unique id of the sync, assigned on the first page and stable across
     /// the sync's lifetime. Identifies this sync in `/data/list_active_syncs`.
     pub sync_id: String,
     /// The consistency state of the sync after this page.
     pub status: DataSyncStatus,
+    /// Pagination information. The data sync endpoint is an infinite streaming
+    /// endpoint, so `nextCursor` is always present. `hasMore` is `true` while
+    /// data can be fetched immediately. When `hasMore` is `false`, the cursor
+    /// has caught up; in that case, it is recommended to back off significantly
+    /// to wait for more writes before making another call.
+    pub pagination: PaginationMetadata,
 }
 
 /// A table whose contents were replaced wholesale (e.g. by `npx convex
@@ -256,11 +260,6 @@ pub struct DataSyncSynced {
     pub status_type: SyncedTag,
     /// The database timestamp at which the synced data is consistent.
     pub synced_ts: i64,
-    /// Whether `syncedTs` is behind the latest timestamp — i.e. it's a
-    /// consistent snapshot but not fully caught up to the most recent commit.
-    /// Use this to decide whether to keep calling the API or pause until
-    /// later.
-    pub has_more: bool,
 }
 
 /// More pages are required before the view is consistent. The sync's progress
