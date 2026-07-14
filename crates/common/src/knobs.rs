@@ -212,6 +212,16 @@ pub static DATA_SYNC_PAGE_BYTES_LIMIT: LazyLock<usize> =
 pub static DATA_SYNC_MAX_ROWS_READ: LazyLock<usize> =
     LazyLock::new(|| env_config("DATA_SYNC_MAX_ROWS_READ", 32768).max(*DATA_SYNC_PAGE_SIZE_LIMIT));
 
+/// Minimum interval between writes to a sync's `_data_sync_progress` row.
+/// Pages that complete within this window of the row's last update are skipped
+/// (no transaction is committed), throttling progress writes so a fast sync
+/// doesn't write the row on every page. A settled, fully caught-up snapshot
+/// (and any change in the sync's state variant) is persisted regardless of
+/// this interval so a sync's final progress is never lost to throttling.
+pub static DATA_SYNC_PROGRESS_WRITE_INTERVAL: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_millis(env_config("DATA_SYNC_PROGRESS_WRITE_INTERVAL_MS", 5000))
+});
+
 /// How close `synced_ts` must be to the latest repeatable timestamp before
 /// `DataSyncIterator` iterates the `by_id` dimension. When `synced_ts` falls
 /// further behind than this, the iterator catches up along the `ts` dimension
