@@ -262,8 +262,9 @@ pub async fn _document_deltas(
 /// call. The cursor is opaque — store and send it back verbatim. Each response
 /// contains:
 ///
-/// - `values`: document revisions in the order they should be applied. A value
-///   with `_deleted: true` is a tombstone marking that document as deleted.
+/// - `values`: document revisions in the order they should be applied. Each
+///   entry carries the document's fields under `value`; an entry with `deleted:
+///   true` is a tombstone marking that document as deleted.
 /// - `truncates`: tables whose contents were replaced wholesale (for example by
 ///   an `npx convex import`). Drop everything you have stored for each listed
 ///   table; the `values` in this and later responses re-populate it.
@@ -511,7 +512,7 @@ async fn _data_sync(
                     table: table.to_string(),
                     ts: i64::from(ts),
                     deleted: false,
-                    fields: document.export_fields(value_format)?,
+                    value: document.export_fields(value_format)?,
                 },
                 SyncEntry::Tombstone {
                     ts,
@@ -523,7 +524,7 @@ async fn _data_sync(
                     table: table.to_string(),
                     ts: i64::from(ts),
                     deleted: true,
-                    fields: btreemap! {
+                    value: btreemap! {
                         "_id".to_string() => JsonValue::from(id),
                     },
                 },
