@@ -50,6 +50,11 @@ runs:
         SCCACHE_ENDPOINT: https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com
         SCCACHE_BUCKET: cvx-actions-cache
         SCCACHE_REGION: auto
+        # Never idle-exit. Linking test binaries doesn't go through sccache, so
+        # a long link tail (>600s, the default idle timeout) makes the server
+        # shut down mid-build; the rest of the build then compiles locally
+        # without the R2 cache.
+        SCCACHE_IDLE_TIMEOUT: "0"
         AWS_ACCESS_KEY_ID: ${{ inputs.r2-access-key }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-key }}
       run: |
