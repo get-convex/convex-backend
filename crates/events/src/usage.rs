@@ -218,6 +218,13 @@ pub enum UsageEvent {
         tables: Vec<TableDocumentCount>,
         system_tables: Vec<TableDocumentCount>,
     },
+    /// The current backend state, broken down into its orthogonal stop states.
+    /// Each field is the serialized state value (e.g. "none", "disabled").
+    CurrentBackendState {
+        system: String,
+        usage_limit: String,
+        user: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

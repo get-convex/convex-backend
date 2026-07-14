@@ -25,6 +25,7 @@ use common::{
         Runtime,
         SpawnHandle,
     },
+    types::BackendState,
 };
 use database::{
     Database,
@@ -37,6 +38,7 @@ use events::usage::{
     TableTextStorage,
     TableVectorStorage,
     UsageEvent::{
+        CurrentBackendState,
         CurrentDocumentCounts,
         CurrentFileStorage,
         CurrentTextStorage,
@@ -51,6 +53,7 @@ use itertools::{
 };
 use keybroker::Identity;
 use model::{
+    backend_state::BackendStateModel,
     exports::ExportsModel,
     file_storage::{
         get_total_file_storage_size,
@@ -156,8 +159,9 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
         let timer = metrics::usage_gauges_tracking_worker_timer();
 
         let gauge_metrics = get_gauge_metrics(&Identity::system(), &self.database).await?;
+        let backend_state = self.get_backend_state().await?;
 
-        self.send_usage_events(gauge_metrics).await;
+        self.send_usage_events(gauge_metrics, backend_state).await;
         let duration = timer.finish();
         if duration > *USAGE_TRACKING_WORKER_SLOW_TRACE_THRESHOLD {
             tracing::warn!("Usage tracking worker took longer than expected: {duration:?}");
@@ -165,9 +169,18 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
         Ok(())
     }
 
+    #[fastrace::trace]
+    async fn get_backend_state(&self) -> anyhow::Result<BackendState> {
+        let mut tx = self.database.begin_system().await?;
+        Ok(BackendStateModel::new(&mut tx)
+            .get_backend_state()
+            .await?
+            .into_value())
+    }
+
     /// Send usage events as the current state of the world to the firehose.
     #[fastrace::trace]
-    async fn send_usage_events(&self, gauge_metrics: GaugeMetrics) {
+    async fn send_usage_events(&self, gauge_metrics: GaugeMetrics, backend_state: BackendState) {
         // Send to log streams if available
         let log_sender = &self.log_sender;
         let totals = gauge_metrics.compute_totals();
@@ -243,6 +256,11 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
             CurrentDocumentCounts {
                 tables: user_document_counts,
                 system_tables: system_document_counts,
+            },
+            CurrentBackendState {
+                system: backend_state.system.to_string(),
+                usage_limit: backend_state.usage_limit.to_string(),
+                user: backend_state.user.to_string(),
             },
         ];
 
