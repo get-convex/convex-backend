@@ -24,6 +24,7 @@ use common::{
             MtState,
             Query,
         },
+        ExtractClientVersion,
         HttpResponseError,
         PaginationMetadata,
     },
@@ -103,6 +104,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use streaming_export::{
+    DataSyncClient,
     SyncCursor,
     SyncEntry,
     SyncResult,
@@ -299,9 +301,16 @@ pub async fn _document_deltas(
 pub async fn data_sync_post(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractClientVersion(client_version): ExtractClientVersion,
     Json(args): Json<DataSyncArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    _data_sync(st, args, identity).await
+    _data_sync(
+        st,
+        args,
+        identity,
+        DataSyncClient::from(client_version.client()),
+    )
+    .await
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -422,6 +431,7 @@ async fn _data_sync(
     st: LocalAppState,
     DataSyncArgs { cursor, selection }: DataSyncArgs,
     identity: Identity,
+    sync_client: DataSyncClient,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
         .ensure_streaming_export_enabled(identity.clone())
@@ -457,7 +467,7 @@ async fn _data_sync(
         mut usage,
     } = st
         .application
-        .data_sync(identity, cursor, selection)
+        .data_sync(identity, cursor, selection, sync_client)
         .await
         .map_err(|e| {
             // The cursor points at a snapshot that has aged out of the

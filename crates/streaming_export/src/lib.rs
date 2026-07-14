@@ -25,6 +25,7 @@ use common::{
         IndexId,
         Timestamp,
     },
+    version::ClientType,
 };
 use database::{
     streaming_export_selection::StreamingExportDocument,
@@ -83,6 +84,37 @@ pub enum SyncEntry {
 pub struct SyncTruncate {
     pub component: ComponentPath,
     pub table: TableName,
+}
+
+/// Integration issuing a data sync, derived from the `Convex-Client` header.
+/// A cold start prefixes its `sync_id` with this so `/data/list_active_syncs`
+/// can tell integrations apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DataSyncClient {
+    Fivetran,
+    Airbyte,
+    Other,
+}
+
+impl DataSyncClient {
+    /// Prefix prepended to a cold-start `sync_id`. Empty for [`Self::Other`].
+    fn sync_id_prefix(self) -> &'static str {
+        match self {
+            Self::Fivetran => "fivetran-",
+            Self::Airbyte => "airbyte-",
+            Self::Other => "",
+        }
+    }
+}
+
+impl From<&ClientType> for DataSyncClient {
+    fn from(client: &ClientType) -> Self {
+        match client {
+            ClientType::FivetranExport | ClientType::FivetranImport => Self::Fivetran,
+            ClientType::AirbyteExport => Self::Airbyte,
+            _ => Self::Other,
+        }
+    }
 }
 
 /// Progress reported while a sync is still [`SyncStatus::InProgress`].
@@ -333,6 +365,9 @@ pub async fn data_sync<RT: Runtime>(
     identity: Identity,
     cursor: Option<SyncCursor>,
     filter: StreamingExportFilter,
+    // Integration issuing the sync, prepended to the freshly-minted sync id on
+    // a cold start so callers can tell apart syncs from different sources.
+    sync_client: DataSyncClient,
 ) -> anyhow::Result<SyncResult> {
     let usage = FunctionUsageTracker::new();
     anyhow::ensure!(
@@ -402,7 +437,13 @@ pub async fn data_sync<RT: Runtime>(
     let sync_id = cursor
         .as_ref()
         .map(|c| c.sync_id.clone())
-        .unwrap_or_else(|| database.runtime().new_uuid_v4().to_string());
+        .unwrap_or_else(|| {
+            format!(
+                "{}{}",
+                sync_client.sync_id_prefix(),
+                database.runtime().new_uuid_v4()
+            )
+        });
 
     let mut entries = Vec::new();
     let iterator = database.data_sync_iterator()?;

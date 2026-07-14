@@ -27,6 +27,7 @@ use model::{
     },
 };
 use streaming_export::{
+    DataSyncClient,
     SyncCursor,
     SyncResult,
     SyncStatus,
@@ -74,6 +75,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         cursor: Option<SyncCursor>,
         selection: StreamingExportSelection,
+        sync_client: DataSyncClient,
     ) -> anyhow::Result<SyncResult> {
         let result = streaming_export::data_sync(
             &self.database,
@@ -83,6 +85,7 @@ impl<RT: Runtime> Application<RT> {
                 selection,
                 ..Default::default()
             },
+            sync_client,
         )
         .await?;
         // Progress tracking is best-effort: a failure (e.g. an OCC with a
