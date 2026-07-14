@@ -205,6 +205,7 @@ use crate::{
     },
     deployment_audit_log::{
         DeploymentAuditLogsTable,
+        AUDIT_LOG_INDEX_BY_ACTION,
         DEPLOYMENT_AUDIT_LOG_TABLE,
     },
     environment_variables::EnvironmentVariablesTable,
@@ -698,5 +699,6 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         USAGE_LIMITS_INDEX_BY_SELECTOR.name() => 126,
         DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID.name() => 127,
         DATA_SYNC_PROGRESS_INDEX_BY_LAST_UPDATED.name() => 127,
+        AUDIT_LOG_INDEX_BY_ACTION.name() => 128,
     }
 });

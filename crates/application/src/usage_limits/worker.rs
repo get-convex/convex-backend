@@ -33,7 +33,10 @@ use keybroker::Identity;
 use model::{
     backend_state::BackendStateModel,
     deployment_audit_log::{
-        types::DeploymentAuditLogEvent,
+        types::{
+            DeploymentAuditLogEvent,
+            DeploymentAuditLogEventKind,
+        },
         DeploymentAuditLogModel,
     },
     usage_limits::{
@@ -290,7 +293,12 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         loop {
             let mut tx = self.database.begin(Identity::system()).await?;
             let (entries, next_cursor) = DeploymentAuditLogModel::new(&mut tx)
-                .list_events_from_time(from_ts_ms, cursor, PAGE_SIZE)
+                .list_events_from_time(
+                    from_ts_ms,
+                    Some(DeploymentAuditLogEventKind::UsageLimitExceeded),
+                    cursor,
+                    PAGE_SIZE,
+                )
                 .await?;
             for entry in entries {
                 let DeploymentAuditLogEvent::UsageLimitExceeded { id, config } = entry.action

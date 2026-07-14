@@ -1045,7 +1045,7 @@ impl<RT: Runtime> Application<RT> {
         }
 
         let (events, next_cursor) = DeploymentAuditLogModel::new(&mut tx)
-            .list_events_from_time(from_ts_ms, cursor, limit)
+            .list_events_from_time(from_ts_ms, None, cursor, limit)
             .await?;
         let cursor = next_cursor.map(|cursor| self.key_broker().encrypt_cursor(&cursor));
         Ok((events, cursor))

@@ -28,6 +28,7 @@ use database::{
     Transaction,
 };
 use value::{
+    ConvexValue,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -40,6 +41,7 @@ pub mod types;
 use types::{
     DeploymentAuditLogEntry,
     DeploymentAuditLogEvent,
+    DeploymentAuditLogEventKind,
 };
 
 use crate::{
@@ -52,6 +54,18 @@ pub const DEPLOYMENT_AUDIT_LOG_TABLE: TableName = TableName::const_new("_deploym
 pub static ACTION_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "action".parse().expect("invalid action field"));
 
+/// By action, then creation time. Lets callers that only care about a single
+/// action (e.g. the usage-limit worker priming from `usage_limit_exceeded`
+/// events) scan just that action's entries instead of every audit log event.
+pub static AUDIT_LOG_INDEX_BY_ACTION: LazyLock<SystemIndex<DeploymentAuditLogsTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new(
+            "by_action_and_creation_time",
+            [&ACTION_FIELD, &CREATION_TIME_FIELD_PATH],
+        )
+        .unwrap()
+    });
+
 pub struct DeploymentAuditLogsTable;
 impl SystemTable for DeploymentAuditLogsTable {
     type Metadata = DeploymentAuditLogEvent;
@@ -59,7 +73,7 @@ impl SystemTable for DeploymentAuditLogsTable {
     const TABLE_NAME: TableName = DEPLOYMENT_AUDIT_LOG_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
-        vec![]
+        vec![AUDIT_LOG_INDEX_BY_ACTION.clone()]
     }
 }
 
@@ -129,18 +143,40 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
         Ok(deployment_audit_log_ids)
     }
 
+    /// List audit log events with creation time >= `from_ts_ms`, in ascending
+    /// creation-time order.
+    ///
+    /// When `action` is set, only entries of that kind are returned, served
+    /// from the `by_action_and_creation_time` index so unrelated events aren't
+    /// scanned.
     pub async fn list_events_from_time(
         &mut self,
         from_ts_ms: u64,
+        action: Option<DeploymentAuditLogEventKind>,
         cursor: Option<Cursor>,
         limit: usize,
     ) -> anyhow::Result<(Vec<DeploymentAuditLogEntry>, Option<Cursor>)> {
+        let creation_time_gte =
+            IndexRangeExpression::Gte(CREATION_TIME_FIELD_PATH.clone(), (from_ts_ms as f64).into());
+        let (index_name, range) = match action {
+            Some(action) => (
+                AUDIT_LOG_INDEX_BY_ACTION.name(),
+                vec![
+                    IndexRangeExpression::Eq(
+                        ACTION_FIELD.clone(),
+                        ConvexValue::try_from(action.action())?.into(),
+                    ),
+                    creation_time_gte,
+                ],
+            ),
+            None => (
+                IndexName::by_creation_time(DEPLOYMENT_AUDIT_LOG_TABLE.clone()),
+                vec![creation_time_gte],
+            ),
+        };
         let query = Query::index_range(IndexRange {
-            index_name: IndexName::by_creation_time(DEPLOYMENT_AUDIT_LOG_TABLE.clone()),
-            range: vec![IndexRangeExpression::Gte(
-                CREATION_TIME_FIELD_PATH.clone(),
-                (from_ts_ms as f64).into(),
-            )],
+            index_name,
+            range,
             order: Order::Asc,
         });
         let mut query_stream = ResolvedQuery::new_bounded(
