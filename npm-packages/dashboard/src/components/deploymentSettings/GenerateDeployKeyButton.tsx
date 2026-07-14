@@ -146,9 +146,13 @@ export const ACTION_GROUPS: ActionGroup[] = [
     ],
   },
   {
-    label: "Usage limits",
+    label: "Usage",
     flag: "usageLimits",
     actions: [
+      {
+        key: "deployment:usage:view",
+        description: "Allows viewing usage metrics for this deployment.",
+      },
       {
         key: "deployment:usageLimits:view",
         description:
