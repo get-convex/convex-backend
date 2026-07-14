@@ -34,6 +34,7 @@ import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsClou
 import { Tooltip } from "@ui/Tooltip";
 import Image from "next/image";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
+import { UsageLimitDisabledBanner } from "@common/features/settings/components/UsageLimitDisabledBanner";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -167,7 +168,7 @@ export function DeploymentDashboardLayout({
       <FunctionsProvider>
         <div className="flex h-full grow flex-col overflow-y-hidden">
           {(visiblePages === undefined ||
-            visiblePages.includes("settings")) && <PauseBanner />}
+            visiblePages.includes("settings")) && <DeploymentBanners />}
           <MobileBanner />
           <div className="flex h-full flex-col overflow-y-auto sm:flex-row">
             {sidebarItems.length > 0 && (
@@ -216,34 +217,46 @@ export function DeploymentDashboardLayout({
   );
 }
 
-function PauseBanner() {
+function DeploymentBanners() {
   const { canViewDataCached } = useContext(PermissionsContext);
-  const deploymentState = useQuery(
-    udfs.deploymentState.deploymentState,
+  const backendState = useQuery(
+    udfs.backendState.backendState,
     canViewDataCached ? {} : "skip",
   );
 
-  const { useCurrentTeam, useCurrentUsageBanner } = useContext(
-    DeploymentInfoContext,
-  );
-
+  const {
+    useCurrentTeam,
+    useCurrentUsageBanner,
+    usageLimitsEnabled,
+    deploymentsURI,
+  } = useContext(DeploymentInfoContext);
   const team = useCurrentTeam();
   const teamUsageBanner = useCurrentUsageBanner(team?.id ?? null);
 
-  const { deploymentsURI } = useContext(DeploymentInfoContext);
-
-  if (!(deploymentState?.state === "paused" && teamUsageBanner !== "Paused")) {
-    return null;
-  }
+  const isPaused =
+    backendState?.system === "none" &&
+    backendState?.user === "paused" &&
+    teamUsageBanner !== "Paused";
+  const isUsageLimitDisabled =
+    usageLimitsEnabled && backendState?.usage_limit === "disabled";
 
   return (
-    <div className="border-y bg-background-error py-2 text-center text-content-error">
-      This deployment is paused. Resume your deployment on the{" "}
-      <Link passHref href={`${deploymentsURI}/settings/pause-deployment`}>
-        settings
-      </Link>{" "}
-      page.
-    </div>
+    <>
+      {isPaused && (
+        <div className="border-y bg-background-error py-2 text-center text-content-error">
+          This deployment is paused. Resume your deployment on the{" "}
+          <Link passHref href={`${deploymentsURI}/settings/pause-deployment`}>
+            settings
+          </Link>{" "}
+          page.
+        </div>
+      )}
+      {isUsageLimitDisabled && (
+        <UsageLimitDisabledBanner
+          usageLimitsUri={`${deploymentsURI}/settings/usage-limits`}
+        />
+      )}
+    </>
   );
 }
 

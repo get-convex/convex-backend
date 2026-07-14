@@ -423,6 +423,11 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       _creationTime: 0,
       state: "running" as const,
     }))
+    .registerQueryFake(udfs.backendState.backendState, () => ({
+      system: "none" as const,
+      usage_limit: "none" as const,
+      user: "none" as const,
+    }))
     .registerQueryFake(udfs.modules.listForAllComponents, () => [])
     .registerQueryFake(udfs.getSchemas.default, () => ({}))
     .registerQueryFake(udfs.listConfiguredSinks.default, () => [])

@@ -16,6 +16,7 @@ import {
 } from "@common/features/settings/components/UsageLimits";
 import {
   useUsageLimits,
+  useCurrentUsage,
   useCreateUsageLimit,
   useUpdateUsageLimit,
   useDeleteUsageLimit,
@@ -58,9 +59,8 @@ export function UsageLimitsView() {
 }
 
 function UsageLimitsContent({ canWrite }: { canWrite: boolean }) {
-  const { useCurrentDeployment, useCurrentTeam, useTeamPlanType } = useContext(
-    DeploymentInfoContext,
-  );
+  const { useCurrentDeployment, useCurrentTeam, useTeamPlanType, teamsURI } =
+    useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const team = useCurrentTeam();
   const planType = useTeamPlanType(team?.id ?? null);
@@ -75,8 +75,13 @@ function UsageLimitsContent({ canWrite }: { canWrite: boolean }) {
     deployment?.kind === "cloud"
       ? computeUnbilledMetrics({ isBusinessPlan, isDedicated })
       : {};
+  // Billing lives on the team settings page, which only exists for cloud
+  // deployments; self-hosted deployments have no billing, so no billing notes.
+  const billingUri =
+    deployment?.kind === "cloud" ? `${teamsURI}/settings/billing` : undefined;
 
   const { usageLimits, isLoading } = useUsageLimits();
+  const { currentUsage, seedStatus } = useCurrentUsage();
   const createUsageLimit = useCreateUsageLimit();
   const updateUsageLimit = useUpdateUsageLimit();
   const deleteUsageLimit = useDeleteUsageLimit();
@@ -93,7 +98,10 @@ function UsageLimitsContent({ canWrite }: { canWrite: boolean }) {
         />
       }
       unbilledMetrics={unbilledMetrics}
+      currentUsage={currentUsage}
+      seedStatus={seedStatus}
       deploymentType={deployment?.deploymentType}
+      billingUri={billingUri}
       onCreate={createUsageLimit}
       onUpdate={updateUsageLimit}
       onDelete={deleteUsageLimit}

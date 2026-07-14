@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
+import { Link } from "@ui/Link";
 import {
   PlusCircledIcon,
   DotsVerticalIcon,
@@ -14,8 +15,15 @@ import { TextInput } from "@ui/TextInput";
 import { Tooltip } from "@ui/Tooltip";
 import { Loading } from "@ui/Loading";
 import { SegmentedControl } from "@ui/SegmentedControl";
+import { Donut } from "@ui/Donut";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
+import type {
+  SeedStatusResponse,
+  UsageLimitConfigRequest,
+  UsageLimitConfigResponse,
+} from "@convex-dev/platform/deploymentApi";
+import { formatNumberCompact } from "@common/lib/format";
 
 // The usage metrics that a deployment-level usage limit can be applied to.
 // These match the `UsageLimitMetric` enum on the backend (serialized with
@@ -31,40 +39,29 @@ export type UsageMetric =
   | "searchQueryGb"
   | "dataEgressGb";
 
-// The window over which a usage limit is enforced. Matches the backend
-// `UsageLimitWindow` enum.
 export type UsageLimitWindow = "day" | "month";
 
-// What happens when the limit is exceeded. Matches the backend
-// `UsageLimitType` enum. Convex emails all team members for prod/preview/custom
-// deployments, but sends no email for dev deployments (see `sendsEmail`).
-// - "warning": email all team members (a no-op on dev deployments, whose only
-//   effect would be the email).
-// - "disable": email all team members (skipped on dev) and disable the
-//   deployment for the rest of the usage limit window.
 export type UsageLimitType = "warning" | "disable";
 
-// The editable configuration of a usage limit. Mirrors the backend
-// `UsageLimitConfigRequest` shape so it can be sent to the API as-is.
-export type UsageLimitConfig = {
-  // Optional human-readable label. Not currently editable in the UI.
-  name?: string | null;
+// The editable configuration of a usage limit.
+export type UsageLimitConfig = Omit<
+  UsageLimitConfigRequest,
+  "metric" | "window" | "limitType"
+> & {
   metric: UsageMetric;
-  // The limit, as a count of the metric's `rawUnit`s.
-  limit: number;
   window: UsageLimitWindow;
   limitType: UsageLimitType;
-  enabled: boolean;
 };
 
-// A saved usage limit: its configuration plus the id assigned by the backend.
-// Mirrors the backend `UsageLimitConfigResponse` shape.
-export type UsageLimit = UsageLimitConfig & {
-  id: string;
-};
+export type UsageLimit = UsageLimitConfig &
+  Pick<UsageLimitConfigResponse, "id">;
 
-// The largest limit value the UI accepts: 100 trillion of the metric's raw
-// unit. Guards against fat-fingered values the backend would otherwise store.
+export type CurrentUsage = Partial<
+  Record<UsageMetric, Partial<Record<UsageLimitWindow, number>>>
+>;
+
+export type UsageSeedStatus = SeedStatusResponse;
+
 export const MAX_USAGE_LIMIT_VALUE = 100_000_000_000_000;
 
 type MetricConfig = {
@@ -74,8 +71,12 @@ type MetricConfig = {
   rawUnit: string;
   // Compact unit label shown inline next to inputs (e.g. "GBh").
   rawUnitShort: string;
+  // Singular form of `rawUnitShort`, for amounts of exactly 1 (e.g. "call" vs
+  // "calls"). Omitted for unit symbols that don't inflect (GB, GBh, qGB).
+  rawUnitShortSingular?: string;
   // Increment used by the numeric input, and the placeholder amount hint.
   rawStep: number;
+  defaultAmount: number;
 };
 
 export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
@@ -85,7 +86,9 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
       "Total number of query, mutation, action, HTTP action, and file storage calls.",
     rawUnit: "function calls",
     rawUnitShort: "calls",
+    rawUnitShortSingular: "call",
     rawStep: 1_000_000,
+    defaultAmount: 50_000_000,
   },
   queryMutationComputeGbHours: {
     name: "Query/Mutation compute",
@@ -93,13 +96,15 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
     rawUnit: "GB-hours",
     rawUnitShort: "GBh",
     rawStep: 1,
+    defaultAmount: 100,
   },
   actionComputeConvexGbHours: {
-    name: "Action compute (Convex runtime)",
+    name: "Action compute",
     description: "Compute consumed running actions in the Convex runtime.",
     rawUnit: "GB-hours",
     rawUnitShort: "GBh",
     rawStep: 1,
+    defaultAmount: 100,
   },
   actionComputeNodeJsGbHours: {
     name: "Action compute (Node.js)",
@@ -107,6 +112,7 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
     rawUnit: "GB-hours",
     rawUnitShort: "GBh",
     rawStep: 1,
+    defaultAmount: 100,
   },
   actionComputeCpuGbHours: {
     name: "Action compute (CPU)",
@@ -114,6 +120,8 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
     rawUnit: "GB-hours",
     rawUnitShort: "GBh",
     rawStep: 1,
+    // $0.30 per GB-hour → ~$100/mo.
+    defaultAmount: 100,
   },
   databaseIoGb: {
     name: "Database I/O",
@@ -121,6 +129,7 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
     rawUnit: "GB",
     rawUnitShort: "GB",
     rawStep: 1,
+    defaultAmount: 1000,
   },
   searchQueryGb: {
     name: "Search queries",
@@ -128,14 +137,16 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
     rawUnit: "query-GB",
     rawUnitShort: "qGB",
     rawStep: 1,
+    defaultAmount: 1_000_000,
   },
   dataEgressGb: {
     name: "Data egress",
     description:
-      "Bandwidth used serving file downloads, outgoing fetch requests, and log stream egress.",
+      "Bandwidth used serving file downloads, outgoing fetch requests, log streams, and streaming export.",
     rawUnit: "GB",
     rawUnitShort: "GB",
     rawStep: 1,
+    defaultAmount: 1000,
   },
 };
 
@@ -173,8 +184,8 @@ function actionDescription(
         : "Development deployments don't receive email notifications, so this threshold isn't available.";
     case "disable":
       return emails
-        ? "When exceeded, Convex emails all team members and disables the deployment for the rest of the window."
-        : "When exceeded, Convex disables the deployment for the rest of the window. Development deployments don't receive email notifications.";
+        ? "When exceeded, Convex emails all team members and disables the deployment for the rest of the window, and all function calls will fail."
+        : "When exceeded, Convex disables the deployment for the rest of the window, and all function calls will fail. Development deployments don't receive email notifications.";
     default: {
       const _exhaustive: never = limitType;
       return _exhaustive;
@@ -211,14 +222,89 @@ const WINDOW_RESET_DESCRIPTION: Record<UsageLimitWindow, string> = {
   day: "Daily usage resets at midnight UTC.",
 };
 
+// Severity of a triggered limit: a triggered "disable" (deployment disabled for
+// the window) outranks a triggered "warning" (email only).
+const TRIGGER_SEVERITY: Record<UsageLimitType, number> = {
+  warning: 1,
+  disable: 2,
+};
+
+// Whether a limit is currently triggered: it's enforced (enabled) and this
+// window's usage has reached its threshold. Derived from the reported current
+// usage, so it only reflects usage the backfill has hydrated (see seed status).
+function isLimitTriggered(limit: UsageLimit, currentUsage: CurrentUsage) {
+  const used = currentUsage[limit.metric]?.[limit.window];
+  return limit.enabled && used !== undefined && used >= limit.limit;
+}
+
+// How many triggered warning- and disable-type limits a window currently has.
+function windowTriggerCounts(
+  usageLimits: UsageLimit[],
+  currentUsage: CurrentUsage,
+  window: UsageLimitWindow,
+): { warning: number; disable: number } {
+  const triggered = usageLimits.filter(
+    (limit) => limit.window === window && isLimitTriggered(limit, currentUsage),
+  );
+  return {
+    warning: triggered.filter((limit) => limit.limitType === "warning").length,
+    disable: triggered.filter((limit) => limit.limitType === "disable").length,
+  };
+}
+
+// The window whose most severe triggered limit outranks every other window's,
+// or undefined when nothing is triggered. Used to focus the page on the window
+// that needs attention. Ties break toward the coarsest window (WINDOW_ORDER).
+function mostSevereTriggeredWindow(
+  usageLimits: UsageLimit[],
+  currentUsage: CurrentUsage,
+): UsageLimitWindow | undefined {
+  let best: { window: UsageLimitWindow; severity: number } | undefined;
+  for (const window of WINDOW_ORDER) {
+    const { warning, disable } = windowTriggerCounts(
+      usageLimits,
+      currentUsage,
+      window,
+    );
+    const severity =
+      disable > 0
+        ? TRIGGER_SEVERITY.disable
+        : warning > 0
+          ? TRIGGER_SEVERITY.warning
+          : 0;
+    if (severity > 0 && (best === undefined || severity > best.severity)) {
+      best = { window, severity };
+    }
+  }
+  return best?.window;
+}
+
 export const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-// Shared width for each threshold column so the Warning and Disable columns
-// line up, and so a column's read-only view and inline editor are the same
-// width (switching between them causes no layout shift).
-const THRESHOLD_COL = "w-64";
+// The compact unit label for an amount, using the singular form when the amount
+// is exactly 1 (e.g. "1 call" vs "5 calls"). Unit symbols that don't inflect
+// (GB, GBh, qGB) have no singular form and are returned unchanged.
+function rawUnitShortFor(config: MetricConfig, amount: number): string {
+  return amount === 1 && config.rawUnitShortSingular !== undefined
+    ? config.rawUnitShortSingular
+    : config.rawUnitShort;
+}
+
+// Column template shared by the header row and every metric row so the table's
+// columns line up: metric name, current usage, then a Warning and a Disable
+// threshold column. The threshold columns have a 16rem floor so the inline
+// editor always fits; they flex wider when there's room so a configured
+// limit's gauge, amount, and pills stay on one line.
+const TABLE_GRID =
+  "grid grid-cols-[minmax(10rem,1fr)_minmax(7rem,0.5fr)_minmax(16rem,1.2fr)_minmax(16rem,1.2fr)] gap-x-6";
+
+// This page leans on tooltips for the finer print (what each threshold does,
+// what "enabled" means, exact usage figures). A small hover delay keeps them
+// from flashing open as the pointer crosses the dense grid of labels, badges,
+// and progress bars.
+const TOOLTIP_DELAY_MS = 150;
 
 // Which compute metrics a team is billed for depends on plan tier and
 // deployment class (see convex.dev/pricing and convex.dev/enterprise/pricing):
@@ -229,7 +315,7 @@ const THRESHOLD_COL = "w-64";
 // - Query/Mutation compute is billed only on dedicated (DXXXX) deployments.
 // Returns a map from each metric the team ISN'T billed for to a short
 // explanation; billed metrics are absent from the map. A limit on an unbilled
-// metric is still enforced when enabled; the team just isn't charged for that
+// metric is still enforced when active; the team just isn't charged for that
 // metric's usage.
 export function computeUnbilledMetrics({
   isBusinessPlan,
@@ -241,26 +327,83 @@ export function computeUnbilledMetrics({
   const unbilled: Partial<Record<UsageMetric, string>> = {};
   if (isBusinessPlan) {
     unbilled.actionComputeConvexGbHours =
-      "Your plan isn't billed for Convex runtime compute (Business and Enterprise plans are billed for CPU time instead), but this limit is still enforced when enabled.";
+      "Your plan isn't billed for Convex runtime compute (Business and Enterprise plans are billed for CPU time instead), but this limit is still enforced when active.";
   } else {
     unbilled.actionComputeCpuGbHours =
-      "Your plan isn't billed for CPU time (only Business and Enterprise plans are), but this limit is still enforced when enabled.";
+      "Your plan isn't billed for CPU time (only Business and Enterprise plans are), but this limit is still enforced when active.";
   }
   if (!isDedicated) {
     unbilled.queryMutationComputeGbHours =
-      "Your deployment isn't billed for Query/Mutation compute (only dedicated deployments are), but this limit is still enforced when enabled.";
+      "Your deployment isn't billed for Query/Mutation compute (only dedicated deployments are), but this limit is still enforced when active.";
   }
   return unbilled;
 }
 
-// A callout shown when a metric isn't billed on the current plan/deployment.
-// content-warning on background-warning clears the 4.5:1 contrast bar (≈ 5.8:1).
-function UnbilledMetricNote({ reason }: { reason: string }) {
+// What each non-complete backfill status means for the accuracy of the usage
+// figures shown on the page.
+const SEED_STATUS_MESSAGE: Record<
+  Exclude<UsageSeedStatus, "complete">,
+  string
+> = {
+  pending:
+    "Historical usage is still being loaded, so the usage shown below may understate this deployment's actual usage. Check back shortly for accurate totals.",
+  partial:
+    "Historical usage is still being loaded, so the usage shown below may understate this deployment's actual usage. Check back shortly for accurate totals.",
+  failed:
+    "We couldn't load this deployment's historical usage, so the usage shown below may understate its actual usage. Limits are still enforced going forward.",
+};
+
+// A callout shown while the historical-usage backfill is incomplete, warning
+// that the usage figures below may understate actual usage.
+function SeedStatusNote({
+  seedStatus,
+}: {
+  seedStatus: Exclude<UsageSeedStatus, "complete">;
+}) {
   return (
     <div className="flex w-fit items-start gap-2 rounded-md bg-background-warning p-2 text-xs text-content-warning">
       <ExclamationTriangleIcon className="mt-0.5 shrink-0" />
-      <span className="max-w-prose">{reason}</span>
+      <span className="max-w-prose">{SEED_STATUS_MESSAGE[seedStatus]}</span>
     </div>
+  );
+}
+
+// A count badge on a window segment for currently triggered limits. Disable
+// triggers use the error palette; warning triggers the warning palette. Both
+// clear the 4.5:1 contrast bar (content-error/warning on their tinted
+// background).
+function TriggerBadge({
+  limitType,
+  count,
+}: {
+  limitType: UsageLimitType;
+  count: number;
+}) {
+  const isDisable = limitType === "disable";
+  const noun = count === 1 ? "threshold" : "thresholds";
+  return (
+    <Tooltip
+      asChild
+      delayDuration={TOOLTIP_DELAY_MS}
+      tip={
+        isDisable
+          ? `${count} disable ${noun} triggered — the deployment is disabled for the rest of this window, and all function calls will fail.`
+          : `${count} warning ${noun} triggered in this window.`
+      }
+      side="bottom"
+    >
+      <span
+        className={cn(
+          "flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium",
+          isDisable
+            ? "bg-background-error text-content-error"
+            : "bg-background-warning text-content-warning",
+        )}
+      >
+        <ExclamationTriangleIcon className="size-3 shrink-0" />
+        <span className="tabular-nums">{count}</span>
+      </span>
+    </Tooltip>
   );
 }
 
@@ -309,7 +452,10 @@ export function UsageLimits({
   isLoading = false,
   title = "Usage Limits",
   unbilledMetrics = {},
+  currentUsage = {},
+  seedStatus,
   deploymentType,
+  billingUri,
   writePermissionTip = "You do not have permission to modify usage limits.",
 }: {
   usageLimits: UsageLimit[];
@@ -328,18 +474,31 @@ export function UsageLimits({
   // Metrics that aren't billed on the current plan/deployment, mapped to a
   // short explanation. See `computeUnbilledMetrics`. Absent = billed.
   unbilledMetrics?: Partial<Record<UsageMetric, string>>;
+  // Current usage per metric/window, shown even for metrics without a limit.
+  currentUsage?: CurrentUsage;
+  // Progress of the historical-usage backfill. When not "complete", the current
+  // usage figures may understate actual usage, so we note that to the user.
+  seedStatus?: UsageSeedStatus;
   // The current deployment's type. Dev deployments send no email when a limit
   // is exceeded, so their warning threshold is disabled and their disable
   // threshold notes no email is sent; prod/preview/custom email all team
   // members. Omit when unknown (e.g. self-hosted), in which case email is
   // assumed sent.
   deploymentType?: DeploymentType;
+  // Provided only for cloud deployments, where it drives the reminder that these
+  // windows don't follow the billing cycle. Omitted for self-hosted deployments,
+  // which have no billing.
+  billingUri?: string;
   // Tooltip shown on disabled write controls when `canWrite` is false. Callers
   // pass a `PermissionDeniedTip` so custom-role members see the missing action.
   writePermissionTip?: ReactNode;
 }) {
   const [selectedWindow, setSelectedWindow] =
     useState<UsageLimitWindow>("month");
+  // Whether the user has picked a window themselves. Until they do, the page
+  // auto-focuses the window with the most severe triggered limit once the
+  // limits load (see below); after they do, we leave their choice alone.
+  const [windowPickedByUser, setWindowPickedByUser] = useState(false);
   // Keys (`${metric}|${window}|${limitType}`) of the threshold columns whose
   // inline editor is currently open. Several may be open at once.
   const [editingKeys, setEditingKeys] = useState<Set<string>>(new Set());
@@ -347,6 +506,18 @@ export function UsageLimits({
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
 
   useUnsavedChangesWarning(dirtyKeys.size > 0);
+
+  // Default to the window that needs attention. Runs when the limits arrive (or
+  // their triggered state changes) but never overrides a manual selection.
+  useEffect(() => {
+    if (windowPickedByUser) {
+      return;
+    }
+    const severe = mostSevereTriggeredWindow(usageLimits, currentUsage);
+    if (severe !== undefined) {
+      setSelectedWindow(severe);
+    }
+  }, [usageLimits, currentUsage, windowPickedByUser]);
 
   const startEdit = useCallback((key: string) => {
     setEditingKeys((prev) => {
@@ -378,11 +549,12 @@ export function UsageLimits({
   }, []);
 
   // Each window segment is labelled with a badge showing how many of its limits
-  // are enabled out of how many are configured (e.g. "Monthly 3/4 Enabled"); the
+  // are active out of how many are configured (e.g. "Monthly 3/4 Active"); the
   // badge is hidden when nothing is configured for that window.
   const windowOptions = WINDOW_ORDER.map((w) => {
     const inWindow = usageLimits.filter((limit) => limit.window === w);
     const enabled = inWindow.filter((limit) => limit.enabled).length;
+    const triggers = windowTriggerCounts(usageLimits, currentUsage, w);
     return {
       value: w,
       label: (
@@ -393,8 +565,16 @@ export function UsageLimits({
               <span className="tabular-nums">
                 {enabled}/{inWindow.length}
               </span>{" "}
-              Enabled
+              Active
             </span>
+          )}
+          {/* Triggered limits take precedence: their badges call out how many
+              warning and disable thresholds this window has currently tripped. */}
+          {triggers.disable > 0 && (
+            <TriggerBadge limitType="disable" count={triggers.disable} />
+          )}
+          {triggers.warning > 0 && (
+            <TriggerBadge limitType="warning" count={triggers.warning} />
           )}
         </span>
       ),
@@ -423,17 +603,25 @@ export function UsageLimits({
       <div className="flex flex-col gap-2">
         <h3>{title}</h3>
         <p className="max-w-prose text-sm text-content-secondary">
-          Limit how much usage this deployment can consume in a given timeframe.
+          Limit how much usage this deployment can consume in a given timeframe.{" "}
+          <Link href="https://docs.convex.dev/production/usage-limits">
+            Learn more about deployment usage limits
+          </Link>
         </p>
       </div>
+
+      {seedStatus !== undefined && seedStatus !== "complete" && (
+        <SeedStatusNote seedStatus={seedStatus} />
+      )}
 
       <div className="flex flex-col gap-2">
         <Tooltip
           asChild
+          delayDuration={TOOLTIP_DELAY_MS}
           tip="Configure limits at a monthly or daily granularity. Each window's usage is tracked and enforced separately."
           side="right"
         >
-          <span className="inline-flex w-fit cursor-help items-center gap-1 text-sm text-content-secondary">
+          <span className="inline-flex w-fit items-center gap-1 text-sm text-content-secondary">
             Window
             <QuestionMarkCircledIcon className="text-content-tertiary" />
           </span>
@@ -455,52 +643,80 @@ export function UsageLimits({
               return;
             }
             setSelectedWindow(w);
+            setWindowPickedByUser(true);
             setEditingKeys(new Set());
           }}
         />
 
         <p className="text-xs text-content-secondary">
           {WINDOW_RESET_DESCRIPTION[selectedWindow]}
+          {billingUri &&
+            " This is a fixed calendar schedule and may not match your billing cycle."}
+        </p>
+        <p className="text-sm text-content-secondary">
+          <WindowResetCountdown window={selectedWindow} />
         </p>
       </div>
 
       {isLoading ? (
         <Loading fullHeight={false} className="h-24 w-full rounded-lg" />
       ) : (
-        <div className="flex flex-col divide-y divide-border-transparent">
-          {shownMetrics.map((metric) => (
-            <UsageLimitMetricCard
-              key={metric}
-              metric={metric}
-              window={selectedWindow}
-              warningLimit={limitFor(metric, "warning")}
-              disableLimit={limitFor(metric, "disable")}
-              unbilledReason={unbilledMetrics[metric]}
-              deploymentType={deploymentType}
-              canWrite={canWrite}
-              writePermissionTip={writePermissionTip}
-              editingKeys={editingKeys}
-              onStartEdit={startEdit}
-              onStopEdit={stopEdit}
-              onDirtyChange={setDirty}
-              onCreate={onCreate}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          ))}
+        // The table has a fixed minimum width (the threshold columns alone are
+        // 32rem), so narrow viewports scroll horizontally rather than crushing
+        // the columns.
+        <div className="overflow-x-auto">
+          <div className="flex min-w-208 flex-col divide-y divide-border-transparent">
+            <div className={cn(TABLE_GRID, "pb-2")}>
+              <span className="text-sm text-content-secondary">Metric</span>
+              <span className="text-sm text-content-secondary">
+                Current usage
+              </span>
+              <ThresholdLabel
+                limitType="warning"
+                deploymentType={deploymentType}
+              />
+              <ThresholdLabel
+                limitType="disable"
+                deploymentType={deploymentType}
+              />
+            </div>
+            {shownMetrics.map((metric) => (
+              <UsageLimitMetricRow
+                key={metric}
+                metric={metric}
+                window={selectedWindow}
+                warningLimit={limitFor(metric, "warning")}
+                disableLimit={limitFor(metric, "disable")}
+                currentUsage={currentUsage[metric]?.[selectedWindow]}
+                unbilledReason={unbilledMetrics[metric]}
+                deploymentType={deploymentType}
+                canWrite={canWrite}
+                writePermissionTip={writePermissionTip}
+                editingKeys={editingKeys}
+                onStartEdit={startEdit}
+                onStopEdit={stopEdit}
+                onDirtyChange={setDirty}
+                onCreate={onCreate}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
         </div>
       )}
     </Sheet>
   );
 }
 
-// One card per metric: header + a Warning column and a Disable column, shown
-// side by side for the selected window.
-function UsageLimitMetricCard({
+// One table row per metric: the metric's name (with its description in a
+// tooltip), its current usage in the selected window, and a Warning and a
+// Disable threshold cell.
+function UsageLimitMetricRow({
   metric,
   window,
   warningLimit,
   disableLimit,
+  currentUsage,
   unbilledReason,
   deploymentType,
   canWrite,
@@ -517,6 +733,8 @@ function UsageLimitMetricCard({
   window: UsageLimitWindow;
   warningLimit?: UsageLimit;
   disableLimit?: UsageLimit;
+  // Current usage of this metric in the selected window, if known.
+  currentUsage?: number;
   unbilledReason?: string;
   deploymentType: DeploymentType | undefined;
   canWrite: boolean;
@@ -535,40 +753,80 @@ function UsageLimitMetricCard({
     disable: disableLimit,
   };
   return (
-    <div className="flex flex-col gap-3 py-4">
-      <div className="flex flex-col">
-        <span className="font-medium text-content-primary">{config.name}</span>
-        <span className="text-xs text-content-secondary">
-          {config.description}
-        </span>
+    <div className={cn(TABLE_GRID, "items-start py-3")}>
+      {/* pt-0.5 vertically centers these one-line cells against the threshold
+          cells' min-h-6 first line. */}
+      <div className="flex items-center gap-1.5 pt-0.5">
+        <Tooltip
+          tip={config.description}
+          side="right"
+          delayDuration={TOOLTIP_DELAY_MS}
+        >
+          <span className="inline-flex items-center gap-1 text-left text-sm font-medium text-content-primary">
+            {config.name}
+            <QuestionMarkCircledIcon className="shrink-0 text-content-tertiary" />
+          </span>
+        </Tooltip>
+        {unbilledReason && (
+          <Tooltip
+            tip={unbilledReason}
+            side="right"
+            delayDuration={TOOLTIP_DELAY_MS}
+          >
+            <span className="flex items-center">
+              <ExclamationTriangleIcon className="size-3.5 shrink-0 text-content-warning" />
+              <span className="sr-only">Not billed on this plan</span>
+            </span>
+          </Tooltip>
+        )}
       </div>
 
-      {unbilledReason && <UnbilledMetricNote reason={unbilledReason} />}
-
-      <div className="flex flex-wrap gap-8">
-        {LIMIT_TYPE_ORDER.map((limitType) => {
-          const rowKey = `${metric}|${window}|${limitType}`;
-          return (
-            <UsageLimitThreshold
-              key={limitType}
-              metric={metric}
-              window={window}
-              limitType={limitType}
-              limit={limitByType[limitType]}
-              deploymentType={deploymentType}
-              canWrite={canWrite}
-              writePermissionTip={writePermissionTip}
-              isEditing={editingKeys.has(rowKey)}
-              onStartEdit={() => onStartEdit(rowKey)}
-              onStopEdit={() => onStopEdit(rowKey)}
-              onDirtyChange={onDirtyChange}
-              onCreate={onCreate}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          );
-        })}
+      <div className="pt-0.5">
+        {currentUsage !== undefined ? (
+          <Tooltip
+            asChild
+            delayDuration={TOOLTIP_DELAY_MS}
+            tip={`${AMOUNT_FORMAT.format(currentUsage)} ${config.rawUnit} used this ${window}.`}
+            side="bottom"
+          >
+            <span className="w-fit text-sm text-content-primary tabular-nums">
+              {formatNumberCompact(currentUsage)}{" "}
+              {rawUnitShortFor(config, currentUsage)}
+            </span>
+          </Tooltip>
+        ) : (
+          <span className="text-sm text-content-tertiary">–</span>
+        )}
       </div>
+
+      {LIMIT_TYPE_ORDER.map((limitType) => {
+        const rowKey = `${metric}|${window}|${limitType}`;
+        // The other threshold's amount, used to warn when this one is set
+        // such that the deployment would be disabled before the warning fires.
+        const counterpartAmount =
+          limitByType[limitType === "warning" ? "disable" : "warning"]?.limit;
+        return (
+          <UsageLimitThreshold
+            key={limitType}
+            metric={metric}
+            window={window}
+            limitType={limitType}
+            limit={limitByType[limitType]}
+            counterpartAmount={counterpartAmount}
+            currentUsage={currentUsage}
+            deploymentType={deploymentType}
+            canWrite={canWrite}
+            writePermissionTip={writePermissionTip}
+            isEditing={editingKeys.has(rowKey)}
+            onStartEdit={() => onStartEdit(rowKey)}
+            onStopEdit={() => onStopEdit(rowKey)}
+            onDirtyChange={onDirtyChange}
+            onCreate={onCreate}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -583,8 +841,15 @@ function ThresholdLabel({
   deploymentType: DeploymentType | undefined;
 }) {
   return (
-    <Tooltip tip={actionDescription(limitType, deploymentType)} side="right">
-      <span className="inline-flex cursor-help items-center gap-1 text-sm text-content-secondary">
+    <Tooltip
+      tip={actionDescription(limitType, deploymentType)}
+      side="right"
+      delayDuration={TOOLTIP_DELAY_MS}
+      // The trigger is a full-width button when this label is a grid cell, so
+      // shrink it to its content to keep the label flush with the column.
+      className="w-fit"
+    >
+      <span className="inline-flex items-center gap-1 text-sm text-content-secondary">
         {LIMIT_TYPE_LABEL[limitType]}
         <QuestionMarkCircledIcon className="text-content-tertiary" />
       </span>
@@ -592,14 +857,17 @@ function ThresholdLabel({
   );
 }
 
-// A single (metric, window, limitType) threshold column. Read-only when not
-// editing (label on top, then the configured amount + status, with an overflow
-// menu for edit/delete), swapping to an inline editor while editing.
+// A single (metric, window, limitType) threshold cell. Read-only when not
+// editing (the configured amount with an overflow menu for edit/delete, then a
+// status line), swapping to an inline editor while editing. The column headers
+// above the table carry the "Warning/Disable threshold" labels.
 function UsageLimitThreshold({
   metric,
   window,
   limitType,
   limit,
+  counterpartAmount,
+  currentUsage,
   deploymentType,
   canWrite,
   writePermissionTip,
@@ -615,6 +883,13 @@ function UsageLimitThreshold({
   window: UsageLimitWindow;
   limitType: UsageLimitType;
   limit?: UsageLimit;
+  // The amount of the other threshold (disable for a warning row, warning for a
+  // disable row) in this metric/window, if configured. Used to hint when the
+  // two are ordered such that the deployment would be disabled before the
+  // warning fires.
+  counterpartAmount?: number;
+  // Current usage of this metric in the window, used to fill the progress bar.
+  currentUsage?: number;
   deploymentType: DeploymentType | undefined;
   canWrite: boolean;
   writePermissionTip: ReactNode;
@@ -629,26 +904,14 @@ function UsageLimitThreshold({
   const config = METRIC_CONFIG[metric];
 
   // A warning limit's only effect is the email, which dev deployments don't
-  // send, so the whole warning threshold is disabled there (the backend also
-  // rejects warning limits on dev deployments). The Configure limit button is
-  // still shown, but disabled with an explanation.
-  if (limitType === "warning" && !sendsEmail(deploymentType)) {
-    return (
-      <div className={cn(THRESHOLD_COL, "flex flex-col gap-1")}>
-        <div className="flex min-h-6 items-center">
-          <ThresholdLabel
-            limitType={limitType}
-            deploymentType={deploymentType}
-          />
-        </div>
-        <ConfigureLimitButton
-          disabled
-          disabledTip="Not available on development deployments, which don't receive usage limit email notifications."
-          onStartEdit={onStartEdit}
-        />
-      </div>
-    );
-  }
+  // send, so the warning threshold can't be configured there (the backend also
+  // rejects warning limits on dev deployments). The slot still renders like any
+  // other empty threshold, but its configure button is disabled with an
+  // explanation rather than replaced by a bare "Not available".
+  const warningUnavailableOnDev =
+    limitType === "warning" && !sendsEmail(deploymentType);
+  const warningUnavailableTip =
+    "Development deployments don't receive email notifications, so warning thresholds aren't available.";
 
   if (isEditing) {
     return (
@@ -657,7 +920,8 @@ function UsageLimitThreshold({
         window={window}
         limitType={limitType}
         limit={limit}
-        deploymentType={deploymentType}
+        counterpartAmount={counterpartAmount}
+        currentUsage={currentUsage}
         onDone={onStopEdit}
         onDirtyChange={onDirtyChange}
         onCreate={onCreate}
@@ -666,38 +930,51 @@ function UsageLimitThreshold({
     );
   }
 
-  return (
-    <div className={cn(THRESHOLD_COL, "flex flex-col gap-1")}>
-      <div className="flex min-h-6 items-center gap-4">
-        <ThresholdLabel limitType={limitType} deploymentType={deploymentType} />
-        {limit && (
-          <ThresholdOverflowMenu
-            canWrite={canWrite}
-            writePermissionTip={writePermissionTip}
-            onEdit={onStartEdit}
-            onDelete={() => onDelete(limit.id)}
-          />
-        )}
-      </div>
-      {limit ? (
-        <>
-          <div className="flex items-baseline gap-1">
-            <span className="text-base text-content-primary">
-              {AMOUNT_FORMAT.format(limit.limit)} {config.rawUnitShort}
-            </span>
-            <span className="text-sm text-content-secondary">
-              {WINDOW_SUFFIX[window]}
-            </span>
-          </div>
-          <StatusBadge enabled={limit.enabled} />
-        </>
-      ) : (
+  if (!limit) {
+    return (
+      <div className="flex min-h-6 items-center gap-x-2">
+        <span className="text-sm text-content-tertiary">–</span>
         <ConfigureLimitButton
-          disabled={!canWrite}
-          disabledTip={writePermissionTip}
+          disabled={!canWrite || warningUnavailableOnDev}
+          disabledTip={
+            warningUnavailableOnDev ? warningUnavailableTip : writePermissionTip
+          }
           onStartEdit={onStartEdit}
         />
+      </div>
+    );
+  }
+
+  const isTriggered =
+    limit.enabled && currentUsage !== undefined && currentUsage >= limit.limit;
+
+  // The whole limit fits on one line: usage gauge, amount, then status pills.
+  // Status is only called out when it's the exception: an Inactive pill for an
+  // unenforced limit, a triggered pill for an exceeded one. flex-wrap lets the
+  // pills drop to a second line rather than overflow if the column runs out of
+  // room.
+  return (
+    <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1">
+      {currentUsage !== undefined && (
+        <UsageDonut
+          metric={metric}
+          window={window}
+          current={currentUsage}
+          limit={limit}
+        />
       )}
+      <span className="text-sm text-content-primary tabular-nums">
+        {AMOUNT_FORMAT.format(limit.limit)}{" "}
+        {rawUnitShortFor(config, limit.limit)}
+      </span>
+      {!limit.enabled && <InactivePill />}
+      {isTriggered && <TriggeredBadge limitType={limit.limitType} />}
+      <ThresholdOverflowMenu
+        canWrite={canWrite}
+        writePermissionTip={writePermissionTip}
+        onEdit={onStartEdit}
+        onDelete={() => onDelete(limit.id)}
+      />
     </div>
   );
 }
@@ -721,12 +998,11 @@ function ConfigureLimitButton({
       variant="neutral"
       inline
       icon={<PlusCircledIcon />}
-      tip={disabled ? disabledTip : undefined}
+      aria-label="Configure limit"
+      tip={disabled ? disabledTip : "Configure limit"}
       disabled={disabled}
       onClick={onStartEdit}
-    >
-      Configure limit
-    </Button>
+    />
   );
 }
 
@@ -753,6 +1029,7 @@ function ThresholdOverflowMenu({
         icon: <DotsVerticalIcon />,
         size: "xs",
         variant: "neutral",
+        inline: true,
       }}
     >
       <MenuItem
@@ -784,7 +1061,8 @@ function UsageLimitThresholdEditor({
   window,
   limitType,
   limit,
-  deploymentType,
+  counterpartAmount,
+  currentUsage,
   onDone,
   onDirtyChange,
   onCreate,
@@ -794,17 +1072,23 @@ function UsageLimitThresholdEditor({
   window: UsageLimitWindow;
   limitType: UsageLimitType;
   limit?: UsageLimit;
-  deploymentType: DeploymentType | undefined;
+  // The other threshold's amount in this metric/window; see UsageLimitThreshold.
+  counterpartAmount?: number;
+  // Current usage of this metric in the window, used to warn when the entered
+  // amount is below it.
+  currentUsage?: number;
   onDone: () => void;
   onDirtyChange: (key: string, dirty: boolean) => void;
   onCreate: (config: UsageLimitConfig) => Promise<void> | void;
   onUpdate: (id: string, config: UsageLimitConfig) => Promise<void> | void;
 }) {
   const config = METRIC_CONFIG[metric];
-  // New limits start with a blank amount for the user to fill in, and default
-  // to enforced.
-  const [amount, setAmount] = useState(limit ? String(limit.limit) : "");
-  const [enabled, setEnabled] = useState(limit ? limit.enabled : true);
+  // A new limit starts with a blank amount (the ~$100/mo default is only a
+  // placeholder hint, see the TextInput below) and defaults to enforced.
+  const initialAmount = limit ? String(limit.limit) : "";
+  const initialEnabled = limit ? limit.enabled : true;
+  const [amount, setAmount] = useState(initialAmount);
+  const [enabled, setEnabled] = useState(initialEnabled);
   const [isSaving, setIsSaving] = useState(false);
 
   const parsedLimit = Math.floor(Number(amount));
@@ -815,14 +1099,36 @@ function UsageLimitThresholdEditor({
     parsedLimit >= 1 &&
     parsedLimit <= MAX_USAGE_LIMIT_VALUE;
   const isValid = hasAmount && isInRange;
+  // Only treat the amount as a draft once it diverges from the saved value (a
+  // new limit is always a draft), so we don't warn about an already-saved limit
+  // that happens to sit below current usage.
+  const isDraftAmount = limit ? parsedLimit !== limit.limit : true;
+  // A draft limit set below the window's current usage would take effect
+  // immediately. This is allowed (and sometimes intended), so it's a warning,
+  // not an error.
+  const belowCurrentUsage =
+    isValid &&
+    isDraftAmount &&
+    currentUsage !== undefined &&
+    parsedLimit < currentUsage;
+
+  // Warnings are meant to fire before the deployment is disabled, so the warning
+  // threshold should sit below the disable threshold. Flag an inverted (or
+  // equal) ordering, where the deployment would be disabled before this warning
+  // could ever be sent. Both rows surface the same soft hint.
+  const disableBeforeWarning =
+    isValid &&
+    counterpartAmount !== undefined &&
+    (limitType === "warning"
+      ? parsedLimit >= counterpartAmount
+      : parsedLimit <= counterpartAmount);
 
   // Report whether this editor has unsaved changes so the page can warn before
-  // navigating away. An existing limit is dirty when a field diverges from the
-  // saved value; a new one is dirty once the user touches it.
+  // navigating away. Dirty means a field diverges from where it started — the
+  // saved value for an existing limit, or the seeded default for a new one (so
+  // an untouched default isn't treated as an unsaved edit).
   const rowKey = `${metric}|${window}|${limitType}`;
-  const isDirty = limit
-    ? amount !== String(limit.limit) || enabled !== limit.enabled
-    : hasAmount || enabled !== true;
+  const isDirty = amount !== initialAmount || enabled !== initialEnabled;
   useEffect(() => {
     onDirtyChange(rowKey, isDirty);
     return () => onDirtyChange(rowKey, false);
@@ -865,12 +1171,22 @@ function UsageLimitThresholdEditor({
   };
 
   return (
-    <div className={cn(THRESHOLD_COL, "flex flex-col gap-2")}>
-      <div className="flex min-h-6 items-center">
-        <ThresholdLabel limitType={limitType} deploymentType={deploymentType} />
-      </div>
+    <form
+      // Capped at the threshold columns' 16rem floor so the input doesn't
+      // stretch to fill a flexed-wider column.
+      className="flex max-w-64 flex-col gap-2"
+      // We validate the amount ourselves (see `isValid`), so suppress native
+      // HTML5 validation — otherwise the number input's min/step would pop
+      // "Please enter a valid value" on submit for non-multiples of the step.
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSave();
+      }}
+    >
       <div className="flex flex-col gap-1">
         <TextInput
+          autoFocus
           id={`usage-limit-${metric}-${limitType}`}
           label="Amount"
           labelHidden
@@ -878,11 +1194,13 @@ function UsageLimitThresholdEditor({
           min={1}
           max={MAX_USAGE_LIMIT_VALUE}
           step={config.rawStep}
+          // Hint the ~$100/mo default amount for this metric/window.
+          placeholder={AMOUNT_FORMAT.format(config.defaultAmount)}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           rightAddon={
             <span className="text-xs text-content-secondary">
-              {config.rawUnitShort} {WINDOW_SUFFIX[window]}
+              {rawUnitShortFor(config, parsedLimit)} {WINDOW_SUFFIX[window]}
             </span>
           }
         />
@@ -891,30 +1209,57 @@ function UsageLimitThresholdEditor({
             Enter an amount between 1 and 100 trillion.
           </p>
         )}
+        {belowCurrentUsage && currentUsage !== undefined && (
+          <p className="text-xs text-content-warning">
+            This is below the current usage for this window (
+            {formatNumberCompact(currentUsage)}{" "}
+            {rawUnitShortFor(config, currentUsage)}), so it will trigger
+            immediately when saved.
+          </p>
+        )}
+        {disableBeforeWarning && counterpartAmount !== undefined && (
+          <p className="text-xs text-content-warning">
+            {limitType === "warning"
+              ? `This is at or above the disable threshold (${formatNumberCompact(
+                  counterpartAmount,
+                )} ${rawUnitShortFor(
+                  config,
+                  counterpartAmount,
+                )}), so the deployment is disabled before this warning is sent.`
+              : `This is at or below the warning threshold (${formatNumberCompact(
+                  counterpartAmount,
+                )} ${rawUnitShortFor(
+                  config,
+                  counterpartAmount,
+                )}), so the deployment is disabled before that warning is sent.`}
+          </p>
+        )}
       </div>
       <Tooltip
-        tip="When enabled, this limit is enforced: if usage exceeds the allotted amount, the limit takes effect."
-        side="right"
+        tip="When active, this limit is enforced. If usage exceeds the allotted amount, the limit takes effect."
+        side="left"
+        delayDuration={TOOLTIP_DELAY_MS}
       >
-        <label className="flex w-fit cursor-help items-center gap-2 text-xs text-content-secondary">
+        <label className="flex w-fit items-center gap-2 text-xs text-content-secondary">
           <Checkbox
             checked={enabled}
             onChange={() => setEnabled((prev) => !prev)}
           />
-          Enabled
+          Active
         </label>
       </Tooltip>
       <div className="flex items-center gap-2">
         <Button
+          type="submit"
           size="xs"
           inline
-          onClick={handleSave}
           loading={isSaving}
           disabled={!isValid}
         >
           Save
         </Button>
         <Button
+          type="button"
           size="xs"
           variant="neutral"
           inline
@@ -924,29 +1269,173 @@ function UsageLimitThresholdEditor({
           Cancel
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 
-function StatusBadge({ enabled }: { enabled: boolean }) {
+// A pill marking a limit that exists but isn't enforced. Enforced limits get no
+// pill: active is the default state, so only the exception is called out.
+function InactivePill() {
   return (
     <Tooltip
       asChild
+      delayDuration={TOOLTIP_DELAY_MS}
+      tip="This limit is inactive: it will not be enforced even if usage exceeds the allotted amount."
+      side="bottom"
+    >
+      <span className="inline-flex w-fit items-center rounded-full bg-background-tertiary px-2 py-0.5 text-xs font-medium text-content-primary">
+        Inactive
+      </span>
+    </Tooltip>
+  );
+}
+
+// A pill shown, in place of the progress bar, on a triggered limit. A triggered
+// "disable" limit has disabled the deployment (error palette); a triggered
+// "warning" limit has emailed the team (warning palette).
+function TriggeredBadge({ limitType }: { limitType: UsageLimitType }) {
+  const isDisable = limitType === "disable";
+  return (
+    <Tooltip
+      asChild
+      delayDuration={TOOLTIP_DELAY_MS}
       tip={
-        enabled
-          ? "This limit is enabled: if usage exceeds the allotted amount, the limit will be enforced."
-          : "This limit is disabled: it will not be enforced even if usage exceeds the allotted amount."
+        isDisable
+          ? "This limit was exceeded, so the deployment is disabled for the rest of this window, and all function calls will fail. Raise or deactivate the limit to resume the deployment."
+          : "This limit was exceeded, so all team members were emailed."
       }
       side="bottom"
     >
       <span
         className={cn(
-          "w-fit cursor-help rounded-full px-2 py-0.5 text-xs font-medium text-content-primary",
-          enabled ? "bg-background-success" : "bg-background-tertiary",
+          "flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+          isDisable
+            ? "bg-background-error text-content-error"
+            : "bg-background-warning text-content-warning",
         )}
       >
-        {enabled ? "Enabled" : "Disabled"}
+        <ExclamationTriangleIcon className="size-3" />
+        Limit Exceeded
       </span>
     </Tooltip>
   );
+}
+
+// A donut gauge shown left of a configured limit's amount, filling as the
+// window's usage approaches the limit; its tooltip spells out where the
+// deployment is at. Only rendered when live usage is available. A disabled
+// (not enforced) limit's gauge is muted, since nothing happens even when usage
+// is over it, and a triggered limit's gauge is tinted to match its pill (error
+// for a disable limit, warning for a warning limit).
+function UsageDonut({
+  metric,
+  window,
+  current,
+  limit,
+}: {
+  metric: UsageMetric;
+  window: UsageLimitWindow;
+  current: number;
+  limit: UsageLimit;
+}) {
+  const config = METRIC_CONFIG[metric];
+  const ratio = limit.limit > 0 ? current / limit.limit : 0;
+  const percent = Math.round(ratio * 100);
+  const isTriggered = limit.enabled && current >= limit.limit;
+  return (
+    <Tooltip
+      asChild
+      delayDuration={TOOLTIP_DELAY_MS}
+      tip={`${formatNumberCompact(current)} of ${formatNumberCompact(limit.limit)} ${config.rawUnit} used this ${window} (${percent}%).`}
+      side="bottom"
+    >
+      <div
+        role="img"
+        aria-label={`${config.name} usage: ${percent}% of limit`}
+        className={cn("flex items-center", !limit.enabled && "opacity-60")}
+      >
+        <Donut
+          current={current}
+          max={limit.limit}
+          strokeClassName={
+            isTriggered
+              ? limit.limitType === "disable"
+                ? "stroke-content-error"
+                : "stroke-content-warning"
+              : undefined
+          }
+        />
+      </div>
+    </Tooltip>
+  );
+}
+
+const DAY_MS = 86_400_000;
+
+// A live "Resets at <date> (in …)" line for when the selected window next
+// resets. The countdown ticks every second and shows seconds ("0:59:33") when
+// under a day to go; with more than a day left, seconds are noise, so it ticks
+// every minute and drops them ("2d 03:04"). The reset boundary is derived from
+// the window itself (see `nextWindowResetMs`), so no backend data is needed. The
+// boundary is a UTC midnight, so its date is rendered in UTC to match.
+function WindowResetCountdown({ window }: { window: UsageLimitWindow }) {
+  const [now, setNow] = useState(() => Date.now());
+  const resetMs = nextWindowResetMs(window, now);
+  const remainingMs = Math.max(0, resetMs - now);
+  const underOneDay = remainingMs < DAY_MS;
+  useEffect(() => {
+    const id = setInterval(
+      () => setNow(Date.now()),
+      underOneDay ? 1000 : 60_000,
+    );
+    return () => clearInterval(id);
+  }, [underOneDay]);
+  return (
+    <span className="tabular-nums">
+      Resets on {formatResetDate(resetMs)} (in{" "}
+      {formatCountdown(remainingMs, underOneDay)})
+    </span>
+  );
+}
+
+// The reset boundary as a UTC calendar date, e.g. "Aug 1, 2026". Rendered in UTC
+// because the boundary itself is a UTC midnight.
+function formatResetDate(resetMs: number): string {
+  return new Date(resetMs).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// Epoch ms of the next reset boundary for a window, per the reset rules shown to
+// the user: the next UTC midnight, or the first of the next month at UTC
+// midnight. `Date.UTC` normalizes the rolled-over field.
+function nextWindowResetMs(window: UsageLimitWindow, now: number): number {
+  const d = new Date(now);
+  switch (window) {
+    case "day":
+      return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+    case "month":
+    default:
+      return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+  }
+}
+
+// Format a positive duration. With `showSeconds`, "H:MM:SS" (always under a day,
+// so no day prefix): "0:59:33". Otherwise minute resolution with a day prefix:
+// "2d 03:04".
+function formatCountdown(ms: number, showSeconds: boolean): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (showSeconds) {
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+  }
+  const hm = `${pad(hours)}:${pad(minutes)}`;
+  return days > 0 ? `${days}d ${hm}` : hm;
 }
