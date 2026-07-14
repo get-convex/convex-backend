@@ -38,6 +38,12 @@ const AWS_LAMBDA_EXECUTOR_TYPE = (
   ? "DYNAMIC"
   : "STATIC";
 
+// AWS_LAMBDA_FUNCTION_NAME is a reserved environment variable that the Lambda
+// runtime always sets and user configuration cannot override:
+// https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html
+// It must be read at module load time, before invocations replace `process.env`.
+const IS_AWS_LAMBDA = process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined;
+
 const AWS_LAMBDA_FUNCTION_MEMORY_SIZE = parseInt(
   process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ?? "512",
   10,
@@ -113,7 +119,12 @@ async function runWithEnvironmentVariables<T>(
     // Restore the initial environment when we’re done.
     // This is helpful to bypass a AWS Lambda bug affecting Node.js 24 where the lambda
     // would crash when AWS’s own env vars are missing after a second function execution.
-    process.env = savedEnv;
+    //
+    // We don’t restore when running in the local Node executor because this one accepts
+    // concurrent requests in the same JavaScript environment.
+    if (IS_AWS_LAMBDA) {
+      process.env = savedEnv;
+    }
   }
 }
 
