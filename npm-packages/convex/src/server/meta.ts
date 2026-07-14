@@ -120,8 +120,6 @@ export type RequestMetadata = {
    *
    * This is the same token that `ctx.auth.getUserIdentity()` derives its
    * attributes from.
-   *
-   * @internal
    */
   authToken: string | null;
 };
