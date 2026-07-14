@@ -22,6 +22,13 @@ message DataSyncCursor {
     // Mid-traversal of a table.
     InProgressTablet in_progress = 4;
   }
+  // Unique id assigned when the sync started; keys the `_data_sync_progress`
+  // row that tracks this sync's progress. Always set; cursors without it are
+  // rejected.
+  optional string sync_id = 5;
+  // Documents (including tombstones and re-emitted revisions) emitted over
+  // the sync's lifetime.
+  optional uint64 num_docs_synced = 6;
 }
 
 message SyncedTablet {
@@ -37,4 +44,6 @@ message InProgressTablet {
   // The last id walked in the in-progress table. Absent if the table's ID
   // traversal has not begun.
   optional common.DeveloperDocumentId current_id = 4;
+  // Documents emitted so far from this table's `by_id` traversal.
+  optional uint64 docs_synced = 5;
 }

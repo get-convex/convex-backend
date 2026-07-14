@@ -178,6 +178,13 @@ pub struct DataSyncCursor {
     synced_tables: BTreeSet<TabletId>,
     /// Position within the `by_id` dimension.
     table_cursor: TableCursor,
+    /// Documents emitted so far from the in-progress table's `by_id`
+    /// traversal. Zero whenever `table_cursor` is `Synced` or a table's
+    /// traversal hasn't started.
+    current_table_docs_synced: u64,
+    /// Documents (including tombstones and re-emitted revisions) emitted over
+    /// the sync's lifetime.
+    num_docs_synced: u64,
 }
 
 impl DataSyncCursor {
@@ -204,12 +211,26 @@ impl DataSyncCursor {
         }
     }
 
+    /// Documents emitted so far from the in-progress table's `by_id`
+    /// traversal.
+    pub fn current_table_docs_synced(&self) -> u64 {
+        self.current_table_docs_synced
+    }
+
+    /// Documents (including tombstones and re-emitted revisions) emitted over
+    /// the sync's lifetime.
+    pub fn num_docs_synced(&self) -> u64 {
+        self.num_docs_synced
+    }
+
     /// Reconstruct a cursor from its serialized parts. `in_progress` mirrors
     /// [`Self::in_progress_table`].
     pub fn from_parts(
         synced_ts: Timestamp,
         synced_tables: BTreeSet<TabletId>,
         in_progress: Option<(TabletId, Option<DeveloperDocumentId>)>,
+        current_table_docs_synced: u64,
+        num_docs_synced: u64,
     ) -> Self {
         let table_cursor = match in_progress {
             None => TableCursor::Synced,
@@ -222,6 +243,8 @@ impl DataSyncCursor {
             synced_ts,
             synced_tables,
             table_cursor,
+            current_table_docs_synced,
+            num_docs_synced,
         }
     }
 }
@@ -232,10 +255,17 @@ impl DataSyncCursor {
 pub struct ProgressStatus {
     pub num_tables_synced: u64,
     pub total_tables: u64,
-    pub current_table: Option<TabletId>,
-    /// Best-effort: the number of documents emitted from the current table's
-    /// `by_id` scan in *this* page (0 on `ts`-dimension pages).
+    /// The table mid-traversal in the `by_id` dimension. An in-progress sync
+    /// always has one: finishing a table either starts the next one or
+    /// completes the sync ([`DataSyncStatus::Synced`]).
+    pub current_table: TabletId,
+    /// Documents emitted so far from the current table's `by_id` traversal,
+    /// across all pages of this sync.
     pub num_documents_in_current_table: u64,
+    /// Documents (including tombstones and re-emitted revisions) emitted over
+    /// the sync's lifetime, so this can exceed the number of documents in the
+    /// target tables.
+    pub num_documents_synced: u64,
 }
 
 /// The consistency state reported alongside a page.
@@ -385,6 +415,8 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                     synced_ts: *latest,
                     synced_tables: BTreeSet::new(),
                     table_cursor: advance_to_next_table(&BTreeSet::new(), target_tables),
+                    current_table_docs_synced: 0,
+                    num_docs_synced: 0,
                 }
             },
             Some(mut cursor) => {
@@ -501,6 +533,9 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             }
         }
 
+        cursor.num_docs_synced += entries.len() as u64;
+        cursor.current_table_docs_synced += entries.len() as u64;
+
         // The table is exhausted only if we emitted the whole fetched page and it
         // wasn't a full page. If either limit stopped us, there is more to read.
         if count_limited {
@@ -514,6 +549,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             cover!(coverage::BY_ID_REACHED_END);
             cursor.synced_tables.insert(current_table);
             cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
+            cursor.current_table_docs_synced = 0;
             if matches!(cursor.table_cursor, TableCursor::Synced) {
                 cover!(coverage::SYNC_COMPLETE);
             }
@@ -524,12 +560,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             };
         }
 
-        let status = status(
-            cursor,
-            *latest,
-            target_tables.len() as u64,
-            entries.len() as u64,
-        );
+        let status = status(cursor, *latest, target_tables.len() as u64);
         Ok((entries, status))
     }
 
@@ -653,6 +684,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         }
 
         cursor.synced_ts = new_synced_ts;
+        cursor.num_docs_synced += entries.len() as u64;
         // Every re-emitted document is captured, so its predecessor was already
         // emitted by this iterator — attach it (when requested) so consumers
         // can compute deltas.
@@ -668,7 +700,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                 })
                 .collect()
         };
-        let status = status(cursor, *latest, target_tables.len() as u64, 0);
+        let status = status(cursor, *latest, target_tables.len() as u64);
         Ok((entries, status))
     }
 
@@ -720,12 +752,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     }
 }
 
-fn status(
-    cursor: &DataSyncCursor,
-    latest: Timestamp,
-    total_tables: u64,
-    num_documents_in_current_table: u64,
-) -> DataSyncStatus {
+fn status(cursor: &DataSyncCursor, latest: Timestamp, total_tables: u64) -> DataSyncStatus {
     match &cursor.table_cursor {
         TableCursor::Synced => DataSyncStatus::Synced {
             ts: cursor.synced_ts,
@@ -737,8 +764,9 @@ fn status(
             progress: ProgressStatus {
                 num_tables_synced: cursor.synced_tables.len() as u64,
                 total_tables,
-                current_table: Some(*current_table),
-                num_documents_in_current_table,
+                current_table: *current_table,
+                num_documents_in_current_table: cursor.current_table_docs_synced,
+                num_documents_synced: cursor.num_docs_synced,
             },
         },
     }
@@ -817,6 +845,7 @@ fn reconcile_target_tables(
             // The in-progress table was removed; cancel it and move on.
             cover!(coverage::RECONCILE_CANCEL_IN_PROGRESS);
             cursor.table_cursor = advance_to_next_table(&cursor.synced_tables, target_tables);
+            cursor.current_table_docs_synced = 0;
         },
         TableCursor::Synced => {
             // A new table may have been added since we last reached Synced.
@@ -825,6 +854,7 @@ fn reconcile_target_tables(
                 cover!(coverage::RECONCILE_START_ADDED_TABLE);
             }
             cursor.table_cursor = next;
+            cursor.current_table_docs_synced = 0;
         },
         TableCursor::InProgress { .. } => {},
     }

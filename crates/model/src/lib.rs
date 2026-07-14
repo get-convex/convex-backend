@@ -197,6 +197,12 @@ use crate::{
         CronJobsTable,
         CronNextRunTable,
     },
+    data_sync_progress::{
+        DataSyncProgressTable,
+        DATA_SYNC_PROGRESS_INDEX_BY_LAST_UPDATED,
+        DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID,
+        DATA_SYNC_PROGRESS_TABLE,
+    },
     deployment_audit_log::{
         DeploymentAuditLogsTable,
         DEPLOYMENT_AUDIT_LOG_TABLE,
@@ -226,6 +232,7 @@ pub mod canonical_urls;
 pub mod components;
 pub mod config;
 pub mod cron_jobs;
+pub mod data_sync_progress;
 pub mod database_globals;
 pub mod deployment_audit_log;
 pub mod environment_variables;
@@ -283,9 +290,10 @@ enum DefaultTableNumber {
     ScheduledJobArgs = 38,
     AuditLogConfig = 39,
     UsageLimits = 40,
+    DataSyncProgress = 41,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 41 - andycai
+    // Next Number - 42 - nipunn
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -332,6 +340,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::ScheduledJobArgs => &ScheduledJobArgsTable,
             DefaultTableNumber::AuditLogConfig => &AuditLogConfigTable,
             DefaultTableNumber::UsageLimits => &UsageLimitsTable,
+            DefaultTableNumber::DataSyncProgress => &DataSyncProgressTable,
         }
     }
 }
@@ -570,6 +579,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
         &UsageLimitsTable,
+        &DataSyncProgressTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());
@@ -658,6 +668,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         SCHEDULED_JOBS_ARGS_TABLE.clone() => 123,
         AUDIT_LOG_CONFIG_TABLE.clone() => 124,
         USAGE_LIMITS_TABLE.clone() => 126,
+        DATA_SYNC_PROGRESS_TABLE.clone() => 127,
     }
 });
 
@@ -685,5 +696,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         INDEX_BACKFILLS_BY_INDEX_ID.name() => 120,
         SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID.name() => 122,
         USAGE_LIMITS_INDEX_BY_SELECTOR.name() => 126,
+        DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID.name() => 127,
+        DATA_SYNC_PROGRESS_INDEX_BY_LAST_UPDATED.name() => 127,
     }
 });
