@@ -84,17 +84,39 @@ pub struct UsageLimitKey {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::Display, strum::EnumIter,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::EnumIter,
+    Serialize,
+    Deserialize,
+    ToSchema,
 )]
 #[strum(serialize_all = "camelCase")]
+// The serde renames must match the strum camelCase output (heck
+// lower-camel-cases `GB` to `Gb`, which serde's `rename_all` would not);
+// `test_metric_serialized_names` pins both against each other.
 pub enum UsageLimitMetric {
+    #[serde(rename = "functionCalls")]
     FunctionCalls,
+    #[serde(rename = "databaseIoGb")]
     DatabaseIoGB,
+    #[serde(rename = "dataEgressGb")]
     DataEgressGB,
+    #[serde(rename = "searchQueryGb")]
     SearchQueryGB,
+    #[serde(rename = "queryMutationComputeGbHours")]
     QueryMutationComputeGBHours,
+    #[serde(rename = "actionComputeConvexGbHours")]
     ActionComputeConvexGBHours,
+    #[serde(rename = "actionComputeNodeJsGbHours")]
     ActionComputeNodeJsGBHours,
+    #[serde(rename = "actionComputeCpuGbHours")]
     ActionComputeCpuGBHours,
 }
 

@@ -1123,7 +1123,7 @@ export interface components {
             /** Format: int64 */
             limit: number;
             limitType: string;
-            metric: string;
+            metric: components["schemas"]["UsageLimitMetric"];
             name?: string | null;
             window: string;
         };
@@ -1133,10 +1133,12 @@ export interface components {
             /** Format: int64 */
             limit: number;
             limitType: string;
-            metric: string;
+            metric: components["schemas"]["UsageLimitMetric"];
             name?: string | null;
             window: string;
         };
+        /** @enum {string} */
+        UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours";
         UsageLimitResponse: {
             usageLimit: components["schemas"]["UsageLimitConfigResponse"];
         };
@@ -1236,6 +1238,7 @@ export type UpdateSentrySinkArgs = components['schemas']['UpdateSentrySinkArgs']
 export type UpdateWebhookSinkArgs = components['schemas']['UpdateWebhookSinkArgs'];
 export type UsageLimitConfigRequest = components['schemas']['UsageLimitConfigRequest'];
 export type UsageLimitConfigResponse = components['schemas']['UsageLimitConfigResponse'];
+export type UsageLimitMetric = components['schemas']['UsageLimitMetric'];
 export type UsageLimitResponse = components['schemas']['UsageLimitResponse'];
 export type Value = components['schemas']['Value'];
 export type WebhookFormat = components['schemas']['WebhookFormat'];

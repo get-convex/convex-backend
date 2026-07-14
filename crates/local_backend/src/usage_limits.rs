@@ -56,7 +56,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitConfigRequest {
     name: Option<String>,
-    metric: String,
+    metric: UsageLimitMetric,
     window: String,
     limit_type: String,
     #[schema(minimum = 1)]
@@ -68,7 +68,7 @@ impl UsageLimitConfigRequest {
     fn into_usage_limit_config(self) -> anyhow::Result<UsageLimitConfig> {
         let config = UsageLimitConfig {
             name: self.name,
-            metric: parse_usage_limit_metric(self.metric)?,
+            metric: self.metric,
             window: parse_usage_limit_window(self.window)?,
             limit_type: parse_usage_limit_type(self.limit_type)?,
             limit: self.limit,
@@ -84,7 +84,7 @@ impl UsageLimitConfigRequest {
 pub struct UsageLimitConfigResponse {
     pub id: String,
     pub name: Option<String>,
-    pub metric: String,
+    pub metric: UsageLimitMetric,
     pub window: String,
     pub limit_type: String,
     #[schema(minimum = 1)]
@@ -99,7 +99,7 @@ impl From<common::document::ParsedDocument<UsageLimitConfig>> for UsageLimitConf
         Self {
             id,
             name: config.name,
-            metric: config.metric.to_string(),
+            metric: config.metric,
             window: config.window.to_string(),
             limit_type: config.limit_type.to_string(),
             limit: config.limit,
@@ -442,7 +442,7 @@ pub async fn delete_usage_limit_handler(
     Ok(UsageLimitConfigResponse {
         id: String::from(DeveloperDocumentId::from(id)),
         name: config.name,
-        metric: config.metric.to_string(),
+        metric: config.metric,
         window: config.window.to_string(),
         limit_type: config.limit_type.to_string(),
         limit: config.limit,
@@ -452,16 +452,6 @@ pub async fn delete_usage_limit_handler(
 
 fn usage_limit_not_found() -> ErrorMetadata {
     ErrorMetadata::not_found("UsageLimitNotFound", "The usage limit couldn't be found.")
-}
-
-fn parse_usage_limit_metric(metric: String) -> anyhow::Result<UsageLimitMetric> {
-    metric.parse().map_err(|_| {
-        ErrorMetadata::bad_request(
-            "InvalidUsageLimitMetric",
-            format!("Invalid usage limit metric: {metric}"),
-        )
-        .into()
-    })
 }
 
 fn parse_usage_limit_window(window: String) -> anyhow::Result<UsageLimitWindow> {
