@@ -213,22 +213,36 @@ async function captureScreenshot(
       content: ".monaco-editor .slider { opacity: 0 !important; }",
     });
 
-    // Check for element-level crop selector from story parameters.
-    // In Storybook 10, the store API is storyStoreValue.loadStory().
-    const screenshotSelector: string | null = await page.evaluate(
-      async (storyId: string) => {
-        try {
-          const preview = (window as any).__STORYBOOK_PREVIEW__;
-          const store = preview?.storyStoreValue;
-          if (!store) return null;
-          const story = await store.loadStory({ storyId });
-          return story?.parameters?.screenshotSelector ?? null;
-        } catch {
-          return null;
-        }
-      },
-      story.id,
-    );
+    // Read the element-level crop selector and optional viewport override from
+    // story parameters. In Storybook 10, the store API is
+    // storyStoreValue.loadStory().
+    const storyParams = await page.evaluate(async (storyId: string) => {
+      const empty = {
+        screenshotSelector: null as string | null,
+        screenshotViewport: null as { width: number; height: number } | null,
+      };
+      try {
+        const preview = (window as any).__STORYBOOK_PREVIEW__;
+        const store = preview?.storyStoreValue;
+        if (!store) return empty;
+        const story = await store.loadStory({ storyId });
+        return {
+          screenshotSelector: story?.parameters?.screenshotSelector ?? null,
+          screenshotViewport: story?.parameters?.screenshotViewport ?? null,
+        };
+      } catch {
+        return empty;
+      }
+    }, story.id);
+    const { screenshotSelector, screenshotViewport } = storyParams;
+
+    // A story whose page doesn't fit the default 1024x700 (e.g. a wide table
+    // that would otherwise clip) can widen/heighten the capture viewport.
+    // Resize after load, then let layout reflow and fonts settle.
+    if (screenshotViewport) {
+      await page.setViewportSize(screenshotViewport);
+      await page.evaluate(() => document.fonts.ready);
+    }
 
     const isComponentStory = story.title
       .toLowerCase()

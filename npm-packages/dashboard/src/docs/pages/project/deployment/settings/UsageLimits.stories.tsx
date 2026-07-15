@@ -93,6 +93,12 @@ const meta = {
   component: UsageLimitsView,
   parameters: {
     layout: "fullscreen",
+    // The threshold table (metric + current usage + Warning + Disable columns)
+    // needs its full ~1040px content column to render without the inner
+    // overflow-x-auto clipping it, which the default 1024px capture viewport is
+    // too narrow to give. Widen the viewport so the whole table fits; the
+    // height fits every metric row without an inner scroll.
+    screenshotViewport: { width: 1512, height: 1220 },
     // Match the decorator's header to the prod deployment the page renders.
     docsPage: {
       deploymentType: "prod",
