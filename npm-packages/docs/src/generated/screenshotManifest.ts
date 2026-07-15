@@ -656,26 +656,26 @@ export const screenshots = [
     "storyTitle": "docs/pages/project/deployment/settings/UsageLimits",
     "light": {
       "filename": "pages_project_deployment_settings_usage_limits_light.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 3024,
+      "height": 2440
     },
     "dark": {
       "filename": "pages_project_deployment_settings_usage_limits_dark.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 3024,
+      "height": 2440
     }
   },
   {
     "storyTitle": "docs/pages/project/deployment/settings/UsageLimits#Empty",
     "light": {
       "filename": "pages_project_deployment_settings_usage_limits_empty_light.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 3024,
+      "height": 2440
     },
     "dark": {
       "filename": "pages_project_deployment_settings_usage_limits_empty_dark.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 3024,
+      "height": 2440
     }
   }
 ] as const;
