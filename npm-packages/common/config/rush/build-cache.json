@@ -1,6 +1,11 @@
 /**
  * This configuration file manages Rush's build cache feature.
  * More documentation is available on the Rush website: https://rushjs.io
+ *
+ * NOTE: CI does not read this file. .github/actions/setup-js-cache/action.yml
+ * sets RUSH_BUILD_CACHE_OVERRIDE_JSON, which replaces this configuration
+ * wholesale (it is not merged). Settings added here (e.g. cacheHashSalt)
+ * must be mirrored there to take effect in CI.
  */
 {
   "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/build-cache.schema.json",
