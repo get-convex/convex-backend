@@ -1396,21 +1396,24 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         if let Some((client_id, mut workers)) = self.available_workers.remove_entry(client_id) {
             // If there is a worker with an appropriate reusable context, pick that one
             // first.
+            // This skips workers with inapplicable reused contexts.
+            // TODO: just promote the saved context's module path into the hashmap key.
             let worker = workers
                 .extract_if(.., |worker| {
                     worker.info.cached_contexts.can_serve_request(request)
                 })
                 .next();
-            // Otherwise just take the most recently used one.
-            let worker = worker.unwrap_or_else(|| {
-                workers
-                    .pop_front()
-                    .expect("Available worker map should never contain an empty list")
-            });
             if !workers.is_empty() {
                 self.available_workers.insert(client_id, workers);
             }
-            return Some(worker.worker_id);
+            if let Some(worker) = worker {
+                return Some(worker.worker_id);
+            }
+            // Otherwise all the workers have cached contexts for other modules
+            // that we don't want to clobber; try to assign a new worker
+            // instead.
+            // It's possible that one of our own workers will end up being the
+            // least-recently-used one.
         }
         // If we've recently started up and haven't yet created `max_workers` threads,
         // create a new worker instead of "stealing" some other client's worker.
