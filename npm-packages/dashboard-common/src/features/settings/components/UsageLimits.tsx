@@ -245,9 +245,16 @@ function windowTriggerCounts(
   };
 }
 
-export const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
+const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
+
+// Format a usage amount. Intl renders -0 (and tiny negatives that round to
+// zero) as "-0"; never surface a signed zero.
+export function formatAmount(value: number): string {
+  const formatted = AMOUNT_FORMAT.format(value);
+  return formatted === "-0" ? "0" : formatted;
+}
 
 // The compact unit label for an amount, using the singular form when the amount
 // is exactly 1 (e.g. "1 call" vs "5 calls"). Unit symbols that don't inflect
@@ -742,7 +749,7 @@ function UsageLimitMetricRow({
           <Tooltip
             asChild
             delayDuration={TOOLTIP_DELAY_MS}
-            tip={`${AMOUNT_FORMAT.format(currentUsage)} ${config.rawUnit} used this ${window}.`}
+            tip={`${formatAmount(currentUsage)} ${config.rawUnit} used this ${window}.`}
             side="bottom"
           >
             <span className="w-fit text-sm text-content-primary tabular-nums">
@@ -920,8 +927,7 @@ function UsageLimitThreshold({
         />
       )}
       <span className="text-sm text-content-primary tabular-nums">
-        {AMOUNT_FORMAT.format(limit.limit)}{" "}
-        {rawUnitShortFor(config, limit.limit)}
+        {formatAmount(limit.limit)} {rawUnitShortFor(config, limit.limit)}
       </span>
       {!limit.enabled && <InactivePill />}
       {isTriggered && <TriggeredBadge limitType={limit.limitType} />}
@@ -1145,7 +1151,7 @@ function UsageLimitThresholdEditor({
           max={MAX_USAGE_LIMIT_VALUE}
           step={config.rawStep}
           // Hint the ~$100/mo default amount for this metric/window.
-          placeholder={AMOUNT_FORMAT.format(config.defaultAmount)}
+          placeholder={formatAmount(config.defaultAmount)}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           rightAddon={

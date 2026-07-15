@@ -23,7 +23,7 @@ import {
   METRIC_CONFIG,
   WINDOW_SUFFIX,
   LIMIT_TYPE_LABEL,
-  AMOUNT_FORMAT,
+  formatAmount,
   type UsageMetric,
   type UsageLimitWindow,
   type UsageLimitType,
@@ -677,7 +677,7 @@ function UsageLimitSummary({
       <span className="font-semibold">{metricName}</span>
       <span>
         {" ("}
-        {AMOUNT_FORMAT.format(Number(config.limit))} {unit} {windowSuffix}
+        {formatAmount(Number(config.limit))} {unit} {windowSuffix}
         {showStatus && (config.enabled ? ", enabled" : ", disabled")})
       </span>
     </>
@@ -695,8 +695,8 @@ function UsageLimitUpdateBody({
   if (previous.limit !== current.limit) {
     rows.push({
       label: "Limit",
-      from: `${AMOUNT_FORMAT.format(Number(previous.limit))} ${unit} ${windowSuffix}`,
-      to: `${AMOUNT_FORMAT.format(Number(current.limit))} ${unit} ${windowSuffix}`,
+      from: `${formatAmount(Number(previous.limit))} ${unit} ${windowSuffix}`,
+      to: `${formatAmount(Number(current.limit))} ${unit} ${windowSuffix}`,
     });
   }
   if (previous.enabled !== current.enabled) {
