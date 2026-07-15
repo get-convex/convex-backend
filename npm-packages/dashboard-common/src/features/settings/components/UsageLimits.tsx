@@ -319,6 +319,8 @@ const SEED_STATUS_MESSAGE: Record<
     "We couldn't load this deployment's historical usage, so the usage shown below may understate its actual usage. Limits are still enforced going forward.",
 };
 
+const SEED_STATUS_GRACE_MS = 90 * 60 * 1000;
+
 // A callout shown while the historical-usage backfill is incomplete, warning
 // that the usage figures below may understate actual usage.
 function SeedStatusNote({
@@ -420,6 +422,7 @@ export function UsageLimits({
   unbilledMetrics = {},
   currentUsage = {},
   seedStatus,
+  deploymentCreateTime,
   deploymentType,
   billingUri,
   writePermissionTip = "You do not have permission to modify usage limits.",
@@ -445,6 +448,7 @@ export function UsageLimits({
   // Progress of the historical-usage backfill. When not "complete", the current
   // usage figures may understate actual usage, so we note that to the user.
   seedStatus?: UsageSeedStatus;
+  deploymentCreateTime?: number;
   // The current deployment's type. Dev deployments send no email when a limit
   // is exceeded, so their warning threshold is disabled and their disable
   // threshold notes no email is sent; prod/preview/custom email all team
@@ -560,9 +564,12 @@ export function UsageLimits({
         </p>
       </div>
 
-      {seedStatus !== undefined && seedStatus !== "complete" && (
-        <SeedStatusNote seedStatus={seedStatus} />
-      )}
+      {seedStatus !== undefined &&
+        seedStatus !== "complete" &&
+        !(
+          deploymentCreateTime !== undefined &&
+          Date.now() - deploymentCreateTime < SEED_STATUS_GRACE_MS
+        ) && <SeedStatusNote seedStatus={seedStatus} />}
 
       <div className="flex flex-col gap-2">
         <Tooltip
