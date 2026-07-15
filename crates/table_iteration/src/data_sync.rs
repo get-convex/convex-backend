@@ -128,6 +128,7 @@ use common::{
         Timestamp,
     },
 };
+use errors::ErrorMetadata;
 use futures::{
     pin_mut,
     StreamExt,
@@ -425,6 +426,14 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             },
         };
 
+        anyhow::ensure!(
+            cursor.synced_ts <= *latest,
+            ErrorMetadata::bad_request(
+                "InvalidDataSyncCursor",
+                "data sync cursor is ahead of the deployment's latest timestamp",
+            )
+        );
+
         let use_by_id = match &cursor.table_cursor {
             // Nothing left to traverse in the ID dimension; only the `ts`
             // dimension can make progress (or hold us at a consistent snapshot).
@@ -433,7 +442,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                 false
             },
             TableCursor::InProgress { .. } => {
-                // `latest >= synced_ts` always holds, so this subtraction is safe.
+                // `synced_ts <= latest` is enforced above, so this subtraction is safe.
                 let lag = *latest - cursor.synced_ts;
                 let fresh = lag < self.by_id_freshness;
                 if !fresh {
@@ -533,8 +542,10 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             }
         }
 
-        cursor.num_docs_synced += entries.len() as u64;
-        cursor.current_table_docs_synced += entries.len() as u64;
+        cursor.num_docs_synced = cursor.num_docs_synced.saturating_add(entries.len() as u64);
+        cursor.current_table_docs_synced = cursor
+            .current_table_docs_synced
+            .saturating_add(entries.len() as u64);
 
         // The table is exhausted only if we emitted the whole fetched page and it
         // wasn't a full page. If either limit stopped us, there is more to read.
@@ -684,7 +695,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         }
 
         cursor.synced_ts = new_synced_ts;
-        cursor.num_docs_synced += entries.len() as u64;
+        cursor.num_docs_synced = cursor.num_docs_synced.saturating_add(entries.len() as u64);
         // Every re-emitted document is captured, so its predecessor was already
         // emitted by this iterator — attach it (when requested) so consumers
         // can compute deltas.
