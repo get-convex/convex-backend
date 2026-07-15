@@ -69,6 +69,7 @@ export type DeploymentOp =
   | "RunInternalActions"
   | "RunTestQuery"
   | "ViewAuditLog"
+  | "ViewUsage"
   | "ViewUsageLimits"
   | "WriteUsageLimits";
 

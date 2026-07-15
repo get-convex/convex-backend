@@ -121,6 +121,7 @@ export const DEPLOYMENT_OP_TO_ACTION: Record<
   ViewLogs: "deployment:logs:view",
   ViewMetrics: "deployment:metrics:view",
   ViewAuditLog: "deployment:auditLog:view",
+  ViewUsage: "deployment:usage:view",
   ViewUsageLimits: "deployment:usageLimits:view",
   WriteUsageLimits: "deployment:usageLimits:write",
   ViewIntegrations: "deployment:integrations:view",
