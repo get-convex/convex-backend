@@ -1,10 +1,19 @@
-use std::time::SystemTime;
+use std::{
+    collections::BTreeMap,
+    time::SystemTime,
+};
 
-use common::runtime::Runtime;
+use common::{
+    errors::report_error_sync,
+    runtime::Runtime,
+};
 use model::usage_limits::types::UsageLimitMetric;
 
 use crate::{
+    metrics::log_app_metrics_seed_comparison,
     usage_limits::{
+        SeedComparison,
+        SeedComparisonResult,
         SeedRow,
         UsageMetricResolution,
     },
@@ -105,13 +114,13 @@ impl<RT: Runtime> Application<RT> {
                 })
             })
             .collect();
-        // TODO(ENG-10808): while enforcement is log-only, monitor these
-        // seeded (Databricks) totals against the live Meter. On new data the
-        // Meter running higher is expected (Databricks lags); Databricks
-        // higher on new data, or a gap >= 1 on historical data, is a bug.
-        let num_buckets = self
+        let SeedComparisonResult {
+            num_buckets,
+            comparisons,
+        } = self
             .usage_meter()
             .seed_rows(seed_rows, self.runtime().system_time());
+        self.report_seed_comparisons(&comparisons);
         if unknown > 0 {
             tracing::warn!(
                 "App-metrics seed for {deployment_name}: skipped {unknown} row(s) with \
@@ -122,5 +131,45 @@ impl<RT: Runtime> Application<RT> {
             "Seeded app metrics for {deployment_name}: {num_buckets} bucket(s) from {num_rows} \
              row(s)",
         );
+    }
+
+    /// Report one seed pass's meter-vs-seed comparisons: a counter per
+    /// compared bucket, and a Sentry error per (metric, kind) for the bug
+    /// classes, carrying the pass's worst-offending bucket.
+    fn report_seed_comparisons(&self, comparisons: &[SeedComparison]) {
+        // Counting every class, `match` included, gives alerts a denominator.
+        let mut bugs: BTreeMap<(&'static str, &'static str), (usize, &SeedComparison)> =
+            BTreeMap::new();
+        for comparison in comparisons {
+            log_app_metrics_seed_comparison(
+                comparison.metric.metric_name(),
+                comparison.resolution.into(),
+                comparison.kind.into(),
+            );
+            if !comparison.kind.is_bug() {
+                continue;
+            }
+            let gap = (comparison.seed_value - comparison.meter_value).abs();
+            bugs.entry((comparison.metric.metric_name(), comparison.kind.into()))
+                .and_modify(|(count, worst)| {
+                    *count += 1;
+                    if gap > (worst.seed_value - worst.meter_value).abs() {
+                        *worst = comparison;
+                    }
+                })
+                .or_insert((1, comparison));
+        }
+        // Leading with the stable `{metric} ({kind})` groups a broken metric
+        // into one Sentry issue; the per-pass numbers trail it, and the
+        // deployment rides the ambient Sentry scope.
+        for ((metric, kind), (count, worst)) in bugs {
+            report_error_sync(&mut anyhow::anyhow!(
+                "Usage-limit seed discrepancy on {metric} ({kind}): {count} bucket(s), worst \
+                 {resolution} bucket meter={meter} seed={seed}",
+                resolution = <&str>::from(worst.resolution),
+                meter = worst.meter_value,
+                seed = worst.seed_value,
+            ));
+        }
     }
 }

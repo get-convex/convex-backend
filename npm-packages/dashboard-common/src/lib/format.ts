@@ -393,6 +393,7 @@ export function formatNumber(value: number | null): string | null {
 const NUMBER_FORMAT_COMPACT = new Intl.NumberFormat("en-US", {
   notation: "compact",
   compactDisplay: "short",
+  roundingMode: "trunc",
 });
 // Compact formatter that keeps up to `maximumFractionDigits` decimals. Default
 // compact notation drops the fractional part once the magnitude reaches ~2
@@ -415,21 +416,24 @@ export function formatNumberCompact(
   maximumFractionDigits?: number,
 ): string | null {
   if (value === null) return null;
-  if (maximumFractionDigits === undefined) {
-    return NUMBER_FORMAT_COMPACT.format(value);
+  let formatter = NUMBER_FORMAT_COMPACT;
+  if (maximumFractionDigits !== undefined) {
+    let cached = NUMBER_FORMAT_COMPACT_WITH_DECIMALS.get(maximumFractionDigits);
+    if (cached === undefined) {
+      cached = new Intl.NumberFormat("en-US", {
+        notation: "compact",
+        compactDisplay: "short",
+        maximumFractionDigits,
+        roundingMode: "trunc",
+      });
+      NUMBER_FORMAT_COMPACT_WITH_DECIMALS.set(maximumFractionDigits, cached);
+    }
+    formatter = cached;
   }
-  let formatter = NUMBER_FORMAT_COMPACT_WITH_DECIMALS.get(
-    maximumFractionDigits,
-  );
-  if (formatter === undefined) {
-    formatter = new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      compactDisplay: "short",
-      maximumFractionDigits,
-    });
-    NUMBER_FORMAT_COMPACT_WITH_DECIMALS.set(maximumFractionDigits, formatter);
-  }
-  return formatter.format(value);
+  const formatted = formatter.format(value);
+  // Intl renders -0 (and tiny negatives that round to zero) as "-0"; never
+  // surface a signed zero.
+  return formatted === "-0" ? "0" : formatted;
 }
 
 export function msFormat(n: number): string {

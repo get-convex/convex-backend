@@ -3,7 +3,10 @@
 
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{
+        HashMap,
+        HashSet,
+    },
     sync::Arc,
     time::{
         Duration,
@@ -40,11 +43,17 @@ use model::{
         DeploymentAuditLogModel,
     },
     usage_limits::{
-        types::UsageLimitWindow,
+        types::{
+            UsageLimitConfig,
+            UsageLimitWindow,
+        },
         UsageLimitsModel,
     },
 };
-use value::DeveloperDocumentId;
+use value::{
+    DeveloperDocumentId,
+    ResolvedDocumentId,
+};
 
 use super::{
     meter::{
@@ -134,7 +143,7 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
     /// reloads.
     async fn run(&mut self) -> anyhow::Result<()> {
         let mut tx = self.database.begin(Identity::system()).await?;
-        let configs = UsageLimitsModel::new(&mut tx)
+        let configs: Vec<(ResolvedDocumentId, UsageLimitConfig)> = UsageLimitsModel::new(&mut tx)
             .list()
             .await?
             .into_iter()
@@ -144,6 +153,7 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
             })
             .collect();
         let token = tx.into_token()?;
+        self.prune_reported(&configs);
         self.meter.refresh_configs(configs);
         let database = self.database.clone();
         let invalidated = database.subscribe_and_wait_for_invalidation(token).fuse();
@@ -181,6 +191,16 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
                 window_start,
                 highest_reported: limit,
             });
+    }
+
+    /// Drop reporting watermarks for limits absent from `configs`.
+    /// A limit recreated later gets a fresh id, so its watermark starts clean.
+    fn prune_reported(&mut self, configs: &[(ResolvedDocumentId, UsageLimitConfig)]) {
+        let live: HashSet<DeveloperDocumentId> = configs
+            .iter()
+            .map(|(id, _)| DeveloperDocumentId::from(*id))
+            .collect();
+        self.reported.retain(|id, _| live.contains(id));
     }
 
     async fn evaluate_once(&mut self) -> anyhow::Result<()> {

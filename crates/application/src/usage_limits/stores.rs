@@ -32,8 +32,9 @@ const HOURLY_BUCKET_WIDTH: Duration = Duration::from_secs(60 * 60);
 const DAILY_BUCKET_WIDTH: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// The resolutions usage is stored at; a seed row targets exactly one of
-/// them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// them. `IntoStaticStr` supplies the metric-label name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum UsageMetricResolution {
     Minutely,
     Hourly,
@@ -47,6 +48,14 @@ impl UsageMetricResolution {
             UsageMetricResolution::Hourly => HOURLY_BUCKET_WIDTH,
             UsageMetricResolution::Daily => DAILY_BUCKET_WIDTH,
         }
+    }
+
+    /// The calendar-aligned bucket containing `ts` at this resolution,
+    /// start-inclusive/end-exclusive.
+    pub(super) fn bucket_range(&self, ts: SystemTime) -> anyhow::Result<Range<SystemTime>> {
+        let width = self.bucket_width();
+        let start = floor_to_utc_width(ts, width)?;
+        Ok(start..start + width)
     }
 
     fn max_buckets(&self) -> u64 {
@@ -121,9 +130,29 @@ impl UsageMetricStores {
         now: SystemTime,
     ) -> anyhow::Result<f64> {
         let range = window_range(window, now)?;
-        Ok(self
-            .store(window_resolution(window))
-            .sum_counter(metric_name, &range))
+        Ok(self.sum_range(window_resolution(window), metric_name, &range))
+    }
+
+    /// The current total of the single bucket containing `ts` at
+    /// `resolution`, in the metric's raw unit.
+    pub fn bucket_total(
+        &self,
+        resolution: UsageMetricResolution,
+        metric_name: &str,
+        ts: SystemTime,
+    ) -> anyhow::Result<f64> {
+        let range = resolution.bucket_range(ts)?;
+        Ok(self.sum_range(resolution, metric_name, &range))
+    }
+
+    /// Sum a metric over a time range within one resolution's store.
+    fn sum_range(
+        &self,
+        resolution: UsageMetricResolution,
+        metric_name: &str,
+        range: &Range<SystemTime>,
+    ) -> f64 {
+        self.store(resolution).sum_counter(metric_name, range)
     }
 
     fn store(&self, resolution: UsageMetricResolution) -> &SeedableCounterStore {

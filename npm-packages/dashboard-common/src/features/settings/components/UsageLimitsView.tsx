@@ -107,6 +107,7 @@ function UsageLimitsContent({
       unbilledMetrics={unbilledMetrics}
       currentUsage={currentUsage}
       seedStatus={seedStatus}
+      deploymentCreateTime={deployment?.createTime}
       deploymentType={deployment?.deploymentType}
       billingUri={billingUri}
       onCreate={createUsageLimit}

@@ -245,9 +245,16 @@ function windowTriggerCounts(
   };
 }
 
-export const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
+const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
+
+// Format a usage amount. Intl renders -0 (and tiny negatives that round to
+// zero) as "-0"; never surface a signed zero.
+export function formatAmount(value: number): string {
+  const formatted = AMOUNT_FORMAT.format(value);
+  return formatted === "-0" ? "0" : formatted;
+}
 
 // The compact unit label for an amount, using the singular form when the amount
 // is exactly 1 (e.g. "1 call" vs "5 calls"). Unit symbols that don't inflect
@@ -318,6 +325,8 @@ const SEED_STATUS_MESSAGE: Record<
   failed:
     "We couldn't load this deployment's historical usage, so the usage shown below may understate its actual usage. Limits are still enforced going forward.",
 };
+
+const SEED_STATUS_GRACE_MS = 90 * 60 * 1000;
 
 // A callout shown while the historical-usage backfill is incomplete, warning
 // that the usage figures below may understate actual usage.
@@ -420,6 +429,7 @@ export function UsageLimits({
   unbilledMetrics = {},
   currentUsage = {},
   seedStatus,
+  deploymentCreateTime,
   deploymentType,
   billingUri,
   writePermissionTip = "You do not have permission to modify usage limits.",
@@ -445,6 +455,7 @@ export function UsageLimits({
   // Progress of the historical-usage backfill. When not "complete", the current
   // usage figures may understate actual usage, so we note that to the user.
   seedStatus?: UsageSeedStatus;
+  deploymentCreateTime?: number;
   // The current deployment's type. Dev deployments send no email when a limit
   // is exceeded, so their warning threshold is disabled and their disable
   // threshold notes no email is sent; prod/preview/custom email all team
@@ -560,9 +571,12 @@ export function UsageLimits({
         </p>
       </div>
 
-      {seedStatus !== undefined && seedStatus !== "complete" && (
-        <SeedStatusNote seedStatus={seedStatus} />
-      )}
+      {seedStatus !== undefined &&
+        seedStatus !== "complete" &&
+        !(
+          deploymentCreateTime !== undefined &&
+          Date.now() - deploymentCreateTime < SEED_STATUS_GRACE_MS
+        ) && <SeedStatusNote seedStatus={seedStatus} />}
 
       <div className="flex flex-col gap-2">
         <Tooltip
@@ -735,7 +749,7 @@ function UsageLimitMetricRow({
           <Tooltip
             asChild
             delayDuration={TOOLTIP_DELAY_MS}
-            tip={`${AMOUNT_FORMAT.format(currentUsage)} ${config.rawUnit} used this ${window}.`}
+            tip={`${formatAmount(currentUsage)} ${config.rawUnit} used this ${window}.`}
             side="bottom"
           >
             <span className="w-fit text-sm text-content-primary tabular-nums">
@@ -913,8 +927,7 @@ function UsageLimitThreshold({
         />
       )}
       <span className="text-sm text-content-primary tabular-nums">
-        {AMOUNT_FORMAT.format(limit.limit)}{" "}
-        {rawUnitShortFor(config, limit.limit)}
+        {formatAmount(limit.limit)} {rawUnitShortFor(config, limit.limit)}
       </span>
       {!limit.enabled && <InactivePill />}
       {isTriggered && <TriggeredBadge limitType={limit.limitType} />}
@@ -1138,7 +1151,7 @@ function UsageLimitThresholdEditor({
           max={MAX_USAGE_LIMIT_VALUE}
           step={config.rawStep}
           // Hint the ~$100/mo default amount for this metric/window.
-          placeholder={AMOUNT_FORMAT.format(config.defaultAmount)}
+          placeholder={formatAmount(config.defaultAmount)}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           rightAddon={

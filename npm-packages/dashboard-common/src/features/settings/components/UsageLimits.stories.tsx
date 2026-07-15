@@ -331,6 +331,17 @@ export const SeedFailed: Story = {
   },
 };
 
+// A freshly created deployment has no historical usage to load yet, so the seed
+// status callout is suppressed even though the backfill isn't "complete".
+export const SeedInProgressNewDeployment: Story = {
+  args: {
+    usageLimits: EXAMPLE_USAGE_LIMITS,
+    currentUsage: EXAMPLE_CURRENT_USAGE,
+    seedStatus: "pending",
+    deploymentCreateTime: Date.now(),
+  },
+};
+
 // Some metrics aren't billed on this plan/deployment. A configured unbilled
 // metric pins to the top of its window with a callout.
 export const WithUnbilledMetrics: Story = {
