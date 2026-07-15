@@ -81,8 +81,34 @@ runs:
     # this step runs, the cache key used for storing the job outputs will not
     # match the cache key used for restoring.
     - name: Cached load of cargo registry
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      uses: get-convex/rust-cache@afa9e83d23492b0f5abfc75bdc109dbd8a2e5e18 # agent/s3-cache-provider
+      env:
+        # The S3 provider reads the region from the environment; credentials
+        # come from the runner's instance profile via the SDK default chain.
+        AWS_REGION: us-west-2
       with:
+        cache-provider: "s3"
+        # Bucket and region are hardcoded like the sccache R2 endpoint above;
+        # composite actions cannot read `vars.*`. Self-hosted runners (shared
+        # by this repo and the copybara-exported OSS repo) reach this in-VPC
+        # bucket; GitHub-hosted runners (the OSS mac/windows precompile jobs)
+        # can't, so the empty bucket makes the fork fall back to the GitHub
+        # cache provider there.
+        s3-bucket:
+          ${{ runner.environment == 'self-hosted' && 'convex-ci-cache' || '' }}
+        # One shared cache entry for all jobs instead of a per-job key; the
+        # jobs' cargo registries are near-identical and the entry is only
+        # ~/.cargo (registry + git checkouts), not job-specific artifacts.
+        shared-key: cargo-registry
         # Only cache the `.cargo` directory; not build artifacts.
         cache-targets: "false"
-        cache-provider: "buildjet"
+        cache-bin: "false"
+        # The shared S3 entry has no branch scoping and ~/.cargo contents are
+        # executed on restore, so on self-hosted runners only the protected
+        # main/release branches may write it; PRs restore read-only. On
+        # GitHub-hosted runners (OSS mac/windows) the empty bucket falls back
+        # to GitHub's own branch-scoped cache, which is safe to save on any
+        # branch -- so keep the default there rather than starving those jobs.
+        save-if: >-
+          ${{ runner.environment != 'self-hosted' || github.ref ==
+          'refs/heads/main' || github.ref == 'refs/heads/release' }}
