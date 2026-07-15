@@ -187,7 +187,7 @@ export function QuickFrameworksList() {
           invertIcon: true,
           href: "/quickstart/react-native",
           docId: "quickstart/react-native",
-          label: "React Native",
+          label: "Expo / React Native",
         },
         {
           icon: <VueLogo height={40} />,
