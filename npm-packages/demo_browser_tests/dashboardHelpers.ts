@@ -1,5 +1,5 @@
 import { argv } from "node:process";
-import { Page } from "puppeteer";
+import { Locator, Page } from "puppeteer";
 
 export const DASHBOARD_URL = "http://localhost:6789";
 
@@ -14,8 +14,14 @@ export async function loginToDashboard(page: Page, path: string = "") {
   await page.waitForSelector('input[name="email"]', { visible: true });
   await page.type(`input[name="email"]`, argv[2]);
 
+  // WorkOS AuthKit labels the email-submit button "Continue with email" when
+  // social login providers are enabled and "Continue" when they aren't; accept
+  // either. A Locator (unlike page.click) also waits for the button to appear.
   await Promise.all([
-    page.click("aria/Continue"),
+    Locator.race([
+      page.locator("aria/Continue with email"),
+      page.locator("aria/Continue"),
+    ]).click(),
     page.waitForNavigation({ waitUntil: "networkidle0" }),
   ]);
 
