@@ -291,17 +291,15 @@ impl<RT: Runtime> Isolate<RT> {
         // The heap should have enough memory available.
         let stats = self.v8_isolate.get_heap_statistics();
         log_heap_statistics(&stats);
-        if stats.total_available_size() < *ISOLATE_MAX_USER_HEAP_SIZE {
-            if !context_cache.report_memory_pressure(true) {
-                self.handle
-                    .terminate(IsolateTerminationReason::OutOfMemory.into());
-                return Err(IsolateNotClean::TooMuchMemoryCarryOver(
-                    stats.total_available_size().format_size(BINARY),
-                    stats.heap_size_limit().format_size(BINARY),
-                ));
-            }
-        } else {
-            context_cache.report_memory_pressure(false);
+        if stats.total_available_size() < *ISOLATE_MAX_USER_HEAP_SIZE
+            && !context_cache.has_saved_context()
+        {
+            self.handle
+                .terminate(IsolateTerminationReason::OutOfMemory.into());
+            return Err(IsolateNotClean::TooMuchMemoryCarryOver(
+                stats.total_available_size().format_size(BINARY),
+                stats.heap_size_limit().format_size(BINARY),
+            ));
         }
         if stats.number_of_detached_contexts() > 0 {
             return Err(IsolateNotClean::DetachedContext(
