@@ -63,6 +63,20 @@ export function CursorInlineMention() {
   );
 }
 
+// An inline "Codex" reference (icon + name) for use in a sentence,
+// e.g. "<CodexInlineMention /> gets these rules from the plugin instead."
+export function CodexInlineMention() {
+  return (
+    <span className="inline-flex items-baseline">
+      <CodexLogo
+        aria-hidden="true"
+        className="size-[1em] shrink-0 self-center"
+      />
+      &nbsp;<span className="font-semibold">Codex</span>
+    </span>
+  );
+}
+
 // This is a variant of DocsCardList.tsx specifically for the Quickstarts page.
 type Item = {
   docId: string;
