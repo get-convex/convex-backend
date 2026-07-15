@@ -16,19 +16,21 @@ use common::{
     },
 };
 use futures::FutureExt;
-use isolate::environment::helpers::module_loader::get_modules_and_prefetch;
+use isolate::{
+    environment::helpers::module_loader::get_modules_and_prefetch,
+    module_cache::V8ModuleSource,
+};
 use model::{
-    config::module_loader::ModuleLoader,
-    modules::{
-        module_versions::FullModuleSource,
-        types::ModuleMetadata,
-    },
+    modules::types::ModuleMetadata,
     source_packages::types::SourcePackage,
 };
 use moka::sync::Cache;
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
-use value::sha256::Sha256Digest;
+use value::{
+    heap_size::HeapSize,
+    sha256::Sha256Digest,
+};
 
 use crate::record_module_sizes;
 
@@ -41,7 +43,7 @@ pub(crate) struct ModuleCacheKey {
 
 #[derive(Clone)]
 pub(crate) struct ModuleCache<RT: Runtime>(
-    AsyncLru<RT, ModuleCacheKey, FullModuleSource, (String, Sha256Digest)>,
+    AsyncLru<RT, ModuleCacheKey, V8ModuleSource, (String, Sha256Digest)>,
 );
 
 impl<RT: Runtime> ModuleCache<RT> {
@@ -87,13 +89,13 @@ impl<RT: Runtime> FunctionRunnerModuleLoader<RT> {
 }
 
 #[async_trait]
-impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
+impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModuleLoader<RT> {
     #[fastrace::trace]
     async fn get_module_with_metadata(
         &self,
         module_metadata: &ParsedDocument<ModuleMetadata>,
         source_package: &ParsedDocument<SourcePackage>,
-    ) -> anyhow::Result<Arc<FullModuleSource>> {
+    ) -> anyhow::Result<Arc<V8ModuleSource>> {
         let deployment_name = self.deployment_name.clone();
         let key = self.cache_key(module_metadata);
         let modules_storage = self.modules_storage.clone();
@@ -104,37 +106,31 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             .get_and_prepopulate(
                 key,
                 (deployment_name.clone(), source_package.sha256.clone()),
-                async move {
-                    let modules = try_join("get_modules_and_prefetch", async move {
-                        get_modules_and_prefetch(modules_storage, &source_package).await
-                    })
-                    .await?;
-                    Ok(modules
-                        .into_iter()
-                        .map(move |((module_path, sha256), source)| {
+                try_join("get_modules_and_prefetch", async move {
+                    Ok(get_modules_and_prefetch(modules_storage, &source_package)
+                        .await?
+                        .map(move |(module_path, sha256, source)| {
                             (
                                 ModuleCacheKey {
                                     deployment_name: deployment_name.clone(),
                                     module_path,
                                     sha256,
                                 },
-                                source,
+                                Arc::new(V8ModuleSource::new(source)),
                             )
                         })
                         .collect())
-                }
+                })
                 .boxed(),
             )
             .await?;
         record_module_sizes(
-            result.source.len(),
-            result.source_map.as_ref().map(|sm| sm.len()),
+            result.source().heap_size(),
+            result.source_map().map(|sm| sm.len()),
         );
         Ok(result)
     }
-}
 
-impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModuleLoader<RT> {
     fn put_cached_code(&self, module_metadata: &ModuleMetadata, cached_data: Arc<[u8]>) {
         self.code_cache
             .0

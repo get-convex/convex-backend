@@ -177,7 +177,10 @@ function currentUsageKey(deploymentUrl: string) {
   return ["currentUsage", deploymentUrl] as const;
 }
 
-export function useCurrentUsage(): {
+// `enabled` gates the fetch on the caller's `deployment:usage:view`
+// permission — passing `false` (or a still-loading `undefined`) skips the
+// request so we never hit `/get_current_usage` without the permission.
+export function useCurrentUsage(enabled: boolean = true): {
   currentUsage: CurrentUsage | undefined;
   seedStatus: UsageSeedStatus | undefined;
   isLoading: boolean;
@@ -186,7 +189,7 @@ export function useCurrentUsage(): {
   const adminKey = useAdminKey();
   const { reportHttpError } = useContext(DeploymentInfoContext);
   const { data, isLoading } = useSWR(
-    currentUsageKey(deploymentUrl),
+    enabled ? currentUsageKey(deploymentUrl) : null,
     async () => {
       const client = createDeploymentClient(deploymentUrl, adminKey);
       const {

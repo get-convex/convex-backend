@@ -62,7 +62,6 @@ use model::{
             AnalyzedHttpRoutes,
             AnalyzedModule,
             AnalyzedSourcePosition,
-            FullModuleSource,
             Visibility,
         },
         user_error::{
@@ -114,6 +113,7 @@ use crate::{
         log_source_map_origin_in_separate_module,
         log_source_map_token_lookup_failed,
     },
+    module_cache::V8ModuleSource,
     request_scope::RequestScope,
     strings::{
         self,
@@ -122,7 +122,7 @@ use crate::{
 };
 
 pub struct AnalyzeEnvironment {
-    modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>>,
+    modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<V8ModuleSource>>>,
     // This is used to lazily cache the result of sourcemap::SourceMap::from_slice across
     // modules and functions. There are certain source maps whose source origin we don't
     // need to construct during analysis (i.e. if all of the UDFs it defines have function
@@ -193,7 +193,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         let p = ModulePath::from_str(path)?.canonicalize();
         let result = self.modules.get(&p).cloned();
         Ok(result.map(|m| (m, ModuleCodeCacheResult::noop())))
@@ -261,7 +261,7 @@ impl AnalyzeEnvironment {
         context_cache: &mut ContextCache,
         isolate_clean: &mut bool,
         udf_config: UdfConfig,
-        modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>>,
+        modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<V8ModuleSource>>>,
         to_analyze: CanonicalizedModulePath,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<AnalyzedModule, JsError>> {
@@ -336,8 +336,7 @@ impl AnalyzeEnvironment {
                     .get(path)
                     .context("could not find module config in environment")?;
                 let source_map = module_config
-                    .source_map
-                    .as_ref()
+                    .source_map()
                     .and_then(|m| source_map_from_slice(m.as_bytes()));
 
                 // cache it

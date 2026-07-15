@@ -77,10 +77,7 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::{
-        module_versions::FullModuleSource,
-        user_error::FunctionNotFoundError,
-    },
+    modules::user_error::FunctionNotFoundError,
 };
 use parking_lot::Mutex;
 use rand_chacha::ChaCha12Rng;
@@ -179,6 +176,7 @@ use crate::{
         log_isolate_request_cancelled,
         log_unawaited_pending_op,
     },
+    module_cache::V8ModuleSource,
     ops::OpProvider,
     request_scope::{
         RequestScope,
@@ -1410,7 +1408,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         &mut self,
         path: &str,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         let user_module_path: ModulePath = path.parse()?;
         let result = self.phase.get_module(&user_module_path, timeout)?;
         Ok(result)

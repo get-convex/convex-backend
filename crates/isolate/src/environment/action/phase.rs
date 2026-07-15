@@ -41,7 +41,6 @@ use model::{
         EnvironmentVariablesModel,
     },
     modules::{
-        module_versions::FullModuleSource,
         types::ModuleMetadata,
         ModuleModel,
     },
@@ -77,7 +76,10 @@ use crate::{
         },
         ModuleCodeCacheResult,
     },
-    module_cache::ModuleCache,
+    module_cache::{
+        ModuleCache,
+        V8ModuleSource,
+    },
     timeout::{
         PauseReason,
         Timeout,
@@ -119,7 +121,7 @@ enum ActionPreloaded<RT: Runtime> {
         module_loader: Arc<dyn ModuleCache<RT>>,
         modules: BTreeMap<
             CanonicalizedModulePath,
-            (Arc<ParsedDocument<ModuleMetadata>>, Arc<FullModuleSource>),
+            (Arc<ParsedDocument<ModuleMetadata>>, Arc<V8ModuleSource>),
         >,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
@@ -344,7 +346,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         &mut self,
         module_path: &ModulePath,
         _timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         let ActionPreloaded::Ready {
             ref module_loader,
             ref modules,

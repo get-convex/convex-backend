@@ -155,8 +155,12 @@ pub static KILL_APP_METRICS_SEED_WORKER: LazyLock<bool> =
 /// takes a comma-separated `instance_names` parameter and returns rolled up
 /// usage data. Defaults to the the empty string, which means the worker will be
 /// disabled.
-pub static APP_METRICS_SEED_QUERY_ID: LazyLock<String> =
-    LazyLock::new(|| env_config("APP_METRICS_SEED_QUERY_ID", "".to_string()));
+pub static APP_METRICS_SEED_QUERY_ID: LazyLock<String> = LazyLock::new(|| {
+    env_config(
+        "APP_METRICS_SEED_QUERY_ID",
+        "093c29d3-1001-4bbc-9315-eff7e9f9f0c2".to_string(),
+    )
+});
 
 /// How often the heap worker reports metrics.
 pub static HEAP_WORKER_REPORT_INTERVAL_SECONDS: LazyLock<Duration> =

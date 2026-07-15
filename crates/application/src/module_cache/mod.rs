@@ -68,8 +68,13 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
             .get_and_prepopulate(
                 key,
                 source_package.sha256.clone(),
-                async move { get_modules_and_prefetch(modules_storage, &source_package).await }
-                    .boxed(),
+                async move {
+                    Ok(get_modules_and_prefetch(modules_storage, &source_package)
+                        .await?
+                        .map(|(path, sha256, source)| ((path, sha256), Arc::new(source)))
+                        .collect())
+                }
+                .boxed(),
             )
             .await?;
 

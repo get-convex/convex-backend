@@ -41,10 +41,7 @@ use model::{
         EnvironmentVariablesModel,
         PreloadedEnvironmentVariables,
     },
-    modules::{
-        module_versions::FullModuleSource,
-        ModuleModel,
-    },
+    modules::ModuleModel,
     source_packages::{
         types::SourcePackage,
         SourcePackageModel,
@@ -83,7 +80,10 @@ use crate::{
         },
         ModuleCodeCacheResult,
     },
-    module_cache::ModuleCache,
+    module_cache::{
+        ModuleCache,
+        V8ModuleSource,
+    },
     timeout::{
         PauseReason,
         Timeout,
@@ -362,7 +362,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         &mut self,
         module_path: &ModulePath,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         if self.phase != Phase::Importing {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDynamicImport",

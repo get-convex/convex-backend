@@ -3,12 +3,9 @@ use std::{
     time::Duration,
 };
 
-use model::{
-    environment_variables::types::{
-        EnvVarName,
-        EnvVarValue,
-    },
-    modules::module_versions::FullModuleSource,
+use model::environment_variables::types::{
+    EnvVarName,
+    EnvVarValue,
 };
 
 use self::crypto_rng::CryptoRng;
@@ -38,6 +35,7 @@ use value::NamespacedTableMapping;
 pub use self::async_op::AsyncOpRequest;
 use crate::{
     isolate::IsolateHeapStats,
+    module_cache::V8ModuleSource,
     timeout::Timeout,
 };
 
@@ -64,7 +62,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         &mut self,
         path: &str,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>>;
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>>;
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue>;
     fn start_async_syscall(

@@ -25,6 +25,7 @@ import {
 export function UsageLimitsView() {
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canView = useIsOperationAllowed("ViewUsageLimits");
+  const canViewUsage = useIsOperationAllowed("ViewUsage");
   const canWrite = useIsOperationAllowed("WriteUsageLimits");
 
   // Usage limits is feature-flagged; if it's off, don't render it even when
@@ -45,7 +46,7 @@ export function UsageLimitsView() {
   return (
     <DeploymentSettingsLayout page="usage-limits">
       {canView ? (
-        <UsageLimitsContent canWrite={canWrite} />
+        <UsageLimitsContent canWrite={canWrite} canViewUsage={canViewUsage} />
       ) : (
         <Sheet className="max-w-3xl py-12">
           <NoPermissionMessage
@@ -58,7 +59,13 @@ export function UsageLimitsView() {
   );
 }
 
-function UsageLimitsContent({ canWrite }: { canWrite: boolean }) {
+function UsageLimitsContent({
+  canWrite,
+  canViewUsage,
+}: {
+  canWrite: boolean;
+  canViewUsage: boolean;
+}) {
   const { useCurrentDeployment, useCurrentTeam, useTeamPlanType, teamsURI } =
     useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
@@ -81,7 +88,7 @@ function UsageLimitsContent({ canWrite }: { canWrite: boolean }) {
     deployment?.kind === "cloud" ? `${teamsURI}/settings/billing` : undefined;
 
   const { usageLimits, isLoading } = useUsageLimits();
-  const { currentUsage, seedStatus } = useCurrentUsage();
+  const { currentUsage, seedStatus } = useCurrentUsage(canViewUsage);
   const createUsageLimit = useCreateUsageLimit();
   const updateUsageLimit = useUpdateUsageLimit();
   const deleteUsageLimit = useDeleteUsageLimit();
