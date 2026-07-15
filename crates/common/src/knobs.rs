@@ -112,6 +112,13 @@ pub static APP_METRICS_SEED_SWEEP_INTERVAL: LazyLock<Duration> =
 pub static USAGE_LIMIT_EVALUATE_INTERVAL: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("USAGE_LIMIT_EVALUATE_INTERVAL_SECS", 10)));
 
+/// webhook endpoint that receives "usage limit exceeded"
+/// notifications.
+/// Defaults to the empty string, which (together with a missing
+/// `DEPLOYMENT_USAGE_WEBHOOK_SECRET`) disables usage-limit emails.
+pub static DEPLOYMENT_USAGE_WEBHOOK_URL: LazyLock<String> =
+    LazyLock::new(|| env_config("DEPLOYMENT_USAGE_WEBHOOK_URL", "".to_string()));
+
 /// Delay before re-querying Databricks to backfill the most recent window that
 /// Databricks had not yet ingested at initial seed time. Databricks ingestion
 /// lags, so each deployment is seeded once at load and once

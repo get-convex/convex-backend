@@ -51,7 +51,7 @@ const replaceEnvironmentVariable = auditLogEventValidator(
 // `window`, and `limitType` are the string forms of the backend enums; `limit`
 // is a count of the metric's raw unit, stored as an int64.
 export const usageLimitConfig = v.object({
-  name: v.union(v.string(), v.null()),
+  name: v.optional(v.union(v.string(), v.null())),
   metric: v.string(),
   window: v.string(),
   limitType: v.string(),

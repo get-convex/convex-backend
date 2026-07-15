@@ -21,7 +21,6 @@ pub enum MetricUnit {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsageLimitConfig {
-    pub name: Option<String>,
     pub metric: UsageLimitMetric,
     pub window: UsageLimitWindow,
     pub limit_type: UsageLimitType,
@@ -38,7 +37,6 @@ impl UsageLimitConfig {
         enabled: bool,
     ) -> anyhow::Result<Self> {
         let config = Self {
-            name: None,
             metric,
             window,
             limit_type,
@@ -65,13 +63,6 @@ impl UsageLimitConfig {
             )
             .into());
         }
-        if matches!(self.name.as_deref(), Some("")) {
-            return Err(ErrorMetadata::bad_request(
-                "InvalidUsageLimitName",
-                "Usage limit names cannot be empty.",
-            )
-            .into());
-        }
         Ok(())
     }
 
@@ -84,17 +75,39 @@ pub struct UsageLimitKey {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::Display, strum::EnumIter,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::EnumIter,
+    Serialize,
+    Deserialize,
+    ToSchema,
 )]
 #[strum(serialize_all = "camelCase")]
+// The serde renames must match the strum camelCase output (heck
+// lower-camel-cases `GB` to `Gb`, which serde's `rename_all` would not);
+// `test_metric_serialized_names` pins both against each other.
 pub enum UsageLimitMetric {
+    #[serde(rename = "functionCalls")]
     FunctionCalls,
+    #[serde(rename = "databaseIoGb")]
     DatabaseIoGB,
+    #[serde(rename = "dataEgressGb")]
     DataEgressGB,
+    #[serde(rename = "searchQueryGb")]
     SearchQueryGB,
+    #[serde(rename = "queryMutationComputeGbHours")]
     QueryMutationComputeGBHours,
+    #[serde(rename = "actionComputeConvexGbHours")]
     ActionComputeConvexGBHours,
+    #[serde(rename = "actionComputeNodeJsGbHours")]
     ActionComputeNodeJsGBHours,
+    #[serde(rename = "actionComputeCpuGbHours")]
     ActionComputeCpuGBHours,
 }
 
@@ -199,10 +212,12 @@ pub enum UsageLimitType {
     Disable,
 }
 
+// A `name` field was once persisted here. It's been dropped: reads ignore the
+// leftover key on older `_usage_limits` documents (and audit-log entries), and
+// new writes simply omit it.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedUsageLimitConfig {
-    pub name: Option<String>,
     pub metric: String,
     pub window: String,
     pub limit_type: String,
@@ -221,7 +236,6 @@ impl TryFrom<UsageLimitConfig> for SerializedUsageLimitConfig {
     fn try_from(value: UsageLimitConfig) -> Result<Self, Self::Error> {
         value.validate()?;
         Ok(Self {
-            name: value.name,
             metric: value.metric.to_string(),
             window: value.window.to_string(),
             limit_type: value.limit_type.to_string(),
@@ -236,7 +250,6 @@ impl TryFrom<SerializedUsageLimitConfig> for UsageLimitConfig {
 
     fn try_from(value: SerializedUsageLimitConfig) -> Result<Self, Self::Error> {
         let config = Self {
-            name: value.name,
             metric: value.metric.parse()?,
             window: value.window.parse()?,
             limit_type: value.limit_type.parse()?,

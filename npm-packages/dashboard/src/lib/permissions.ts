@@ -134,6 +134,7 @@ const READ_ONLY_ACTIONS: RoleStatementAction[] = [
   "deployment:functions:runTestQuery",
   "deployment:auditLog:view",
   "deployment:usageLimits:view",
+  "deployment:usage:view",
   "deployment:logs:view",
   "deployment:metrics:view",
   "deployment:integrations:view",

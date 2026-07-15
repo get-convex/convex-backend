@@ -1126,3 +1126,66 @@ export class BaseConvexClient {
       });
   }
 }
+
+/**
+ * The public API of {@link BaseConvexClient}.
+ *
+ * @internal
+ */
+export interface BaseConvexClientInterface {
+  addOnTransitionHandler(fn: (transition: Transition) => void): () => void;
+
+  setAuth(
+    fetchToken: AuthTokenFetcher,
+    onChange: (isAuthenticated: boolean) => void,
+    onRefreshChange?: (isRefreshing: boolean) => void,
+  ): void;
+
+  /** @internal */
+  setAdminAuth(value: string, fakeUserIdentity?: UserIdentityAttributes): void;
+
+  clearAuth(): void;
+
+  subscribe(
+    name: string,
+    args?: Record<string, Value>,
+    options?: SubscribeOptions,
+  ): { queryToken: QueryToken; unsubscribe: () => void };
+
+  localQueryResult(
+    udfPath: string,
+    args?: Record<string, Value>,
+  ): Value | undefined;
+
+  localQueryResultByToken(queryToken: QueryToken): Value | undefined;
+
+  hasLocalQueryResultByToken(queryToken: QueryToken): boolean;
+
+  localQueryLogs(
+    udfPath: string,
+    args?: Record<string, Value>,
+  ): string[] | undefined;
+
+  queryJournal(
+    name: string,
+    args?: Record<string, Value>,
+  ): QueryJournal | undefined;
+
+  connectionState(): ConnectionState;
+
+  subscribeToConnectionState(
+    cb: (connectionState: ConnectionState) => void,
+  ): () => void;
+
+  mutation(
+    name: string,
+    args?: Record<string, Value>,
+    options?: MutationOptions,
+  ): Promise<any>;
+
+  action(name: string, args?: Record<string, Value>): Promise<any>;
+
+  close(): Promise<void>;
+
+  readonly url: string;
+}

@@ -33,7 +33,10 @@ use keybroker::Identity;
 use model::{
     backend_state::BackendStateModel,
     deployment_audit_log::{
-        types::DeploymentAuditLogEvent,
+        types::{
+            DeploymentAuditLogEvent,
+            DeploymentAuditLogEventKind,
+        },
         DeploymentAuditLogModel,
     },
     usage_limits::{
@@ -47,6 +50,10 @@ use super::{
     meter::{
         ExceededUsageLimit,
         UsageMeter,
+    },
+    notifier::{
+        UsageLimitNotification,
+        UsageLimitNotifier,
     },
     stores::window_range,
 };
@@ -71,6 +78,10 @@ pub struct UsageLimitWorker<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
     log_manager_client: Arc<dyn LogSender>,
+    /// Sink for newly-exceeded limits (e.g. the postalservice webhook in
+    /// Convex Cloud). Fire-and-forget, so a slow or failing notifier never
+    /// stalls evaluation or blocks a limit from being marked reported.
+    notifier: Arc<dyn UsageLimitNotifier>,
     meter: Arc<UsageMeter>,
     /// The reporting watermark for each limit, so we emit one
     /// `UsageLimitExceeded` audit event per meaningful crossing. Within a
@@ -92,6 +103,7 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         rt: RT,
         database: Database<RT>,
         log_manager_client: Arc<dyn LogSender>,
+        notifier: Arc<dyn UsageLimitNotifier>,
         meter: Arc<UsageMeter>,
     ) {
         tracing::info!("Starting UsageLimitWorker");
@@ -99,6 +111,7 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
             rt,
             database,
             log_manager_client,
+            notifier,
             meter,
             reported: HashMap::new(),
             primed: false,
@@ -262,6 +275,19 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
                 exceeded.config.limit,
             );
         }
+        let notifications = newly_exceeded
+            .iter()
+            .map(|exceeded| {
+                Ok(UsageLimitNotification {
+                    metric: exceeded.config.metric,
+                    window: exceeded.config.window,
+                    limit_type: exceeded.config.limit_type,
+                    limit: exceeded.config.limit,
+                    window_reset: window_range(exceeded.config.window, now)?.end,
+                })
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        self.notifier.notify_exceeded(notifications);
         let logs = events
             .into_iter()
             .map(|event| {
@@ -290,7 +316,12 @@ impl<RT: Runtime> UsageLimitWorker<RT> {
         loop {
             let mut tx = self.database.begin(Identity::system()).await?;
             let (entries, next_cursor) = DeploymentAuditLogModel::new(&mut tx)
-                .list_events_from_time(from_ts_ms, cursor, PAGE_SIZE)
+                .list_events_from_time(
+                    from_ts_ms,
+                    Some(DeploymentAuditLogEventKind::UsageLimitExceeded),
+                    cursor,
+                    PAGE_SIZE,
+                )
                 .await?;
             for entry in entries {
                 let DeploymentAuditLogEvent::UsageLimitExceeded { id, config } = entry.action

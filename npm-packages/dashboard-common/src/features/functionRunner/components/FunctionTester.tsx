@@ -6,8 +6,8 @@ import {
   ViewVerticalIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { UserIdentityAttributes } from "convex/browser";
-import { ConvexReactClient, useQuery } from "convex/react";
+import { BaseConvexClient, UserIdentityAttributes } from "convex/browser";
+import { useQuery } from "convex/react";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
 import { Link } from "@ui/Link";
@@ -547,7 +547,7 @@ export function useFunctionTester({
   );
   const disabled = hasError || isInvalidObject || !!impersonatedUserError;
 
-  const client = (reactClient as ConvexReactClient)?.sync;
+  const client = reactClient?.sync as BaseConvexClient;
 
   const onSubmit = useCallback(() => {
     if (!moduleFunction || !client) {

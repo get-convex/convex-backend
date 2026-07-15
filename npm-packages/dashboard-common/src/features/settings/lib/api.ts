@@ -105,7 +105,6 @@ export function useUnpauseDeployment(): () => Promise<void> {
 function toUsageLimit(response: UsageLimitConfigResponse): UsageLimit {
   return {
     id: response.id,
-    name: response.name,
     metric: response.metric as UsageLimit["metric"],
     window: response.window as UsageLimit["window"],
     limitType: response.limitType as UsageLimit["limitType"],

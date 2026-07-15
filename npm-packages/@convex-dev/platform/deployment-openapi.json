@@ -3052,13 +3052,7 @@
             "type": "string"
           },
           "metric": {
-            "type": "string"
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "$ref": "#/components/schemas/UsageLimitMetric"
           },
           "window": {
             "type": "string"
@@ -3091,18 +3085,25 @@
             "type": "string"
           },
           "metric": {
-            "type": "string"
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "$ref": "#/components/schemas/UsageLimitMetric"
           },
           "window": {
             "type": "string"
           }
         }
+      },
+      "UsageLimitMetric": {
+        "type": "string",
+        "enum": [
+          "functionCalls",
+          "databaseIoGb",
+          "dataEgressGb",
+          "searchQueryGb",
+          "queryMutationComputeGbHours",
+          "actionComputeConvexGbHours",
+          "actionComputeNodeJsGbHours",
+          "actionComputeCpuGbHours"
+        ]
       },
       "UsageLimitResponse": {
         "type": "object",
