@@ -739,7 +739,7 @@ function UsageLimitMetricRow({
             side="bottom"
           >
             <span className="w-fit text-sm text-content-primary tabular-nums">
-              {formatNumberCompact(currentUsage)}{" "}
+              {formatNumberCompact(currentUsage, 2)}{" "}
               {rawUnitShortFor(config, currentUsage)}
             </span>
           </Tooltip>
@@ -1155,14 +1155,14 @@ function UsageLimitThresholdEditor({
         {belowCurrentUsageBlocks && currentUsage !== undefined && (
           <p className="text-xs text-content-errorSecondary">
             Limit must be above the current usage for this window (
-            {formatNumberCompact(currentUsage)}{" "}
+            {formatNumberCompact(currentUsage, 2)}{" "}
             {rawUnitShortFor(config, currentUsage)}).
           </p>
         )}
         {belowCurrentUsageWarning && currentUsage !== undefined && (
           <p className="text-xs text-content-warning">
             This is below the current usage for this window (
-            {formatNumberCompact(currentUsage)}{" "}
+            {formatNumberCompact(currentUsage, 2)}{" "}
             {rawUnitShortFor(config, currentUsage)}), so it will take effect
             immediately once you make it active.
           </p>
@@ -1172,12 +1172,14 @@ function UsageLimitThresholdEditor({
             {limitType === "warning"
               ? `This is at or above the disable threshold (${formatNumberCompact(
                   counterpartAmount,
+                  2,
                 )} ${rawUnitShortFor(
                   config,
                   counterpartAmount,
                 )}), so the deployment is disabled before this warning is sent.`
               : `This is at or below the warning threshold (${formatNumberCompact(
                   counterpartAmount,
+                  2,
                 )} ${rawUnitShortFor(
                   config,
                   counterpartAmount,
@@ -1296,7 +1298,7 @@ function UsageDonut({
     <Tooltip
       asChild
       delayDuration={TOOLTIP_DELAY_MS}
-      tip={`${formatNumberCompact(current)} of ${formatNumberCompact(limit.limit)} ${config.rawUnit} used this ${window} (${percent}%).`}
+      tip={`${formatNumberCompact(current, 2)} of ${formatNumberCompact(limit.limit, 2)} ${config.rawUnit} used this ${window} (${percent}%).`}
       side="bottom"
     >
       <div
