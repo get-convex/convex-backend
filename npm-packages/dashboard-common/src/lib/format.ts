@@ -394,15 +394,42 @@ const NUMBER_FORMAT_COMPACT = new Intl.NumberFormat("en-US", {
   notation: "compact",
   compactDisplay: "short",
 });
-export function formatNumberCompact(value: number | bigint): string;
+// Compact formatter that keeps up to `maximumFractionDigits` decimals. Default
+// compact notation drops the fractional part once the magnitude reaches ~2
+// significant digits (12.34 -> "12"); passing a precision preserves it
+// (12.34 -> "12.34"). Cached per precision.
+const NUMBER_FORMAT_COMPACT_WITH_DECIMALS = new Map<
+  number,
+  Intl.NumberFormat
+>();
+export function formatNumberCompact(
+  value: number | bigint,
+  maximumFractionDigits?: number,
+): string;
 export function formatNumberCompact(
   value: number | bigint | null,
+  maximumFractionDigits?: number,
 ): string | null;
 export function formatNumberCompact(
   value: number | bigint | null,
+  maximumFractionDigits?: number,
 ): string | null {
   if (value === null) return null;
-  return NUMBER_FORMAT_COMPACT.format(value);
+  if (maximumFractionDigits === undefined) {
+    return NUMBER_FORMAT_COMPACT.format(value);
+  }
+  let formatter = NUMBER_FORMAT_COMPACT_WITH_DECIMALS.get(
+    maximumFractionDigits,
+  );
+  if (formatter === undefined) {
+    formatter = new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      compactDisplay: "short",
+      maximumFractionDigits,
+    });
+    NUMBER_FORMAT_COMPACT_WITH_DECIMALS.set(maximumFractionDigits, formatter);
+  }
+  return formatter.format(value);
 }
 
 export function msFormat(n: number): string {
