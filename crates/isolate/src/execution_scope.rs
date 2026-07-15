@@ -1,13 +1,10 @@
 use std::{
     collections::HashMap,
-    ffi::c_char,
     marker::PhantomData,
-    mem,
     ops::{
         Deref,
         DerefMut,
     },
-    ptr,
     str,
     sync::Arc,
 };
@@ -36,10 +33,7 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use model::modules::{
-    module_versions::{
-        FullModuleSource,
-        ModuleSource,
-    },
+    module_versions::FullModuleSource,
     user_error::{
         ModuleNotFoundError,
         SystemModuleNotFoundError,
@@ -65,6 +59,7 @@ use crate::{
         SYSTEM_PREFIX,
     },
     metrics,
+    module_cache::V8ModuleSource,
     module_map::{
         ModuleId,
         ModuleMap,
@@ -381,7 +376,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
 
             let name_str = v8::String::new(&scope, name.as_str())
                 .ok_or_else(|| anyhow!("Failed to create name string"))?;
-            let source_str = make_source_string(&scope, &module_source.source)?;
+            let source_str = module_source
+                .source()
+                .create_v8_string(&scope)
+                .context("Failed to create source string")?;
 
             let origin = helpers::module_origin(&scope, name_str);
             let (mut v8_source, options) = match &code_cache {
@@ -474,7 +472,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         &mut self,
         module_specifier: &ModuleSpecifier,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<(Arc<FullModuleSource>, ModuleCodeCacheResult)> {
+    ) -> anyhow::Result<(Arc<V8ModuleSource>, ModuleCodeCacheResult)> {
         let _s = static_span!();
         if module_specifier.scheme() != CONVEX_SCHEME {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -515,10 +513,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         if let Some(system_path) = module_path.strip_prefix(SYSTEM_PREFIX) {
             let (source, source_map) = system_udf_file(system_path)
                 .ok_or_else(|| SystemModuleNotFoundError::new(system_path))?;
-            let result = FullModuleSource {
+            let result = V8ModuleSource::new(FullModuleSource {
                 source: source.into(),
                 source_map: source_map.as_ref().map(|s| s.to_string()),
-            };
+            });
             timer.finish();
             // TODO: should we code-cache system UDFs?
             return Ok((Arc::new(result), ModuleCodeCacheResult::noop()));
@@ -710,41 +708,4 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         rv.set(promise.into());
         Ok(())
     }
-}
-
-fn make_source_string<'s>(
-    scope: &v8::PinScope<'s, '_, ()>,
-    module_source: &ModuleSource,
-) -> anyhow::Result<v8::Local<'s, v8::String>> {
-    if module_source.is_ascii() {
-        // Common case: we can use an external string and skip copying the
-        // module to the V8 heap
-        let owned_source: Arc<str> = module_source.source_arc().clone();
-        // SAFETY: we know that `module_source` is ASCII and we have bumped the
-        // refcount, so the string will not be mutated or freed until we call
-        // the destructor
-        let ptr = owned_source.as_ptr();
-        let len = owned_source.len();
-        mem::forget(owned_source);
-        unsafe extern "C" fn destroy(ptr: *mut c_char, len: usize) {
-            unsafe {
-                drop(Arc::from_raw(ptr::from_raw_parts::<str>(
-                    ptr.cast::<u8>().cast_const(),
-                    len,
-                )));
-            }
-        }
-        // N.B.: new_external_onebyte_raw takes a mut pointer but it does not mutate it
-        unsafe {
-            v8::String::new_external_onebyte_raw(
-                scope,
-                ptr.cast::<c_char>().cast_mut(),
-                len,
-                destroy,
-            )
-        }
-    } else {
-        v8::String::new(scope, module_source)
-    }
-    .ok_or_else(|| anyhow!("Failed to create source string"))
 }

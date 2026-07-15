@@ -33,10 +33,7 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::{
-        module_versions::FullModuleSource,
-        user_error::FunctionNotFoundError,
-    },
+    modules::user_error::FunctionNotFoundError,
 };
 use sync_types::types::SerializedArgs;
 use tokio::{
@@ -57,6 +54,7 @@ use crate::{
         ContextReadSet,
     },
     environment::udf::astral_future::RecursiveExecutor,
+    module_cache::V8ModuleSource,
     module_map::ModuleMap,
     termination::{
         ContextTerminationReason,
@@ -312,7 +310,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         &mut self,
         path: &str,
         timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         let user_module_path = path.parse()?;
         let result = self.phase.get_module(&user_module_path, timeout).await?;
         Ok(result)

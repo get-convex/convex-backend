@@ -61,6 +61,7 @@ use crate::{
         Isolate,
         CONVEX_SCHEME,
     },
+    module_cache::V8ModuleSource,
     request_scope::RequestScope,
     strings,
     timeout::Timeout,
@@ -147,7 +148,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         if path != AUTH_CONFIG_FILE_NAME {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoImportModuleDuringAuthConfig",
@@ -155,10 +156,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
             ))
         }
         Ok(Some((
-            Arc::new(FullModuleSource {
+            Arc::new(V8ModuleSource::new(FullModuleSource {
                 source: self.auth_config_bundle.clone(),
                 source_map: self.source_map.clone(),
-            }),
+            })),
             ModuleCodeCacheResult::noop(),
         )))
     }

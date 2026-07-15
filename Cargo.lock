@@ -5279,6 +5279,7 @@ dependencies = [
  "async-channel",
  "async-recursion",
  "async-trait",
+ "async_lru",
  "aws-lc-rs",
  "axum",
  "base64 0.13.1",

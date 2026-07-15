@@ -7,10 +7,9 @@ use deno_core::{
     v8,
     ModuleSpecifier,
 };
-use model::modules::module_versions::{
-    FullModuleSource,
-    SourceMap,
-};
+use model::modules::module_versions::SourceMap;
+
+use crate::module_cache::V8ModuleSource;
 
 pub type ModuleId = usize;
 
@@ -24,7 +23,7 @@ pub struct ModuleMap {
 struct ModuleInfo {
     pub name: ModuleSpecifier,
     pub handle: v8::Global<v8::Module>,
-    pub module_source: Arc<FullModuleSource>,
+    pub module_source: Arc<V8ModuleSource>,
 }
 
 impl ModuleMap {
@@ -51,14 +50,14 @@ impl ModuleMap {
     }
 
     pub fn source_map(&self, id: ModuleId) -> Option<&SourceMap> {
-        self.modules[id].module_source.source_map.as_ref()
+        self.modules[id].module_source.source_map()
     }
 
     pub fn register(
         &mut self,
         name: &ModuleSpecifier,
         handle: v8::Global<v8::Module>,
-        module_source: Arc<FullModuleSource>,
+        module_source: Arc<V8ModuleSource>,
     ) -> ModuleId {
         let id = self.modules.len();
 

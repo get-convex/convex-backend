@@ -174,7 +174,10 @@ use crate::{
         log_worker_stolen,
         queue_timer,
     },
-    module_cache::ModuleCache,
+    module_cache::{
+        ModuleCache,
+        V8ModuleSource,
+    },
 };
 
 // We gather prometheus stats every 30 seconds, so we should make sure we log
@@ -314,7 +317,7 @@ pub enum RequestType<RT: Runtime> {
     },
     Analyze {
         udf_config: UdfConfig,
-        modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>>,
+        modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<V8ModuleSource>>>,
         to_analyze: CanonicalizedModulePath,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<Result<AnalyzedModule, JsError>>>,
@@ -819,10 +822,10 @@ impl<RT: Runtime> IsolateClient<RT> {
                 .map(|(path, module_config)| {
                     (
                         path,
-                        Arc::new(FullModuleSource {
+                        Arc::new(V8ModuleSource::new(FullModuleSource {
                             source: module_config.source,
                             source_map: module_config.source_map,
-                        }),
+                        })),
                     )
                 })
                 .collect(),

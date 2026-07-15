@@ -81,6 +81,7 @@ use crate::{
         Isolate,
         CONVEX_SCHEME,
     },
+    module_cache::V8ModuleSource,
     request_scope::RequestScope,
     strings,
     timeout::Timeout,
@@ -150,10 +151,10 @@ impl AppDefinitionEvaluator {
                     let (filename, source) = if path.is_root() {
                         (
                             APP_CONFIG_FILE_NAME,
-                            FullModuleSource {
+                            V8ModuleSource::new(FullModuleSource {
                                 source: self.app_definition.source.clone(),
                                 source_map: self.app_definition.source_map.clone(),
-                            },
+                            }),
                         )
                     } else {
                         let component_definition = self
@@ -162,10 +163,10 @@ impl AppDefinitionEvaluator {
                             .context("Component definition not found")?;
                         (
                             COMPONENT_CONFIG_FILE_NAME,
-                            FullModuleSource {
+                            V8ModuleSource::new(FullModuleSource {
                                 source: component_definition.source.clone(),
                                 source_map: component_definition.source_map.clone(),
-                            },
+                            }),
                         )
                     };
                     let result = self
@@ -195,7 +196,7 @@ impl AppDefinitionEvaluator {
         path: &ComponentDefinitionPath,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         filename: &str,
-        source: Arc<FullModuleSource>,
+        source: Arc<V8ModuleSource>,
     ) -> anyhow::Result<ComponentDefinitionMetadata> {
         let environment_variables = if path.is_root() {
             let mut env_vars = self.system_env_vars.clone();
@@ -366,10 +367,10 @@ impl ComponentInitializerEvaluator {
         let filename = COMPONENT_CONFIG_FILE_NAME.to_string();
         let env = DefinitionEnvironment {
             expected_filename: filename.clone(),
-            source: Arc::new(FullModuleSource {
+            source: Arc::new(V8ModuleSource::new(FullModuleSource {
                 source: self.definition.source,
                 source_map: self.definition.source_map,
-            }),
+            })),
             evaluated_definitions: self.evaluated_definitions,
             environment_variables: None,
         };
@@ -481,7 +482,7 @@ const APP_CONFIG_FILE_NAME: &str = "convex.config.js";
 
 struct DefinitionEnvironment {
     expected_filename: String,
-    source: Arc<FullModuleSource>,
+    source: Arc<V8ModuleSource>,
 
     evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
     /// Environment variables are allowed in app but not in
@@ -557,7 +558,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         if path == &self.expected_filename {
             return Ok(Some((self.source.clone(), ModuleCodeCacheResult::noop())));
         }
@@ -581,7 +582,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                 ComponentDefinitionType::ChildComponent { ref name, args: _ } => name.to_string(),
             };
 
-            let synthetic_module = FullModuleSource {
+            let synthetic_module = V8ModuleSource::new(FullModuleSource {
                 source: ModuleSource::new(&format!(
                     "export default {{ export: () => {{ return {} }}, componentDefinitionPath: \
                      \"{}\", defaultName: \"{}\"}}",
@@ -590,7 +591,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                     default_name_string
                 )),
                 source_map: None,
-            };
+            });
             return Ok(Some((
                 Arc::new(synthetic_module),
                 ModuleCodeCacheResult::noop(),

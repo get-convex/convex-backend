@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use common::document::ParsedDocument;
@@ -29,28 +26,25 @@ use crate::{
 pub async fn get_modules_and_prefetch(
     modules_storage: Arc<dyn Storage>,
     source_package: &ParsedDocument<SourcePackage>,
-) -> anyhow::Result<HashMap<(CanonicalizedModulePath, Sha256Digest), Arc<FullModuleSource>>> {
+) -> anyhow::Result<impl Iterator<Item = (CanonicalizedModulePath, Sha256Digest, FullModuleSource)>>
+{
     let _timer = module_load_timer("package");
-    let mut result = HashMap::new();
     let package = download_package(
         modules_storage,
         source_package.storage_key.clone(),
         source_package.sha256.clone(),
     )
     .await?;
-    for (module_path, module_config) in package {
-        result.insert(
-            (
-                module_path,
-                hash_module_source(&module_config.source, module_config.source_map.as_ref()),
-            ),
-            Arc::new(FullModuleSource {
+    Ok(package.into_iter().map(|(module_path, module_config)| {
+        (
+            module_path,
+            hash_module_source(&module_config.source, module_config.source_map.as_ref()),
+            FullModuleSource {
                 source: module_config.source,
                 source_map: module_config.source_map,
-            }),
-        );
-    }
-    Ok(result)
+            },
+        )
+    }))
 }
 
 pub fn module_specifier_from_path(

@@ -65,6 +65,7 @@ use crate::{
         Isolate,
         CONVEX_SCHEME,
     },
+    module_cache::V8ModuleSource,
     request_scope::RequestScope,
     strings,
     timeout::Timeout,
@@ -130,7 +131,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<V8ModuleSource>, ModuleCodeCacheResult)>> {
         if path != "schema.js" {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoImportModuleInSchema",
@@ -138,10 +139,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
             ))
         }
         Ok(Some((
-            Arc::new(FullModuleSource {
+            Arc::new(V8ModuleSource::new(FullModuleSource {
                 source: self.schema_bundle.clone(),
                 source_map: self.source_map.clone(),
-            }),
+            })),
             ModuleCodeCacheResult::noop(),
         )))
     }
