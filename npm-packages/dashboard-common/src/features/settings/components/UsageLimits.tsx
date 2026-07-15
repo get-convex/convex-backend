@@ -1048,18 +1048,13 @@ function UsageLimitThresholdEditor({
     parsedLimit >= 1 &&
     parsedLimit <= MAX_USAGE_LIMIT_VALUE;
   const isValid = hasAmount && isInRange;
-  // Only treat the amount as a draft once it diverges from the saved value (a
-  // new limit is always a draft), so we don't warn about an already-saved limit
-  // that happens to sit below current usage.
   const isDraftAmount = limit ? parsedLimit !== limit.limit : true;
-  // A draft limit set below the window's current usage would take effect
-  // immediately. This is allowed (and sometimes intended), so it's a warning,
-  // not an error.
-  const belowCurrentUsage =
-    isValid &&
-    isDraftAmount &&
-    currentUsage !== undefined &&
-    parsedLimit < currentUsage;
+  const isBelowCurrentUsage =
+    isValid && currentUsage !== undefined && parsedLimit < currentUsage;
+  const belowCurrentUsageBlocks = isBelowCurrentUsage && enabled;
+  const belowCurrentUsageWarning =
+    isBelowCurrentUsage && !enabled && isDraftAmount;
+  const canSave = isValid && !belowCurrentUsageBlocks;
 
   // Warnings are meant to fire before the deployment is disabled, so the warning
   // threshold should sit below the disable threshold. Flag an inverted (or
@@ -1084,7 +1079,7 @@ function UsageLimitThresholdEditor({
   }, [rowKey, isDirty, onDirtyChange]);
 
   const handleSave = async () => {
-    if (!isValid) {
+    if (!canSave) {
       return;
     }
     setIsSaving(true);
@@ -1157,12 +1152,19 @@ function UsageLimitThresholdEditor({
             Enter an amount between 1 and 100 trillion.
           </p>
         )}
-        {belowCurrentUsage && currentUsage !== undefined && (
+        {belowCurrentUsageBlocks && currentUsage !== undefined && (
+          <p className="text-xs text-content-errorSecondary">
+            Limit must be above the current usage for this window (
+            {formatNumberCompact(currentUsage)}{" "}
+            {rawUnitShortFor(config, currentUsage)}).
+          </p>
+        )}
+        {belowCurrentUsageWarning && currentUsage !== undefined && (
           <p className="text-xs text-content-warning">
             This is below the current usage for this window (
             {formatNumberCompact(currentUsage)}{" "}
-            {rawUnitShortFor(config, currentUsage)}), so it will trigger
-            immediately when saved.
+            {rawUnitShortFor(config, currentUsage)}), so it will take effect
+            immediately once you make it active.
           </p>
         )}
         {disableBeforeWarning && counterpartAmount !== undefined && (
@@ -1202,7 +1204,7 @@ function UsageLimitThresholdEditor({
           size="xs"
           inline
           loading={isSaving}
-          disabled={!isValid}
+          disabled={!canSave}
         >
           Save
         </Button>

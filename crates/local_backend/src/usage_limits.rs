@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use application::app_metric_seed::SeedStatus;
+use application::{
+    app_metric_seed::SeedStatus,
+    usage_limits::UsageMeter,
+};
 use axum::{
     extract::FromRef,
     response::IntoResponse,
@@ -292,6 +295,7 @@ pub async fn create_usage_limit_handler(
 
     let mut tx = st.application.begin(identity).await?;
     let config = req.into_usage_limit_config()?;
+    validate_limit_above_current_usage(&st, &config)?;
     let id = UsageLimitsModel::new(&mut tx).create(config).await?;
     let created = UsageLimitsModel::new(&mut tx)
         .get(id)
@@ -361,6 +365,7 @@ pub async fn update_usage_limit_handler(
         .ok_or_else(|| anyhow::anyhow!(usage_limit_not_found()))?
         .into_value();
     let config = req.into_usage_limit_config()?;
+    validate_limit_above_current_usage(&st, &config)?;
     UsageLimitsModel::new(&mut tx).replace(id, config).await?;
     let updated = UsageLimitsModel::new(&mut tx)
         .get(id)
@@ -447,6 +452,46 @@ pub async fn delete_usage_limit_handler(
 
 fn usage_limit_not_found() -> ErrorMetadata {
     ErrorMetadata::not_found("UsageLimitNotFound", "The usage limit couldn't be found.")
+}
+
+/// Reject an enabled limit set below the usage already accrued in its current
+/// window. Such a limit trips the instant it's saved (enforcement is
+/// `total >= limit`), warning or disabling the deployment immediately, which
+/// is almost never intended. Disabled limits enforce nothing, so they're
+/// allowed regardless.
+fn validate_limit_above_current_usage(
+    st: &LocalAppState,
+    config: &UsageLimitConfig,
+) -> anyhow::Result<()> {
+    if !config.enabled {
+        return Ok(());
+    }
+    let meter: &UsageMeter = st.application.usage_meter();
+    let now = st.application.runtime().system_time();
+    let current = meter
+        .usage_snapshot(now)?
+        .into_iter()
+        .find(|(metric, _)| *metric == config.metric)
+        .map(|(_, usage)| match config.window {
+            UsageLimitWindow::Day => usage.current_day,
+            UsageLimitWindow::Month => usage.current_month,
+        })
+        .unwrap_or(0.0);
+    if config.metric.limit_in_raw_units(config.limit) < current {
+        return Err(ErrorMetadata::bad_request(
+            "UsageLimitBelowCurrentUsage",
+            format!(
+                "Usage limit of {limit} is below the current {window} usage of {current_usage} \
+                 for {metric}. Set the limit at or above the current usage.",
+                limit = config.limit,
+                window = config.window,
+                current_usage = config.metric.usage_in_display_units(current),
+                metric = config.metric,
+            ),
+        )
+        .into());
+    }
+    Ok(())
 }
 
 fn parse_usage_limit_window(window: String) -> anyhow::Result<UsageLimitWindow> {
