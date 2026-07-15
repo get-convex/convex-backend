@@ -14,6 +14,9 @@ pub use self::{
     meter::{
         ExceededUsageLimit,
         MetricWindowUsage,
+        SeedComparison,
+        SeedComparisonKind,
+        SeedComparisonResult,
         SeedRow,
         UsageLimitEvaluation,
         UsageMeter,

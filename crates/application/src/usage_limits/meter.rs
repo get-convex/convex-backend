@@ -52,6 +52,70 @@ pub struct SeedRow {
     pub value: f64,
 }
 
+/// How a bucket's seed value compares against the meter's in-memory value,
+/// read before the seed max-merges over it.
+///
+/// A bucket is *new* when it starts at or after the meter's creation — live
+/// recording covered its whole span — and *historical* when it ends at or
+/// before, so the meter's value came from earlier seed passes. Buckets
+/// straddling the meter's creation are never compared: live recording missed
+/// their pre-creation fraction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub enum SeedComparisonKind {
+    /// The two sides agree within [`SEED_COMPARISON_TOLERANCE`].
+    Match,
+    /// New bucket where the meter leads the seed. Expected: the seed source
+    /// lags live recording.
+    NewMeterAhead,
+    /// New bucket where the seed exceeds live recording: the pipeline
+    /// counted usage the recording mapping missed. The alertable quadrant.
+    NewSeedAhead,
+    /// Historical bucket where the meter exceeds the seed. Both sides came
+    /// from the same rollups, so this is a contract bug or rounding drift.
+    HistoricalMeterAhead,
+    /// Historical bucket where the seed exceeds the meter; same contract
+    /// implications as [`Self::HistoricalMeterAhead`].
+    HistoricalSeedAhead,
+}
+
+impl SeedComparisonKind {
+    /// Whether this kind indicates a recording/seeding contract bug.
+    pub fn is_bug(self) -> bool {
+        matches!(
+            self,
+            Self::NewSeedAhead | Self::HistoricalMeterAhead | Self::HistoricalSeedAhead
+        )
+    }
+}
+
+/// One bucket's pre-merge comparison between the meter's in-memory value and
+/// a seed delivery's value for the same metric bucket.
+#[derive(Debug, Clone)]
+pub struct SeedComparison {
+    pub metric: UsageLimitMetric,
+    pub resolution: UsageMetricResolution,
+    pub bucket_start: SystemTime,
+    pub meter_value: f64,
+    pub seed_value: f64,
+    pub kind: SeedComparisonKind,
+}
+
+/// Result of applying one seed delivery.
+#[derive(Debug)]
+pub struct SeedComparisonResult {
+    /// Distinct buckets the delivery seeded.
+    pub num_buckets: usize,
+    /// Pre-merge comparisons for the buckets that were comparable.
+    pub comparisons: Vec<SeedComparison>,
+}
+
+/// A gap within this fraction of the larger side counts as a match. Relative
+/// rather than absolute so one threshold fits every unit (calls, bytes, GB,
+/// GB·s); mapping bugs are order-of-magnitude, so 1% still catches them while
+/// absorbing f64 rounding.
+const SEED_COMPARISON_TOLERANCE: f64 = 0.01;
+
 /// Current-window usage for a single metric, in the store's raw units (calls,
 /// bytes, or GB·s). Convert with `UsageLimitMetric::usage_in_display_units`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -66,6 +130,9 @@ pub struct MetricWindowUsage {
 /// [`super::UsageLimitWorker`].
 pub struct UsageMeter {
     inner: Mutex<Inner>,
+    /// When live recording began, classifying seed buckets as historical
+    /// (fully before) or new (fully after) for seed comparisons.
+    created_at: SystemTime,
 }
 
 struct Inner {
@@ -83,6 +150,7 @@ impl UsageMeter {
                 configs: Vec::new(),
                 seed_status: SeedStatus::Pending,
             }),
+            created_at: now,
         })
     }
 
@@ -114,9 +182,11 @@ impl UsageMeter {
     /// feed one bucket, and the stores' max-merge expects each bucket's
     /// complete total in a single write. The seed query returns at most one
     /// row per (metric_name, resolution, rollup_time), so the sum only ever
-    /// combines different source metrics. Returns the number of buckets
-    /// seeded.
-    pub fn seed_rows(&self, rows: Vec<SeedRow>, now: SystemTime) -> usize {
+    /// combines different source metrics.
+    ///
+    /// Each bucket's seed value is also compared against the meter's current
+    /// value before the merge; see [`SeedComparisonKind`].
+    pub fn seed_rows(&self, rows: Vec<SeedRow>, now: SystemTime) -> SeedComparisonResult {
         let mut combined: HashMap<(UsageLimitMetric, UsageMetricResolution, SystemTime), f64> =
             HashMap::new();
         for row in rows {
@@ -125,13 +195,71 @@ impl UsageMeter {
                 .or_insert(0.0) += row.value;
         }
         let num_buckets = combined.len();
+        let mut comparisons = Vec::new();
         let mut inner = self.inner.lock();
-        for ((metric, resolution, time), value) in combined {
+        for ((metric, resolution, time), seed_value) in combined {
+            if let Some(comparison) =
+                self.compare_bucket(&inner.stores, metric, resolution, time, seed_value, now)
+            {
+                comparisons.push(comparison);
+            }
             inner
                 .stores
-                .seed(resolution, metric.metric_name(), time, value, now);
+                .seed(resolution, metric.metric_name(), time, seed_value, now);
         }
-        num_buckets
+        SeedComparisonResult {
+            num_buckets,
+            comparisons,
+        }
+    }
+
+    /// Compare one bucket's seed value against the meter's current value,
+    /// classifying per [`SeedComparisonKind`]. Returns `None` for buckets
+    /// with nothing meaningful to compare: buckets straddling the meter's
+    /// creation, future buckets, and historical buckets the meter has no
+    /// value for (first-pass hydration).
+    fn compare_bucket(
+        &self,
+        stores: &UsageMetricStores,
+        metric: UsageLimitMetric,
+        resolution: UsageMetricResolution,
+        time: SystemTime,
+        seed_value: f64,
+        now: SystemTime,
+    ) -> Option<SeedComparison> {
+        let bucket = resolution.bucket_range(time).ok()?;
+        if bucket.start > now {
+            return None;
+        }
+        let historical = bucket.end <= self.created_at;
+        if !historical && bucket.start < self.created_at {
+            return None;
+        }
+        let meter_value = stores
+            .bucket_total(resolution, metric.metric_name(), time)
+            .ok()?;
+        if historical && meter_value == 0.0 {
+            return None;
+        }
+        let tolerance = SEED_COMPARISON_TOLERANCE * seed_value.abs().max(meter_value.abs());
+        let kind = if (seed_value - meter_value).abs() <= tolerance {
+            SeedComparisonKind::Match
+        } else {
+            match (historical, seed_value > meter_value) {
+                (false, false) => SeedComparisonKind::NewMeterAhead,
+                (false, true) => SeedComparisonKind::NewSeedAhead,
+                (true, false) => SeedComparisonKind::HistoricalMeterAhead,
+                (true, true) => SeedComparisonKind::HistoricalSeedAhead,
+            }
+        };
+        Some(SeedComparison {
+            metric,
+            resolution,
+            bucket_start: bucket.start,
+            meter_value,
+            seed_value,
+            kind,
+        })
     }
 
     pub fn set_seed_status(&self, status: SeedStatus) {

@@ -84,3 +84,26 @@ register_convex_histogram!(
 pub fn table_summary_bootstrap_timer() -> StatusTimer {
     StatusTimer::new(&TABLE_SUMMARY_BOOTSTRAP_SECONDS)
 }
+
+// Joins the `app_metrics_seed_*` family (conductor emits the rest) so it
+// lands on the existing "Usage Limit Seeds" Grafana dashboard.
+register_convex_counter!(
+    APP_METRICS_SEED_COMPARISON_TOTAL,
+    "Seed buckets compared against the in-memory usage meter, by comparison kind",
+    &["metric", "resolution", "kind"],
+);
+pub fn log_app_metrics_seed_comparison(
+    metric: &'static str,
+    resolution: &'static str,
+    kind: &'static str,
+) {
+    log_counter_with_labels(
+        &APP_METRICS_SEED_COMPARISON_TOTAL,
+        1,
+        vec![
+            StaticMetricLabel::new("metric", metric),
+            StaticMetricLabel::new("resolution", resolution),
+            StaticMetricLabel::new("kind", kind),
+        ],
+    );
+}
