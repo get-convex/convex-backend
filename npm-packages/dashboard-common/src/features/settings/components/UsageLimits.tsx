@@ -16,6 +16,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { Loading } from "@ui/Loading";
 import { SegmentedControl } from "@ui/SegmentedControl";
 import { Donut } from "@ui/Donut";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
 import type {
@@ -885,6 +886,7 @@ function UsageLimitThreshold({
         limit={limit}
         counterpartAmount={counterpartAmount}
         currentUsage={currentUsage}
+        deploymentType={deploymentType}
         onDone={onStopEdit}
         onDirtyChange={onDirtyChange}
         onCreate={onCreate}
@@ -1025,6 +1027,7 @@ function UsageLimitThresholdEditor({
   limit,
   counterpartAmount,
   currentUsage,
+  deploymentType,
   onDone,
   onDirtyChange,
   onCreate,
@@ -1039,6 +1042,8 @@ function UsageLimitThresholdEditor({
   // Current usage of this metric in the window, used to warn when the entered
   // amount is below it.
   currentUsage?: number;
+  // Used to confirm before adding an enforced disable threshold on prod.
+  deploymentType: DeploymentType | undefined;
   onDone: () => void;
   onDirtyChange: (key: string, dirty: boolean) => void;
   onCreate: (config: UsageLimitConfig) => Promise<void> | void;
@@ -1052,6 +1057,7 @@ function UsageLimitThresholdEditor({
   const [amount, setAmount] = useState(initialAmount);
   const [enabled, setEnabled] = useState(initialEnabled);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
 
   const parsedLimit = Math.floor(Number(amount));
   const hasAmount = amount.trim() !== "";
@@ -1091,10 +1097,15 @@ function UsageLimitThresholdEditor({
     return () => onDirtyChange(rowKey, false);
   }, [rowKey, isDirty, onDirtyChange]);
 
-  const handleSave = async () => {
-    if (!canSave) {
-      return;
-    }
+  // An enforced disable threshold on a production deployment takes the
+  // deployment offline the moment usage crosses the limit, so confirm the
+  // intent (and point at warnings) before creating one. Editing an existing
+  // limit, an inactive one, or any non-disable / non-prod threshold saves
+  // directly, since none of them newly arm a production shutdown.
+  const needsDisableConfirmation =
+    !limit && limitType === "disable" && enabled && deploymentType === "prod";
+
+  const performSave = async () => {
     setIsSaving(true);
     try {
       if (limit) {
@@ -1118,123 +1129,162 @@ function UsageLimitThresholdEditor({
       // reject on API failure (after toasting), so a failed save keeps the editor
       // open and the in-progress edits intact.
       onDone();
-    } catch {
-      // The mutation hook already surfaced the error via toast; swallow it here
-      // so the editor stays open rather than dropping the user's edits.
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleSave = () => {
+    if (!canSave) {
+      return;
+    }
+    if (needsDisableConfirmation) {
+      setShowDisableConfirmation(true);
+      return;
+    }
+    void performSave().catch(() => {
+      // The mutation hook already surfaced the error via toast; swallow it here
+      // so the editor stays open rather than dropping the user's edits.
+    });
+  };
+
   return (
-    <form
-      // Capped at the threshold columns' 16rem floor so the input doesn't
-      // stretch to fill a flexed-wider column.
-      className="flex max-w-64 flex-col gap-2"
-      // We validate the amount ourselves (see `isValid`), so suppress native
-      // HTML5 validation — otherwise the number input's min/step would pop
-      // "Please enter a valid value" on submit for non-multiples of the step.
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        void handleSave();
-      }}
-    >
-      <div className="flex flex-col gap-1">
-        <TextInput
-          autoFocus
-          id={`usage-limit-${metric}-${limitType}`}
-          label="Amount"
-          labelHidden
-          type="number"
-          min={1}
-          max={MAX_USAGE_LIMIT_VALUE}
-          step={config.rawStep}
-          // Hint the ~$100/mo default amount for this metric/window.
-          placeholder={formatAmount(config.defaultAmount)}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          rightAddon={
-            <span className="text-xs text-content-secondary">
-              {rawUnitShortFor(config, parsedLimit)} {WINDOW_SUFFIX[window]}
-            </span>
+    <>
+      <form
+        // Capped at the threshold columns' 16rem floor so the input doesn't
+        // stretch to fill a flexed-wider column.
+        className="flex max-w-64 flex-col gap-2"
+        // We validate the amount ourselves (see `isValid`), so suppress native
+        // HTML5 validation — otherwise the number input's min/step would pop
+        // "Please enter a valid value" on submit for non-multiples of the step.
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSave();
+        }}
+      >
+        <div className="flex flex-col gap-1">
+          <TextInput
+            autoFocus
+            id={`usage-limit-${metric}-${limitType}`}
+            label="Amount"
+            labelHidden
+            type="number"
+            min={1}
+            max={MAX_USAGE_LIMIT_VALUE}
+            step={config.rawStep}
+            // Hint the ~$100/mo default amount for this metric/window.
+            placeholder={formatAmount(config.defaultAmount)}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            rightAddon={
+              <span className="text-xs text-content-secondary">
+                {rawUnitShortFor(config, parsedLimit)} {WINDOW_SUFFIX[window]}
+              </span>
+            }
+          />
+          {hasAmount && !isInRange && (
+            <p className="text-xs text-content-errorSecondary">
+              Enter an amount between 1 and 100 trillion.
+            </p>
+          )}
+          {belowCurrentUsageBlocks && currentUsage !== undefined && (
+            <p className="text-xs text-content-errorSecondary">
+              Limit must be above the current usage for this window (
+              {formatNumberCompact(currentUsage, 2)}{" "}
+              {rawUnitShortFor(config, currentUsage)}).
+            </p>
+          )}
+          {belowCurrentUsageWarning && currentUsage !== undefined && (
+            <p className="text-xs text-content-warning">
+              This is below the current usage for this window (
+              {formatNumberCompact(currentUsage, 2)}{" "}
+              {rawUnitShortFor(config, currentUsage)}), so it will take effect
+              immediately once you make it active.
+            </p>
+          )}
+          {disableBeforeWarning && counterpartAmount !== undefined && (
+            <p className="text-xs text-content-warning">
+              {limitType === "warning"
+                ? `This is at or above the disable threshold (${formatNumberCompact(
+                    counterpartAmount,
+                    2,
+                  )} ${rawUnitShortFor(
+                    config,
+                    counterpartAmount,
+                  )}), so the deployment is disabled before this warning is sent.`
+                : `This is at or below the warning threshold (${formatNumberCompact(
+                    counterpartAmount,
+                    2,
+                  )} ${rawUnitShortFor(
+                    config,
+                    counterpartAmount,
+                  )}), so the deployment is disabled before that warning is sent.`}
+            </p>
+          )}
+        </div>
+        <Tooltip
+          tip="When active, this limit is enforced. If usage exceeds the allotted amount, the limit takes effect."
+          side="left"
+          delayDuration={TOOLTIP_DELAY_MS}
+        >
+          <label className="flex w-fit items-center gap-2 text-xs text-content-secondary">
+            <Checkbox
+              checked={enabled}
+              onChange={() => setEnabled((prev) => !prev)}
+            />
+            Active
+          </label>
+        </Tooltip>
+        <div className="flex items-center gap-2">
+          <Button
+            type="submit"
+            size="xs"
+            inline
+            loading={isSaving}
+            disabled={!canSave}
+          >
+            Save
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="neutral"
+            inline
+            onClick={onDone}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+      {showDisableConfirmation && (
+        <ConfirmationDialog
+          onClose={() => setShowDisableConfirmation(false)}
+          onConfirm={performSave}
+          confirmText="Add disable threshold"
+          dialogTitle="Add disable threshold?"
+          variant="danger"
+          dialogBody={
+            <div className="flex flex-col gap-3 text-sm text-content-primary">
+              <p>
+                When {config.name} usage reaches{" "}
+                <span className="font-medium">
+                  {formatAmount(parsedLimit)}{" "}
+                  {rawUnitShortFor(config, parsedLimit)} {WINDOW_SUFFIX[window]}
+                </span>
+                , the deployment will be disabled for the rest of the {window}{" "}
+                and stop running functions.
+              </p>
+              <p className="text-content-secondary">
+                Consider a warning threshold instead to be notified without
+                interrupting your deployment.
+              </p>
+            </div>
           }
         />
-        {hasAmount && !isInRange && (
-          <p className="text-xs text-content-errorSecondary">
-            Enter an amount between 1 and 100 trillion.
-          </p>
-        )}
-        {belowCurrentUsageBlocks && currentUsage !== undefined && (
-          <p className="text-xs text-content-errorSecondary">
-            Limit must be above the current usage for this window (
-            {formatNumberCompact(currentUsage, 2)}{" "}
-            {rawUnitShortFor(config, currentUsage)}).
-          </p>
-        )}
-        {belowCurrentUsageWarning && currentUsage !== undefined && (
-          <p className="text-xs text-content-warning">
-            This is below the current usage for this window (
-            {formatNumberCompact(currentUsage, 2)}{" "}
-            {rawUnitShortFor(config, currentUsage)}), so it will take effect
-            immediately once you make it active.
-          </p>
-        )}
-        {disableBeforeWarning && counterpartAmount !== undefined && (
-          <p className="text-xs text-content-warning">
-            {limitType === "warning"
-              ? `This is at or above the disable threshold (${formatNumberCompact(
-                  counterpartAmount,
-                  2,
-                )} ${rawUnitShortFor(
-                  config,
-                  counterpartAmount,
-                )}), so the deployment is disabled before this warning is sent.`
-              : `This is at or below the warning threshold (${formatNumberCompact(
-                  counterpartAmount,
-                  2,
-                )} ${rawUnitShortFor(
-                  config,
-                  counterpartAmount,
-                )}), so the deployment is disabled before that warning is sent.`}
-          </p>
-        )}
-      </div>
-      <Tooltip
-        tip="When active, this limit is enforced. If usage exceeds the allotted amount, the limit takes effect."
-        side="left"
-        delayDuration={TOOLTIP_DELAY_MS}
-      >
-        <label className="flex w-fit items-center gap-2 text-xs text-content-secondary">
-          <Checkbox
-            checked={enabled}
-            onChange={() => setEnabled((prev) => !prev)}
-          />
-          Active
-        </label>
-      </Tooltip>
-      <div className="flex items-center gap-2">
-        <Button
-          type="submit"
-          size="xs"
-          inline
-          loading={isSaving}
-          disabled={!canSave}
-        >
-          Save
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          variant="neutral"
-          inline
-          onClick={onDone}
-          disabled={isSaving}
-        >
-          Cancel
-        </Button>
-      </div>
-    </form>
+      )}
+    </>
   );
 }
 
