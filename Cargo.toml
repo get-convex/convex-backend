@@ -281,6 +281,7 @@ tokio-postgres = { git = "https://github.com/get-convex/rust-postgres", rev = "5
 postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
 tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
 moka = { git = "https://github.com/get-convex/moka", rev = "abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04" }
+validator_derive = { git = "https://github.com/Keats/validator", rev = "598ad83024529a2ff57da44d398533e3d4528490" }
 shuttle = { git = "https://github.com/awslabs/shuttle" }
 shuttle-parking_lot = { git = "https://github.com/awslabs/shuttle" }
 
