@@ -38,6 +38,7 @@ pub enum DeploymentOp {
     ViewUsageLimits,
     WriteUsageLimits,
     ViewUsage,
+    DataSync,
     #[serde(other)]
     Unknown,
 }
@@ -74,6 +75,7 @@ impl From<DeploymentOp> for ProtoDeploymentOperation {
             DeploymentOp::ViewUsageLimits => ProtoDeploymentOperation::ViewUsageLimits,
             DeploymentOp::WriteUsageLimits => ProtoDeploymentOperation::WriteUsageLimits,
             DeploymentOp::ViewUsage => ProtoDeploymentOperation::ViewUsage,
+            DeploymentOp::DataSync => ProtoDeploymentOperation::DataSync,
             DeploymentOp::Unknown => ProtoDeploymentOperation::Unspecified,
         }
     }
@@ -108,6 +110,7 @@ impl From<ProtoDeploymentOperation> for DeploymentOp {
             ProtoDeploymentOperation::ViewUsageLimits => Self::ViewUsageLimits,
             ProtoDeploymentOperation::WriteUsageLimits => Self::WriteUsageLimits,
             ProtoDeploymentOperation::ViewUsage => Self::ViewUsage,
+            ProtoDeploymentOperation::DataSync => Self::DataSync,
         }
     }
 }
@@ -132,6 +135,7 @@ pub fn read_only_operations() -> Vec<DeploymentOp> {
         DeploymentOp::ViewMetrics,
         DeploymentOp::ViewIntegrations,
         DeploymentOp::ViewData,
+        DeploymentOp::DataSync,
         DeploymentOp::ViewBackups,
         DeploymentOp::DownloadBackups,
         DeploymentOp::RunInternalQueries,

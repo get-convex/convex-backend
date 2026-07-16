@@ -71,7 +71,8 @@ export type DeploymentOp =
   | "ViewAuditLog"
   | "ViewUsage"
   | "ViewUsageLimits"
-  | "WriteUsageLimits";
+  | "WriteUsageLimits"
+  | "DataSync";
 
 export function requireOperation(
   operation: DeploymentOp | NoPermissionRequired,
