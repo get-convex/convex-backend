@@ -49,7 +49,6 @@ use common::{
 use errors::ErrorMetadata;
 use fastrace::future::FutureExt;
 use http::HeaderMap;
-use isolate::UdfArgsJson;
 use keybroker::Identity;
 use model::session_requests::types::SessionRequestIdentifier;
 use serde::{
@@ -64,7 +63,10 @@ use sync_types::{
     AuthenticationToken,
     CanonicalizedUdfPath,
 };
-use udf::ActionCallbacks;
+use udf::{
+    helpers::UdfArgsJson,
+    ActionCallbacks,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::{
     export::ValueFormat,

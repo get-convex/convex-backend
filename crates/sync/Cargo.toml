@@ -13,7 +13,6 @@ testing = [
     "application/testing",
     "common/testing",
     "errors/testing",
-    "isolate/testing",
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
@@ -29,7 +28,6 @@ common = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
-isolate = { workspace = true }
 keybroker = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
@@ -48,7 +46,6 @@ application = { workspace = true, features = ["testing"] }
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
-isolate = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 model = { workspace = true, features = ["testing"] }

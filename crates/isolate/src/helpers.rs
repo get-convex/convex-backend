@@ -20,15 +20,9 @@ use humansize::{
     FormatSize,
     BINARY,
 };
-use serde::Deserialize;
-use serde_json::value::RawValue;
-use sync_types::types::SerializedArgs;
 use value::Size;
 
-use crate::{
-    metrics::log_legacy_positional_args,
-    strings,
-};
+use crate::strings;
 
 // The below methods were taken from `deno_core`
 // https://github.com/denoland/deno_core/blob/main/LICENSE.md - MIT License
@@ -200,27 +194,6 @@ pub fn format_uncaught_error(message: String, name: String) -> String {
         format!("Uncaught {message}")
     } else {
         "Uncaught".to_string()
-    }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct UdfArgsJson(Box<RawValue>);
-
-impl UdfArgsJson {
-    /// Map it into our internal representation of positional args.
-    /// Modern apps just have a single positional arg with an object.
-    pub fn into_serialized_args(self) -> anyhow::Result<SerializedArgs> {
-        // For legacy positional args array
-        // RawValue from serde is guaranteed to have no leading whitespace.
-        if self.0.get().starts_with("[") {
-            log_legacy_positional_args();
-            return Ok(SerializedArgs::from_raw(self.0));
-        }
-        // For named args - stick it in an array
-        Ok(SerializedArgs::from_raw(serde_json::value::to_raw_value(
-            &[self.0],
-        )?))
     }
 }
 

@@ -7,13 +7,13 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use udf::helpers::UdfArgsJson;
 use value::{
     serialized_args_ext::SerializedArgsExt,
     ConvexArray,
 };
 
 use super::OpProvider;
-use crate::helpers::UdfArgsJson;
 
 #[convex_macro::v8_op]
 pub fn op_validate_args<'b, P: OpProvider<'b>>(

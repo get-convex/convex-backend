@@ -6,13 +6,22 @@ use humansize::{
     FormatSize,
     BINARY,
 };
-use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
+use serde::Deserialize;
+use serde_json::{
+    value::RawValue,
+    Value as JsonValue,
+};
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedUdfPath,
+};
 use value::{
     ConvexArray,
     ConvexValue,
     Size,
 };
+
+use crate::metrics::log_legacy_positional_args;
 
 pub fn serialize_udf_args(args: ConvexArray) -> anyhow::Result<String> {
     let json_args: JsonValue = ConvexValue::Array(args).into();
@@ -49,4 +58,25 @@ pub fn validate_udf_args_size(
     }
 
     Ok(())
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UdfArgsJson(Box<RawValue>);
+
+impl UdfArgsJson {
+    /// Map it into our internal representation of positional args.
+    /// Modern apps just have a single positional arg with an object.
+    pub fn into_serialized_args(self) -> anyhow::Result<SerializedArgs> {
+        // For legacy positional args array
+        // RawValue from serde is guaranteed to have no leading whitespace.
+        if self.0.get().starts_with("[") {
+            log_legacy_positional_args();
+            return Ok(SerializedArgs::from_raw(self.0));
+        }
+        // For named args - stick it in an array
+        Ok(SerializedArgs::from_raw(serde_json::value::to_raw_value(
+            &[self.0],
+        )?))
+    }
 }
