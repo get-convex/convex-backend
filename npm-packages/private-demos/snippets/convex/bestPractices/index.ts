@@ -642,13 +642,21 @@ declare const movieId: GenericId<"movies">;
 // @skipNextLine
 {
   // ❌
+  // @skipNextLine
+  // eslint-disable-next-line @convex-dev/explicit-table-ids
   await ctx.db.get(movieId);
+  // @skipNextLine
+  // eslint-disable-next-line @convex-dev/explicit-table-ids
   await ctx.db.patch(movieId, { title: "Whiplash" });
+  // @skipNextLine
+  // eslint-disable-next-line @convex-dev/explicit-table-ids
   await ctx.db.replace(movieId, {
     title: "Whiplash",
     director: "Damien Chazelle",
     votes: 0,
   });
+  // @skipNextLine
+  // eslint-disable-next-line @convex-dev/explicit-table-ids
   await ctx.db.delete(movieId);
 
   // ✅            vvvvvvvv
