@@ -63,6 +63,16 @@ static USHER_INSTANCE_URL: LazyLock<String> =
 
 const LOCAL_LOG_SINK_FILENAME: &str = "log_sink.jsonl";
 
+/// Ports the open-source `convex-local-backend` binds. Overridable via env so a
+/// second backend stack (e.g. the conductor stack, which uses 8000) can run
+/// concurrently on the same host without a port collision.
+fn open_source_backend_port() -> u16 {
+    env_config("BACKEND_HARNESS_OSS_PORT", 8000)
+}
+fn open_source_site_proxy_port() -> u16 {
+    env_config("BACKEND_HARNESS_OSS_SITE_PROXY_PORT", 8001)
+}
+
 #[cfg(unix)]
 const NPX: &str = "npx";
 #[cfg(windows)]
@@ -176,7 +186,7 @@ impl ProvisionHandle {
                 let url = if _usher_handle.is_some() {
                     USHER_INSTANCE_URL.clone()
                 } else {
-                    "http://127.0.0.1:8000".to_string()
+                    format!("http://127.0.0.1:{}", open_source_backend_port())
                 };
                 Some(url)
             },
@@ -522,9 +532,9 @@ async fn provision(
                 Command::new(backend_binary)
                     .arg(db_path)
                     .arg("--port")
-                    .arg("8000")
+                    .arg(open_source_backend_port().to_string())
                     .arg("--site-proxy-port")
-                    .arg("8001")
+                    .arg(open_source_site_proxy_port().to_string())
                     .arg("--disable-beacon")
                     .arg("--instance-name")
                     .arg(DEV_INSTANCE_NAME)
@@ -533,7 +543,7 @@ async fn provision(
                     .env("CONVEX_RELEASE_VERSION_DEV", "0.0.0-backendharness")
                     .kill_on_drop(true),
             )?;
-            let backend_url = "http://127.0.0.1:8000".to_string();
+            let backend_url = format!("http://127.0.0.1:{}", open_source_backend_port());
             // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &backend_url.parse()?,

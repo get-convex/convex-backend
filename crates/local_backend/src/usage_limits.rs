@@ -59,8 +59,8 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct UsageLimitConfigRequest {
     metric: UsageLimitMetric,
-    window: String,
-    limit_type: String,
+    window: UsageLimitWindow,
+    limit_type: UsageLimitType,
     #[schema(minimum = 1)]
     limit: u64,
     enabled: bool,
@@ -70,8 +70,8 @@ impl UsageLimitConfigRequest {
     fn into_usage_limit_config(self) -> anyhow::Result<UsageLimitConfig> {
         let config = UsageLimitConfig {
             metric: self.metric,
-            window: parse_usage_limit_window(self.window)?,
-            limit_type: parse_usage_limit_type(self.limit_type)?,
+            window: self.window,
+            limit_type: self.limit_type,
             limit: self.limit,
             enabled: self.enabled,
         };
@@ -85,8 +85,8 @@ impl UsageLimitConfigRequest {
 pub struct UsageLimitConfigResponse {
     pub id: String,
     pub metric: UsageLimitMetric,
-    pub window: String,
-    pub limit_type: String,
+    pub window: UsageLimitWindow,
+    pub limit_type: UsageLimitType,
     #[schema(minimum = 1)]
     pub limit: u64,
     pub enabled: bool,
@@ -99,8 +99,8 @@ impl From<common::document::ParsedDocument<UsageLimitConfig>> for UsageLimitConf
         Self {
             id,
             metric: config.metric,
-            window: config.window.to_string(),
-            limit_type: config.limit_type.to_string(),
+            window: config.window,
+            limit_type: config.limit_type,
             limit: config.limit,
             enabled: config.enabled,
         }
@@ -441,8 +441,8 @@ pub async fn delete_usage_limit_handler(
     Ok(UsageLimitConfigResponse {
         id: String::from(DeveloperDocumentId::from(id)),
         metric: config.metric,
-        window: config.window.to_string(),
-        limit_type: config.limit_type.to_string(),
+        window: config.window,
+        limit_type: config.limit_type,
         limit: config.limit,
         enabled: config.enabled,
     })
@@ -490,26 +490,6 @@ fn validate_limit_above_current_usage(
         .into());
     }
     Ok(())
-}
-
-fn parse_usage_limit_window(window: String) -> anyhow::Result<UsageLimitWindow> {
-    window.parse().map_err(|_| {
-        ErrorMetadata::bad_request(
-            "InvalidUsageLimitWindow",
-            format!("Invalid usage limit window: {window}"),
-        )
-        .into()
-    })
-}
-
-fn parse_usage_limit_type(limit_type: String) -> anyhow::Result<UsageLimitType> {
-    limit_type.parse().map_err(|_| {
-        ErrorMetadata::bad_request(
-            "InvalidUsageLimitType",
-            format!("Invalid usage limit type: {limit_type}"),
-        )
-        .into()
-    })
 }
 
 pub fn platform_router<S>() -> OpenApiRouter<S>

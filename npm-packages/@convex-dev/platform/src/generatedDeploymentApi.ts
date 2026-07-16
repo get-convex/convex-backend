@@ -1120,24 +1120,31 @@ export interface components {
             enabled: boolean;
             /** Format: int64 */
             limit: number;
-            limitType: string;
+            limitType: components["schemas"]["UsageLimitType"];
             metric: components["schemas"]["UsageLimitMetric"];
-            window: string;
+            window: components["schemas"]["UsageLimitWindow"];
         };
         UsageLimitConfigResponse: {
             enabled: boolean;
             id: string;
             /** Format: int64 */
             limit: number;
-            limitType: string;
+            limitType: components["schemas"]["UsageLimitType"];
             metric: components["schemas"]["UsageLimitMetric"];
-            window: string;
+            window: components["schemas"]["UsageLimitWindow"];
         };
         /** @enum {string} */
         UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours";
         UsageLimitResponse: {
             usageLimit: components["schemas"]["UsageLimitConfigResponse"];
         };
+        /** @enum {string} */
+        UsageLimitType: "warning" | "disable";
+        /**
+         * @description The calendar-aligned window a limit is measured over.
+         * @enum {string}
+         */
+        UsageLimitWindow: "day" | "month";
         Value: unknown;
         /** @enum {string} */
         WebhookFormat: "json" | "jsonl";
@@ -1236,6 +1243,8 @@ export type UsageLimitConfigRequest = components['schemas']['UsageLimitConfigReq
 export type UsageLimitConfigResponse = components['schemas']['UsageLimitConfigResponse'];
 export type UsageLimitMetric = components['schemas']['UsageLimitMetric'];
 export type UsageLimitResponse = components['schemas']['UsageLimitResponse'];
+export type UsageLimitType = components['schemas']['UsageLimitType'];
+export type UsageLimitWindow = components['schemas']['UsageLimitWindow'];
 export type Value = components['schemas']['Value'];
 export type WebhookFormat = components['schemas']['WebhookFormat'];
 export type WebhookLogStreamConfig = components['schemas']['WebhookLogStreamConfig'];

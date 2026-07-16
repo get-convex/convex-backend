@@ -25,6 +25,7 @@
   "dependencies": {
     "@convex-dev/design-system": "workspace:*",
     "@convex-dev/platform": "workspace:*",
+    "@floating-ui/react": "^0.27.0",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "2.2.0",
     "@monaco-editor/react": "4.7.0",

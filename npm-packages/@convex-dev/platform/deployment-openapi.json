@@ -3049,13 +3049,13 @@
             "minimum": 1
           },
           "limitType": {
-            "type": "string"
+            "$ref": "#/components/schemas/UsageLimitType"
           },
           "metric": {
             "$ref": "#/components/schemas/UsageLimitMetric"
           },
           "window": {
-            "type": "string"
+            "$ref": "#/components/schemas/UsageLimitWindow"
           }
         }
       },
@@ -3082,13 +3082,13 @@
             "minimum": 1
           },
           "limitType": {
-            "type": "string"
+            "$ref": "#/components/schemas/UsageLimitType"
           },
           "metric": {
             "$ref": "#/components/schemas/UsageLimitMetric"
           },
           "window": {
-            "type": "string"
+            "$ref": "#/components/schemas/UsageLimitWindow"
           }
         }
       },
@@ -3115,6 +3115,21 @@
             "$ref": "#/components/schemas/UsageLimitConfigResponse"
           }
         }
+      },
+      "UsageLimitType": {
+        "type": "string",
+        "enum": [
+          "warning",
+          "disable"
+        ]
+      },
+      "UsageLimitWindow": {
+        "type": "string",
+        "description": "The calendar-aligned window a limit is measured over.",
+        "enum": [
+          "day",
+          "month"
+        ]
       },
       "Value": {},
       "WebhookFormat": {
