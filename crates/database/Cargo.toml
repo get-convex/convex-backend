@@ -64,7 +64,6 @@ pb = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
-qdrant_segment = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 roles = { workspace = true }
@@ -78,7 +77,6 @@ slab = { workspace = true }
 storage = { workspace = true }
 sync_types = { workspace = true }
 table_iteration = { workspace = true }
-tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }

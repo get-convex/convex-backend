@@ -34,10 +34,7 @@ use metrics::{
     Timer,
     STATUS_LABEL,
 };
-use prometheus::{
-    VMHistogram,
-    VMHistogramVec,
-};
+use prometheus::VMHistogram;
 
 use crate::IsolateHeapStats;
 
@@ -597,13 +594,6 @@ pub fn log_source_map_origin_in_separate_module() {
     log_counter(&SOURCE_MAP_ORIGIN_IN_SEPARATE_MODULE_TOTAL, 1);
 }
 
-register_convex_histogram!(MODULE_LOAD_SECONDS, "Time to load modules", &["source"]);
-pub fn module_load_timer(source: &'static str) -> Timer<VMHistogramVec> {
-    let mut timer = Timer::new_with_labels(&MODULE_LOAD_SECONDS);
-    timer.add_label(MetricLabel::new_const("source", source));
-    timer
-}
-
 register_convex_counter!(
     ISOLATE_OUT_OF_MEMORY_TOTAL,
     "Number of times isolate ran out of memory during function execution"
@@ -687,15 +677,6 @@ pub fn log_component_get_user_identity(has_user_identity: bool) {
             has_user_identity.as_label(),
         )],
     );
-}
-
-register_convex_counter!(
-    LEGACY_POSITIONAL_ARGS_TOTAL,
-    "Number of times that legacy positional arguments are used",
-);
-
-pub fn log_legacy_positional_args() {
-    log_counter(&LEGACY_POSITIONAL_ARGS_TOTAL, 1);
 }
 
 register_convex_histogram!(

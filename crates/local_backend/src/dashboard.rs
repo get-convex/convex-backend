@@ -30,7 +30,6 @@ use common::{
 };
 use database::IndexModel;
 use http::StatusCode;
-use isolate::UdfArgsJson;
 use model::{
     config::types::ModuleConfig,
     virtual_system_mapping,
@@ -41,6 +40,7 @@ use serde::{
     Serialize,
 };
 use serde_json::json;
+use udf::helpers::UdfArgsJson;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use value::{

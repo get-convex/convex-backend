@@ -1,5 +1,8 @@
 use std::{
-    collections::HashSet,
+    collections::{
+        BTreeMap,
+        HashSet,
+    },
     sync::Arc,
     time::Duration,
 };
@@ -75,6 +78,7 @@ use model::{
 use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
+use udf::validation::ValidatedUdfOutcome;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     JsonPackedValue,
@@ -92,6 +96,7 @@ mod metrics;
 const INITIAL_BACKOFF: Duration = Duration::from_millis(500);
 const MAX_BACKOFF: Duration = Duration::from_secs(15);
 pub(crate) const CRON_COMITTING: &str = "cron_committing";
+pub(crate) const CRON_JOB_EXECUTING: &str = "cron_job_executing";
 pub(crate) const CRON_JOB_EXECUTED: &str = "cron_job_executed";
 pub(crate) const CRON_JOB_SUCCEEDED: &str = "cron_job_succeeded";
 
@@ -436,19 +441,82 @@ impl<RT: Runtime> CronJobContext<RT> {
         CronModel::new(&mut tx, component)
             .prepare_insert_cron_job_log(&job)
             .await?;
-        let mutation_result = self
-            .runner
-            .run_mutation_no_udf_log(
-                tx,
-                PublicFunctionPath::Component(path.clone()),
-                job.cron_spec.udf_args.clone(),
-                caller.allowed_visibility(),
-                context.clone(),
-                None,
-            )
-            .await;
-        let (mut tx, mut outcome) = match mutation_result {
-            Ok(r) => r,
+        let mutation_result =
+            if let Fault::Error(e) = self.rt.pause_client().wait(CRON_JOB_EXECUTING).await {
+                tracing::info!("Injected error before running mutation");
+                Err(e)
+            } else {
+                self.runner
+                    .run_mutation_no_udf_log(
+                        tx,
+                        PublicFunctionPath::Component(path.clone()),
+                        job.cron_spec.udf_args.clone(),
+                        caller.allowed_visibility(),
+                        context.clone(),
+                        None,
+                    )
+                    .await
+            };
+        let (stats, execution_time, outcome) = match mutation_result {
+            Ok((mut tx, mut outcome)) => {
+                let stats = tx.take_stats();
+                let execution_time = start.elapsed();
+                if let Ok(ref result) = outcome.result {
+                    let truncated_result = self.truncate_result(result.clone(), &path)?;
+                    let status = CronJobStatus::Success(truncated_result);
+                    CronModel::new(&mut tx, component)
+                        .insert_cron_job_log(
+                            &job,
+                            status,
+                            self.truncate_log_lines(outcome.log_lines.clone()),
+                            execution_time.as_secs_f64(),
+                        )
+                        .await?;
+                    self.complete_job_run(
+                        identity.clone(),
+                        &mut tx,
+                        &job,
+                        UdfType::Mutation,
+                        context.clone(),
+                        Some(mutation_retry_count),
+                    )
+                    .await?;
+                    let commit_result = if let Fault::Error(e) =
+                        self.rt.pause_client().wait(CRON_COMITTING).await
+                    {
+                        tracing::info!("Injected error before committing mutation");
+                        Err(e)
+                    } else {
+                        self.database
+                            .commit_with_write_source(tx, "cron_commit_mutation")
+                            .await
+                    };
+                    if let Err(err) = commit_result {
+                        if err.is_deterministic_user_error() {
+                            outcome.result = Err(JsError::from_error(err));
+                        } else if let Some(occ_info) = err.occ_info() {
+                            self.function_log
+                                .log_mutation_occ_error(
+                                    outcome,
+                                    stats,
+                                    execution_time,
+                                    caller,
+                                    usage_tracker,
+                                    context,
+                                    occ_info,
+                                    None,
+                                    mutation_retry_count,
+                                    true,
+                                )
+                                .await;
+                            return Err(err);
+                        } else {
+                            return Err(err);
+                        }
+                    }
+                }
+                (stats, execution_time, outcome)
+            },
             Err(e) => {
                 if e.short_msg() == "TooManyWrites" {
                     self.function_log
@@ -465,6 +533,21 @@ impl<RT: Runtime> CronJobContext<RT> {
                             true,
                         )
                         .await?;
+                    return Err(e);
+                } else if e.is_deterministic_user_error() {
+                    // A deterministic user error fails the same way on every attempt. Synthesize a
+                    // failed outcome so the failure path below records the run
+                    // and advances to the next scheduled run instead of
+                    // retrying it like a transient system error.
+                    let outcome = ValidatedUdfOutcome::from_error(
+                        JsError::from_error(e),
+                        path,
+                        job.cron_spec.udf_args.clone(),
+                        identity.clone(),
+                        self.rt.clone(),
+                        None,
+                    )?;
+                    (BTreeMap::new(), start.elapsed(), outcome)
                 } else {
                     self.function_log
                         .log_mutation_system_error(
@@ -479,68 +562,10 @@ impl<RT: Runtime> CronJobContext<RT> {
                             mutation_retry_count,
                         )
                         .await?;
+                    return Err(e);
                 }
-                return Err(e);
             },
         };
-        let stats = tx.take_stats();
-        let execution_time = start.elapsed();
-        let execution_time_f64 = execution_time.as_secs_f64();
-        let truncated_log_lines = self.truncate_log_lines(outcome.log_lines.clone());
-
-        if let Ok(ref result) = outcome.result {
-            let truncated_result = self.truncate_result(result.clone(), &path)?;
-            let status = CronJobStatus::Success(truncated_result);
-            CronModel::new(&mut tx, component)
-                .insert_cron_job_log(
-                    &job,
-                    status,
-                    truncated_log_lines.clone(),
-                    execution_time_f64,
-                )
-                .await?;
-            self.complete_job_run(
-                identity.clone(),
-                &mut tx,
-                &job,
-                UdfType::Mutation,
-                context.clone(),
-                Some(mutation_retry_count),
-            )
-            .await?;
-            let commit_result =
-                if let Fault::Error(e) = self.rt.pause_client().wait(CRON_COMITTING).await {
-                    tracing::info!("Injected error before committing mutation");
-                    Err(e)
-                } else {
-                    self.database
-                        .commit_with_write_source(tx, "cron_commit_mutation")
-                        .await
-                };
-            if let Err(err) = commit_result {
-                if err.is_deterministic_user_error() {
-                    outcome.result = Err(JsError::from_error(err));
-                } else if let Some(occ_info) = err.occ_info() {
-                    self.function_log
-                        .log_mutation_occ_error(
-                            outcome,
-                            stats,
-                            execution_time,
-                            caller,
-                            usage_tracker,
-                            context,
-                            occ_info,
-                            None,
-                            mutation_retry_count,
-                            true,
-                        )
-                        .await;
-                    return Err(err);
-                } else {
-                    return Err(err);
-                }
-            }
-        }
         if let Err(ref e) = outcome.result {
             // UDF failed due to developer error. It is not safe to commit the
             // transaction it executed in. We should remove the job in a new
@@ -555,7 +580,12 @@ impl<RT: Runtime> CronJobContext<RT> {
             let mut model = CronModel::new(&mut tx, component);
             let status = CronJobStatus::Err(e.to_string());
             model
-                .insert_cron_job_log(&job, status, truncated_log_lines, execution_time_f64)
+                .insert_cron_job_log(
+                    &job,
+                    status,
+                    self.truncate_log_lines(outcome.log_lines.clone()),
+                    execution_time.as_secs_f64(),
+                )
                 .await?;
             self.complete_job_run(
                 identity,

@@ -15,6 +15,7 @@ export const flagDefaults: {
   schemaPage: boolean;
   usageLimits: boolean;
   nonDefaultTeamDevsInMainMenu: number;
+  copyEnvVarNameAndValue: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -29,6 +30,7 @@ export const flagDefaults: {
   schemaPage: false,
   usageLimits: false,
   nonDefaultTeamDevsInMainMenu: 10,
+  copyEnvVarNameAndValue: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

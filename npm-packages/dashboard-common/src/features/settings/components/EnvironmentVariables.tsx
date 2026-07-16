@@ -13,6 +13,7 @@ import {
 import classNames from "classnames";
 import React, {
   ClipboardEventHandler,
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -23,6 +24,7 @@ import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
 import { copyTextToClipboard, toast } from "@common/lib/utils";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { TextInput } from "@ui/TextInput";
 import { cn } from "@ui/cn";
 import cloneDeep from "lodash/cloneDeep";
@@ -448,6 +450,8 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
 }) {
   const formState = useFormikContext<FormState<T>>();
   const [showValue, setShowValue] = useState(false);
+  const copyEnvVarNameAndValueEnabled =
+    useContext(DeploymentInfoContext)?.copyEnvVarNameAndValueEnabled ?? false;
 
   return (
     <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
@@ -499,21 +503,59 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           icon={<Pencil2Icon />}
           disabled={formState.isSubmitting || !canEdit}
         />
-        <Button
-          tip="Copy Value"
-          aria-label="Copy Value"
-          type="button"
-          onClick={async () => {
-            await copyTextToClipboard(environmentVariable.value);
-            toast(
-              "success",
-              "Environment variable value copied to the clipboard.",
-            );
-          }}
-          variant="neutral"
-          icon={<ClipboardCopyIcon />}
-          disabled={formState.isSubmitting}
-        />
+        {copyEnvVarNameAndValueEnabled ? (
+          <Button
+            tip="Copy Name and Value"
+            aria-label="Copy Name and Value"
+            type="button"
+            onClick={async () => {
+              const { formatted, warning } = formatEnvValueForDotfile(
+                environmentVariable.value,
+              );
+              await copyTextToClipboard(
+                `${environmentVariable.name}=${formatted}`,
+              );
+              if (warning) {
+                toast(
+                  "warning",
+                  <div className="space-y-1">
+                    <div>
+                      Environment variable copied to the clipboard with the
+                      following warning:
+                    </div>
+                    <div>
+                      <code>{environmentVariable.name}</code>: {warning}
+                    </div>
+                  </div>,
+                );
+              } else {
+                toast(
+                  "success",
+                  "Environment variable name and value copied to the clipboard.",
+                );
+              }
+            }}
+            variant="neutral"
+            icon={<ClipboardCopyIcon />}
+            disabled={formState.isSubmitting}
+          />
+        ) : (
+          <Button
+            tip="Copy Value"
+            aria-label="Copy Value"
+            type="button"
+            onClick={async () => {
+              await copyTextToClipboard(environmentVariable.value);
+              toast(
+                "success",
+                "Environment variable value copied to the clipboard.",
+              );
+            }}
+            variant="neutral"
+            icon={<ClipboardCopyIcon />}
+            disabled={formState.isSubmitting}
+          />
+        )}
         <Button
           tip={
             !canDelete

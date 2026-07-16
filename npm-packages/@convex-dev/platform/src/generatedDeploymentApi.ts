@@ -100,11 +100,9 @@ export interface paths {
         };
         /**
          * Get current usage
-         * @description Get the current usage for each metric, in each in-progress window (the
-         *     current day and calendar month), along with the status of the
-         *     historical-usage backfill.
+         * @description Get the values for each usage metric for the current day and month (UTC)
          *
-         *     The reported usage is only guaranteed to reflect the full window once
+         *     The reported usage is only guaranteed to reflect the full window when
          *     `seedStatus` is `complete`. A `pending` or `partial` status means the
          *     backfill is still in progress and the returned usage may understate actual
          *     usage, so retry later for an accurate total.
@@ -450,12 +448,12 @@ export interface paths {
          *       more data is already available (`true`) or you've caught up to the latest
          *       commit (`false`).
          *
-         *     Persist the cursor and keep calling within the deployment's data retention
-         *     window so the export can resume where it left off. This endpoint must be
-         *     called at least once every 3 days; if too much time passes between calls the
-         *     cursor falls outside the retention window and can no longer be resumed. When
-         *     that happens the endpoint responds with a `400` (`DataSyncCursorExpired`),
-         *     and you must restart the sync from scratch by calling again with no cursor.
+         *     Persist the results and cursor to each page atomically. Continue calling the
+         *     endpoint with the cursor to progress the data sync. This endpoint must be
+         *     called at least once every 3 days, or the sync will expire and can no longer
+         *     be resumed. When that happens the endpoint responds with a `400`
+         *     (`DataSyncCursorExpired`), and you must restart the sync from scratch by
+         *     calling again with no cursor.
          *
          *     Each sync's progress is periodically recorded while the sync is in
          *     progress and can be monitored via `/data/list_active_syncs`, keyed by the

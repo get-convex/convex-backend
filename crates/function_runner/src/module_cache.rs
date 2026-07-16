@@ -16,13 +16,17 @@ use common::{
     },
 };
 use futures::FutureExt;
-use isolate::{
-    environment::helpers::module_loader::get_modules_and_prefetch,
-    module_cache::V8ModuleSource,
-};
+use isolate::module_cache::V8ModuleSource;
 use model::{
-    modules::types::ModuleMetadata,
-    source_packages::types::SourcePackage,
+    modules::{
+        hash_module_source,
+        module_versions::FullModuleSource,
+        types::ModuleMetadata,
+    },
+    source_packages::{
+        types::SourcePackage,
+        upload_download::download_package,
+    },
 };
 use moka::sync::Cache;
 use storage::Storage;
@@ -32,7 +36,10 @@ use value::{
     sha256::Sha256Digest,
 };
 
-use crate::record_module_sizes;
+use crate::{
+    metrics::module_load_timer,
+    record_module_sizes,
+};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct ModuleCacheKey {
@@ -107,16 +114,29 @@ impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModul
                 key,
                 (deployment_name.clone(), source_package.sha256.clone()),
                 try_join("get_modules_and_prefetch", async move {
-                    Ok(get_modules_and_prefetch(modules_storage, &source_package)
-                        .await?
-                        .map(move |(module_path, sha256, source)| {
+                    let _timer = module_load_timer("package");
+                    let package = download_package(
+                        modules_storage,
+                        source_package.storage_key.clone(),
+                        source_package.sha256.clone(),
+                    )
+                    .await?;
+                    Ok(package
+                        .into_iter()
+                        .map(move |(module_path, module_config)| {
                             (
                                 ModuleCacheKey {
                                     deployment_name: deployment_name.clone(),
                                     module_path,
-                                    sha256,
+                                    sha256: hash_module_source(
+                                        &module_config.source,
+                                        module_config.source_map.as_ref(),
+                                    ),
                                 },
-                                Arc::new(V8ModuleSource::new(source)),
+                                Arc::new(V8ModuleSource::new(FullModuleSource {
+                                    source: module_config.source,
+                                    source_map: module_config.source_map,
+                                })),
                             )
                         })
                         .collect())

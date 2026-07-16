@@ -23,6 +23,7 @@
 //! - Each page reads at most `max_rows_read` rows and targets `page_size_limit`
 //!   emitted entries and `page_bytes_limit` bytes of emitted documents. May
 //!   occasionally go over these limits for a single large transaction.
+//! - Cursor + Page should be persisted atomically by caller
 //!
 //! # During Initial Sync phase
 //!

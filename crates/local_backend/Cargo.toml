@@ -17,7 +17,6 @@ testing = [
     "fivetran_destination/testing",
     "function_runner/testing",
     "indexing/testing",
-    "isolate/testing",
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
@@ -69,7 +68,6 @@ http-body-util = { workspace = true }
 http_client = { workspace = true }
 hyper-util = { workspace = true }
 indexing = { workspace = true }
-isolate = { workspace = true }
 keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
@@ -123,7 +121,6 @@ exports = { workspace = true, features = ["testing"] }
 fivetran_destination = { workspace = true, features = ["testing"] }
 function_runner = { workspace = true, features = ["testing"] }
 indexing = { workspace = true, features = ["testing"] }
-isolate = { workspace = true, features = ["testing"] }
 jsonschema = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }

@@ -53,7 +53,6 @@ pub use self::{
         deserialize_udf_custom_error,
         deserialize_udf_result,
         format_uncaught_error,
-        UdfArgsJson,
     },
     isolate::IsolateHeapStats,
     metrics::{

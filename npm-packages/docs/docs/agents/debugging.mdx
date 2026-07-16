@@ -45,6 +45,69 @@ const supportAgent = new Agent(components.agent, {
 });
 ```
 
+## Tracing LLM calls with OpenTelemetry
+
+When you pass
+[`experimental_telemetry`](https://ai-sdk.dev/docs/ai-sdk-core/telemetry) to a
+generate or stream call, the AI SDK emits OpenTelemetry spans with the model,
+token usage, prompt, and response.
+
+To export them to an OTLP backend, register a tracer provider:
+
+```ts
+import { trace } from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  BasicTracerProvider,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+
+const tracerProvider = new BasicTracerProvider({
+  resource: resourceFromAttributes({ "service.name": "convex-agent" }),
+  spanProcessors: [
+    new SimpleSpanProcessor(
+      new OTLPTraceExporter({
+        url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+        headers: {
+          Authorization: `Bearer ${process.env.OTEL_EXPORTER_OTLP_TRACES_TOKEN}`,
+        },
+      }),
+    ),
+  ],
+});
+trace.setGlobalTracerProvider(tracerProvider);
+```
+
+Then enable telemetry on the call, and flush the spans before the handler
+returns so their exports are
+[awaited](https://docs.convex.dev/understanding/best-practices/#await-all-promises):
+
+```ts
+export const generateTextWithTelemetry = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(
+      ctx,
+      { threadId },
+      {
+        prompt,
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: "debugging/telemetry",
+        },
+      },
+    );
+    await tracerProvider.forceFlush();
+    return result.text;
+  },
+});
+```
+
+See the full example in
+[debugging/telemetry.ts](https://github.com/get-convex/agent/blob/main/example/convex/debugging/telemetry.ts).
+
 ## Inspecting the database in the dashboard
 
 You can go to the Data tab in the dashboard and select the agent component above

@@ -325,6 +325,9 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   // Gated off until the usage limits feature ships; self-hosted has no
   // LaunchDarkly, so flip this to true at launch.
   usageLimitsEnabled: false,
+  // Gated off until the feature ships; self-hosted has no LaunchDarkly, so
+  // flip this to true at launch.
+  copyEnvVarNameAndValueEnabled: false,
   connectionStateCheckIntervalMs: 2500,
 };
 

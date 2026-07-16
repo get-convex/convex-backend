@@ -21,7 +21,6 @@ biscuit = { workspace = true }
 chrono = { workspace = true }
 common = { workspace = true }
 data-url = { workspace = true }
-derive_more = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
@@ -37,8 +36,6 @@ serde_json = { workspace = true }
 sync_types = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-tuple_struct = { workspace = true }
-utoipa = { workspace = true }
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }

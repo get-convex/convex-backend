@@ -141,6 +141,7 @@ export function DeploymentInfoProvider({
     logStreamTopicFilters,
     schemaPage,
     usageLimits,
+    copyEnvVarNameAndValue,
   } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
@@ -224,6 +225,7 @@ export function DeploymentInfoProvider({
         logStreamTopicFiltersEnabled: logStreamTopicFilters,
         schemaPageEnabled: schemaPage,
         usageLimitsEnabled: usageLimits,
+        copyEnvVarNameAndValueEnabled: copyEnvVarNameAndValue,
         connectionStateCheckIntervalMs,
       });
     };
@@ -244,6 +246,7 @@ export function DeploymentInfoProvider({
     logStreamTopicFilters,
     schemaPage,
     usageLimits,
+    copyEnvVarNameAndValue,
     connectionStateCheckIntervalMs,
   ]);
 

@@ -40,7 +40,6 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use isolate::UdfArgsJson;
 use serde::{
     Deserialize,
     Serialize,
@@ -50,6 +49,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use sync_types::Timestamp;
+use udf::helpers::UdfArgsJson;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use value::{
