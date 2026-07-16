@@ -1273,14 +1273,16 @@ function TriggeredBadge({ limitType }: { limitType: UsageLimitType }) {
     >
       <span
         className={cn(
-          "flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+          "flex w-fit items-center rounded-full p-1",
           isDisable
             ? "bg-background-error text-content-error"
             : "bg-background-warning text-content-warning",
         )}
       >
-        <ExclamationTriangleIcon className="size-3" />
-        Limit Exceeded
+        <ExclamationTriangleIcon
+          className="size-3"
+          aria-label="Limit exceeded"
+        />
       </span>
     </Tooltip>
   );
