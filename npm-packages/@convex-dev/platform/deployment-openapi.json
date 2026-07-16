@@ -214,7 +214,7 @@
           "beta"
         ],
         "summary": "Get current usage",
-        "description": "Get the current usage for each metric, in each in-progress window (the\ncurrent day and calendar month), along with the status of the\nhistorical-usage backfill.\n\nThe reported usage is only guaranteed to reflect the full window once\n`seedStatus` is `complete`. A `pending` or `partial` status means the\nbackfill is still in progress and the returned usage may understate actual\nusage, so retry later for an accurate total.",
+        "description": "Get the values for each usage metric for the current day and month (UTC)\n\nThe reported usage is only guaranteed to reflect the full window when\n`seedStatus` is `complete`. A `pending` or `partial` status means the\nbackfill is still in progress and the returned usage may understate actual\nusage, so retry later for an accurate total.",
         "operationId": "get_current_usage",
         "responses": {
           "200": {

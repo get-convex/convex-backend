@@ -100,11 +100,9 @@ export interface paths {
         };
         /**
          * Get current usage
-         * @description Get the current usage for each metric, in each in-progress window (the
-         *     current day and calendar month), along with the status of the
-         *     historical-usage backfill.
+         * @description Get the values for each usage metric for the current day and month (UTC)
          *
-         *     The reported usage is only guaranteed to reflect the full window once
+         *     The reported usage is only guaranteed to reflect the full window when
          *     `seedStatus` is `complete`. A `pending` or `partial` status means the
          *     backfill is still in progress and the returned usage may understate actual
          *     usage, so retry later for an accurate total.
