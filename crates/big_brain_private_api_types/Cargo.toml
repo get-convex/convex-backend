@@ -8,7 +8,7 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 ignored = [
     # proptest_derive macro depends on proptest
     "proptest",
-    "proptest_derive",
+    "proptest-derive",
     # Used in macros
     "derive_more",
 ]

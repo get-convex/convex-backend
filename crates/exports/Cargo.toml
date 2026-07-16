@@ -14,7 +14,6 @@ testing = [
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
-    "shape_inference/testing",
     "storage/testing",
     "usage_tracking/testing",
     "value/testing",
@@ -36,7 +35,6 @@ mime2ext = { workspace = true }
 model = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-shape_inference = { workspace = true }
 storage = { workspace = true }
 thousands = { workspace = true }
 tokio = { workspace = true }
@@ -57,7 +55,6 @@ metrics = { workspace = true, features = ["testing"] }
 model = { workspace = true, features = ["testing"] }
 pretty_assertions = { workspace = true }
 runtime = { workspace = true }
-shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
 storage_zip_reader = { workspace = true }
 usage_tracking = { workspace = true, features = ["testing"] }
