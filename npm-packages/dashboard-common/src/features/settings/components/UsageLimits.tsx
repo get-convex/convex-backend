@@ -246,8 +246,13 @@ function windowTriggerCounts(
   };
 }
 
+// Truncate rather than round to 2 decimals so amounts match the compact figure
+// shown inline (formatNumberCompact also uses roundingMode: "trunc"): a value
+// like 0.0375 reads as "0.03" in both the inline usage and its tooltip, not
+// "0.03" inline and "0.04" in the tooltip.
 const AMOUNT_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
+  roundingMode: "trunc",
 });
 
 // Format a usage amount. Intl renders -0 (and tiny negatives that round to
