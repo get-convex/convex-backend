@@ -32,8 +32,9 @@ jobs:
       - name: Check Cargo.lock up-to-date
         run: cargo update -w --locked
 
-      - name: Cache pnpm artifacts
-        uses: runs-on/cache@bd330c5a5f6cbb837823ee25864f3c71a211c2e3 # v5.0.5
+      # Restore-only: OSS can't write this cache (cache-write role is get-convex/convex-only).
+      - name: Restore pnpm artifacts
+        uses: runs-on/cache/restore@bd330c5a5f6cbb837823ee25864f3c71a211c2e3 # v5.0.5
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
