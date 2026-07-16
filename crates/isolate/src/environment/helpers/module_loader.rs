@@ -1,51 +1,8 @@
-use std::sync::Arc;
-
 use anyhow::anyhow;
-use common::document::ParsedDocument;
 use deno_core::ModuleSpecifier;
-use model::{
-    modules::{
-        hash_module_source,
-        module_versions::FullModuleSource,
-    },
-    source_packages::{
-        types::SourcePackage,
-        upload_download::download_package,
-    },
-};
-use storage::Storage;
 use sync_types::CanonicalizedModulePath;
-use value::sha256::Sha256Digest;
 
-use crate::{
-    isolate::CONVEX_SCHEME,
-    metrics::module_load_timer,
-};
-
-#[fastrace::trace]
-pub async fn get_modules_and_prefetch(
-    modules_storage: Arc<dyn Storage>,
-    source_package: &ParsedDocument<SourcePackage>,
-) -> anyhow::Result<impl Iterator<Item = (CanonicalizedModulePath, Sha256Digest, FullModuleSource)>>
-{
-    let _timer = module_load_timer("package");
-    let package = download_package(
-        modules_storage,
-        source_package.storage_key.clone(),
-        source_package.sha256.clone(),
-    )
-    .await?;
-    Ok(package.into_iter().map(|(module_path, module_config)| {
-        (
-            module_path,
-            hash_module_source(&module_config.source, module_config.source_map.as_ref()),
-            FullModuleSource {
-                source: module_config.source,
-                source_map: module_config.source_map,
-            },
-        )
-    }))
-}
+use crate::isolate::CONVEX_SCHEME;
 
 pub fn module_specifier_from_path(
     path: &CanonicalizedModulePath,

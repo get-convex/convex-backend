@@ -11,14 +11,17 @@ use common::{
     runtime::Runtime,
 };
 use futures::FutureExt;
-use isolate::environment::helpers::module_loader::get_modules_and_prefetch;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
+        hash_module_source,
         module_versions::FullModuleSource,
         types::ModuleMetadata,
     },
-    source_packages::types::SourcePackage,
+    source_packages::{
+        types::SourcePackage,
+        upload_download::download_package,
+    },
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
@@ -69,9 +72,29 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
                 key,
                 source_package.sha256.clone(),
                 async move {
-                    Ok(get_modules_and_prefetch(modules_storage, &source_package)
-                        .await?
-                        .map(|(path, sha256, source)| ((path, sha256), Arc::new(source)))
+                    let package = download_package(
+                        modules_storage,
+                        source_package.storage_key.clone(),
+                        source_package.sha256.clone(),
+                    )
+                    .await?;
+                    Ok(package
+                        .into_iter()
+                        .map(|(module_path, module_config)| {
+                            (
+                                (
+                                    module_path,
+                                    hash_module_source(
+                                        &module_config.source,
+                                        module_config.source_map.as_ref(),
+                                    ),
+                                ),
+                                Arc::new(FullModuleSource {
+                                    source: module_config.source,
+                                    source_map: module_config.source_map,
+                                }),
+                            )
+                        })
                         .collect())
                 }
                 .boxed(),

@@ -34,10 +34,7 @@ use metrics::{
     Timer,
     STATUS_LABEL,
 };
-use prometheus::{
-    VMHistogram,
-    VMHistogramVec,
-};
+use prometheus::VMHistogram;
 
 use crate::IsolateHeapStats;
 
@@ -595,13 +592,6 @@ register_convex_counter!(
 );
 pub fn log_source_map_origin_in_separate_module() {
     log_counter(&SOURCE_MAP_ORIGIN_IN_SEPARATE_MODULE_TOTAL, 1);
-}
-
-register_convex_histogram!(MODULE_LOAD_SECONDS, "Time to load modules", &["source"]);
-pub fn module_load_timer(source: &'static str) -> Timer<VMHistogramVec> {
-    let mut timer = Timer::new_with_labels(&MODULE_LOAD_SECONDS);
-    timer.add_label(MetricLabel::new_const("source", source));
-    timer
 }
 
 register_convex_counter!(
