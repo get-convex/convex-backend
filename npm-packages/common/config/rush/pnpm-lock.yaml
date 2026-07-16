@@ -207,6 +207,9 @@ importers:
 
   ../../@convex-dev/design-system:
     dependencies:
+      '@floating-ui/react':
+        specifier: ^0.27.0
+        version: 0.27.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@fontsource-variable/inter':
         specifier: 5.2.8
         version: 5.2.8
@@ -831,6 +834,9 @@ importers:
       '@convex-dev/platform':
         specifier: workspace:*
         version: link:../@convex-dev/platform
+      '@floating-ui/react':
+        specifier: ^0.27.0
+        version: 0.27.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@headlessui/react':
         specifier: ^2.2.9
         version: 2.2.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
