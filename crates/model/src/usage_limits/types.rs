@@ -198,14 +198,39 @@ impl UsageLimitMetric {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
+/// The calendar-aligned window a limit is measured over.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::Display,
+    Serialize,
+    Deserialize,
+    ToSchema,
+)]
+#[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum UsageLimitWindow {
     Day,
     Month,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::Display,
+    Serialize,
+    Deserialize,
+    ToSchema,
+)]
+#[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum UsageLimitType {
     Warning,
