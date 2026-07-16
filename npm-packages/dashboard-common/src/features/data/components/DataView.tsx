@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
@@ -11,7 +11,6 @@ import {
   DataSidebar,
   DataSideBarSkeleton,
 } from "@common/features/data/components/DataSidebar";
-import { ShowSchema } from "@common/features/data/components/ShowSchema";
 import {
   DeploymentInfoContext,
   PermissionsContext,
@@ -19,13 +18,9 @@ import {
 import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
-import { useTableShapes } from "@common/lib/deploymentApi";
-import { Modal } from "@ui/Modal";
 import { LoadingTransition } from "@ui/Loading";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
-import { useRouter } from "next/router";
-import omit from "lodash/omit";
 import { useDataPageSize } from "./Table/utils/useQueryFilteredTable";
 
 export function DataView({
@@ -35,7 +30,7 @@ export function DataView({
   onTableCreated?: () => void;
   onDocumentsAdded?: (count: number) => void;
 }) {
-  const { useCurrentDeployment, ErrorBoundary, schemaPageEnabled } = useContext(
+  const { useCurrentDeployment, ErrorBoundary } = useContext(
     DeploymentInfoContext,
   );
   const { useIsOperationAllowed } = useContext(PermissionsContext);
@@ -46,7 +41,6 @@ export function DataView({
 
   const deploymentId = deployment && "id" in deployment ? deployment.id : null;
 
-  const router = useRouter();
   const tableMetadata = useTableMetadataAndUpdateURL();
 
   const canViewData = useIsOperationAllowed("ViewData");
@@ -62,59 +56,17 @@ export function DataView({
     tableMetadata?.name ?? "",
   );
 
-  const showSchemaInData = !schemaPageEnabled;
-
-  const schemaValidationProgress = useQuery(
-    udfs.getSchemas.schemaValidationProgress,
-    canViewData && showSchemaInData
-      ? { componentId: componentId ?? null }
-      : "skip",
-  );
-
-  const { activeSchema, inProgressSchema } = useMemo(() => {
+  const { activeSchema } = useMemo(() => {
     if (!schemas) {
-      return { activeSchema: undefined, inProgressSchema: undefined };
+      return { activeSchema: undefined };
     }
 
     return {
       activeSchema: schemas.active
         ? (JSON.parse(schemas.active) as SchemaJson)
         : null,
-      inProgressSchema: schemas.inProgress
-        ? (JSON.parse(schemas.inProgress) as SchemaJson)
-        : null,
     };
   }, [schemas]);
-
-  const { tables, hadError } = useTableShapes();
-
-  const [isShowingSchema, setIsShowingSchema] = useState(false);
-  const showSchemaProps = useMemo(
-    () =>
-      !showSchemaInData
-        ? null
-        : activeSchema === undefined || inProgressSchema === undefined
-          ? undefined
-          : {
-              hasSaved: activeSchema !== null || inProgressSchema !== null,
-              showSchema: () => setIsShowingSchema(true),
-            },
-    [showSchemaInData, activeSchema, inProgressSchema, setIsShowingSchema],
-  );
-
-  useEffect(() => {
-    if (showSchemaInData && router.query.showSchema === "true") {
-      setIsShowingSchema(true);
-      void router.push(
-        {
-          pathname: router.pathname,
-          query: omit(router.query, "showSchema"),
-        },
-        undefined,
-        { shallow: true },
-      );
-    }
-  }, [showSchemaInData, router.query.showSchema, router]);
 
   if (!canViewData) {
     return (
@@ -134,21 +86,6 @@ export function DataView({
         subtitle={tableMetadata?.name ? "Data" : undefined}
         title={tableMetadata?.name || "Data"}
       />
-      {showSchemaInData && schemas && tables && isShowingSchema && (
-        <Modal
-          onClose={() => setIsShowingSchema(false)}
-          title={<div className="px-3">Schema</div>}
-          size="md"
-        >
-          <ShowSchema
-            activeSchema={activeSchema}
-            inProgressSchema={inProgressSchema}
-            shapes={tables}
-            hasShapeError={hadError}
-            schemaValidationProgress={schemaValidationProgress}
-          />
-        </Modal>
-      )}
       <LoadingTransition
         loadingProps={{ shimmer: false }}
         loadingState={
@@ -170,7 +107,6 @@ export function DataView({
             sidebarComponent={
               <DataSidebar
                 tableData={tableMetadata}
-                showSchema={showSchemaProps}
                 onTableCreated={onTableCreated}
               />
             }

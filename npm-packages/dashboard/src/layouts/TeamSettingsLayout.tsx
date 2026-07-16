@@ -7,7 +7,6 @@ import Head from "next/head";
 import React from "react";
 import { TeamResponse } from "generatedApi";
 import { SidebarLink } from "@common/elements/Sidebar";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export function TeamSettingsLayout({
   page: selectedPage,
@@ -32,8 +31,6 @@ export function TeamSettingsLayout({
 
   const entitlements = useTeamEntitlements(selectedTeam?.id);
   const auditLogsEnabled = entitlements?.auditLogRetentionDays !== 0;
-
-  const { singleSignOn, customRoles } = useLaunchDarkly();
 
   const pages = [
     "general",
@@ -92,22 +89,18 @@ export function TeamSettingsLayout({
             >
               Audit Log
             </SidebarLink>
-            {customRoles && (
-              <SidebarLink
-                isActive={selectedPage === "custom-roles"}
-                href={`/t/${selectedTeam?.slug}/settings/custom-roles`}
-              >
-                Custom Roles
-              </SidebarLink>
-            )}
-            {singleSignOn && (
-              <SidebarLink
-                isActive={selectedPage === "sso"}
-                href={`/t/${selectedTeam?.slug}/settings/sso`}
-              >
-                Single Sign-On
-              </SidebarLink>
-            )}
+            <SidebarLink
+              isActive={selectedPage === "custom-roles"}
+              href={`/t/${selectedTeam?.slug}/settings/custom-roles`}
+            >
+              Custom Roles
+            </SidebarLink>
+            <SidebarLink
+              isActive={selectedPage === "sso"}
+              href={`/t/${selectedTeam?.slug}/settings/sso`}
+            >
+              Single Sign-On
+            </SidebarLink>
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
             <div className="flex min-h-full max-w-7xl flex-col gap-6 p-6">

@@ -20,7 +20,6 @@ import { MEMBER_RESOURCE } from "lib/permissions";
 import { useRemoveTeamMember, useTeamEntitlements } from "api/teams";
 import { useProfile } from "api/profile";
 import { useCancelInvite, useCreateInvite } from "api/invitations";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import sortBy from "lodash/sortBy";
 import { TeamMemberInviteListItem } from "./TeamMemberInviteListItem";
 import { TeamMemberListItem } from "./TeamMemberListItem";
@@ -92,10 +91,9 @@ export function TeamMemberList({
   const canCancelInvite = isTeamAdmin || canCancelInviteCustom;
 
   const entitlements = useTeamEntitlements(team.id);
-  const { customRoles: customRolesFlag } = useLaunchDarkly();
   const customRolesEnabled = entitlements?.customRolesEnabled ?? false;
   const { data: customRolesData } = useListCustomRoles(
-    customRolesFlag && customRolesEnabled ? team.id : undefined,
+    customRolesEnabled ? team.id : undefined,
   );
   const customRoles = customRolesData?.items ?? [];
 
@@ -131,7 +129,6 @@ export function TeamMemberList({
                   myProfile={profile}
                   customRoles={customRoles}
                   customRolesEnabled={customRolesEnabled}
-                  customRolesVisible={customRolesFlag}
                   onChangeRole={onChangeRole}
                   onRemoveMember={onRemoveMember}
                   canUpdateRole={canUpdateRole}
@@ -161,7 +158,6 @@ export function TeamMemberList({
                     myProfile={profile}
                     customRoles={customRoles}
                     customRolesEnabled={customRolesEnabled}
-                    customRolesVisible={customRolesFlag}
                     onChangeRole={onChangeRole}
                     onRemoveMember={onRemoveMember}
                     canUpdateRole={canUpdateRole}

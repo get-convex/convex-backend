@@ -12,7 +12,6 @@ import { useTeamEntitlements } from "api/teams";
 import { useHasCustomRolePermission, useListCustomRoles } from "api/roles";
 import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { TeamResponse } from "generatedApi";
 import { TeamMember } from "@convex-dev/platform/managementApi";
 import * as Yup from "yup";
@@ -37,7 +36,6 @@ export function InviteMemberForm({
   const inviteAllowed = canInvite === true;
   const { subscription } = useTeamOrbSubscription(team.id);
   const entitlements = useTeamEntitlements(team.id);
-  const { customRoles: customRolesFlag } = useLaunchDarkly();
   const customRolesEnabled = entitlements?.customRolesEnabled ?? false;
   const canViewCustomRoles = useHasCustomRolePermission(
     team.id,
@@ -46,7 +44,7 @@ export function InviteMemberForm({
     true,
   );
   const customRolesAvailable =
-    customRolesFlag && customRolesEnabled && canViewCustomRoles === true;
+    customRolesEnabled && canViewCustomRoles === true;
   const { data: customRolesData } = useListCustomRoles(
     customRolesAvailable ? team.id : undefined,
   );
@@ -115,15 +113,11 @@ export function InviteMemberForm({
   const roleOptions = [
     { label: "Admin", value: "admin" as const, disabled: false },
     { label: "Developer", value: "developer" as const, disabled: false },
-    ...(customRolesFlag
-      ? [
-          {
-            label: "Custom",
-            value: "custom" as const,
-            disabled: customDisabledReason !== undefined,
-          },
-        ]
-      : []),
+    {
+      label: "Custom",
+      value: "custom" as const,
+      disabled: customDisabledReason !== undefined,
+    },
   ];
 
   const customSelectionEmpty =

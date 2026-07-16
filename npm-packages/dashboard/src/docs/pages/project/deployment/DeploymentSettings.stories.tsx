@@ -122,13 +122,6 @@ export const Default: Story = {};
  * key.
  */
 export const CreateDeployKey: Story = {
-  parameters: {
-    // The deploy key permission picker is gated behind the `scopedDeployKeys`
-    // LaunchDarkly flag. Force it on so the screenshot shows the permissions.
-    docsPage: {
-      launchDarkly: { scopedDeployKeys: true },
-    },
-  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(

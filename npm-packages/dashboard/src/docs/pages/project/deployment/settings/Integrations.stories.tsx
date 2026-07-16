@@ -162,7 +162,6 @@ export const CustomAuditTopic: Story = {
   },
   render: () =>
     renderIntegrations({
-      logStreamTopicFiltersEnabled: true,
       useTeamEntitlements: () => ({
         logStreamingEnabled: true,
         streamingExportEnabled: true,

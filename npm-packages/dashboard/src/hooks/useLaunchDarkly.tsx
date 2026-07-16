@@ -4,30 +4,16 @@ import kebabCase from "lodash/kebabCase";
 export const flagDefaults: {
   commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
-  singleSignOn: boolean;
-  workOsEnvironmentProvisioningDashboardUi: boolean;
   enableNewDashboardVersionNotification: boolean;
-  enableStatuspageWidget: boolean;
   connectionStateCheckIntervalMs: number;
-  scopedDeployKeys: boolean;
-  customRoles: boolean;
-  logStreamTopicFilters: boolean;
-  schemaPage: boolean;
   usageLimits: boolean;
   nonDefaultTeamDevsInMainMenu: number;
   copyEnvVarNameAndValue: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
-  singleSignOn: false,
-  workOsEnvironmentProvisioningDashboardUi: false,
   enableNewDashboardVersionNotification: false,
-  enableStatuspageWidget: true,
   connectionStateCheckIntervalMs: 2500,
-  scopedDeployKeys: false,
-  customRoles: false,
-  logStreamTopicFilters: false,
-  schemaPage: false,
   usageLimits: false,
   nonDefaultTeamDevsInMainMenu: 10,
   copyEnvVarNameAndValue: false,

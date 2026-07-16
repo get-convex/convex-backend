@@ -2,7 +2,6 @@ import { DeploymentInfo } from "@common/lib/deploymentContext";
 
 export const mockDeploymentInfo: DeploymentInfo = {
   ok: true,
-  schemaPageEnabled: true,
   usageLimitsEnabled: true,
   reportHttpError: () => {},
   captureException: () => {},
@@ -110,7 +109,6 @@ export const mockDeploymentInfo: DeploymentInfo = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
-  logStreamTopicFiltersEnabled: false,
   copyEnvVarNameAndValueEnabled: false,
   connectionStateCheckIntervalMs: 2500,
 };
