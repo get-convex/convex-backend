@@ -278,12 +278,12 @@ pub async fn _document_deltas(
 ///   more data is already available (`true`) or you've caught up to the latest
 ///   commit (`false`).
 ///
-/// Persist the cursor and keep calling within the deployment's data retention
-/// window so the export can resume where it left off. This endpoint must be
-/// called at least once every 3 days; if too much time passes between calls the
-/// cursor falls outside the retention window and can no longer be resumed. When
-/// that happens the endpoint responds with a `400` (`DataSyncCursorExpired`),
-/// and you must restart the sync from scratch by calling again with no cursor.
+/// Persist the results and cursor to each page atomically. Continue calling the
+/// endpoint with the cursor to progress the data sync. This endpoint must be
+/// called at least once every 3 days, or the sync will expire and can no longer
+/// be resumed. When that happens the endpoint responds with a `400`
+/// (`DataSyncCursorExpired`), and you must restart the sync from scratch by
+/// calling again with no cursor.
 ///
 /// Each sync's progress is periodically recorded while the sync is in
 /// progress and can be monitored via `/data/list_active_syncs`, keyed by the
