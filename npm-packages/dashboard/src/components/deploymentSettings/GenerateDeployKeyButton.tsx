@@ -95,6 +95,11 @@ export const ACTION_GROUPS: ActionGroup[] = [
         description:
           "Allows writing to all data in this deployment, including updating data in tables, uploading and deleting files, canceling scheduled jobs, and exporting data with streaming export.",
       },
+      {
+        key: "deployment:data:sync",
+        description:
+          "Allows continuously exporting all data in this deployment with the data sync API.",
+      },
     ],
   },
   {

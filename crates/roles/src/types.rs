@@ -933,6 +933,13 @@ pub enum RoleStatementAction {
     #[serde(rename = "deployment:data:write")]
     #[strum(serialize = "deployment:data:write")]
     WriteData,
+    /// Gates the data sync (streaming export v2) endpoints at
+    /// `/api/v1/data/*`. Deliberately separate from `ViewData` so a role or
+    /// token can allow dashboard-style data reads without allowing a full
+    /// continuous export of the deployment (or vice versa).
+    #[serde(rename = "deployment:data:sync")]
+    #[strum(serialize = "deployment:data:sync")]
+    DataSync,
     #[serde(rename = "deployment:backups:download")]
     #[strum(serialize = "deployment:backups:download")]
     DownloadBackups,
@@ -1041,6 +1048,7 @@ impl RoleStatementAction {
             | A::ViewMetrics
             | A::ViewData
             | A::WriteData
+            | A::DataSync
             | A::DownloadBackups
             | A::ActAsUser
             | A::RunInternalQueries
