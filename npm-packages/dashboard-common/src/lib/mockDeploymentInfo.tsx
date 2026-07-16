@@ -111,5 +111,6 @@ export const mockDeploymentInfo: DeploymentInfo = {
   isSelfHosted: true,
   workosIntegrationEnabled: false,
   logStreamTopicFiltersEnabled: false,
+  copyEnvVarNameAndValueEnabled: false,
   connectionStateCheckIntervalMs: 2500,
 };

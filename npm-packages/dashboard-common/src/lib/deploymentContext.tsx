@@ -319,6 +319,9 @@ export type DeploymentInfo = (
   logStreamTopicFiltersEnabled: boolean;
   schemaPageEnabled: boolean;
   usageLimitsEnabled: boolean;
+  // When enabled, the per-row copy button in the environment variables UI
+  // copies the name and value in .env format instead of just the value.
+  copyEnvVarNameAndValueEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 
