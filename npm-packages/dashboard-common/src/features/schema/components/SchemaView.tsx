@@ -83,21 +83,6 @@ export function SchemaView({
 
   const [isShowingSchema, setIsShowingSchema] = useState(false);
 
-  // The schema page is feature-flagged; if it's off, don't render it even when
-  // reached by a direct URL — send the user to the data page.
-  const router = useRouter();
-  const { schemaPageEnabled, deploymentsURI } = useContext(
-    DeploymentInfoContext,
-  );
-  useEffect(() => {
-    if (!schemaPageEnabled) {
-      void router.replace(`${deploymentsURI}/data`);
-    }
-  }, [schemaPageEnabled, deploymentsURI, router]);
-  if (!schemaPageEnabled) {
-    return null;
-  }
-
   if (!canViewData) {
     return (
       <>

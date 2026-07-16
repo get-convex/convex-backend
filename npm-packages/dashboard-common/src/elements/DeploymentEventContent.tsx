@@ -1,10 +1,9 @@
-I need to resolve two conflict regions. The first conflict is in the `ActionText` function's switch statement, where HEAD has admin key and periodic backup cases, and upstream has usage limit cases. The second conflict is where HEAD has `AdminKeyName` and `AdminKeyId` components, and upstream has usage limit helper functions and components.
+I need to resolve two conflict regions:
 
-Looking at the file structure:
-- HEAD carries fork-intentional changes: admin key cases and periodic backup cases in `ActionText`, plus `AdminKeyName` and `AdminKeyId` components
-- Upstream adds: `create_usage_limit`, `delete_usage_limit`, `usage_limit_exceeded`, and `update_usage_limit` cases in `ActionText`, plus `usageLimitLabels`, `UsageLimitSummary`, and `UsageLimitUpdateBody` functions
+1. In the `DeploymentEventContent` switch statement: HEAD has admin key and periodic backup cases, upstream adds `create_data_sync`
+2. In the `ActionText` function: HEAD has admin key and periodic backup cases, upstream adds `create_data_sync` and usage limit cases
 
-Both sides add different things - they should both be included. The `update_usage_limit` case exists in both the switch statement (upstream adds it to `ActionText`) and in the main `DeploymentEventContent` switch (already present in HEAD). I need to include all cases from both sides.
+Both sides add different things, so I need to include all of them.
 
 import {
   ChevronUpIcon,
@@ -155,6 +154,7 @@ export function DeploymentEventContent({
     case "periodic_backup_configured":
     case "periodic_backup_disabled":
     case "periodic_backup_triggered":
+    case "create_data_sync":
     default:
       body = null;
   }
@@ -672,6 +672,19 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
             <span className="underline decoration-dotted">
               a periodic backup export
             </span>
+          </Tooltip>
+        </>
+      );
+
+    case "create_data_sync":
+      return (
+        <>
+          <span>started a </span>
+          <Tooltip
+            tip={<span className="font-mono">{event.metadata.sync_id}</span>}
+            maxWidthClassName="max-w-md"
+          >
+            <span className="underline decoration-dotted">data sync</span>
           </Tooltip>
         </>
       );

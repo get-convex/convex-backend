@@ -27,7 +27,6 @@ export function EditTeamRoleDialog({
   member,
   customRoles,
   customRolesEnabled,
-  customRolesVisible,
   onSave,
   onClose,
 }: {
@@ -35,7 +34,6 @@ export function EditTeamRoleDialog({
   member: TeamMember;
   customRoles: CustomRoleResponse[];
   customRolesEnabled: boolean;
-  customRolesVisible: boolean;
   onSave: (body: {
     memberId: number;
     role?: "admin" | "developer";
@@ -66,15 +64,11 @@ export function EditTeamRoleDialog({
   const roleOptions = [
     { label: "Admin", value: "admin" as const, disabled: false },
     { label: "Developer", value: "developer" as const, disabled: false },
-    ...(customRolesVisible
-      ? [
-          {
-            label: "Custom",
-            value: "custom" as const,
-            disabled: customDisabledReason !== undefined,
-          },
-        ]
-      : []),
+    {
+      label: "Custom",
+      value: "custom" as const,
+      disabled: customDisabledReason !== undefined,
+    },
   ];
 
   const isUnchanged =

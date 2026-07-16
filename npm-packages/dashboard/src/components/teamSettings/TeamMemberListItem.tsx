@@ -30,7 +30,6 @@ type TeamMemberListItemProps = {
   canChangeRole: boolean;
   customRoles: CustomRoleResponse[];
   customRolesEnabled: boolean;
-  customRolesVisible: boolean;
   onChangeRole: (body: {
     memberId: number;
     role?: "admin" | "developer";
@@ -51,7 +50,6 @@ export function TeamMemberListItem({
   canChangeRole,
   customRoles,
   customRolesEnabled,
-  customRolesVisible,
   onChangeRole,
   onUpdateProjectRoles,
   onRemoveMember,
@@ -217,7 +215,6 @@ export function TeamMemberListItem({
             member={member}
             customRoles={customRoles}
             customRolesEnabled={customRolesEnabled}
-            customRolesVisible={customRolesVisible}
             onSave={onChangeRole}
             onClose={() => setShowEditRole(false)}
           />

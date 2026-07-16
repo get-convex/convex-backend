@@ -2,6 +2,7 @@ use anyhow::Context as _;
 use common::{
     document::ParsedDocument,
     errors::report_error,
+    execution_context::RequestMetadata,
     knobs::{
         DATA_SYNC_PROGRESS_WRITE_INTERVAL,
         DOCUMENT_DELTAS_LIMIT,
@@ -26,6 +27,7 @@ use model::{
         },
         DataSyncProgressModel,
     },
+    deployment_audit_log::types::DeploymentAuditLogEvent,
 };
 use streaming_export::{
     DataSyncClient,
@@ -77,10 +79,11 @@ impl<RT: Runtime> Application<RT> {
         cursor: Option<SyncCursor>,
         selection: StreamingExportSelection,
         sync_client: DataSyncClient,
+        request_metadata: RequestMetadata,
     ) -> anyhow::Result<SyncResult> {
         let result = streaming_export::data_sync(
             &self.database,
-            identity,
+            identity.clone(),
             cursor,
             StreamingExportFilter {
                 selection,
@@ -89,12 +92,8 @@ impl<RT: Runtime> Application<RT> {
             sync_client,
         )
         .await?;
-        // Progress tracking is best-effort: a failure (e.g. an OCC with a
-        // concurrent page of the same sync, or table summaries still
-        // bootstrapping) must not fail the page itself.
-        if let Err(mut e) = self.record_data_sync_progress(&result).await {
-            report_error(&mut e).await;
-        }
+        self.record_data_sync_progress(&result, identity, &request_metadata)
+            .await?;
         Ok(result)
     }
 
@@ -133,55 +132,100 @@ impl<RT: Runtime> Application<RT> {
     }
 
     /// Upsert this sync's `_data_sync_progress` row from the page's outcome.
-    async fn record_data_sync_progress(&self, result: &SyncResult) -> anyhow::Result<()> {
-        let state = match &result.status {
-            SyncStatus::InProgress { progress } => DataSyncState::InitialSync {
-                num_tables_synced: progress.num_tables_synced,
-                total_tables: progress.total_tables,
-                current_component: progress.current_component.clone(),
-                current_table: progress.current_table.clone(),
-                num_documents_synced_in_current_table: progress.num_documents_in_current_table,
-                total_documents_in_current_table: progress
-                    .total_documents_in_current_table
-                    .context("table summaries are still bootstrapping")?,
-                num_documents_synced: progress.num_documents_synced,
-                total_documents: progress
-                    .total_documents
-                    .context("table summaries are still bootstrapping")?,
-            },
-            SyncStatus::Synced { ts, .. } => DataSyncState::Synced {
-                total_tables: result.cursor.num_synced_tables(),
-                num_documents_synced: result.cursor.num_docs_synced(),
-                synced_ts: i64::from(*ts),
-            },
-        };
-        let metadata = DataSyncProgressMetadata {
-            sync_id: result.cursor.sync_id().to_string(),
-            last_updated_ms: self.runtime.unix_timestamp().as_ms_since_epoch()?,
-            state,
-        };
-        // A fully caught-up snapshot is the sync's settled progress; flush it
-        // past the throttle so its final document count is recorded even if a
-        // page wrote moments earlier.
-        let caught_up = matches!(
-            &result.status,
-            SyncStatus::Synced {
-                has_more: false,
-                ..
-            }
-        );
-        let mut tx = self.database.begin_system().await?;
-        let wrote = DataSyncProgressModel::new(&mut tx)
-            .update(metadata, *DATA_SYNC_PROGRESS_WRITE_INTERVAL, caught_up)
+    ///
+    /// If the sync has no row yet, this page records its creation: the insert
+    /// and its audit log entry are committed together and any failure fails
+    /// the page, so a client can never advance past a creation that wasn't
+    /// audit logged. Once the row exists, refreshes are best-effort: a
+    /// failure (e.g. an OCC with a concurrent page of the same sync, or table
+    /// summaries still bootstrapping) is reported without failing the page.
+    async fn record_data_sync_progress(
+        &self,
+        result: &SyncResult,
+        identity: Identity,
+        request_metadata: &RequestMetadata,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.begin(identity).await?;
+        let existing = DataSyncProgressModel::new(&mut tx)
+            .get(result.cursor.sync_id())
             .await?;
-        // Throttled writes leave the transaction empty; skip the commit to
-        // avoid loading the DB with a no-op write.
-        if wrote {
-            self.database
-                .commit_with_write_source(tx, "data_sync_progress")
+        // The async block scopes the upsert's `?`s so `existing` can pick the
+        // error policy below.
+        let recorded = async {
+            let state = match &result.status {
+                SyncStatus::InProgress { progress } => DataSyncState::InitialSync {
+                    num_tables_synced: progress.num_tables_synced,
+                    total_tables: progress.total_tables,
+                    current_component: progress.current_component.clone(),
+                    current_table: progress.current_table.clone(),
+                    num_documents_synced_in_current_table: progress.num_documents_in_current_table,
+                    total_documents_in_current_table: progress
+                        .total_documents_in_current_table
+                        .context("table summaries are still bootstrapping")?,
+                    num_documents_synced: progress.num_documents_synced,
+                    total_documents: progress
+                        .total_documents
+                        .context("table summaries are still bootstrapping")?,
+                },
+                SyncStatus::Synced { ts, .. } => DataSyncState::Synced {
+                    total_tables: result.cursor.num_synced_tables(),
+                    num_documents_synced: result.cursor.num_docs_synced(),
+                    synced_ts: i64::from(*ts),
+                },
+            };
+            let metadata = DataSyncProgressMetadata {
+                sync_id: result.cursor.sync_id().to_string(),
+                last_updated_ms: self.runtime.unix_timestamp().as_ms_since_epoch()?,
+                state,
+            };
+            // A fully caught-up snapshot is the sync's settled progress; flush
+            // it past the throttle so its final document count is recorded
+            // even if a page wrote moments earlier.
+            let caught_up = matches!(
+                &result.status,
+                SyncStatus::Synced {
+                    has_more: false,
+                    ..
+                }
+            );
+            let old = DataSyncProgressModel::new(&mut tx)
+                .update(metadata, *DATA_SYNC_PROGRESS_WRITE_INTERVAL, caught_up)
                 .await?;
+            match old {
+                None => {
+                    self.commit_with_audit_log_events(
+                        tx,
+                        vec![DeploymentAuditLogEvent::CreateDataSync {
+                            sync_id: result.cursor.sync_id().to_string(),
+                        }],
+                        request_metadata.clone(),
+                        "data_sync_progress",
+                    )
+                    .await?;
+                },
+                Some(_) => {
+                    // A throttled update leaves the transaction empty; skip
+                    // the commit to avoid loading the DB with a no-op write.
+                    if !tx.is_readonly() {
+                        self.database
+                            .commit_with_write_source(tx, "data_sync_progress")
+                            .await?;
+                    }
+                },
+            }
+            anyhow::Ok(())
         }
-        Ok(())
+        .await;
+        match recorded {
+            Ok(()) => Ok(()),
+            // The sync's creation and its audit log entry must land; fail the
+            // page so the client retries it.
+            Err(e) if existing.is_none() => Err(e),
+            Err(mut e) => {
+                report_error(&mut e).await;
+                Ok(())
+            },
+        }
     }
 
     #[fastrace::trace]

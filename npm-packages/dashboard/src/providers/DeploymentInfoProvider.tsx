@@ -136,10 +136,7 @@ export function DeploymentInfoProvider({
     accessTokenRef.current = accessToken;
   }, [accessToken]);
   const {
-    workOsEnvironmentProvisioningDashboardUi,
     connectionStateCheckIntervalMs,
-    logStreamTopicFilters,
-    schemaPage,
     usageLimits,
     copyEnvVarNameAndValue,
   } = useLaunchDarkly();
@@ -221,9 +218,7 @@ export function DeploymentInfoProvider({
         projectsURI,
         deploymentsURI,
         isSelfHosted: false,
-        workosIntegrationEnabled: workOsEnvironmentProvisioningDashboardUi,
-        logStreamTopicFiltersEnabled: logStreamTopicFilters,
-        schemaPageEnabled: schemaPage,
+        workosIntegrationEnabled: true,
         usageLimitsEnabled: usageLimits,
         copyEnvVarNameAndValueEnabled: copyEnvVarNameAndValue,
         connectionStateCheckIntervalMs,
@@ -242,9 +237,6 @@ export function DeploymentInfoProvider({
     deploymentsURI,
     projectsURI,
     teamsURI,
-    workOsEnvironmentProvisioningDashboardUi,
-    logStreamTopicFilters,
-    schemaPage,
     usageLimits,
     copyEnvVarNameAndValue,
     connectionStateCheckIntervalMs,

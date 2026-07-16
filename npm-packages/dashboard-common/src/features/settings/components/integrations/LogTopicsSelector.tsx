@@ -79,8 +79,7 @@ const ALL_LOG_TOPICS: LogTopic[] = TOPICS.map((t) => t.key);
  * `null` value shows every selectable topic as checked. Any interaction emits an
  * explicit array of the checked topics.
  *
- * Renders nothing unless the `logStreamTopicFilters` flag is enabled. The
- * `custom_audit` topic is gated behind a team entitlement.
+ * The `custom_audit` topic is gated behind a team entitlement.
  */
 export function LogTopicsSelector({
   value,
@@ -91,16 +90,13 @@ export function LogTopicsSelector({
   onChange: (value: LogTopic[] | null) => void;
   error?: string;
 }) {
-  const { logStreamTopicFiltersEnabled, useCurrentTeam, useTeamEntitlements } =
-    useContext(DeploymentInfoContext);
+  const { useCurrentTeam, useTeamEntitlements } = useContext(
+    DeploymentInfoContext,
+  );
   const team = useCurrentTeam();
   const entitlements = useTeamEntitlements(team?.id);
   const customAuditEnabled =
     entitlements?.customAuditLogsInLogStreamsConfigEnabled ?? false;
-
-  if (!logStreamTopicFiltersEnabled) {
-    return null;
-  }
 
   // A `null` value means "subscribed to all topics", which (matching the
   // backend) excludes the opt-in `custom_audit` topic. Render it as every

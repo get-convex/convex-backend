@@ -311,6 +311,9 @@ pub enum DeploymentAuditLogEvent {
     PeriodicBackupTriggered {
         export_id: String,
     },
+    CreateDataSync {
+        sync_id: String,
+    },
 }
 
 impl From<IndexDiff> for DeploymentAuditLogEvent {
@@ -713,6 +716,9 @@ impl DeploymentAuditLogEvent {
             },
             DeploymentAuditLogEvent::PeriodicBackupTriggered { export_id } => {
                 obj!("export_id" => export_id)
+            },
+            DeploymentAuditLogEvent::CreateDataSync { sync_id } => {
+                obj!("sync_id" => sync_id)
             },
         }
     }
@@ -1196,6 +1202,9 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
             "periodic_backup_triggered" => {
                 let export_id = remove_string(&mut fields, "export_id")?;
                 DeploymentAuditLogEvent::PeriodicBackupTriggered { export_id }
+            },
+            "create_data_sync" => DeploymentAuditLogEvent::CreateDataSync {
+                sync_id: remove_string(&mut fields, "sync_id")?,
             },
             _ => anyhow::bail!("action {action} unrecognized"),
         };

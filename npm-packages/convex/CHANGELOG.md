@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.42.3
+
+- Fixed a bug where the codegen would not sort module paths in
+  an order consistent with other platforms when running
+  on Windows. This completes a fix that was only partially
+  applied in 1.42.2.
+
 ## 1.42.2
 - Mutations and actions can now read the raw authentication
   token used in the request by accessing `authToken` in

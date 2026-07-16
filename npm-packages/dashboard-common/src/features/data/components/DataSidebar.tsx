@@ -1,4 +1,4 @@
-import { CubeIcon, MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
+import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
@@ -13,7 +13,6 @@ import {
 import { TableTab } from "@common/features/data/components/TableTab";
 import { TableMetadata } from "@common/lib/useTableMetadata";
 import { NentSwitcher } from "@common/elements/NentSwitcher";
-import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { useNents } from "@common/lib/useNents";
 import { PermissionsContext } from "@common/lib/deploymentContext";
@@ -23,12 +22,10 @@ import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
 export function DataSidebar({
   tableData,
   onSelectTable,
-  showSchema,
   onTableCreated,
 }: {
   tableData: TableMetadata;
   onSelectTable?: () => void;
-  showSchema: { hasSaved: boolean; showSchema: () => void } | undefined | null;
   onTableCreated?: () => void;
 }) {
   const { name: selectedTable, tables } = tableData;
@@ -88,22 +85,6 @@ export function DataSidebar({
         </div>
         <CreateNewTable tableData={tableData} onTableCreated={onTableCreated} />
       </div>
-      {showSchema !== null && (
-        <div className="flex justify-around border-t pt-4">
-          {showSchema === undefined ? (
-            <Loading className="h-9" fullHeight={false} />
-          ) : (
-            <Button
-              variant="neutral"
-              onClick={showSchema.showSchema}
-              icon={<CubeIcon />}
-              className="animate-fadeInFromLoading overflow-hidden"
-            >
-              <span className="truncate">Schema</span>
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

@@ -84,6 +84,7 @@ function processDeploymentAuditLogEvent(
     case "periodic_backup_configured":
     case "periodic_backup_disabled":
     case "periodic_backup_triggered":
+    case "create_data_sync":
       break;
     default:
       return null;
