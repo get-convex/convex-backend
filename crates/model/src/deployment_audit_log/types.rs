@@ -283,6 +283,9 @@ pub enum DeploymentAuditLogEvent {
         component_id: Option<String>,
         component: ComponentPath,
     },
+    CreateDataSync {
+        sync_id: String,
+    },
 }
 
 impl From<IndexDiff> for DeploymentAuditLogEvent {
@@ -658,6 +661,9 @@ impl DeploymentAuditLogEvent {
                     "component_id" => component_id,
                     "component" => component.serialize()
                 )
+            },
+            DeploymentAuditLogEvent::CreateDataSync { sync_id } => {
+                obj!("sync_id" => sync_id)
             },
         }
     }
@@ -1109,6 +1115,9 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     component_id,
                     component,
                 }
+            },
+            "create_data_sync" => DeploymentAuditLogEvent::CreateDataSync {
+                sync_id: remove_string(&mut fields, "sync_id")?,
             },
             _ => anyhow::bail!("action {action} unrecognized"),
         };

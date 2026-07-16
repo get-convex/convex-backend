@@ -140,6 +140,7 @@ export function DeploymentEventContent({
     case "create_table":
     case "delete_files":
     case "generate_upload_url":
+    case "create_data_sync":
     default:
       body = null;
   }
@@ -589,6 +590,19 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
             component={event.metadata.component}
             componentId={event.metadata.component_id}
           />
+        </>
+      );
+
+    case "create_data_sync":
+      return (
+        <>
+          <span>started a </span>
+          <Tooltip
+            tip={<span className="font-mono">{event.metadata.sync_id}</span>}
+            maxWidthClassName="max-w-md"
+          >
+            <span className="underline decoration-dotted">data sync</span>
+          </Tooltip>
         </>
       );
 

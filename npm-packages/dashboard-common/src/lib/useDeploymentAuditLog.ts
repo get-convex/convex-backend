@@ -77,6 +77,7 @@ function processDeploymentAuditLogEvent(
     case "create_table":
     case "delete_files":
     case "generate_upload_url":
+    case "create_data_sync":
       break;
     default:
       return null;

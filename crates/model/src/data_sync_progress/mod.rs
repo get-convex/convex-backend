@@ -1,5 +1,8 @@
 use std::{
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
     time::Duration,
 };
 
@@ -92,10 +95,24 @@ impl<'a, RT: Runtime> DataSyncProgressModel<'a, RT> {
         Self { tx }
     }
 
+    /// The sync's progress row, if any.
+    pub async fn get(
+        &mut self,
+        sync_id: &str,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<DataSyncProgressMetadata>>>> {
+        self.tx
+            .query_system(TableNamespace::Global, &DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID)?
+            .eq(&[sync_id])?
+            .unique()
+            .await
+    }
+
     /// Upsert the progress row for `metadata.sync_id`, throttled to at most one
     /// write per `min_write_interval` while the sync is still advancing.
-    /// Returns whether a write happened, so the caller can skip committing an
-    /// otherwise-empty transaction. Pass `Duration::ZERO` to always write.
+    /// Returns the row's previous metadata; `None` means the sync had no row
+    /// yet and this write inserted it. A throttled update returns the
+    /// existing metadata without writing, leaving the transaction free of
+    /// writes. Pass `Duration::ZERO` to always write.
     ///
     /// `caught_up` marks a page that reached a fully-consistent snapshot with
     /// nothing left to sync (`Synced` with no more to catch up on). Such a
@@ -112,13 +129,8 @@ impl<'a, RT: Runtime> DataSyncProgressModel<'a, RT> {
         metadata: DataSyncProgressMetadata,
         min_write_interval: Duration,
         caught_up: bool,
-    ) -> anyhow::Result<bool> {
-        let existing = self
-            .tx
-            .query_system(TableNamespace::Global, &DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID)?
-            .eq(&[metadata.sync_id.as_str()])?
-            .unique()
-            .await?;
+    ) -> anyhow::Result<Option<DataSyncProgressMetadata>> {
+        let existing = self.get(metadata.sync_id.as_str()).await?;
         if let Some(doc) = &existing {
             let elapsed_ms = metadata.last_updated_ms.saturating_sub(doc.last_updated_ms);
             let variant_changed =
@@ -129,21 +141,23 @@ impl<'a, RT: Runtime> DataSyncProgressModel<'a, RT> {
                 || (caught_up && progressed)
                 || elapsed_ms >= min_write_interval.as_millis() as u64;
             if !should_write {
-                return Ok(false);
+                return Ok(existing.map(|doc| (*doc).clone().into_value()));
             }
         }
         let mut model = SystemMetadataModel::new_global(self.tx);
         match existing {
             Some(doc) => {
+                let old = (*doc).clone().into_value();
                 model.replace(doc.id(), metadata.try_into()?).await?;
+                Ok(Some(old))
             },
             None => {
                 model
                     .insert(&DATA_SYNC_PROGRESS_TABLE, metadata.try_into()?)
                     .await?;
+                Ok(None)
             },
         }
-        Ok(true)
     }
 
     /// One page of the progress rows of active syncs — those that completed a

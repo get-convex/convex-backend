@@ -1565,6 +1565,23 @@ export const RequestExport: Story = {
   },
 };
 
+export const CreateDataSync: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "create_data_sync",
+      metadata: {
+        sync_id: "fivetran-8b6c0f7e-4a3d-4a20-9c47-2f6d1f0a5b3c",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+      token_id: BigInt(1),
+      app_client_id: null,
+    },
+  },
+};
+
 export const CancelExport: Story = {
   args: {
     event: {

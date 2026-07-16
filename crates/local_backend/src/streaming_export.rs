@@ -17,7 +17,10 @@ use common::{
         CREATION_TIME_FIELD,
         ID_FIELD,
     },
-    execution_context::ExecutionId,
+    execution_context::{
+        ExecutionId,
+        RequestMetadata,
+    },
     http::{
         extract::{
             Json,
@@ -25,6 +28,7 @@ use common::{
             Query,
         },
         ExtractClientVersion,
+        ExtractRequestMetadata,
         HttpResponseError,
         PaginationMetadata,
     },
@@ -306,6 +310,7 @@ pub async fn data_sync_post(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(args): Json<DataSyncArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     _data_sync(
@@ -313,6 +318,7 @@ pub async fn data_sync_post(
         args,
         identity,
         DataSyncClient::from(client_version.client()),
+        request_metadata,
     )
     .await
 }
@@ -436,6 +442,7 @@ async fn _data_sync(
     DataSyncArgs { cursor, selection }: DataSyncArgs,
     identity: Identity,
     sync_client: DataSyncClient,
+    request_metadata: RequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
         .ensure_streaming_export_enabled(identity.clone())
@@ -471,7 +478,7 @@ async fn _data_sync(
         mut usage,
     } = st
         .application
-        .data_sync(identity, cursor, selection, sync_client)
+        .data_sync(identity, cursor, selection, sync_client, request_metadata)
         .await
         .map_err(|e| {
             // The cursor points at a snapshot that has aged out of the

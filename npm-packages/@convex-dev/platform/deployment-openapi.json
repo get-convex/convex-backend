@@ -1990,7 +1990,8 @@
               "update_documents",
               "create_table",
               "delete_files",
-              "generate_upload_url"
+              "generate_upload_url",
+              "create_data_sync"
             ]
           },
           "actor": {

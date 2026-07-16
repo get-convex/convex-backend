@@ -381,6 +381,10 @@ const generateUploadUrl = auditLogEventValidator(
   componentMetadata,
 );
 
+const createDataSync = auditLogEventValidator("create_data_sync", {
+  sync_id: v.string(),
+});
+
 const deploymentAuditLogTable = defineTable(
   v.union(
     createEnvironmentVariable,
@@ -420,6 +424,7 @@ const deploymentAuditLogTable = defineTable(
     createTable,
     deleteFiles,
     generateUploadUrl,
+    createDataSync,
   ),
 );
 
