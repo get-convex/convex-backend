@@ -19,6 +19,31 @@ runs:
       if: runner.os == 'Linux'
       run: sudo apt-get install pkg-config libsodium-dev libssl-dev
 
+    # The runner AMI ships a prebuilt librocksdb but no pkg-config .pc, so mise's
+    # ROCKSDB_COMPILE check fails and librocksdb-sys rebuilds it from source every
+    # run. Write a .pc for the prebuilt so it links instead (no-op if one exists).
+    # TODO: ship the .pc from the AMI (`make install`) and drop this.
+    - name: Make prebuilt rocksdb discoverable via pkg-config
+      shell: bash
+      if: runner.os == 'Linux'
+      run: |
+        if pkg-config --exists rocksdb 2>/dev/null; then
+          echo "pkg-config already resolves rocksdb $(pkg-config --modversion rocksdb)"
+          exit 0
+        fi
+        so=$(ls /usr/lib/librocksdb.so.[0-9]* /lib/librocksdb.so.[0-9]* \
+               /usr/local/lib/librocksdb.so.[0-9]* 2>/dev/null | sort -V | tail -1 || true)
+        if [ -z "$so" ]; then
+          echo "::notice::no prebuilt librocksdb found; it will build from source"
+          exit 0
+        fi
+        ver=${so##*librocksdb.so.}
+        echo "found prebuilt librocksdb $ver at $so; writing rocksdb.pc"
+        sudo mkdir -p /usr/lib/pkgconfig
+        printf 'libdir=%s\nincludedir=/usr/include\n\nName: rocksdb\nDescription: RocksDB prebuilt on the runner image\nVersion: %s\nLibs: -L${libdir} -lrocksdb\nCflags: -I${includedir}\n' \
+          "$(dirname "$so")" "$ver" | sudo tee /usr/lib/pkgconfig/rocksdb.pc >/dev/null
+        pkg-config --modversion rocksdb
+
     - name: Install Rust
       uses: dsherret/rust-toolchain-file@3551321aa44dd44a0393eb3b6bdfbc5d25ecf621 # v1
 
