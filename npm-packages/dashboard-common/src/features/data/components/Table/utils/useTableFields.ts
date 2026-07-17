@@ -1,19 +1,15 @@
 import { useMemo } from "react";
 import { GenericDocument } from "convex/server";
-import { Shape, topLevelFieldsFromShape } from "shapes";
 import { topLevelFieldsForValidator } from "@common/features/data/components/TableSchema";
 import { sortColumns } from "@common/features/data/lib/helpers";
 import { SchemaJson } from "@common/lib/format";
 
 export function useTableFields(
   tableName: string,
-  shape: Shape | null,
   activeSchema: SchemaJson | null,
   data: GenericDocument[],
 ) {
-  const shapeAndSchemaFields = useMemo(() => {
-    const allFields = new Set<string>();
-
+  const schemaFields = useMemo(() => {
     // Extract fields from the active schema
     if (activeSchema) {
       const tableSchema = activeSchema.tables.find(
@@ -30,16 +26,12 @@ export function useTableFields(
             isComplete: true,
           };
         }
-        result.fields.forEach((f) => allFields.add(f));
+        return { fields: sortColumns(result.fields), isComplete: false };
       }
     }
 
-    // Add fields from shape
-    const shapeFields = shape === null ? [] : topLevelFieldsFromShape(shape);
-    shapeFields.forEach((f) => allFields.add(f));
-
-    return { fields: sortColumns(Array.from(allFields)), isComplete: false };
-  }, [tableName, shape, activeSchema]);
+    return { fields: [], isComplete: false };
+  }, [tableName, activeSchema]);
 
   const observedFields = useMemo(() => {
     const allFields = new Set<string>();
@@ -51,16 +43,13 @@ export function useTableFields(
 
   return useMemo(
     () => {
-      if (shapeAndSchemaFields.isComplete) {
-        return shapeAndSchemaFields.fields;
+      if (schemaFields.isComplete) {
+        return schemaFields.fields;
       }
 
-      // The shape is computed asynchronously and may lag behind recent writes. Include the
-      // fields observed in the loaded documents so they are always visible.
-      const allFields = new Set([
-        ...shapeAndSchemaFields.fields,
-        ...observedFields,
-      ]);
+      // The schema may be missing or non-exhaustive; include the fields
+      // observed in the loaded documents so they are always visible.
+      const allFields = new Set([...schemaFields.fields, ...observedFields]);
 
       return sortColumns(Array.from(allFields));
     },
@@ -68,6 +57,6 @@ export function useTableFields(
     // that a new page of documents with the same fields keeps the same
     // fields array (consumers memoize on it).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shapeAndSchemaFields, JSON.stringify(observedFields)],
+    [schemaFields, JSON.stringify(observedFields)],
   );
 }

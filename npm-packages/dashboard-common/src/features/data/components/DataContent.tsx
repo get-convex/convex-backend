@@ -56,7 +56,6 @@ import { cn } from "@ui/cn";
 import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
 import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
-import { useTableShapes } from "@common/lib/deploymentApi";
 import omit from "lodash/omit";
 import { clearFilters } from "./DataFilters/clearFilters";
 
@@ -71,8 +70,6 @@ export function DataContent({
   activeSchema: SchemaJson | null;
   onDocumentsAdded?: (count: number) => void;
 }) {
-  const { tables: shapes } = useTableShapes();
-  const shape = shapes?.get(tableName) ?? null;
   const { filters, applyFiltersWithHistory, hasFilters } = useTableFilters(
     tableName,
     componentId,
@@ -126,7 +123,7 @@ export function DataContent({
 
   const selectedRows = useSelectionState(allIds, status === "Exhausted");
 
-  const tableFields = useTableFields(tableName, shape, activeSchema, data);
+  const tableFields = useTableFields(tableName, activeSchema, data);
 
   const columns = useDataColumns({
     tableName,
