@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The `@convex-dev/no-collect-in-query` and `@convex-dev/explicit-table-ids`
+  rules now work when type-aware linting is disabled.
+- When type-aware linting is disabled, error messages now recommend enabling it.
+
 ### 2.0.0
 
 - Add a new rule `@convex-dev/no-filter-in-query` (enabled by default as a
