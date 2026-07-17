@@ -137,13 +137,27 @@ type ComponentDefinitionEnv<T extends ComponentDefinition<any, any>> =
   T["__env"];
 
 /**
+ * The names in an {@link EnvDefinition} whose validators are required (not
+ * wrapped in `v.optional(...)`).
+ */
+type RequiredEnvKeys<E extends EnvDefinition> = {
+  [K in keyof E]: E[K] extends VOptional<any> ? never : K;
+}[keyof E];
+
+/**
  * Options for installing a component via `app.use()` or `component.use()`.
  *
- * If the component declares required env vars, the `env` property is required.
+ * If the component declares any required env vars, the `env` property is
+ * required. Otherwise it is optional, so that a component with no env vars (or
+ * only optional ones) can be installed without passing `env`.
  */
 type UseOptions<Definition extends ComponentDefinition<any, any>> =
-  keyof ComponentDefinitionEnv<Definition> extends never
-    ? { name?: string; httpPrefix?: string }
+  RequiredEnvKeys<ComponentDefinitionEnv<Definition>> extends never
+    ? {
+        name?: string;
+        httpPrefix?: string;
+        env?: UseOptionsEnv<ComponentDefinitionEnv<Definition>>;
+      }
     : {
         name?: string;
         httpPrefix?: string;
