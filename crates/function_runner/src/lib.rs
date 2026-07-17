@@ -172,11 +172,7 @@ impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
             begin_timestamp,
             reads: reads.into(),
             writes: FunctionWrites {
-                updates: writes
-                    .into_flat()?
-                    .into_coalesced_writes()
-                    .map(Arc::unwrap_or_clone)
-                    .collect(),
+                updates: writes.into_flat()?.into_resolved_updates()?,
             },
             rows_read_by_tablet,
         })

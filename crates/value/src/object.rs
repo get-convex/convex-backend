@@ -58,19 +58,23 @@ impl PartialEq for ConvexObject {
 
 impl Eq for ConvexObject {}
 
+pub(crate) fn check_field_count(num_fields: usize) -> anyhow::Result<()> {
+    if num_fields > MAX_OBJECT_FIELDS {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "TooManyFieldsError",
+            format!(
+                "Object has too many fields ({num_fields} > maximum number {MAX_OBJECT_FIELDS})"
+            )
+        ));
+    }
+    Ok(())
+}
+
 impl TryFrom<BTreeMap<FieldName, ConvexValue>> for ConvexObject {
     type Error = anyhow::Error;
 
     fn try_from(fields: BTreeMap<FieldName, ConvexValue>) -> anyhow::Result<Self> {
-        if fields.len() > MAX_OBJECT_FIELDS {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "TooManyFieldsError",
-                format!(
-                    "Object has too many fields ({} > maximum number {MAX_OBJECT_FIELDS})",
-                    fields.len()
-                )
-            ));
-        }
+        check_field_count(fields.len())?;
         let size = 1
             + fields
                 .iter()

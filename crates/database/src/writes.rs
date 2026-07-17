@@ -19,6 +19,8 @@ use common::{
     },
     document::{
         DocumentUpdateWithPrevTs,
+        PendingDocument,
+        PendingDocumentUpdate,
         ResolvedDocument,
     },
     index::IndexKey,
@@ -34,10 +36,7 @@ use common::{
         TabletIndexName,
         WriteTimestamp,
     },
-    value::{
-        ResolvedDocumentId,
-        Size,
-    },
+    value::ResolvedDocumentId,
 };
 use errors::ErrorMetadata;
 use imbl::OrdSet;
@@ -160,10 +159,10 @@ impl<W: PendingWrites> NestedWrites<W> {
 }
 
 #[derive(Debug, Clone)]
-struct Update(Arc<DocumentUpdateWithPrevTs>);
+struct Update(Arc<PendingDocumentUpdate>);
 
 impl Deref for Update {
-    type Target = DocumentUpdateWithPrevTs;
+    type Target = PendingDocumentUpdate;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -172,7 +171,7 @@ impl Deref for Update {
 
 impl Ord for Update {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.id.cmp(&other.0.id)
+        self.0.id().cmp(&other.0.id())
     }
 }
 
@@ -186,14 +185,21 @@ impl Eq for Update {}
 
 impl PartialEq for Update {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id() == other.id()
     }
 }
 
 impl Borrow<ResolvedDocumentId> for Update {
     fn borrow(&self) -> &ResolvedDocumentId {
-        &self.id
+        self.0.id_ref()
     }
+}
+
+fn unresolved_commit_ts_error(id: ResolvedDocumentId) -> String {
+    format!(
+        "The write to document {id} contains an unresolved commit timestamp, which \
+         `FunctionWrites` cannot carry over the funrun wire yet"
+    )
 }
 
 /// The write set for a transaction, maintained by `TransactionState`
@@ -243,7 +249,7 @@ impl Writes {
         reads: &mut TransactionReadSet,
         document_id: ResolvedDocumentId,
         old_document: Option<(ResolvedDocument, WriteTimestamp)>,
-        new_document: Option<ResolvedDocument>,
+        new_document: Option<PendingDocument>,
         limits: &TransactionLimits,
     ) -> anyhow::Result<()> {
         if old_document.is_none() {
@@ -252,7 +258,10 @@ impl Writes {
         }
         Self::record_reads_for_write(bootstrap_tables, reads, document_id.tablet_id)?;
 
-        let value_size = new_document.as_ref().map(|d| d.value().size()).unwrap_or(0);
+        let value_size = match &new_document {
+            Some(document) => document.to_document_with_max_commit_ts()?.size(),
+            None => 0,
+        };
 
         let tx_size = if is_system_document {
             &mut self.system_tx_size
@@ -305,45 +314,50 @@ impl Writes {
             );
         }
 
-        if let Some(old_update) = self.updates.get(&document_id) {
-            let (old_document, old_document_ts) = old_document.unzip();
-            anyhow::ensure!(
-                old_update.new_document == old_document,
-                "Inconsistent update: The old update's new document does not match the new \
-                 document's old update"
-            );
-            anyhow::ensure!(
-                [None, Some(WriteTimestamp::Pending)].contains(&old_document_ts),
-                "Inconsistent update: The new document's old update timestamp should be Pending \
-                 but is {:?}",
-                old_document_ts
-            );
-            self.updates
-                .insert(Update(Arc::new(DocumentUpdateWithPrevTs {
-                    id: document_id,
-                    old_document: old_update.old_document.clone(),
-                    new_document,
-                })));
-        } else {
-            self.updates
-                .insert(Update(Arc::new(DocumentUpdateWithPrevTs {
-                    id: document_id,
-                    old_document: match old_document {
-                        Some((d, ts)) => Some((
-                            d,
-                            match ts {
-                                WriteTimestamp::Committed(ts) => ts,
-                                WriteTimestamp::Pending => anyhow::bail!(
-                                    "Old document timestamp is Pending, but there is no pending \
-                                     write"
-                                ),
-                            },
-                        )),
-                        None => None,
-                    },
-                    new_document,
-                })));
-        }
+        // The `prev` document/timestamp stored on the new update: the revision
+        // this write replaces in the document log.
+        let prev = match self.updates.get(&document_id) {
+            // Coalescing a later write onto one already staged in this
+            // transaction: keep the originally staged `prev`.
+            Some(old_update) => {
+                // TODO(commit-ts): support updating a pending write by carrying
+                // its unresolved body instead of converting to i64::MAX.
+                anyhow::ensure!(
+                    old_update.is_resolved() || new_document.is_none(),
+                    "Staged write for {document_id} contains an unresolved commit timestamp and \
+                     cannot be updated"
+                );
+                let (old_document, old_document_ts) = old_document.unzip();
+                anyhow::ensure!(
+                    old_update.new_document_with_max_commit_ts()?.as_deref()
+                        == old_document.as_ref(),
+                    "Inconsistent update: The old update's new document does not match the new \
+                     document's old update"
+                );
+                anyhow::ensure!(
+                    [None, Some(WriteTimestamp::Pending)].contains(&old_document_ts),
+                    "Inconsistent update: The new document's old update timestamp should be \
+                     Pending but is {:?}",
+                    old_document_ts
+                );
+                old_update.old_document().cloned()
+            },
+            // First write to this document in this transaction: its `prev` is
+            // the committed revision it read.
+            None => match old_document {
+                None => None,
+                Some((d, WriteTimestamp::Committed(ts))) => Some((d, ts)),
+                Some((_, WriteTimestamp::Pending)) => anyhow::bail!(
+                    "Old document timestamp is Pending, but there is no pending write"
+                ),
+            },
+        };
+        self.updates
+            .insert(Update(Arc::new(PendingDocumentUpdate::new(
+                document_id,
+                prev,
+                new_document,
+            ))));
 
         Ok(())
     }
@@ -439,26 +453,61 @@ impl Writes {
     }
 
     /// Iterate over the coalesced writes (so no `DocumentId` appears twice).
-    pub fn coalesced_writes(&self) -> impl Iterator<Item = &DocumentUpdateWithPrevTs> {
+    pub fn coalesced_writes(&self) -> impl Iterator<Item = &PendingDocumentUpdate> {
         self.updates.iter().map(|x| &**x)
     }
 
-    pub fn into_coalesced_writes(self) -> impl Iterator<Item = Arc<DocumentUpdateWithPrevTs>> {
+    pub fn into_coalesced_writes(self) -> impl Iterator<Item = Arc<PendingDocumentUpdate>> {
         self.updates.into_iter().map(|x| x.0)
+    }
+
+    // TODO(commit-ts): carry unresolved commit timestamps in `FunctionWrites`
+    // and the funrun `Writes` proto as their token JSON, so function
+    // boundaries can transport pending writes and this fn can be deleted.
+
+    /// The coalesced writes for a boundary that cannot represent unresolved
+    /// commit timestamps (e.g. the funrun wire) yet
+    pub fn require_resolved_updates(&self) -> anyhow::Result<Vec<DocumentUpdateWithPrevTs>> {
+        self.coalesced_writes()
+            .map(|update| {
+                let id = update.id();
+                update
+                    .clone()
+                    .into_resolved()
+                    .with_context(|| unresolved_commit_ts_error(id))
+            })
+            .collect()
+    }
+
+    /// Owning variant of [`Writes::require_resolved_updates`].
+    pub fn into_resolved_updates(self) -> anyhow::Result<Vec<DocumentUpdateWithPrevTs>> {
+        self.updates
+            .into_iter()
+            .map(|update| {
+                let id = update.id();
+                Arc::unwrap_or_clone(update.0)
+                    .into_resolved()
+                    .with_context(|| unresolved_commit_ts_error(id))
+            })
+            .collect()
     }
 
     pub fn into_updates(
         self,
-    ) -> OrdSet<impl Borrow<ResolvedDocumentId> + Ord + Deref<Target = DocumentUpdateWithPrevTs>>
-    {
+    ) -> OrdSet<impl Borrow<ResolvedDocumentId> + Ord + Deref<Target = PendingDocumentUpdate>> {
         self.updates
+    }
+
+    /// The staged write for `id`, if any.
+    pub fn get(&self, id: &ResolvedDocumentId) -> Option<&PendingDocumentUpdate> {
+        self.updates.get(id).map(|update| &**update)
     }
 
     pub fn generated_ids(&self) -> Vec<ResolvedDocumentId> {
         self.updates
             .iter()
-            .filter(|update| update.old_document.is_none())
-            .map(|update| update.id)
+            .filter(|update| update.old_document().is_none())
+            .map(|update| update.id())
             .collect()
     }
 }

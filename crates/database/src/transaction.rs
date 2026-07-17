@@ -30,6 +30,8 @@ use common::{
     document::{
         CreationTime,
         DocumentUpdateWithPrevTs,
+        PendingDocument,
+        PendingDocumentUpdate,
         ResolvedDocument,
     },
     identity::InertIdentity,
@@ -68,7 +70,6 @@ use common::{
         id_v6::DeveloperDocumentId,
         ConvexObject,
         ResolvedDocumentId,
-        Size,
         TableMapping,
     },
     virtual_system_mapping::VirtualSystemMapping,
@@ -399,16 +400,9 @@ impl<RT: Runtime> Transaction<RT> {
         let mut biggest_document_id = None;
         let mut max_nesting = 0;
         let mut most_nested_document_id = None;
-        for DocumentUpdateWithPrevTs {
-            id: document_id,
-            new_document,
-            ..
-        } in self.writes.coalesced_writes()
-        {
-            let (size, nesting) = new_document
-                .as_ref()
-                .map(|document| (document.value().size(), document.value().nesting()))
-                .unwrap_or((0, 0));
+        for update in self.writes.coalesced_writes() {
+            let document_id = update.id_ref();
+            let (size, nesting) = update.new_document_size_and_nesting().unwrap_or_default();
             if size > max_size {
                 max_size = size;
                 biggest_document_id = Some(document_id);
@@ -516,7 +510,7 @@ impl<RT: Runtime> Transaction<RT> {
             // already written to in this transaction.
             if let Some(existing_update) = existing_updates.get(&id) {
                 anyhow::ensure!(
-                    **existing_update == update,
+                    (**existing_update).clone().into_resolved().ok().as_ref() == Some(&update),
                     "Conflicting updates for document {id}"
                 );
                 preserved_update_count += 1;
@@ -535,7 +529,7 @@ impl<RT: Runtime> Transaction<RT> {
                 update
                     .old_document
                     .map(|(d, ts)| (d, WriteTimestamp::Committed(ts))),
-                update.new_document,
+                update.new_document.map(Into::into),
             )?;
         }
         assert_eq!(
@@ -603,7 +597,11 @@ impl<RT: Runtime> Transaction<RT> {
             .enforce(&new_document)
             .await?;
 
-        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document.clone()))?;
+        self.apply_validated_write(
+            id,
+            Some((old_document, old_ts)),
+            Some(new_document.clone().into()),
+        )?;
         Ok(new_document)
     }
 
@@ -644,7 +642,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.apply_validated_write(
             new_document.id(),
             Some((old_document, old_ts)),
-            Some(new_document.clone()),
+            Some(new_document.clone().into()),
         )?;
         Ok(new_document)
     }
@@ -1104,38 +1102,44 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
         old_document_and_ts: Option<(ResolvedDocument, WriteTimestamp)>,
-        new_document: Option<ResolvedDocument>,
+        new_document: Option<PendingDocument>,
     ) -> anyhow::Result<()> {
         // Implement something like two-phase commit between the index and the document
         // store. We first guarantee that the changes are valid for the index and
         // metadata and then let inserting into writes the commit
         // point so that the Transaction is never in an inconsistent state.
         let is_system_document = self.table_mapping().is_system_tablet(id.tablet_id);
-        if !is_system_document && let Some(new_document) = &new_document {
-            new_document.check_user_size()?;
+        let new_document_view = new_document
+            .as_ref()
+            .map(|d| d.to_document_with_max_commit_ts())
+            .transpose()?;
+        if !is_system_document && let Some(view) = &new_document_view {
+            // Size of document with max commit_ts injected should be the same as the size
+            // of the document with the correct commit_ts injected since both are i64.
+            view.check_user_size()?;
         }
         let bootstrap_tables = self.bootstrap_tables();
         let old_document = old_document_and_ts.as_ref().map(|(doc, _)| doc);
         let index_update = self
             .index
-            .begin_update(old_document.cloned(), new_document.clone())?;
+            .begin_update(old_document.cloned(), new_document_view.as_deref().cloned())?;
         let schema_update = self.schema_registry.begin_update(
             self.metadata.table_mapping(),
             id,
             old_document,
-            new_document.as_ref(),
+            new_document_view.as_deref(),
         )?;
         let component_update = self.component_registry.begin_update(
             self.metadata.table_mapping(),
             id,
             old_document,
-            new_document.as_ref(),
+            new_document_view.as_deref(),
         )?;
         let metadata_update = self.metadata.begin_update(
             index_update.registry(),
             id,
             old_document.map(|d| d.value().deref()),
-            new_document.as_ref().map(|d| d.value().deref()),
+            new_document_view.as_deref().map(|d| d.value().deref()),
         )?;
         let stats = self.stats.entry(id.tablet_id).or_default();
         let mut delta = 0;
@@ -1184,13 +1188,28 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         document: ResolvedDocument,
     ) -> anyhow::Result<ResolvedDocumentId> {
+        self.insert_pending_document(document.into()).await
+    }
+
+    /// Insert a new document whose body may contain unresolved commit
+    /// timestamps (see [`PendingDocument`]).
+    pub(crate) async fn insert_pending_document(
+        &mut self,
+        document: PendingDocument,
+    ) -> anyhow::Result<ResolvedDocumentId> {
         let document_id = document.id();
         let namespace = self
             .table_mapping()
             .tablet_namespace(document_id.tablet_id)?;
-        SchemaModel::new(self, namespace).enforce(&document).await?;
+        SchemaModel::new(self, namespace)
+            .enforce(document.to_document_with_max_commit_ts()?.as_ref())
+            .await?;
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
+    }
+
+    pub fn pending_write(&self, id: &ResolvedDocumentId) -> Option<&PendingDocumentUpdate> {
+        self.writes.get(id)
     }
 
     pub async fn text_search(
@@ -1414,7 +1433,7 @@ impl FinalTransaction {
         let modified_tables: BTreeSet<_> = self
             .writes
             .coalesced_writes()
-            .map(|update| update.id.tablet_id)
+            .map(|update| update.id().tablet_id)
             .collect();
         Self::validate_memory_index_size(
             &self.table_mapping,

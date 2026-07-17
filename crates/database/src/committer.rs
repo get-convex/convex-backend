@@ -737,11 +737,18 @@ impl<RT: Runtime> Committer<RT> {
         }
         timer.finish();
 
-        let updates: Vec<_> = transaction.writes.coalesced_writes().collect();
+        // The commit timestamp is now known: produce the final updates, with
+        // every unresolved commit timestamp in the write set replaced by it,
+        // so nothing unresolved reaches persistence or the durable indexes.
+        // Concrete documents move through without cloning.
+        let mut ordered_updates: Vec<DocumentUpdateWithPrevTs> = transaction
+            .writes
+            .into_coalesced_writes()
+            .map(|update| Arc::unwrap_or_clone(update).resolve(commit_ts))
+            .collect::<anyhow::Result<_>>()?;
         // The updates are ordered using table_dependency_sort_key,
         // which is the same order they should be applied to database metadata
         // and index data structures
-        let mut ordered_updates = updates;
         ordered_updates.sort_by_key(|update| {
             table_dependency_sort_key(
                 BootstrapTableIds::new(&transaction.table_mapping),
@@ -762,7 +769,7 @@ impl<RT: Runtime> Committer<RT> {
         let timer = metrics::pending_writes_append_timer();
         let packed_updates: OrderedDocumentWrites = ordered_updates
             .into_iter()
-            .map(PackedDocumentUpdate::pack)
+            .map(|update| PackedDocumentUpdate::pack(&update))
             .collect();
         let ordered_updates = packed_updates.clone();
         let index_registry = snapshot.index_registry.clone();
@@ -784,7 +791,7 @@ impl<RT: Runtime> Committer<RT> {
     fn compute_writes(
         &self,
         commit_ts: Timestamp,
-        ordered_updates: &Vec<&DocumentUpdateWithPrevTs>,
+        ordered_updates: &[DocumentUpdateWithPrevTs],
     ) -> anyhow::Result<(
         Vec<ValidatedDocumentWrite>,
         Vec<DatabaseIndexUpdate>,
@@ -803,7 +810,7 @@ impl<RT: Runtime> Committer<RT> {
             .pending_writes
             .latest_snapshot()
             .unwrap_or_else(|| self.snapshot_manager.read().latest_snapshot());
-        for &document_update in ordered_updates.iter() {
+        for document_update in ordered_updates.iter() {
             let (updates, vector_index_write_size, text_index_write_size) =
                 latest_pending_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
