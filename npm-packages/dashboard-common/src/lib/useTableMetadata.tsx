@@ -1,23 +1,35 @@
-import { useCallback, useEffect } from "react";
-import { Shape } from "shapes";
+import { useCallback, useEffect, useMemo } from "react";
 import { NextRouter, useRouter } from "next/router";
-import { useTableShapes } from "@common/lib/deploymentApi";
+import { useQuery } from "convex/react";
+import udfs from "@common/udfs";
+import { useNents } from "@common/lib/useNents";
+import { isUserTableName } from "@common/lib/utils";
 
 export type TableMetadata = {
   name: string | null;
-  tables: Map<string, Shape>;
+  tableNames: string[];
   selectTable: (table: string) => void;
 };
 
 export function useTableMetadata(): TableMetadata | undefined {
   const router = useRouter();
+  const { selectedNent } = useNents();
 
-  // Gets initial Table Shapes (names, columns)
-  const { tables } = useTableShapes();
+  const tableMapping = useQuery(udfs.getTableMapping.default, {
+    componentId: selectedNent?.id ?? null,
+  });
+
+  const tableNames = useMemo(
+    () =>
+      tableMapping === undefined
+        ? undefined
+        : Object.values(tableMapping).filter(isUserTableName).sort(),
+    [tableMapping],
+  );
 
   const selectTable = useCallback(
     (table: string) => {
-      if (tables === undefined) {
+      if (tableNames === undefined) {
         return;
       }
       if (table === router.query.table) {
@@ -29,15 +41,14 @@ export function useTableMetadata(): TableMetadata | undefined {
         filters: undefined,
       });
     },
-    [tables, router],
+    [tableNames, router],
   );
 
-  if (tables === undefined) {
+  if (tableNames === undefined) {
     return undefined;
   }
 
   const tableNameFromURL = router.query.table as string | undefined;
-  const tableNames = Array.from(tables.keys());
   const firstTableName = (tableNames[0] as string | undefined) ?? null;
 
   const shownTableName =
@@ -47,7 +58,7 @@ export function useTableMetadata(): TableMetadata | undefined {
 
   return {
     name: shownTableName,
-    tables,
+    tableNames,
     selectTable,
   };
 }

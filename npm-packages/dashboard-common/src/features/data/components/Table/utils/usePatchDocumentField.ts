@@ -11,7 +11,6 @@ import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { useNents } from "@common/lib/useNents";
 import { toast } from "@common/lib/utils";
-import { useInvalidateShapes } from "@common/features/data/lib/api";
 
 export function usePatchDocumentField(tableName: string) {
   const router = useRouter();
@@ -55,7 +54,6 @@ export function usePatchDocumentField(tableName: string) {
       },
     );
   });
-  const invalidateShapes = useInvalidateShapes();
 
   return useCallback(
     async (
@@ -78,8 +76,7 @@ export function usePatchDocumentField(tableName: string) {
           throw error;
         }
       }
-      await invalidateShapes();
     },
-    [invalidateShapes, patchDocument, selectedNent],
+    [patchDocument, selectedNent],
   );
 }

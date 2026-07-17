@@ -17,7 +17,6 @@ import {
   FilterExpression,
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { Shape } from "shapes";
 import { LoadingLogo, LoadingTransition } from "@ui/Loading";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
@@ -57,22 +56,23 @@ import { cn } from "@ui/cn";
 import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
 import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
+import { useTableShapes } from "@common/lib/deploymentApi";
 import omit from "lodash/omit";
 import { clearFilters } from "./DataFilters/clearFilters";
 
 export function DataContent({
   tableName,
-  shape,
   componentId,
   activeSchema,
   onDocumentsAdded,
 }: {
   tableName: string;
   componentId: string | null;
-  shape: Shape | null;
   activeSchema: SchemaJson | null;
   onDocumentsAdded?: (count: number) => void;
 }) {
+  const { tables: shapes } = useTableShapes();
+  const shape = shapes?.get(tableName) ?? null;
   const { filters, applyFiltersWithHistory, hasFilters } = useTableFilters(
     tableName,
     componentId,
