@@ -10,7 +10,7 @@ on:
   push:
     branches: [enhanced]
   pull_request:
-    branches: ["**"]
+    branches: ["**", "!release"]
 
 jobs:
   check:

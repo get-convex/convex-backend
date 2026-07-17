@@ -432,6 +432,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     .registerQueryFake(udfs.getSchemas.default, () => ({}))
     .registerQueryFake(udfs.listConfiguredSinks.default, () => [])
     .registerQueryFake(udfs.getVersion.default, () => "1.18.0")
+    .registerQueryFake(udfs.getTableMapping.default, () => ({}))
     .registerQueryFake(udfs.deploymentEvents.lastPushEvent, () => null)
     .registerQueryFake(udfs.fileStorageV2.numFiles, () => 0)
     .registerQueryFake(udfs.tableSize.sizeOfAllTables, () => 0);

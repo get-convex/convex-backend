@@ -7,7 +7,6 @@ import { SchemaJson } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useNents } from "@common/lib/useNents";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEditsConfirmationDialog";
-import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { ClearTableConfirmation } from "@common/features/data/components/DataToolbar/ClearTableConfirmation";
 import { EditDocumentPanel } from "@common/features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
 import { EditFieldsPanel } from "@common/features/data/components/Table/EditDocumentPanel/EditFieldsPanel";
@@ -221,7 +220,6 @@ function EditSingleDocumentPanel({
   shouldSurfaceValidatorErrors?: boolean;
 }) {
   const replaceDocument = useMutation(udfs.replaceDocument.default);
-  const invalidateShapes = useInvalidateShapes();
   const { selectedNent } = useNents();
   const { captureMessage } = useContext(DeploymentInfoContext);
 
@@ -252,7 +250,6 @@ function EditSingleDocumentPanel({
           }
           throw error;
         }
-        await invalidateShapes();
       }}
       defaultDocument={Object.fromEntries(
         Object.entries(editingDocument).filter(([_, v]) => v !== undefined),

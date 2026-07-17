@@ -133,9 +133,6 @@ export function DataView({
                         key={tableMetadata.name}
                         tableName={tableMetadata.name}
                         componentId={componentId ?? null}
-                        shape={
-                          tableMetadata.tables.get(tableMetadata.name) ?? null
-                        }
                         activeSchema={activeSchema}
                         onDocumentsAdded={onDocumentsAdded}
                       />

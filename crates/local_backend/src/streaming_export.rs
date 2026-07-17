@@ -259,7 +259,7 @@ pub async fn _document_deltas(
 /// Streams a consistent, resumable export of a deployment's data — either the
 /// whole deployment or a subset of components, tables, and columns (see the
 /// request body). Streaming export must be enabled on the deployment, and the
-/// caller must have the `deployment:data:sync` permission.
+/// caller must have the `deployment:data:view` permission.
 ///
 /// Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
 /// response back in the next request as `cursor`; omit `cursor` on the first
@@ -368,7 +368,7 @@ pub async fn list_active_syncs_get(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    identity.require_operation(keybroker::DeploymentOp::DataSync)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
     let (syncs, next_cursor) = st
         .application
@@ -447,7 +447,7 @@ async fn _data_sync(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    identity.require_operation(keybroker::DeploymentOp::DataSync)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
     let cursor = cursor
         .map(|cursor| -> anyhow::Result<SyncCursor> {

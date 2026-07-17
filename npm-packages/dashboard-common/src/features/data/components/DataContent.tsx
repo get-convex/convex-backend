@@ -17,7 +17,6 @@ import {
   FilterExpression,
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { Shape } from "shapes";
 import { LoadingLogo, LoadingTransition } from "@ui/Loading";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
@@ -62,14 +61,12 @@ import { clearFilters } from "./DataFilters/clearFilters";
 
 export function DataContent({
   tableName,
-  shape,
   componentId,
   activeSchema,
   onDocumentsAdded,
 }: {
   tableName: string;
   componentId: string | null;
-  shape: Shape | null;
   activeSchema: SchemaJson | null;
   onDocumentsAdded?: (count: number) => void;
 }) {
@@ -126,7 +123,7 @@ export function DataContent({
 
   const selectedRows = useSelectionState(allIds, status === "Exhausted");
 
-  const tableFields = useTableFields(tableName, shape, activeSchema, data);
+  const tableFields = useTableFields(tableName, activeSchema, data);
 
   const columns = useDataColumns({
     tableName,

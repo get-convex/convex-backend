@@ -104,7 +104,6 @@ export const ACTIONS_BY_CATEGORY: Record<
     "deployment:usage:view",
     "deployment:data:view",
     "deployment:data:write",
-    "deployment:data:sync",
     "deployment:functions:actAsUser",
     "deployment:functions:runInternalQueries",
     "deployment:functions:runInternalMutations",

@@ -5668,7 +5668,6 @@
           "deployment:metrics:view",
           "deployment:data:view",
           "deployment:data:write",
-          "deployment:data:sync",
           "deployment:backups:download",
           "deployment:functions:actAsUser",
           "deployment:functions:runInternalQueries",

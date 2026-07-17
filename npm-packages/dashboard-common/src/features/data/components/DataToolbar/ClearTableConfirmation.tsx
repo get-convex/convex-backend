@@ -1,7 +1,6 @@
 import { Cursor } from "convex/server";
 import { useContext, useState } from "react";
 import { useMountedState } from "react-use";
-import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -47,8 +46,6 @@ export function ClearTableConfirmation({
 
   const isMounted = useMountedState();
 
-  const invalidateShapes = useInvalidateShapes();
-
   const { captureException } = useContext(DeploymentInfoContext);
 
   return (
@@ -78,14 +75,12 @@ export function ClearTableConfirmation({
               "Failed to clear table. Please try again or contact support.",
             );
             setIsClearing(false);
-            await invalidateShapes();
             return;
           }
         }
         setIsClearing(false);
         clearSelectedRows();
 
-        await invalidateShapes();
         if (isMounted()) {
           toast("success", "Table cleared.");
         } else {
