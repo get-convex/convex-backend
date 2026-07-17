@@ -826,16 +826,16 @@ impl<RT: Runtime> Application<RT> {
             })
             .collect();
         usage_meter.refresh_configs(usage_limit_configs);
-        let usage_limit_worker = Arc::new(Mutex::new(runtime.spawn(
+        let usage_limit_worker = Arc::new(Mutex::new(Some(runtime.spawn(
             "usage_limit_worker",
             UsageLimitWorker::start(
                 runtime.clone(),
                 database.clone(),
                 Arc::new(log_manager_client.clone()),
-                usage_limit_notifier,
+                usage_limit_notifier.clone(),
                 usage_meter.clone(),
             ),
-        )));
+        ))));
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
@@ -942,6 +942,7 @@ impl<RT: Runtime> Application<RT> {
             system_table_cleanup_worker,
             migration_worker,
             usage_limit_worker,
+            usage_limit_notifier,
         };
 
         Ok(Self {

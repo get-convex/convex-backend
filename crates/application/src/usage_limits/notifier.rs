@@ -3,6 +3,7 @@
 
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use model::usage_limits::types::{
     UsageLimitMetric,
     UsageLimitType,
@@ -24,13 +25,18 @@ pub struct UsageLimitNotification {
 
 /// Sink for "usage limit exceeded" notifications. Called once per limit per
 /// window, after the audit event commits.
+#[async_trait]
 pub trait UsageLimitNotifier: Send + Sync {
     fn notify_exceeded(&self, notifications: Vec<UsageLimitNotification>);
+    async fn shutdown(&self);
 }
 
 /// No-op notifier used by the open-source build and tests.
 pub struct NoopUsageLimitNotifier;
 
+#[async_trait]
 impl UsageLimitNotifier for NoopUsageLimitNotifier {
     fn notify_exceeded(&self, _notifications: Vec<UsageLimitNotification>) {}
+
+    async fn shutdown(&self) {}
 }
