@@ -108,7 +108,6 @@ export const DEPLOYMENT_OP_TO_ACTION: Record<
   WriteEnvironmentVariables: "deployment:env:write",
   ViewData: "deployment:data:view",
   WriteData: "deployment:data:write",
-  DataSync: "deployment:data:sync",
   RunInternalQueries: "deployment:functions:runInternalQueries",
   RunInternalMutations: "deployment:functions:runInternalMutations",
   RunInternalActions: "deployment:functions:runInternalActions",
@@ -131,7 +130,6 @@ export const DEPLOYMENT_OP_TO_ACTION: Record<
 
 const READ_ONLY_ACTIONS: RoleStatementAction[] = [
   "deployment:data:view",
-  "deployment:data:sync",
   "deployment:env:view",
   "deployment:functions:runInternalQueries",
   "deployment:functions:runTestQuery",
@@ -351,7 +349,6 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "deployment:metrics:view": "deployment",
   "deployment:data:view": "deployment",
   "deployment:data:write": "deployment",
-  "deployment:data:sync": "deployment",
   "deployment:backups:download": "deployment",
   "deployment:functions:actAsUser": "deployment",
   "deployment:functions:runInternalQueries": "deployment",

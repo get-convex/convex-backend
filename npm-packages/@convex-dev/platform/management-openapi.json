@@ -3475,8 +3475,7 @@
                 "deployment:auditLog:view",
                 "deployment:usageLimits:view",
                 "deployment:usageLimits:write",
-                "deployment:usage:view",
-                "deployment:data:sync"
+                "deployment:usage:view"
               ]
             }
           },
@@ -3799,8 +3798,7 @@
                 "deployment:auditLog:view",
                 "deployment:usageLimits:view",
                 "deployment:usageLimits:write",
-                "deployment:usage:view",
-                "deployment:data:sync"
+                "deployment:usage:view"
               ]
             }
           },
@@ -4499,7 +4497,6 @@
           "deployment:metrics:view",
           "deployment:data:view",
           "deployment:data:write",
-          "deployment:data:sync",
           "deployment:backups:download",
           "deployment:functions:actAsUser",
           "deployment:functions:runInternalQueries",

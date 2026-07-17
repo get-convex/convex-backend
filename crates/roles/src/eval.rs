@@ -220,7 +220,6 @@ pub const ALL_DEPLOYMENT_OPS: &[DeploymentOp] = &[
     DeploymentOp::ViewUsageLimits,
     DeploymentOp::WriteUsageLimits,
     DeploymentOp::ViewUsage,
-    DeploymentOp::DataSync,
 ];
 
 /// Authoritative mapping from a keybroker [`DeploymentOp`] to the
@@ -254,7 +253,6 @@ pub fn deployment_op_action(op: DeploymentOp) -> Option<RoleStatementAction> {
         O::ViewUsageLimits => A::ViewUsageLimits,
         O::WriteUsageLimits => A::WriteUsageLimits,
         O::ViewUsage => A::ViewDeploymentUsage,
-        O::DataSync => A::DataSync,
         O::Unknown => return None,
     })
 }
