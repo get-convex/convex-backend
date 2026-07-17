@@ -549,6 +549,22 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         )
     }
 
+    /// A streaming-export iterator over this snapshot's persistence. Note the
+    /// iterator picks its own recent snapshot rather than reading at this
+    /// snapshot's timestamp. See [`DataSyncIterator`] and
+    /// [`Database::data_sync_iterator`].
+    pub fn data_sync_iterator(&self) -> anyhow::Result<DataSyncIterator<RT>> {
+        DataSyncIterator::new(
+            self.runtime.clone(),
+            self.persistence_reader.clone(),
+            self.retention_validator.clone(),
+            *DATA_SYNC_PAGE_SIZE_LIMIT,
+            *DATA_SYNC_PAGE_BYTES_LIMIT,
+            *DATA_SYNC_MAX_ROWS_READ,
+            *DATA_SYNC_BY_ID_FRESHNESS,
+        )
+    }
+
     #[fastrace::trace]
     pub fn get_document_and_index_storage(
         &self,

@@ -13,7 +13,6 @@ use common::{
         ParseDocument,
         ParsedDocument,
     },
-    errors::report_error,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -35,18 +34,15 @@ use database::{
     },
     unauthorized_error,
     DataSyncStatus,
-    Database,
     DatabaseSnapshot,
     IndexModel,
     ResolvedQuery,
     SearchNotEnabled,
     SystemMetadataModel,
-    TableIterator,
     TableModel,
     Transaction,
 };
 use errors::ErrorMetadata;
-use futures::TryStreamExt;
 use imbl::ordmap;
 use keybroker::Identity;
 use maplit::btreemap;
@@ -349,53 +345,29 @@ async fn file_storage_target_tables<RT: Runtime>(
         .try_collect()
 }
 
-/// Sum the sizes of every `_file_storage` document by walking `target_tables`
-/// with the (legacy) `TableIterator` at its snapshot.
-async fn total_size_via_table_iterator<RT: Runtime>(
-    table_iterator: TableIterator<RT>,
-    target_tables: &BTreeMap<TabletId, IndexId>,
-) -> anyhow::Result<u64> {
-    let mut table_iterator = table_iterator.multi(target_tables.keys().copied().collect());
-    let mut total_size = 0u64;
-    for (tablet_id, by_id_index) in target_tables {
-        let mut table_stream =
-            Box::pin(table_iterator.stream_documents_in_table(*tablet_id, *by_id_index, None));
-        while let Some(storage_document) = table_stream.try_next().await? {
-            let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.value.parse()?;
-            total_size += storage_entry.size as u64;
-        }
-        drop(table_stream);
-        table_iterator.unregister_table(*tablet_id)?;
-    }
-    Ok(total_size)
-}
-
 /// Total size of all `_file_storage` documents across the deployment.
 ///
-/// Computed with the `DataSyncIterator` (which picks its consistent snapshot,
-/// `Synced { ts }`, at the *end* of the sync) and cross-checked against the
-/// legacy `TableIterator` re-run at that exact `ts`. This is the first
-/// `DataSyncIterator` callsite, so the cross-check validates the new API in
-/// production: on a mismatch we report an error and fall back to the trusted
-/// `TableIterator` result.
+/// Computed with the `DataSyncIterator`, which picks its own consistent
+/// snapshot (`Synced { ts }`) at the *end* of the sync rather than reading at
+/// `snapshot`'s timestamp — `snapshot` only supplies the set of tablets to
+/// iterate.
 #[fastrace::trace]
 pub async fn get_total_file_storage_size<RT: Runtime>(
     identity: &Identity,
-    database: &Database<RT>,
+    snapshot: &DatabaseSnapshot<RT>,
 ) -> anyhow::Result<u64> {
-    let target_tables =
-        file_storage_target_tables(identity, &database.latest_database_snapshot()?).await?;
+    let target_tables = file_storage_target_tables(identity, snapshot).await?;
 
-    // New API: drive the data sync iterator to a consistent snapshot, keeping a
-    // running total via deltas. It may emit a document more than once (a `ts`
-    // page re-emits a captured document at a newer revision), so we add each
+    // Drive the data sync iterator to a consistent snapshot, keeping a running
+    // total via deltas. It may emit a document more than once (a `ts` page
+    // re-emits a captured document at a newer revision), so we add each
     // revision's size and subtract its predecessor's — supplied only when the
     // iterator previously emitted that predecessor. Memory stays constant rather
     // than materializing a per-document size map.
-    let iterator = database.data_sync_iterator()?;
+    let iterator = snapshot.data_sync_iterator()?;
     let mut total_size: i64 = 0;
     let mut cursor = None;
-    let synced_ts = loop {
+    loop {
         let page = iterator
             .next_page_with_prev_revs(cursor, &target_tables)
             .await?;
@@ -410,48 +382,13 @@ pub async fn get_total_file_storage_size<RT: Runtime>(
             }
         }
         cursor = Some(page.cursor);
-        if let DataSyncStatus::Synced { ts, .. } = page.status {
-            break ts;
+        if let DataSyncStatus::Synced { .. } = page.status {
+            break;
         }
-    };
-
-    // Backup/validation: recompute at the same snapshot with the legacy
-    // `TableIterator` and compare. `synced_ts` is the iterator's *persisted*
-    // max-repeatable timestamp, which the in-memory snapshot (`now_ts_for_reads`)
-    // may not have caught up to yet, so wait for it before deriving a repeatable
-    // timestamp there.
-    database.wait_for_write_ts(synced_ts).await;
-    let synced_ts = database.now_ts_for_reads().prior_ts(synced_ts)?;
-    let table_iterator_total =
-        total_size_via_table_iterator(database.table_iterator(synced_ts, 1000), &target_tables)
-            .await?;
-
-    // Trust the (battle-tested) `TableIterator` on any disagreement while the new
-    // API is validated. A negative running total means a `DataSyncIterator` bug —
-    // the very failure this cross-check absorbs — so treat it as a mismatch and
-    // fall back rather than erroring the whole gauge run.
-    if let Ok(data_sync_total) = u64::try_from(total_size)
-        && data_sync_total == table_iterator_total
-    {
-        return Ok(data_sync_total);
     }
-    report_error(&mut anyhow::anyhow!(
-        "file storage size mismatch at {}: DataSyncIterator returned {total_size}, TableIterator \
-         returned {table_iterator_total}",
-        *synced_ts
-    ))
-    .await;
-    Ok(table_iterator_total)
-}
 
-/// Total size of all `_file_storage` documents at `snapshot`, via the legacy
-/// `TableIterator`. For offline tooling that only has a [`DatabaseSnapshot`]
-/// and wants the total at a specific (possibly historical) snapshot.
-#[fastrace::trace]
-pub async fn get_total_file_storage_size_from_snapshot<RT: Runtime>(
-    identity: &Identity,
-    snapshot: &DatabaseSnapshot<RT>,
-) -> anyhow::Result<u64> {
-    let target_tables = file_storage_target_tables(identity, snapshot).await?;
-    total_size_via_table_iterator(snapshot.table_iterator(), &target_tables).await
+    // A negative running total is only possible via a `DataSyncIterator` bug.
+    u64::try_from(total_size).map_err(|_| {
+        anyhow::anyhow!("DataSyncIterator returned negative file storage total {total_size}")
+    })
 }
