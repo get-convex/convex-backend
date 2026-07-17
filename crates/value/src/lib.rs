@@ -16,6 +16,7 @@ pub mod id_v6;
 mod json;
 pub mod numeric;
 mod object;
+mod pending;
 pub mod serde;
 pub mod serialized_args_ext;
 pub mod sha256;
@@ -90,6 +91,10 @@ pub use crate::{
         remove_vec_of_strings,
         ConvexObject,
         MAX_OBJECT_FIELDS,
+    },
+    pending::{
+        PendingValue,
+        COMMIT_TS_FIELD,
     },
     size::{
         Size,

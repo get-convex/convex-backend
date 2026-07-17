@@ -115,7 +115,8 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         SchemaModel::new(self.tx, namespace)
             .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
             .await?;
-        self.tx.apply_validated_write(id, None, Some(document))?;
+        self.tx
+            .apply_validated_write(id, None, Some(document.into()))?;
 
         Ok(id.into())
     }
@@ -188,7 +189,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
             .await?;
         self.tx
-            .apply_validated_write(id, existing_doc, Some(document))?;
+            .apply_validated_write(id, existing_doc, Some(document.into()))?;
 
         Ok(id.into())
     }

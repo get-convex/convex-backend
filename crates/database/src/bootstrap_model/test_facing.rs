@@ -1,9 +1,13 @@
 use common::{
-    document::ResolvedDocument,
+    document::{
+        PendingDocument,
+        ResolvedDocument,
+    },
     runtime::Runtime,
 };
 use value::{
     ConvexObject,
+    PendingValue,
     ResolvedDocumentId,
     TableName,
     TableNamespace,
@@ -11,6 +15,7 @@ use value::{
 
 use crate::{
     SystemMetadataModel,
+    TableModel,
     Transaction,
 };
 
@@ -32,6 +37,25 @@ impl<'a, RT: Runtime> TestFacingModel<'a, RT> {
         SystemMetadataModel::new(self.tx, TableNamespace::test_user())
             .insert_metadata(table, value)
             .await
+    }
+
+    /// Insert a new document whose body may contain unresolved commit
+    /// timestamps (see `value::PendingValue`).
+    #[convex_macro::instrument_future]
+    pub async fn insert_pending(
+        &mut self,
+        table: &TableName,
+        body: PendingValue,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let namespace = TableNamespace::test_user();
+        TableModel::new(self.tx)
+            .insert_table_metadata(namespace, table)
+            .await?;
+        let table_id = self.tx.table_mapping().namespace(namespace).id(table)?;
+        let id = self.tx.id_generator.generate_resolved(table_id);
+        let creation_time = self.tx.next_creation_time.increment()?;
+        let document = PendingDocument::new(id, creation_time, body)?;
+        self.tx.insert_pending_document(document).await
     }
 
     #[convex_macro::instrument_future]

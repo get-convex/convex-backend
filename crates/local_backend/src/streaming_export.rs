@@ -33,6 +33,7 @@ use common::{
         PaginationMetadata,
     },
     json_schemas,
+    runtime::try_join,
     schemas::{
         validator::{
             AddTopLevelFields,
@@ -756,56 +757,65 @@ pub async fn get_table_column_names(
     let ts = st.application.now_ts_for_reads();
     let snapshot = st.application.snapshot(ts)?;
     let table_shapes = st.application.table_shapes_at(ts).await?;
-    let mapping = snapshot.table_mapping();
-    let component_paths = snapshot.component_ids_to_paths();
 
-    let by_component: BTreeMap<ComponentPath, Vec<GetTableColumnNameTable>> = snapshot
-        .table_registry
-        .user_table_names()
-        .flat_map(
-            |row| -> Option<anyhow::Result<(&ComponentPath, GetTableColumnNameTable)>> {
-                let (namespace, table_name) = row;
+    // This can block the CPU for a long time so as a stopgap, spawn
+    // it onto its own task
 
-                let Some(component_path) = component_paths.get(&ComponentId::from(namespace))
-                else {
-                    // table_registry.user_table_names includes tables from orphaned namespaces:
-                    // it is safe to ignore tables in components that are not present in
-                    // component_paths
-                    return None;
-                };
+    let by_component: BTreeMap<ComponentPath, Vec<GetTableColumnNameTable>> =
+        try_join("get_table_column_names", async move {
+            let mapping = snapshot.table_mapping();
+            let component_paths = snapshot.component_ids_to_paths();
+            snapshot
+                .table_registry
+                .user_table_names()
+                .flat_map(
+                    |row| -> Option<anyhow::Result<(&ComponentPath, GetTableColumnNameTable)>> {
+                        let (namespace, table_name) = row;
 
-                let shape = match reduced_table_shape(
-                    &table_shapes,
-                    ts,
-                    &mapping.namespace(namespace),
-                    table_name,
-                ) {
-                    Ok(shape) => shape,
-                    Err(err) => return Some(Err(err)),
-                };
-                let columns = get_columns_for_table(shape);
+                        let Some(component_path) =
+                            component_paths.get(&ComponentId::from(namespace))
+                        else {
+                            // table_registry.user_table_names includes tables from orphaned
+                            // namespaces: it is safe to ignore tables
+                            // in components that are not present in
+                            // component_paths
+                            return None;
+                        };
 
-                Some(Ok((
-                    component_path,
-                    GetTableColumnNameTable {
-                        name: table_name.to_string(),
-                        columns,
+                        let shape = match reduced_table_shape(
+                            &table_shapes,
+                            ts,
+                            &mapping.namespace(namespace),
+                            table_name,
+                        ) {
+                            Ok(shape) => shape,
+                            Err(err) => return Some(Err(err)),
+                        };
+                        let columns = get_columns_for_table(shape);
+
+                        Some(Ok((
+                            component_path,
+                            GetTableColumnNameTable {
+                                name: table_name.to_string(),
+                                columns,
+                            },
+                        )))
                     },
-                )))
-            },
-        )
-        .try_fold(
-            BTreeMap::<ComponentPath, Vec<GetTableColumnNameTable>>::new(),
-            |mut acc, row| -> anyhow::Result<_> {
-                let (component_path, table) = row?;
-                if let Some(vec) = acc.get_mut(component_path) {
-                    vec.push(table);
-                } else {
-                    acc.insert(component_path.clone(), vec![table]);
-                }
-                Ok(acc)
-            },
-        )?;
+                )
+                .try_fold(
+                    BTreeMap::<ComponentPath, Vec<GetTableColumnNameTable>>::new(),
+                    |mut acc, row| -> anyhow::Result<_> {
+                        let (component_path, table) = row?;
+                        if let Some(vec) = acc.get_mut(component_path) {
+                            vec.push(table);
+                        } else {
+                            acc.insert(component_path.clone(), vec![table]);
+                        }
+                        Ok(acc)
+                    },
+                )
+        })
+        .await?;
 
     Ok(Json(GetTableColumnNamesResponse {
         by_component: by_component

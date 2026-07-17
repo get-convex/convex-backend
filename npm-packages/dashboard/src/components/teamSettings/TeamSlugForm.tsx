@@ -60,7 +60,7 @@ export function TeamSlugForm({
       >
         <div className="max-w-[20rem] flex-1">
           <Tooltip
-            className="block"
+            className="block w-full"
             tip={
               !canUpdate
                 ? permissionDeniedTip(
