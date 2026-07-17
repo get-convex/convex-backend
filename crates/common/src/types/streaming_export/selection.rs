@@ -5,14 +5,23 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 
 use super::SelectionArg;
 
-/// Defines the components, tables, and columns to export in a deployment.
-///
-/// This is the serializable version of `StreamingExportSelection` in the
-/// database crate.
-#[derive(Serialize, Deserialize, Clone)]
+/// Selects the components, tables, and columns to export. Each key is a
+/// component path (`""` for the root component, which holds your tables
+/// unless you use components), mapped to the selection for that component;
+/// the required `_other` key sets the default for components not listed.
+#[derive(Serialize, Deserialize, Clone, ToSchema)]
+#[schema(example = json!({
+    "_other": "excl",
+    "": {
+        "_other": "excl",
+        "posts": {"_other": "incl"},
+        "users": {"_other": "incl", "ssn": "excl"},
+    },
+}))]
 pub struct Selection {
     #[serde(flatten)]
     pub components: BTreeMap<
@@ -23,8 +32,9 @@ pub struct Selection {
     pub other_components: InclusionDefault,
 }
 
-/// Serializable version of `StreamingExportInclusionDefault`
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
+/// Whether items not explicitly listed are exported (`"incl"`) or not
+/// (`"excl"`).
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
 pub enum InclusionDefault {
     #[serde(rename = "excl")]
     Excluded,
@@ -42,12 +52,29 @@ impl Default for Selection {
     }
 }
 
-/// Serializable version of `StreamingExportComponentSelection`.
-#[derive(Serialize, Deserialize, Clone)]
-pub enum ComponentSelection {
+/// The literal string `"excl"`, excluding the item entirely.
+// A dedicated newtype-wrapped tag (rather than a `#[serde(rename)]`d unit
+// variant with `#[serde(untagged)]` on the *other* variant) so that the
+// enums below can use container-level `#[serde(untagged)]`: the wire format
+// is identical, but utoipa's `ToSchema` derive only understands `untagged`
+// at the container level and silently ignores it on variants.
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
+pub enum ExcludedTag {
     #[serde(rename = "excl")]
     Excluded,
-    #[serde(untagged)]
+}
+
+/// What to export from one component: either the literal string `"excl"` to
+/// exclude the component entirely, or an object selecting some of its
+/// tables — each key is a table name, and the required `_other` key sets the
+/// default for tables not listed.
+// Serializable version of `StreamingExportComponentSelection`.
+#[derive(Serialize, Deserialize, Clone, ToSchema)]
+#[serde(untagged)]
+pub enum ComponentSelection {
+    /// Exclude this component entirely.
+    Excluded(ExcludedTag),
+    /// Export some of this component's tables.
     Included {
         #[serde(flatten)]
         tables: BTreeMap<String, TableSelection>,
@@ -56,13 +83,19 @@ pub enum ComponentSelection {
     },
 }
 
-/// Serializable version of
-/// `StreamingExportTableSelection` + `StreamingExportColumnSelection`
-#[derive(Serialize, Deserialize, Clone)]
+/// What to export from one table: either the literal string `"excl"` to
+/// exclude the table entirely, or an object selecting some of its columns —
+/// each key is a column (field) name mapped to whether it is exported, and
+/// the required `_other` key sets the default for columns not listed. `_id`
+/// cannot be excluded.
+// Serializable version of
+// `StreamingExportTableSelection` + `StreamingExportColumnSelection`.
+#[derive(Serialize, Deserialize, Clone, ToSchema)]
+#[serde(untagged)]
 pub enum TableSelection {
-    #[serde(rename = "excl")]
-    Excluded,
-    #[serde(untagged)]
+    /// Exclude this table entirely.
+    Excluded(ExcludedTag),
+    /// Export some of this table's columns.
     Included {
         #[serde(flatten)]
         columns: BTreeMap<String, ColumnInclusion>,
@@ -80,8 +113,9 @@ impl TableSelection {
     }
 }
 
-/// Serializable version of `StreamingExportColumnInclusion`.
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
+/// Whether the column is exported.
+// Serializable version of `StreamingExportColumnInclusion`.
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
 pub enum ColumnInclusion {
     #[serde(rename = "excl")]
     Excluded,

@@ -422,34 +422,23 @@ export interface paths {
          *     backwards-incompatible ways without notice. Contact the Convex team before
          *     depending on it.
          *
-         *     Streams a consistent, resumable export of a deployment's data — either the
-         *     whole deployment or a subset of components, tables, and columns (see the
-         *     request body). Streaming export must be enabled on the deployment, and the
-         *     caller must have the `deployment:data:view` permission.
+         *     Streams a resumable export of some or all of a deployment's data. Streaming
+         *     export must be enabled on the deployment, and the caller must have the
+         *     `deployment:data:view` permission.
          *
-         *     Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
-         *     response back in the next request as `cursor`; omit `cursor` on the first
-         *     call. The cursor is opaque — store and send it back verbatim. Each response
-         *     contains:
+         *     Call this endpoint repeatedly, passing the opaque `pagination.nextCursor`
+         *     from each response back in the next request as `cursor`. Omit `cursor` on
+         *     the first call.
          *
-         *     - `values`: document revisions in the order they should be applied. Each
-         *       entry carries the document's fields under `value`; an entry with `deleted:
-         *       true` is a tombstone marking that document as deleted.
-         *     - `truncates`: tables whose contents were replaced wholesale (for example by
-         *       an `npx convex import`). Drop everything you have stored for each listed
-         *       table; the `values` in this and later responses re-populate it.
-         *     - `status`: `inProgress` while the export is still being assembled — the
-         *       data returned so far is not yet a consistent view, so keep calling. Once
-         *       it becomes `synced`, the values applied so far form a consistent snapshot
-         *       of the deployment as of the returned `syncedTs` timestamp. You can keep
-         *       calling to continue streaming later changes.
-         *     - `pagination`: `nextCursor` to pass back on the next call (always present,
-         *       since the sync is always resumable) and `hasMore`, which tells you whether
-         *       more data is already available (`true`) or you've caught up to the latest
-         *       commit (`false`).
+         *     To handle the response, first drop all tables listed in `truncates`. Then
+         *     apply document updates from `values`, in order. Each update replaces the
+         *     existing document with the same `_id` if present. Persist the results to
+         *     each page atomically with the returned cursor.
          *
-         *     Persist the results and cursor to each page atomically. Continue calling the
-         *     endpoint with the cursor to progress the data sync. This endpoint must be
+         *     Continue calling the endpoint with the most recent cursor to progress the
+         *     data sync. If `pagination.hasMore` is `true`, there is more progress to be
+         *     made immediately, so you should call again soon. Otherwise, you can call
+         *     back periodically to discover newly written data. This endpoint must be
          *     called at least once every 3 days, or the sync will expire and can no longer
          *     be resumed. When that happens the endpoint responds with a `400`
          *     (`DataSyncCursorExpired`), and you must restart the sync from scratch by
@@ -629,6 +618,20 @@ export interface components {
              *     all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
         };
+        /**
+         * @description Whether the column is exported.
+         * @enum {string}
+         */
+        ColumnInclusion: "excl" | "incl";
+        /** @description What to export from one component: either the literal string `"excl"` to
+         *     exclude the component entirely, or an object selecting some of its
+         *     tables — each key is a table name, and the required `_other` key sets the
+         *     default for tables not listed. */
+        ComponentSelection: components["schemas"]["ExcludedTag"] | ({
+            _other: components["schemas"]["InclusionDefault"];
+        } & {
+            [key: string]: components["schemas"]["TableSelection"];
+        });
         CreateAxiomLogStreamArgs: {
             /** @description Axiom API key for authentication. */
             apiKey: string;
@@ -741,9 +744,15 @@ export interface components {
             id: string;
         };
         /** @description Arguments to the data sync (streaming export) API (`/api/v1/data/sync`). */
-        DataSyncArgs: Record<string, never> & {
+        DataSyncArgs: {
             /** @description Opaque cursor returned by a previous call. Omit to start from scratch. */
             cursor?: string | null;
+            /** @description The components, tables, and columns to export. When omitted, everything
+             *     is exported. The selection may change between calls of the same sync:
+             *     newly selected tables are synced from scratch, and deselected tables
+             *     stop being exported (documents already exported from them are not
+             *     tombstoned). */
+            selection?: components["schemas"]["Selection"];
         };
         /** @description More pages are required before the view is consistent. The sync's progress
          *     can be monitored via `/data/list_active_syncs`, keyed by the response's
@@ -768,11 +777,14 @@ export interface components {
             /** @description Unique id of the sync, assigned on the first page and stable across
              *     the sync's lifetime. Identifies this sync in `/data/list_active_syncs`. */
             syncId: string;
-            /** @description Tables truncated by this page: the consumer should drop everything it
-             *     previously synced for each, then apply `values` (which re-sync them from
-             *     scratch). Logically applies before `values`. */
+            /** @description Tables truncated by this page. The consumer should drop everything it
+             *     previously synced for each table, then apply `values` (which re-sync
+             *     them from scratch). Logically applies before `values`.
+             *
+             *     Tables may be truncated when using e.g. `npx convex import` or other
+             *     bulk operations. */
             truncates: components["schemas"]["DataSyncTruncate"][];
-            /** @description Documents and tombstones produced by this page. */
+            /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];
         };
         /** @description The consistency state reported alongside a data sync page, discriminated
@@ -818,7 +830,7 @@ export interface components {
              */
             ts: number;
             /** @description The fields of the document, including the built-in `_id` and
-             *     `_creationTime`. For tombstones, only `_id` is present. */
+             *     `_creationTime`. For `deleted` documents, only `_id` is present. */
             value: Record<string, never>;
         };
         /** DatadogConfig */
@@ -877,6 +889,11 @@ export interface components {
         };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
+        /**
+         * @description The literal string `"excl"`, excluding the item entirely.
+         * @enum {string}
+         */
+        ExcludedTag: "excl";
         GetCanonicalUrlsResponse: {
             convexCloudUrl: string;
             convexSiteUrl: string;
@@ -889,6 +906,12 @@ export interface components {
             };
             seedStatus: components["schemas"]["SeedStatusResponse"];
         };
+        /**
+         * @description Whether items not explicitly listed are exported (`"incl"`) or not
+         *     (`"excl"`).
+         * @enum {string}
+         */
+        InclusionDefault: "excl" | "incl";
         /** @description Response of the active-syncs listing API
          *     (`/api/v1/data/list_active_syncs`). */
         ListActiveSyncsResponse: {
@@ -1007,6 +1030,30 @@ export interface components {
          * @enum {string}
          */
         SeedStatusResponse: "pending" | "partial" | "complete" | "failed";
+        /**
+         * @description Selects the components, tables, and columns to export. Each key is a
+         *     component path (`""` for the root component, which holds your tables
+         *     unless you use components), mapped to the selection for that component;
+         *     the required `_other` key sets the default for components not listed.
+         * @example {
+         *       "_other": "excl",
+         *       "": {
+         *         "_other": "excl",
+         *         "posts": {
+         *           "_other": "incl"
+         *         },
+         *         "users": {
+         *           "_other": "incl",
+         *           "ssn": "excl"
+         *         }
+         *       }
+         *     }
+         */
+        Selection: {
+            _other: components["schemas"]["InclusionDefault"];
+        } & {
+            [key: string]: components["schemas"]["ComponentSelection"];
+        };
         /** SentryConfig */
         SentryLogStreamConfig: {
             id: string;
@@ -1017,6 +1064,16 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        /** @description What to export from one table: either the literal string `"excl"` to
+         *     exclude the table entirely, or an object selecting some of its columns —
+         *     each key is a column (field) name mapped to whether it is exported, and
+         *     the required `_other` key sets the default for columns not listed. `_id`
+         *     cannot be excluded. */
+        TableSelection: components["schemas"]["ExcludedTag"] | ({
+            _other: components["schemas"]["InclusionDefault"];
+        } & {
+            [key: string]: components["schemas"]["ColumnInclusion"];
+        });
         /** Format: int64 */
         TeamId: number;
         UpdateAxiomSinkArgs: {
@@ -1186,6 +1243,8 @@ export type ActiveDataSyncSynced = components['schemas']['ActiveDataSyncSynced']
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AxiomAttribute = components['schemas']['AxiomAttribute'];
 export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];
+export type ColumnInclusion = components['schemas']['ColumnInclusion'];
+export type ComponentSelection = components['schemas']['ComponentSelection'];
 export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStreamArgs'];
 export type CreateDatadogLogStreamArgs = components['schemas']['CreateDatadogLogStreamArgs'];
 export type CreateLogStreamArgs = components['schemas']['CreateLogStreamArgs'];
@@ -1208,8 +1267,10 @@ export type DeploymentAuditLogEventResponse = components['schemas']['DeploymentA
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentInfoResponse = components['schemas']['DeploymentInfoResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
+export type ExcludedTag = components['schemas']['ExcludedTag'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
 export type GetCurrentUsageResponse = components['schemas']['GetCurrentUsageResponse'];
+export type InclusionDefault = components['schemas']['InclusionDefault'];
 export type ListActiveSyncsResponse = components['schemas']['ListActiveSyncsResponse'];
 export type ListDeploymentAuditLogEventsResponse = components['schemas']['ListDeploymentAuditLogEventsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
@@ -1227,7 +1288,9 @@ export type ProjectId = components['schemas']['ProjectId'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
 export type SeedStatusResponse = components['schemas']['SeedStatusResponse'];
+export type Selection = components['schemas']['Selection'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
+export type TableSelection = components['schemas']['TableSelection'];
 export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
 export type UpdateCanonicalUrlRequest = components['schemas']['UpdateCanonicalUrlRequest'];

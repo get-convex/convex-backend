@@ -4,6 +4,7 @@
 use common::types::streaming_export::selection::{
     ColumnInclusion,
     ComponentSelection,
+    ExcludedTag,
     InclusionDefault,
     Selection,
     TableSelection,
@@ -65,7 +66,7 @@ fn selection_from_with_schema(value: FivetranSelectionWithSchema) -> Selection {
 
 fn component_selection_from_schema(value: FivetranSchemaSelection) -> ComponentSelection {
     if !value.included {
-        ComponentSelection::Excluded
+        ComponentSelection::Excluded(ExcludedTag::Excluded)
     } else {
         ComponentSelection::Included {
             tables: value
@@ -89,7 +90,7 @@ fn component_selection_from_schema(value: FivetranSchemaSelection) -> ComponentS
 
 fn table_selection_from_fivetran(value: FivetranTableSelection) -> TableSelection {
     if !value.included {
-        TableSelection::Excluded
+        TableSelection::Excluded(ExcludedTag::Excluded)
     } else {
         TableSelection::Included {
             columns: value
