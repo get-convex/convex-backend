@@ -439,13 +439,10 @@ async fn _data_sync(
         .await?;
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
+    let data_sync_encryptor = st.application.key_broker().data_sync_encryptor();
     let cursor = cursor
         .map(|cursor| -> anyhow::Result<SyncCursor> {
-            let bytes = base64::decode(&cursor).context(ErrorMetadata::bad_request(
-                "InvalidDataSyncCursor",
-                "Could not base64-decode the data sync cursor",
-            ))?;
-            SyncCursor::from_bytes(&bytes).context(ErrorMetadata::bad_request(
+            SyncCursor::decrypt(data_sync_encryptor, &cursor).context(ErrorMetadata::bad_request(
                 "InvalidDataSyncCursor",
                 "Could not parse the data sync cursor",
             ))
@@ -561,7 +558,9 @@ async fn _data_sync(
             has_more,
             // The cursor is always resumable, so a data sync never signals the
             // end with a null cursor the way a finite listing does.
-            next_cursor: Some(base64::encode(new_cursor.to_bytes()?)),
+            next_cursor: Some(
+                new_cursor.encrypt(st.application.key_broker().data_sync_encryptor())?,
+            ),
         },
     };
     let response_bytes = serde_json::to_vec(&response).context("Failed to serialize response")?;

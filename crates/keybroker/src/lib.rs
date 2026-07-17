@@ -24,7 +24,10 @@ pub use self::{
         SystemKey,
         UserIdentity,
     },
-    encryptor::Encryptor,
+    encryptor::{
+        Encryptor,
+        RandomEncryptor,
+    },
     legacy_encryptor::LegacyEncryptor,
     operations::{
         bad_admin_key_error,

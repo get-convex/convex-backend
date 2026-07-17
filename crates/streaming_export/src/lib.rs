@@ -35,9 +35,11 @@ use database::{
     IndexModel,
     StreamingExportFilter,
 };
-use keybroker::Identity;
+use keybroker::{
+    Identity,
+    RandomEncryptor,
+};
 use pb_data_sync::convex_data_sync as pb_ds;
-use prost::Message as _;
 use table_iteration::data_sync::{
     DataSyncCursor,
     DataSyncStatus,
@@ -166,11 +168,13 @@ pub struct SyncResult {
     pub usage: FunctionUsageStats,
 }
 
+const DATA_SYNC_CURSOR_VERSION: u8 = 1;
+
 /// An opaque, forward-compatible cursor for the data sync API. It wraps the
 /// low-level [`DataSyncCursor`] together with the (component, table) name each
 /// captured tablet resolved to, which is used to detect table replacements and
-/// emit a [`SyncTruncate`]. Serialized via protobuf; clients treat it as an
-/// opaque token.
+/// emit a [`SyncTruncate`]. Serialized via protobuf and encrypted (see
+/// [`Self::encrypt`]). Clients treat it as an opaque token.
 #[derive(Clone, Debug)]
 pub struct SyncCursor {
     inner: DataSyncCursor,
@@ -183,12 +187,16 @@ pub struct SyncCursor {
 }
 
 impl SyncCursor {
-    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        Ok(self.to_proto()?.encode_to_vec())
+    /// Serializes and encrypts the cursor into an opaque, tamper-proof token to
+    /// hand back to the client.
+    pub fn encrypt(&self, encryptor: &RandomEncryptor) -> anyhow::Result<String> {
+        Ok(encryptor.encrypt_proto(DATA_SYNC_CURSOR_VERSION, &self.to_proto()?))
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        Self::from_proto(pb_ds::DataSyncCursor::decode(bytes)?)
+    /// Decrypts and deserializes a token previously produced by
+    /// [`Self::encrypt`].
+    pub fn decrypt(encryptor: &RandomEncryptor, token: &str) -> anyhow::Result<Self> {
+        Self::from_proto(encryptor.decrypt_proto(DATA_SYNC_CURSOR_VERSION, token)?)
     }
 
     /// Unique id of the sync this cursor belongs to.
