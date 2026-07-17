@@ -131,6 +131,7 @@ pub struct KeyBroker {
     admin_key_encryptor: RandomEncryptor,
     action_callback_encryptor: RandomEncryptor,
     cursor_encryptor: DeterministicEncryptor,
+    data_sync_encryptor: RandomEncryptor,
     journal_encryptor: RandomEncryptor,
     store_file_encryptor: RandomEncryptor,
 }
@@ -881,6 +882,10 @@ impl KeyBroker {
                 &deployment_secret,
                 Purpose::CURSOR,
             )?,
+            data_sync_encryptor: RandomEncryptor::derive_from_secret(
+                &deployment_secret,
+                Purpose::DATA_SYNC_CURSOR,
+            )?,
             journal_encryptor: RandomEncryptor::derive_from_secret(
                 &deployment_secret,
                 Purpose::QUERY_JOURNAL,
@@ -910,6 +915,11 @@ impl KeyBroker {
             DeploymentSecret::try_from(LOCAL_DEV_SECRET).unwrap(),
         )
         .unwrap()
+    }
+
+    /// Encryptor for data sync (streaming export) cursors.
+    pub fn data_sync_encryptor(&self) -> &RandomEncryptor {
+        &self.data_sync_encryptor
     }
 
     pub fn function_runner_keybroker(&self) -> FunctionRunnerKeyBroker {

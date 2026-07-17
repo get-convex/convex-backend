@@ -37,6 +37,8 @@ impl Purpose {
     /// we want them to be deterministic to avoid breaking caching.
     /// These do not need to be secret in the first place - only tamper-proof.
     pub const CURSOR: DeterministicPurpose = Purpose("cursor");
+    /// Cursor for the data sync (streaming export) API.
+    pub const DATA_SYNC_CURSOR: Purpose = Purpose("data sync cursor");
     pub const QUERY_JOURNAL: Purpose = Purpose("query journal");
     pub const STORE_FILE_AUTHORIZATION: Purpose = Purpose("store file authorization");
 }

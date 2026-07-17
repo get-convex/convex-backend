@@ -11,6 +11,7 @@ use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
 use crate::{
     scheduled_jobs::ScheduledJobRunner,
     table_summary_worker::TableSummaryClient,
+    usage_limits::UsageLimitNotifier,
 };
 
 #[derive(Clone)]
@@ -29,7 +30,8 @@ pub struct WorkerHandles {
     pub(crate) periodic_backup_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     pub(crate) migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    pub(crate) usage_limit_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    pub(crate) usage_limit_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    pub(crate) usage_limit_notifier: Arc<dyn UsageLimitNotifier>,
 }
 
 impl WorkerHandles {
@@ -63,7 +65,11 @@ impl WorkerHandles {
         if let Some(migration_worker) = migration_worker {
             shutdown_and_join(migration_worker).await?;
         }
-        self.usage_limit_worker.lock().shutdown();
+        let usage_limit_worker = self.usage_limit_worker.lock().take();
+        if let Some(usage_limit_worker) = usage_limit_worker {
+            shutdown_and_join(usage_limit_worker).await?;
+        }
+        self.usage_limit_notifier.shutdown().await;
         Ok(())
     }
 }

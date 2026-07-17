@@ -112,6 +112,21 @@ pub static APP_METRICS_SEED_SWEEP_INTERVAL: LazyLock<Duration> =
 pub static USAGE_LIMIT_EVALUATE_INTERVAL: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("USAGE_LIMIT_EVALUATE_INTERVAL_SECS", 10)));
 
+/// How long a graceful shutdown waits for in-flight usage-limit notifications
+/// to finish delivering before cancelling the stragglers. A single delivery
+/// retries with backoff, so this bounds the worst-case wait while keeping
+/// shutdown finite.
+pub static USAGE_LIMIT_NOTIFY_DRAIN_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("USAGE_LIMIT_NOTIFY_DRAIN_TIMEOUT_SECS", 5 * 60))
+});
+
+/// Upper bound on concurrently-tracked usage-limit delivery tasks. Each task
+/// can live for its full retry schedule, so an unbounded backlog (e.g.
+/// postalservice down while limits keep crossing) would grow memory without
+/// limit; past this, new notifications are dropped rather than enqueued.
+pub static USAGE_LIMIT_MAX_IN_FLIGHT_NOTIFICATIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("USAGE_LIMIT_MAX_IN_FLIGHT_NOTIFICATIONS", 10_000));
+
 /// webhook endpoint that receives "usage limit exceeded"
 /// notifications.
 /// Defaults to the empty string, which (together with a missing
