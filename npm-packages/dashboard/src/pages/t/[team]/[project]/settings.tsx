@@ -22,13 +22,21 @@ import { useProfile } from "api/profile";
 import { projectResource, projectTokenResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type FC } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
-import { TrashIcon } from "@radix-ui/react-icons";
 import {
-  LostAccessCommand,
-  LostAccessDescription,
-} from "components/projects/modals/LostAccessModal";
+  GearIcon,
+  GlobeIcon,
+  Link2Icon,
+  PersonIcon,
+  PieChartIcon,
+  TrashIcon,
+} from "@radix-ui/react-icons";
+import {
+  ArrowsRightLeftIcon,
+  KeyIcon,
+  VariableIcon,
+} from "@heroicons/react/24/outline";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { DefaultEnvironmentVariables } from "components/projectSettings/DefaultEnvironmentVariables";
 import { ProjectDetails } from "generatedApi";
@@ -59,30 +67,43 @@ const SECTION_IDS = {
   projectRoles: "project-roles",
   projectUsage: "project-usage",
   customDomains: "custom-domains",
-  productionDeployKeys: "production-deploy-keys",
   previewDeployKeys: "preview-deploy-keys",
   authorizedApps: "applications",
   envVars: "env-vars",
-  lostAccess: "lost-access",
   transferProject: "transfer-project",
   deleteProject: "delete-project",
 } as const;
 
-const sections = [
-  { id: SECTION_IDS.projectForm, label: "Edit Project" },
-  { id: SECTION_IDS.projectRoles, label: "Project Admins" },
-  { id: SECTION_IDS.projectUsage, label: "Project Usage" },
-  { id: SECTION_IDS.customDomains, label: "Custom Domains" },
-  { id: SECTION_IDS.productionDeployKeys, label: "Production Deploy Keys" },
-  { id: SECTION_IDS.previewDeployKeys, label: "Preview Deploy Keys" },
+const sections: {
+  id: string;
+  label: string;
+  Icon: FC<{ className?: string }>;
+}[] = [
+  { id: SECTION_IDS.projectForm, label: "Edit Project", Icon: GearIcon },
+  { id: SECTION_IDS.projectRoles, label: "Project Admins", Icon: PersonIcon },
+  { id: SECTION_IDS.projectUsage, label: "Project Usage", Icon: PieChartIcon },
+  { id: SECTION_IDS.customDomains, label: "Custom Domains", Icon: GlobeIcon },
+  {
+    id: SECTION_IDS.previewDeployKeys,
+    label: "Preview Deploy Keys",
+    Icon: KeyIcon,
+  },
   {
     id: SECTION_IDS.authorizedApps,
     label: "Authorized Applications",
+    Icon: Link2Icon,
   },
-  { id: SECTION_IDS.envVars, label: "Environment Variables" },
-  { id: SECTION_IDS.lostAccess, label: "Lost Access" },
-  { id: SECTION_IDS.transferProject, label: "Transfer Project" },
-  { id: SECTION_IDS.deleteProject, label: "Delete Project" },
+  {
+    id: SECTION_IDS.envVars,
+    label: "Environment Variables",
+    Icon: VariableIcon,
+  },
+  {
+    id: SECTION_IDS.transferProject,
+    label: "Transfer Project",
+    Icon: ArrowsRightLeftIcon,
+  },
+  { id: SECTION_IDS.deleteProject, label: "Delete Project", Icon: TrashIcon },
 ];
 
 function SettingsNavigation() {
@@ -98,12 +119,12 @@ function SettingsNavigation() {
       />
       <SettingsNavigationScrollProgress />
       <ul className="pl-1 text-sm">
-        {sections.map(({ id, label }) => (
+        {sections.map(({ id, label, Icon }) => (
           <li key={id} className="py-px">
             <a
               href={`#${id}`}
               className={cn(
-                "block rounded-sm p-2 transition-all duration-200",
+                "flex items-center gap-2 rounded-sm p-2 transition-all duration-200",
                 "text-content-primary hover:bg-background-secondary",
               )}
               onClick={(e) => {
@@ -123,6 +144,10 @@ function SettingsNavigation() {
                 }
               }}
             >
+              <Icon
+                className="size-4.5 min-h-4.5 shrink-0 text-content-secondary"
+                aria-hidden
+              />
               {label}
             </a>
           </li>
@@ -373,7 +398,7 @@ function ProjectSettings() {
           <title>Project Settings | {project.name} | Convex Dashboard</title>
         )}
       </Head>
-      <div className="relative h-full [--container-px:--spacing(6)] [--container-width:80rem] [--sidebar-gap:--spacing(8)] [--sidebar-width:12rem]">
+      <div className="relative h-full [--container-px:--spacing(6)] [--container-width:80rem] [--sidebar-gap:--spacing(8)] [--sidebar-width:14rem]">
         <div className="pointer-events-none absolute inset-0 top-0 z-10 hidden md:block">
           <div className="mx-auto flex h-full max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
             <div className="h-full w-(--sidebar-width)">
@@ -450,11 +475,6 @@ function ProjectSettings() {
                   </div>
                 )}
                 {project && (
-                  <div id={SECTION_IDS.productionDeployKeys}>
-                    <ProductionDeployKeys project={project} />
-                  </div>
-                )}
-                {project && (
                   <div id={SECTION_IDS.previewDeployKeys}>
                     <PreviewDeployKeys project={project} />
                   </div>
@@ -493,14 +513,6 @@ function ProjectSettings() {
                 <div id={SECTION_IDS.envVars}>
                   <DefaultEnvironmentVariables />
                 </div>
-                {team && project && (
-                  <div id={SECTION_IDS.lostAccess}>
-                    <LostAccess
-                      teamSlug={team.slug}
-                      projectSlug={project.slug}
-                    />
-                  </div>
-                )}
                 <div id={SECTION_IDS.transferProject}>
                   <TransferProject />
                 </div>
@@ -513,22 +525,6 @@ function ProjectSettings() {
         </div>
       </div>
     </>
-  );
-}
-
-function LostAccess({
-  teamSlug,
-  projectSlug,
-}: {
-  teamSlug: string;
-  projectSlug: string;
-}) {
-  return (
-    <Sheet>
-      <h3 className="mb-4">Lost Access</h3>
-      <LostAccessDescription />
-      <LostAccessCommand teamSlug={teamSlug} projectSlug={projectSlug} />
-    </Sheet>
   );
 }
 
@@ -587,45 +583,17 @@ function DeleteProject() {
   );
 }
 
-function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
-  const team = useCurrentTeam();
-
-  const { deployments } = useDeployments(project.id);
-  const defaultProdDeployment = deployments?.find(
-    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
-  );
-
-  return (
-    <Sheet>
-      <div className="flex flex-col gap-4">
-        <div>
-          <h3 className="mb-2">Production Deploy Keys</h3>
-          <p className="max-w-prose text-sm text-content-primary">
-            Configuration for production deploy keys has moved. You may generate
-            deploy keys in{" "}
-            {team && defaultProdDeployment ? (
-              <Link
-                href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings`}
-              >
-                Deployment Settings
-              </Link>
-            ) : (
-              <span className="font-semibold">Deployment Settings</span>
-            )}
-            .
-          </p>
-        </div>
-      </div>
-    </Sheet>
-  );
-}
-
 function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   const createPreviewDeployKey = useCreatePreviewDeployKey(project.id);
   const deletePreviewDeployKey = useDeletePreviewDeployKey(project.id);
   const team = useCurrentTeam();
   const profile = useProfile();
   const hasAdminPermissions = useHasProjectAdminPermissions(project.id);
+
+  const { deployments } = useDeployments(project.id);
+  const defaultProdDeployment = deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
 
   // Listing preview deploy keys requires `project:token:view`; whole-list
   // checks scope the token resource to `creator=null` (no `creator=self`
@@ -742,6 +710,20 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
           />
         )}
       </div>
+      <p className="max-w-prose text-xs text-content-secondary">
+        Looking for Production Deploy Keys? You can manage your Production
+        deploy keys in your{" "}
+        {team && defaultProdDeployment ? (
+          <Link
+            href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings`}
+          >
+            Production Deployment Settings
+          </Link>
+        ) : (
+          <span className="font-semibold">Production Deployment Settings</span>
+        )}
+        .
+      </p>
     </Sheet>
   );
 }

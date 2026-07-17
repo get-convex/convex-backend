@@ -7,23 +7,17 @@ import Head from "next/head";
 import React from "react";
 import { TeamResponse } from "generatedApi";
 import { SidebarLink } from "@common/elements/Sidebar";
+import {
+  TEAM_SETTINGS_PAGE_ICONS,
+  TeamSettingsPage,
+} from "layouts/teamSettingsPages";
 
 export function TeamSettingsLayout({
   page: selectedPage,
   Component,
   title,
 }: {
-  page:
-    | "general"
-    | "members"
-    | "billing"
-    | "usage"
-    | "audit-log"
-    | "referrals"
-    | "access-tokens"
-    | "applications"
-    | "custom-roles"
-    | "sso";
+  page: TeamSettingsPage;
   Component: React.FunctionComponent<{ team: TeamResponse }>;
   title: string;
 }) {
@@ -32,7 +26,7 @@ export function TeamSettingsLayout({
   const entitlements = useTeamEntitlements(selectedTeam?.id);
   const auditLogsEnabled = entitlements?.auditLogRetentionDays !== 0;
 
-  const pages = [
+  const pages: TeamSettingsPage[] = [
     "general",
     "members",
     "billing",
@@ -75,6 +69,7 @@ export function TeamSettingsLayout({
                 href={`/t/${selectedTeam?.slug}/settings/${
                   page === "general" ? "" : page
                 }`}
+                Icon={TEAM_SETTINGS_PAGE_ICONS[page]}
                 isActive={page === selectedPage}
                 key={page}
               >
@@ -84,6 +79,7 @@ export function TeamSettingsLayout({
             <SidebarLink
               isActive={selectedPage === "audit-log"}
               href={`/t/${selectedTeam?.slug}/settings/audit-log`}
+              Icon={TEAM_SETTINGS_PAGE_ICONS["audit-log"]}
               disabled={!auditLogsEnabled}
               proBadge={!auditLogsEnabled}
             >
@@ -92,12 +88,14 @@ export function TeamSettingsLayout({
             <SidebarLink
               isActive={selectedPage === "custom-roles"}
               href={`/t/${selectedTeam?.slug}/settings/custom-roles`}
+              Icon={TEAM_SETTINGS_PAGE_ICONS["custom-roles"]}
             >
               Custom Roles
             </SidebarLink>
             <SidebarLink
               isActive={selectedPage === "sso"}
               href={`/t/${selectedTeam?.slug}/settings/sso`}
+              Icon={TEAM_SETTINGS_PAGE_ICONS.sso}
             >
               Single Sign-On
             </SidebarLink>
