@@ -1241,6 +1241,38 @@
           }
         }
       },
+      "ColumnInclusion": {
+        "type": "string",
+        "description": "Whether the column is exported.",
+        "enum": [
+          "excl",
+          "incl"
+        ]
+      },
+      "ComponentSelection": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ExcludedTag",
+            "description": "Exclude this component entirely."
+          },
+          {
+            "type": "object",
+            "description": "Export some of this component's tables.",
+            "required": [
+              "_other"
+            ],
+            "properties": {
+              "_other": {
+                "$ref": "#/components/schemas/InclusionDefault"
+              }
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TableSelection"
+            }
+          }
+        ],
+        "description": "What to export from one component: either the literal string `\"excl\"` to\nexclude the component entirely, or an object selecting some of its\ntables — each key is a table name, and the required `_other` key sets the\ndefault for tables not listed."
+      },
       "CreateAxiomLogStreamArgs": {
         "type": "object",
         "required": [
@@ -1706,25 +1738,21 @@
         }
       },
       "DataSyncArgs": {
-        "allOf": [
-          {
-            "type": "object",
-            "description": "The components, tables, and columns to export. When omitted, everything\nis exported. Supports the shorthand forms `{\"tableName\": \"...\",\n\"component\": \"...\"}` and `{\"component\": \"...\"}`, or the exact form\n`{\"selection\": {...}}` (a map of component -> table -> column\ninclusion)."
+        "type": "object",
+        "description": "Arguments to the data sync (streaming export) API (`/api/v1/data/sync`).",
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque cursor returned by a previous call. Omit to start from scratch."
           },
-          {
-            "type": "object",
-            "properties": {
-              "cursor": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "description": "Opaque cursor returned by a previous call. Omit to start from scratch."
-              }
-            }
+          "selection": {
+            "$ref": "#/components/schemas/Selection",
+            "description": "The components, tables, and columns to export. When omitted, everything\nis exported. The selection may change between calls of the same sync:\nnewly selected tables are synced from scratch, and deselected tables\nstop being exported (documents already exported from them are not\ntombstoned)."
           }
-        ],
-        "description": "Arguments to the data sync (streaming export) API (`/api/v1/data/sync`)."
+        }
       },
       "DataSyncInProgress": {
         "type": "object",
@@ -2103,6 +2131,13 @@
           "custom"
         ]
       },
+      "ExcludedTag": {
+        "type": "string",
+        "description": "The literal string `\"excl\"`, excluding the item entirely.",
+        "enum": [
+          "excl"
+        ]
+      },
       "GetCanonicalUrlsResponse": {
         "type": "object",
         "required": [
@@ -2139,6 +2174,14 @@
             "$ref": "#/components/schemas/SeedStatusResponse"
           }
         }
+      },
+      "InclusionDefault": {
+        "type": "string",
+        "description": "Whether items not explicitly listed are exported (`\"incl\"`) or not\n(`\"excl\"`).",
+        "enum": [
+          "excl",
+          "incl"
+        ]
       },
       "ListActiveSyncsResponse": {
         "type": "object",
@@ -2601,6 +2644,34 @@
           "failed"
         ]
       },
+      "Selection": {
+        "type": "object",
+        "description": "Selects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component, which holds your tables\nunless you use components), mapped to the selection for that component;\nthe required `_other` key sets the default for components not listed.",
+        "required": [
+          "_other"
+        ],
+        "properties": {
+          "_other": {
+            "$ref": "#/components/schemas/InclusionDefault"
+          }
+        },
+        "additionalProperties": {
+          "$ref": "#/components/schemas/ComponentSelection"
+        },
+        "example": {
+          "_other": "excl",
+          "": {
+            "_other": "excl",
+            "posts": {
+              "_other": "incl"
+            },
+            "users": {
+              "_other": "incl",
+              "ssn": "excl"
+            }
+          }
+        }
+      },
       "SentryLogStreamConfig": {
         "type": "object",
         "title": "SentryConfig",
@@ -2630,6 +2701,30 @@
             }
           }
         }
+      },
+      "TableSelection": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ExcludedTag",
+            "description": "Exclude this table entirely."
+          },
+          {
+            "type": "object",
+            "description": "Export some of this table's columns.",
+            "required": [
+              "_other"
+            ],
+            "properties": {
+              "_other": {
+                "$ref": "#/components/schemas/InclusionDefault"
+              }
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ColumnInclusion"
+            }
+          }
+        ],
+        "description": "What to export from one table: either the literal string `\"excl\"` to\nexclude the table entirely, or an object selecting some of its columns —\neach key is a column (field) name mapped to whether it is exported, and\nthe required `_other` key sets the default for columns not listed. `_id`\ncannot be excluded."
       },
       "TeamId": {
         "type": "integer",

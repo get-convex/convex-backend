@@ -232,6 +232,15 @@ impl Modify for SecurityAddon {
 #[derive(OpenApi)]
 #[openapi(
     modifiers(&SecurityAddon),
+    // The data sync selection tree must be registered explicitly: these types
+    // are referenced only from flattened maps' `additionalProperties`, which
+    // utoipa's derived `schemas()` fails to register
+    // (https://github.com/juhaku/utoipa/issues/1330).
+    components(schemas(
+        common::types::streaming_export::selection::ComponentSelection,
+        common::types::streaming_export::selection::TableSelection,
+        common::types::streaming_export::selection::ColumnInclusion,
+    )),
     info(
         title = "Convex Deployment API",
         version = "1.0.0",

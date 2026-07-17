@@ -463,8 +463,12 @@ async fn _data_sync(
         })
         .transpose()?;
 
-    let selection = Selection::from(selection);
-    let selection = StreamingExportSelection::try_from(selection)?;
+    // Selection errors (invalid table/column names, excluding `_id`) are the
+    // caller's fault: surface them as 400s rather than internal errors.
+    let selection = StreamingExportSelection::try_from(selection).map_err(|e| {
+        let msg = format!("Invalid selection: {e:#}");
+        e.context(ErrorMetadata::bad_request("InvalidDataSyncSelection", msg))
+    })?;
 
     // The data sync API always uses the uniform, lossless `ConvexExportJSON`
     // encoding (the same format as snapshot/zip exports). Callers don't get to

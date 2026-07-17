@@ -138,13 +138,12 @@ pub struct DataSyncArgs {
     pub cursor: Option<String>,
 
     /// The components, tables, and columns to export. When omitted, everything
-    /// is exported. Supports the shorthand forms `{"tableName": "...",
-    /// "component": "..."}` and `{"component": "..."}`, or the exact form
-    /// `{"selection": {...}}` (a map of component -> table -> column
-    /// inclusion).
-    #[serde(flatten)]
-    #[schema(value_type = Object)]
-    pub selection: SelectionArg,
+    /// is exported. The selection may change between calls of the same sync:
+    /// newly selected tables are synced from scratch, and deselected tables
+    /// stop being exported (documents already exported from them are not
+    /// tombstoned).
+    #[serde(default)]
+    pub selection: Selection,
 }
 
 /// One page returned by the data sync API.

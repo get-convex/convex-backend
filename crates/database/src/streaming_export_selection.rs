@@ -352,7 +352,7 @@ impl TryFrom<serialized::ComponentSelection> for StreamingExportComponentSelecti
 
     fn try_from(value: serialized::ComponentSelection) -> Result<Self, Self::Error> {
         Ok(match value {
-            serialized::ComponentSelection::Excluded => Self::Excluded,
+            serialized::ComponentSelection::Excluded(_) => Self::Excluded,
             serialized::ComponentSelection::Included {
                 tables,
                 other_tables,
@@ -372,18 +372,20 @@ impl TryFrom<serialized::TableSelection> for StreamingExportTableSelection {
 
     fn try_from(value: serialized::TableSelection) -> Result<Self, Self::Error> {
         Ok(match value {
-            serialized::TableSelection::Excluded => Self::Excluded,
+            serialized::TableSelection::Excluded(_) => Self::Excluded,
             serialized::TableSelection::Included {
                 columns,
                 other_columns,
             } => {
-                let column_selection = StreamingExportColumnSelection {
-                    columns: columns
+                // `new` (rather than a struct literal) so deserialized
+                // selections can't bypass the `_id`-must-be-included check.
+                let column_selection = StreamingExportColumnSelection::new(
+                    columns
                         .into_iter()
                         .map(|(k, v)| -> anyhow::Result<_> { Ok((k.parse()?, v.into())) })
                         .try_collect()?,
-                    other_columns: other_columns.into(),
-                };
+                    other_columns.into(),
+                )?;
 
                 Self::Included(column_selection)
             },
