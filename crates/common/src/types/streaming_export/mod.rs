@@ -150,11 +150,14 @@ pub struct DataSyncArgs {
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncResponse {
-    /// Tables truncated by this page: the consumer should drop everything it
-    /// previously synced for each, then apply `values` (which re-sync them from
-    /// scratch). Logically applies before `values`.
+    /// Tables truncated by this page. The consumer should drop everything it
+    /// previously synced for each table, then apply `values` (which re-sync
+    /// them from scratch). Logically applies before `values`.
+    ///
+    /// Tables may be truncated when using e.g. `npx convex import` or other
+    /// bulk operations.
     pub truncates: Vec<DataSyncTruncate>,
-    /// Documents and tombstones produced by this page.
+    /// Documents created, updated, or deleted in this page.
     pub values: Vec<DataSyncValue>,
     /// Unique id of the sync, assigned on the first page and stable across
     /// the sync's lifetime. Identifies this sync in `/data/list_active_syncs`.
@@ -199,7 +202,7 @@ pub struct DataSyncValue {
     pub deleted: bool,
 
     /// The fields of the document, including the built-in `_id` and
-    /// `_creationTime`. For tombstones, only `_id` is present.
+    /// `_creationTime`. For `deleted` documents, only `_id` is present.
     #[schema(value_type = Object)]
     pub value: BTreeMap<String, JsonValue>,
 }

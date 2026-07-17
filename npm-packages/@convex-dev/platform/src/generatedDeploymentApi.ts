@@ -422,34 +422,23 @@ export interface paths {
          *     backwards-incompatible ways without notice. Contact the Convex team before
          *     depending on it.
          *
-         *     Streams a consistent, resumable export of a deployment's data — either the
-         *     whole deployment or a subset of components, tables, and columns (see the
-         *     request body). Streaming export must be enabled on the deployment, and the
-         *     caller must have the `deployment:data:view` permission.
+         *     Streams a resumable export of some or all of a deployment's data. Streaming
+         *     export must be enabled on the deployment, and the caller must have the
+         *     `deployment:data:view` permission.
          *
-         *     Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
-         *     response back in the next request as `cursor`; omit `cursor` on the first
-         *     call. The cursor is opaque — store and send it back verbatim. Each response
-         *     contains:
+         *     Call this endpoint repeatedly, passing the opaque `pagination.nextCursor`
+         *     from each response back in the next request as `cursor`. Omit `cursor` on
+         *     the first call.
          *
-         *     - `values`: document revisions in the order they should be applied. Each
-         *       entry carries the document's fields under `value`; an entry with `deleted:
-         *       true` is a tombstone marking that document as deleted.
-         *     - `truncates`: tables whose contents were replaced wholesale (for example by
-         *       an `npx convex import`). Drop everything you have stored for each listed
-         *       table; the `values` in this and later responses re-populate it.
-         *     - `status`: `inProgress` while the export is still being assembled — the
-         *       data returned so far is not yet a consistent view, so keep calling. Once
-         *       it becomes `synced`, the values applied so far form a consistent snapshot
-         *       of the deployment as of the returned `syncedTs` timestamp. You can keep
-         *       calling to continue streaming later changes.
-         *     - `pagination`: `nextCursor` to pass back on the next call (always present,
-         *       since the sync is always resumable) and `hasMore`, which tells you whether
-         *       more data is already available (`true`) or you've caught up to the latest
-         *       commit (`false`).
+         *     To handle the response, first drop all tables listed in `truncates`. Then
+         *     apply document updates from `values`, in order. Each update replaces the
+         *     existing document with the same `_id` if present. Persist the results to
+         *     each page atomically with the returned cursor.
          *
-         *     Persist the results and cursor to each page atomically. Continue calling the
-         *     endpoint with the cursor to progress the data sync. This endpoint must be
+         *     Continue calling the endpoint with the most recent cursor to progress the
+         *     data sync. If `pagination.hasMore` is `true`, there is more progress to be
+         *     made immediately, so you should call again soon. Otherwise, you can call
+         *     back periodically to discover newly written data. This endpoint must be
          *     called at least once every 3 days, or the sync will expire and can no longer
          *     be resumed. When that happens the endpoint responds with a `400`
          *     (`DataSyncCursorExpired`), and you must restart the sync from scratch by
@@ -788,11 +777,14 @@ export interface components {
             /** @description Unique id of the sync, assigned on the first page and stable across
              *     the sync's lifetime. Identifies this sync in `/data/list_active_syncs`. */
             syncId: string;
-            /** @description Tables truncated by this page: the consumer should drop everything it
-             *     previously synced for each, then apply `values` (which re-sync them from
-             *     scratch). Logically applies before `values`. */
+            /** @description Tables truncated by this page. The consumer should drop everything it
+             *     previously synced for each table, then apply `values` (which re-sync
+             *     them from scratch). Logically applies before `values`.
+             *
+             *     Tables may be truncated when using e.g. `npx convex import` or other
+             *     bulk operations. */
             truncates: components["schemas"]["DataSyncTruncate"][];
-            /** @description Documents and tombstones produced by this page. */
+            /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];
         };
         /** @description The consistency state reported alongside a data sync page, discriminated
@@ -838,7 +830,7 @@ export interface components {
              */
             ts: number;
             /** @description The fields of the document, including the built-in `_id` and
-             *     `_creationTime`. For tombstones, only `_id` is present. */
+             *     `_creationTime`. For `deleted` documents, only `_id` is present. */
             value: Record<string, never>;
         };
         /** DatadogConfig */
