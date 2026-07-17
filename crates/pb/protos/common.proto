@@ -47,12 +47,18 @@ message DocumentUpdate {
   ResolvedDocument new_document = 2;
 }
 
-message DocumentUpdateWithPrevTs {
+message PendingDocument{
+  ResolvedDocumentId id = 1;
+  optional double creation_time = 2;
+  optional bytes value = 3;
+}
+
+message PendingDocumentUpdate {
   ResolvedDocumentId id = 3;
   ResolvedDocument old_document = 1;
   // `old_ts` should be present iff `old_document` is present
   optional uint64 old_ts = 4;
-  ResolvedDocument new_document = 2;
+  PendingDocument new_document = 2;
 }
 
 message TabletIdAndTableNumber {

@@ -29,7 +29,6 @@ use common::{
     },
     document::{
         CreationTime,
-        DocumentUpdateWithPrevTs,
         PendingDocument,
         PendingDocumentUpdate,
         ResolvedDocument,
@@ -461,7 +460,7 @@ impl<RT: Runtime> Transaction<RT> {
         num_intervals: usize,
         user_tx_size: crate::reads::TransactionReadSize,
         system_tx_size: crate::reads::TransactionReadSize,
-        updates: Vec<DocumentUpdateWithPrevTs>,
+        updates: Vec<PendingDocumentUpdate>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -488,7 +487,7 @@ impl<RT: Runtime> Transaction<RT> {
     // In most scenarios this transaction will have no writes.
     pub fn merge_writes(
         &mut self,
-        updates: impl IntoIterator<Item = DocumentUpdateWithPrevTs>,
+        updates: impl IntoIterator<Item = PendingDocumentUpdate>,
     ) -> anyhow::Result<()> {
         let existing_updates = self.writes().as_flat()?.clone().into_updates();
 
@@ -498,7 +497,13 @@ impl<RT: Runtime> Transaction<RT> {
             table_dependency_sort_key(
                 bootstrap_tables,
                 update.id.into(),
-                update.new_document.as_ref(),
+                // Only bootstrap-table (`_tables`/`_index`) metadata affects
+                // the sort key, and those documents are system-constructed and
+                // always concrete.
+                update
+                    .new_document
+                    .as_ref()
+                    .and_then(PendingDocument::as_concrete),
             )
         });
 
@@ -510,7 +515,7 @@ impl<RT: Runtime> Transaction<RT> {
             // already written to in this transaction.
             if let Some(existing_update) = existing_updates.get(&id) {
                 anyhow::ensure!(
-                    (**existing_update).clone().into_resolved().ok().as_ref() == Some(&update),
+                    **existing_update == update,
                     "Conflicting updates for document {id}"
                 );
                 preserved_update_count += 1;
@@ -529,7 +534,7 @@ impl<RT: Runtime> Transaction<RT> {
                 update
                     .old_document
                     .map(|(d, ts)| (d, WriteTimestamp::Committed(ts))),
-                update.new_document.map(Into::into),
+                update.new_document,
             )?;
         }
         assert_eq!(

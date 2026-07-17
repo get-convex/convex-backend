@@ -32,7 +32,8 @@ use packed_value::{
 };
 use pb::common::{
     DocumentUpdate as DocumentUpdateProto,
-    DocumentUpdateWithPrevTs as DocumentUpdateWithPrevTsProto,
+    PendingDocument as PendingDocumentProto,
+    PendingDocumentUpdate as PendingDocumentUpdateProto,
     ResolvedDocument as ResolvedDocumentProto,
 };
 use serde_json::{
@@ -593,55 +594,6 @@ pub struct DocumentUpdateWithPrevTs {
     pub new_document: Option<ResolvedDocument>,
 }
 
-impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        DocumentUpdateWithPrevTs {
-            id,
-            old_document,
-            new_document,
-        }: DocumentUpdateWithPrevTs,
-    ) -> anyhow::Result<Self> {
-        let (old_document, old_ts) = old_document.unzip();
-        Ok(Self {
-            id: Some(id.into()),
-            old_document: old_document.map(|d| d.try_into()).transpose()?,
-            old_ts: old_ts.map(|ts| ts.into()),
-            new_document: new_document.map(|d| d.try_into()).transpose()?,
-        })
-    }
-}
-
-impl TryFrom<DocumentUpdateWithPrevTsProto> for DocumentUpdateWithPrevTs {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        DocumentUpdateWithPrevTsProto {
-            id,
-            old_document,
-            old_ts,
-            new_document,
-        }: DocumentUpdateWithPrevTsProto,
-    ) -> anyhow::Result<Self> {
-        let id = id
-            .context("Document updates missing document id")?
-            .try_into()?;
-        Ok(Self {
-            id,
-            old_document: old_document
-                .map(|d| {
-                    anyhow::Ok((
-                        d.try_into()?,
-                        Timestamp::try_from(old_ts.context("old_ts missing")?)?,
-                    ))
-                })
-                .transpose()?,
-            new_document: new_document.map(|d| d.try_into()).transpose()?,
-        })
-    }
-}
-
 /// A new document staged in a transaction whose body may contain commit
 /// timestamps that are unknown until the transaction commits (see
 /// [`PendingValue`]).
@@ -712,6 +664,21 @@ impl PendingDocument {
         match self {
             Self::Concrete(document) => document.id(),
             Self::Pending { id, .. } => *id,
+        }
+    }
+
+    pub fn creation_time(&self) -> CreationTime {
+        match self {
+            Self::Concrete(document) => document.creation_time(),
+            Self::Pending { creation_time, .. } => *creation_time,
+        }
+    }
+
+    /// The document, if it contains no unresolved commit timestamps.
+    pub fn as_concrete(&self) -> Option<&ResolvedDocument> {
+        match self {
+            Self::Concrete(document) => Some(document),
+            Self::Pending { .. } => None,
         }
     }
 
@@ -888,6 +855,87 @@ impl PendingDocumentUpdate {
         self.new_document
             .as_ref()
             .map(PendingDocument::to_uncommitted_internal_json)
+    }
+}
+
+impl TryFrom<PendingDocument> for PendingDocumentProto {
+    type Error = anyhow::Error;
+
+    fn try_from(document: PendingDocument) -> anyhow::Result<Self> {
+        let value = serde_json::to_vec(&document.to_uncommitted_internal_json())?;
+        Ok(Self {
+            id: Some(document.id().into()),
+            creation_time: Some(document.creation_time().into()),
+            value: Some(value),
+        })
+    }
+}
+
+impl TryFrom<PendingDocumentProto> for PendingDocument {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        PendingDocumentProto {
+            id,
+            creation_time,
+            value,
+        }: PendingDocumentProto,
+    ) -> anyhow::Result<Self> {
+        let id: ResolvedDocumentId = id.context("Missing id")?.try_into()?;
+        let creation_time = creation_time.context("Missing creation time")?.try_into()?;
+        let body = PendingValue::from_uncommitted_json(serde_json::from_slice(
+            &value.context("Missing value")?,
+        )?)?;
+        Self::new(id, creation_time, body)
+    }
+}
+
+impl TryFrom<PendingDocumentUpdate> for PendingDocumentUpdateProto {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        PendingDocumentUpdate {
+            id,
+            old_document,
+            new_document,
+        }: PendingDocumentUpdate,
+    ) -> anyhow::Result<Self> {
+        let (old_document, old_ts) = old_document.unzip();
+        Ok(Self {
+            id: Some(id.into()),
+            old_document: old_document.map(|d| d.try_into()).transpose()?,
+            old_ts: old_ts.map(|ts| ts.into()),
+            new_document: new_document.map(|d| d.try_into()).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<PendingDocumentUpdateProto> for PendingDocumentUpdate {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        PendingDocumentUpdateProto {
+            id,
+            old_document,
+            old_ts,
+            new_document,
+        }: PendingDocumentUpdateProto,
+    ) -> anyhow::Result<Self> {
+        let id = id
+            .context("Document updates missing document id")?
+            .try_into()?;
+        Ok(Self {
+            id,
+            old_document: old_document
+                .map(|d| {
+                    anyhow::Ok((
+                        d.try_into()?,
+                        Timestamp::try_from(old_ts.context("old_ts missing")?)?,
+                    ))
+                })
+                .transpose()?,
+            new_document: new_document.map(|d| d.try_into()).transpose()?,
+        })
     }
 }
 

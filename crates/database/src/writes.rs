@@ -18,7 +18,6 @@ use common::{
         TABLE_ID_FIELD_PATH,
     },
     document::{
-        DocumentUpdateWithPrevTs,
         PendingDocument,
         PendingDocumentUpdate,
         ResolvedDocument,
@@ -193,13 +192,6 @@ impl Borrow<ResolvedDocumentId> for Update {
     fn borrow(&self) -> &ResolvedDocumentId {
         self.0.id_ref()
     }
-}
-
-fn unresolved_commit_ts_error(id: ResolvedDocumentId) -> String {
-    format!(
-        "The write to document {id} contains an unresolved commit timestamp, which \
-         `FunctionWrites` cannot carry over the funrun wire yet"
-    )
 }
 
 /// The write set for a transaction, maintained by `TransactionState`
@@ -459,37 +451,6 @@ impl Writes {
 
     pub fn into_coalesced_writes(self) -> impl Iterator<Item = Arc<PendingDocumentUpdate>> {
         self.updates.into_iter().map(|x| x.0)
-    }
-
-    // TODO(commit-ts): carry unresolved commit timestamps in `FunctionWrites`
-    // and the funrun `Writes` proto as their token JSON, so function
-    // boundaries can transport pending writes and this fn can be deleted.
-
-    /// The coalesced writes for a boundary that cannot represent unresolved
-    /// commit timestamps (e.g. the funrun wire) yet
-    pub fn require_resolved_updates(&self) -> anyhow::Result<Vec<DocumentUpdateWithPrevTs>> {
-        self.coalesced_writes()
-            .map(|update| {
-                let id = update.id();
-                update
-                    .clone()
-                    .into_resolved()
-                    .with_context(|| unresolved_commit_ts_error(id))
-            })
-            .collect()
-    }
-
-    /// Owning variant of [`Writes::require_resolved_updates`].
-    pub fn into_resolved_updates(self) -> anyhow::Result<Vec<DocumentUpdateWithPrevTs>> {
-        self.updates
-            .into_iter()
-            .map(|update| {
-                let id = update.id();
-                Arc::unwrap_or_clone(update.0)
-                    .into_resolved()
-                    .with_context(|| unresolved_commit_ts_error(id))
-            })
-            .collect()
     }
 
     pub fn into_updates(

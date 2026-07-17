@@ -431,7 +431,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 tx.identity().clone(),
                 tx.begin_timestamp(),
                 FunctionWrites {
-                    updates: tx.writes().as_flat()?.require_resolved_updates()?,
+                    updates: tx.writes().as_flat()?.coalesced_writes().cloned().collect(),
                 },
                 log_line_sender,
                 function_metadata,

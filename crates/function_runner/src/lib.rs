@@ -18,7 +18,7 @@ use common::{
         ComponentName,
         Resource,
     },
-    document::DocumentUpdateWithPrevTs,
+    document::PendingDocumentUpdate,
     errors::JsError,
     execution_context::ExecutionContext,
     log_lines::LogLine,
@@ -172,7 +172,11 @@ impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
             begin_timestamp,
             reads: reads.into(),
             writes: FunctionWrites {
-                updates: writes.into_flat()?.into_resolved_updates()?,
+                updates: writes
+                    .into_flat()?
+                    .into_coalesced_writes()
+                    .map(Arc::unwrap_or_clone)
+                    .collect(),
             },
             rows_read_by_tablet,
         })
@@ -206,5 +210,5 @@ impl From<TransactionReadSet> for FunctionReads {
 #[derive(Default)]
 pub struct FunctionWrites {
     /// N.B.: these are expected to have unique `id`s
-    pub updates: Vec<DocumentUpdateWithPrevTs>,
+    pub updates: Vec<PendingDocumentUpdate>,
 }
