@@ -153,7 +153,9 @@ validate_dashboard_build() {
 # Full-workspace compile gate: `cargo check --workspace --all-targets` catches
 # upstream API changes that break fork-only Rust code the merge never touched
 # (e.g. a trait item rename that clean-merges but no longer compiles). Runs
-# after the dashboard gate because build scripts need the Rush install.
+# after the dashboard gate because build scripts need the Rush install, and
+# first builds the JS bundles the isolate build scripts consume — the same
+# set the Build Convex Backend workflow builds before cargo.
 validate_backend_build() {
   if [ ! -f Cargo.toml ]; then
     return 0
@@ -161,6 +163,14 @@ validate_backend_build() {
   if ! command -v cargo >/dev/null 2>&1; then
     echo "cargo not on PATH; cannot validate backend build" >&2
     return 1
+  fi
+  if [ -f npm-packages/rush.json ]; then
+    (
+      set -e
+      cd npm-packages
+      node common/scripts/install-run-rush.js build \
+        -t component-tests -t convex -t system-udfs -t udf-runtime -t udf-tests
+    ) 2>&1 | tail -20 | sed 's/^/  /' || return 1
   fi
   cargo check --workspace --all-targets 2>&1 | tail -60 | sed 's/^/  /'
 }
