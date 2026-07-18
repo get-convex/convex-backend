@@ -2,8 +2,12 @@
 #
 # Attempts to resolve every passed-in conflicted file via an OpenRouter LLM.
 # Each file is sent whole; the model is asked to return the resolved file
-# verbatim. Output is validated (no remaining `<<<<<<<` / `=======` /
-# `>>>>>>>` markers). Files are written in place.
+# verbatim. Output is validated: no remaining `<<<<<<<` / `=======` /
+# `>>>>>>>` markers, and the result must parse for its language (rustfmt
+# for Rust, dprint for everything dprint covers). The parse gate exists
+# because models sometimes prepend analysis prose to otherwise-correct
+# output — marker checks alone let that through and it lands in the tree
+# as a syntax error. Files are written in place and left formatted.
 #
 # Exit 0 only if EVERY file was resolved cleanly. Exit 1 if any file
 # failed — callers should then fall back to the PR path. Files written
@@ -26,6 +30,37 @@ if [ "$#" -eq 0 ]; then
   echo "no files passed" >&2
   exit 1
 fi
+
+# Parse/format gate for a resolved file. Returns 1 if the content is not
+# syntactically valid for its language. Formats in place as a side effect,
+# which also keeps the Prettier (dprint) CI check green for resolved files.
+# The needed tool missing counts as failure: the gate must never silently
+# not run (callers fall back to the human-reviewed PR path).
+validate_resolved() {
+  local file="$1"
+  case "$file" in
+    *.rs)
+      if ! command -v rustfmt >/dev/null 2>&1; then
+        echo "  ✗ $file: rustfmt not available to validate resolution" >&2
+        return 1
+      fi
+      if ! rustfmt --edition 2024 "$file" 2>&1 | sed 's/^/    /' >&2; then
+        return 1
+      fi
+      ;;
+    *.ts | *.tsx | *.js | *.jsx | *.mjs | *.cjs | *.json | *.md | *.toml | *.yml | *.yaml | *.css)
+      local dprint_bin="scripts/node_modules/.bin/dprint"
+      if [ ! -x "$dprint_bin" ]; then
+        echo "  ✗ $file: dprint not installed (run npm ci --prefix scripts) to validate resolution" >&2
+        return 1
+      fi
+      if ! "$dprint_bin" fmt --allow-no-files "$file" 2>&1 | sed 's/^/    /' >&2; then
+        return 1
+      fi
+      ;;
+  esac
+  return 0
+}
 
 resolve_one() {
   local file="$1"
@@ -51,7 +86,7 @@ The file contents below contain conflict markers (<<<<<<< HEAD, =======, >>>>>>>
 Rules:
 1. Preserve the fork's intentional changes (HEAD side) when both sides represent independent intent. Upstream-only refactors (renames, restructures) that overlap with fork changes should be APPLIED to the fork's code, not used to revert it.
 2. When both sides add different things to the same region, include both if compatible.
-3. Output ONLY the resolved file content. No explanations, no markdown code fences, no commentary, no preamble.
+3. Output ONLY the resolved file content. No explanations, no markdown code fences, no commentary, no preamble. Your output must begin with the file's first line and end with its last line — any analysis or notes anywhere in the output corrupts the file and fails the merge.
 4. Do not modify any code outside the conflicted regions.
 5. The file must compile/parse — preserve syntactic validity for its language.
 
@@ -109,6 +144,12 @@ ${content}
   fi
 
   printf '%s\n' "$resolved" > "$file"
+
+  if ! validate_resolved "$file"; then
+    echo "  ✗ $file: resolution failed syntax validation" >&2
+    return 1
+  fi
+
   echo "  ✓ $file"
 }
 

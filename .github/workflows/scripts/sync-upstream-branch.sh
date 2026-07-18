@@ -68,6 +68,67 @@ reconcile_generated_locks() {
   reconcile_rush_shrinkwrap
 }
 
+# dprint pinned to the same version CI's Prettier job uses (scripts/package.json).
+ensure_dprint() {
+  if [ -x scripts/node_modules/.bin/dprint ]; then
+    return 0
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm not on PATH; cannot install dprint for validation" >&2
+    return 1
+  fi
+  npm ci --prefix scripts 2>&1 | tail -5 | sed 's/^/  /'
+  [ -x scripts/node_modules/.bin/dprint ]
+}
+
+# Repo-wide format/parse gate, run before ANY push of a merged tree. This
+# guarantees a sync push can never turn the Prettier CI job red, and
+# catches syntactically-invalid merge output (e.g. LLM commentary written
+# into source files) no matter how it got into the tree.
+validate_merged_tree() {
+  echo "Validating merged tree with dprint check..."
+  ensure_dprint || return 1
+  if ! scripts/node_modules/.bin/dprint check 2>&1 | tail -40 | sed 's/^/  /' >&2; then
+    echo "dprint check failed on the merged tree" >&2
+    return 1
+  fi
+}
+
+# Push upstream's HEAD to the sync branch and open (or comment on) a PR
+# back into the target branch, then exit 1. $1 is a markdown reason line
+# included at the top of the PR body.
+bail_to_pr() {
+  local reason="$1"
+  git push --force origin \
+    "refs/remotes/upstream/${UPSTREAM_BRANCH}:refs/heads/${sync_branch}"
+
+  local body="${reason}
+
+To resolve locally:
+\`\`\`
+git fetch origin ${TARGET_BRANCH} ${sync_branch}
+git checkout ${TARGET_BRANCH}
+git merge origin/${sync_branch}
+# resolve, then:
+git push origin ${TARGET_BRANCH}
+\`\`\`
+
+[Workflow run](${run_url})"
+
+  local existing_pr
+  existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
+  if [ -n "${existing_pr}" ]; then
+    gh pr comment "${existing_pr}" --body "${body}"
+  else
+    gh pr create \
+      --base "${TARGET_BRANCH}" \
+      --head "${sync_branch}" \
+      --title "Sync upstream/${UPSTREAM_BRANCH} → ${TARGET_BRANCH} (needs human resolution)" \
+      --body "${body}"
+  fi
+  exit 1
+}
+
 # Release pushes publish the self-hosted dashboard images, so block automated
 # upstream syncs before they update origin/release if either build is broken.
 validate_release_build() {
@@ -109,6 +170,10 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
     echo "${TARGET_BRANCH} is already up to date with upstream/${UPSTREAM_BRANCH}"
   else
     reconcile_generated_locks
+    if ! validate_merged_tree; then
+      git reset --hard "${before}"
+      bail_to_pr "Automated sync merged \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` cleanly, but the merged tree failed \`dprint check\` — pushing it would break CI, so it was not pushed."
+    fi
     validate_release_build
     git push origin "HEAD:${TARGET_BRANCH}"
   fi
@@ -136,6 +201,9 @@ fi
 # we `git merge --abort` and fall through to the PR path.
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
   echo "Attempting LLM-based conflict resolution..."
+  # The resolver's per-file syntax gate needs dprint; install it up front so
+  # a missing tool reads as an install problem here, not a resolution failure.
+  ensure_dprint || true
   # shellcheck disable=SC2086
   if "${script_dir}/llm-resolve-conflicts.sh" ${conflicted_files}; then
     git add -- ${conflicted_files}
@@ -153,6 +221,11 @@ ${file_list}
 
 Workflow run: ${run_url}"
       reconcile_generated_locks
+      if ! validate_merged_tree; then
+        git reset --hard "${before}"
+        bail_to_pr "LLM auto-resolution of conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` produced a tree that failed \`dprint check\`; it was not pushed. Conflicted files:
+$(printf '%s\n' "${conflicted_files}" | sed 's|^|- `|; s|$|`|')"
+      fi
       validate_release_build
       git push origin "HEAD:${TARGET_BRANCH}"
 
@@ -172,38 +245,8 @@ else
   git merge --abort
 fi
 
-# Force-push upstream's current HEAD to the sync branch so the PR diff
-# shows exactly the commits that need to be integrated.
-git push --force origin \
-  "refs/remotes/upstream/${UPSTREAM_BRANCH}:refs/heads/${sync_branch}"
-
-# Build PR body. Bash string interpolation handles the newlines.
-conflict_list="$(printf '%s\n' "${conflicted_files}" | sed 's|^|- `|; s|$|`|')"
-body="Sync workflow hit unresolved conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\`.
+# Unresolved conflicts: hand off to a human via the sync PR.
+bail_to_pr "Sync workflow hit unresolved conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\`.
 
 **Conflicted files:**
-${conflict_list}
-
-To resolve locally:
-\`\`\`
-git fetch origin ${TARGET_BRANCH} ${sync_branch}
-git checkout ${TARGET_BRANCH}
-git merge origin/${sync_branch}
-# resolve, then:
-git push origin ${TARGET_BRANCH}
-\`\`\`
-
-[Workflow run](${run_url})"
-
-existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
-if [ -n "${existing_pr}" ]; then
-  gh pr comment "${existing_pr}" --body "${body}"
-else
-  gh pr create \
-    --base "${TARGET_BRANCH}" \
-    --head "${sync_branch}" \
-    --title "Sync upstream/${UPSTREAM_BRANCH} → ${TARGET_BRANCH} (conflicts)" \
-    --body "${body}"
-fi
-
-exit 1
+$(printf '%s\n' "${conflicted_files}" | sed 's|^|- `|; s|$|`|')"
