@@ -53,18 +53,12 @@ improvements for self-hosting.
 This fork is currently solo-maintained, and the running costs come out of my own
 pocket — AWS runners for the release workflows, time spent reviewing incoming
 PRs, and the occasional infra fix on top of upstream Convex. If the fork is
-useful to your self-hosted setup,
-[sponsoring on GitHub](https://github.com/sponsors/defy-works) is appreciated
-and entirely optional.
+useful to your self-hosted setup, a coffee is appreciated and entirely optional.
 
-### Supported by
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/defyworks)
 
-<a href="https://runs-on.com">
-  <img src="https://github.com/runs-on.png" alt="RunsOn" width="64">
-</a>
-
-CI for this fork is supported by [RunsOn](https://runs-on.com) — ephemeral,
-self-hosted GitHub Actions runners on your own AWS account.
+This fork's CI runs on [RunsOn](https://runs-on.com), ephemeral GitHub Actions
+runners in our own AWS account.
 
 ---
 
