@@ -129,21 +129,49 @@ git push origin ${TARGET_BRANCH}
   exit 1
 }
 
-# Release pushes publish the self-hosted dashboard images, so block automated
-# upstream syncs before they update origin/release if either build is broken.
-validate_release_build() {
-  if [ "${TARGET_BRANCH}" != "release" ]; then
-    return 0
-  fi
+# Dashboard build gate for every branch: upstream API/type changes can break
+# fork-only dashboard code in files the merge never touches, which no
+# format-level check can see. Release pushes additionally publish the
+# self-hosted dashboard images, so this must stay fail-closed there too.
+validate_dashboard_build() {
   if [ ! -f npm-packages/rush.json ]; then
     return 0
   fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo "node not on PATH; cannot validate dashboard build" >&2
+    return 1
+  fi
   (
+    set -e
     cd npm-packages
     node common/scripts/install-run-rush.js install
     RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-self-hosted
     RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-orchestrator
   ) 2>&1 | sed 's/^/  /'
+}
+
+# Full-workspace compile gate: `cargo check --workspace --all-targets` catches
+# upstream API changes that break fork-only Rust code the merge never touched
+# (e.g. a trait item rename that clean-merges but no longer compiles). Runs
+# after the dashboard gate because build scripts need the Rush install.
+validate_backend_build() {
+  if [ ! -f Cargo.toml ]; then
+    return 0
+  fi
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "cargo not on PATH; cannot validate backend build" >&2
+    return 1
+  fi
+  cargo check --workspace --all-targets 2>&1 | tail -60 | sed 's/^/  /'
+}
+
+# Every gate a merged tree must pass before it may be pushed, in increasing
+# order of cost. Fail-closed: a gate that cannot run counts as a failure and
+# the caller falls back to the human-reviewed PR path instead of pushing.
+validate_merged_tree_full() {
+  validate_merged_tree || return 1
+  validate_dashboard_build || return 1
+  validate_backend_build || return 1
 }
 
 git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git" 2>/dev/null || true
@@ -170,11 +198,10 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
     echo "${TARGET_BRANCH} is already up to date with upstream/${UPSTREAM_BRANCH}"
   else
     reconcile_generated_locks
-    if ! validate_merged_tree; then
+    if ! validate_merged_tree_full; then
       git reset --hard "${before}"
-      bail_to_pr "Automated sync merged \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` cleanly, but the merged tree failed \`dprint check\` — pushing it would break CI, so it was not pushed."
+      bail_to_pr "Automated sync merged \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` cleanly, but the merged tree failed validation (dprint check / dashboard build / cargo check) — pushing it would break CI, so it was not pushed."
     fi
-    validate_release_build
     git push origin "HEAD:${TARGET_BRANCH}"
   fi
 
@@ -221,12 +248,11 @@ ${file_list}
 
 Workflow run: ${run_url}"
       reconcile_generated_locks
-      if ! validate_merged_tree; then
+      if ! validate_merged_tree_full; then
         git reset --hard "${before}"
-        bail_to_pr "LLM auto-resolution of conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` produced a tree that failed \`dprint check\`; it was not pushed. Conflicted files:
+        bail_to_pr "LLM auto-resolution of conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` produced a tree that failed validation (dprint check / dashboard build / cargo check); it was not pushed. Conflicted files:
 $(printf '%s\n' "${conflicted_files}" | sed 's|^|- `|; s|$|`|')"
       fi
-      validate_release_build
       git push origin "HEAD:${TARGET_BRANCH}"
 
       # Close any stale sync PR — we just merged cleanly.

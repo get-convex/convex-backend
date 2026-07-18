@@ -30,7 +30,10 @@ concurrency:
 jobs:
   sync_enhanced:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_enhanced }}
-    runs-on: ubuntu-latest
+    # The sync script compile-gates the merged tree (cargo check --workspace,
+    # dashboard builds) before pushing, so it needs the same runner class and
+    # caches as the Build workflow to finish in minutes rather than an hour.
+    runs-on: "runs-on=${{ github.run_id }}/runner=xlarge-x64"
     steps:
       - name: Require sync token
         env:
@@ -56,18 +59,46 @@ jobs:
           git config merge.theirs.name "always take theirs"
           git config merge.theirs.driver "cp -f %B %A"
 
-      - name: Install Rust toolchain
-        # Sync script reconciles Cargo.lock with our workspace after the
-        # `merge=theirs` driver takes upstream's lockfile — needs cargo.
-        shell: bash
-        run: rustup show active-toolchain || rustup toolchain install
+      - name: Setup Rust
+        # Toolchain + system deps + sccache for the pre-push
+        # `cargo check --workspace` gate and Cargo.lock reconciliation.
+        uses: ./.github/actions/setup-rust
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          r2-access-key: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          runs-on-s3-bucket: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+          runs-on-aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Restore pnpm artifacts
+        uses: runs-on/cache/restore@bd330c5a5f6cbb837823ee25864f3c71a211c2e3 # v5.0.5
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+        with:
+          path: |
+            npm-packages/common/temp/build-cache
+            npm-packages/common/temp/pnpm-store
+          key:
+            pnpm-cache-${{
+            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+          restore-keys: pnpm-cache-
+
+      - name: Install mise tools
+        # protoc and friends for the workspace build scripts.
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        with:
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
-        # Sync script reconciles Rush's generated pnpm-lock.yaml after
-        # upstream merges so fork-local packages stay installable.
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: NPM install globals
+        # dprint (pinned in scripts/package.json) for the sync validation gate.
+        run: npm ci --prefix scripts
 
       - name: Sync enhanced
         env:
@@ -78,8 +109,14 @@ jobs:
         run: ./.github/workflows/scripts/sync-upstream-branch.sh
 
   sync_release:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_release }}
-    runs-on: ubuntu-latest
+    # Run after sync_enhanced so the two jobs' validation builds don't compete.
+    # !cancelled() lets this run even when sync_enhanced was skipped by the
+    # dispatch input or failed (its failure parks in a PR, not a broken push).
+    if:
+      ${{ !cancelled() && (github.event_name != 'workflow_dispatch' ||
+      inputs.sync_release) }}
+    needs: [sync_enhanced]
+    runs-on: "runs-on=${{ github.run_id }}/runner=xlarge-x64"
     steps:
       - name: Require sync token
         env:
@@ -103,14 +140,42 @@ jobs:
           git config merge.theirs.name "always take theirs"
           git config merge.theirs.driver "cp -f %B %A"
 
-      - name: Install Rust toolchain
-        shell: bash
-        run: rustup show active-toolchain || rustup toolchain install
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          r2-access-key: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          runs-on-s3-bucket: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+          runs-on-aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Restore pnpm artifacts
+        uses: runs-on/cache/restore@bd330c5a5f6cbb837823ee25864f3c71a211c2e3 # v5.0.5
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+        with:
+          path: |
+            npm-packages/common/temp/build-cache
+            npm-packages/common/temp/pnpm-store
+          key:
+            pnpm-cache-${{
+            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+          restore-keys: pnpm-cache-
+
+      - name: Install mise tools
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        with:
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: NPM install globals
+        run: npm ci --prefix scripts
 
       - name: Sync release
         env:
