@@ -57,6 +57,15 @@ useful to your self-hosted setup,
 [sponsoring on GitHub](https://github.com/sponsors/defy-works) is appreciated
 and entirely optional.
 
+### Supported by
+
+<a href="https://runs-on.com">
+  <img src="https://github.com/runs-on.png" alt="RunsOn" width="64">
+</a>
+
+CI for this fork is supported by [RunsOn](https://runs-on.com) — ephemeral,
+self-hosted GitHub Actions runners on your own AWS account.
+
 ---
 
 ## About Convex
