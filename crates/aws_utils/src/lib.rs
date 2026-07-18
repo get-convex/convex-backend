@@ -43,6 +43,13 @@ static AWS_S3_DISABLE_CHECKSUMS: LazyLock<bool> = LazyLock::new(|| {
         .unwrap_or_default()
 });
 
+static AWS_S3_DISABLE_RANGE_PREFETCH: LazyLock<bool> = LazyLock::new(|| {
+    env::var("AWS_S3_DISABLE_RANGE_PREFETCH")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_default()
+});
+
 /// Similar aws_config::from_env but returns an error if credentials or
 /// region is are not. It also doesn't spew out log lines every time
 /// credentials are accessed.
@@ -134,4 +141,12 @@ pub fn is_sse_disabled() -> bool {
 /// Returns true if checksum headers should be disabled
 pub fn are_checksums_disabled() -> bool {
     *AWS_S3_DISABLE_CHECKSUMS
+}
+
+/// Returns true if object sizes should not be discovered via ranged GETs.
+/// S3-compatible storage providers that don't match S3's `Content-Range`,
+/// `InvalidRange`, or `NoSuchKey` behavior on ranged GetObject requests can
+/// set this to fall back to fetching object attributes before downloading.
+pub fn is_range_prefetch_disabled() -> bool {
+    *AWS_S3_DISABLE_RANGE_PREFETCH
 }
