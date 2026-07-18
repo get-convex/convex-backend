@@ -35,11 +35,7 @@ use crate::{
 
 pub mod types;
 
-pub static ADMIN_KEYS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_admin_keys"
-        .parse()
-        .expect("Invalid built-in admin_keys table")
-});
+pub const ADMIN_KEYS_TABLE: TableName = TableName::const_new("_admin_keys");
 
 static KEY_HASH_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "keyHash".parse().expect("Invalid built-in field"));
@@ -51,9 +47,7 @@ pub struct AdminKeysTable;
 impl SystemTable for AdminKeysTable {
     type Metadata = AdminKeyMetadata;
 
-    fn table_name() -> &'static TableName {
-        &ADMIN_KEYS_TABLE
-    }
+    const TABLE_NAME: TableName = ADMIN_KEYS_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![ADMIN_KEYS_BY_HASH_INDEX.clone()]
@@ -122,7 +116,8 @@ impl<'a, RT: Runtime> AdminKeysModel<'a, RT> {
     }
 
     /// Idempotent: if a row for `hash` already exists, return it; else insert
-    /// a new row using the `(name, key_suffix)` returned by `metadata_for_insert`.
+    /// a new row using the `(name, key_suffix)` returned by
+    /// `metadata_for_insert`.
     ///
     /// The `bool` is `true` only when this call performed the insert. Callers
     /// can use it to gate one-time side effects (audit-log entries, cache

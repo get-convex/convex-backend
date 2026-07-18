@@ -207,9 +207,7 @@ pub enum SinkConfig {
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum SerializedSinkConfig {
-    Local {
-        path: String,
-    },
+    Local { path: String },
     Datadog(datadog::SerializedDatadogConfig),
     Webhook(webhook::SerializedWebhookConfig),
     Axiom(axiom::SerializedAxiomConfig),

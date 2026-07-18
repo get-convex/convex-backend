@@ -1,10 +1,3 @@
-I need to resolve two conflict regions:
-
-1. In the `DeploymentEventContent` switch statement: HEAD has admin key and periodic backup cases, upstream adds `create_data_sync`
-2. In the `ActionText` function: HEAD has admin key and periodic backup cases, upstream adds `create_data_sync` and usage limit cases
-
-Both sides add different things, so I need to include all of them.
-
 import {
   ChevronUpIcon,
   ChevronDownIcon,

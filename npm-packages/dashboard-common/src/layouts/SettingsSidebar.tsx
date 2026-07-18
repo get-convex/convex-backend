@@ -1,12 +1,3 @@
-Looking at this conflict, I need to understand what's happening:
-
-- **HEAD (fork)** imports from `./settingsSidebarPages` (a fork-specific module) and uses `getAllowedDeploymentSettingsPages` from there
-- **Upstream** imports from `@common/layouts/deploymentSettingsPages` and defines `DEPLOYMENT_SETTINGS_PAGES` inline
-
-The fork has intentional divergences: it uses `./settingsSidebarPages` as its module source and has `getAllowedDeploymentSettingsPages`, `deploymentBackendOwnsAdminKeys`, `showAdminKeys` logic, and other fork-specific additions. I need to preserve the fork's imports and structure while resolving the conflict markers.
-
-The conflict region is only in the import block. The rest of the file (after the conflict markers) is already the fork's code. I need to keep the fork's import approach.
-
 import classNames from "classnames";
 import React, { useContext } from "react";
 import {
@@ -175,5 +166,9 @@ function useAllowedPages({ showAdminKeys }: { showAdminKeys: boolean }) {
   const { nents } = useNents();
   const { usageLimitsEnabled } = useContext(DeploymentInfoContext);
 
-  return getAllowedDeploymentSettingsPages({ nents, showAdminKeys });
+  return getAllowedDeploymentSettingsPages({
+    nents,
+    showAdminKeys,
+    usageLimitsEnabled,
+  });
 }

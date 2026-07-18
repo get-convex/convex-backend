@@ -1,5 +1,3 @@
-Looking at the conflict, I need to merge the fork's additions (AdminKeys = 40, PeriodicBackupConfig = 41, UsageLimits = 42) with upstream's additions (UsageLimits = 40, DataSyncProgress = 41). The fork already has DataSyncProgress in the `From` impl and other places, so I need to assign unique numbers to all entries. The fork has AdminKeys=40, PeriodicBackupConfig=41, UsageLimits=42, and DataSyncProgress needs a new number (43).
-
 //! Authoritative metadata in our system is stored in tables with prefix
 //! [`METADATA_PREFIX`]. Each file in this module stores a category of system
 //! metadata.
@@ -41,7 +39,6 @@ use admin_keys::{
     AdminKeysTable,
     ADMIN_KEYS_BY_HASH_INDEX,
 };
-use periodic_backup::PeriodicBackupConfigTable;
 use audit_log_config::{
     AuditLogConfigTable,
     AUDIT_LOG_CONFIG_TABLE,
@@ -163,6 +160,7 @@ use modules::{
     MODULE_INDEX_BY_DELETED,
     MODULE_INDEX_BY_PATH,
 };
+use periodic_backup::PeriodicBackupConfigTable;
 use scheduled_jobs::{
     ScheduledJobsTable,
     SCHEDULED_JOBS_INDEX,

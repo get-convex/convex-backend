@@ -6,6 +6,7 @@ describe("getAllowedDeploymentSettingsPages", () => {
       getAllowedDeploymentSettingsPages({
         nents: undefined,
         showAdminKeys: true,
+        usageLimitsEnabled: true,
       }),
     ).toContain("components");
   });
@@ -15,6 +16,7 @@ describe("getAllowedDeploymentSettingsPages", () => {
       getAllowedDeploymentSettingsPages({
         nents: [],
         showAdminKeys: true,
+        usageLimitsEnabled: true,
       }),
     ).not.toContain("components");
   });
@@ -24,7 +26,28 @@ describe("getAllowedDeploymentSettingsPages", () => {
       getAllowedDeploymentSettingsPages({
         nents: [{ name: "_App" }],
         showAdminKeys: false,
+        usageLimitsEnabled: true,
       }),
     ).not.toContain("admin-keys");
+  });
+
+  test("hides the Usage Limits tab when the feature flag is off", () => {
+    expect(
+      getAllowedDeploymentSettingsPages({
+        nents: [{ name: "_App" }],
+        showAdminKeys: true,
+        usageLimitsEnabled: false,
+      }),
+    ).not.toContain("usage-limits");
+  });
+
+  test("shows the Usage Limits tab when the feature flag is on", () => {
+    expect(
+      getAllowedDeploymentSettingsPages({
+        nents: [{ name: "_App" }],
+        showAdminKeys: true,
+        usageLimitsEnabled: true,
+      }),
+    ).toContain("usage-limits");
   });
 });

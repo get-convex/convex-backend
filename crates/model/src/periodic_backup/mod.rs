@@ -1,7 +1,4 @@
-use std::sync::{
-    Arc,
-    LazyLock,
-};
+use std::sync::Arc;
 
 use chrono::{
     TimeZone,
@@ -30,19 +27,13 @@ use crate::{
 
 pub mod types;
 
-pub static PERIODIC_BACKUP_CONFIG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_periodic_backup_config"
-        .parse()
-        .expect("Invalid built-in periodic_backup_config table")
-});
+pub const PERIODIC_BACKUP_CONFIG_TABLE: TableName = TableName::const_new("_periodic_backup_config");
 
 pub struct PeriodicBackupConfigTable;
 impl SystemTable for PeriodicBackupConfigTable {
     type Metadata = PeriodicBackupConfig;
 
-    fn table_name() -> &'static TableName {
-        &PERIODIC_BACKUP_CONFIG_TABLE
-    }
+    const TABLE_NAME: TableName = PERIODIC_BACKUP_CONFIG_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]

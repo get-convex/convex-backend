@@ -123,5 +123,4 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             .await?;
         Ok(Some(old))
     }
-
 }
