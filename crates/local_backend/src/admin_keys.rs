@@ -16,6 +16,7 @@ use common::{
             Json,
             Path,
         },
+        ExtractRequestMetadata,
         HttpResponseError,
     },
     types::MemberId,
@@ -189,6 +190,7 @@ pub async fn list_admin_keys(
 pub async fn create_admin_key(
     axum::extract::State(st): axum::extract::State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(body): Json<CreateRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     ensure_admin(&identity)?;
@@ -214,6 +216,7 @@ pub async fn create_admin_key(
                 id: doc_id.to_string(),
                 name: name.clone(),
             }],
+            request_metadata,
             "create_admin_key",
         )
         .await?;
@@ -246,6 +249,7 @@ pub async fn create_admin_key(
 pub async fn revoke_admin_key(
     axum::extract::State(st): axum::extract::State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     ensure_admin(&identity)?;
@@ -257,9 +261,8 @@ pub async fn revoke_admin_key(
         st.application
             .commit_with_audit_log_events(
                 tx,
-                vec![DeploymentAuditLogEvent::AdminKeyRevoked {
-                    id: id_str.clone(),
-                }],
+                vec![DeploymentAuditLogEvent::AdminKeyRevoked { id: id_str.clone() }],
+                request_metadata,
                 "revoke_admin_key",
             )
             .await?;
@@ -282,6 +285,7 @@ pub async fn revoke_admin_key(
 pub async fn rename_admin_key(
     axum::extract::State(st): axum::extract::State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Path(id_str): Path<String>,
     Json(body): Json<RenameRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -300,6 +304,7 @@ pub async fn rename_admin_key(
                 id: id_str.clone(),
                 new_name: name.clone(),
             }],
+            request_metadata,
             "rename_admin_key",
         )
         .await?;

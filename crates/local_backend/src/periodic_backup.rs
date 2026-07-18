@@ -10,6 +10,7 @@
 use axum::response::IntoResponse;
 use common::http::{
     extract::Json,
+    ExtractRequestMetadata,
     HttpResponseError,
 };
 use errors::ErrorMetadata;
@@ -48,6 +49,7 @@ fn ensure_admin(identity: &Identity) -> Result<(), HttpResponseError> {
 pub async fn configure_periodic_backup(
     axum::extract::State(st): axum::extract::State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(body): Json<ConfigureRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     ensure_admin(&identity)?;
@@ -69,6 +71,7 @@ pub async fn configure_periodic_backup(
                 cronspec: stored.cronspec,
                 include_storage: stored.include_storage,
             }],
+            request_metadata,
             "configure_periodic_backup",
         )
         .await?;
@@ -78,6 +81,7 @@ pub async fn configure_periodic_backup(
 pub async fn disable_periodic_backup(
     axum::extract::State(st): axum::extract::State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     ensure_admin(&identity)?;
 
@@ -88,6 +92,7 @@ pub async fn disable_periodic_backup(
             .commit_with_audit_log_events(
                 tx,
                 vec![DeploymentAuditLogEvent::PeriodicBackupDisabled],
+                request_metadata,
                 "disable_periodic_backup",
             )
             .await?;
