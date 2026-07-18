@@ -15,6 +15,7 @@ use anyhow::Context;
 use common::{
     components::ComponentId,
     errors::report_error,
+    execution_context::RequestMetadata,
     runtime::Runtime,
 };
 use database::Database;
@@ -51,16 +52,16 @@ pub struct PeriodicBackupWorker<RT: Runtime> {
 }
 
 impl<RT: Runtime> PeriodicBackupWorker<RT> {
-    pub fn start(runtime: RT, database: Database<RT>) -> impl std::future::Future<Output = ()> + Send {
+    pub fn start(
+        runtime: RT,
+        database: Database<RT>,
+    ) -> impl std::future::Future<Output = ()> + Send {
         let worker = Self { runtime, database };
         async move {
             worker.runtime.wait(INITIAL_BACKOFF).await;
             loop {
                 if let Err(e) = worker.tick().await {
-                    report_error(
-                        &mut e.context("PeriodicBackupWorker tick failed"),
-                    )
-                    .await;
+                    report_error(&mut e.context("PeriodicBackupWorker tick failed")).await;
                 }
                 worker.runtime.wait(POLL_INTERVAL).await;
             }
@@ -111,22 +112,25 @@ impl<RT: Runtime> PeriodicBackupWorker<RT> {
         // path emits, so the History page surfaces both lineages clearly.
         let export_id_str = DeveloperDocumentId::from(snapshot_id).encode();
         DeploymentAuditLogModel::new(&mut tx)
-            .insert(vec![
-                DeploymentAuditLogEvent::RequestExport {
-                    id: export_id_str.clone(),
-                    component_id: None,
-                    component: common::components::ComponentPath::root(),
-                    format: if include_storage {
-                        "zip_with_storage".to_string()
-                    } else {
-                        "zip".to_string()
+            .insert(
+                vec![
+                    DeploymentAuditLogEvent::RequestExport {
+                        id: export_id_str.clone(),
+                        component_id: None,
+                        component: common::components::ComponentPath::root(),
+                        format: if include_storage {
+                            "zip_with_storage".to_string()
+                        } else {
+                            "zip".to_string()
+                        },
+                        requestor: ExportRequestor::SnapshotExport.usage_tag().to_string(),
                     },
-                    requestor: ExportRequestor::SnapshotExport.usage_tag().to_string(),
-                },
-                DeploymentAuditLogEvent::PeriodicBackupTriggered {
-                    export_id: export_id_str,
-                },
-            ])
+                    DeploymentAuditLogEvent::PeriodicBackupTriggered {
+                        export_id: export_id_str,
+                    },
+                ],
+                &RequestMetadata::system(),
+            )
             .await?;
 
         self.database

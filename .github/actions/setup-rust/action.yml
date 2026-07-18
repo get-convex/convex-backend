@@ -14,8 +14,8 @@ inputs:
     required: false
     default: ""
     description:
-      "pass vars.RUNS_ON_S3_BUCKET_CACHE — the RunsOn cache bucket, writable
-      via the runner instance profile. Preferred over R2 when set."
+      "pass vars.RUNS_ON_S3_BUCKET_CACHE — the RunsOn cache bucket, writable via
+      the runner instance profile. Preferred over R2 when set."
   runs-on-aws-region:
     required: false
     default: ""

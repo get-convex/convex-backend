@@ -399,7 +399,6 @@ use vector::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     exports::worker::ExportWorker,
-    periodic_backup::worker::PeriodicBackupWorker,
     function_log::{
         FunctionEntriesLog,
         FunctionExecutionLog,
@@ -407,6 +406,7 @@ use crate::{
     },
     log_visibility::LogVisibility,
     module_cache::ModuleCache,
+    periodic_backup::worker::PeriodicBackupWorker,
     redaction::{
         RedactedJsError,
         RedactedLogLines,
@@ -909,8 +909,7 @@ impl<RT: Runtime> Application<RT> {
         // Self-hosted periodic-backup worker. Reads `_periodic_backup_config`
         // every minute and inserts a `requested` row into `_exports` (which the
         // ExportWorker above then picks up) when the cron schedule is due.
-        let periodic_backup_worker =
-            PeriodicBackupWorker::start(runtime.clone(), database.clone());
+        let periodic_backup_worker = PeriodicBackupWorker::start(runtime.clone(), database.clone());
         let periodic_backup_worker = Arc::new(Mutex::new(Some(
             runtime.spawn("periodic_backup_worker", periodic_backup_worker),
         )));
@@ -965,7 +964,9 @@ impl<RT: Runtime> Application<RT> {
 
         let admin_keys_cache = {
             let mut tx = database.begin_system().await?;
-            let rows = model::admin_keys::AdminKeysModel::new(&mut tx).list().await?;
+            let rows = model::admin_keys::AdminKeysModel::new(&mut tx)
+                .list()
+                .await?;
             let entries = rows.into_iter().map(|doc| {
                 let id = doc.id().to_string();
                 let v = doc.into_value();
@@ -2608,13 +2609,12 @@ impl<RT: Runtime> Application<RT> {
 
         let object_key = {
             let mut tx = self.begin(identity.clone()).await?;
-            let export = ExportsModel::new(&mut tx)
-                .get(export_id)
-                .await?
-                .context(ErrorMetadata::not_found(
+            let export = ExportsModel::new(&mut tx).get(export_id).await?.context(
+                ErrorMetadata::not_found(
                     "ExportNotFound",
                     format!("The requested export {export_id} was not found"),
-                ))?;
+                ),
+            )?;
             match export.into_value() {
                 Export::Completed { zip_object_key, .. } => zip_object_key,
                 Export::Failed { .. }
@@ -2623,9 +2623,7 @@ impl<RT: Runtime> Application<RT> {
                 | Export::Requested { .. } => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "ExportNotComplete",
-                        format!(
-                            "Export {export_id} has not completed and cannot be restored"
-                        ),
+                        format!("Export {export_id} has not completed and cannot be restored"),
                     ))
                 },
             }
@@ -2638,9 +2636,7 @@ impl<RT: Runtime> Application<RT> {
             .await?
             .context(ErrorMetadata::not_found(
                 "ExportObjectNotFound",
-                format!(
-                    "The requested export object {object_key:?} was not found in storage"
-                ),
+                format!("The requested export object {object_key:?} was not found in storage"),
             ))?;
         let body_stream: BoxStream<'_, anyhow::Result<Bytes>> =
             stream.map_err(anyhow::Error::from).boxed();
@@ -3254,14 +3250,15 @@ impl<RT: Runtime> Application<RT> {
     /// unknown keys — on DB write failure, logs a warning and returns
     /// `Ok(())` (fail-open on adoption writes).
     async fn check_admin_key_tracked(&self, raw_admin_key: &str) -> anyhow::Result<()> {
-        use crate::admin_keys_cache::{
-            AdminKeyCheck,
-            CachedAdminKey,
-        };
         use keybroker::{
             admin_key_hash,
             admin_key_suffix,
             ADMIN_KEY_SUFFIX_LEN,
+        };
+
+        use crate::admin_keys_cache::{
+            AdminKeyCheck,
+            CachedAdminKey,
         };
 
         let hash = admin_key_hash(raw_admin_key, self.key_broker().deployment_secret());
@@ -3274,8 +3271,7 @@ impl<RT: Runtime> Application<RT> {
             AdminKeyCheck::Unknown => {
                 let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
                 let proposed_name = format!("Adopted {today}");
-                let proposed_suffix =
-                    Some(admin_key_suffix(raw_admin_key, ADMIN_KEY_SUFFIX_LEN));
+                let proposed_suffix = Some(admin_key_suffix(raw_admin_key, ADMIN_KEY_SUFFIX_LEN));
 
                 // adopt_result carries the row we ended up with plus a flag for
                 // whether we inserted it (to gate the audit log).
@@ -3294,12 +3290,13 @@ impl<RT: Runtime> Application<RT> {
                     if was_inserted {
                         self.commit_with_audit_log_events(
                             tx,
-                            vec![
-                                model::deployment_audit_log::types::DeploymentAuditLogEvent::AdminKeyAdopted {
-                                    id: entry.doc_id.clone(),
-                                    name: entry.name.clone(),
-                                },
-                            ],
+                            vec![DeploymentAuditLogEvent::AdminKeyAdopted {
+                                id: entry.doc_id.clone(),
+                                name: entry.name.clone(),
+                            }],
+                            // Adoption happens during key verification, with no
+                            // client request metadata plumbed through.
+                            RequestMetadata::system(),
                             "adopt_admin_key",
                         )
                         .await?;
