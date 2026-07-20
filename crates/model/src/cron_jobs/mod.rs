@@ -197,7 +197,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         cron_spec: CronSpec,
     ) -> anyhow::Result<()> {
         let now = self.runtime().generate_timestamp()?;
-        let next_ts = compute_next_ts(&cron_spec, None, now)?;
+        let next_ts = compute_next_ts(&cron_spec, None, now, &mut self.runtime().rng())?;
         let cron = CronJobMetadata { name, cron_spec };
 
         let cron_job_id = SystemMetadataModel::new(self.tx, self.component.into())
@@ -251,8 +251,14 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             // logic to the async worker, but quickfix for now is to skip the
             // `update_job_state`.
             let now = self.runtime().generate_timestamp()?;
-            let next_ts = compute_next_ts(&cron_job.cron_spec, None, now)?;
-            let next_next_run = compute_next_ts(&cron_job.cron_spec, Some(next_ts), next_ts)?;
+            let next_ts =
+                compute_next_ts(&cron_job.cron_spec, None, now, &mut self.runtime().rng())?;
+            let next_next_run = compute_next_ts(
+                &cron_job.cron_spec,
+                Some(next_ts),
+                next_ts,
+                &mut self.runtime().rng(),
+            )?;
             if next_next_run.secs_since_f64(now) > 30.0 {
                 // Read in next-run to the readset and update it.
                 let mut next_run = self
@@ -263,7 +269,8 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
 
                 // Recalculate on the new schedule.
                 let now = self.runtime().generate_timestamp()?;
-                next_run.next_ts = compute_next_ts(&new_cron_spec, next_run.prev_ts, now)?;
+                next_run.next_ts =
+                    compute_next_ts(&new_cron_spec, None, now, &mut self.runtime().rng())?;
                 self.update_job_state(next_run).await?;
             }
         }

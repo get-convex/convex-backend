@@ -289,21 +289,21 @@ impl CronSpec {
             },
             #[serde(rename = "hourly")]
             Hourly {
-                #[serde(rename = "minuteUTC")]
-                minute_utc: i64,
+                #[serde(rename = "minuteUTC", default)]
+                minute_utc: Option<i64>,
             },
             #[serde(rename = "daily")]
             Daily {
-                #[serde(rename = "minuteUTC")]
-                minute_utc: i64,
+                #[serde(rename = "minuteUTC", default)]
+                minute_utc: Option<i64>,
                 #[serde(rename = "hourUTC")]
                 hour_utc: i64,
             },
             #[serde(rename_all = "camelCase")]
             #[serde(rename = "weekly")]
             Weekly {
-                #[serde(rename = "minuteUTC")]
-                minute_utc: i64,
+                #[serde(rename = "minuteUTC", default)]
+                minute_utc: Option<i64>,
                 #[serde(rename = "hourUTC")]
                 hour_utc: i64,
                 day_of_week: DayOfWeek,
@@ -311,8 +311,8 @@ impl CronSpec {
             #[serde(rename_all = "camelCase")]
             #[serde(rename = "monthly")]
             Monthly {
-                #[serde(rename = "minuteUTC")]
-                minute_utc: i64,
+                #[serde(rename = "minuteUTC", default)]
+                minute_utc: Option<i64>,
                 #[serde(rename = "hourUTC")]
                 hour_utc: i64,
                 day: i64,
@@ -334,6 +334,19 @@ impl CronSpec {
         let j: CronSpecJson = serde_json::from_value(value.clone())
             .with_context(|| CronValidationError::InvalidJson)?;
 
+        // An omitted minuteUTC means the developer left the exact minute to
+        // Convex; the backend picks one per job to spread load.
+        let validate_minute = |minute_utc: Option<i64>| -> anyhow::Result<()> {
+            if let Some(minute_utc) = minute_utc
+                && !(0..=59).contains(&minute_utc)
+            {
+                anyhow::bail!(
+                    "minuteUTC must be 0-59 in {}",
+                    serde_json::to_string_pretty(&value).unwrap()
+                );
+            }
+            Ok(())
+        };
         let schedule = match j.schedule {
             ScheduleJson::Interval {
                 seconds,
@@ -366,24 +379,14 @@ impl CronSpec {
                 CronSchedule::Interval { seconds }
             },
             ScheduleJson::Hourly { minute_utc } => {
-                if !(0..=59).contains(&minute_utc) {
-                    anyhow::bail!(
-                        "minuteUTC must be 0-59 in {}",
-                        serde_json::to_string_pretty(&value).unwrap()
-                    );
-                }
+                validate_minute(minute_utc)?;
                 CronSchedule::Hourly { minute_utc }
             },
             ScheduleJson::Daily {
                 minute_utc,
                 hour_utc,
             } => {
-                if !(0..=59).contains(&minute_utc) {
-                    anyhow::bail!(
-                        "minuteUTC must be 0-59 in {}",
-                        serde_json::to_string_pretty(&value).unwrap()
-                    );
-                }
+                validate_minute(minute_utc)?;
                 if !(0..=23).contains(&hour_utc) {
                     anyhow::bail!(
                         "hourUTC must be 0-23 in {}",
@@ -400,12 +403,7 @@ impl CronSpec {
                 hour_utc,
                 day_of_week,
             } => {
-                if !(0..=59).contains(&minute_utc) {
-                    anyhow::bail!(
-                        "minuteUTC must be 0-59 in {}",
-                        serde_json::to_string_pretty(&value).unwrap()
-                    );
-                }
+                validate_minute(minute_utc)?;
                 if !(0..=23).contains(&hour_utc) {
                     anyhow::bail!(
                         "hourUTC must be 0-23 in {}",
@@ -431,12 +429,7 @@ impl CronSpec {
                 hour_utc,
                 day,
             } => {
-                if !(0..=59).contains(&minute_utc) {
-                    anyhow::bail!(
-                        "minuteUTC must be 0-59 in {}",
-                        serde_json::to_string_pretty(&value).unwrap()
-                    );
-                }
+                validate_minute(minute_utc)?;
                 if !(0..=23).contains(&hour_utc) {
                     anyhow::bail!(
                         "hourUTC must be 0-23 in {}",
@@ -500,22 +493,24 @@ pub enum CronSchedule {
     Interval {
         seconds: i64,
     },
+    // `minute_utc: None` delegates the exact start offset to the backend so
+    // jobs are spread across the hour (see `compute_next_ts`).
     Hourly {
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Daily {
         hour_utc: i64,
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Weekly {
         day_of_week: i64,
         hour_utc: i64,
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Monthly {
         day: i64,
         hour_utc: i64,
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Cron {
         cron_expr: String,
@@ -541,29 +536,29 @@ pub enum SerializedCronSchedule {
         seconds: i64,
     },
     Hourly {
-        #[serde(rename = "minuteUTC")]
-        minute_utc: i64,
+        #[serde(rename = "minuteUTC", default)]
+        minute_utc: Option<i64>,
     },
     Daily {
         #[serde(rename = "hourUTC")]
         hour_utc: i64,
-        #[serde(rename = "minuteUTC")]
-        minute_utc: i64,
+        #[serde(rename = "minuteUTC", default)]
+        minute_utc: Option<i64>,
     },
     Weekly {
         #[serde(rename = "dayOfWeek")]
         day_of_week: i64,
         #[serde(rename = "hourUTC")]
         hour_utc: i64,
-        #[serde(rename = "minuteUTC")]
-        minute_utc: i64,
+        #[serde(rename = "minuteUTC", default)]
+        minute_utc: Option<i64>,
     },
     Monthly {
         day: i64,
         #[serde(rename = "hourUTC")]
         hour_utc: i64,
-        #[serde(rename = "minuteUTC")]
-        minute_utc: i64,
+        #[serde(rename = "minuteUTC", default)]
+        minute_utc: Option<i64>,
     },
     #[serde(rename_all = "camelCase")]
     Cron {
@@ -664,21 +659,21 @@ pub enum CronScheduleProductAnalysis {
         seconds: i64,
     },
     Hourly {
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Daily {
         hour_utc: i64,
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Weekly {
         day_of_week: i64,
         hour_utc: i64,
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Monthly {
         day: i64,
         hour_utc: i64,
-        minute_utc: i64,
+        minute_utc: Option<i64>,
     },
     Cron {
         cron_expr: String,
@@ -729,27 +724,29 @@ impl CronSchedule {
                 }
                 return Ok(());
             },
-            CronSchedule::Hourly { minute_utc } => format!("{minute_utc} * * * *")
+            // When the minute is left to the backend, validate the format with
+            // a placeholder minute; the real one is chosen in `compute_next_ts`.
+            CronSchedule::Hourly { minute_utc } => format!("{} * * * *", minute_utc.unwrap_or(0))
                 .parse()
                 .context("Hourly Schedule: Cron parsing from Saffron failed")?,
             CronSchedule::Daily {
                 hour_utc,
                 minute_utc,
-            } => format!("{minute_utc} {hour_utc} * * *")
+            } => format!("{} {hour_utc} * * *", minute_utc.unwrap_or(0))
                 .parse()
                 .context("Daily Schedule: Cron parsing from Saffron failed")?,
             CronSchedule::Weekly {
                 day_of_week,
                 hour_utc,
                 minute_utc,
-            } => format!("{minute_utc} {hour_utc} * * {day_of_week}")
+            } => format!("{} {hour_utc} * * {day_of_week}", minute_utc.unwrap_or(0))
                 .parse()
                 .context("Weekly Schedule: Cron parsing from Saffron failed")?,
             CronSchedule::Monthly {
                 day,
                 hour_utc,
                 minute_utc,
-            } => format!("{minute_utc} {hour_utc} {day} * *")
+            } => format!("{} {hour_utc} {day} * *", minute_utc.unwrap_or(0))
                 .parse()
                 .context("Monthly Schedule: Cron parsing from Saffron failed")?,
             CronSchedule::Cron { cron_expr } => cron_expr

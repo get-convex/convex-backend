@@ -848,14 +848,14 @@ impl<RT: Runtime> CronJobContext<RT> {
     ) -> anyhow::Result<()> {
         let now = self.rt.generate_timestamp()?;
         let prev_ts = job.next_ts;
-        let mut next_ts = compute_next_ts(&job.cron_spec, Some(prev_ts), now)?;
+        let mut next_ts = compute_next_ts(&job.cron_spec, Some(prev_ts), now, &mut self.rt.rng())?;
         let mut num_skipped = 0;
         let first_skipped_ts = next_ts;
         let (component, component_path) = self.get_job_component(tx, job.id).await?;
         let mut model = CronModel::new(tx, component);
         while next_ts < now {
             num_skipped += 1;
-            next_ts = compute_next_ts(&job.cron_spec, Some(next_ts), now)?;
+            next_ts = compute_next_ts(&job.cron_spec, Some(next_ts), now, &mut self.rt.rng())?;
         }
         if num_skipped > 0 {
             let job_id = job.id.developer_id;

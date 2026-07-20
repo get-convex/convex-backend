@@ -509,6 +509,15 @@ pub static SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE: LazyLock<usize> =
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 10)));
 
+/// Exclusive upper bound, in seconds, for the stable random offset applied to
+/// cron runs so jobs sharing a schedule don't all fire at once and spike load.
+/// A job whose previous run is exactly schedule-aligned draws a fresh offset,
+/// which is how jobs created before splaying pick one up. Keep this at or
+/// below 60 so a run remains within its scheduled minute; set it to 0 to
+/// disable splaying.
+pub static CRON_SPLAY_SECONDS: LazyLock<u64> =
+    LazyLock::new(|| env_config("CRON_SPLAY_SECONDS", 60));
+
 /// Maximum number of syscalls that can run in a batch together when
 /// awaited in parallel. Higher values improve latency, while lower ones
 /// protect one isolate from hogging database connections.
