@@ -46,12 +46,14 @@ jobs:
           file: self-hosted/docker-build/Dockerfile.dashboard
           tags: |
             ghcr.io/get-convex/convex-dashboard
-          cache-from: |
-            type=s3,name=convex-dashboard-${{ matrix.arch }}-${{ github.ref_name }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
-            type=s3,name=convex-dashboard-${{ matrix.arch }}-${{ github.sha }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
-          cache-to: |
-            type=s3,name=convex-dashboard-${{ matrix.arch }}-${{ github.sha }},mode=max,prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
-            type=s3,name=convex-dashboard-${{ matrix.arch }}-${{ github.ref_name }},mode=max,prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+          # This workflow does not use a build cache.
+          # A shared cache is not safe for a release build. A bad cache entry
+          # from a cache poisoning attack can put incorrect content into the
+          # image.
+          # A build without a cache is slower, but the speed is not a problem
+          # here. This workflow runs only when a change merges to the `release`
+          # branch.
+          no-cache: true
           outputs: push-by-digest=true,type=image,push=true
           provenance: false
 
