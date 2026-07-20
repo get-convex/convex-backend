@@ -188,142 +188,121 @@ impl<RT: Runtime> UdfPhase<RT> {
             anyhow::bail!("UdfPhase initialized twice");
         };
         let default_system_env_vars = default_system_env_vars.clone();
-
         let component = self.component;
-
-        let component_env = if !component.is_root() {
-            let env = timeout
-                .with_release_permit(
-                    PauseReason::LoadComponentArgs,
-                    BootstrapComponentsModel::new(self.tx_mut()?).load_component_env(component),
-                )
-                .await?;
-            let has_env_var_binding = env.values().any(|b| matches!(b, EnvBinding::EnvVar(_)));
-            let parent_env_vars = if has_env_var_binding {
-                Some(
-                    timeout
-                        .with_release_permit(
-                            PauseReason::LoadEnvironmentVariables,
-                            EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
+        self.preloaded = timeout
+            .with_release_permit(PauseReason::UdfInitialize, async {
+                let component_env = if !component.is_root() {
+                    let env = BootstrapComponentsModel::new(self.tx_mut()?)
+                        .load_component_env(component)
+                        .await?;
+                    let has_env_var_binding =
+                        env.values().any(|b| matches!(b, EnvBinding::EnvVar(_)));
+                    let parent_env_vars = if has_env_var_binding {
+                        Some(
+                            EnvironmentVariablesModel::new(self.tx_mut()?)
+                                .preload()
+                                .await?,
                         )
-                        .await?,
-                )
-            } else {
-                None
-            };
-            Some(ComponentEnvCtx {
-                env,
-                parent_env_vars,
-            })
-        } else {
-            None
-        };
+                    } else {
+                        None
+                    };
+                    Some(ComponentEnvCtx {
+                        env,
+                        parent_env_vars,
+                    })
+                } else {
+                    None
+                };
 
-        let component_args = if !component.is_root() {
-            Some(
-                timeout
-                    .with_release_permit(
-                        PauseReason::LoadComponentArgs,
+                let component_args = if !component.is_root() {
+                    Some(
                         BootstrapComponentsModel::new(self.tx_mut()?)
-                            .load_component_args(component),
+                            .load_component_args(component)
+                            .await?,
                     )
-                    .await?,
-            )
-        } else {
-            None
-        };
+                } else {
+                    None
+                };
 
-        // UdfConfig might not be defined for super old modules or system modules.
-        let udf_config = timeout
-            .with_release_permit(
-                PauseReason::LoadUdfConfig,
-                UdfConfigModel::new(self.tx_mut()?, component.into()).get(),
-            )
-            .await?;
-        let rng = udf_config
-            .as_ref()
-            .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
-        let unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
+                // UdfConfig might not be defined for super old modules or system modules.
+                let udf_config = UdfConfigModel::new(self.tx_mut()?, component.into())
+                    .get()
+                    .await?;
+                let rng = udf_config
+                    .as_ref()
+                    .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
+                let unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let root_env_vars = if component.is_root() {
-            Some(
-                timeout
-                    .with_release_permit(
-                        PauseReason::LoadEnvironmentVariables,
-                        EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
+                let root_env_vars = if component.is_root() {
+                    Some(
+                        EnvironmentVariablesModel::new(self.tx_mut()?)
+                            .preload()
+                            .await?,
                     )
-                    .await?,
-            )
-        } else {
-            None
-        };
+                } else {
+                    None
+                };
 
-        let mut system_env_vars = timeout
-            .with_release_permit(
-                PauseReason::LoadSystemEnvironmentVariables,
-                system_env_vars(self.tx_mut()?, default_system_env_vars.clone()),
-            )
-            .await?;
+                let mut system_env_vars =
+                    system_env_vars(self.tx_mut()?, default_system_env_vars.clone()).await?;
 
-        // For non-root components with an HTTP prefix, override CONVEX_SITE_URL
-        // with the prefixed URL so components can construct correct absolute URLs.
-        if !component.is_root() {
-            let component_metadata = timeout
-                .with_release_permit(
-                    PauseReason::LoadComponentArgs,
-                    BootstrapComponentsModel::new(self.tx_mut()?).load_component(component),
-                )
-                .await?;
-            if let Some(http_prefix) = component_metadata
-                .as_ref()
-                .and_then(|m| m.http_prefix.as_deref())
-                && let Some(base_url) = system_env_vars.get(&*CONVEX_SITE).cloned()
-            {
-                let prefixed_url = format!(
-                    "{}{}",
-                    base_url.as_ref().trim_end_matches('/'),
-                    http_prefix.trim_end_matches('/')
-                );
-                system_env_vars.insert(CONVEX_SITE.clone(), prefixed_url.parse()?);
-            }
-        }
-
-        let source_package = timeout
-            .with_release_permit(PauseReason::LoadSourcePackage, async {
-                if ModuleModel::new(self.tx_mut()?).has_pending_module(component) {
-                    // If there is a pending write in ModulesTable, this may be an
-                    // ad-hoc test query (`execute_standalone_module`).
-                    // Reading the source package from a snapshot query doesn't
-                    // work in that case since it doesn't see pending writes.
-                    // TODO: even if it did, the test query codepath breaks the
-                    // get_latest() invariant since it leaves behind modules
-                    // with mixed source packages.
-                    return Ok(None);
+                // For non-root components with an HTTP prefix, override CONVEX_SITE_URL
+                // with the prefixed URL so components can construct correct absolute URLs.
+                if !component.is_root() {
+                    let component_metadata = BootstrapComponentsModel::new(self.tx_mut()?)
+                        .load_component(component)
+                        .await?;
+                    if let Some(http_prefix) = component_metadata
+                        .as_ref()
+                        .and_then(|m| m.http_prefix.as_deref())
+                        && let Some(base_url) = system_env_vars.get(&*CONVEX_SITE).cloned()
+                    {
+                        let prefixed_url = format!(
+                            "{}{}",
+                            base_url.as_ref().trim_end_matches('/'),
+                            http_prefix.trim_end_matches('/')
+                        );
+                        system_env_vars.insert(CONVEX_SITE.clone(), prefixed_url.parse()?);
+                    }
                 }
-                let mut snapshot_tx = self.tx_mut()?.clone_for_snapshot_query();
-                // Load all modules from the latest source package, but don't
-                // record a read dependency on all the modules and their source
-                // packages.
-                SourcePackageModel::new(&mut snapshot_tx, component.into())
-                    .get_latest()
-                    .await
+
+                let source_package =
+                    if ModuleModel::new(self.tx_mut()?).has_pending_module(component) {
+                        // If there is a pending write in ModulesTable, this may be an
+                        // ad-hoc test query (`execute_standalone_module`).
+                        // Reading the source package from a snapshot query doesn't
+                        // work in that case since it doesn't see pending writes.
+                        // TODO: even if it did, the test query codepath breaks the
+                        // get_latest() invariant since it leaves behind modules
+                        // with mixed source packages.
+                        None
+                    } else {
+                        let mut snapshot_tx = self.tx_mut()?.clone_for_snapshot_query();
+                        // Load all modules from the latest source package, but don't
+                        // record a read dependency on all the modules and their source
+                        // packages.
+                        SourcePackageModel::new(&mut snapshot_tx, component.into())
+                            .get_latest()
+                            .await?
+                    };
+
+                Ok(UdfPreloaded::Ready {
+                    rng,
+                    observed_rng_during_execution: false,
+                    unix_timestamp,
+                    observed_time_during_execution: false,
+                    performance_api: unix_timestamp.map(PerformanceApi::new),
+                    observed_identity_during_execution: false,
+                    root_env_vars,
+                    system_env_vars,
+                    component,
+                    component_arguments: component_args,
+                    component_env,
+                    source_package,
+                })
             })
             .await?;
 
-        self.preloaded = UdfPreloaded::Ready {
-            rng,
-            observed_rng_during_execution: false,
-            unix_timestamp,
-            observed_time_during_execution: false,
-            performance_api: unix_timestamp.map(PerformanceApi::new),
-            observed_identity_during_execution: false,
-            root_env_vars,
-            system_env_vars,
-            component,
-            component_arguments: component_args,
-            component_env,
-            source_package,
-        };
         Ok(())
     }
 
@@ -383,45 +362,41 @@ impl<RT: Runtime> UdfPhase<RT> {
             module_path: module_path.clone().canonicalize(),
         };
         let source_package = source_package.clone();
-        let Some((module_metadata, source_package)) = timeout
-            .with_release_permit(PauseReason::LoadModuleMetadata, async {
-                match ModuleModel::new(self.tx_mut()?)
+        let Some((module_metadata, module_source)) = timeout
+            .with_release_permit(PauseReason::LoadModule, async {
+                let Some(module_metadata) = ModuleModel::new(self.tx_mut()?)
                     .get_metadata(path.clone())
                     .await?
-                {
-                    None => anyhow::Ok(None),
-                    Some(module_metadata) => {
-                        let source_package = if let Some(pkg) = source_package {
-                            pkg
-                        } else {
-                            SourcePackageModel::new(self.tx_mut()?, component.into())
-                                .get(module_metadata.source_package_id)
-                                .await?
-                        };
-                        anyhow::Ok(Some((module_metadata, source_package)))
-                    },
-                }
+                else {
+                    return Ok(None);
+                };
+                anyhow::ensure!(
+                    module_metadata.environment == ModuleEnvironment::Isolate,
+                    "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
+                    path.module_path,
+                    module_metadata.environment
+                );
+                let source_package = if let Some(pkg) = source_package {
+                    pkg
+                } else {
+                    SourcePackageModel::new(self.tx_mut()?, component.into())
+                        .get(module_metadata.source_package_id)
+                        .await?
+                };
+                let module_source = self
+                    .module_loader
+                    .get_module_with_metadata(&module_metadata, &source_package)
+                    .await?;
+                Ok(Some((module_metadata, module_source)))
             })
             .await?
         else {
             return Ok(None);
         };
-
-        anyhow::ensure!(
-            module_metadata.environment == ModuleEnvironment::Isolate,
-            "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
-            module_path,
-            module_metadata.environment
-        );
-
-        let module_loader = self.module_loader.clone();
-        let module_source = timeout
-            .with_release_permit(
-                PauseReason::LoadModuleSource,
-                module_loader.get_module_with_metadata(&module_metadata, &source_package),
-            )
-            .await?;
-        let code_cache_result = module_loader.code_cache_result(&module_metadata);
+        let code_cache_result = self
+            .module_loader
+            .clone()
+            .code_cache_result(&module_metadata);
         Ok(Some((module_source, code_cache_result)))
     }
 

@@ -46,15 +46,8 @@ pub const SYSTEM_TIMEOUT_ERROR_MESSAGE: &str =
 pub enum PauseReason {
     DatabaseSyscall { name: String },
     ConcurrencyPermitReacquire,
-    LoadComponentArgs,
-    LoadUdfConfig,
-    LoadEnvironmentVariables,
-    LoadSystemEnvironmentVariables,
-    LoadModuleMetadata,
-    LoadModuleSource,
-    LoadSourcePackage,
-    LoadCanonicalUrls,
-    LoadResources,
+    UdfInitialize,
+    LoadModule,
 }
 
 impl PauseReason {
@@ -62,15 +55,8 @@ impl PauseReason {
         match self {
             Self::DatabaseSyscall { name } => format!("database_syscall({name})"),
             Self::ConcurrencyPermitReacquire => "concurrency_permit_reacquire".to_string(),
-            Self::LoadComponentArgs => "load_component_args".to_string(),
-            Self::LoadUdfConfig => "load_udf_config".to_string(),
-            Self::LoadEnvironmentVariables => "load_environment_variables".to_string(),
-            Self::LoadSystemEnvironmentVariables => "load_system_environment_variables".to_string(),
-            Self::LoadModuleMetadata => "load_module_metadata".to_string(),
-            Self::LoadModuleSource => "load_module_source".to_string(),
-            Self::LoadSourcePackage => "load_source_package".to_string(),
-            Self::LoadCanonicalUrls => "load_canonical_urls".to_string(),
-            Self::LoadResources => "load_resources".to_string(),
+            Self::UdfInitialize => "udf_initialize".to_string(),
+            Self::LoadModule => "load_module".to_string(),
         }
     }
 }
