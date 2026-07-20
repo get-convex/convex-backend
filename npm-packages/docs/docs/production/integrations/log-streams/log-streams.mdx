@@ -290,6 +290,9 @@ Schema:
   - `network_egress_bytes`: number, the bytes sent to clients or external
     services. This contributes to Data egress alongside
     [`storage_api_bandwidth`](#storage_api_bandwidth-events) events.
+  - `audit_log_egress_bytes`: number, the bytes egressed delivering
+    [audit logs](/production/integrations/audit-logging.mdx) to S3 (if
+    configured for a D1024 deployment).
   - `action_memory_used_mb`: optional number (actions and HTTP actions only),
     the memory used in MiB. This combined with `execution_time_ms` makes up
     Action compute.
@@ -318,7 +321,8 @@ Example event for a query:
       "text_search_write_query_bytes": 0,
       "vector_search_query_bytes": 0,
       "vector_search_write_query_bytes": 0,
-      "network_egress_bytes": 0
+      "network_egress_bytes": 0,
+      "audit_log_egress_bytes": 0
     }
   }
 }
