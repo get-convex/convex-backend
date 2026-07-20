@@ -96,6 +96,13 @@ jobs:
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      # rusty_v8 contains deeply nested Chromium sources that exceed MAX_PATH
+      # under the default user-profile Cargo directory.
+      - name: Use short CARGO_HOME on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo 'CARGO_HOME=C:\c' >> "$GITHUB_ENV"
+
       # Windows-only: Defender's real-time scan of every small file dominates the
       # cargo/rush build wall-clock. Exclude the file-heavy dirs (best-effort).
       - name: Exclude build dirs from Windows Defender
@@ -105,7 +112,7 @@ jobs:
           foreach ($p in @(
             "${{ github.workspace }}",
             "$env:USERPROFILE\.rush",
-            "$env:USERPROFILE\.cargo"
+            "$env:CARGO_HOME"
           )) { Add-MpPreference -ExclusionPath $p -ErrorAction SilentlyContinue }
           Add-MpPreference -ExclusionProcess node.exe -ErrorAction SilentlyContinue
 
