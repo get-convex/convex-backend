@@ -105,7 +105,7 @@ export type ComponentDefinition<
    */
   use<Definition extends ComponentDefinition<any, any>>(
     definition: Definition,
-    options?: UseOptions<Definition>,
+    ...args: UseArgs<Definition>
   ): InstalledComponent<Definition>;
 
   /**
@@ -141,7 +141,7 @@ type ComponentDefinitionEnv<T extends ComponentDefinition<any, any>> =
  * wrapped in `v.optional(...)`).
  */
 type RequiredEnvKeys<E extends EnvDefinition> = {
-  [K in keyof E]: E[K] extends VOptional<any> ? never : K;
+  [K in keyof E]: E[K] extends Validator<any, "optional", any> ? never : K;
 }[keyof E];
 
 /**
@@ -164,16 +164,27 @@ type UseOptions<Definition extends ComponentDefinition<any, any>> =
         env: UseOptionsEnv<ComponentDefinitionEnv<Definition>>;
       };
 
+/**
+ * The arguments to `use()` after the component definition.
+ *
+ * When the component declares required env vars the `options` argument is
+ * mandatory (so it can't be dropped to skip the required `env`); otherwise it
+ * is optional.
+ */
+type UseArgs<Definition extends ComponentDefinition<any, any>> =
+  RequiredEnvKeys<ComponentDefinitionEnv<Definition>> extends never
+    ? [options?: UseOptions<Definition>]
+    : [options: UseOptions<Definition>];
+
 type UseOptionsEnv<E extends EnvDefinition> = Expand<
   {
-    [K in keyof E as E[K] extends VOptional<any> ? never : K]:
+    [K in keyof E as E[K] extends Validator<any, "optional", any> ? never : K]:
       | Infer<E[K]>
       | EnvRef;
   } & {
-    [K in keyof E as E[K] extends VOptional<any> ? K : never]?:
-      | Infer<E[K]>
-      | EnvRef
-      | undefined;
+    [K in keyof E as E[K] extends Validator<any, "optional", any>
+      ? K
+      : never]?: Infer<E[K]> | EnvRef | undefined;
   }
 >;
 
@@ -227,11 +238,13 @@ export type EnvDefinition = Record<
  */
 export type EnvFromDefinition<E extends EnvDefinition> = Expand<
   {
-    [K in keyof E as E[K] extends VOptional<any> ? never : K]: Infer<E[K]>;
+    [K in keyof E as E[K] extends Validator<any, "optional", any>
+      ? never
+      : K]: Infer<E[K]>;
   } & {
-    [K in keyof E as E[K] extends VOptional<any> ? K : never]?:
-      | Infer<E[K]>
-      | undefined;
+    [K in keyof E as E[K] extends Validator<any, "optional", any>
+      ? K
+      : never]?: Infer<E[K]> | undefined;
   }
 >;
 
@@ -283,7 +296,7 @@ export type AppDefinition<Env extends EnvDefinition = EnvDefinition> = {
    */
   use<Definition extends ComponentDefinition<any, any>>(
     definition: Definition,
-    options?: UseOptions<Definition>,
+    ...args: UseArgs<Definition>
   ): InstalledComponent<Definition>;
 
   /**
