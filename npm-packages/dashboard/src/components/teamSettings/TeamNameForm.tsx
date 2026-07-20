@@ -6,6 +6,7 @@ import { useFormik } from "formik";
 import { TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export type TeamNameFormProps = {
   team: TeamResponse;
@@ -39,7 +40,7 @@ export function TeamNameForm({
   const disabled = !canUpdate || team.managedBy === "vercel";
 
   return (
-    <Sheet className="text-sm">
+    <Sheet id={TEAM_SETTINGS_SECTIONS.teamName.id} className="text-sm">
       <h3 className="mb-4">Team Name</h3>
       <form
         onSubmit={formState.handleSubmit}

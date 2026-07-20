@@ -20,6 +20,7 @@ import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { deploymentResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import { DEPLOYMENT_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export function DeleteDeployment() {
   const { useCurrentDeployment, deploymentsURI } = useContext(
@@ -64,7 +65,7 @@ export function DeleteDeployment() {
   // Local deployments are automatically cleaned up
   if (isLocal) {
     return (
-      <Sheet>
+      <Sheet id={DEPLOYMENT_SETTINGS_SECTIONS.deleteDeployment.id}>
         <div className="flex w-full flex-col gap-4">
           <h3>Delete Deployment</h3>
           <div className="flex max-w-prose flex-col gap-2">
@@ -79,7 +80,7 @@ export function DeleteDeployment() {
   }
 
   return (
-    <Sheet>
+    <Sheet id={DEPLOYMENT_SETTINGS_SECTIONS.deleteDeployment.id}>
       <div className="flex w-full flex-col gap-4 lg:grid lg:grid-cols-[1fr_auto]">
         <h3>Delete Deployment</h3>
         <div className="flex items-start lg:row-span-2">

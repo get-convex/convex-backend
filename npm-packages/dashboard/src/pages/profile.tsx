@@ -23,6 +23,7 @@ import { LoadingTransition } from "@ui/Loading";
 import { useTheme } from "next-themes";
 import { ConnectedIdentities } from "components/profile/ConnectedIdentities";
 import { PersonalAccessTokens } from "components/profile/PersonalAccessTokens";
+import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -61,7 +62,10 @@ export function Profile() {
         {emails && profile && (
           <div className="scrollbar w-full overflow-auto">
             <div className="mx-auto flex max-w-prose min-w-88 flex-col justify-center gap-4 p-4">
-              <Sheet className="flex w-full flex-col gap-4">
+              <Sheet
+                id={PROFILE_SECTIONS.profileInformation.id}
+                className="flex w-full flex-col gap-4"
+              >
                 <h3>Profile information</h3>
                 <ProfileForm profile={profile} />
               </Sheet>
@@ -75,7 +79,10 @@ export function Profile() {
               <ToggleDarkMode />
               <DiscordAccounts />
 
-              <Sheet className="flex flex-col gap-4">
+              <Sheet
+                id={PROFILE_SECTIONS.deleteAccount.id}
+                className="flex flex-col gap-4"
+              >
                 <h3>Delete Account</h3>
                 {deleteAccountBody}
                 <Button
@@ -185,7 +192,10 @@ function ToggleDarkMode() {
   const { theme: currentTheme, setTheme } = useTheme();
 
   return (
-    <Sheet className="flex flex-col gap-4">
+    <Sheet
+      id={PROFILE_SECTIONS.dashboardTheme.id}
+      className="flex flex-col gap-4"
+    >
       <RadioGroup value={currentTheme} onChange={setTheme}>
         <RadioGroup.Label>
           <h3>Dashboard theme</h3>

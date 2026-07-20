@@ -49,6 +49,7 @@ import { TransferProject } from "components/projects/TransferProject";
 import { cn } from "@ui/cn";
 import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { HelpTooltip } from "@ui/HelpTooltip";
+import { PROJECT_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -62,16 +63,18 @@ export function ProjectSettingsPage() {
 
 export default withAuthenticatedPage(ProjectSettingsPage);
 
+// Anchor ids are shared with the command palette (which deep-links to them)
+// via `lib/sectionAnchors`, so the two can't drift.
 const SECTION_IDS = {
-  projectForm: "project-form",
-  projectRoles: "project-roles",
-  projectUsage: "project-usage",
-  customDomains: "custom-domains",
-  previewDeployKeys: "preview-deploy-keys",
-  authorizedApps: "applications",
-  envVars: "env-vars",
-  transferProject: "transfer-project",
-  deleteProject: "delete-project",
+  projectForm: PROJECT_SETTINGS_SECTIONS.editProject.id,
+  projectRoles: PROJECT_SETTINGS_SECTIONS.projectAdmins.id,
+  projectUsage: PROJECT_SETTINGS_SECTIONS.projectUsage.id,
+  customDomains: PROJECT_SETTINGS_SECTIONS.customDomains.id,
+  previewDeployKeys: PROJECT_SETTINGS_SECTIONS.previewDeployKeys.id,
+  authorizedApps: PROJECT_SETTINGS_SECTIONS.authorizedApplications.id,
+  envVars: PROJECT_SETTINGS_SECTIONS.environmentVariables.id,
+  transferProject: PROJECT_SETTINGS_SECTIONS.transferProject.id,
+  deleteProject: PROJECT_SETTINGS_SECTIONS.deleteProject.id,
 } as const;
 
 const sections: {

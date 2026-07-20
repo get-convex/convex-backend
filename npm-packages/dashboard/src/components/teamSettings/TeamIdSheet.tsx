@@ -4,6 +4,7 @@ import { TextInput } from "@ui/TextInput";
 import { Link } from "@ui/Link";
 import { TeamResponse } from "generatedApi";
 import { useCopy } from "@common/lib/useCopy";
+import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export type TeamIdSheetProps = {
   team: TeamResponse;
@@ -14,7 +15,7 @@ export function TeamIdSheet({ team }: TeamIdSheetProps) {
   const teamId = team.id.toString();
 
   return (
-    <Sheet className="text-sm">
+    <Sheet id={TEAM_SETTINGS_SECTIONS.teamId.id} className="text-sm">
       <h3 className="mb-1">Team ID</h3>
       <p className="mb-4 max-w-prose text-content-secondary">
         Your team ID identifies your team in the{" "}

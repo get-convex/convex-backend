@@ -18,6 +18,7 @@ import {
 } from "api/personalAccessTokens";
 import { useTeams } from "api/teams";
 import { PaginationControls } from "elements/PaginationControls";
+import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 import {
   TokenExpirationSelector,
   TokenExpirationValue,
@@ -66,7 +67,10 @@ export function PersonalAccessTokens() {
   };
 
   return (
-    <Sheet className="flex flex-col gap-4">
+    <Sheet
+      id={PROFILE_SECTIONS.personalAccessTokens.id}
+      className="flex flex-col gap-4"
+    >
       <div className="flex items-center justify-between">
         <h3>Personal Access Tokens</h3>
         <Button onClick={() => setShowCreateDialog(true)} icon={<PlusIcon />}>

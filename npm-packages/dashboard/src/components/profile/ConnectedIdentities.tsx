@@ -12,6 +12,7 @@ import { HelpTooltip } from "@ui/HelpTooltip";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { logout } from "lib/logout";
+import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 
 export function ConnectedIdentities() {
   const identities = useIdentities();
@@ -37,7 +38,7 @@ export function ConnectedIdentities() {
   };
 
   return (
-    <Sheet className="flex flex-col gap-4">
+    <Sheet id={PROFILE_SECTIONS.identities.id} className="flex flex-col gap-4">
       <h3>Identities</h3>
       <p className="max-w-prose text-sm">
         These are the identities associated with your account.

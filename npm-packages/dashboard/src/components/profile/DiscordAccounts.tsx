@@ -5,6 +5,7 @@ import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { DiscordAccount, DiscordAccountDetails } from "generatedApi";
+import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 
 function DiscordAccountDetail({
   id,
@@ -99,7 +100,10 @@ export function DiscordAccounts() {
   const accounts = useDiscordAccounts();
 
   return (
-    <Sheet className="flex flex-col gap-4">
+    <Sheet
+      id={PROFILE_SECTIONS.discordAccounts.id}
+      className="flex flex-col gap-4"
+    >
       <h3>Discord</h3>
 
       <p className="max-w-lg text-sm">

@@ -20,6 +20,7 @@ import {
 import { useCurrentTeam } from "api/teams";
 import { deploymentResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import { DEPLOYMENT_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export function TransferDeployment() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
@@ -129,7 +130,7 @@ export function TransferDeployment() {
   }
 
   return (
-    <Sheet>
+    <Sheet id={DEPLOYMENT_SETTINGS_SECTIONS.transferDeployment.id}>
       <h3 className="mb-4">Transfer Deployment</h3>
       <div className="mb-5 flex max-w-prose flex-col gap-2 text-sm text-content-primary">
         <p>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { RegionName, TeamResponse } from "generatedApi";
 import { useDeploymentRegions } from "api/deployments";
 import { DefaultRegionSelector } from "./DefaultRegionSelector";
+import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export type DefaultRegionFormProps = {
   team: TeamResponse;
@@ -23,7 +24,7 @@ export function DefaultRegionForm({
   );
 
   return (
-    <Sheet className="text-sm">
+    <Sheet id={TEAM_SETTINGS_SECTIONS.defaultRegion.id} className="text-sm">
       <h3 className="mb-1">Default Region</h3>
       <p className="mb-4 max-w-prose text-content-secondary">
         The region where new deployments in this team are created.
