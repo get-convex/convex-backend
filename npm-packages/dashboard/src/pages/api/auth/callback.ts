@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { WorkOS } from "@workos-inc/node";
 import { captureException } from "@sentry/nextjs";
-import { createSessionCookie } from "server/workos";
+import { createSessionCookie, withWorkOSTimeout } from "server/workos";
 
 export default async function handler(
   req: NextApiRequest,
@@ -25,15 +25,17 @@ export default async function handler(
   }
 
   try {
-    const authenticateResponse =
-      await workos.userManagement.authenticateWithCode({
+    const authenticateResponse = await withWorkOSTimeout(
+      "authenticateWithCode",
+      workos.userManagement.authenticateWithCode({
         clientId: process.env.WORKOS_CLIENT_ID || "",
         code,
         session: {
           sealSession: true,
           cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
         },
-      });
+      }),
+    );
 
     const { sealedSession, authenticationMethod } = authenticateResponse;
 
@@ -86,6 +88,9 @@ export default async function handler(
       return;
     }
     captureException(error);
+    // Show the friendly retry page. Without this the handler would fall through
+    // without sending a response, hanging the function until Vercel times out.
+    res.redirect(`/login-error?returnTo=${encodeURIComponent(state || "/")}`);
   }
 }
 

@@ -52,6 +52,7 @@ if (typeof window !== "undefined") {
 const UNAUTHED_ROUTES = [
   "/404",
   "/login",
+  "/login-error",
   "/signup",
   /^\/referral\/[A-Z0-9]+$/,
 ];
