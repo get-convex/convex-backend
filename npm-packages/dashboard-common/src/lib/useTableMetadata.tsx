@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { NextRouter, useRouter } from "next/router";
 import { useQuery } from "convex/react";
+import { createGlobalState } from "react-use";
 import udfs from "@common/udfs";
 import { useNents } from "@common/lib/useNents";
 import { isUserTableName } from "@common/lib/utils";
+
+// Remembers each table's most recent (already base64-encoded) `filters` query
+// param so switching back to a table restores its filters. Populated as you
+// leave a table and read when you arrive; the URL stays the source of truth.
+export const useFilterMap = createGlobalState(
+  {} as Record<string, string | undefined>,
+);
 
 export type TableMetadata = {
   name: string | null;
@@ -27,21 +35,32 @@ export function useTableMetadata(): TableMetadata | undefined {
     [tableMapping],
   );
 
+  const [filterMap, setFilterMap] = useFilterMap();
+
   const selectTable = useCallback(
     (table: string) => {
       if (tableNames === undefined) {
         return;
       }
-      if (table === router.query.table) {
+      const currentTable = router.query.table as string | undefined;
+      if (table === currentTable) {
         return;
+      }
+      // Remember the table we're leaving so we can restore its filters, and
+      // restore the destination table's filters if we've seen them before.
+      if (currentTable) {
+        setFilterMap((prev) => ({
+          ...prev,
+          [currentTable]: router.query.filters as string | undefined,
+        }));
       }
       void shallowNavigate(router, {
         ...router.query,
         table,
-        filters: undefined,
+        filters: filterMap[table],
       });
     },
-    [tableNames, router],
+    [tableNames, router, filterMap, setFilterMap],
   );
 
   if (tableNames === undefined) {

@@ -395,7 +395,7 @@ export function DataContent({
                       field: sortField,
                     }}
                     totalRowCount={
-                      router.query.filters
+                      filters
                         ? status === "Exhausted"
                           ? data.length
                           : // If we are filtering, we need to add 1 to the total row count to
