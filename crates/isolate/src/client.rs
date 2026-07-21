@@ -173,6 +173,8 @@ use crate::{
         log_pool_running_count,
         log_worker_stolen,
         queue_timer,
+        rejected_before_execution_error,
+        RejectedBeforeExecutionReason,
     },
     module_cache::{
         ModuleCache,
@@ -409,10 +411,8 @@ where
 
 impl<RT: Runtime> Request<RT> {
     fn expire(self, error: ExpiredInQueue) {
-        let error = anyhow::anyhow!(error).context(ErrorMetadata::rejected_before_execution(
-            "ExpiredInQueue",
-            "Too many concurrent requests in a short period of time. Spread out your requests out \
-             over time or throttle them to avoid errors.",
+        let error = anyhow::anyhow!(error).context(rejected_before_execution_error(
+            RejectedBeforeExecutionReason::ExpiredInQueue,
         ));
         match self.inner {
             RequestType::Udf { response, .. } => {
@@ -442,10 +442,8 @@ impl<RT: Runtime> Request<RT> {
         }
     }
 
-    fn reject(self) {
-        let error =
-            ErrorMetadata::rejected_before_execution("WorkerOverloaded", NO_AVAILABLE_WORKERS)
-                .into();
+    fn reject(self, reason: RejectedBeforeExecutionReason) {
+        let error = rejected_before_execution_error(reason).into();
         match self.inner {
             RequestType::Udf { response, .. } => {
                 let _ = response.send(Err(error));
@@ -1324,10 +1322,13 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         request.expire(expired);
                         continue;
                     }
-                    let Some(worker_id) = self.get_worker(&request) else {
-                        tracing::error!("unexpected: couldn't find a worker?");
-                        request.reject();
-                        continue;
+                    let worker_id = match self.get_worker(&request) {
+                        Ok(worker_id) => worker_id,
+                        Err(reason) => {
+                            tracing::error!("unexpected: couldn't find a worker?");
+                            request.reject(reason);
+                            continue;
+                        },
                     };
                     let (done_sender, done_receiver) = oneshot::channel();
                     let st = ActiveWorkerState {
@@ -1372,14 +1373,16 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     }
 
     /// Find a worker for the given `client_id`.`
-    /// Returns `None` if no worker could be allocated for this client (i.e.
-    /// this client has reached it's capacity with the scheduler).
+    /// Returns an error if no worker can be allocated for this client.
     ///
     /// Note that the returned worker id is removed from the
     /// `self.available_workers` state, so the caller is responsible for using
     /// the worker and returning it back to `self.available_workers` after it is
     /// done.
-    fn get_worker(&mut self, request: &Request<RT>) -> Option<usize> {
+    fn get_worker(
+        &mut self,
+        request: &Request<RT>,
+    ) -> Result<usize, RejectedBeforeExecutionReason> {
         let client_id = request.client_id.as_str();
         // Make sure this client isn't overloading the scheduler.
         let active_worker_count = self
@@ -1393,7 +1396,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 client_id,
                 self.max_active_workers_per_client,
             );
-            return None;
+            return Err(RejectedBeforeExecutionReason::PerClientWorkerOverloaded);
         }
         // Try to find an existing worker for this client.
         if let Some((client_id, mut workers)) = self.available_workers.remove_entry(client_id) {
@@ -1410,7 +1413,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 self.available_workers.insert(client_id, workers);
             }
             if let Some(worker) = worker {
-                return Some(worker.worker_id);
+                return Ok(worker.worker_id);
             }
             // Otherwise all the workers have cached contexts for other modules
             // that we don't want to clobber; try to assign a new worker
@@ -1437,7 +1440,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 self.worker.config().name,
                 self.worker_senders.len() - 1
             );
-            return Some(self.worker_senders.len() - 1);
+            return Ok(self.worker_senders.len() - 1);
         }
         // No existing worker for this client and we've already started the max number
         // of workers -- just grab the least recently used worker. This worker is least
@@ -1453,7 +1456,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             })
         else {
             // No available workers.
-            return None;
+            return Err(RejectedBeforeExecutionReason::WorkerPoolOverloaded);
         };
         let worker = workers
             .pop_back()
@@ -1465,7 +1468,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             let key = key.clone();
             self.available_workers.remove(&key);
         }
-        Some(worker.worker_id)
+        Ok(worker.worker_id)
     }
 
     fn aggregate_heap_stats(&self) -> IsolateHeapStats {

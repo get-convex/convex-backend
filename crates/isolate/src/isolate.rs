@@ -25,7 +25,6 @@ use derive_more::{
     Add,
     AddAssign,
 };
-use errors::ErrorMetadata;
 use fastrace::{
     local::LocalSpan,
     Event,
@@ -47,6 +46,8 @@ use crate::{
         create_isolate_timer,
         destroy_isolate_timer,
         log_heap_statistics,
+        rejected_before_execution_error,
+        RejectedBeforeExecutionReason,
     },
     request_scope::RequestState,
     strings,
@@ -320,12 +321,9 @@ impl<RT: Runtime> Isolate<RT> {
         // It's unexpected to encounter this error, since we are supposed to
         // have already checked after the last request finished, but in practice
         // it does happen - so make this error retryable.
-        self.check_isolate_clean(context_cache).context(
-            ErrorMetadata::rejected_before_execution(
-                "IsolateNotClean",
-                "Selected isolate was not clean",
-            ),
-        )?;
+        self.check_isolate_clean(context_cache).with_context(|| {
+            rejected_before_execution_error(RejectedBeforeExecutionReason::IsolateNotClean)
+        })?;
         // Acquire a concurrency permit without counting it against the timeout.
         let permit = tokio::select! {
             biased;
@@ -333,9 +331,8 @@ impl<RT: Runtime> Isolate<RT> {
             // Do not apply a timeout for subfunctions that can't be retried
             () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
                     if !environment.is_nested_function() => {
-                anyhow::bail!(ErrorMetadata::rejected_before_execution(
-                    "InitialPermitTimeoutError",
-                    "Couldn't acquire a permit on this funrun",
+                anyhow::bail!(rejected_before_execution_error(
+                    RejectedBeforeExecutionReason::InitialPermitTimeout,
                 ));
             }
         };
