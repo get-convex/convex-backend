@@ -492,12 +492,12 @@ export interface components {
         };
         /** @description The sync is still traversing its selected tables; the data returned so
          *     far is not yet a consistent snapshot. */
-        ActiveDataSyncInProgress: {
+        ActiveDataSyncSnapshotting: {
             /**
-             * @description Always `inProgress`. (enum property replaced by openapi-typescript)
+             * @description Always `snapshotting`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            type: "inProgress";
+            type: "snapshotting";
             /**
              * Format: int64
              * @description Tables whose initial traversal has completed.
@@ -536,15 +536,41 @@ export interface components {
              */
             totalDocuments: number;
         };
-        /** @description The progress of an active data sync, discriminated by `type`. */
-        ActiveDataSyncStatus: components["schemas"]["ActiveDataSyncInProgress"] | components["schemas"]["ActiveDataSyncSynced"];
-        /** @description The sync reached a consistent snapshot and is streaming later changes. */
-        ActiveDataSyncSynced: {
+        /** @description The sync reached a consistent snapshot at `syncedTs`, but newer data is
+         *     already available; it is streaming later changes (CDC). */
+        ActiveDataSyncStale: {
             /**
-             * @description Always `synced`. (enum property replaced by openapi-typescript)
+             * @description Always `stale`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            type: "synced";
+            type: "stale";
+            /**
+             * Format: int64
+             * @description Total tables selected for the sync.
+             */
+            totalTables: number;
+            /**
+             * Format: int64
+             * @description Documents synced over the sync's lifetime, including deletions and
+             *     re-synced revisions.
+             */
+            numDocumentsSynced: number;
+            /**
+             * Format: int64
+             * @description The database timestamp at which the synced data is consistent.
+             */
+            syncedTs: number;
+        };
+        /** @description The progress of an active data sync, discriminated by `type`. */
+        ActiveDataSyncStatus: components["schemas"]["ActiveDataSyncSnapshotting"] | components["schemas"]["ActiveDataSyncStale"] | components["schemas"]["ActiveDataSyncUpToDate"];
+        /** @description The sync reached a consistent snapshot at `syncedTs` and has caught up to
+         *     the latest data. */
+        ActiveDataSyncUpToDate: {
+            /**
+             * @description Always `upToDate`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "upToDate";
             /**
              * Format: int64
              * @description Total tables selected for the sync.
@@ -1236,9 +1262,10 @@ export interface components {
 }
 export type AccessTokenId = components['schemas']['AccessTokenId'];
 export type ActiveDataSync = components['schemas']['ActiveDataSync'];
-export type ActiveDataSyncInProgress = components['schemas']['ActiveDataSyncInProgress'];
+export type ActiveDataSyncSnapshotting = components['schemas']['ActiveDataSyncSnapshotting'];
+export type ActiveDataSyncStale = components['schemas']['ActiveDataSyncStale'];
 export type ActiveDataSyncStatus = components['schemas']['ActiveDataSyncStatus'];
-export type ActiveDataSyncSynced = components['schemas']['ActiveDataSyncSynced'];
+export type ActiveDataSyncUpToDate = components['schemas']['ActiveDataSyncUpToDate'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AxiomAttribute = components['schemas']['AxiomAttribute'];
 export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];

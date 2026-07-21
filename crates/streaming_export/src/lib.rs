@@ -119,14 +119,15 @@ impl From<&ClientType> for DataSyncClient {
     }
 }
 
-/// Progress reported while a sync is still [`SyncStatus::InProgress`].
+/// Progress reported while a sync is still [`SyncStatus::Snapshotting`].
 #[derive(Debug)]
 pub struct SyncProgress {
     pub num_tables_synced: u64,
     pub total_tables: u64,
     /// The component of the table currently being traversed. An in-progress
     /// sync always has a current table: finishing one either starts the next
-    /// or completes the sync ([`SyncStatus::Synced`]).
+    /// or completes the sync ([`SyncStatus::Stale`] or
+    /// [`SyncStatus::UpToDate`]).
     pub current_component: ComponentPath,
     /// The table currently being traversed.
     pub current_table: TableName,
@@ -146,16 +147,16 @@ pub struct SyncProgress {
 /// The consistency state reported alongside a page.
 #[derive(Debug)]
 pub enum SyncStatus {
-    /// The entries emitted so far represent a consistent snapshot at `ts`.
-    Synced {
-        ts: Timestamp,
-        /// Whether `ts` is behind the latest timestamp — i.e. the snapshot is
-        /// consistent but not fully caught up to the most recent commit.
-        /// Callers use this to decide whether to keep paging.
-        has_more: bool,
-    },
-    /// More pages are required before the view is consistent.
-    InProgress { progress: SyncProgress },
+    /// More pages are required before the entries form a consistent snapshot;
+    /// `progress` describes how far the initial traversal has gotten.
+    Snapshotting { progress: SyncProgress },
+    /// The entries emitted so far represent a consistent snapshot at `ts`, but
+    /// newer data is already available to fetch immediately.
+    Stale { ts: Timestamp },
+    /// The entries emitted so far represent a consistent snapshot at `ts` that
+    /// has caught up to the latest data; there is nothing more to fetch right
+    /// now.
+    UpToDate { ts: Timestamp },
 }
 
 /// One page of the data sync API.
@@ -210,8 +211,9 @@ impl SyncCursor {
         self.inner.num_docs_synced()
     }
 
-    /// Tables whose entire ID space has been traversed. When the sync is
-    /// [`SyncStatus::Synced`] this is every target table.
+    /// Tables whose entire ID space has been traversed. Once the sync has
+    /// reached a consistent snapshot ([`SyncStatus::Stale`] or
+    /// [`SyncStatus::UpToDate`]) this is every target table.
     pub fn num_synced_tables(&self) -> u64 {
         self.inner.synced_tables().len() as u64
     }
@@ -504,8 +506,9 @@ pub async fn data_sync<RT: Runtime>(
     }
 
     let status = match page.status {
-        DataSyncStatus::Synced { ts, has_more } => SyncStatus::Synced { ts, has_more },
-        DataSyncStatus::InProgress { progress } => {
+        DataSyncStatus::Stale { ts } => SyncStatus::Stale { ts },
+        DataSyncStatus::UpToDate { ts } => SyncStatus::UpToDate { ts },
+        DataSyncStatus::Snapshotting { progress } => {
             let (current_component, current_table) = resolve_name(progress.current_table)?;
             // Progress denominators from the incrementally-maintained table
             // counts: no table scans, just map lookups.
@@ -518,7 +521,7 @@ pub async fn data_sync<RT: Runtime>(
                     .map(|tablet_id| counts.tablet_count(tablet_id).num_values())
                     .sum()
             });
-            SyncStatus::InProgress {
+            SyncStatus::Snapshotting {
                 progress: SyncProgress {
                     num_tables_synced: progress.num_tables_synced,
                     total_tables: progress.total_tables,

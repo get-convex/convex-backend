@@ -968,7 +968,7 @@
           }
         }
       },
-      "ActiveDataSyncInProgress": {
+      "ActiveDataSyncSnapshotting": {
         "type": "object",
         "description": "The sync is still traversing its selected tables; the data returned so\nfar is not yet a consistent snapshot.",
         "required": [
@@ -987,13 +987,13 @@
             "oneOf": [
               {
                 "type": "string",
-                "description": "The literal string `inProgress`, discriminating \"in progress\" status\nobjects.",
+                "description": "The literal string `snapshotting`, discriminating \"snapshotting\" status\nobjects.",
                 "enum": [
-                  "inProgress"
+                  "snapshotting"
                 ]
               }
             ],
-            "description": "Always `inProgress`."
+            "description": "Always `snapshotting`."
           },
           "numTablesSynced": {
             "type": "integer",
@@ -1041,27 +1041,9 @@
           }
         }
       },
-      "ActiveDataSyncStatus": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/ActiveDataSyncInProgress"
-          },
-          {
-            "$ref": "#/components/schemas/ActiveDataSyncSynced"
-          }
-        ],
-        "description": "The progress of an active data sync, discriminated by `type`.",
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "inProgress": "#/components/schemas/ActiveDataSyncInProgress",
-            "synced": "#/components/schemas/ActiveDataSyncSynced"
-          }
-        }
-      },
-      "ActiveDataSyncSynced": {
+      "ActiveDataSyncStale": {
         "type": "object",
-        "description": "The sync reached a consistent snapshot and is streaming later changes.",
+        "description": "The sync reached a consistent snapshot at `syncedTs`, but newer data is\nalready available; it is streaming later changes (CDC).",
         "required": [
           "type",
           "totalTables",
@@ -1073,13 +1055,76 @@
             "oneOf": [
               {
                 "type": "string",
-                "description": "The literal string `synced`, discriminating \"synced\" status objects.",
+                "description": "The literal string `stale`, discriminating \"stale\" status objects.",
                 "enum": [
-                  "synced"
+                  "stale"
                 ]
               }
             ],
-            "description": "Always `synced`."
+            "description": "Always `stale`."
+          },
+          "totalTables": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total tables selected for the sync.",
+            "minimum": 0
+          },
+          "numDocumentsSynced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Documents synced over the sync's lifetime, including deletions and\nre-synced revisions.",
+            "minimum": 0
+          },
+          "syncedTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
+          }
+        }
+      },
+      "ActiveDataSyncStatus": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncSnapshotting"
+          },
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncStale"
+          },
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncUpToDate"
+          }
+        ],
+        "description": "The progress of an active data sync, discriminated by `type`.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "snapshotting": "#/components/schemas/ActiveDataSyncSnapshotting",
+            "stale": "#/components/schemas/ActiveDataSyncStale",
+            "upToDate": "#/components/schemas/ActiveDataSyncUpToDate"
+          }
+        }
+      },
+      "ActiveDataSyncUpToDate": {
+        "type": "object",
+        "description": "The sync reached a consistent snapshot at `syncedTs` and has caught up to\nthe latest data.",
+        "required": [
+          "type",
+          "totalTables",
+          "numDocumentsSynced",
+          "syncedTs"
+        ],
+        "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `upToDate`, discriminating \"up to date\" status objects.",
+                "enum": [
+                  "upToDate"
+                ]
+              }
+            ],
+            "description": "Always `upToDate`."
           },
           "totalTables": {
             "type": "integer",

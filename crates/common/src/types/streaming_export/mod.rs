@@ -212,21 +212,6 @@ pub struct DataSyncValue {
     pub value: BTreeMap<String, JsonValue>,
 }
 
-/// The literal string `synced`, discriminating "synced" status objects.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
-pub enum SyncedTag {
-    #[serde(rename = "synced")]
-    Synced,
-}
-
-/// The literal string `inProgress`, discriminating "in progress" status
-/// objects.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
-pub enum InProgressTag {
-    #[serde(rename = "inProgress")]
-    InProgress,
-}
-
 /// The literal string `snapshotting`, discriminating "snapshotting" status
 /// objects.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
@@ -347,13 +332,15 @@ pub struct ActiveDataSync {
 #[schema(discriminator(
     property_name = "type",
     mapping(
-        ("inProgress" = "#/components/schemas/ActiveDataSyncInProgress"),
-        ("synced" = "#/components/schemas/ActiveDataSyncSynced"),
+        ("snapshotting" = "#/components/schemas/ActiveDataSyncSnapshotting"),
+        ("stale" = "#/components/schemas/ActiveDataSyncStale"),
+        ("upToDate" = "#/components/schemas/ActiveDataSyncUpToDate"),
     )
 ))]
 pub enum ActiveDataSyncStatus {
-    InProgress(ActiveDataSyncInProgress),
-    Synced(ActiveDataSyncSynced),
+    Snapshotting(ActiveDataSyncSnapshotting),
+    Stale(ActiveDataSyncStale),
+    UpToDate(ActiveDataSyncUpToDate),
 }
 
 /// The sync is still traversing its selected tables; the data returned so
@@ -361,11 +348,11 @@ pub enum ActiveDataSyncStatus {
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ActiveDataSyncInProgress {
-    /// Always `inProgress`.
+pub struct ActiveDataSyncSnapshotting {
+    /// Always `snapshotting`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: InProgressTag,
+    pub status_type: SnapshottingTag,
     /// Tables whose initial traversal has completed.
     pub num_tables_synced: u64,
     /// Total tables selected for the sync.
@@ -387,15 +374,35 @@ pub struct ActiveDataSyncInProgress {
     pub total_documents: u64,
 }
 
-/// The sync reached a consistent snapshot and is streaming later changes.
+/// The sync reached a consistent snapshot at `syncedTs`, but newer data is
+/// already available; it is streaming later changes (CDC).
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ActiveDataSyncSynced {
-    /// Always `synced`.
+pub struct ActiveDataSyncStale {
+    /// Always `stale`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: SyncedTag,
+    pub status_type: StaleTag,
+    /// Total tables selected for the sync.
+    pub total_tables: u64,
+    /// Documents synced over the sync's lifetime, including deletions and
+    /// re-synced revisions.
+    pub num_documents_synced: u64,
+    /// The database timestamp at which the synced data is consistent.
+    pub synced_ts: i64,
+}
+
+/// The sync reached a consistent snapshot at `syncedTs` and has caught up to
+/// the latest data.
+#[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveDataSyncUpToDate {
+    /// Always `upToDate`.
+    #[serde(rename = "type")]
+    #[schema(inline)]
+    pub status_type: UpToDateTag,
     /// Total tables selected for the sync.
     pub total_tables: u64,
     /// Documents synced over the sync's lifetime, including deletions and

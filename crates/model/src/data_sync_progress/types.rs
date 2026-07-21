@@ -25,7 +25,7 @@ pub struct DataSyncProgressMetadata {
 pub enum DataSyncState {
     /// The sync is still traversing its target tables' ID space; the data
     /// synced so far is not yet a consistent snapshot.
-    InitialSync {
+    Snapshotting {
         num_tables_synced: u64,
         total_tables: u64,
         current_component: ComponentPath,
@@ -39,9 +39,19 @@ pub enum DataSyncState {
         /// Documents across all target tables.
         total_documents: u64,
     },
-    /// The sync reached a consistent snapshot and is streaming later changes
-    /// (CDC).
-    Synced {
+    /// The sync reached a consistent snapshot as of `synced_ts`, but newer data
+    /// is already available; it is streaming later changes (CDC).
+    Stale {
+        total_tables: u64,
+        /// Documents (including tombstones and re-emitted revisions) emitted
+        /// over the sync's lifetime.
+        num_documents_synced: u64,
+        /// The commit timestamp the synced data is consistent as of.
+        synced_ts: i64,
+    },
+    /// The sync reached a consistent snapshot as of `synced_ts` and has caught
+    /// up to the latest data.
+    UpToDate {
         total_tables: u64,
         /// Documents (including tombstones and re-emitted revisions) emitted
         /// over the sync's lifetime.
@@ -56,11 +66,15 @@ impl DataSyncState {
     /// the sync's lifetime, regardless of which phase the sync is in.
     pub fn num_documents_synced(&self) -> u64 {
         match self {
-            Self::InitialSync {
+            Self::Snapshotting {
                 num_documents_synced,
                 ..
             }
-            | Self::Synced {
+            | Self::Stale {
+                num_documents_synced,
+                ..
+            }
+            | Self::UpToDate {
                 num_documents_synced,
                 ..
             } => *num_documents_synced,
@@ -80,7 +94,7 @@ pub struct SerializedDataSyncProgressMetadata {
 #[serde(tag = "type")]
 pub enum SerializedDataSyncState {
     #[serde(rename_all = "camelCase")]
-    InitialSync {
+    Snapshotting {
         num_tables_synced: u64,
         total_tables: u64,
         current_component: String,
@@ -91,7 +105,13 @@ pub enum SerializedDataSyncState {
         total_documents: u64,
     },
     #[serde(rename_all = "camelCase")]
-    Synced {
+    Stale {
+        total_tables: u64,
+        num_documents_synced: u64,
+        synced_ts: i64,
+    },
+    #[serde(rename_all = "camelCase")]
+    UpToDate {
         total_tables: u64,
         num_documents_synced: u64,
         synced_ts: i64,
@@ -106,7 +126,7 @@ impl TryFrom<DataSyncProgressMetadata> for SerializedDataSyncProgressMetadata {
             sync_id: value.sync_id,
             last_updated_ms: value.last_updated_ms,
             state: match value.state {
-                DataSyncState::InitialSync {
+                DataSyncState::Snapshotting {
                     num_tables_synced,
                     total_tables,
                     current_component,
@@ -115,7 +135,7 @@ impl TryFrom<DataSyncProgressMetadata> for SerializedDataSyncProgressMetadata {
                     total_documents_in_current_table,
                     num_documents_synced,
                     total_documents,
-                } => SerializedDataSyncState::InitialSync {
+                } => SerializedDataSyncState::Snapshotting {
                     num_tables_synced,
                     total_tables,
                     current_component: String::from(current_component),
@@ -125,11 +145,20 @@ impl TryFrom<DataSyncProgressMetadata> for SerializedDataSyncProgressMetadata {
                     num_documents_synced,
                     total_documents,
                 },
-                DataSyncState::Synced {
+                DataSyncState::Stale {
                     total_tables,
                     num_documents_synced,
                     synced_ts,
-                } => SerializedDataSyncState::Synced {
+                } => SerializedDataSyncState::Stale {
+                    total_tables,
+                    num_documents_synced,
+                    synced_ts,
+                },
+                DataSyncState::UpToDate {
+                    total_tables,
+                    num_documents_synced,
+                    synced_ts,
+                } => SerializedDataSyncState::UpToDate {
                     total_tables,
                     num_documents_synced,
                     synced_ts,
@@ -147,7 +176,7 @@ impl TryFrom<SerializedDataSyncProgressMetadata> for DataSyncProgressMetadata {
             sync_id: value.sync_id,
             last_updated_ms: value.last_updated_ms,
             state: match value.state {
-                SerializedDataSyncState::InitialSync {
+                SerializedDataSyncState::Snapshotting {
                     num_tables_synced,
                     total_tables,
                     current_component,
@@ -156,7 +185,7 @@ impl TryFrom<SerializedDataSyncProgressMetadata> for DataSyncProgressMetadata {
                     total_documents_in_current_table,
                     num_documents_synced,
                     total_documents,
-                } => DataSyncState::InitialSync {
+                } => DataSyncState::Snapshotting {
                     num_tables_synced,
                     total_tables,
                     current_component: current_component.parse()?,
@@ -166,11 +195,20 @@ impl TryFrom<SerializedDataSyncProgressMetadata> for DataSyncProgressMetadata {
                     num_documents_synced,
                     total_documents,
                 },
-                SerializedDataSyncState::Synced {
+                SerializedDataSyncState::Stale {
                     total_tables,
                     num_documents_synced,
                     synced_ts,
-                } => DataSyncState::Synced {
+                } => DataSyncState::Stale {
+                    total_tables,
+                    num_documents_synced,
+                    synced_ts,
+                },
+                SerializedDataSyncState::UpToDate {
+                    total_tables,
+                    num_documents_synced,
+                    synced_ts,
+                } => DataSyncState::UpToDate {
                     total_tables,
                     num_documents_synced,
                     synced_ts,

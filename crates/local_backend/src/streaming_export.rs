@@ -47,9 +47,10 @@ use common::{
         streaming_export::{
             selection::Selection,
             ActiveDataSync,
-            ActiveDataSyncInProgress,
+            ActiveDataSyncSnapshotting,
+            ActiveDataSyncStale,
             ActiveDataSyncStatus,
-            ActiveDataSyncSynced,
+            ActiveDataSyncUpToDate,
             DataSyncArgs,
             DataSyncResponse,
             DataSyncSnapshotting,
@@ -63,14 +64,12 @@ use common::{
             DocumentDeltasValue,
             GetTableColumnNameTable,
             GetTableColumnNamesResponse,
-            InProgressTag,
             ListActiveSyncsResponse,
             ListSnapshotArgs,
             ListSnapshotResponse,
             ListSnapshotValue,
             SnapshottingTag,
             StaleTag,
-            SyncedTag,
             UpToDateTag,
         },
         RepeatableTimestamp,
@@ -361,7 +360,7 @@ pub async fn list_active_syncs(
                 sync_id: progress.sync_id,
                 last_updated: progress.last_updated_ms as i64,
                 status: match progress.state {
-                    DataSyncState::InitialSync {
+                    DataSyncState::Snapshotting {
                         num_tables_synced,
                         total_tables,
                         current_component,
@@ -370,8 +369,8 @@ pub async fn list_active_syncs(
                         total_documents_in_current_table,
                         num_documents_synced,
                         total_documents,
-                    } => ActiveDataSyncStatus::InProgress(ActiveDataSyncInProgress {
-                        status_type: InProgressTag::InProgress,
+                    } => ActiveDataSyncStatus::Snapshotting(ActiveDataSyncSnapshotting {
+                        status_type: SnapshottingTag::Snapshotting,
                         num_tables_synced,
                         total_tables,
                         current_component: String::from(current_component),
@@ -381,12 +380,22 @@ pub async fn list_active_syncs(
                         num_documents_synced,
                         total_documents,
                     }),
-                    DataSyncState::Synced {
+                    DataSyncState::Stale {
                         total_tables,
                         num_documents_synced,
                         synced_ts,
-                    } => ActiveDataSyncStatus::Synced(ActiveDataSyncSynced {
-                        status_type: SyncedTag::Synced,
+                    } => ActiveDataSyncStatus::Stale(ActiveDataSyncStale {
+                        status_type: StaleTag::Stale,
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    }),
+                    DataSyncState::UpToDate {
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    } => ActiveDataSyncStatus::UpToDate(ActiveDataSyncUpToDate {
+                        status_type: UpToDateTag::UpToDate,
                         total_tables,
                         num_documents_synced,
                         synced_ts,
@@ -521,21 +530,18 @@ async fn _data_sync(
 
     let status = match status {
         // A consistent snapshot with newer data already available to fetch.
-        SyncStatus::Synced { ts, has_more: true } => DataSyncStatus::Stale(DataSyncStale {
+        SyncStatus::Stale { ts } => DataSyncStatus::Stale(DataSyncStale {
             status_type: StaleTag::Stale,
             snapshot_ts: i64::from(ts),
         }),
         // A consistent snapshot that has caught up to the latest data.
-        SyncStatus::Synced {
-            ts,
-            has_more: false,
-        } => DataSyncStatus::UpToDate(DataSyncUpToDate {
+        SyncStatus::UpToDate { ts } => DataSyncStatus::UpToDate(DataSyncUpToDate {
             status_type: UpToDateTag::UpToDate,
             snapshot_ts: i64::from(ts),
         }),
         // Progress details are not part of this response; callers monitor
         // them via `/data/list_active_syncs`, keyed by `sync_id`.
-        SyncStatus::InProgress { .. } => DataSyncStatus::Snapshotting(DataSyncSnapshotting {
+        SyncStatus::Snapshotting { .. } => DataSyncStatus::Snapshotting(DataSyncSnapshotting {
             status_type: SnapshottingTag::Snapshotting,
         }),
     };
