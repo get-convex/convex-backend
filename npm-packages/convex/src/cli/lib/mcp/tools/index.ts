@@ -10,6 +10,22 @@ import { EnvListTool, EnvGetTool, EnvSetTool, EnvRemoveTool } from "./env.js";
 import { RunOneoffQueryTool } from "./runOneoffQuery.js";
 import { LogsTool } from "./logs.js";
 import { InsightsTool } from "./insights.js";
+import {
+  GetDocumentTool,
+  InsertDocumentTool,
+  PatchDocumentTool,
+  DeleteDocumentTool,
+} from "./crud.js";
+import {
+  StorageListTool,
+  StorageGetUrlTool,
+  StorageDeleteTool,
+} from "./storage.js";
+import {
+  CronsListTool,
+  ScheduledListTool,
+  ScheduledCancelTool,
+} from "./scheduledFunctions.js";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export type ConvexTool<Input extends ZodTypeAny, Output extends ZodTypeAny> = {
@@ -34,6 +50,7 @@ export function mcpTool(tool: ConvexTool<ZodTypeAny, ZodTypeAny>): Tool {
 }
 
 export const convexTools: ConvexTool<any, any>[] = [
+  // Existing tools
   StatusTool,
   DataTool,
   TablesTool,
@@ -46,4 +63,17 @@ export const convexTools: ConvexTool<any, any>[] = [
   RunOneoffQueryTool,
   LogsTool,
   InsightsTool,
+  // CRUD tools
+  GetDocumentTool,
+  InsertDocumentTool,
+  PatchDocumentTool,
+  DeleteDocumentTool,
+  // File storage tools
+  StorageListTool,
+  StorageGetUrlTool,
+  StorageDeleteTool,
+  // Scheduled function tools
+  CronsListTool,
+  ScheduledListTool,
+  ScheduledCancelTool,
 ];
