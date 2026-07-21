@@ -1,4 +1,4 @@
-import { PlatformProjectDetails } from "@convex-dev/platform/managementApi";
+import { ProjectResponse } from "@convex-dev/platform/managementApi";
 import { BigBrainAuth, Context } from "../../bundler/context.js";
 import { logVerbose } from "../../bundler/log.js";
 import {
@@ -940,7 +940,7 @@ export const shouldAllowAnonymousDevelopment = (): boolean => {
 export async function getProjectDetails(
   ctx: Context,
   projectSelection: ProjectSelection,
-): Promise<PlatformProjectDetails> {
+): Promise<ProjectResponse> {
   switch (projectSelection.kind) {
     case "deploymentName": {
       if (projectSelection.deploymentType === "local") {
