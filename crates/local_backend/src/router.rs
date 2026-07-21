@@ -239,7 +239,7 @@ impl Modify for SecurityAddon {
     components(schemas(
         common::types::streaming_export::selection::ComponentSelection,
         common::types::streaming_export::selection::TableSelection,
-        common::types::streaming_export::selection::ColumnInclusion,
+        common::types::streaming_export::selection::ColumnSelection,
     )),
     info(
         title = "Convex Deployment API",

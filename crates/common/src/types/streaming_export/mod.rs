@@ -143,8 +143,8 @@ pub struct DataSyncArgs {
     /// component path (`""` for the root component), mapped to the selection
     /// for that component.
     ///
-    /// The selection may change between calls of the same sync:
-    /// newly selected tables are synced from scratch, possibly moving the
+    /// The selection may change between calls of the same sync.
+    /// Newly selected tables are synced from scratch, possibly moving the
     /// sync into `snapshotting` state if necessary. Deselected tables stop
     /// being exported, with a truncate emitted.
     #[serde(default)]
@@ -162,7 +162,7 @@ pub struct DataSyncResponse {
     /// them from scratch). Logically applies before `values`.
     ///
     /// Tables may be truncated when using e.g. `npx convex import` or other
-    /// bulk operations.
+    /// bulk operations, or if removed from selection.
     pub truncates: Vec<DataSyncTruncate>,
     /// Documents created, updated, or deleted in this page.
     pub values: Vec<DataSyncValue>,
@@ -247,15 +247,22 @@ pub enum UpToDateTag {
     )
 ))]
 pub enum DataSyncStatus {
+    /// The sync has not yet reached a consistent snapshot. The entries emitted
+    /// so far are an incomplete initial traversal of the selected tables.
+    /// Syncs begin in this state. The sync's
+    /// progress can be monitored via `/data/list_active_syncs`, keyed by the
+    /// response's `syncId`. Syncs may return to this state if the table
+    /// selection has changes that requires large data sync.
     Snapshotting(DataSyncSnapshotting),
+    /// The entries emitted so far represent a consistent snapshot at
+    /// a stale `snapshotTs`.
     Stale(DataSyncStale),
+    /// The sync is up to date and represents a latest consistent snapshot.
+    /// For a streaming export in this state, it is recommended to backoff for
+    /// some time, wait for more data, and then continue the streaming sync.
     UpToDate(DataSyncUpToDate),
 }
 
-/// The sync has not yet reached a consistent snapshot: the entries emitted so
-/// far are an incomplete initial traversal of the selected tables. The sync's
-/// progress can be monitored via `/data/list_active_syncs`, keyed by the
-/// response's `syncId`.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncSnapshotting {
@@ -265,10 +272,6 @@ pub struct DataSyncSnapshotting {
     pub status_type: SnapshottingTag,
 }
 
-/// The entries emitted so far represent a consistent snapshot at `snapshotTs`,
-/// but newer data is already available and can be fetched immediately. The
-/// cursor can be persisted and used to continue the sync later (within the
-/// document retention window).
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncStale {
@@ -280,10 +283,6 @@ pub struct DataSyncStale {
     pub snapshot_ts: i64,
 }
 
-/// The entries emitted so far represent a consistent snapshot at `snapshotTs`
-/// and the sync has caught up to the latest data; there is nothing more to
-/// fetch right now. The cursor can be persisted and used to continue the sync
-/// later (within the document retention window).
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncUpToDate {

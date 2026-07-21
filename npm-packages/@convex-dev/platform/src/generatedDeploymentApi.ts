@@ -631,12 +631,9 @@ export interface components {
          * @description Whether the column is exported.
          * @enum {string}
          */
-        ColumnInclusion: "excluded" | "included";
-        /** @description Set of components to include/exclude in sync.
-         *
-         *     Mapping from the component path to the inclusion/exclusion.
-         *     Use the empty string to represent the root component. */
+        ColumnSelection: "excluded" | "included";
         ComponentSelection: ({
+            /** @description Whether tables not explicitly listed are exported */
             _other: components["schemas"]["InclusionDefault"];
         } & {
             [key: string]: components["schemas"]["TableSelection"];
@@ -762,8 +759,8 @@ export interface components {
              *     component path (`""` for the root component), mapped to the selection
              *     for that component.
              *
-             *     The selection may change between calls of the same sync:
-             *     newly selected tables are synced from scratch, possibly moving the
+             *     The selection may change between calls of the same sync.
+             *     Newly selected tables are synced from scratch, possibly moving the
              *     sync into `snapshotting` state if necessary. Deselected tables stop
              *     being exported, with a truncate emitted. */
             selection?: components["schemas"]["Selection"];
@@ -777,7 +774,7 @@ export interface components {
              *     them from scratch). Logically applies before `values`.
              *
              *     Tables may be truncated when using e.g. `npx convex import` or other
-             *     bulk operations. */
+             *     bulk operations, or if removed from selection. */
             truncates: components["schemas"]["DataSyncTruncate"][];
             /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];
@@ -791,10 +788,6 @@ export interface components {
              *     once it reports `upToDate`. */
             pagination: components["schemas"]["PaginationMetadata"];
         };
-        /** @description The sync has not yet reached a consistent snapshot: the entries emitted so
-         *     far are an incomplete initial traversal of the selected tables. The sync's
-         *     progress can be monitored via `/data/list_active_syncs`, keyed by the
-         *     response's `syncId`. */
         DataSyncSnapshotting: {
             /**
              * @description Always `snapshotting`. (enum property replaced by openapi-typescript)
@@ -802,10 +795,6 @@ export interface components {
              */
             type: "snapshotting";
         };
-        /** @description The entries emitted so far represent a consistent snapshot at `snapshotTs`,
-         *     but newer data is already available and can be fetched immediately. The
-         *     cursor can be persisted and used to continue the sync later (within the
-         *     document retention window). */
         DataSyncStale: {
             /**
              * @description Always `stale`. (enum property replaced by openapi-typescript)
@@ -830,10 +819,6 @@ export interface components {
             /** @description The name of the truncated table. */
             table: string;
         };
-        /** @description The entries emitted so far represent a consistent snapshot at `snapshotTs`
-         *     and the sync has caught up to the latest data; there is nothing more to
-         *     fetch right now. The cursor can be persisted and used to continue the sync
-         *     later (within the document retention window). */
         DataSyncUpToDate: {
             /**
              * @description Always `upToDate`. (enum property replaced by openapi-typescript)
@@ -922,6 +907,7 @@ export interface components {
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         /**
+         * Excluded
          * @description The literal string `"excluded"`, excluding the item entirely.
          * @enum {string}
          */
@@ -938,10 +924,7 @@ export interface components {
             };
             seedStatus: components["schemas"]["SeedStatusResponse"];
         };
-        /**
-         * @description Whether items not explicitly listed are exported
-         * @enum {string}
-         */
+        /** @enum {string} */
         InclusionDefault: "excluded" | "included";
         /** @description Response of the active-syncs listing API
          *     (`/api/v1/data/list_active_syncs`). */
@@ -1075,6 +1058,7 @@ export interface components {
          *       }
          *     } */
         Selection: {
+            /** @description Whether components not explicitly listed are exported */
             _other: components["schemas"]["InclusionDefault"];
         } & {
             [key: string]: components["schemas"]["ComponentSelection"];
@@ -1089,16 +1073,12 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
-        /** @description What to export from one table: either the literal string `"excluded"` to
-         *     exclude the table entirely, or an object selecting some of its columns —
-         *     each key is a column (field) name mapped to whether it is exported, and
-         *     the required `_other` key sets the default for columns not listed. `_id`
-         *     cannot be excluded. */
-        TableSelection: components["schemas"]["ExcludedTag"] | ({
+        TableSelection: ({
+            /** @description Whether columns not explicitly listed are exported */
             _other: components["schemas"]["InclusionDefault"];
         } & {
-            [key: string]: components["schemas"]["ColumnInclusion"];
-        });
+            [key: string]: components["schemas"]["ColumnSelection"];
+        }) | components["schemas"]["ExcludedTag"];
         /** Format: int64 */
         TeamId: number;
         UpdateAxiomSinkArgs: {
@@ -1269,7 +1249,7 @@ export type ActiveDataSyncUpToDate = components['schemas']['ActiveDataSyncUpToDa
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AxiomAttribute = components['schemas']['AxiomAttribute'];
 export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];
-export type ColumnInclusion = components['schemas']['ColumnInclusion'];
+export type ColumnSelection = components['schemas']['ColumnSelection'];
 export type ComponentSelection = components['schemas']['ComponentSelection'];
 export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStreamArgs'];
 export type CreateDatadogLogStreamArgs = components['schemas']['CreateDatadogLogStreamArgs'];

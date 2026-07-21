@@ -338,11 +338,11 @@ impl TryFrom<serialized::Selection> for StreamingExportSelection {
     }
 }
 
-impl From<serialized::ColumnInclusion> for StreamingExportColumnInclusion {
-    fn from(value: serialized::ColumnInclusion) -> Self {
+impl From<serialized::ColumnSelection> for StreamingExportColumnInclusion {
+    fn from(value: serialized::ColumnSelection) -> Self {
         match value {
-            serialized::ColumnInclusion::Excluded => Self::Excluded,
-            serialized::ColumnInclusion::Included => Self::Included,
+            serialized::ColumnSelection::Excluded => Self::Excluded,
+            serialized::ColumnSelection::Included => Self::Included,
         }
     }
 }

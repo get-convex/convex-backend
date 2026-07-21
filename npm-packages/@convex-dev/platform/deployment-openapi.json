@@ -1288,7 +1288,7 @@
           }
         }
       },
-      "ColumnInclusion": {
+      "ColumnSelection": {
         "type": "string",
         "description": "Whether the column is exported.",
         "enum": [
@@ -1300,25 +1300,32 @@
         "oneOf": [
           {
             "type": "object",
+            "title": "Included",
             "description": "Export some of this component's tables.",
             "required": [
               "_other"
             ],
             "properties": {
               "_other": {
-                "$ref": "#/components/schemas/InclusionDefault"
+                "$ref": "#/components/schemas/InclusionDefault",
+                "description": "Whether tables not explicitly listed are exported"
               }
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/TableSelection"
+              "$ref": "#/components/schemas/TableSelection",
+              "description": "Set of tables to include/exclude in sync within the component.\n\nMapping from the table name to the inclusion/exclusion."
             }
           },
           {
-            "$ref": "#/components/schemas/ExcludedTag",
-            "description": "Exclude this component entirely."
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExcludedTag",
+                "description": "Exclude this component entirely."
+              }
+            ],
+            "title": "Excluded"
           }
-        ],
-        "description": "Set of components to include/exclude in sync.\n\nMapping from the component path to the inclusion/exclusion.\nUse the empty string to represent the root component."
+        ]
       },
       "CreateAxiomLogStreamArgs": {
         "type": "object",
@@ -1797,7 +1804,7 @@
           },
           "selection": {
             "$ref": "#/components/schemas/Selection",
-            "description": "When set, only sync the selected subset of the data.\n\nSelects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component), mapped to the selection\nfor that component.\n\nThe selection may change between calls of the same sync:\nnewly selected tables are synced from scratch, possibly moving the\nsync into `snapshotting` state if necessary. Deselected tables stop\nbeing exported, with a truncate emitted."
+            "description": "When set, only sync the selected subset of the data.\n\nSelects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component), mapped to the selection\nfor that component.\n\nThe selection may change between calls of the same sync.\nNewly selected tables are synced from scratch, possibly moving the\nsync into `snapshotting` state if necessary. Deselected tables stop\nbeing exported, with a truncate emitted."
           }
         }
       },
@@ -1821,7 +1828,7 @@
             "items": {
               "$ref": "#/components/schemas/DataSyncTruncate"
             },
-            "description": "Tables truncated by this page. The consumer should drop everything it\npreviously synced for each table, then apply `values` (which re-sync\nthem from scratch). Logically applies before `values`.\n\nTables may be truncated when using e.g. `npx convex import` or other\nbulk operations."
+            "description": "Tables truncated by this page. The consumer should drop everything it\npreviously synced for each table, then apply `values` (which re-sync\nthem from scratch). Logically applies before `values`.\n\nTables may be truncated when using e.g. `npx convex import` or other\nbulk operations, or if removed from selection."
           },
           "values": {
             "type": "array",
@@ -1842,7 +1849,6 @@
       },
       "DataSyncSnapshotting": {
         "type": "object",
-        "description": "The sync has not yet reached a consistent snapshot: the entries emitted so\nfar are an incomplete initial traversal of the selected tables. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`.",
         "required": [
           "type"
         ],
@@ -1863,7 +1869,6 @@
       },
       "DataSyncStale": {
         "type": "object",
-        "description": "The entries emitted so far represent a consistent snapshot at `snapshotTs`,\nbut newer data is already available and can be fetched immediately. The\ncursor can be persisted and used to continue the sync later (within the\ndocument retention window).",
         "required": [
           "type",
           "snapshotTs"
@@ -1891,13 +1896,16 @@
       "DataSyncStatus": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/DataSyncSnapshotting"
+            "$ref": "#/components/schemas/DataSyncSnapshotting",
+            "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`. Syncs may return to this state if the table\nselection has changes that requires large data sync."
           },
           {
-            "$ref": "#/components/schemas/DataSyncStale"
+            "$ref": "#/components/schemas/DataSyncStale",
+            "description": "The entries emitted so far represent a consistent snapshot at\na stale `snapshotTs`."
           },
           {
-            "$ref": "#/components/schemas/DataSyncUpToDate"
+            "$ref": "#/components/schemas/DataSyncUpToDate",
+            "description": "The sync is up to date and represents a latest consistent snapshot.\nFor a streaming export in this state, it is recommended to backoff for\nsome time, wait for more data, and then continue the streaming sync."
           }
         ],
         "description": "The consistency state reported alongside a data sync page, discriminated\nby `type`.",
@@ -1930,7 +1938,6 @@
       },
       "DataSyncUpToDate": {
         "type": "object",
-        "description": "The entries emitted so far represent a consistent snapshot at `snapshotTs`\nand the sync has caught up to the latest data; there is nothing more to\nfetch right now. The cursor can be persisted and used to continue the sync\nlater (within the document retention window).",
         "required": [
           "type",
           "snapshotTs"
@@ -2211,6 +2218,7 @@
       },
       "ExcludedTag": {
         "type": "string",
+        "title": "Excluded",
         "description": "The literal string `\"excluded\"`, excluding the item entirely.",
         "enum": [
           "excluded"
@@ -2255,7 +2263,6 @@
       },
       "InclusionDefault": {
         "type": "string",
-        "description": "Whether items not explicitly listed are exported",
         "enum": [
           "excluded",
           "included"
@@ -2729,11 +2736,13 @@
         ],
         "properties": {
           "_other": {
-            "$ref": "#/components/schemas/InclusionDefault"
+            "$ref": "#/components/schemas/InclusionDefault",
+            "description": "Whether components not explicitly listed are exported"
           }
         },
         "additionalProperties": {
-          "$ref": "#/components/schemas/ComponentSelection"
+          "$ref": "#/components/schemas/ComponentSelection",
+          "description": "Set of components to include/exclude in sync.\n\nMapping from the component path to the inclusion/exclusion.\nUse the empty string to represent the root component."
         },
         "example": {
           "_other": "excluded",
@@ -2782,26 +2791,32 @@
       "TableSelection": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/ExcludedTag",
-            "description": "Exclude this table entirely."
-          },
-          {
             "type": "object",
-            "description": "Export some of this table's columns.",
+            "title": "Included",
             "required": [
               "_other"
             ],
             "properties": {
               "_other": {
-                "$ref": "#/components/schemas/InclusionDefault"
+                "$ref": "#/components/schemas/InclusionDefault",
+                "description": "Whether columns not explicitly listed are exported"
               }
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/ColumnInclusion"
+              "$ref": "#/components/schemas/ColumnSelection",
+              "description": "Set of columns to include/exclude in sync within the table.\n\nMapping from the column name to the inclusion/exclusion. `_id`\ncannot be excluded."
             }
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExcludedTag",
+                "description": "Exclude this table entirely."
+              }
+            ],
+            "title": "Excluded"
           }
-        ],
-        "description": "What to export from one table: either the literal string `\"excluded\"` to\nexclude the table entirely, or an object selecting some of its columns —\neach key is a column (field) name mapped to whether it is exported, and\nthe required `_other` key sets the default for columns not listed. `_id`\ncannot be excluded."
+        ]
       },
       "TeamId": {
         "type": "integer",
