@@ -19,6 +19,7 @@ use crate::{
         check_system_size,
         Size,
     },
+    ConvexObject,
     ConvexValue,
     FieldName,
 };
@@ -64,12 +65,27 @@ impl From<ConvexValue> for PendingValue {
     }
 }
 
+impl From<ConvexObject> for PendingValue {
+    fn from(value: ConvexObject) -> Self {
+        Self::Concrete(ConvexValue::Object(value))
+    }
+}
+
 impl PendingValue {
     /// Does this value contain an unresolved commit timestamp?
     pub fn is_pending(&self) -> bool {
         match self {
             Self::Concrete(_) => false,
             Self::CommitTs | Self::Object { .. } | Self::Array { .. } => true,
+        }
+    }
+
+    pub fn is_object(&self) -> bool {
+        match self {
+            PendingValue::Concrete(ConvexValue::Object(_)) | PendingValue::Object { .. } => true,
+            PendingValue::Array { .. } | PendingValue::CommitTs | PendingValue::Concrete(_) => {
+                false
+            },
         }
     }
 

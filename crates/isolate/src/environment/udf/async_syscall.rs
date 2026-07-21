@@ -42,6 +42,7 @@ use common::{
         AllowedVisibility,
         DeploymentMetadata,
         UdfType,
+        WriteTimestamp,
     },
     value::ConvexValue,
     version::Version,
@@ -113,7 +114,9 @@ use value::{
     serialized_args_ext::SerializedArgsExt,
     ConvexArray,
     ConvexObject,
+    PendingValue,
     TableName,
+    TableNamespace,
 };
 
 use super::DatabaseUdfEnvironment;
@@ -1250,12 +1253,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         }
         let (table, value) = with_argument_error("db.insert", || {
             let args: InsertArgs = serde_json::from_value(args)?;
+            let value =
+                PendingValue::from_uncommitted_json(args.value).context(ArgName("value"))?;
+            if !value.is_object() {
+                return Err(anyhow::anyhow!("Value must be an Object").context(ArgName("value")));
+            }
             Ok((
-                args.table.parse().context(ArgName("table"))?,
-                ConvexValue::try_from(args.value)
-                    .context(ArgName("value"))?
-                    .try_into()
-                    .context(ArgName("value"))?,
+                args.table.parse::<TableName>().context(ArgName("table"))?,
+                value,
             ))
         })?;
 
@@ -1500,21 +1505,20 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     .context("batch_key missing")??;
 
                 let done = maybe_next.is_none();
+                let component = provider.component()?;
+                let tx = provider.tx()?;
                 let value = match maybe_next {
-                    Some((doc, _)) => doc.into_value().0.into(),
-                    None => ConvexValue::Null,
+                    Some((doc, ts)) => developer_document_to_json(tx, component.into(), &doc, ts)?,
+                    None => JsonValue::Null,
                 };
 
                 if let Some(query_id) = query_id {
                     if done {
                         provider.cleanup_query(query_id);
                     }
-                    serde_json::to_value(QueryStreamNextResult {
-                        value: value.into(),
-                        done,
-                    })?
+                    serde_json::to_value(QueryStreamNextResult { value, done })?
                 } else {
-                    value.into()
+                    value
                 }
             });
             results.insert(batch_key, result);
@@ -1708,12 +1712,45 @@ struct QueryPageMetadata {
     page_status: Option<QueryPageStatus>,
 }
 
+/// Serialize a queried document for JS, emitting `{"$commitTs": null}` at each
+/// unresolved commit timestamp when the document is one of this transaction's
+/// own staged writes.
+fn developer_document_to_json<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    namespace: TableNamespace,
+    document: &DeveloperDocument,
+    ts: WriteTimestamp,
+) -> anyhow::Result<JsonValue> {
+    if ts == WriteTimestamp::Pending {
+        let id = document.id();
+        // Virtual-table reads are also tagged pending when they hit a staged
+        // system-table write, but virtual tables aren't in the user table
+        // mapping and their documents never contain unresolved commit
+        // timestamps.
+        if tx
+            .table_mapping()
+            .namespace(namespace)
+            .table_number_exists()(id.table())
+        {
+            let id = tx.resolve_developer_id(&id, namespace)?;
+            if let Some(update) = tx.pending_write(&id)
+                && !update.is_resolved()
+            {
+                return update
+                    .new_document_internal_json()
+                    .context("Staged write for a returned document has no new document");
+            }
+        }
+    }
+    Ok(document.to_internal_json())
+}
+
 impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
     async fn read_page_from_query(
         mut query: DeveloperQuery<RT>,
         tx: &mut Transaction<RT>,
         page_size: usize,
-    ) -> anyhow::Result<(Vec<DeveloperDocument>, QueryPageMetadata)> {
+    ) -> anyhow::Result<(Vec<(DeveloperDocument, WriteTimestamp)>, QueryPageMetadata)> {
         let end_cursor = query.end_cursor();
         let has_end_cursor = end_cursor.is_some();
         let mut page = Vec::with_capacity(page_size);
@@ -1730,7 +1767,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 Some(page_size - page.len())
             };
 
-            let next_value = match query.next(tx, prefetch_hint).await {
+            let next_value = match query.next_with_ts(tx, prefetch_hint).await {
                 Ok(Some(v)) => v,
                 Ok(None) => {
                     break;
@@ -1855,7 +1892,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 table_filter,
             )?;
             let (page, metadata) = Self::read_page_from_query(query, tx, page_size).await?;
-            let page = page.into_iter().map(|doc| doc.to_internal_json()).collect();
+            let page = page
+                .into_iter()
+                .map(|(doc, ts)| developer_document_to_json(tx, component.into(), &doc, ts))
+                .collect::<anyhow::Result<_>>()?;
             (page, metadata)
         };
 

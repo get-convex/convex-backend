@@ -10,7 +10,7 @@ use common::{
     document::{
         DeveloperDocument,
         PackedDocument,
-        ResolvedDocument,
+        PendingDocument,
     },
     query::CursorPosition,
     runtime::Runtime,
@@ -29,6 +29,7 @@ use itertools::Itertools;
 use value::{
     ConvexObject,
     DeveloperDocumentId,
+    PendingValue,
     ResolvedDocumentId,
     TableName,
     TableNamespace,
@@ -143,8 +144,9 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     pub async fn insert(
         &mut self,
         table: TableName,
-        value: ConvexObject,
+        value: impl Into<PendingValue> + Send,
     ) -> anyhow::Result<DeveloperDocumentId> {
+        let value = value.into();
         self.require_active_component().await?;
         if self.tx.virtual_system_mapping().is_virtual_table(&table) {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -184,7 +186,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .table_mapping()
             .namespace(self.namespace)
             .name_to_id_user_input()(table)?;
-        let document = ResolvedDocument::new(
+        let document = PendingDocument::new(
             ResolvedDocumentId::new(
                 table_id.tablet_id,
                 DeveloperDocumentId::new(table_id.table_number, internal_id),
@@ -192,7 +194,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             creation_time,
             value,
         )?;
-        let document_id = self.tx.insert_document(document).await?;
+        let document_id = self.tx.insert_pending_document(document).await?;
 
         Ok(document_id.into())
     }

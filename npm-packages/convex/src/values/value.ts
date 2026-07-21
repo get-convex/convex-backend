@@ -80,6 +80,51 @@ export type Value =
  */
 export type NumericValue = bigint | number;
 
+const COMMIT_TS_UNRESOLVED =
+  "This commit timestamp is unresolved: its value is assigned when the " +
+  "mutation commits. Read the document after the mutation completes to get " +
+  "its value.";
+
+/**
+ * The placeholder for a transaction's commit timestamp, which is not known
+ * until the mutation commits. Write it into a document field via
+ * `db.vars.commitTs` and it resolves to an int64 (`bigint`) at commit,
+ * ordered by commit order. Reading the field back within the writing
+ * mutation yields the placeholder, which cannot be used as a number.
+ *
+ * @internal
+ */
+export class CommitTsPlaceholder {
+  // A private member makes the class nominal: no structurally-similar object
+  // type-checks as a placeholder.
+  declare private readonly __isCommitTsPlaceholder: undefined;
+  [Symbol.toPrimitive](hint: string): string {
+    // Allow string conversion so logging a read-back document doesn't throw.
+    if (hint === "string") {
+      return this.toString();
+    }
+    throw new Error(COMMIT_TS_UNRESOLVED);
+  }
+  valueOf(): never {
+    throw new Error(COMMIT_TS_UNRESOLVED);
+  }
+  toJSON(): never {
+    throw new Error(COMMIT_TS_UNRESOLVED);
+  }
+  toString(): string {
+    return "[unresolved commit timestamp]";
+  }
+}
+
+/**
+ * The placeholder for a commit timestamp that is not yet known, exposed as
+ * `db.vars.commitTs`. A singleton so that a value read back within the
+ * writing mutation compares equal to `db.vars.commitTs`.
+ *
+ * @internal
+ */
+export const commitTsPlaceholder = new CommitTsPlaceholder();
+
 function isSpecial(n: number) {
   return Number.isNaN(n) || !Number.isFinite(n) || Object.is(n, -0);
 }
@@ -235,6 +280,12 @@ export function jsonToConvex(value: JSONValue): Value {
       }
       return float;
     }
+    if (key === "$commitTs") {
+      if (value.$commitTs !== null) {
+        throw new Error(`Malformed $commitTs field on ${value as any}`);
+      }
+      return commitTsPlaceholder as unknown as Value;
+    }
     if (key === "$set") {
       throw new Error(
         `Received a Set which is no longer supported as a Convex type.`,
@@ -329,6 +380,9 @@ function convexToJsonInternal(
   }
   if (value instanceof ArrayBuffer) {
     return { $bytes: Base64.fromByteArray(new Uint8Array(value)) };
+  }
+  if (value instanceof CommitTsPlaceholder) {
+    return { $commitTs: null };
   }
   if (Array.isArray(value)) {
     return value.map((value, i) =>
