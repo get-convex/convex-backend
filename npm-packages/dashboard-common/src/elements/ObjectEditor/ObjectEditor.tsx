@@ -91,6 +91,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
 
   const indentTopLevel = mode === "addDocuments" || mode === "editDocument";
   const [monaco, setMonaco] = useState<Parameters<BeforeMount>[0]>();
+  const monacoRef = useRef(monaco);
 
   const getDocumentRefs = useIdDecorations(monaco, path, showTableNames);
 
@@ -110,13 +111,18 @@ export function ObjectEditor(props: ObjectEditorProps) {
         .map((e: any) => e.message);
       onError?.(validationErrors);
 
-      if (monaco) {
-        setErrorMarkers(monaco, errors, path, shouldSurfaceValidatorErrors);
+      if (monacoRef.current) {
+        setErrorMarkers(
+          monacoRef.current,
+          errors,
+          path,
+          shouldSurfaceValidatorErrors,
+        );
       }
 
       return validationErrors.length > 0;
     },
-    [monaco, onError, path, shouldSurfaceValidatorErrors],
+    [onError, path, shouldSurfaceValidatorErrors],
   );
 
   // Use state here so we don't recalculate the default value.
@@ -242,7 +248,14 @@ export function ObjectEditor(props: ObjectEditorProps) {
             // The "unused block" diagnostic code.
             diagnosticCodesToIgnore: [7028],
           });
+          monacoRef.current = m;
           setMonaco(m);
+        }}
+        onMount={(editor, m) => {
+          // Run the initial validation now that the editor model exists (it's
+          // created between `beforeMount` and `onMount`), so error decorations
+          // render on first paint even when the default value is invalid.
+          monacoRef.current = m;
           handleCodeChange(
             defaultValueString,
             mode,
@@ -255,8 +268,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
             onChange,
             getDocumentRefs,
           );
-        }}
-        onMount={(editor, m) => {
+
           registerIdCommands({ monaco: m, deploymentsURI, captureMessage });
 
           editor.onKeyDown((e) => {
