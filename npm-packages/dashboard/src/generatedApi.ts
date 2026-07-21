@@ -1662,25 +1662,25 @@ export interface components {
         /** Format: int64 */
         AccessTokenId: number;
         Address: {
-            city?: string | null;
-            country?: string | null;
             line1?: string | null;
             line2?: string | null;
-            postal_code?: string | null;
+            city?: string | null;
             state?: string | null;
+            postal_code?: string | null;
+            country?: string | null;
         };
         /** @description Encrypted admin key */
         AdminKey: string;
         AppAccessTokenResponse: {
-            appClientId: string;
-            appName: components["schemas"]["AppName"];
-            /** Format: int64 */
-            creationTime: number;
             /** @description Stable identifier for this access token. */
             id: components["schemas"]["AccessTokenId"];
+            name: components["schemas"]["DeviceName"];
+            appName: components["schemas"]["AppName"];
+            appClientId: string;
+            /** Format: int64 */
+            creationTime: number;
             /** Format: int64 */
             lastUsedTime?: number | null;
-            name: components["schemas"]["DeviceName"];
         };
         AppName: string;
         ApplyReferralCodeArgs: {
@@ -1697,15 +1697,15 @@ export interface components {
             };
         } | {
             serviceAccount: {
-                client_id?: string | null;
                 member_id: components["schemas"]["MemberId"];
                 token_id: components["schemas"]["AccessTokenId"];
+                client_id?: string | null;
             };
         } | {
             team: {
-                client_id?: string | null;
                 team_id: components["schemas"]["TeamId"];
                 token_id: components["schemas"]["AccessTokenId"];
+                client_id?: string | null;
             };
         } | {
             app: {
@@ -1713,39 +1713,39 @@ export interface components {
             };
         };
         AuditLogEventResponse: {
-            action: components["schemas"]["AuditLogAction"];
+            teamId: components["schemas"]["TeamId"];
             actor: components["schemas"]["AuditLogActor"];
-            clientIp?: string | null;
-            clientUserAgent?: string | null;
+            action: components["schemas"]["AuditLogAction"];
             /** Format: int64 */
             createTime: number;
             metadata: components["schemas"]["Value"];
-            teamId: components["schemas"]["TeamId"];
+            clientIp?: string | null;
+            clientUserAgent?: string | null;
         };
         /** @description Struct that contains the result of a query to the audit_logs table. The
          *     `events` field contains all of the `AuditLog` values and the `cursor` field
          *     denotes where to resume the query if more results are needed. */
         AuditLogResponse: {
-            cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
+            cursor?: string | null;
         };
         AuthorizeAppArgs: {
             /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
-            clientId: string;
-            codeChallenge?: string | null;
             mode: components["schemas"]["AuthorizeAppMode"];
+            clientId: string;
             projectId?: null | components["schemas"]["ProjectId"];
-            redirectUri: string;
             teamId?: null | components["schemas"]["TeamId"];
+            redirectUri: string;
+            codeChallenge?: string | null;
         };
         /** @enum {string} */
         AuthorizeAppMode: "AuthorizationCode";
         AuthorizeArgs: {
-            anonymousId?: string | null;
             /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
             deviceName?: null | components["schemas"]["DeviceName"];
+            anonymousId?: string | null;
         };
         AuthorizeCodeResponse: {
             /** @description A code that the application can use to retrieve the token */
@@ -1764,8 +1764,8 @@ export interface components {
             usedEmails: string[];
         };
         BillingContactResponse: {
-            email: string;
             name: string;
+            email: string;
         };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
@@ -1775,29 +1775,29 @@ export interface components {
             redirectUri: string;
         };
         CheckProjectEnvironmentHealthRequest: {
-            /** @description WorkOS client ID */
-            clientId: string;
             /**
              * Format: int64
              * @description Project ID
              */
             projectId: number;
+            /** @description WorkOS client ID */
+            clientId: string;
         };
         /** Format: int64 */
         CloudBackupId: number;
         CloudBackupResponse: {
-            /** Format: int64 */
-            completedTime?: number | null;
-            /** Format: int64 */
-            expirationTime: number;
             id: components["schemas"]["CloudBackupId"];
-            includeStorage: boolean;
-            /** Format: int64 */
-            requestedTime: number;
-            snapshotId?: string | null;
             sourceDeploymentId: components["schemas"]["DeploymentId"];
             sourceDeploymentName: components["schemas"]["CloudDeploymentName"];
+            /** Format: int64 */
+            expirationTime: number;
             state: string;
+            snapshotId?: string | null;
+            /** Format: int64 */
+            requestedTime: number;
+            includeStorage: boolean;
+            /** Format: int64 */
+            completedTime?: number | null;
         };
         /** @description Example instance names:
          *
@@ -1812,32 +1812,32 @@ export interface components {
             includeStorage?: boolean | null;
         };
         CreateProjectArgs: {
-            deploymentClass?: string | null;
-            deploymentType?: null | components["schemas"]["DeploymentType"];
-            projectName: components["schemas"]["ProjectName"];
-            region?: null | components["schemas"]["RegionName"];
             team: components["schemas"]["TeamSlug"];
+            projectName: components["schemas"]["ProjectName"];
+            deploymentType?: null | components["schemas"]["DeploymentType"];
+            deploymentClass?: string | null;
+            region?: null | components["schemas"]["RegionName"];
         };
         CreateProjectResponse: {
-            deploymentName?: string | null;
-            /** Format: int64 */
-            deploymentsRemaining?: number | null;
-            prodUrl?: string | null;
-            projectId: components["schemas"]["ProjectId"];
             projectSlug: components["schemas"]["ProjectSlug"];
+            projectId: components["schemas"]["ProjectId"];
+            teamSlug: components["schemas"]["TeamSlug"];
+            teamId: components["schemas"]["TeamId"];
+            deploymentName?: string | null;
+            prodUrl?: string | null;
             /** Format: int64 */
             projectsRemaining: number;
-            teamId: components["schemas"]["TeamId"];
-            teamSlug: components["schemas"]["TeamSlug"];
+            /** Format: int64 */
+            deploymentsRemaining?: number | null;
         };
         CreateSubscriptionArgs: {
+            name: string;
+            email: string;
+            paymentMethod?: string | null;
+            planId: string;
             billingAddress?: null | components["schemas"]["Address"];
             /** Format: int64 */
             disableThresholdCents?: number | null;
-            email: string;
-            name: string;
-            paymentMethod?: string | null;
-            planId: string;
             /** Format: int64 */
             warningThresholdCents?: number | null;
         };
@@ -1847,26 +1847,26 @@ export interface components {
         /** Format: int64 */
         CustomRoleId: number;
         CustomRoleResponse: {
+            id: components["schemas"]["CustomRoleId"];
+            teamId: components["schemas"]["TeamId"];
+            name: string;
+            description?: string | null;
+            statements: components["schemas"]["RoleStatement"][];
+            creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
             createTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            description?: string | null;
-            id: components["schemas"]["CustomRoleId"];
-            name: string;
-            statements: components["schemas"]["RoleStatement"][];
-            teamId: components["schemas"]["TeamId"];
         };
         DeleteAccessTokenArgs: {
             name: components["schemas"]["DeviceName"];
         };
         DeleteProjectEnvironmentRequest: {
-            /** @description WorkOS client ID of the environment to delete */
-            clientId: string;
             /**
              * Format: int64
              * @description Project ID for the environment to delete
              */
             projectId: number;
+            /** @description WorkOS client ID of the environment to delete */
+            clientId: string;
         };
         /** @description Response for deleting a project environment - matches
          *     DeleteWorkOSEnvironmentResponse */
@@ -1895,17 +1895,17 @@ export interface components {
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeploymentWorkOSEnvironmentInfo: {
             deploymentName: string;
-            isProduction: boolean;
-            workosApiKey: string;
-            workosClientId: string;
             workosEnvironmentId: string;
             workosEnvironmentName: string;
+            workosClientId: string;
+            workosApiKey: string;
             workosTeamId: string;
+            isProduction: boolean;
         };
         DeploymentWorkOSEnvironmentResponse: {
             environment?: null | components["schemas"]["DeploymentWorkOSEnvironmentInfo"];
-            teamId: components["schemas"]["TeamId"];
             workosTeam?: null | components["schemas"]["WorkOSAssociatedTeam"];
+            teamId: components["schemas"]["TeamId"];
         };
         DeviceName: string;
         DisconnectWorkOSTeamRequest: {
@@ -1917,14 +1917,14 @@ export interface components {
             workosTeamName: string;
         };
         DiscordAccount: {
-            details?: null | components["schemas"]["DiscordAccountDetails"];
             id: string;
+            details?: null | components["schemas"]["DiscordAccountDetails"];
         };
         DiscordAccountDetails: {
-            avatar?: string | null;
+            username: string;
             discriminator: string;
             global_name?: string | null;
-            username: string;
+            avatar?: string | null;
         };
         DiscordAccountsResponse: {
             accounts: components["schemas"]["DiscordAccount"][];
@@ -1934,11 +1934,11 @@ export interface components {
             url: string;
         };
         DiscountedPlanResponse: {
-            /** Format: int64 */
-            durationInMonths?: number | null;
+            planId: string;
             /** Format: double */
             percentOff: number;
-            planId: string;
+            /** Format: int64 */
+            durationInMonths?: number | null;
             requiresPaymentMethod: boolean;
         };
         EnableSSORequest: Record<string, never>;
@@ -1963,13 +1963,13 @@ export interface components {
         /** @description Response for getting a project WorkOS environment with credentials - matches
          *     ProvisionProjectEnvironmentResponse pattern with workos_ prefix */
         GetProjectEnvironmentResponse: {
-            isProduction: boolean;
-            /** @description The user-provided environment name (e.g., "staging", "development") */
-            userEnvironmentName: string;
-            workosApiKey: string;
-            workosClientId: string;
             workosEnvironmentId: string;
             workosEnvironmentName: string;
+            workosClientId: string;
+            workosApiKey: string;
+            /** @description The user-provided environment name (e.g., "staging", "development") */
+            userEnvironmentName: string;
+            isProduction: boolean;
         };
         GetProjectEnvironmentsResponse: {
             environments: components["schemas"]["ProjectEnvironmentSummary"][];
@@ -1977,44 +1977,44 @@ export interface components {
         GetSpendingLimitsResponse: {
             /** Format: int64 */
             disableThresholdCents?: number | null;
-            state?: null | components["schemas"]["SpendingLimitsState"];
             /** Format: int64 */
             warningThresholdCents?: number | null;
+            state?: null | components["schemas"]["SpendingLimitsState"];
         };
         GetTokenInfoResponse: {
             /** Format: int64 */
-            centitokensQuota: number;
-            /** Format: int64 */
-            centitokensUsed: number;
-            isPaidPlan: boolean;
-            isTeamDisabled: boolean;
-            planType: string;
+            tokensUsed: number;
             /** Format: int64 */
             tokensQuota: number;
             /** Format: int64 */
-            tokensUsed: number;
+            centitokensUsed: number;
+            /** Format: int64 */
+            centitokensQuota: number;
+            isTeamDisabled: boolean;
+            isPaidPlan: boolean;
+            planType: string;
         };
         HasAssociatedWorkOSTeamResponse: {
-            /** @description Email of Convex team member who created the WorkOS account.
-             *     This field should always be present when has_associated_workos_team is
-             *     true. */
-            adminConvexEmail?: string | null;
+            hasAssociatedWorkosTeam: boolean;
+            teamId: components["schemas"]["TeamId"];
             /** @description Email address used to provision the WorkOS account. This field should
              *     always be present if has_associated_workos_team is true. */
             adminEmail?: string | null;
             /** @description Name of Convex team member who created the WorkOS account.
              *     This field is optional even when has_associated_workos_team is true. */
             adminName?: string | null;
-            hasAssociatedWorkosTeam: boolean;
-            teamId: components["schemas"]["TeamId"];
+            /** @description Email of Convex team member who created the WorkOS account.
+             *     This field should always be present when has_associated_workos_team is
+             *     true. */
+            adminConvexEmail?: string | null;
         };
         HasFailedPaymentResponse: {
             hasFailedPayment: boolean;
         };
         IdentityResponse: {
-            email?: string | null;
             id: string;
             providers: string[];
+            email?: string | null;
         };
         InstanceAuthForDashboardInteractionsResponse: {
             adminKey: components["schemas"]["SerializedAccessToken"];
@@ -2028,33 +2028,33 @@ export interface components {
             kind: "Local";
         };
         InvitationEligibleEmailsResponse: {
+            eligibleEmails: string[];
             /** @description The admin email used to create this team's WorkOS account (always
              *     eligible for re-invitation) */
             adminEmail?: string | null;
-            eligibleEmails: string[];
         };
         InviteWorkOSTeamMemberRequest: {
+            /** @description Convex team ID that has an associated WorkOS team */
+            teamId: components["schemas"]["TeamId"];
             /** @description Email address to invite to the WorkOS team,
              *     must be a verified email address associated with the user's account */
             email: string;
-            /** @description Convex team ID that has an associated WorkOS team */
-            teamId: components["schemas"]["TeamId"];
         };
         InviteWorkOSTeamMemberResponse: {
             email: string;
             roleSlug: string;
         };
         InvoiceResponse: {
-            amountDue: string;
-            currency: string;
-            hasFailedPayment: boolean;
-            hostedInvoiceUrl?: string | null;
             id: string;
             /** Format: int64 */
             invoiceDate: number;
             invoiceNumber: string;
-            status: string;
+            currency: string;
+            amountDue: string;
             total: string;
+            status: string;
+            hostedInvoiceUrl?: string | null;
+            hasFailedPayment: boolean;
         };
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
@@ -2063,84 +2063,84 @@ export interface components {
          *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
         ListMyCustomRolesResponse: {
-            customRoles: components["schemas"]["CustomRoleResponse"][];
             /** @description The team member's built-in role. When `custom`, `customRoles` lists
              *     the role definitions whose statements determine what the member can
              *     do; for `admin`/`developer` it is empty. */
             role: components["schemas"]["Role"];
+            customRoles: components["schemas"]["CustomRoleResponse"][];
         };
         ManagedBy: "vercel" | {
             oauthApp: string;
         };
         MemberDataResponse: {
+            teams: components["schemas"]["TeamResponse"][];
+            projects: components["schemas"]["ProjectDetails"][];
             deployments: components["schemas"]["PlatformDeploymentResponse"][];
             optInsToAccept: components["schemas"]["OptInToAccept"][];
-            projects: components["schemas"]["ProjectDetails"][];
-            teams: components["schemas"]["TeamResponse"][];
         };
         /** Format: int64 */
         MemberEmailId: number;
         MemberEmailResponse: {
+            id: components["schemas"]["MemberEmailId"];
+            email: string;
+            isVerified: boolean;
+            isPrimary: boolean;
             /** Format: int64 */
             creationTime: number;
-            email: string;
-            id: components["schemas"]["MemberEmailId"];
-            isPrimary: boolean;
-            isVerified: boolean;
         };
         /** Format: int64 */
         MemberId: number;
         MemberResponse: {
-            email: string;
             id: components["schemas"]["MemberId"];
+            email: string;
             name?: string | null;
         };
         OauthAppResponse: {
+            clientId: string;
             appName: components["schemas"]["AppName"];
+            redirectUris: string[];
+            verified: boolean;
+            clientSecret?: string | null;
+            /** Format: int64 */
+            createTime: number;
             /**
              * Format: int64
              * @description The number of distinct teams that have authorized this app.
              */
             authorizedTeamCount: number;
-            clientId: string;
-            clientSecret?: string | null;
-            /** Format: int64 */
-            createTime: number;
-            redirectUris: string[];
             /**
              * Format: int64
              * @description The maximum number of teams that may authorize this app while it is
              *     unverified.
              */
             unverifiedTeamLimit: number;
-            verified: boolean;
         };
         OptIn: {
             tos: string;
         };
         OptInToAccept: {
-            message: string;
             optIn: components["schemas"]["OptIn"];
+            message: string;
         };
         OrbSubscriptionResponse: {
-            /** @description The customer's account balance in their billing currency, as a decimal
-             *     string (e.g. "25.00"). This is a credit that is automatically applied to
-             *     future invoices. Only populated for actors that can view billing
-             *     details. */
-            accountBalance?: string | null;
-            billingAddress?: null | components["schemas"]["Address"];
+            plan: components["schemas"]["PlanResponse"];
             billingContact?: null | components["schemas"]["BillingContactResponse"];
+            billingAddress?: null | components["schemas"]["Address"];
+            paymentMethod?: null | components["schemas"]["PaymentMethodResponse"];
+            status: string;
             /** Format: int64 */
             endDate?: number | null;
+            nextBillingPeriodStart: string;
             /** @description The subscription's invoicing threshold in USD (e.g. "10.00"). When
              *     uninvoiced usage crosses this amount mid-cycle, an invoice is issued
              *     immediately, so a customer can receive multiple invoices in one billing
              *     period. `None` if no threshold is configured on the subscription. */
             invoicingThreshold?: string | null;
-            nextBillingPeriodStart: string;
-            paymentMethod?: null | components["schemas"]["PaymentMethodResponse"];
-            plan: components["schemas"]["PlanResponse"];
-            status: string;
+            /** @description The customer's account balance in their billing currency, as a decimal
+             *     string (e.g. "25.00"). This is a credit that is automatically applied to
+             *     future invoices. Only populated for actors that can view billing
+             *     details. */
+            accountBalance?: string | null;
         };
         PaginatedProjectsResponse: {
             items: components["schemas"]["ProjectDetails"][];
@@ -2151,46 +2151,67 @@ export interface components {
             nextCursor?: string | null;
         };
         PaymentMethodResponse: {
-            display: string;
             kind: string;
+            display: string;
         };
         PeriodicBackupConfig: {
+            sourceDeploymentId: components["schemas"]["DeploymentId"];
             cronspec: string;
             /** Format: int64 */
             expirationDeltaSecs: number;
-            includeStorage: boolean;
             /** Format: int64 */
             nextRun: number;
-            sourceDeploymentId: components["schemas"]["DeploymentId"];
+            includeStorage: boolean;
         };
         PlanResponse: {
-            description: string;
             id: string;
             name: string;
-            planType?: string | null;
+            description: string;
+            status: string;
             /** Format: double */
             seatPrice?: number | null;
-            status: string;
+            planType?: string | null;
         };
         PlansResponse: {
             plans: components["schemas"]["PlanResponse"][];
         };
         PlatformDeploymentResponse: {
-            /** @description The deployment class for this deployment. */
-            class: string;
+            id: components["schemas"]["DeploymentId"];
+            /** @description The readable identifier for this deployment, something like
+             *     playful-otter-123. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deployment was created.
              */
             createTime: number;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds of the last deploy to this deployment, if
+             *     any.
+             */
+            lastDeployTime?: number | null;
+            /** @description The type of this deployment. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
             creator?: null | components["schemas"]["MemberId"];
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /** @description The region where this deployment is hosted. */
+            region: components["schemas"]["RegionName"];
+            /** @description For prod deployments, whether they are the default prod deployment
+             *     of the project. For dev deployments, whether they are the default
+             *     dev deployment for the member that created it.
+             *     For other deployments, set to false. */
+            isDefault: components["schemas"]["IsDefaultDeployment"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. */
+            reference: components["schemas"]["DeploymentReference"];
             /** @description Controls whether the dashboard requires a confirmation before
              *     allowing edits during a browser session for this deployment.
              *     If not set, defaults to true for prod deployments and false
              *     for dev and preview deployments. */
             dashboardEditConfirmation?: boolean | null;
-            /** @description The type of this deployment. */
-            deploymentType: components["schemas"]["DeploymentType"];
             /** @description The full backend URL for this deployment (e.g. "https://joyful-capybara-123.convex.cloud" or "https://calm-cow-456.eu-west-1.convex.cloud"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls). */
             deploymentUrl: string;
             /**
@@ -2200,109 +2221,88 @@ export interface components {
              *     overridden.
              */
             expiresAt?: number | null;
-            id: components["schemas"]["DeploymentId"];
-            /** @description For prod deployments, whether they are the default prod deployment
-             *     of the project. For dev deployments, whether they are the default
-             *     dev deployment for the member that created it.
-             *     For other deployments, set to false. */
-            isDefault: components["schemas"]["IsDefaultDeployment"];
-            /** @enum {string} */
-            kind: "cloud";
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds of the last deploy to this deployment, if
-             *     any.
-             */
-            lastDeployTime?: number | null;
-            /** @description The readable identifier for this deployment, something like
-             *     playful-otter-123. */
-            name: string;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            /** @description The project this deployment belongs to. */
-            projectId: components["schemas"]["ProjectId"];
-            /** @description An identifier that uniquely identifies this deployment within the
-             *     project. */
-            reference: components["schemas"]["DeploymentReference"];
-            /** @description The region where this deployment is hosted. */
-            region: components["schemas"]["RegionName"];
+            /** @description The deployment class for this deployment. */
+            class: string;
             /** @description Whether to send function logs to the client. If `null`, the
              *     deployment-type default is used (true for dev/preview, false for
              *     prod). */
             sendLogsToClient?: boolean | null;
+            /** @enum {string} */
+            kind: "cloud";
         } | {
+            /** @description The readable identifier for this deployment. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deployment was created.
              */
             createTime: number;
-            /** @description The member who created this deployment. */
-            creator: components["schemas"]["MemberId"];
             /** @description Whether this is a "dev" development deployment or "prod" production
              *     deployment. Note that this will always be "dev" for local
              *     deployments. */
             deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
+            /** @description The member who created this deployment. */
+            creator: components["schemas"]["MemberId"];
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /**
+             * Format: int32
+             * @description The port where this local deployment is running.
+             */
+            port: number;
             /** @description The device name where this local deployment is running. */
             deviceName: components["schemas"]["DeviceName"];
             /** @description Whether this local deployment is currently active. */
             isActive: boolean;
             /** @enum {string} */
             kind: "local";
-            /** @description The readable identifier for this deployment. */
-            name: string;
-            /**
-             * Format: int32
-             * @description The port where this local deployment is running.
-             */
-            port: number;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            /** @description The project this deployment belongs to. */
-            projectId: components["schemas"]["ProjectId"];
         };
         PotentialVercelTeam: {
+            teamId: components["schemas"]["TeamId"];
+            teamName: components["schemas"]["TeamName"];
+            teamSlug: components["schemas"]["TeamSlug"];
             planId: string;
             planName: string;
             /** @description Human-readable description of billing impact when joining this team.
              *     `None` for free plans. Clients should show this verbatim so CLI and
              *     dashboard stay in sync on pricing copy. */
             pricingNotice?: string | null;
-            teamId: components["schemas"]["TeamId"];
-            teamName: components["schemas"]["TeamName"];
-            teamSlug: components["schemas"]["TeamSlug"];
         };
         PreviewDeploymentIdentifier: string;
         ProfileEmailArgs: {
             email: string;
         };
         ProjectDetails: {
-            /** Format: int64 */
-            createTime: number;
-            devDeploymentName?: string | null;
             id: components["schemas"]["ProjectId"];
             name: components["schemas"]["ProjectName"];
-            prodDeploymentName?: string | null;
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
+            /** Format: int64 */
+            createTime: number;
+            prodDeploymentName?: string | null;
+            devDeploymentName?: string | null;
         };
         /** @description Summary of a project WorkOS environment for list responses - slimmer than
          *     full environment details, uses workos_ prefix for consistency with
          *     deployment */
         ProjectEnvironmentSummary: {
-            isProduction: boolean;
-            /** @description The user-provided environment name (e.g., "staging", "development") */
-            userEnvironmentName: string;
-            workosClientId: string;
             workosEnvironmentId: string;
             workosEnvironmentName: string;
+            workosClientId: string;
+            /** @description The user-provided environment name (e.g., "staging", "development") */
+            userEnvironmentName: string;
+            isProduction: boolean;
         };
         /** Format: int64 */
         ProjectId: number;
         ProjectMemberRoleResponse: {
+            projectId: components["schemas"]["ProjectId"];
+            memberId: components["schemas"]["MemberId"];
+            teamId: components["schemas"]["TeamId"];
+            role: components["schemas"]["ProjectRole"];
             /** Format: int64 */
             lastUpdated: number;
-            memberId: components["schemas"]["MemberId"];
-            projectId: components["schemas"]["ProjectId"];
-            role: components["schemas"]["ProjectRole"];
-            teamId: components["schemas"]["TeamId"];
         };
         ProjectName: string;
         /** @enum {string} */
@@ -2316,10 +2316,10 @@ export interface components {
         ProjectsResponse: components["schemas"]["PaginatedProjectsResponse"] | components["schemas"]["ProjectDetails"][];
         ProposedTeamName: string;
         ProvisionEnvironmentResponse: {
-            apiKey: string;
-            clientId: string;
             environmentId: string;
             environmentName: string;
+            clientId: string;
+            apiKey: string;
             newlyProvisioned: boolean;
         };
         ProvisionProjectEnvironmentRequest: {
@@ -2329,25 +2329,25 @@ export interface components {
         /** @description Response for provisioning a project WorkOS environment - matches
          *     ProvisionEnvironmentResponse pattern with workos_ prefix for consistency */
         ProvisionProjectEnvironmentResponse: {
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+            workosClientId: string;
+            workosApiKey: string;
             newlyProvisioned: boolean;
             /** @description The user-provided environment name (e.g., "staging", "development") */
             userEnvironmentName: string;
-            workosApiKey: string;
-            workosClientId: string;
-            workosEnvironmentId: string;
-            workosEnvironmentName: string;
         };
         ProvisionWorkOSTeamRequest: {
+            /** @description Convex team ID, no WorkOS team exists at this point */
+            teamId: components["schemas"]["TeamId"];
             /** @description Email address to use for the WorkOS team admin,
              *     must be a verified email address associated with the user's account */
             email: string;
-            /** @description Convex team ID, no WorkOS team exists at this point */
-            teamId: components["schemas"]["TeamId"];
         };
         ProvisionWorkOSTeamResponse: {
-            adminEmail: string;
             workosTeamId: string;
             workosTeamName: string;
+            adminEmail: string;
         };
         ReferralCode: string;
         ReferralState: {
@@ -2373,8 +2373,8 @@ export interface components {
         Role: "admin" | "developer" | "custom";
         /** @description A single permission rule within a custom role. */
         RoleStatement: {
-            actions: components["schemas"]["RoleStatementActions"];
             effect: components["schemas"]["RoleStatementEffect"];
+            actions: components["schemas"]["RoleStatementActions"];
             /**
              * @description Resource path like `project:*`, `project:slug=my-app`, or
              *     `project:*:deployment:type=prod`.
@@ -2398,8 +2398,8 @@ export interface components {
         /** @enum {string} */
         SSODomainState: "verified" | "pending" | "failed" | "legacyVerified";
         SSOOrganizationDomain: {
-            domain: string;
             id: string;
+            domain: string;
             state: components["schemas"]["SSODomainState"];
         };
         SSOOrganizationResponse: {
@@ -2441,65 +2441,65 @@ export interface components {
         /** @enum {string} */
         SpendingLimitsState: "Running" | "Disabled" | "Warning";
         TeamCurrentBillingPeriodResponse: {
-            end: string;
             start: string;
+            end: string;
         };
         TeamEntitlementsResponse: {
             /** Format: int64 */
-            auditLogRetentionDays: number;
-            customAuditLogsInLogStreamsConfigEnabled: boolean;
-            customDomainsEnabled: boolean;
-            customRolesEnabled: boolean;
-            deploymentClassSelectionEnabled: boolean;
-            logStreamingEnabled: boolean;
-            managementApiEnabled: boolean;
-            /** Format: int64 */
-            maxChefTokens: number;
-            /** Format: int64 */
-            maxCloudBackups: number;
-            /** Format: int64 */
-            maxDeployments: number;
-            /** Format: int64 */
             maxTeamMembers: number;
-            periodicBackupsEnabled: boolean;
-            /** Format: int64 */
-            previewDeploymentRetentionDays: number;
-            ssoEnabled: boolean;
-            streamingExportEnabled: boolean;
-            /** Format: int64 */
-            teamMaxActionCompute: number;
-            /** Format: int64 */
-            teamMaxDatabaseBandwidth: number;
-            /** Format: int64 */
-            teamMaxDatabaseStorage: number;
-            /** Format: int64 */
-            teamMaxFileBandwidth: number;
-            /** Format: int64 */
-            teamMaxFileStorage: number;
             /** Format: int64 */
             teamMaxFunctionCalls: number;
             /** Format: int64 */
-            teamMaxSearchQueries: number;
+            teamMaxActionCompute: number;
             /** Format: int64 */
-            teamMaxVectorBandwidth: number;
+            teamMaxDatabaseStorage: number;
+            /** Format: int64 */
+            teamMaxDatabaseBandwidth: number;
+            /** Format: int64 */
+            teamMaxFileStorage: number;
+            /** Format: int64 */
+            teamMaxFileBandwidth: number;
+            logStreamingEnabled: boolean;
+            streamingExportEnabled: boolean;
             /** Format: int64 */
             teamMaxVectorStorage: number;
+            /** Format: int64 */
+            teamMaxVectorBandwidth: number;
+            customDomainsEnabled: boolean;
+            periodicBackupsEnabled: boolean;
+            /** Format: int64 */
+            maxCloudBackups: number;
+            /** Format: int64 */
+            maxChefTokens: number;
+            ssoEnabled: boolean;
+            /** Format: int64 */
+            auditLogRetentionDays: number;
+            /** Format: int64 */
+            maxDeployments: number;
+            managementApiEnabled: boolean;
+            /** Format: int64 */
+            previewDeploymentRetentionDays: number;
+            deploymentClassSelectionEnabled: boolean;
+            /** Format: int64 */
+            teamMaxSearchQueries: number;
+            customRolesEnabled: boolean;
+            customAuditLogsInLogStreamsConfigEnabled: boolean;
         };
         /** Format: int64 */
         TeamId: number;
         TeamName: string;
         TeamResponse: {
-            creator?: null | components["schemas"]["MemberId"];
-            defaultRegion?: null | components["schemas"]["RegionName"];
             id: components["schemas"]["TeamId"];
-            managedBy?: null | components["schemas"]["ManagedBy"];
-            managedByUrl?: string | null;
             name: components["schemas"]["TeamName"];
+            slug: components["schemas"]["TeamSlug"];
+            creator?: null | components["schemas"]["MemberId"];
+            suspended: boolean;
             referralCode: components["schemas"]["ReferralCode"];
             referredBy?: null | components["schemas"]["TeamId"];
-            slug: components["schemas"]["TeamSlug"];
+            managedBy?: null | components["schemas"]["ManagedBy"];
+            defaultRegion?: null | components["schemas"]["RegionName"];
             ssoLoginId?: string | null;
-            suspended: boolean;
+            managedByUrl?: string | null;
         };
         TeamSlug: string;
         TeamUsageStateResponse: {
@@ -2519,8 +2519,8 @@ export interface components {
             billingAddress: components["schemas"]["Address"];
         };
         UpdateBillingContactArgs: {
-            email: string;
             name: string;
+            email: string;
         };
         UpdateOauthAppArgs: {
             appName?: null | components["schemas"]["AppName"];
@@ -2543,50 +2543,50 @@ export interface components {
             requireSsoLogin?: boolean | null;
         };
         UpdateTeamArgs: {
-            defaultRegion?: null | components["schemas"]["RegionName"];
             name?: null | components["schemas"]["ProposedTeamName"];
             slug?: null | components["schemas"]["TeamSlug"];
+            defaultRegion?: null | components["schemas"]["RegionName"];
         };
         /** @enum {string} */
         UsageState: "Default" | "Approaching" | "Exceeded" | "Paused" | "Disabled";
         ValidateReferralCodeResult: {
             Valid: {
-                exhausted: boolean;
                 teamName: components["schemas"]["TeamName"];
+                exhausted: boolean;
             };
         } | "Invalid";
         Value: unknown;
         WorkOSAssociatedTeam: {
             convexTeamId: components["schemas"]["TeamId"];
-            creatorMemberId: components["schemas"]["MemberId"];
-            workosAdminEmail: string;
             workosTeamId: string;
             workosTeamName: string;
+            workosAdminEmail: string;
+            creatorMemberId: components["schemas"]["MemberId"];
         };
         WorkOSEnvironmentHealthResponse: {
-            clientId: string;
             id: string;
             name: string;
+            clientId: string;
         };
         WorkOSEnvironmentInfo: {
             deploymentName: string;
-            workosClientId: string;
             workosEnvironmentId: string;
             workosEnvironmentName: string;
+            workosClientId: string;
         };
         /** @enum {string} */
         WorkOSProductionState: "active" | "inactive" | "suspended" | "deleting";
         WorkOSTeamAssociation: {
-            adminEmail: string;
-            creatorEmail: string;
-            creatorName?: string | null;
             workosTeamId: string;
             workosTeamName: string;
+            adminEmail: string;
+            creatorName?: string | null;
+            creatorEmail: string;
         };
         WorkOSTeamHealthResponse: {
-            teamInfo?: null | components["schemas"]["WorkOSTeamInfo"];
             /** @description Whether a WorkOS team has been provisioned for this Convex team */
             teamProvisioned: boolean;
+            teamInfo?: null | components["schemas"]["WorkOSTeamInfo"];
         };
         WorkOSTeamInfo: {
             id: string;
@@ -2594,9 +2594,9 @@ export interface components {
             productionState: components["schemas"]["WorkOSProductionState"];
         };
         WorkOSTeamIntegrationResponse: {
+            teamAssociation?: null | components["schemas"]["WorkOSTeamAssociation"];
             /** @description List of WorkOS environments for deployments */
             environments: components["schemas"]["WorkOSEnvironmentInfo"][];
-            teamAssociation?: null | components["schemas"]["WorkOSTeamAssociation"];
         };
     };
     responses: never;

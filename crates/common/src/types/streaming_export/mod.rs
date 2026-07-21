@@ -137,11 +137,16 @@ pub struct DataSyncArgs {
     /// Opaque cursor returned by a previous call. Omit to start from scratch.
     pub cursor: Option<String>,
 
-    /// The components, tables, and columns to export. When omitted, everything
-    /// is exported. The selection may change between calls of the same sync:
-    /// newly selected tables are synced from scratch, and deselected tables
-    /// stop being exported (documents already exported from them are not
-    /// tombstoned).
+    /// When set, only sync the selected subset of the data.
+    ///
+    /// Selects the components, tables, and columns to export. Each key is a
+    /// component path (`""` for the root component), mapped to the selection
+    /// for that component.
+    ///
+    /// The selection may change between calls of the same sync:
+    /// newly selected tables are synced from scratch, possibly moving the
+    /// sync into `snapshotting` state if necessary. Deselected tables stop
+    /// being exported, with a truncate emitted.
     #[serde(default)]
     pub selection: Selection,
 }
@@ -150,6 +155,8 @@ pub struct DataSyncArgs {
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncResponse {
+    /// The status of the sync after this page.
+    pub status: DataSyncStatus,
     /// Tables truncated by this page. The consumer should drop everything it
     /// previously synced for each table, then apply `values` (which re-sync
     /// them from scratch). Logically applies before `values`.
@@ -162,8 +169,6 @@ pub struct DataSyncResponse {
     /// Unique id of the sync, assigned on the first page and stable across
     /// the sync's lifetime. Identifies this sync in `/data/list_active_syncs`.
     pub sync_id: String,
-    /// The consistency state of the sync after this page.
-    pub status: DataSyncStatus,
     /// Pagination information. The data sync endpoint is an infinite streaming
     /// endpoint, so `nextCursor` is always present. `hasMore` is `true` while
     /// data can be fetched immediately. When `hasMore` is `false`, the cursor
@@ -246,10 +251,6 @@ pub enum UpToDateTag {
 
 /// The consistency state reported alongside a data sync page, discriminated
 /// by `type`.
-// Modeled as a serde-untagged enum over structs that each carry a
-// single-value `type` tag (rather than `#[serde(tag = "type")]`): the wire
-// format is identical, but this shape lets utoipa emit an OpenAPI
-// `discriminator`, which the docs render as tabs labeled by `type`.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(untagged)]
 #[schema(discriminator(

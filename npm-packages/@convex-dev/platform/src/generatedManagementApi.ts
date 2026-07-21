@@ -962,20 +962,20 @@ export interface components {
             /** @enum {string} */
             kind: "system";
         } | {
-            /** @enum {string} */
-            kind: "member";
             /** @description Member ID */
             member_id: components["schemas"]["MemberId"];
+            /** @enum {string} */
+            kind: "member";
         } | {
+            member_id?: null | components["schemas"]["MemberId"];
+            /** @description Token ID. `0` for legacy audit log rows created before token IDs
+             *     were recorded. */
+            token_id: components["schemas"]["AccessTokenId"];
             /** @description Client ID of the OAuth application the token was issued to or is
              *     managed by, if any. */
             client_id?: string | null;
             /** @enum {string} */
             kind: "token";
-            member_id?: null | components["schemas"]["MemberId"];
-            /** @description Token ID. `0` for legacy audit log rows created before token IDs
-             *     were recorded. */
-            token_id: components["schemas"]["AccessTokenId"];
         } | {
             /** @description Client ID of the integration */
             client_id: string;
@@ -983,14 +983,12 @@ export interface components {
             kind: "integration";
         };
         AuditLogEventResponse: {
-            /** @enum {string} */
-            action: "team:join" | "team:create" | "team:update" | "team:delete" | "project:create" | "project:transfer" | "project:receive" | "project:update" | "project:delete" | "defaultEnvironmentVariable:create" | "defaultEnvironmentVariable:update" | "defaultEnvironmentVariable:delete" | "deployment:create" | "deployment:delete" | "member:invite" | "member:cancelInvitation" | "member:remove" | "member:updateRole" | "project:updateMemberRole" | "billing:paymentMethod:update" | "billing:contact:update" | "billing:address:update" | "billing:subscription:create" | "billing:subscription:resume" | "billing:subscription:cancel" | "billing:subscription:changePlan" | "team:token:create" | "team:token:update" | "team:token:delete" | "team:token:view" | "project:token:create" | "project:token:update" | "project:token:delete" | "project:token:view" | "deployment:token:create" | "deployment:token:update" | "deployment:token:delete" | "deployment:token:view" | "deployment:customDomain:create" | "deployment:customDomain:delete" | "deployment:backups:create" | "deployment:backups:import" | "deployment:backups:configurePeriodic" | "deployment:backups:disablePeriodic" | "deployment:backups:delete" | "team:disableExceedingSpendingLimits" | "billing:spendingLimit:update" | "team:applyReferralCode" | "oauthApplication:create" | "oauthApplication:update" | "oauthApplication:delete" | "oauthApplication:verify" | "oauthApplication:generateClientSecret" | "integration:workos:team:create" | "integration:workos:environment:create" | "integration:workos:environment:delete" | "integration:workos:environment:retrieveCredentials" | "integration:workos:team:disconnect" | "integration:workos:team:inviteMember" | "integration:workos:projectEnvironment:create" | "integration:workos:projectEnvironment:delete" | "integration:workos:projectEnvironment:retrieveCredentials" | "sso:enable" | "sso:disable" | "sso:update" | "deployment:transfer" | "deployment:receive" | "deployment:update" | "customRole:create" | "customRole:update" | "customRole:delete";
+            /** @description Team ID */
+            teamId: components["schemas"]["TeamId"];
             /** @description The identity that executed the action */
             actor: components["schemas"]["AuditLogActor"];
-            /** @description IP address of the client that performed the action, if known. */
-            clientIp?: string | null;
-            /** @description User agent of the client that performed the action, if known. */
-            clientUserAgent?: string | null;
+            /** @enum {string} */
+            action: "team:join" | "team:create" | "team:update" | "team:delete" | "project:create" | "project:transfer" | "project:receive" | "project:update" | "project:delete" | "defaultEnvironmentVariable:create" | "defaultEnvironmentVariable:update" | "defaultEnvironmentVariable:delete" | "deployment:create" | "deployment:delete" | "member:invite" | "member:cancelInvitation" | "member:remove" | "member:updateRole" | "project:updateMemberRole" | "billing:paymentMethod:update" | "billing:contact:update" | "billing:address:update" | "billing:subscription:create" | "billing:subscription:resume" | "billing:subscription:cancel" | "billing:subscription:changePlan" | "team:token:create" | "team:token:update" | "team:token:delete" | "team:token:view" | "project:token:create" | "project:token:update" | "project:token:delete" | "project:token:view" | "deployment:token:create" | "deployment:token:update" | "deployment:token:delete" | "deployment:token:view" | "deployment:customDomain:create" | "deployment:customDomain:delete" | "deployment:backups:create" | "deployment:backups:import" | "deployment:backups:configurePeriodic" | "deployment:backups:disablePeriodic" | "deployment:backups:delete" | "team:disableExceedingSpendingLimits" | "billing:spendingLimit:update" | "team:applyReferralCode" | "oauthApplication:create" | "oauthApplication:update" | "oauthApplication:delete" | "oauthApplication:verify" | "oauthApplication:generateClientSecret" | "integration:workos:team:create" | "integration:workos:environment:create" | "integration:workos:environment:delete" | "integration:workos:environment:retrieveCredentials" | "integration:workos:team:disconnect" | "integration:workos:team:inviteMember" | "integration:workos:projectEnvironment:create" | "integration:workos:projectEnvironment:delete" | "integration:workos:projectEnvironment:retrieveCredentials" | "sso:enable" | "sso:disable" | "sso:update" | "deployment:transfer" | "deployment:receive" | "deployment:update" | "customRole:create" | "customRole:update" | "customRole:delete";
             /**
              * Format: int64
              * @description Time the event was created, in milliseconds since epoch.
@@ -998,53 +996,55 @@ export interface components {
             createTime: number;
             /** @description Additional JSON metadata about the audit log event */
             metadata: components["schemas"]["Value"];
-            /** @description Team ID */
-            teamId: components["schemas"]["TeamId"];
+            /** @description IP address of the client that performed the action, if known. */
+            clientIp?: string | null;
+            /** @description User agent of the client that performed the action, if known. */
+            clientUserAgent?: string | null;
         };
         CancelInvitationArgs: {
             email: string;
         };
         CreateCustomRoleArgs: {
-            description?: string | null;
             name: string;
+            description?: string | null;
             statements: components["schemas"]["RoleStatement"][];
         };
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod" | "preview" | "custom";
         CreateInvitationArgs: {
-            /** @description Custom roles to attach when `role` is `custom`. Required and non-empty
-             *     in that case, and forbidden otherwise. */
-            customRoles?: components["schemas"]["CustomRoleId"][] | null;
             email: string;
             /** @description Role to assign when the invitation is accepted.
              *     Pass `custom` together with a non-empty `customRoles` list to invite a
              *     member into a custom role; `admin` and `developer` must be sent without
              *     `customRoles`. */
             role: components["schemas"]["Role"];
+            /** @description Custom roles to attach when `role` is `custom`. Required and non-empty
+             *     in that case, and forbidden otherwise. */
+            customRoles?: components["schemas"]["CustomRoleId"][] | null;
         };
         CreatePersonalAccessTokenArgs: {
+            /** @description Name for the personal access token. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this personal access token will
              *     expire. Must be at least 30 minutes in the future.
              */
             expiresAt?: number | null;
-            /** @description Name for the personal access token. */
-            name: string;
         };
         CreatePersonalAccessTokenResponse: {
             /** @description The generated personal access token. */
             accessToken: string;
         };
         CreateTeamAccessTokenArgs: {
+            /** @description Name for the access token. */
+            name?: string | null;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token will expire. Must be at least
              *     30 minutes in the future. Defaults to no expiry if omitted.
              */
             expiresAt?: number | null;
-            /** @description Name for the access token. */
-            name?: string | null;
         };
         CreateTeamAccessTokenResponse: {
             accessToken: string;
@@ -1053,18 +1053,18 @@ export interface components {
         /** Format: int64 */
         CustomRoleId: number;
         CustomRoleResponse: {
+            id: components["schemas"]["CustomRoleId"];
+            teamId: components["schemas"]["TeamId"];
+            name: string;
+            description?: string | null;
+            statements: components["schemas"]["RoleStatement"][];
+            creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
             createTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            description?: string | null;
-            id: components["schemas"]["CustomRoleId"];
-            name: string;
-            statements: components["schemas"]["RoleStatement"][];
-            teamId: components["schemas"]["TeamId"];
         };
         DefaultEnvironmentVariableChangeArgs: {
-            deploymentType: components["schemas"]["DeploymentType"];
             name: string;
+            deploymentType: components["schemas"]["DeploymentType"];
             /** @description Set to a value to upsert the default environment variable
              *     with the given name and type. If null, will delete the
              *     environment variable with the given name and deployment
@@ -1072,13 +1072,13 @@ export interface components {
             value?: string | null;
         };
         DefaultEnvironmentVariableResponse: {
+            name: string;
+            value: string;
             /** @description The deployment types that this env var name + value apply to.
              *     Note that when filtering by a particular deployment type,
              *     all items in the result will have a single element
              *     in `deploymentType`. */
             deploymentTypes: components["schemas"]["DeploymentType"][];
-            name: string;
-            value: string;
         };
         DeleteCustomRoleArgs: {
             id: components["schemas"]["CustomRoleId"];
@@ -1095,28 +1095,28 @@ export interface components {
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024" | "d2048";
         DeploymentClassMetadata: {
-            available: boolean;
             type: components["schemas"]["DeploymentClass"];
+            available: boolean;
         };
         /** Format: int64 */
         DeploymentId: number;
         /** @description An identifier that uniquely identifies this deployment within the project. */
         DeploymentReference: string;
         DeploymentRegionMetadata: {
-            available: boolean;
-            displayName: string;
             name: components["schemas"]["RegionName"];
+            displayName: string;
+            available: boolean;
         };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
         InvitationResponse: {
-            /** @description The custom roles attached to this invitation. Present iff `role` is
-             *     `custom`. */
-            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
             email: string;
             expired: boolean;
             role: components["schemas"]["Role"];
+            /** @description The custom roles attached to this invitation. Present iff `role` is
+             *     `custom`. */
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
         };
         /** @description Indicates whether the deployment is the default prod deployment for the
          *     project, or the default cloud dev deployment for the member in the project. */
@@ -1165,18 +1165,20 @@ export interface components {
             nextCursor?: string | null;
         };
         PersonalAccessTokenResponse: {
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
+            name: components["schemas"]["DeviceName"];
             /** Format: int64 */
             creationTime: number;
             /** Format: int64 */
-            expiresAt?: number | null;
-            /** @description Stable identifier for this access token. */
-            id: components["schemas"]["AccessTokenId"];
-            /** Format: int64 */
             lastUsedTime?: number | null;
-            name: components["schemas"]["DeviceName"];
+            /** Format: int64 */
+            expiresAt?: number | null;
             ssoTeamId?: null | components["schemas"]["TeamId"];
         };
         PlatformCreateDeployKeyArgs: {
+            /** @description Name for the deploy key. */
+            name: string;
             allowedActions?: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view" | "deployment:usageLimits:view" | "deployment:usageLimits:write" | "deployment:usage:view")[];
             /**
              * Format: int64
@@ -1184,26 +1186,26 @@ export interface components {
              *     at least 30 minutes in the future.
              */
             expiresAt?: number | null;
-            /** @description Name for the deploy key. */
-            name: string;
         };
         PlatformCreateDeployKeyResponse: {
             /** @description The generated deploy key. */
             deployKey: components["schemas"]["AdminKey"];
         };
         PlatformCreateDeploymentArgs: {
+            type: components["schemas"]["CreateDeploymentType"];
             /** @description The class to use for this deployment. If not provided, the default
              *     deployment class for your team will be used. */
             class?: string | null;
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this deployment will be deleted.
-             *     Preview deployments have this set by default unless overridden.
-             *     Must be at least 30 minutes in the future and cannot exceed the
-             *     team’s preview deployment retention days entitlement from now.
-             *     Set to `null` to clear the expiration.
-             */
-            expiresAt?: number | null;
+            region?: null | components["schemas"]["RegionName"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. By providing a reference, you can create multiple dev and prod
+             *     deployments in the project. If you don’t provide a reference, the
+             *     endpoint will create the default production deployment for the project,
+             *     or the default development deployment for the member that creates it
+             *     (i.e. the deployment used by default when running `npx convex deploy`
+             *     or `npx convex dev` respectively). When not providing a reference,
+             *     a reference will be automatically generated. */
+            reference?: string | null;
             /** @description When creating a prod deployment, whether the deployment is the default
              *     production deployment for the project (i.e. the one used by default
              *     when running `npx convex deploy`).
@@ -1215,55 +1217,53 @@ export interface components {
              *     deployment without providing a reference (and defaults to `false`
              *     otherwise). */
             isDefault?: boolean | null;
-            /** @description An identifier that uniquely identifies this deployment within the
-             *     project. By providing a reference, you can create multiple dev and prod
-             *     deployments in the project. If you don’t provide a reference, the
-             *     endpoint will create the default production deployment for the project,
-             *     or the default development deployment for the member that creates it
-             *     (i.e. the deployment used by default when running `npx convex deploy`
-             *     or `npx convex dev` respectively). When not providing a reference,
-             *     a reference will be automatically generated. */
-            reference?: string | null;
-            region?: null | components["schemas"]["RegionName"];
-            type: components["schemas"]["CreateDeploymentType"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be deleted.
+             *     Preview deployments have this set by default unless overridden.
+             *     Must be at least 30 minutes in the future and cannot exceed the
+             *     team’s preview deployment retention days entitlement from now.
+             *     Set to `null` to clear the expiration.
+             */
+            expiresAt?: number | null;
         };
         PlatformCreatePreviewDeployKeyArgs: {
+            /** @description Name for the preview deploy key. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this preview deploy key will expire.
              *     Must be at least 30 minutes in the future.
              */
             expiresAt?: number | null;
-            /** @description Name for the preview deploy key. */
-            name: string;
         };
         PlatformCreatePreviewDeployKeyResponse: {
             /** @description The generated preview deploy key. */
             previewDeployKey: components["schemas"]["AdminKey"];
         };
         PlatformCreateProjectArgs: {
+            /** @description The full name of the project as it will appear in the dashboard. Spaces
+             *     and punctuations allowed. */
+            projectName: components["schemas"]["ProjectName"];
+            deploymentType?: null | components["schemas"]["CreateDeploymentType"];
             /** @description When creating a deployment, the class to use for the deployment.
              *     If not provided, the default deployment class for your team will be
              *     used. */
             deploymentClass?: string | null;
             deploymentRegion?: null | components["schemas"]["RegionName"];
-            deploymentType?: null | components["schemas"]["CreateDeploymentType"];
-            /** @description The full name of the project as it will appear in the dashboard. Spaces
-             *     and punctuations allowed. */
-            projectName: components["schemas"]["ProjectName"];
         };
         PlatformCreateProjectResponse: {
+            /** @description Deprecated alias for `id`, kept for backwards compatibility. */
+            projectId: components["schemas"]["ProjectId"];
+            id: components["schemas"]["ProjectId"];
+            /** @description The shortened version of the project name used in Convex Dashboard URLs. */
+            slug: components["schemas"]["ProjectSlug"];
             /** @description The readable identifier for this deployment, something like
              *     playful-otter-123. Only present when a deployment was requested. */
             deploymentName?: string | null;
             /** @description Deployment cloud URL, where this deployment lives. Only present when a
              *     deployment was requested. */
             deploymentUrl?: string | null;
-            id: components["schemas"]["ProjectId"];
-            /** @description Deprecated alias for `id`, kept for backwards compatibility. */
-            projectId: components["schemas"]["ProjectId"];
-            /** @description The shortened version of the project name used in Convex Dashboard URLs. */
-            slug: components["schemas"]["ProjectSlug"];
         };
         PlatformCreateTeamArgs: {
             defaultRegion: components["schemas"]["RegionName"];
@@ -1277,10 +1277,10 @@ export interface components {
             creationTime: number;
             /** @description The deployment name this domain is configured for. */
             deploymentName: string;
-            /** @description The custom domain name. */
-            domain: string;
             /** @description The destination for this custom domain (convexCloud or convexSite). */
             requestDestination: components["schemas"]["RequestDestination"];
+            /** @description The custom domain name. */
+            domain: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this domain was verified, or null if not
@@ -1289,10 +1289,10 @@ export interface components {
             verificationTime?: number | null;
         };
         PlatformDeleteCustomDomainArgs: {
-            /** @description The custom domain name to delete. */
-            domain: string;
             /** @description The destination for this custom domain (convexCloud or convexSite). */
             requestDestination: components["schemas"]["RequestDestination"];
+            /** @description The custom domain name to delete. */
+            domain: string;
         };
         PlatformDeleteDeployKeyArgs: {
             /** @description The token to delete. This can be the secret value of the token or the
@@ -1305,45 +1305,66 @@ export interface components {
             id: string;
         };
         PlatformDeployKeyResponse: {
-            allowedActions: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view" | "deployment:usageLimits:view" | "deployment:usageLimits:write" | "deployment:usage:view")[];
+            /** @description Stable identifier for this deploy key. */
+            id: components["schemas"]["AccessTokenId"];
+            /** @description The name given to the deploy key at creation. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was created.
              */
             creationTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this deploy key will expire.
-             */
-            expiresAt?: number | null;
-            /** @description Stable identifier for this deploy key. */
-            id: components["schemas"]["AccessTokenId"];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was last used (if ever).
              */
             lastUsedTime?: number | null;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deploy key will expire.
+             */
+            expiresAt?: number | null;
+            creator?: null | components["schemas"]["MemberId"];
             managedBy?: null | components["schemas"]["ManagedBy"];
-            /** @description The name given to the deploy key at creation. */
-            name: string;
+            allowedActions: ("deployment:deploy" | "deployment:env:view" | "deployment:env:write" | "deployment:pause" | "deployment:unpause" | "deployment:logs:view" | "deployment:metrics:view" | "deployment:integrations:view" | "deployment:integrations:write" | "deployment:data:view" | "deployment:data:write" | "deployment:backups:view" | "deployment:backups:create" | "deployment:backups:download" | "deployment:backups:delete" | "deployment:backups:import" | "deployment:functions:actAsUser" | "deployment:functions:runInternalQueries" | "deployment:functions:runInternalMutations" | "deployment:functions:runInternalActions" | "deployment:functions:runTestQuery" | "deployment:auditLog:view" | "deployment:usageLimits:view" | "deployment:usageLimits:write" | "deployment:usage:view")[];
         };
         PlatformDeploymentResponse: {
-            /** @description The deployment class for this deployment. */
-            class: string;
+            id: components["schemas"]["DeploymentId"];
+            /** @description The readable identifier for this deployment, something like
+             *     playful-otter-123. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deployment was created.
              */
             createTime: number;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds of the last deploy to this deployment, if
+             *     any.
+             */
+            lastDeployTime?: number | null;
+            /** @description The type of this deployment. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
             creator?: null | components["schemas"]["MemberId"];
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /** @description The region where this deployment is hosted. */
+            region: components["schemas"]["RegionName"];
+            /** @description For prod deployments, whether they are the default prod deployment
+             *     of the project. For dev deployments, whether they are the default
+             *     dev deployment for the member that created it.
+             *     For other deployments, set to false. */
+            isDefault: components["schemas"]["IsDefaultDeployment"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. */
+            reference: components["schemas"]["DeploymentReference"];
             /** @description Controls whether the dashboard requires a confirmation before
              *     allowing edits during a browser session for this deployment.
              *     If not set, defaults to true for prod deployments and false
              *     for dev and preview deployments. */
             dashboardEditConfirmation?: boolean | null;
-            /** @description The type of this deployment. */
-            deploymentType: components["schemas"]["DeploymentType"];
             /** @description The full backend URL for this deployment (e.g. "https://joyful-capybara-123.convex.cloud" or "https://calm-cow-456.eu-west-1.convex.cloud"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls). */
             deploymentUrl: string;
             /**
@@ -1353,63 +1374,42 @@ export interface components {
              *     overridden.
              */
             expiresAt?: number | null;
-            id: components["schemas"]["DeploymentId"];
-            /** @description For prod deployments, whether they are the default prod deployment
-             *     of the project. For dev deployments, whether they are the default
-             *     dev deployment for the member that created it.
-             *     For other deployments, set to false. */
-            isDefault: components["schemas"]["IsDefaultDeployment"];
-            /** @enum {string} */
-            kind: "cloud";
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds of the last deploy to this deployment, if
-             *     any.
-             */
-            lastDeployTime?: number | null;
-            /** @description The readable identifier for this deployment, something like
-             *     playful-otter-123. */
-            name: string;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            /** @description The project this deployment belongs to. */
-            projectId: components["schemas"]["ProjectId"];
-            /** @description An identifier that uniquely identifies this deployment within the
-             *     project. */
-            reference: components["schemas"]["DeploymentReference"];
-            /** @description The region where this deployment is hosted. */
-            region: components["schemas"]["RegionName"];
+            /** @description The deployment class for this deployment. */
+            class: string;
             /** @description Whether to send function logs to the client. If `null`, the
              *     deployment-type default is used (true for dev/preview, false for
              *     prod). */
             sendLogsToClient?: boolean | null;
+            /** @enum {string} */
+            kind: "cloud";
         } | {
+            /** @description The readable identifier for this deployment. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deployment was created.
              */
             createTime: number;
-            /** @description The member who created this deployment. */
-            creator: components["schemas"]["MemberId"];
             /** @description Whether this is a "dev" development deployment or "prod" production
              *     deployment. Note that this will always be "dev" for local
              *     deployments. */
             deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
+            /** @description The member who created this deployment. */
+            creator: components["schemas"]["MemberId"];
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /**
+             * Format: int32
+             * @description The port where this local deployment is running.
+             */
+            port: number;
             /** @description The device name where this local deployment is running. */
             deviceName: components["schemas"]["DeviceName"];
             /** @description Whether this local deployment is currently active. */
             isActive: boolean;
             /** @enum {string} */
             kind: "local";
-            /** @description The readable identifier for this deployment. */
-            name: string;
-            /**
-             * Format: int32
-             * @description The port where this local deployment is running.
-             */
-            port: number;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            /** @description The project this deployment belongs to. */
-            projectId: components["schemas"]["ProjectId"];
         };
         PlatformListCustomDomainsResponse: {
             /** @description List of custom domains configured for this deployment. */
@@ -1430,31 +1430,31 @@ export interface components {
             pagination: components["schemas"]["PaginationMetadata"];
         };
         PlatformTokenDetailsResponse: {
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
+            /** @description The team ID this token is associated with. */
+            teamId: components["schemas"]["TeamId"];
+            /** @description The name given to the token at creation. */
+            name: components["schemas"]["DeviceName"];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was created.
              */
             createTime: number;
-            /** @description Stable identifier for this access token. */
-            id: components["schemas"]["AccessTokenId"];
-            /** @description The name given to the token at creation. */
-            name: components["schemas"]["DeviceName"];
-            /** @description The team ID this token is associated with. */
-            teamId: components["schemas"]["TeamId"];
             /** @enum {string} */
             type: "teamToken";
         } | {
+            /** @description Stable identifier for this access token. */
+            id: components["schemas"]["AccessTokenId"];
+            /** @description The project ID this token is associated with. */
+            projectId: components["schemas"]["ProjectId"];
+            /** @description The name given to the token at creation. */
+            name: components["schemas"]["DeviceName"];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this token was created.
              */
             createTime: number;
-            /** @description Stable identifier for this access token. */
-            id: components["schemas"]["AccessTokenId"];
-            /** @description The name given to the token at creation. */
-            name: components["schemas"]["DeviceName"];
-            /** @description The project ID this token is associated with. */
-            projectId: components["schemas"]["ProjectId"];
             /** @enum {string} */
             type: "projectToken";
         };
@@ -1462,34 +1462,6 @@ export interface components {
             destinationProjectId: components["schemas"]["ProjectId"];
         };
         PlatformUpdateDeploymentArgs: {
-            /** @description The deployment class to move this deployment to (e.g. "s16", "s256").
-             *     Requires the deployment class selection entitlement. */
-            class?: string | null;
-            /** @description Controls whether the dashboard requires a confirmation before allowing
-             *     edits during a browser session for this deployment. If set to `null`,
-             *     the setting is reset to the default behavior (true for prod deployments,
-             *     false for dev and preview deployments). If set to `true` or `false`, the
-             *     setting is explicitly overridden. */
-            dashboardEditConfirmation?: boolean | null;
-            deploymentType?: null | components["schemas"]["DeploymentType"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this deployment will be deleted.
-             *     Preview deployments have this set by default unless overridden.
-             *     Must be at least 30 minutes in the future and cannot exceed the
-             *     team's preview deployment retention days entitlement from now.
-             *     Set to `null` to clear the expiration.
-             */
-            expiresAt?: number | null;
-            /** @description For a prod deployment, whether the deployment is the default
-             *     production deployment for the project (i.e. the one used by default
-             *     when running `npx convex deploy`).
-             *     For a dev deployment, whether the deployment is the default
-             *     development deployment for the member that created it (i.e. the one
-             *     used by default when running `npx convex dev`).
-             *     Setting this to `true` will fail on preview or custom deployments,
-             *     or if there is already a matching default deployment in the project. */
-            isDefault?: boolean | null;
             /** @description The reference of the deployment. When provided, must match the following
              *     rules:
              *       - be unique across deployment references in the project
@@ -1502,11 +1474,39 @@ export interface components {
              *         "cloud", "local", "default", "name", "new", "existing",
              *         "deployment", "preview" */
             reference?: string | null;
+            /** @description Controls whether the dashboard requires a confirmation before allowing
+             *     edits during a browser session for this deployment. If set to `null`,
+             *     the setting is reset to the default behavior (true for prod deployments,
+             *     false for dev and preview deployments). If set to `true` or `false`, the
+             *     setting is explicitly overridden. */
+            dashboardEditConfirmation?: boolean | null;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be deleted.
+             *     Preview deployments have this set by default unless overridden.
+             *     Must be at least 30 minutes in the future and cannot exceed the
+             *     team's preview deployment retention days entitlement from now.
+             *     Set to `null` to clear the expiration.
+             */
+            expiresAt?: number | null;
             /** @description Whether to send function logs to the client. If set to `null`, the
              *     setting is reset to the deployment-type default (true for dev/preview,
              *     false for prod). If set to `true` or `false`, the setting is explicitly
              *     overridden. */
             sendLogsToClient?: boolean | null;
+            /** @description The deployment class to move this deployment to (e.g. "s16", "s256").
+             *     Requires the deployment class selection entitlement. */
+            class?: string | null;
+            /** @description For a prod deployment, whether the deployment is the default
+             *     production deployment for the project (i.e. the one used by default
+             *     when running `npx convex deploy`).
+             *     For a dev deployment, whether the deployment is the default
+             *     development deployment for the member that created it (i.e. the one
+             *     used by default when running `npx convex dev`).
+             *     Setting this to `true` will fail on preview or custom deployments,
+             *     or if there is already a matching default deployment in the project. */
+            isDefault?: boolean | null;
+            deploymentType?: null | components["schemas"]["DeploymentType"];
         };
         PlatformUpdateProjectArgs: {
             name?: null | components["schemas"]["ProjectName"];
@@ -1517,26 +1517,26 @@ export interface components {
         ProjectId: number;
         ProjectName: string;
         ProjectResponse: {
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds.
-             */
-            createTime: number;
-            /** @description The name of the requesting member's default development deployment for
-             *     this project, if one exists (an active local deployment or default
-             *     cloud dev deployment). */
-            devDeploymentName?: string | null;
             id: components["schemas"]["ProjectId"];
             /** @description The full project name, including spaces and punctuation. */
             name: components["schemas"]["ProjectName"];
-            /** @description The name of the default production deployment for this project, if one
-             *     exists (e.g. "happy-otter-123"). */
-            prodDeploymentName?: string | null;
             /** @description This shortened version of the name used in Convex Dashboard URLs. */
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
             /** @description The slug of the team that owns this project. */
             teamSlug: components["schemas"]["TeamSlug"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds.
+             */
+            createTime: number;
+            /** @description The name of the default production deployment for this project, if one
+             *     exists (e.g. "happy-otter-123"). */
+            prodDeploymentName?: string | null;
+            /** @description The name of the requesting member's default development deployment for
+             *     this project, if one exists (an active local deployment or default
+             *     cloud dev deployment). */
+            devDeploymentName?: string | null;
         };
         ProjectSlug: string;
         ProposedTeamName: string;
@@ -1549,8 +1549,8 @@ export interface components {
         Role: "admin" | "developer" | "custom";
         /** @description A single permission rule within a custom role. */
         RoleStatement: {
-            actions: components["schemas"]["RoleStatementActions"];
             effect: components["schemas"]["RoleStatementEffect"];
+            actions: components["schemas"]["RoleStatementActions"];
             /**
              * @description Resource path like `project:*`, `project:slug=my-app`, or
              *     `project:*:deployment:type=prod`.
@@ -1572,41 +1572,41 @@ export interface components {
         /** @enum {string} */
         RoleStatementWildcardAction: "*";
         TeamAccessTokenResponse: {
+            /** @description The id of this access token. */
+            id: components["schemas"]["AccessTokenId"];
+            /** @description Name of the token. */
+            name: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when the token was created.
              */
             creationTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when the token expires, if set.
-             */
-            expiresAt?: number | null;
-            /** @description The id of this access token. */
-            id: components["schemas"]["AccessTokenId"];
             /**
              * Format: int64
              * @description Timestamp in milliseconds when the token was last used, if ever.
              */
             lastUsedTime?: number | null;
-            /** @description Name of the token. */
-            name: string;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when the token expires, if set.
+             */
+            expiresAt?: number | null;
+            creator?: null | components["schemas"]["MemberId"];
         };
         /** Format: int64 */
         TeamId: number;
         TeamMember: {
-            /** @description The custom roles attached to this team member. Present iff
-             *     `role` is `custom`. */
-            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
-            /** @description The email of the team member */
-            email: string;
             id: components["schemas"]["MemberId"];
             /** @description The name of the team member */
             name?: string | null;
+            /** @description The email of the team member */
+            email: string;
             /** @description The role of the team member. `custom` indicates the member's
              *     permissions come from the attached `customRoles`. */
             role: components["schemas"]["Role"];
+            /** @description The custom roles attached to this team member. Present iff
+             *     `role` is `custom`. */
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
         };
         /** @description A custom role attached to a team member, denormalized with the
          *     role's display name so API consumers can render members without a
@@ -1617,34 +1617,34 @@ export interface components {
         };
         TeamName: string;
         TeamResponse: {
-            creator?: null | components["schemas"]["MemberId"];
-            defaultRegion?: null | components["schemas"]["RegionName"];
             id: components["schemas"]["TeamId"];
-            managedBy?: null | components["schemas"]["ManagedBy"];
-            managedByUrl?: string | null;
             name: components["schemas"]["TeamName"];
+            slug: components["schemas"]["TeamSlug"];
+            creator?: null | components["schemas"]["MemberId"];
+            suspended: boolean;
             referralCode: components["schemas"]["ReferralCode"];
             referredBy?: null | components["schemas"]["TeamId"];
-            slug: components["schemas"]["TeamSlug"];
+            managedBy?: null | components["schemas"]["ManagedBy"];
+            defaultRegion?: null | components["schemas"]["RegionName"];
             ssoLoginId?: string | null;
-            suspended: boolean;
+            managedByUrl?: string | null;
         };
         TeamSlug: string;
         UpdateCustomRoleArgs: {
-            description?: string | null;
             id: components["schemas"]["CustomRoleId"];
             name: string;
+            description?: string | null;
             statements: components["schemas"]["RoleStatement"][];
         };
         UpdateDefaultEnvironmentVariablesArgs: {
             changes: components["schemas"]["DefaultEnvironmentVariableChangeArgs"][];
         };
         UpdateTeamMemberRoleArgs: {
+            memberId: components["schemas"]["MemberId"];
+            role?: null | components["schemas"]["Role"];
             /** @description Replace the member's custom roles. Mutually exclusive with `role`.
              *     Must be non-empty. Sets the member's role to `custom`. */
             customRoles?: components["schemas"]["CustomRoleId"][] | null;
-            memberId: components["schemas"]["MemberId"];
-            role?: null | components["schemas"]["Role"];
         };
         Value: unknown;
     };

@@ -2950,18 +2950,6 @@
       "Address": {
         "type": "object",
         "properties": {
-          "city": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "country": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "line1": {
             "type": [
               "string",
@@ -2974,13 +2962,25 @@
               "null"
             ]
           },
-          "postal_code": {
+          "city": {
             "type": [
               "string",
               "null"
             ]
           },
           "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postal_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country": {
             "type": [
               "string",
               "null"
@@ -3002,19 +3002,22 @@
           "creationTime"
         ],
         "properties": {
-          "appClientId": {
-            "type": "string"
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this access token."
+          },
+          "name": {
+            "$ref": "#/components/schemas/DeviceName"
           },
           "appName": {
             "$ref": "#/components/schemas/AppName"
           },
+          "appClientId": {
+            "type": "string"
+          },
           "creationTime": {
             "type": "integer",
             "format": "int64"
-          },
-          "id": {
-            "$ref": "#/components/schemas/AccessTokenId",
-            "description": "Stable identifier for this access token."
           },
           "lastUsedTime": {
             "type": [
@@ -3022,9 +3025,6 @@
               "null"
             ],
             "format": "int64"
-          },
-          "name": {
-            "$ref": "#/components/schemas/DeviceName"
           }
         }
       },
@@ -3168,17 +3168,17 @@
                   "token_id"
                 ],
                 "properties": {
-                  "client_id": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
                   "member_id": {
                     "$ref": "#/components/schemas/MemberId"
                   },
                   "token_id": {
                     "$ref": "#/components/schemas/AccessTokenId"
+                  },
+                  "client_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 }
               }
@@ -3197,17 +3197,17 @@
                   "token_id"
                 ],
                 "properties": {
-                  "client_id": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
                   "team_id": {
                     "$ref": "#/components/schemas/TeamId"
                   },
                   "token_id": {
                     "$ref": "#/components/schemas/AccessTokenId"
+                  },
+                  "client_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 }
               }
@@ -3245,11 +3245,21 @@
           "metadata"
         ],
         "properties": {
-          "action": {
-            "$ref": "#/components/schemas/AuditLogAction"
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           },
           "actor": {
             "$ref": "#/components/schemas/AuditLogActor"
+          },
+          "action": {
+            "$ref": "#/components/schemas/AuditLogAction"
+          },
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Value"
           },
           "clientIp": {
             "type": [
@@ -3262,16 +3272,6 @@
               "string",
               "null"
             ]
-          },
-          "createTime": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/Value"
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
           }
         }
       },
@@ -3282,17 +3282,17 @@
           "events"
         ],
         "properties": {
-          "cursor": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "events": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AuditLogEventResponse"
             }
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -3309,17 +3309,11 @@
             "type": "string",
             "description": "Authentication token is expected to be the access token from WorkOS"
           },
-          "clientId": {
-            "type": "string"
-          },
-          "codeChallenge": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "mode": {
             "$ref": "#/components/schemas/AuthorizeAppMode"
+          },
+          "clientId": {
+            "type": "string"
           },
           "projectId": {
             "oneOf": [
@@ -3331,9 +3325,6 @@
               }
             ]
           },
-          "redirectUri": {
-            "type": "string"
-          },
           "teamId": {
             "oneOf": [
               {
@@ -3342,6 +3333,15 @@
               {
                 "$ref": "#/components/schemas/TeamId"
               }
+            ]
+          },
+          "redirectUri": {
+            "type": "string"
+          },
+          "codeChallenge": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         },
@@ -3359,12 +3359,6 @@
           "authnToken"
         ],
         "properties": {
-          "anonymousId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "authnToken": {
             "type": "string",
             "description": "Authentication token is expected to be the access token from WorkOS"
@@ -3377,6 +3371,12 @@
               {
                 "$ref": "#/components/schemas/DeviceName"
               }
+            ]
+          },
+          "anonymousId": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         },
@@ -3450,10 +3450,10 @@
           "email"
         ],
         "properties": {
-          "email": {
+          "name": {
             "type": "string"
           },
-          "name": {
+          "email": {
             "type": "string"
           }
         }
@@ -3493,15 +3493,15 @@
           "clientId"
         ],
         "properties": {
-          "clientId": {
-            "type": "string",
-            "description": "WorkOS client ID"
-          },
           "projectId": {
             "type": "integer",
             "format": "int64",
             "description": "Project ID",
             "minimum": 0
+          },
+          "clientId": {
+            "type": "string",
+            "description": "WorkOS client ID"
           }
         }
       },
@@ -3522,32 +3522,8 @@
           "includeStorage"
         ],
         "properties": {
-          "completedTime": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          },
-          "expirationTime": {
-            "type": "integer",
-            "format": "int64"
-          },
           "id": {
             "$ref": "#/components/schemas/CloudBackupId"
-          },
-          "includeStorage": {
-            "type": "boolean"
-          },
-          "requestedTime": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "snapshotId": {
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "sourceDeploymentId": {
             "$ref": "#/components/schemas/DeploymentId"
@@ -3555,8 +3531,32 @@
           "sourceDeploymentName": {
             "$ref": "#/components/schemas/CloudDeploymentName"
           },
+          "expirationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
           "state": {
             "type": "string"
+          },
+          "snapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "includeStorage": {
+            "type": "boolean"
+          },
+          "completedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -3596,11 +3596,11 @@
           "projectName"
         ],
         "properties": {
-          "deploymentClass": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "team": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "projectName": {
+            "$ref": "#/components/schemas/ProjectName"
           },
           "deploymentType": {
             "oneOf": [
@@ -3612,8 +3612,11 @@
               }
             ]
           },
-          "projectName": {
-            "$ref": "#/components/schemas/ProjectName"
+          "deploymentClass": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "region": {
             "oneOf": [
@@ -3624,9 +3627,6 @@
                 "$ref": "#/components/schemas/RegionName"
               }
             ]
-          },
-          "team": {
-            "$ref": "#/components/schemas/TeamSlug"
           }
         },
         "additionalProperties": false
@@ -3641,11 +3641,34 @@
           "projectsRemaining"
         ],
         "properties": {
+          "projectSlug": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
           "deploymentName": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "prodUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "projectsRemaining": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "deploymentsRemaining": {
             "type": [
@@ -3654,29 +3677,6 @@
             ],
             "format": "int64",
             "minimum": 0
-          },
-          "prodUrl": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "projectId": {
-            "$ref": "#/components/schemas/ProjectId"
-          },
-          "projectSlug": {
-            "$ref": "#/components/schemas/ProjectSlug"
-          },
-          "projectsRemaining": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
-          },
-          "teamSlug": {
-            "$ref": "#/components/schemas/TeamSlug"
           }
         }
       },
@@ -3688,6 +3688,21 @@
           "planId"
         ],
         "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "paymentMethod": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "planId": {
+            "type": "string"
+          },
           "billingAddress": {
             "oneOf": [
               {
@@ -3705,21 +3720,6 @@
             ],
             "format": "int64",
             "minimum": 0
-          },
-          "email": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "paymentMethod": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "planId": {
-            "type": "string"
           },
           "warningThresholdCents": {
             "type": [
@@ -3758,9 +3758,26 @@
           "createTime"
         ],
         "properties": {
-          "createTime": {
-            "type": "integer",
-            "format": "int64"
+          "id": {
+            "$ref": "#/components/schemas/CustomRoleId"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "statements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleStatement"
+            }
           },
           "creator": {
             "oneOf": [
@@ -3772,26 +3789,9 @@
               }
             ]
           },
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "id": {
-            "$ref": "#/components/schemas/CustomRoleId"
-          },
-          "name": {
-            "type": "string"
-          },
-          "statements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RoleStatement"
-            }
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -3814,15 +3814,15 @@
           "clientId"
         ],
         "properties": {
-          "clientId": {
-            "type": "string",
-            "description": "WorkOS client ID of the environment to delete"
-          },
           "projectId": {
             "type": "integer",
             "format": "int64",
             "description": "Project ID for the environment to delete",
             "minimum": 0
+          },
+          "clientId": {
+            "type": "string",
+            "description": "WorkOS client ID of the environment to delete"
           }
         }
       },
@@ -3924,23 +3924,23 @@
           "deploymentName": {
             "type": "string"
           },
-          "isProduction": {
-            "type": "boolean"
-          },
-          "workosApiKey": {
-            "type": "string"
-          },
-          "workosClientId": {
-            "type": "string"
-          },
           "workosEnvironmentId": {
             "type": "string"
           },
           "workosEnvironmentName": {
             "type": "string"
           },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosApiKey": {
+            "type": "string"
+          },
           "workosTeamId": {
             "type": "string"
+          },
+          "isProduction": {
+            "type": "boolean"
           }
         }
       },
@@ -3961,9 +3961,6 @@
               }
             ]
           },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
-          },
           "workosTeam": {
             "oneOf": [
               {
@@ -3974,6 +3971,9 @@
                 "description": "Team info if the team has WorkOS configured"
               }
             ]
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           }
         }
       },
@@ -4013,6 +4013,9 @@
           "id"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "details": {
             "oneOf": [
               {
@@ -4022,9 +4025,6 @@
                 "$ref": "#/components/schemas/DiscordAccountDetails"
               }
             ]
-          },
-          "id": {
-            "type": "string"
           }
         }
       },
@@ -4035,11 +4035,8 @@
           "discriminator"
         ],
         "properties": {
-          "avatar": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "username": {
+            "type": "string"
           },
           "discriminator": {
             "type": "string"
@@ -4050,8 +4047,11 @@
               "null"
             ]
           },
-          "username": {
-            "type": "string"
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -4091,6 +4091,13 @@
           "requiresPaymentMethod"
         ],
         "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "percentOff": {
+            "type": "number",
+            "format": "double"
+          },
           "durationInMonths": {
             "type": [
               "integer",
@@ -4098,13 +4105,6 @@
             ],
             "format": "int64",
             "minimum": 0
-          },
-          "percentOff": {
-            "type": "number",
-            "format": "double"
-          },
-          "planId": {
-            "type": "string"
           },
           "requiresPaymentMethod": {
             "type": "boolean"
@@ -4198,24 +4198,24 @@
           "isProduction"
         ],
         "properties": {
-          "isProduction": {
-            "type": "boolean"
-          },
-          "userEnvironmentName": {
-            "type": "string",
-            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
-          },
-          "workosApiKey": {
-            "type": "string"
-          },
-          "workosClientId": {
-            "type": "string"
-          },
           "workosEnvironmentId": {
             "type": "string"
           },
           "workosEnvironmentName": {
             "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosApiKey": {
+            "type": "string"
+          },
+          "userEnvironmentName": {
+            "type": "string",
+            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
+          },
+          "isProduction": {
+            "type": "boolean"
           }
         }
       },
@@ -4244,6 +4244,14 @@
             "format": "int64",
             "minimum": 0
           },
+          "warningThresholdCents": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
           "state": {
             "oneOf": [
               {
@@ -4253,14 +4261,6 @@
                 "$ref": "#/components/schemas/SpendingLimitsState"
               }
             ]
-          },
-          "warningThresholdCents": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "minimum": 0
           }
         }
       },
@@ -4276,7 +4276,12 @@
           "planType"
         ],
         "properties": {
-          "centitokensQuota": {
+          "tokensUsed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tokensQuota": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -4286,24 +4291,19 @@
             "format": "int64",
             "minimum": 0
           },
-          "isPaidPlan": {
-            "type": "boolean"
+          "centitokensQuota": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "isTeamDisabled": {
             "type": "boolean"
           },
+          "isPaidPlan": {
+            "type": "boolean"
+          },
           "planType": {
             "type": "string"
-          },
-          "tokensQuota": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "tokensUsed": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
           }
         }
       },
@@ -4314,12 +4314,11 @@
           "teamId"
         ],
         "properties": {
-          "adminConvexEmail": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Email of Convex team member who created the WorkOS account.\nThis field should always be present when has_associated_workos_team is\ntrue."
+          "hasAssociatedWorkosTeam": {
+            "type": "boolean"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           },
           "adminEmail": {
             "type": [
@@ -4335,11 +4334,12 @@
             ],
             "description": "Name of Convex team member who created the WorkOS account.\nThis field is optional even when has_associated_workos_team is true."
           },
-          "hasAssociatedWorkosTeam": {
-            "type": "boolean"
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
+          "adminConvexEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email of Convex team member who created the WorkOS account.\nThis field should always be present when has_associated_workos_team is\ntrue."
           }
         }
       },
@@ -4361,12 +4361,6 @@
           "providers"
         ],
         "properties": {
-          "email": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "id": {
             "type": "string"
           },
@@ -4375,6 +4369,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -4432,18 +4432,18 @@
           "eligibleEmails"
         ],
         "properties": {
+          "eligibleEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "adminEmail": {
             "type": [
               "string",
               "null"
             ],
             "description": "The admin email used to create this team's WorkOS account (always\neligible for re-invitation)"
-          },
-          "eligibleEmails": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           }
         }
       },
@@ -4454,13 +4454,13 @@
           "email"
         ],
         "properties": {
-          "email": {
-            "type": "string",
-            "description": "Email address to invite to the WorkOS team,\nmust be a verified email address associated with the user's account"
-          },
           "teamId": {
             "$ref": "#/components/schemas/TeamId",
             "description": "Convex team ID that has an associated WorkOS team"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address to invite to the WorkOS team,\nmust be a verified email address associated with the user's account"
           }
         }
       },
@@ -4492,21 +4492,6 @@
           "hasFailedPayment"
         ],
         "properties": {
-          "amountDue": {
-            "type": "string"
-          },
-          "currency": {
-            "type": "string"
-          },
-          "hasFailedPayment": {
-            "type": "boolean"
-          },
-          "hostedInvoiceUrl": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "id": {
             "type": "string"
           },
@@ -4517,11 +4502,26 @@
           "invoiceNumber": {
             "type": "string"
           },
-          "status": {
+          "currency": {
+            "type": "string"
+          },
+          "amountDue": {
             "type": "string"
           },
           "total": {
             "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "hostedInvoiceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasFailedPayment": {
+            "type": "boolean"
           }
         }
       },
@@ -4550,15 +4550,15 @@
           "customRoles"
         ],
         "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The team member's built-in role. When `custom`, `customRoles` lists\nthe role definitions whose statements determine what the member can\ndo; for `admin`/`developer` it is empty."
+          },
           "customRoles": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomRoleResponse"
             }
-          },
-          "role": {
-            "$ref": "#/components/schemas/Role",
-            "description": "The team member's built-in role. When `custom`, `customRoles` lists\nthe role definitions whose statements determine what the member can\ndo; for `admin`/`developer` it is empty."
           }
         }
       },
@@ -4592,6 +4592,18 @@
           "optInsToAccept"
         ],
         "properties": {
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamResponse"
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetails"
+            }
+          },
           "deployments": {
             "type": "array",
             "items": {
@@ -4602,18 +4614,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/OptInToAccept"
-            }
-          },
-          "projects": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProjectDetails"
-            }
-          },
-          "teams": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TeamResponse"
             }
           }
         }
@@ -4633,21 +4633,21 @@
           "creationTime"
         ],
         "properties": {
-          "creationTime": {
-            "type": "integer",
-            "format": "int64"
+          "id": {
+            "$ref": "#/components/schemas/MemberEmailId"
           },
           "email": {
             "type": "string"
           },
-          "id": {
-            "$ref": "#/components/schemas/MemberEmailId"
+          "isVerified": {
+            "type": "boolean"
           },
           "isPrimary": {
             "type": "boolean"
           },
-          "isVerified": {
-            "type": "boolean"
+          "creationTime": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -4663,11 +4663,11 @@
           "email"
         ],
         "properties": {
-          "email": {
-            "type": "string"
-          },
           "id": {
             "$ref": "#/components/schemas/MemberId"
+          },
+          "email": {
+            "type": "string"
           },
           "name": {
             "type": [
@@ -4689,16 +4689,20 @@
           "unverifiedTeamLimit"
         ],
         "properties": {
+          "clientId": {
+            "type": "string"
+          },
           "appName": {
             "$ref": "#/components/schemas/AppName"
           },
-          "authorizedTeamCount": {
-            "type": "integer",
-            "format": "int64",
-            "description": "The number of distinct teams that have authorized this app."
+          "redirectUris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "clientId": {
-            "type": "string"
+          "verified": {
+            "type": "boolean"
           },
           "clientSecret": {
             "type": [
@@ -4710,19 +4714,15 @@
             "type": "integer",
             "format": "int64"
           },
-          "redirectUris": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "authorizedTeamCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The number of distinct teams that have authorized this app."
           },
           "unverifiedTeamLimit": {
             "type": "integer",
             "format": "int64",
             "description": "The maximum number of teams that may authorize this app while it is\nunverified."
-          },
-          "verified": {
-            "type": "boolean"
           }
         }
       },
@@ -4748,11 +4748,11 @@
           "message"
         ],
         "properties": {
-          "message": {
-            "type": "string"
-          },
           "optIn": {
             "$ref": "#/components/schemas/OptIn"
+          },
+          "message": {
+            "type": "string"
           }
         }
       },
@@ -4764,22 +4764,8 @@
           "nextBillingPeriodStart"
         ],
         "properties": {
-          "accountBalance": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The customer's account balance in their billing currency, as a decimal\nstring (e.g. \"25.00\"). This is a credit that is automatically applied to\nfuture invoices. Only populated for actors that can view billing\ndetails."
-          },
-          "billingAddress": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Address"
-              }
-            ]
+          "plan": {
+            "$ref": "#/components/schemas/PlanResponse"
           },
           "billingContact": {
             "oneOf": [
@@ -4791,22 +4777,15 @@
               }
             ]
           },
-          "endDate": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          },
-          "invoicingThreshold": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "The subscription's invoicing threshold in USD (e.g. \"10.00\"). When\nuninvoiced usage crosses this amount mid-cycle, an invoice is issued\nimmediately, so a customer can receive multiple invoices in one billing\nperiod. `None` if no threshold is configured on the subscription."
-          },
-          "nextBillingPeriodStart": {
-            "type": "string"
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Address"
+              }
+            ]
           },
           "paymentMethod": {
             "oneOf": [
@@ -4818,11 +4797,32 @@
               }
             ]
           },
-          "plan": {
-            "$ref": "#/components/schemas/PlanResponse"
-          },
           "status": {
             "type": "string"
+          },
+          "endDate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "nextBillingPeriodStart": {
+            "type": "string"
+          },
+          "invoicingThreshold": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The subscription's invoicing threshold in USD (e.g. \"10.00\"). When\nuninvoiced usage crosses this amount mid-cycle, an invoice is issued\nimmediately, so a customer can receive multiple invoices in one billing\nperiod. `None` if no threshold is configured on the subscription."
+          },
+          "accountBalance": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The customer's account balance in their billing currency, as a decimal\nstring (e.g. \"25.00\"). This is a credit that is automatically applied to\nfuture invoices. Only populated for actors that can view billing\ndetails."
           }
         }
       },
@@ -4868,10 +4868,10 @@
           "display"
         ],
         "properties": {
-          "display": {
+          "kind": {
             "type": "string"
           },
-          "kind": {
+          "display": {
             "type": "string"
           }
         }
@@ -4886,6 +4886,9 @@
           "includeStorage"
         ],
         "properties": {
+          "sourceDeploymentId": {
+            "$ref": "#/components/schemas/DeploymentId"
+          },
           "cronspec": {
             "type": "string"
           },
@@ -4894,15 +4897,12 @@
             "format": "int64",
             "minimum": 0
           },
-          "includeStorage": {
-            "type": "boolean"
-          },
           "nextRun": {
             "type": "integer",
             "format": "int64"
           },
-          "sourceDeploymentId": {
-            "$ref": "#/components/schemas/DeploymentId"
+          "includeStorage": {
+            "type": "boolean"
           }
         }
       },
@@ -4915,20 +4915,17 @@
           "status"
         ],
         "properties": {
-          "description": {
-            "type": "string"
-          },
           "id": {
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "planType": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
           },
           "seatPrice": {
             "type": [
@@ -4937,8 +4934,11 @@
             ],
             "format": "double"
           },
-          "status": {
-            "type": "string"
+          "planType": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -4974,14 +4974,33 @@
               "kind"
             ],
             "properties": {
-              "class": {
+              "id": {
+                "$ref": "#/components/schemas/DeploymentId"
+              },
+              "name": {
                 "type": "string",
-                "description": "The deployment class for this deployment."
+                "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
               },
               "createTime": {
                 "type": "integer",
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this deployment was created."
+              },
+              "lastDeployTime": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds of the last deploy to this deployment, if\nany."
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "The type of this deployment."
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project this deployment belongs to."
               },
               "creator": {
                 "oneOf": [
@@ -4994,16 +5013,35 @@
                   }
                 ]
               },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                    "description": "Preview deployment identifier, if this is a preview deployment."
+                  }
+                ]
+              },
+              "region": {
+                "$ref": "#/components/schemas/RegionName",
+                "description": "The region where this deployment is hosted."
+              },
+              "isDefault": {
+                "$ref": "#/components/schemas/IsDefaultDeployment",
+                "description": "For prod deployments, whether they are the default prod deployment\nof the project. For dev deployments, whether they are the default\ndev deployment for the member that created it.\nFor other deployments, set to false."
+              },
+              "reference": {
+                "$ref": "#/components/schemas/DeploymentReference",
+                "description": "An identifier that uniquely identifies this deployment within the\nproject."
+              },
               "dashboardEditConfirmation": {
                 "type": [
                   "boolean",
                   "null"
                 ],
                 "description": "Controls whether the dashboard requires a confirmation before\nallowing edits during a browser session for this deployment.\nIf not set, defaults to true for prod deployments and false\nfor dev and preview deployments."
-              },
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType",
-                "description": "The type of this deployment."
               },
               "deploymentUrl": {
                 "type": "string",
@@ -5017,53 +5055,9 @@
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
               },
-              "id": {
-                "$ref": "#/components/schemas/DeploymentId"
-              },
-              "isDefault": {
-                "$ref": "#/components/schemas/IsDefaultDeployment",
-                "description": "For prod deployments, whether they are the default prod deployment\nof the project. For dev deployments, whether they are the default\ndev deployment for the member that created it.\nFor other deployments, set to false."
-              },
-              "kind": {
+              "class": {
                 "type": "string",
-                "enum": [
-                  "cloud"
-                ]
-              },
-              "lastDeployTime": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "int64",
-                "description": "Timestamp in milliseconds of the last deploy to this deployment, if\nany."
-              },
-              "name": {
-                "type": "string",
-                "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
-              },
-              "previewIdentifier": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
-                    "description": "Preview deployment identifier, if this is a preview deployment."
-                  }
-                ]
-              },
-              "projectId": {
-                "$ref": "#/components/schemas/ProjectId",
-                "description": "The project this deployment belongs to."
-              },
-              "reference": {
-                "$ref": "#/components/schemas/DeploymentReference",
-                "description": "An identifier that uniquely identifies this deployment within the\nproject."
-              },
-              "region": {
-                "$ref": "#/components/schemas/RegionName",
-                "description": "The region where this deployment is hosted."
+                "description": "The deployment class for this deployment."
               },
               "sendLogsToClient": {
                 "type": [
@@ -5071,6 +5065,12 @@
                   "null"
                 ],
                 "description": "Whether to send function logs to the client. If `null`, the\ndeployment-type default is used (true for dev/preview, false for\nprod)."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
               }
             }
           },
@@ -5088,18 +5088,43 @@
               "kind"
             ],
             "properties": {
+              "name": {
+                "type": "string",
+                "description": "The readable identifier for this deployment."
+              },
               "createTime": {
                 "type": "integer",
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this deployment was created."
               },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "Whether this is a \"dev\" development deployment or \"prod\" production\ndeployment. Note that this will always be \"dev\" for local\ndeployments."
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project this deployment belongs to."
+              },
               "creator": {
                 "$ref": "#/components/schemas/MemberId",
                 "description": "The member who created this deployment."
               },
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType",
-                "description": "Whether this is a \"dev\" development deployment or \"prod\" production\ndeployment. Note that this will always be \"dev\" for local\ndeployments."
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                    "description": "Preview deployment identifier. Note that this will always be None\nfor local deployments."
+                  }
+                ]
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "description": "The port where this local deployment is running.",
+                "minimum": 0
               },
               "deviceName": {
                 "$ref": "#/components/schemas/DeviceName",
@@ -5114,31 +5139,6 @@
                 "enum": [
                   "local"
                 ]
-              },
-              "name": {
-                "type": "string",
-                "description": "The readable identifier for this deployment."
-              },
-              "port": {
-                "type": "integer",
-                "format": "int32",
-                "description": "The port where this local deployment is running.",
-                "minimum": 0
-              },
-              "previewIdentifier": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
-                    "description": "Preview deployment identifier. Note that this will always be None\nfor local deployments."
-                  }
-                ]
-              },
-              "projectId": {
-                "$ref": "#/components/schemas/ProjectId",
-                "description": "The project this deployment belongs to."
               }
             }
           }
@@ -5154,6 +5154,15 @@
           "planName"
         ],
         "properties": {
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "teamName": {
+            "$ref": "#/components/schemas/TeamName"
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
           "planId": {
             "type": "string"
           },
@@ -5166,15 +5175,6 @@
               "null"
             ],
             "description": "Human-readable description of billing impact when joining this team.\n`None` for free plans. Clients should show this verbatim so CLI and\ndashboard stay in sync on pricing copy."
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
-          },
-          "teamName": {
-            "$ref": "#/components/schemas/TeamName"
-          },
-          "teamSlug": {
-            "$ref": "#/components/schemas/TeamSlug"
           }
         }
       },
@@ -5202,21 +5202,21 @@
           "createTime"
         ],
         "properties": {
-          "createTime": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "devDeploymentName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "id": {
             "$ref": "#/components/schemas/ProjectId"
           },
           "name": {
             "$ref": "#/components/schemas/ProjectName"
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
           },
           "prodDeploymentName": {
             "type": [
@@ -5224,11 +5224,11 @@
               "null"
             ]
           },
-          "slug": {
-            "$ref": "#/components/schemas/ProjectSlug"
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
+          "devDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -5243,21 +5243,21 @@
           "isProduction"
         ],
         "properties": {
-          "isProduction": {
-            "type": "boolean"
-          },
-          "userEnvironmentName": {
-            "type": "string",
-            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
-          },
-          "workosClientId": {
-            "type": "string"
-          },
           "workosEnvironmentId": {
             "type": "string"
           },
           "workosEnvironmentName": {
             "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "userEnvironmentName": {
+            "type": "string",
+            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
+          },
+          "isProduction": {
+            "type": "boolean"
           }
         }
       },
@@ -5276,21 +5276,21 @@
           "lastUpdated"
         ],
         "properties": {
-          "lastUpdated": {
-            "type": "integer",
-            "format": "int64"
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
           },
           "memberId": {
             "$ref": "#/components/schemas/MemberId"
           },
-          "projectId": {
-            "$ref": "#/components/schemas/ProjectId"
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           },
           "role": {
             "$ref": "#/components/schemas/ProjectRole"
           },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
+          "lastUpdated": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -5358,16 +5358,16 @@
           "newlyProvisioned"
         ],
         "properties": {
-          "apiKey": {
+          "environmentId": {
+            "type": "string"
+          },
+          "environmentName": {
             "type": "string"
           },
           "clientId": {
             "type": "string"
           },
-          "environmentId": {
-            "type": "string"
-          },
-          "environmentName": {
+          "apiKey": {
             "type": "string"
           },
           "newlyProvisioned": {
@@ -5404,24 +5404,24 @@
           "userEnvironmentName"
         ],
         "properties": {
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosApiKey": {
+            "type": "string"
+          },
           "newlyProvisioned": {
             "type": "boolean"
           },
           "userEnvironmentName": {
             "type": "string",
             "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
-          },
-          "workosApiKey": {
-            "type": "string"
-          },
-          "workosClientId": {
-            "type": "string"
-          },
-          "workosEnvironmentId": {
-            "type": "string"
-          },
-          "workosEnvironmentName": {
-            "type": "string"
           }
         }
       },
@@ -5432,13 +5432,13 @@
           "email"
         ],
         "properties": {
-          "email": {
-            "type": "string",
-            "description": "Email address to use for the WorkOS team admin,\nmust be a verified email address associated with the user's account"
-          },
           "teamId": {
             "$ref": "#/components/schemas/TeamId",
             "description": "Convex team ID, no WorkOS team exists at this point"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address to use for the WorkOS team admin,\nmust be a verified email address associated with the user's account"
           }
         }
       },
@@ -5450,13 +5450,13 @@
           "adminEmail"
         ],
         "properties": {
-          "adminEmail": {
-            "type": "string"
-          },
           "workosTeamId": {
             "type": "string"
           },
           "workosTeamName": {
+            "type": "string"
+          },
+          "adminEmail": {
             "type": "string"
           }
         }
@@ -5565,11 +5565,11 @@
           "resource"
         ],
         "properties": {
-          "actions": {
-            "$ref": "#/components/schemas/RoleStatementActions"
-          },
           "effect": {
             "$ref": "#/components/schemas/RoleStatementEffect"
+          },
+          "actions": {
+            "$ref": "#/components/schemas/RoleStatementActions"
           },
           "resource": {
             "type": "string",
@@ -5724,10 +5724,10 @@
           "state"
         ],
         "properties": {
-          "domain": {
+          "id": {
             "type": "string"
           },
-          "id": {
+          "domain": {
             "type": "string"
           },
           "state": {
@@ -5818,10 +5818,10 @@
           "end"
         ],
         "properties": {
-          "end": {
+          "start": {
             "type": "string"
           },
-          "start": {
+          "end": {
             "type": "string"
           }
         }
@@ -5855,82 +5855,7 @@
           "customAuditLogsInLogStreamsConfigEnabled"
         ],
         "properties": {
-          "auditLogRetentionDays": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "customAuditLogsInLogStreamsConfigEnabled": {
-            "type": "boolean"
-          },
-          "customDomainsEnabled": {
-            "type": "boolean"
-          },
-          "customRolesEnabled": {
-            "type": "boolean"
-          },
-          "deploymentClassSelectionEnabled": {
-            "type": "boolean"
-          },
-          "logStreamingEnabled": {
-            "type": "boolean"
-          },
-          "managementApiEnabled": {
-            "type": "boolean"
-          },
-          "maxChefTokens": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "maxCloudBackups": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "maxDeployments": {
-            "type": "integer",
-            "format": "int64"
-          },
           "maxTeamMembers": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "periodicBackupsEnabled": {
-            "type": "boolean"
-          },
-          "previewDeploymentRetentionDays": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "ssoEnabled": {
-            "type": "boolean"
-          },
-          "streamingExportEnabled": {
-            "type": "boolean"
-          },
-          "teamMaxActionCompute": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "teamMaxDatabaseBandwidth": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "teamMaxDatabaseStorage": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "teamMaxFileBandwidth": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "teamMaxFileStorage": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -5940,7 +5865,38 @@
             "format": "int64",
             "minimum": 0
           },
-          "teamMaxSearchQueries": {
+          "teamMaxActionCompute": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxDatabaseStorage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxDatabaseBandwidth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxFileStorage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxFileBandwidth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "logStreamingEnabled": {
+            "type": "boolean"
+          },
+          "streamingExportEnabled": {
+            "type": "boolean"
+          },
+          "teamMaxVectorStorage": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -5950,10 +5906,54 @@
             "format": "int64",
             "minimum": 0
           },
-          "teamMaxVectorStorage": {
+          "customDomainsEnabled": {
+            "type": "boolean"
+          },
+          "periodicBackupsEnabled": {
+            "type": "boolean"
+          },
+          "maxCloudBackups": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "maxChefTokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "ssoEnabled": {
+            "type": "boolean"
+          },
+          "auditLogRetentionDays": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "maxDeployments": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "managementApiEnabled": {
+            "type": "boolean"
+          },
+          "previewDeploymentRetentionDays": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "deploymentClassSelectionEnabled": {
+            "type": "boolean"
+          },
+          "teamMaxSearchQueries": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "customRolesEnabled": {
+            "type": "boolean"
+          },
+          "customAuditLogsInLogStreamsConfigEnabled": {
+            "type": "boolean"
           }
         }
       },
@@ -5975,6 +5975,15 @@
           "referralCode"
         ],
         "properties": {
+          "id": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "name": {
+            "$ref": "#/components/schemas/TeamName"
+          },
+          "slug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
           "creator": {
             "oneOf": [
               {
@@ -5985,37 +5994,8 @@
               }
             ]
           },
-          "defaultRegion": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/RegionName"
-              }
-            ]
-          },
-          "id": {
-            "$ref": "#/components/schemas/TeamId"
-          },
-          "managedBy": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ManagedBy"
-              }
-            ]
-          },
-          "managedByUrl": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "name": {
-            "$ref": "#/components/schemas/TeamName"
+          "suspended": {
+            "type": "boolean"
           },
           "referralCode": {
             "$ref": "#/components/schemas/ReferralCode"
@@ -6030,8 +6010,25 @@
               }
             ]
           },
-          "slug": {
-            "$ref": "#/components/schemas/TeamSlug"
+          "managedBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedBy"
+              }
+            ]
+          },
+          "defaultRegion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName"
+              }
+            ]
           },
           "ssoLoginId": {
             "type": [
@@ -6039,8 +6036,11 @@
               "null"
             ]
           },
-          "suspended": {
-            "type": "boolean"
+          "managedByUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -6116,10 +6116,10 @@
           "email"
         ],
         "properties": {
-          "email": {
+          "name": {
             "type": "string"
           },
-          "name": {
+          "email": {
             "type": "string"
           }
         },
@@ -6227,17 +6227,6 @@
       "UpdateTeamArgs": {
         "type": "object",
         "properties": {
-          "defaultRegion": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/RegionName",
-                "description": "When not present: don't change default_region\nWhen present and null: set default_region to null\nWhen present with value: set default_region to that value"
-              }
-            ]
-          },
           "name": {
             "oneOf": [
               {
@@ -6255,6 +6244,17 @@
               },
               {
                 "$ref": "#/components/schemas/TeamSlug"
+              }
+            ]
+          },
+          "defaultRegion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName",
+                "description": "When not present: don't change default_region\nWhen present and null: set default_region to null\nWhen present with value: set default_region to that value"
               }
             ]
           }
@@ -6285,11 +6285,11 @@
                   "exhausted"
                 ],
                 "properties": {
-                  "exhausted": {
-                    "type": "boolean"
-                  },
                   "teamName": {
                     "$ref": "#/components/schemas/TeamName"
+                  },
+                  "exhausted": {
+                    "type": "boolean"
                   }
                 }
               }
@@ -6317,17 +6317,17 @@
           "convexTeamId": {
             "$ref": "#/components/schemas/TeamId"
           },
-          "creatorMemberId": {
-            "$ref": "#/components/schemas/MemberId"
-          },
-          "workosAdminEmail": {
-            "type": "string"
-          },
           "workosTeamId": {
             "type": "string"
           },
           "workosTeamName": {
             "type": "string"
+          },
+          "workosAdminEmail": {
+            "type": "string"
+          },
+          "creatorMemberId": {
+            "$ref": "#/components/schemas/MemberId"
           }
         }
       },
@@ -6339,13 +6339,13 @@
           "clientId"
         ],
         "properties": {
-          "clientId": {
-            "type": "string"
-          },
           "id": {
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "clientId": {
             "type": "string"
           }
         }
@@ -6362,13 +6362,13 @@
           "deploymentName": {
             "type": "string"
           },
-          "workosClientId": {
-            "type": "string"
-          },
           "workosEnvironmentId": {
             "type": "string"
           },
           "workosEnvironmentName": {
+            "type": "string"
+          },
+          "workosClientId": {
             "type": "string"
           }
         }
@@ -6391,10 +6391,13 @@
           "creatorEmail"
         ],
         "properties": {
-          "adminEmail": {
+          "workosTeamId": {
             "type": "string"
           },
-          "creatorEmail": {
+          "workosTeamName": {
+            "type": "string"
+          },
+          "adminEmail": {
             "type": "string"
           },
           "creatorName": {
@@ -6403,10 +6406,7 @@
               "null"
             ]
           },
-          "workosTeamId": {
-            "type": "string"
-          },
-          "workosTeamName": {
+          "creatorEmail": {
             "type": "string"
           }
         }
@@ -6417,6 +6417,10 @@
           "teamProvisioned"
         ],
         "properties": {
+          "teamProvisioned": {
+            "type": "boolean",
+            "description": "Whether a WorkOS team has been provisioned for this Convex team"
+          },
           "teamInfo": {
             "oneOf": [
               {
@@ -6427,10 +6431,6 @@
                 "description": "WorkOS team details, present only when team_provisioned is true"
               }
             ]
-          },
-          "teamProvisioned": {
-            "type": "boolean",
-            "description": "Whether a WorkOS team has been provisioned for this Convex team"
           }
         }
       },
@@ -6459,13 +6459,6 @@
           "environments"
         ],
         "properties": {
-          "environments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkOSEnvironmentInfo"
-            },
-            "description": "List of WorkOS environments for deployments"
-          },
           "teamAssociation": {
             "oneOf": [
               {
@@ -6476,6 +6469,13 @@
                 "description": "WorkOS team association info, if it exists"
               }
             ]
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkOSEnvironmentInfo"
+            },
+            "description": "List of WorkOS environments for deployments"
           }
         }
       }

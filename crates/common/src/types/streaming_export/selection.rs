@@ -9,17 +9,13 @@ use utoipa::ToSchema;
 
 use super::SelectionArg;
 
-/// Selects the components, tables, and columns to export. Each key is a
-/// component path (`""` for the root component, which holds your tables
-/// unless you use components), mapped to the selection for that component;
-/// the required `_other` key sets the default for components not listed.
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
 #[schema(example = json!({
-    "_other": "excl",
+    "_other": "excluded",
     "": {
-        "_other": "excl",
-        "posts": {"_other": "incl"},
-        "users": {"_other": "incl", "ssn": "excl"},
+        "_other": "excluded",
+        "posts": {"_other": "included"},
+        "users": {"_other": "included", "ssn": "excluded"},
     },
 }))]
 pub struct Selection {
@@ -32,13 +28,12 @@ pub struct Selection {
     pub other_components: InclusionDefault,
 }
 
-/// Whether items not explicitly listed are exported (`"incl"`) or not
-/// (`"excl"`).
+/// Whether items not explicitly listed are exported
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
 pub enum InclusionDefault {
-    #[serde(rename = "excl")]
+    #[serde(alias = "excl", rename = "excluded")]
     Excluded,
-    #[serde(rename = "incl")]
+    #[serde(alias = "incl", rename = "included")]
     Included,
 }
 
@@ -52,28 +47,20 @@ impl Default for Selection {
     }
 }
 
-/// The literal string `"excl"`, excluding the item entirely.
-// A dedicated newtype-wrapped tag (rather than a `#[serde(rename)]`d unit
-// variant with `#[serde(untagged)]` on the *other* variant) so that the
-// enums below can use container-level `#[serde(untagged)]`: the wire format
-// is identical, but utoipa's `ToSchema` derive only understands `untagged`
-// at the container level and silently ignores it on variants.
+/// The literal string `"excluded"`, excluding the item entirely.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
 pub enum ExcludedTag {
-    #[serde(rename = "excl")]
+    #[serde(alias = "excl", rename = "excluded")]
     Excluded,
 }
 
-/// What to export from one component: either the literal string `"excl"` to
-/// exclude the component entirely, or an object selecting some of its
-/// tables — each key is a table name, and the required `_other` key sets the
-/// default for tables not listed.
-// Serializable version of `StreamingExportComponentSelection`.
+/// Set of components to include/exclude in sync.
+///
+/// Mapping from the component path to the inclusion/exclusion.
+/// Use the empty string to represent the root component.
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum ComponentSelection {
-    /// Exclude this component entirely.
-    Excluded(ExcludedTag),
     /// Export some of this component's tables.
     Included {
         #[serde(flatten)]
@@ -81,15 +68,15 @@ pub enum ComponentSelection {
         #[serde(rename = "_other")]
         other_tables: InclusionDefault,
     },
+    /// Exclude this component entirely.
+    Excluded(ExcludedTag),
 }
 
-/// What to export from one table: either the literal string `"excl"` to
+/// What to export from one table: either the literal string `"excluded"` to
 /// exclude the table entirely, or an object selecting some of its columns —
 /// each key is a column (field) name mapped to whether it is exported, and
 /// the required `_other` key sets the default for columns not listed. `_id`
 /// cannot be excluded.
-// Serializable version of
-// `StreamingExportTableSelection` + `StreamingExportColumnSelection`.
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum TableSelection {
@@ -117,9 +104,9 @@ impl TableSelection {
 // Serializable version of `StreamingExportColumnInclusion`.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
 pub enum ColumnInclusion {
-    #[serde(rename = "excl")]
+    #[serde(alias = "excl", rename = "excluded")]
     Excluded,
-    #[serde(rename = "incl")]
+    #[serde(alias = "incl", rename = "included")]
     Included,
 }
 

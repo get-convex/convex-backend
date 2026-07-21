@@ -8,81 +8,81 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ConsoleLogEvent: {
+            /** Format: int64 */
+            timestamp: number;
             function: {
+                path: string;
+                type: string;
                 cached?: boolean | null;
-                component_path?: string | null;
+                request_id: string;
                 mutation_queue_length?: number | null;
                 mutation_retry_count?: number | null;
-                path: string;
-                request_id: string;
-                type: string;
+                component_path?: string | null;
             };
-            is_truncated: boolean;
             log_level: string;
             message: string;
+            is_truncated: boolean;
             system_code?: string | null;
-            /** Format: int64 */
-            timestamp: number;
         };
         CustomAuditEvent: {
-            body: components["schemas"]["Value"];
             /** Format: int64 */
             timestamp: number;
+            body: components["schemas"]["Value"];
         };
         DeploymentAuditLogEvent: {
-            audit_log_action: string;
-            audit_log_metadata: string;
             /** Format: int64 */
             timestamp: number;
+            audit_log_action: string;
+            audit_log_metadata: string;
         };
         FunctionExecutionEvent: {
-            error_message?: string | null;
             /** Format: int64 */
-            execution_time_ms: number;
+            timestamp: number;
             function: {
+                path: string;
+                type: string;
                 cached?: boolean | null;
-                component_path?: string | null;
+                request_id: string;
                 mutation_queue_length?: number | null;
                 mutation_retry_count?: number | null;
-                path: string;
-                request_id: string;
-                type: string;
-            };
-            occ_info?: null | {
                 component_path?: string | null;
+            };
+            /** Format: int64 */
+            execution_time_ms: number;
+            /** Format: int64 */
+            user_execution_time_ms?: number | null;
+            status: string;
+            error_message?: string | null;
+            occ_info?: null | {
+                table_name?: string | null;
                 document_id?: string | null;
+                write_source?: string | null;
+                component_path?: string | null;
                 /** Format: int64 */
                 retry_count?: number | null;
-                table_name?: string | null;
-                write_source?: string | null;
             };
             scheduler_info?: null | {
                 job_id: string;
             };
-            status: string;
-            /** Format: int64 */
-            timestamp: number;
             usage: {
                 /** Format: int64 */
-                action_memory_used_mb?: number | null;
+                database_read_bytes: number;
                 /** Format: int64 */
-                audit_log_egress_bytes: number;
+                database_write_bytes: number;
                 /** Format: int64 */
                 database_io_read_bytes: number;
                 /** Format: int64 */
                 database_io_write_bytes: number;
                 /** Format: int64 */
-                database_read_bytes: number;
-                /** Format: int64 */
                 database_read_documents: number;
-                /** Format: int64 */
-                database_write_bytes: number;
                 /** Format: int64 */
                 file_storage_read_bytes: number;
                 /** Format: int64 */
                 file_storage_write_bytes: number;
                 /** Format: int64 */
-                network_egress_bytes: number;
+                vector_storage_read_bytes: number;
+                /** Format: int64 */
+                vector_storage_write_bytes: number;
                 /** Format: int64 */
                 text_search_query_bytes: number;
                 /** Format: int64 */
@@ -92,12 +92,12 @@ export interface components {
                 /** Format: int64 */
                 vector_search_write_query_bytes: number;
                 /** Format: int64 */
-                vector_storage_read_bytes: number;
+                network_egress_bytes: number;
                 /** Format: int64 */
-                vector_storage_write_bytes: number;
+                action_memory_used_mb?: number | null;
+                /** Format: int64 */
+                audit_log_egress_bytes: number;
             };
-            /** Format: int64 */
-            user_execution_time_ms?: number | null;
         };
         LogStreamEvent: (components["schemas"]["ConsoleLogEvent"] & {
             /** @enum {string} */
@@ -129,49 +129,49 @@ export interface components {
         });
         ScheduledJobLagEvent: {
             /** Format: int64 */
-            lag_seconds: number;
-            /** Format: int64 */
             timestamp: number;
+            /** Format: int64 */
+            lag_seconds: number;
         };
         SchedulerStatsEvent: {
+            /** Format: int64 */
+            timestamp: number;
             /** Format: int64 */
             lag_seconds: number;
             /** Format: int64 */
             num_running_jobs: number;
-            /** Format: int64 */
-            timestamp: number;
         };
         StorageApiBandwidthEvent: {
             /** Format: int64 */
-            egress_bytes: number;
+            timestamp: number;
             storage_id: string;
             /** Format: int64 */
-            timestamp: number;
+            egress_bytes: number;
         };
         StorageUsageEvent: {
             /** Format: int64 */
             timestamp: number;
             /** Format: int64 */
-            total_backup_storage_bytes: number;
-            /** Format: int64 */
             total_document_size_bytes: number;
             /** Format: int64 */
-            total_file_storage_bytes: number;
-            /** Format: int64 */
             total_index_size_bytes: number;
-            total_system_table_document_size_bytes: {
-                [key: string]: number;
-            };
+            /** Format: int64 */
+            total_vector_storage_bytes: number;
             /** Format: int64 */
             total_text_storage_bytes: number;
             /** Format: int64 */
-            total_vector_storage_bytes: number;
+            total_file_storage_bytes: number;
+            /** Format: int64 */
+            total_backup_storage_bytes: number;
+            total_system_table_document_size_bytes: {
+                [key: string]: number;
+            };
         };
         Value: unknown;
         VerificationEvent: {
-            message: string;
             /** Format: int64 */
             timestamp: number;
+            message: string;
         };
     };
     responses: never;
