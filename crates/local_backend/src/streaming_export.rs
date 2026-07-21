@@ -519,35 +519,25 @@ async fn _data_sync(
         })
         .try_collect()?;
 
-    let (status, has_more) = match status {
+    let status = match status {
         // A consistent snapshot with newer data already available to fetch.
-        SyncStatus::Synced { ts, has_more: true } => (
-            DataSyncStatus::Stale(DataSyncStale {
-                status_type: StaleTag::Stale,
-                snapshot_ts: i64::from(ts),
-            }),
-            true,
-        ),
+        SyncStatus::Synced { ts, has_more: true } => DataSyncStatus::Stale(DataSyncStale {
+            status_type: StaleTag::Stale,
+            snapshot_ts: i64::from(ts),
+        }),
         // A consistent snapshot that has caught up to the latest data.
         SyncStatus::Synced {
             ts,
             has_more: false,
-        } => (
-            DataSyncStatus::UpToDate(DataSyncUpToDate {
-                status_type: UpToDateTag::UpToDate,
-                snapshot_ts: i64::from(ts),
-            }),
-            false,
-        ),
+        } => DataSyncStatus::UpToDate(DataSyncUpToDate {
+            status_type: UpToDateTag::UpToDate,
+            snapshot_ts: i64::from(ts),
+        }),
         // Progress details are not part of this response; callers monitor
-        // them via `/data/list_active_syncs`, keyed by `sync_id`. The snapshot
-        // isn't consistent yet, so there is always more to fetch.
-        SyncStatus::InProgress { .. } => (
-            DataSyncStatus::Snapshotting(DataSyncSnapshotting {
-                status_type: SnapshottingTag::Snapshotting,
-            }),
-            true,
-        ),
+        // them via `/data/list_active_syncs`, keyed by `sync_id`.
+        SyncStatus::InProgress { .. } => DataSyncStatus::Snapshotting(DataSyncSnapshotting {
+            status_type: SnapshottingTag::Snapshotting,
+        }),
     };
 
     let response = DataSyncResponse {
@@ -556,9 +546,13 @@ async fn _data_sync(
         sync_id: new_cursor.sync_id().to_string(),
         status,
         pagination: PaginationMetadata {
-            has_more,
-            // The cursor is always resumable, so a data sync never signals the
-            // end with a null cursor the way a finite listing does.
+            // A data sync is a stream with no end: another page can always be
+            // fetched with the returned cursor, even once caught up to the
+            // latest data. Callers use `status` to decide whether to poll again
+            // immediately or periodically. The cursor is always resumable, so a
+            // data sync never signals the end with a null cursor the way a
+            // finite listing does.
+            has_more: true,
             next_cursor: Some(
                 new_cursor.encrypt(st.application.key_broker().data_sync_encryptor())?,
             ),

@@ -1791,7 +1791,7 @@
           },
           "pagination": {
             "$ref": "#/components/schemas/PaginationMetadata",
-            "description": "Pagination information. The data sync endpoint is an infinite streaming\nendpoint, so `nextCursor` is always present. `hasMore` is `true` while\ndata can be fetched immediately. When `hasMore` is `false`, the cursor\nhas caught up; in that case, it is recommended to back off significantly\nto wait for more writes before making another call."
+            "description": "Pagination information. The data sync endpoint is an infinite streaming\nendpoint, so `nextCursor` is always present and `hasMore` is always\n`true` — another page can always be fetched with the cursor. Use\n`status` to pace calls: back off significantly to wait for more writes\nonce it reports `upToDate`."
           }
         }
       },

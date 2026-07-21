@@ -170,10 +170,10 @@ pub struct DataSyncResponse {
     /// the sync's lifetime. Identifies this sync in `/data/list_active_syncs`.
     pub sync_id: String,
     /// Pagination information. The data sync endpoint is an infinite streaming
-    /// endpoint, so `nextCursor` is always present. `hasMore` is `true` while
-    /// data can be fetched immediately. When `hasMore` is `false`, the cursor
-    /// has caught up; in that case, it is recommended to back off significantly
-    /// to wait for more writes before making another call.
+    /// endpoint, so `nextCursor` is always present and `hasMore` is always
+    /// `true` — another page can always be fetched with the cursor. Use
+    /// `status` to pace calls: back off significantly to wait for more writes
+    /// once it reports `upToDate`.
     pub pagination: PaginationMetadata,
 }
 
