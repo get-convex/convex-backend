@@ -46,7 +46,6 @@ tracy-tracing = ["common/tracy-tracing"]
 [dependencies]
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
-async-channel = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
@@ -129,7 +128,6 @@ walkdir = { workspace = true }
 
 [dev-dependencies]
 async-broadcast = { workspace = true }
-async-channel = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }

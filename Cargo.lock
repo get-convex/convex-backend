@@ -5270,7 +5270,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-channel",
  "async-recursion",
  "async-trait",
  "async_lru",

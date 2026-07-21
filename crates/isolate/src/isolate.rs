@@ -327,7 +327,7 @@ impl<RT: Runtime> Isolate<RT> {
         // Acquire a concurrency permit without counting it against the timeout.
         let permit = tokio::select! {
             biased;
-            permit = self.limiter.acquire(client_id) => permit,
+            permit = self.limiter.acquire(client_id, environment.is_nested_function()) => permit,
             // Do not apply a timeout for subfunctions that can't be retried
             () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
                     if !environment.is_nested_function() => {
