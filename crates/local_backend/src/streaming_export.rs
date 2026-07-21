@@ -51,11 +51,12 @@ use common::{
             ActiveDataSyncStatus,
             ActiveDataSyncSynced,
             DataSyncArgs,
-            DataSyncInProgress,
             DataSyncResponse,
+            DataSyncSnapshotting,
+            DataSyncStale,
             DataSyncStatus,
-            DataSyncSynced,
             DataSyncTruncate,
+            DataSyncUpToDate,
             DataSyncValue,
             DocumentDeltasArgs,
             DocumentDeltasResponse,
@@ -67,7 +68,10 @@ use common::{
             ListSnapshotArgs,
             ListSnapshotResponse,
             ListSnapshotValue,
+            SnapshottingTag,
+            StaleTag,
             SyncedTag,
+            UpToDateTag,
         },
         RepeatableTimestamp,
         Timestamp,
@@ -531,19 +535,31 @@ async fn _data_sync(
         .try_collect()?;
 
     let (status, has_more) = match status {
-        SyncStatus::Synced { ts, has_more } => (
-            DataSyncStatus::Synced(DataSyncSynced {
-                status_type: SyncedTag::Synced,
-                synced_ts: i64::from(ts),
+        // A consistent snapshot with newer data already available to fetch.
+        SyncStatus::Synced { ts, has_more: true } => (
+            DataSyncStatus::Stale(DataSyncStale {
+                status_type: StaleTag::Stale,
+                snapshot_ts: i64::from(ts),
             }),
-            has_more,
+            true,
+        ),
+        // A consistent snapshot that has caught up to the latest data.
+        SyncStatus::Synced {
+            ts,
+            has_more: false,
+        } => (
+            DataSyncStatus::UpToDate(DataSyncUpToDate {
+                status_type: UpToDateTag::UpToDate,
+                snapshot_ts: i64::from(ts),
+            }),
+            false,
         ),
         // Progress details are not part of this response; callers monitor
         // them via `/data/list_active_syncs`, keyed by `sync_id`. The snapshot
         // isn't consistent yet, so there is always more to fetch.
         SyncStatus::InProgress { .. } => (
-            DataSyncStatus::InProgress(DataSyncInProgress {
-                status_type: InProgressTag::InProgress,
+            DataSyncStatus::Snapshotting(DataSyncSnapshotting {
+                status_type: SnapshottingTag::Snapshotting,
             }),
             true,
         ),

@@ -222,6 +222,28 @@ pub enum InProgressTag {
     InProgress,
 }
 
+/// The literal string `snapshotting`, discriminating "snapshotting" status
+/// objects.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
+pub enum SnapshottingTag {
+    #[serde(rename = "snapshotting")]
+    Snapshotting,
+}
+
+/// The literal string `stale`, discriminating "stale" status objects.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
+pub enum StaleTag {
+    #[serde(rename = "stale")]
+    Stale,
+}
+
+/// The literal string `upToDate`, discriminating "up to date" status objects.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
+pub enum UpToDateTag {
+    #[serde(rename = "upToDate")]
+    UpToDate,
+}
+
 /// The consistency state reported alongside a data sync page, discriminated
 /// by `type`.
 // Modeled as a serde-untagged enum over structs that each carry a
@@ -233,39 +255,58 @@ pub enum InProgressTag {
 #[schema(discriminator(
     property_name = "type",
     mapping(
-        ("synced" = "#/components/schemas/DataSyncSynced"),
-        ("inProgress" = "#/components/schemas/DataSyncInProgress"),
+        ("snapshotting" = "#/components/schemas/DataSyncSnapshotting"),
+        ("stale" = "#/components/schemas/DataSyncStale"),
+        ("upToDate" = "#/components/schemas/DataSyncUpToDate"),
     )
 ))]
 pub enum DataSyncStatus {
-    Synced(DataSyncSynced),
-    InProgress(DataSyncInProgress),
+    Snapshotting(DataSyncSnapshotting),
+    Stale(DataSyncStale),
+    UpToDate(DataSyncUpToDate),
 }
 
-/// The entries emitted so far represent a consistent snapshot at `syncedTs`.
-/// The cursor can be persisted and used to continue the sync later (within
-/// the document retention window).
+/// The sync has not yet reached a consistent snapshot: the entries emitted so
+/// far are an incomplete initial traversal of the selected tables. The sync's
+/// progress can be monitored via `/data/list_active_syncs`, keyed by the
+/// response's `syncId`.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSyncSynced {
-    /// Always `synced`.
+pub struct DataSyncSnapshotting {
+    /// Always `snapshotting`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: SyncedTag,
+    pub status_type: SnapshottingTag,
+}
+
+/// The entries emitted so far represent a consistent snapshot at `snapshotTs`,
+/// but newer data is already available and can be fetched immediately. The
+/// cursor can be persisted and used to continue the sync later (within the
+/// document retention window).
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DataSyncStale {
+    /// Always `stale`.
+    #[serde(rename = "type")]
+    #[schema(inline)]
+    pub status_type: StaleTag,
     /// The database timestamp at which the synced data is consistent.
-    pub synced_ts: i64,
+    pub snapshot_ts: i64,
 }
 
-/// More pages are required before the view is consistent. The sync's progress
-/// can be monitored via `/data/list_active_syncs`, keyed by the response's
-/// `syncId`.
+/// The entries emitted so far represent a consistent snapshot at `snapshotTs`
+/// and the sync has caught up to the latest data; there is nothing more to
+/// fetch right now. The cursor can be persisted and used to continue the sync
+/// later (within the document retention window).
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSyncInProgress {
-    /// Always `inProgress`.
+pub struct DataSyncUpToDate {
+    /// Always `upToDate`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: InProgressTag,
+    pub status_type: UpToDateTag,
+    /// The database timestamp at which the synced data is consistent.
+    pub snapshot_ts: i64,
 }
 
 /// Response of the active-syncs listing API

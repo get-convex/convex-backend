@@ -1754,27 +1754,6 @@
           }
         }
       },
-      "DataSyncInProgress": {
-        "type": "object",
-        "description": "More pages are required before the view is consistent. The sync's progress\ncan be monitored via `/data/list_active_syncs`, keyed by the response's\n`syncId`.",
-        "required": [
-          "type"
-        ],
-        "properties": {
-          "type": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "The literal string `inProgress`, discriminating \"in progress\" status\nobjects.",
-                "enum": [
-                  "inProgress"
-                ]
-              }
-            ],
-            "description": "Always `inProgress`."
-          }
-        }
-      },
       "DataSyncResponse": {
         "type": "object",
         "description": "One page returned by the data sync API.",
@@ -1814,33 +1793,36 @@
           }
         }
       },
-      "DataSyncStatus": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/DataSyncSynced"
-          },
-          {
-            "$ref": "#/components/schemas/DataSyncInProgress"
-          }
+      "DataSyncSnapshotting": {
+        "type": "object",
+        "description": "The sync has not yet reached a consistent snapshot: the entries emitted so\nfar are an incomplete initial traversal of the selected tables. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`.",
+        "required": [
+          "type"
         ],
-        "description": "The consistency state reported alongside a data sync page, discriminated\nby `type`.",
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "inProgress": "#/components/schemas/DataSyncInProgress",
-            "synced": "#/components/schemas/DataSyncSynced"
+        "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `snapshotting`, discriminating \"snapshotting\" status\nobjects.",
+                "enum": [
+                  "snapshotting"
+                ]
+              }
+            ],
+            "description": "Always `snapshotting`."
           }
         }
       },
-      "DataSyncSynced": {
+      "DataSyncStale": {
         "type": "object",
-        "description": "The entries emitted so far represent a consistent snapshot at `syncedTs`.\nThe cursor can be persisted and used to continue the sync later (within\nthe document retention window).",
+        "description": "The entries emitted so far represent a consistent snapshot at `snapshotTs`,\nbut newer data is already available and can be fetched immediately. The\ncursor can be persisted and used to continue the sync later (within the\ndocument retention window).",
         "required": [
           "type",
-          "syncedTs"
+          "snapshotTs"
         ],
         "properties": {
-          "syncedTs": {
+          "snapshotTs": {
             "type": "integer",
             "format": "int64",
             "description": "The database timestamp at which the synced data is consistent."
@@ -1849,13 +1831,35 @@
             "oneOf": [
               {
                 "type": "string",
-                "description": "The literal string `synced`, discriminating \"synced\" status objects.",
+                "description": "The literal string `stale`, discriminating \"stale\" status objects.",
                 "enum": [
-                  "synced"
+                  "stale"
                 ]
               }
             ],
-            "description": "Always `synced`."
+            "description": "Always `stale`."
+          }
+        }
+      },
+      "DataSyncStatus": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DataSyncSnapshotting"
+          },
+          {
+            "$ref": "#/components/schemas/DataSyncStale"
+          },
+          {
+            "$ref": "#/components/schemas/DataSyncUpToDate"
+          }
+        ],
+        "description": "The consistency state reported alongside a data sync page, discriminated\nby `type`.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "snapshotting": "#/components/schemas/DataSyncSnapshotting",
+            "stale": "#/components/schemas/DataSyncStale",
+            "upToDate": "#/components/schemas/DataSyncUpToDate"
           }
         }
       },
@@ -1874,6 +1878,33 @@
           "table": {
             "type": "string",
             "description": "The name of the truncated table."
+          }
+        }
+      },
+      "DataSyncUpToDate": {
+        "type": "object",
+        "description": "The entries emitted so far represent a consistent snapshot at `snapshotTs`\nand the sync has caught up to the latest data; there is nothing more to\nfetch right now. The cursor can be persisted and used to continue the sync\nlater (within the document retention window).",
+        "required": [
+          "type",
+          "snapshotTs"
+        ],
+        "properties": {
+          "snapshotTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `upToDate`, discriminating \"up to date\" status objects.",
+                "enum": [
+                  "upToDate"
+                ]
+              }
+            ],
+            "description": "Always `upToDate`."
           }
         }
       },

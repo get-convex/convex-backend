@@ -754,16 +754,6 @@ export interface components {
              *     tombstoned). */
             selection?: components["schemas"]["Selection"];
         };
-        /** @description More pages are required before the view is consistent. The sync's progress
-         *     can be monitored via `/data/list_active_syncs`, keyed by the response's
-         *     `syncId`. */
-        DataSyncInProgress: {
-            /**
-             * @description Always `inProgress`. (enum property replaced by openapi-typescript)
-             * @enum {string}
-             */
-            type: "inProgress";
-        };
         /** @description One page returned by the data sync API. */
         DataSyncResponse: {
             /** @description Pagination information. The data sync endpoint is an infinite streaming
@@ -787,24 +777,36 @@ export interface components {
             /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];
         };
-        /** @description The consistency state reported alongside a data sync page, discriminated
-         *     by `type`. */
-        DataSyncStatus: components["schemas"]["DataSyncSynced"] | components["schemas"]["DataSyncInProgress"];
-        /** @description The entries emitted so far represent a consistent snapshot at `syncedTs`.
-         *     The cursor can be persisted and used to continue the sync later (within
-         *     the document retention window). */
-        DataSyncSynced: {
+        /** @description The sync has not yet reached a consistent snapshot: the entries emitted so
+         *     far are an incomplete initial traversal of the selected tables. The sync's
+         *     progress can be monitored via `/data/list_active_syncs`, keyed by the
+         *     response's `syncId`. */
+        DataSyncSnapshotting: {
+            /**
+             * @description Always `snapshotting`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "snapshotting";
+        };
+        /** @description The entries emitted so far represent a consistent snapshot at `snapshotTs`,
+         *     but newer data is already available and can be fetched immediately. The
+         *     cursor can be persisted and used to continue the sync later (within the
+         *     document retention window). */
+        DataSyncStale: {
             /**
              * Format: int64
              * @description The database timestamp at which the synced data is consistent.
              */
-            syncedTs: number;
+            snapshotTs: number;
             /**
-             * @description Always `synced`. (enum property replaced by openapi-typescript)
+             * @description Always `stale`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            type: "synced";
+            type: "stale";
         };
+        /** @description The consistency state reported alongside a data sync page, discriminated
+         *     by `type`. */
+        DataSyncStatus: components["schemas"]["DataSyncSnapshotting"] | components["schemas"]["DataSyncStale"] | components["schemas"]["DataSyncUpToDate"];
         /** @description A table whose contents were replaced wholesale (e.g. by `npx convex
          *     import`). Reported separately from `values` since it carries none of the
          *     per-document fields. */
@@ -813,6 +815,22 @@ export interface components {
             component: string;
             /** @description The name of the truncated table. */
             table: string;
+        };
+        /** @description The entries emitted so far represent a consistent snapshot at `snapshotTs`
+         *     and the sync has caught up to the latest data; there is nothing more to
+         *     fetch right now. The cursor can be persisted and used to continue the sync
+         *     later (within the document retention window). */
+        DataSyncUpToDate: {
+            /**
+             * Format: int64
+             * @description The database timestamp at which the synced data is consistent.
+             */
+            snapshotTs: number;
+            /**
+             * @description Always `upToDate`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "upToDate";
         };
         /** @description A single document-level entry emitted by the data sync API: a Convex
          *     document (or a tombstone, for a deletion) nested under `value`, with
@@ -1255,11 +1273,12 @@ export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogSt
 export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
 export type DataSyncArgs = components['schemas']['DataSyncArgs'];
-export type DataSyncInProgress = components['schemas']['DataSyncInProgress'];
 export type DataSyncResponse = components['schemas']['DataSyncResponse'];
+export type DataSyncSnapshotting = components['schemas']['DataSyncSnapshotting'];
+export type DataSyncStale = components['schemas']['DataSyncStale'];
 export type DataSyncStatus = components['schemas']['DataSyncStatus'];
-export type DataSyncSynced = components['schemas']['DataSyncSynced'];
 export type DataSyncTruncate = components['schemas']['DataSyncTruncate'];
+export type DataSyncUpToDate = components['schemas']['DataSyncUpToDate'];
 export type DataSyncValue = components['schemas']['DataSyncValue'];
 export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
 export type DatadogSiteLocation = components['schemas']['DatadogSiteLocation'];
