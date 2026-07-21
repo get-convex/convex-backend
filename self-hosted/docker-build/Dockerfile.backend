@@ -78,6 +78,10 @@ ENV MISE_INSTALL_PATH="/usr/local/bin/mise" \
 RUN curl -fsSL https://mise.run | MISE_VERSION="v$(sed -nE 's/^min_version = "([^"]+)"/\1/p' mise.toml)" sh \
     && mise trust && mise install --locked protoc
 
+# Cargo reads .cargo/config.toml (e.g. RUSTY_V8_MIRROR, which redirects the V8
+# static-lib download to our fork) via hierarchical discovery from the working
+# directory, so it must be present before `cargo chef cook` builds dependencies.
+COPY .cargo/config.toml ./.cargo/config.toml
 COPY --from=chef /tmp/recipe.json recipe.json
 # Use cargo-chef to build dependencies from the recipe created in the first stage
 # This step will be cached unless dependencies change
