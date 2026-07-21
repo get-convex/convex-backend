@@ -84,7 +84,6 @@ impl<'a, RT: Runtime> AuditLogConfigModel<'a, RT> {
         } else {
             let config = AuditLogConfig {
                 firehose_stream_name: None,
-                include_in_log_streams: false,
             };
             let _ = SystemMetadataModel::new_global(self.tx)
                 .insert(&AUDIT_LOG_CONFIG_TABLE, config.try_into()?)
