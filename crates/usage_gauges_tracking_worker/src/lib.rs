@@ -160,9 +160,8 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
             &self.database.latest_database_snapshot()?,
         )
         .await?;
-        let backend_state = self.get_backend_state().await?;
 
-        self.send_usage_events(gauge_metrics, backend_state).await;
+        self.send_usage_events(gauge_metrics).await;
         let duration = timer.finish();
         if duration > *USAGE_TRACKING_WORKER_SLOW_TRACE_THRESHOLD {
             tracing::warn!("Usage tracking worker took longer than expected: {duration:?}");
@@ -170,18 +169,9 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
         Ok(())
     }
 
-    #[fastrace::trace]
-    async fn get_backend_state(&self) -> anyhow::Result<BackendState> {
-        let mut tx = self.database.begin_system().await?;
-        Ok(BackendStateModel::new(&mut tx)
-            .get_backend_state()
-            .await?
-            .into_value())
-    }
-
     /// Send usage events as the current state of the world to the firehose.
     #[fastrace::trace]
-    async fn send_usage_events(&self, gauge_metrics: GaugeMetrics, backend_state: BackendState) {
+    async fn send_usage_events(&self, gauge_metrics: GaugeMetrics) {
         // Send to log streams if available
         let log_sender = &self.log_sender;
         let totals = gauge_metrics.compute_totals();
@@ -207,6 +197,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
             storage_total_size,
             cloud_snapshot_total_size,
             document_counts,
+            backend_state,
         } = gauge_metrics;
 
         let (user_document_counts, system_document_counts) = document_counts
@@ -277,6 +268,7 @@ pub struct GaugeMetrics {
     storage_total_size: u64,
     cloud_snapshot_total_size: u64,
     document_counts: Vec<(ComponentPath, TableName, u64)>,
+    backend_state: BackendState,
 }
 
 impl GaugeMetrics {
@@ -371,6 +363,7 @@ pub async fn get_gauge_metrics<RT: Runtime>(
     let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, snapshot).await?;
     let document_counts = snapshot.get_document_counts(identity)?;
     let storage_total_size = get_total_file_storage_size(identity, snapshot).await?;
+    let backend_state = fetch_backend_state(identity, snapshot).await?;
 
     Ok(GaugeMetrics {
         document_and_index_storage,
@@ -379,7 +372,25 @@ pub async fn get_gauge_metrics<RT: Runtime>(
         storage_total_size,
         cloud_snapshot_total_size,
         document_counts,
+        backend_state,
     })
+}
+
+#[fastrace::trace]
+async fn fetch_backend_state<RT: Runtime>(
+    identity: &Identity,
+    database: &DatabaseSnapshot<RT>,
+) -> anyhow::Result<BackendState> {
+    let mut tx = database.begin_tx(
+        identity.clone(),
+        Arc::new(SearchNotEnabled),
+        FunctionUsageTracker::new(),
+        virtual_system_mapping().clone(),
+    )?;
+    Ok(BackendStateModel::new(&mut tx)
+        .get_backend_state()
+        .await?
+        .into_value())
 }
 
 #[fastrace::trace]
