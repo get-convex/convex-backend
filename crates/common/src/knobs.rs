@@ -158,7 +158,7 @@ pub static APP_METRICS_SEED_MAX_BATCH: LazyLock<usize> =
 /// fleet-wide restart (e.g. a bad deploy crash-looping many conductors) does
 /// not align every conductor's re-seed into a thundering herd on Databricks.
 pub static APP_METRICS_SEED_STARTUP_JITTER: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config("APP_METRICS_SEED_STARTUP_JITTER_SECS", 5 * 60))
+    Duration::from_secs(env_config("APP_METRICS_SEED_STARTUP_JITTER_SECS", 15 * 60))
 });
 
 /// Kill switch for conductor's app-metrics seed worker. When set, the worker
