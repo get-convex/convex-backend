@@ -11,7 +11,7 @@ description: "Manage deployments"
 
 Manage deployments in your project.
 
-## Usage
+## Syntax
 
 ```sh
 npx convex deployment [options] [command]
@@ -35,7 +35,7 @@ The deployment will be used by all `npx convex` commands, except `npx convex dep
 - Select a deployment in another project in the same team: <CodeWithCopyButton text={"npx convex deployment select some-project:dev/james"} />
 - Select a deployment in a particular team/project: <CodeWithCopyButton text={"npx convex deployment select some-team:some-project:dev/james"} />
 
-### Usage
+### Syntax
 
 ```sh
 npx convex deployment select [options] <deployment>
@@ -59,7 +59,7 @@ Create a new deployment for a project.
 - Create a dev deployment and select it: <CodeWithCopyButton text={"npx convex deployment create dev/my-new-feature --type dev --select"} />
 - Create a prod deployment named “staging”: <CodeWithCopyButton text={"npx convex deployment create staging --type prod"} />
 
-### Usage
+### Syntax
 
 ```sh
 npx convex deployment create [options] [reference]
@@ -118,7 +118,7 @@ When the deployment expires (e.g. "none", "in 7 days", "2026-04-01T00:00:00Z", o
 
 Create and delete access tokens. Currently supports deploy keys.
 
-### Usage
+### Syntax
 
 ```sh
 npx convex deployment token [options] [command]
@@ -133,7 +133,7 @@ Creates a deploy key that, when set as `CONVEX_DEPLOY_KEY`, scopes all commands 
 - Save a new deploy key in a custom env file: <CodeWithCopyButton text={"npx convex deployment token create ci-token --save-env .env.production"} />
 - Create a key for the project's prod: <CodeWithCopyButton text={"npx convex deployment token create ci-token --deployment prod"} />
 
-#### Usage
+#### Syntax
 
 ```sh
 npx convex deployment token create [options] <name>
@@ -189,7 +189,7 @@ The positional `<nameOrToken>` can be the unique name of the deploy key (as pass
 - Delete by value: <CodeWithCopyButton text={"npx convex deployment token delete 'dev:happy-animal-123|ey...'"} />
 - Target prod: <CodeWithCopyButton text={"npx convex deployment token delete ci-token --deployment prod"} />
 
-#### Usage
+#### Syntax
 
 ```sh
 npx convex deployment token delete [options] <nameOrToken>

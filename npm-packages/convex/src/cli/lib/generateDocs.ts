@@ -102,9 +102,9 @@ function displayName(path: string[]): string {
   return `npx ${path.join(" ")}`;
 }
 
-// Build the usage suffix (everything after the command name) for the Usage
+// Build the usage suffix (everything after the command name) for the Syntax
 // code block. We derive the argument portion from the command's registered
-// arguments rather than trusting a manual `.usage()` override, so the Usage
+// arguments rather than trusting a manual `.usage()` override, so the Syntax
 // line always agrees with the Arguments section below. For example `env set`
 // overrides `.usage()` to show `<name> <value>` (pretending the args are
 // required) for nicer `--help` output, even though it registers them as
@@ -183,7 +183,7 @@ function renderCommand(
   }
 
   const usage = commandUsage(command);
-  lines.push(`${h2} Usage`);
+  lines.push(`${h2} Syntax`);
   lines.push("");
   lines.push("```sh");
   lines.push(`${display} ${usage}`.trim());
