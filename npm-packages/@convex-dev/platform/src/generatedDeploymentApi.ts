@@ -759,10 +759,11 @@ export interface components {
              *     component path (`""` for the root component), mapped to the selection
              *     for that component.
              *
-             *     The selection may change between calls of the same sync.
-             *     Newly selected tables are synced from scratch, possibly moving the
-             *     sync into `snapshotting` state if necessary. Deselected tables stop
-             *     being exported, with a truncate emitted. */
+             *     The selection may change between calls of the same sync: newly selected
+             *     tables are synced from scratch, possibly moving the sync into
+             *     `snapshotting` state if necessary, and emit a truncate on the first page
+             *     they appear so the consumer starts them from a clean slate. Deselected
+             *     tables stop being exported, with a truncate emitted. */
             selection?: components["schemas"]["Selection"];
         };
         /** @description One page returned by the data sync API. */
@@ -773,8 +774,11 @@ export interface components {
              *     previously synced for each table, then apply `values` (which re-sync
              *     them from scratch). Logically applies before `values`.
              *
-             *     Tables may be truncated when using e.g. `npx convex import` or other
-             *     bulk operations, or if removed from selection. */
+             *     A table is truncated whenever it (re)enters the export from scratch —
+             *     the first page it is synced (including on a cold start), when it is
+             *     newly selected, or when it is replaced by a bulk operation such as
+             *     `npx convex import` — and when it leaves the export after being
+             *     deselected. */
             truncates: components["schemas"]["DataSyncTruncate"][];
             /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];

@@ -1804,7 +1804,7 @@
           },
           "selection": {
             "$ref": "#/components/schemas/Selection",
-            "description": "When set, only sync the selected subset of the data.\n\nSelects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component), mapped to the selection\nfor that component.\n\nThe selection may change between calls of the same sync.\nNewly selected tables are synced from scratch, possibly moving the\nsync into `snapshotting` state if necessary. Deselected tables stop\nbeing exported, with a truncate emitted."
+            "description": "When set, only sync the selected subset of the data.\n\nSelects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component), mapped to the selection\nfor that component.\n\nThe selection may change between calls of the same sync: newly selected\ntables are synced from scratch, possibly moving the sync into\n`snapshotting` state if necessary, and emit a truncate on the first page\nthey appear so the consumer starts them from a clean slate. Deselected\ntables stop being exported, with a truncate emitted."
           }
         }
       },
@@ -1828,7 +1828,7 @@
             "items": {
               "$ref": "#/components/schemas/DataSyncTruncate"
             },
-            "description": "Tables truncated by this page. The consumer should drop everything it\npreviously synced for each table, then apply `values` (which re-sync\nthem from scratch). Logically applies before `values`.\n\nTables may be truncated when using e.g. `npx convex import` or other\nbulk operations, or if removed from selection."
+            "description": "Tables truncated by this page. The consumer should drop everything it\npreviously synced for each table, then apply `values` (which re-sync\nthem from scratch). Logically applies before `values`.\n\nA table is truncated whenever it (re)enters the export from scratch —\nthe first page it is synced (including on a cold start), when it is\nnewly selected, or when it is replaced by a bulk operation such as\n`npx convex import` — and when it leaves the export after being\ndeselected."
           },
           "values": {
             "type": "array",
