@@ -22,7 +22,7 @@ import { useProfile } from "api/profile";
 import { projectResource, projectTokenResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useRouter } from "next/router";
-import { useState, useEffect, type FC } from "react";
+import { useState, useEffect, type ComponentType } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
 import {
   GearIcon,
@@ -80,7 +80,11 @@ const SECTION_IDS = {
 const sections: {
   id: string;
   label: string;
-  Icon: FC<{ className?: string }>;
+  Icon: ComponentType<{
+    className?: string;
+    width?: string | number;
+    height?: string | number;
+  }>;
 }[] = [
   { id: SECTION_IDS.projectForm, label: "Edit Project", Icon: GearIcon },
   { id: SECTION_IDS.projectRoles, label: "Project Admins", Icon: PersonIcon },
@@ -148,7 +152,9 @@ function SettingsNavigation() {
               }}
             >
               <Icon
-                className="size-4.5 min-h-4.5 shrink-0 text-content-secondary"
+                width={18}
+                height={18}
+                className="size-4.5 max-h-4.5 min-h-4.5 max-w-4.5 shrink-0 text-content-secondary"
                 aria-hidden
               />
               {label}
