@@ -15,7 +15,10 @@ use std::{
     path::Path,
     process::Command,
     thread,
-    time::Duration,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context;
@@ -132,6 +135,41 @@ fn write_bundles(out_dir: &Path, out_name: &str, bundles: Vec<Bundle>) -> anyhow
     Ok(())
 }
 
+// Rush takes a repo-wide lock and fails fast instead of waiting for it. The
+// holder can be another build step (CI runs `rush install`+`rush build` in
+// parallel with cargo, and a cold pnpm store keeps the lock for minutes) or an
+// editor during local dev, so poll with backoff instead of giving up.
+fn run_rush_waiting_for_lock(args: &[&str]) -> anyhow::Result<()> {
+    // Per-invocation deadline: install and build each get their own.
+    let deadline = Instant::now() + Duration::from_secs(600);
+    let mut delay = Duration::from_secs(2);
+    loop {
+        let output = Command::new(RUSH)
+            .current_dir(Path::new(PACKAGES_DIR))
+            .args(args)
+            .output()
+            .with_context(|| format!("Failed on rush {}", args.join(" ")))?;
+        io::stdout().write_all(&output.stdout).unwrap();
+        io::stderr().write_all(&output.stderr).unwrap();
+        if output.status.success() {
+            return Ok(());
+        }
+        let locked = [&output.stdout, &output.stderr].iter().any(|s| {
+            String::from_utf8_lossy(s)
+                .contains("Another Rush command is already running in this repository.")
+        });
+        anyhow::ensure!(locked, "Failed to 'rush {}'", args[0]);
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        anyhow::ensure!(
+            !remaining.is_zero(),
+            "Timed out waiting for the rush repository lock while running 'rush {}'",
+            args[0]
+        );
+        thread::sleep(delay.min(remaining));
+        delay = (delay * 2).min(Duration::from_secs(10));
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     // TODO: Have higher accuracy change tracking here.
     rerun_if_changed("../../npm-packages/convex/src/bundler")?;
@@ -201,37 +239,17 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/system-udfs/tsconfig.json")?;
 
     // Step 1: Ensure the `server`, `dashboard`, and `cli` deps are installed.
-    for _ in 0..3 {
-        let output = Command::new(RUSH)
-            .current_dir(Path::new(PACKAGES_DIR))
-            .args(["install"])
-            .output()
-            .context("Failed on rush install")?;
-        io::stdout().write_all(&output.stdout).unwrap();
-        io::stderr().write_all(&output.stderr).unwrap();
-        if String::from_utf8_lossy(&output.stdout)
-            .contains("Another Rush command is already running in this repository.")
-        {
-            // Sometimes editors/etc might run another rush install. Just wait a moment and
-            // try again.
-            thread::sleep(Duration::from_secs(1));
-            continue;
-        }
-        anyhow::ensure!(output.status.success(), "Failed to 'rush install'");
-        break;
-    }
+    run_rush_waiting_for_lock(&["install"])?;
     let mut pkgs = vec!["convex", "node-executor", "udf-runtime"];
     if has_tests {
         pkgs.extend(["simulation", "udf-tests"]);
     }
-    let mut cmd = Command::new(RUSH);
-    cmd.current_dir(PACKAGES_DIR).arg("build");
+    let mut args = vec!["build"];
     for pkg in pkgs {
-        cmd.arg("-t");
-        cmd.arg(pkg);
+        args.push("-t");
+        args.push(pkg);
     }
-    let status = cmd.status().context("Failed on rush build")?;
-    anyhow::ensure!(status.success(), "Failed to 'rush build'");
+    run_rush_waiting_for_lock(&args)?;
     // Step 2: Use `build-server` to package up our builtin `_system` UDFs.
     let output = Command::new(NPM)
         .current_dir(NPM_DIR)
