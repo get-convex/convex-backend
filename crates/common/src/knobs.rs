@@ -1904,10 +1904,6 @@ pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new
 pub static UDF_404_ON_BAD_PATH: LazyLock<bool> =
     LazyLock::new(|| env_config("UDF_404_ON_BAD_PATH", false));
 
-/// If set, allows `experimental_reuseContext` to be set.
-pub static ALLOW_FUNCTION_CONTEXT_REUSE: LazyLock<bool> =
-    LazyLock::new(|| env_config("ALLOW_FUNCTION_CONTEXT_REUSE", true));
-
 /// Percentage of index page queries to send to the database to verify that
 /// cache results match.
 pub static INDEX_CACHE_VERIFY_PERCENT: LazyLock<u8> =

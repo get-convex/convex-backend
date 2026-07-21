@@ -39,7 +39,6 @@ use common::{
     },
     fastrace_helpers::EncodedSpan,
     knobs::{
-        ALLOW_FUNCTION_CONTEXT_REUSE,
         APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT,
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_MUTATIONS,
@@ -1771,17 +1770,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
 
         self.validate_cron_jobs(&result)??;
-
-        if !*ALLOW_FUNCTION_CONTEXT_REUSE {
-            for (path, m) in &mut result {
-                if m.reuse_context {
-                    tracing::warn!(
-                        "Module {path:?} uses experimental_reuseContext, which is not allowed"
-                    );
-                    m.reuse_context = false;
-                }
-            }
-        }
 
         Ok(Ok(result))
     }
