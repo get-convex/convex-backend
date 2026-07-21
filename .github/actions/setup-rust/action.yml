@@ -72,22 +72,28 @@ runs:
         echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
         echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
         if [ "$RUNNER_OS" == "Linux" ]; then
-          echo "SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
+          echo "SNAPPY_LIB_DIR=/usr/lib/$(uname -m)-linux-gnu" >> $GITHUB_ENV
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
-          if [ "$(uname -m)" == "x86_64" ] && command -v ld.mold >/dev/null; then
-            # Nightly rustc defaults to its bundled rust-lld on x86_64-linux
-            # (via an injected gcc -B dir containing "ld"), so the mold
-            # installed above goes unused without an explicit opt-in.
-            # -fuse-ld=mold makes the gcc driver search for "ld.mold" —
-            # absent from the injected dir, found on PATH via setup-mold —
-            # so it wins over the injection. mold links faster and with less
-            # memory than rust-lld, which matters for the giant test-binary
-            # link tail. Jammy's gcc 11.4 accepts -fuse-ld=mold (Ubuntu
-            # backport of the gcc 12.1 feature).
-            # The env var is target-scoped: aarch64 must keep the rustflags in
-            # .cargo/config.toml, which a triple-scoped env var would replace.
-            echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-Clink-arg=-fuse-ld=mold" >> $GITHUB_ENV
+          if command -v ld.mold >/dev/null; then
+            # Link with mold: faster and lighter than rust-lld/bfd, which
+            # matters for the giant test-binary link tail. -fuse-ld=mold makes
+            # the gcc driver pick "ld.mold" from PATH; on x86_64 that also
+            # outranks nightly rustc's bundled rust-lld (injected as "ld" via a
+            # gcc -B dir, where "ld.mold" doesn't exist). Jammy's gcc 11.4
+            # accepts -fuse-ld=mold (Ubuntu backport of the gcc 12.1 feature).
+            # This must be a $CARGO_HOME config layer, not a
+            # CARGO_TARGET_<triple>_RUSTFLAGS env var: the env var REPLACES the
+            # workspace .cargo/config.toml [target.*] rustflags (dropping
+            # aarch64's prod tuning), while config layers JOIN. Runners are
+            # ephemeral, so no pre-existing config.toml to collide with.
+            mkdir -p "${CARGO_HOME:-$HOME/.cargo}"
+            printf '%s\n' \
+              '[target.x86_64-unknown-linux-gnu]' \
+              'rustflags = ["-Clink-arg=-fuse-ld=mold"]' \
+              '[target.aarch64-unknown-linux-gnu]' \
+              'rustflags = ["-Clink-arg=-fuse-ld=mold"]' \
+              >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
           fi
         fi
         echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" >> $GITHUB_ENV
@@ -155,7 +161,7 @@ runs:
         # One shared cache entry for all jobs instead of a per-job key; the
         # jobs' cargo registries are near-identical and the entry is only
         # ~/.cargo (registry + git checkouts), not job-specific artifacts.
-        shared-key: cargo-registry
+        shared-key: "cargo-registry"
         # Only cache the `.cargo` directory; not build artifacts.
         cache-targets: "false"
         cache-bin: "false"

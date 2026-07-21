@@ -89,7 +89,9 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: "'windows-large-runner'"
           - target: aarch64-unknown-linux-gnu
-            os: "['self-hosted', 'aws', 'arm64', 'xlarge']"
+            # xlarge-c8g: precompiled binaries run on arbitrary user hardware,
+            # so build on the oldest-generation arm64 pool.
+            os: "['self-hosted', 'aws', 'arm64', 'xlarge-c8g']"
     name: Build Convex Backend
     runs-on: ${{ fromJSON(matrix.os) }}
     steps:
