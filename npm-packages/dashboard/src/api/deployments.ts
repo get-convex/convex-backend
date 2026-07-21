@@ -173,6 +173,7 @@ export function usePaginatedDeployments(
     projectId?: number;
     creator?: number;
     isDefault?: boolean;
+    keepPreviousData?: boolean;
   },
   refreshInterval?: number,
 ) {
@@ -187,6 +188,7 @@ export function usePaginatedDeployments(
     projectId,
     creator,
     isDefault,
+    keepPreviousData,
   } = options;
 
   // Note: the OpenAPI spec uses snake_case names, but the Rust handler has
@@ -222,7 +224,7 @@ export function usePaginatedDeployments(
       team_id: teamId ?? 0,
     },
     queryParams,
-    swrOptions: { refreshInterval },
+    swrOptions: { refreshInterval, keepPreviousData },
   });
 
   if (data === undefined) {

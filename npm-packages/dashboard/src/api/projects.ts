@@ -104,7 +104,11 @@ export function usePaginatedProjects(
  * Hook for infinite scroll pagination of projects with search support
  * Returns paginated projects data with loading state and pagination controls
  */
-export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
+export function useInfiniteProjects(
+  teamId: number,
+  searchQuery: string = "",
+  keepPreviousData: boolean = true,
+) {
   const authHeader = useAuthHeader();
   const { pageSize } = useProjectsPageSize();
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -152,6 +156,9 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
           },
         },
       };
+    },
+    {
+      keepPreviousData,
     },
   );
 
