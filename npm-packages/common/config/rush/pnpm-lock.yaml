@@ -2995,8 +2995,8 @@ importers:
         specifier: ~5.0.0
         version: 5.0.0(@docusaurus/plugin-content-docs@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/helpers@0.5.15))(@mdx-js/react@3.1.1(@types/react@18.3.26)(react@18.3.1))(@rspack/core@1.7.11(@swc/helpers@0.5.15))(@swc/core@1.15.8(@swc/helpers@0.5.15))(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4))(@docusaurus/utils-validation@3.10.1(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@docusaurus/utils@3.10.1(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/json-schema@7.0.15)(react@18.3.1)
       docusaurus-theme-openapi-docs:
-        specifier: 5.0.2
-        version: 5.0.2(335e5c5061c6a47645a64217de5c03ac)
+        specifier: github:nipunn1313/docusaurus-openapi-docs#a1df0dacb93b5330c4650714bbc109e8a9fdbeed&path:/packages/docusaurus-theme-openapi-docs
+        version: https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/a1df0dacb93b5330c4650714bbc109e8a9fdbeed#path:/packages/docusaurus-theme-openapi-docs(335e5c5061c6a47645a64217de5c03ac)
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -17840,8 +17840,9 @@ packages:
       '@docusaurus/core': ^2.0.0-beta || ^3.0.0-alpha
       sass: ^1.30.0
 
-  docusaurus-theme-openapi-docs@5.0.2:
-    resolution: {integrity: sha512-BD6WhbunR6kXqtoUUDlhxO4HlCNM2nYENGr/TbiTEknkgXYKQz+FEIhY4Hyz5GSLpuhPih0CDuNl7Xkfpcz0Yw==}
+  docusaurus-theme-openapi-docs@https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/a1df0dacb93b5330c4650714bbc109e8a9fdbeed#path:/packages/docusaurus-theme-openapi-docs:
+    resolution: {path: /packages/docusaurus-theme-openapi-docs, tarball: https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/a1df0dacb93b5330c4650714bbc109e8a9fdbeed}
+    version: 5.0.2
     engines: {node: '>=14'}
     peerDependencies:
       '@docusaurus/theme-common': ^3.10.0
@@ -22877,8 +22878,8 @@ packages:
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
 
-  pako@2.1.0:
-    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
+  pako@2.2.0:
+    resolution: {integrity: sha512-zJq6RP/5q+TO2OpFV3FHzlPnFjmkb7Nc99a5SNjJE+uu/PkpChs+NIZSSzbBoD+6kjiISXjfYdwj1ZRQ81dz/w==}
 
   param-case@3.0.4:
     resolution: {integrity: sha512-RXlj7zCYokReqWpOPH9oYivUzLYZ5vAPIfEmCTNViosC78F8F0H9y7T7gG2M39ymgutxF5gcFEsyZQSph9Bp3A==}
@@ -44491,7 +44492,7 @@ snapshots:
       - sass-embedded
       - webpack
 
-  docusaurus-theme-openapi-docs@5.0.2(335e5c5061c6a47645a64217de5c03ac):
+  docusaurus-theme-openapi-docs@https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/a1df0dacb93b5330c4650714bbc109e8a9fdbeed#path:/packages/docusaurus-theme-openapi-docs(335e5c5061c6a47645a64217de5c03ac):
     dependencies:
       '@docusaurus/theme-common': 3.10.1(@docusaurus/plugin-content-docs@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/helpers@0.5.15))(@mdx-js/react@3.1.1(@types/react@18.3.26)(react@18.3.1))(@rspack/core@1.7.11(@swc/helpers@0.5.15))(@swc/core@1.15.8(@swc/helpers@0.5.15))(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4))(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@hookform/error-message': 2.0.1(react-dom@18.3.1(react@18.3.1))(react-hook-form@7.66.0(react@18.3.1))(react@18.3.1)
@@ -44505,7 +44506,7 @@ snapshots:
       docusaurus-plugin-sass: 0.2.6(@docusaurus/core@3.10.1(@docusaurus/faster@3.10.1(@docusaurus/types@3.10.1(@swc/core@1.15.8(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/helpers@0.5.15))(@mdx-js/react@3.1.1(@types/react@18.3.26)(react@18.3.1))(@rspack/core@1.7.11(@swc/helpers@0.5.15))(@swc/core@1.15.8(@swc/helpers@0.5.15))(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4))(@rspack/core@1.7.11(@swc/helpers@0.5.15))(sass@1.94.0)(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15)))
       file-saver: 2.0.5
       lodash: 4.18.1
-      pako: 2.1.0
+      pako: 2.2.0
       path-browserify: 1.0.1
       postman-code-generators: 2.1.0
       postman-collection: 5.3.0
@@ -52371,7 +52372,7 @@ snapshots:
 
   pako@1.0.11: {}
 
-  pako@2.1.0: {}
+  pako@2.2.0: {}
 
   param-case@3.0.4:
     dependencies:
