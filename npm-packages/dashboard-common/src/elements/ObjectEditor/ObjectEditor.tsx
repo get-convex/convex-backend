@@ -144,8 +144,8 @@ export function ObjectEditor(props: ObjectEditorProps) {
   const [numLines, setNumLines] = useState(
     numLinesFromCode(defaultValueString),
   );
-  const editorLineHeight = size === "sm" ? 13 : 18;
-  const editorHeight = Math.min(Math.max(numLines, 2), 15) * editorLineHeight;
+  const editorLineHeightRem = (size === "sm" ? 13 : 18) / 16;
+  const editorHeight = `${Math.min(Math.max(numLines, 2), 15) * editorLineHeightRem}rem`;
 
   const handleChange = useCallback(
     (code?: string) => {

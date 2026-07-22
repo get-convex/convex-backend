@@ -453,7 +453,10 @@ export function DatabaseIndexFilterEditor({
       onChange={onChangeHandler}
       aria-label="Creation time"
       disabled={!filter.enabled}
-      className={cn("align-top", className)}
+      className={cn(
+        "w-full bg-background-secondary align-top focus:border-border-selected",
+        className,
+      )}
     />
   );
 
@@ -467,7 +470,7 @@ export function DatabaseIndexFilterEditor({
             renderDateTimePicker(
               filter.value,
               handleDateChange,
-              "text-xs border p-1 rounded-r",
+              "text-xs border px-2 py-1 rounded-r",
             )
           ) : (
             <ObjectEditorWithPlaceholder
@@ -512,7 +515,7 @@ export function DatabaseIndexFilterEditor({
             renderDateTimePicker(
               value,
               handleDateChange,
-              "text-xs border p-1 rounded-r",
+              "text-xs border px-2 py-1 rounded-r",
             )
           ) : (
             <ObjectEditorWithPlaceholder
@@ -542,7 +545,7 @@ export function DatabaseIndexFilterEditor({
               renderDateTimePicker(
                 filter.lowerValue,
                 handleLowerDateChange,
-                "text-xs border p-1 rounded-tr",
+                "text-xs border px-2 py-1 rounded-tr",
               )
             ) : (
               <ObjectEditorWithPlaceholder
@@ -566,7 +569,7 @@ export function DatabaseIndexFilterEditor({
               renderDateTimePicker(
                 filter.upperValue,
                 handleUpperDateChange,
-                "rounded-br text-xs border border-t-0 p-1",
+                "rounded-br text-xs border border-t-0 px-2 py-1",
               )
             ) : (
               <ObjectEditorWithPlaceholder
@@ -615,6 +618,7 @@ export function DatabaseIndexFilterEditor({
 
         {/* Field name display */}
         <Tooltip
+          asChild
           tip={
             filter.enabled
               ? "You cannot edit this field because it is a part of the definition of the selected index."
@@ -623,7 +627,7 @@ export function DatabaseIndexFilterEditor({
         >
           <div
             className={cn(
-              "flex h-full max-w-48 min-w-4 cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
+              "flex max-w-48 min-w-4 cursor-not-allowed items-center self-stretch truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
               filter.enabled
                 ? "bg-background-secondary"
                 : "bg-background-tertiary text-content-secondary",

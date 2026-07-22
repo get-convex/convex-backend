@@ -247,6 +247,10 @@ function ValueEditor({
             // Change back to Unix timestamp.
             dispatch({ value: date?.getTime() });
           }}
+          className={cn(
+            "w-full rounded-none border bg-background-secondary px-2 py-1 align-top text-xs focus:border-border-selected",
+            state.enabled !== false && "border-x-transparent",
+          )}
         />
       ) : (
         <>
