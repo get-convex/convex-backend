@@ -22,6 +22,7 @@ use ::metrics::{
     IntoLabel,
     Timer,
 };
+use anyhow::Context as _;
 use async_trait::async_trait;
 use common::{
     auth::AuthConfig,
@@ -107,10 +108,10 @@ use futures::{
         Join,
         Ready,
     },
-    pin_mut,
     stream::{
         self,
         FuturesUnordered,
+        PollNext,
         StreamExt,
     },
     TryStreamExt as _,
@@ -141,7 +142,10 @@ use tokio::sync::{
     mpsc,
     oneshot,
 };
-use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::wrappers::{
+    ReceiverStream,
+    UnboundedReceiverStream,
+};
 use udf::{
     validation::{
         ValidatedHttpPath,
@@ -285,13 +289,6 @@ impl<RT: Runtime> Request<RT> {
             component: function_path.component,
             module_path: function_path.udf_path.module().clone(),
         })
-    }
-
-    pub fn is_nested_function(&self) -> bool {
-        match self.inner {
-            RequestType::Udf { reactor_depth, .. } => reactor_depth > 0,
-            _ => false,
-        }
     }
 }
 
@@ -469,6 +466,7 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
             handles: self.handles.clone(),
             scheduler: self.scheduler.clone(),
             sender: self.sender.clone(),
+            internal_sender: self.internal_sender.clone(),
             concurrency_logger: self.concurrency_logger.clone(),
             concurrency_limiter: self.concurrency_limiter.clone(),
             active_workers: self.active_workers.clone(),
@@ -555,6 +553,7 @@ pub struct IsolateClient<RT: Runtime> {
     handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
     scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     sender: CoDelQueueSender<RT, Request<RT>>,
+    internal_sender: mpsc::UnboundedSender<Request<RT>>,
     concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     concurrency_limiter: ConcurrencyLimiter,
     /// Shared with the scheduler. Tracks the total number of in-progress
@@ -593,6 +592,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             *ISOLATE_QUEUE_CONGESTED_TIMEOUT,
         )
         .into_sender_and_receiver();
+        let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
         let handles = Arc::new(Mutex::new(Vec::new()));
         let handles_clone = handles.clone();
         let active_workers = Arc::new(AtomicUsize::new(0));
@@ -611,11 +611,12 @@ impl<RT: Runtime> IsolateClient<RT> {
                 max_percent_per_client,
                 _active_workers,
             );
-            scheduler.run(receiver).await
+            scheduler.run(receiver, internal_receiver).await
         });
         Ok(Self {
             rt,
             sender,
+            internal_sender,
             scheduler: Arc::new(Mutex::new(Some(scheduler))),
             concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
             handles,
@@ -1125,22 +1126,22 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
         let subquery_path = udf_request.path_and_args.path().clone();
-        let (tx, outcome) = self
-            .execute_udf(
-                udf_request.udf_type,
-                udf_request.path_and_args,
-                udf_request.transaction,
-                udf_request.journal,
-                udf_request.context,
-                environment_data,
-                rng_seed,
-                udf_request.unix_timestamp,
-                reactor_depth,
-                client_id,
-                None,  /* function_started_sender */
-                false, /* subfunctions_in_same_isolate */
-            )
-            .await?;
+        let (tx, rx) = oneshot::channel();
+        let request = RequestType::Udf {
+            request: udf_request,
+            environment_data,
+            response: tx,
+            queue_timer: queue_timer(),
+            rng_seed,
+            reactor_depth,
+            function_started_sender: None,
+            udf_callback: Some(self.clone()),
+        };
+        self.internal_sender
+            .send(Request::new(client_id, request, EncodedSpan::from_parent()))
+            .ok()
+            .context("scheduler shut down")?;
+        let (tx, outcome) = IsolateClient::<RT>::receive_response(rx).await??;
         let outcome = match outcome {
             FunctionOutcome::Query(outcome) | FunctionOutcome::Mutation(outcome) => {
                 NestedUdfOutcome {
@@ -1285,42 +1286,64 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             });
     }
 
-    pub async fn run(mut self, mut receiver: CoDelQueueReceiver<RT, Request<RT>>) {
+    pub async fn run(
+        mut self,
+        mut receiver: CoDelQueueReceiver<RT, Request<RT>>,
+        internal_receiver: mpsc::UnboundedReceiver<Request<RT>>,
+    ) {
         log_pool_max(self.worker.config().name, self.max_workers);
         let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
         let mut expired_receiver = receiver.expired_receiver();
-        let limiter = &self.worker.config().limiter.clone();
-        let rt = &self.rt.clone();
-        let next_request_stream = stream::poll_fn(move |cx| receiver.poll_next_with_expiration(cx))
-            .filter_map(|(request, expiration)| async move {
-                match expiration {
-                    Ok(expiration) => {
-                        let is_nested_function = request.is_nested_function();
-                        let permit = tokio::select! {
-                            biased;
-                            permit = limiter.acquire(
-                                request.client_id.clone().into(),
-                                is_nested_function,
-                            ) => permit,
-                            // Do not apply a timeout for subfunctions that can't be retried.
-                            () = rt.wait(
-                                expiration.saturating_duration_since(rt.monotonic_now()),
-                            ), if !is_nested_function => {
-                                request.reject(
-                                    RejectedBeforeExecutionReason::InitialPermitTimeout,
-                                );
-                                return None;
-                            }
-                        };
-                        Some((request, permit))
-                    },
-                    Err(expired) => {
-                        request.expire(expired);
-                        None
-                    },
-                }
+        let limiter = self.worker.config().limiter.clone();
+        let rt = self.rt.clone();
+        let external_request_stream =
+            stream::poll_fn(move |cx| receiver.poll_next_with_expiration(cx)).filter_map(
+                async |(request, expiration)| {
+                    match expiration {
+                        Ok(expiration) => {
+                            let permit = tokio::select! {
+                                biased;
+                                permit = limiter.acquire(
+                                    request.client_id.clone().into(),
+                                    // For newly executing functions, we acquire the
+                                    // permit in "low priority" mode. This means
+                                    // that we prioritize already-executing
+                                    // functions over new ones and avoid piling more
+                                    // work on if we're overloaded.
+                                    false,
+                                ) => permit,
+                                () = rt.wait(
+                                    expiration.saturating_duration_since(rt.monotonic_now()),
+                                ) => {
+                                    request.reject(
+                                        RejectedBeforeExecutionReason::InitialPermitTimeout,
+                                    );
+                                    return None;
+                                }
+                            };
+                            Some((request, permit))
+                        },
+                        Err(expired) => {
+                            request.expire(expired);
+                            None
+                        },
+                    }
+                },
+            );
+        let internal_request_stream =
+            UnboundedReceiverStream::new(internal_receiver).then(async |request| {
+                // Internal requests (for nested UDFs) get priority because they
+                // block workers.
+                let permit = limiter
+                    .acquire(request.client_id.clone().into(), true)
+                    .await;
+                (request, permit)
             });
-        pin_mut!(next_request_stream);
+        let mut next_request_stream = pin!(stream::select_with_strategy(
+            internal_request_stream,
+            external_request_stream,
+            |&mut ()| PollNext::Left
+        ));
         loop {
             let all_workers_busy = self.active_workers.load(Ordering::Relaxed) >= self.max_workers;
             tokio::select! {
@@ -1360,24 +1383,17 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         client_id: request.client_id.clone(),
                         worker_id,
                     };
-                    self.in_progress_workers.push(future::join(done_receiver, future::ready(st)));
+                    self.in_progress_workers
+                        .push(future::join(done_receiver, future::ready(st)));
                     let entry = self
                         .in_progress_count
                         .entry(request.client_id.clone())
                         .or_default();
                     *entry += 1;
                     self.active_workers.fetch_add(1, Ordering::Relaxed);
-                    log_pool_running_count(
-                        self.worker.config().name,
-                        *entry,
-                        &request.client_id,
-                    );
+                    log_pool_running_count(self.worker.config().name, *entry, &request.client_id);
                     if self.worker_senders[worker_id]
-                        .try_send((
-                            request,
-                            permit,
-                            done_sender,
-                        ))
+                        .try_send((request, permit, done_sender))
                         .is_err()
                     {
                         // Available worker should have an empty channel, so if we fail
