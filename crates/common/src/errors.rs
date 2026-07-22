@@ -112,34 +112,40 @@ fn strip_pii(err: &mut anyhow::Error) {
         transformed = regex.replace_all(&transformed, *replacement).to_string();
     }
     if s != transformed {
-        struct WithBacktrace(String, anyhow::Error);
-        impl Error for WithBacktrace {
-            fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
-                request.provide_ref(self.1.backtrace());
-            }
-        }
-        impl Display for WithBacktrace {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(&self.0)
-            }
-        }
-        impl Debug for WithBacktrace {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(&self.0)
-            }
-        }
         let em = err.downcast_ref::<ErrorMetadata>().cloned();
-        let mut transformed_error = anyhow::Error::new(WithBacktrace(
+        let mut transformed_error = error_with_backtrace(
             transformed,
             // this is not ideal as the anyhow! itself takes a backtrace that we
             // then throw away
             mem::replace(err, anyhow::anyhow!("")),
-        ));
+        );
         if let Some(em) = em {
             transformed_error = transformed_error.context(em);
         }
         *err = transformed_error;
     }
+}
+
+/// Creates an error from `msg` with the backtrace from `err`. No other
+/// properties of `err` are preserved, including its message or ErrorMetadata.
+pub fn error_with_backtrace(msg: String, err: anyhow::Error) -> anyhow::Error {
+    struct WithBacktrace(String, anyhow::Error);
+    impl Error for WithBacktrace {
+        fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
+            request.provide_ref(self.1.backtrace());
+        }
+    }
+    impl Display for WithBacktrace {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(&self.0)
+        }
+    }
+    impl Debug for WithBacktrace {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(&self.0)
+        }
+    }
+    anyhow::Error::new(WithBacktrace(msg, err))
 }
 
 /// Log an error to Sentry.
