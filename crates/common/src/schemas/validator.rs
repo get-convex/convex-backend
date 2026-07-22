@@ -60,6 +60,9 @@ pub enum Validator {
     Null,
     Float64,
     Int64,
+    /// CommitTs at rest should be an `Int64`, but in a pending write can be a
+    /// placeholder value. The CommitTs is injected at commit time.
+    CommitTs,
     Boolean,
     String,
     Bytes,
@@ -78,6 +81,7 @@ impl Display for Validator {
             Validator::Null => write!(f, "v.null()"),
             Validator::Float64 => write!(f, "v.float64()"),
             Validator::Int64 => write!(f, "v.int64()"),
+            Validator::CommitTs => write!(f, "v.commitTs()"),
             Validator::Boolean => write!(f, "v.boolean()"),
             Validator::String => write!(f, "v.string()"),
             Validator::Bytes => write!(f, "v.bytes()"),
@@ -146,6 +150,7 @@ impl Validator {
             (Validator::Null, ConvexValue::Null)
             | (Validator::Float64, ConvexValue::Float64(_))
             | (Validator::Int64, ConvexValue::Int64(_))
+            | (Validator::CommitTs, ConvexValue::Int64(_))
             | (Validator::Boolean, ConvexValue::Boolean(_))
             | (Validator::String, ConvexValue::String(_))
             | (Validator::Bytes, ConvexValue::Bytes(_)) => return Ok(()),
@@ -365,6 +370,10 @@ impl Validator {
             (_, Validator::Any)
             | (Validator::Literal(LiteralValidator::String(_)), Validator::String)
             | (Validator::Literal(LiteralValidator::Int64(_)), Validator::Int64)
+            // CommitTs and Int64 accept the same set of values.
+            | (Validator::CommitTs, Validator::Int64)
+            | (Validator::Int64, Validator::CommitTs)
+            | (Validator::Literal(LiteralValidator::Int64(_)), Validator::CommitTs)
             | (Validator::Literal(LiteralValidator::Float64(_)), Validator::Float64)
             | (Validator::Literal(LiteralValidator::Boolean(_)), Validator::Boolean)
             | (Validator::Id(_), Validator::String) => true,
@@ -411,6 +420,7 @@ impl Validator {
             | Validator::Null
             | Validator::Float64
             | Validator::Int64
+            | Validator::CommitTs
             | Validator::Boolean
             | Validator::String
             | Validator::Bytes
@@ -510,6 +520,7 @@ impl Validator {
             | Validator::Null
             | Validator::Float64
             | Validator::Int64
+            | Validator::CommitTs
             | Validator::Boolean
             | Validator::String
             | Validator::Bytes
@@ -553,6 +564,7 @@ impl Validator {
             Validator::Null => json_schemas::null(),
             Validator::Float64 => json_schemas::float64(true, value_format),
             Validator::Int64 => json_schemas::int64(value_format),
+            Validator::CommitTs => json_schemas::int64(value_format),
             Validator::Boolean => json_schemas::boolean(),
             Validator::String => json_schemas::string(),
             Validator::Bytes => json_schemas::bytes(value_format),
@@ -618,7 +630,8 @@ impl Validator {
                 | Self::Literal(_)
                 | Self::Null
                 | Self::Float64
-                | Self::Int64 => {},
+                | Self::Int64
+                | Self::CommitTs => {},
             },
         ))
     }
@@ -630,6 +643,7 @@ impl Validator {
             | Validator::Null
             | Validator::Float64
             | Validator::Int64
+            | Validator::CommitTs
             | Validator::Boolean
             | Validator::String
             | Validator::Bytes

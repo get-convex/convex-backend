@@ -935,7 +935,7 @@ fn to_fivetran_columns(
 fn recognize_fivetran_type(validator: &Validator) -> anyhow::Result<FivetranDataType> {
     match validator {
         Validator::Float64 => Ok(FivetranDataType::Double),
-        Validator::Int64 => Ok(FivetranDataType::Long),
+        Validator::Int64 | Validator::CommitTs => Ok(FivetranDataType::Long),
         Validator::Boolean => Ok(FivetranDataType::Boolean),
         Validator::String => Ok(FivetranDataType::String),
         Validator::Bytes => Ok(FivetranDataType::Binary),
