@@ -28,7 +28,7 @@ use common::{
     backoff::Backoff,
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     codel_queue::{
-        new_codel_queue_async,
+        CoDelQueue,
         CoDelQueueReceiver,
         CoDelQueueSender,
         ExpiredInQueue,
@@ -54,12 +54,13 @@ use common::{
     },
     knobs::{
         ANALYZE_CONCURRENCY,
-        FUNRUN_INITIAL_PERMIT_TIMEOUT,
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         HEAP_WORKER_REPORT_INTERVAL_SECONDS,
         ISOLATE_IDLE_TIMEOUT,
         ISOLATE_MAX_LIFETIME,
         ISOLATE_MAX_USER_HEAP_SIZE,
+        ISOLATE_QUEUE_CONGESTED_TIMEOUT,
+        ISOLATE_QUEUE_IDLE_TIMEOUT,
         ISOLATE_QUEUE_SIZE,
         REUSE_ISOLATES,
         V8_THREADS,
@@ -106,12 +107,12 @@ use futures::{
         Join,
         Ready,
     },
+    pin_mut,
     stream::{
         self,
         FuturesUnordered,
         StreamExt,
     },
-    FutureExt as _,
     TryStreamExt as _,
 };
 use itertools::Either;
@@ -585,8 +586,13 @@ impl<RT: Runtime> IsolateClient<RT> {
         // NB: We don't call V8::Dispose or V8::ShutdownPlatform since we just assume a
         // single V8 instance per process and don't need to clean up its
         // resources.
-        let (sender, receiver) =
-            new_codel_queue_async::<_, Request<_>>(rt.clone(), *ISOLATE_QUEUE_SIZE);
+        let (sender, receiver) = CoDelQueue::new(
+            rt.clone(),
+            *ISOLATE_QUEUE_SIZE,
+            *ISOLATE_QUEUE_IDLE_TIMEOUT,
+            *ISOLATE_QUEUE_CONGESTED_TIMEOUT,
+        )
+        .into_sender_and_receiver();
         let handles = Arc::new(Mutex::new(Vec::new()));
         let handles_clone = handles.clone();
         let active_workers = Arc::new(AtomicUsize::new(0));
@@ -1282,18 +1288,41 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     pub async fn run(mut self, mut receiver: CoDelQueueReceiver<RT, Request<RT>>) {
         log_pool_max(self.worker.config().name, self.max_workers);
         let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
-        let limiter = self.worker.config().limiter.clone();
+        let mut expired_receiver = receiver.expired_receiver();
+        let limiter = &self.worker.config().limiter.clone();
+        let rt = &self.rt.clone();
+        let next_request_stream = stream::poll_fn(move |cx| receiver.poll_next_with_expiration(cx))
+            .filter_map(|(request, expiration)| async move {
+                match expiration {
+                    Ok(expiration) => {
+                        let is_nested_function = request.is_nested_function();
+                        let permit = tokio::select! {
+                            biased;
+                            permit = limiter.acquire(
+                                request.client_id.clone().into(),
+                                is_nested_function,
+                            ) => permit,
+                            // Do not apply a timeout for subfunctions that can't be retried.
+                            () = rt.wait(
+                                expiration.saturating_duration_since(rt.monotonic_now()),
+                            ), if !is_nested_function => {
+                                request.reject(
+                                    RejectedBeforeExecutionReason::InitialPermitTimeout,
+                                );
+                                return None;
+                            }
+                        };
+                        Some((request, permit))
+                    },
+                    Err(expired) => {
+                        request.expire(expired);
+                        None
+                    },
+                }
+            });
+        pin_mut!(next_request_stream);
         loop {
             let all_workers_busy = self.active_workers.load(Ordering::Relaxed) >= self.max_workers;
-            let next_request = if all_workers_busy {
-                Either::Left(
-                    receiver
-                        .recv_next_expired()
-                        .map(|r| r.map(|(req, expired)| (req, Some(expired)))),
-                )
-            } else {
-                Either::Right(receiver.next())
-            };
             tokio::select! {
                 biased;
                 completed_worker = self.in_progress_workers.next(),
@@ -1308,32 +1337,20 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     };
                     self.handle_completed_worker(completed_worker, info);
                 }
-                request = next_request => {
+                request = expired_receiver.next() => {
                     let Some((request, expired)) = request else {
-                        tracing::warn!("Request sender went away; {} scheduler shutting down", self.worker.config().name);
-                        return
+                        break;
                     };
-                    if let Some(expired) = expired {
-                        request.expire(expired);
-                        continue;
-                    }
-                    // Acquire a concurrency permit before selecting a worker.
-                    let is_nested_function = request.is_nested_function();
-                    let permit = tokio::select! {
-                        biased;
-                        permit = limiter.acquire(
-                            request.client_id.clone().into(), is_nested_function) => permit,
-                        // Do not apply a timeout for subfunctions that can't be retried
-                        () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
-                                if !is_nested_function => {
-                            request.reject(RejectedBeforeExecutionReason::InitialPermitTimeout);
-                            continue;
-                        }
+                    request.expire(expired);
+                }
+                request = next_request_stream.next(),
+                if !all_workers_busy => {
+                    let Some((request, permit)) = request else {
+                        break;
                     };
                     let worker_id = match self.get_worker(&request) {
                         Ok(worker_id) => worker_id,
                         Err(reason) => {
-                            tracing::error!("unexpected: couldn't find a worker?");
                             request.reject(reason);
                             continue;
                         },
@@ -1379,6 +1396,10 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 },
             }
         }
+        tracing::warn!(
+            "Request sender went away; {} scheduler shutting down",
+            self.worker.config().name
+        );
     }
 
     /// Find a worker for the given `client_id`.`
@@ -1464,7 +1485,9 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     .last_used_ts
             })
         else {
-            // No available workers.
+            // No available workers. This should be unreachable since we don't
+            // pull a request from the queue until there is a free worker.
+            tracing::error!("unexpected: couldn't find a worker?");
             return Err(RejectedBeforeExecutionReason::WorkerPoolOverloaded);
         };
         let worker = workers

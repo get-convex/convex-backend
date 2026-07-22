@@ -884,9 +884,19 @@ pub static ISOLATE_ANALYZE_USER_TIMEOUT: LazyLock<Duration> =
 /// a CoDel queue [https://queue.acm.org/detail.cfm?id=2209336], which will
 /// switch from FIFO to LIFO queue when overloaded, in order to process as much
 /// as possible and avoid a congestion collapse. The primary downside of
-/// increase this is memory usage from the UDF arguments.
+/// increasing this is memory usage from the UDF arguments.
 pub static ISOLATE_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_QUEUE_SIZE", 2000));
+
+/// The maximum length of time to wait to start running a function when the
+/// isolate scheduler is idle.
+pub static ISOLATE_QUEUE_IDLE_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("ISOLATE_QUEUE_IDLE_TIMEOUT_MS", 2000)));
+
+/// The maximum length of time to wait to start running a function when the
+/// isolate scheduler is "congested", according to the CoDel queue.
+pub static ISOLATE_QUEUE_CONGESTED_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("ISOLATE_QUEUE_CONGESTED_TIMEOUT_MS", 200)));
 
 /// Maximum number of isolate worker threads in a function runner process.
 pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
@@ -1298,11 +1308,6 @@ pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
 /// isolates. Zero means no limit.
 pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_ISOLATE_ACTIVE_THREADS", 0));
-
-/// The maximum length of time to wait to start running a function (when the
-/// FUNRUN_ISOLATE_ACTIVE_THREADS limit is reached).
-pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 200)));
 
 /// Isolate worker usage at which the funrun load reporter's
 /// `effective_load` saturates to 1.0.

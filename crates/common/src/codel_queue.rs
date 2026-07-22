@@ -190,6 +190,7 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
         let inner = Arc::new(Mutex::new(Inner {
             queue: self,
             event: Event::new(),
+            expired_event: Event::new(),
             senders: 1,
         }));
         (
@@ -199,7 +200,6 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
             CoDelQueueReceiver {
                 inner,
                 listener: None,
-                next_expiry_timer: None,
             },
         )
     }
@@ -216,13 +216,13 @@ pub fn new_codel_queue_async<RT: Runtime, T>(
 struct Inner<RT: Runtime, T> {
     queue: CoDelQueue<RT, T>,
     event: Event,
+    expired_event: Event,
     senders: usize,
 }
 
 pub struct CoDelQueueReceiver<RT: Runtime, T> {
     inner: Arc<Mutex<Inner<RT, T>>>,
     listener: Option<event_listener::EventListener>,
-    next_expiry_timer: Option<BoxFuture<'static, ()>>,
 }
 
 impl<RT: Runtime, T> Clone for CoDelQueueReceiver<RT, T> {
@@ -230,9 +230,14 @@ impl<RT: Runtime, T> Clone for CoDelQueueReceiver<RT, T> {
         Self {
             inner: self.inner.clone(),
             listener: None,
-            next_expiry_timer: None,
         }
     }
+}
+
+pub struct CoDelQueueExpiredReceiver<RT: Runtime, T> {
+    inner: Arc<Mutex<Inner<RT, T>>>,
+    listener: Option<event_listener::EventListener>,
+    next_expiry_timer: Option<BoxFuture<'static, ()>>,
 }
 
 pub struct CoDelQueueSender<RT: Runtime, T> {
@@ -255,6 +260,7 @@ impl<RT: Runtime, T> Drop for CoDelQueueSender<RT, T> {
         if inner.senders == 0 {
             // Queue is closed. Wake up all receivers so they return None.
             inner.event.notify(usize::MAX);
+            inner.expired_event.notify(usize::MAX);
         }
     }
 }
@@ -264,18 +270,29 @@ impl<RT: Runtime, T> CoDelQueueSender<RT, T> {
         let mut inner = self.inner.lock();
         inner.queue.push(item)?;
         inner.event.notify_additional(1);
+        // All `CoDelQueueExpiredReceiver`s need to be woken since they don't consume
+        // the queue item
+        inner.expired_event.notify(usize::MAX);
         Ok(())
     }
 }
 
 impl<RT: Runtime, T> CoDelQueueReceiver<RT, T> {
-    fn register(
-        listener: &mut Option<event_listener::EventListener>,
-        inner: &mut Inner<RT, T>,
+    pub fn poll_next_with_expiration(
+        &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<!> {
+    ) -> Poll<Option<(T, Result<Instant, ExpiredInQueue>)>> {
+        let mut inner = self.inner.lock();
+        // If there is an item in the queue, pop it.
+        // If the queue is closed, return None.
+        if let Some(result) = inner.queue.pop_with_expiration() {
+            return Poll::Ready(Some(result));
+        } else if inner.senders == 0 {
+            return Poll::Ready(None);
+        }
+
         loop {
-            match Pin::new(listener.get_or_insert_with(|| inner.event.listen())).poll(cx) {
+            match Pin::new(self.listener.get_or_insert_with(|| inner.event.listen())).poll(cx) {
                 // The queue is still empty. The listener is stored for the next
                 // poll, and it has registered with cx.waker to be woken when
                 // it is notified of the queue becoming nonempty.
@@ -285,22 +302,58 @@ impl<RT: Runtime, T> CoDelQueueReceiver<RT, T> {
                     // when the queue state changes, which is impossible while we are
                     // holding self.inner.lock(). But we can be defensive in case of
                     // spurious wakeups, by dropping the listener and looping.
-                    listener.take();
+                    self.listener.take();
                     continue;
                 },
             }
         }
     }
 
-    pub fn poll_next_expired(&mut self, cx: &mut Context<'_>) -> Poll<Option<(T, ExpiredInQueue)>> {
-        let mut inner = self.inner.lock();
+    /// Like `.next()`, but additionally returns the expiration time for
+    /// non-expired requests.
+    pub async fn recv_with_expiration(&mut self) -> Option<(T, Result<Instant, ExpiredInQueue>)> {
+        poll_fn(|cx| self.poll_next_with_expiration(cx)).await
+    }
+
+    /// Returns a stream that yields only expired entries from the queue. If
+    /// nothing has expired, it blocks until the next expiry.
+    pub fn expired_receiver(&self) -> CoDelQueueExpiredReceiver<RT, T> {
+        CoDelQueueExpiredReceiver {
+            inner: self.inner.clone(),
+            listener: None,
+            next_expiry_timer: None,
+        }
+    }
+}
+
+impl<RT: Runtime, T> Stream for CoDelQueueReceiver<RT, T> {
+    type Item = (T, Option<ExpiredInQueue>);
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.poll_next_with_expiration(cx) {
+            Poll::Ready(Some((item, expiration))) => Poll::Ready(Some((item, expiration.err()))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+impl<RT: Runtime, T> Stream for CoDelQueueExpiredReceiver<RT, T> {
+    type Item = (T, ExpiredInQueue);
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<(T, ExpiredInQueue)>> {
+        let this = &mut *self;
+        let mut inner = this.inner.lock();
         loop {
             if let Some(result) = inner.queue.pop_expired() {
                 return Poll::Ready(Some(result));
             } else if inner.senders == 0 {
                 return Poll::Ready(None);
             } else if let Some(&(_, next_expiry_time)) = inner.queue.buffer.front() {
-                ready!(self
+                ready!(this
                     .next_expiry_timer
                     .insert(inner.queue.rt.wait(
                         next_expiry_time.saturating_duration_since(inner.queue.rt.monotonic_now()),
@@ -313,47 +366,20 @@ impl<RT: Runtime, T> CoDelQueueReceiver<RT, T> {
             break;
         }
 
-        let Poll::Pending = Self::register(&mut self.listener, &mut *inner, cx);
-        Poll::Pending
-    }
-
-    /// Returns the next expired entry from the queue. If nothing has expired,
-    /// the future blocks until the next expiry.
-    pub async fn recv_next_expired(&mut self) -> Option<(T, ExpiredInQueue)> {
-        poll_fn(|cx| self.poll_next_expired(cx)).await
-    }
-
-    pub fn poll_next_with_expiration(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<(T, Result<Instant, ExpiredInQueue>)>> {
-        let s = &mut *self;
-        let mut inner = s.inner.lock();
-        // If there is an item in the queue, pop it.
-        // If the queue is closed, return None.
-        if let Some(result) = inner.queue.pop_with_expiration() {
-            return Poll::Ready(Some(result));
-        } else if inner.senders == 0 {
-            return Poll::Ready(None);
-        }
-
-        let Poll::Pending = Self::register(&mut s.listener, &mut *inner, cx);
-        Poll::Pending
-    }
-
-    pub async fn recv_with_expiration(&mut self) -> Option<(T, Result<Instant, ExpiredInQueue>)> {
-        poll_fn(|cx| self.poll_next_with_expiration(cx)).await
-    }
-}
-
-impl<RT: Runtime, T> Stream for CoDelQueueReceiver<RT, T> {
-    type Item = (T, Option<ExpiredInQueue>);
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.poll_next_with_expiration(cx) {
-            Poll::Ready(Some((item, expiration))) => Poll::Ready(Some((item, expiration.err()))),
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
+        loop {
+            // See comments on `poll_next_with_expiration`
+            match Pin::new(
+                this.listener
+                    .get_or_insert_with(|| inner.expired_event.listen()),
+            )
+            .poll(cx)
+            {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(()) => {
+                    this.listener.take();
+                    continue;
+                },
+            }
         }
     }
 }
