@@ -239,6 +239,21 @@ impl PendingValue {
         Ok(value)
     }
 
+    /// Decompose an object into its fields, e.g. to merge a patch into it.
+    /// Fails if the value is not an object.
+    pub fn into_object_fields(self) -> anyhow::Result<BTreeMap<FieldName, PendingValue>> {
+        match self {
+            Self::Concrete(ConvexValue::Object(object)) => Ok(BTreeMap::from(object)
+                .into_iter()
+                .map(|(name, value)| (name, Self::Concrete(value)))
+                .collect()),
+            Self::Object { fields, .. } => Ok(fields),
+            Self::Concrete(_) | Self::CommitTs | Self::Array { .. } => {
+                anyhow::bail!("Value must be an Object")
+            },
+        }
+    }
+
     /// Extract the value if it contains no unresolved commit timestamps.
     pub fn try_into_concrete(self) -> anyhow::Result<ConvexValue> {
         match self {

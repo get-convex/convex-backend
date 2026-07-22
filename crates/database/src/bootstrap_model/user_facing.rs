@@ -27,7 +27,6 @@ use indexing::index_reader::{
 };
 use itertools::Itertools;
 use value::{
-    ConvexObject,
     DeveloperDocumentId,
     PendingValue,
     ResolvedDocumentId,
@@ -229,7 +228,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     pub async fn replace(
         &mut self,
         id: DeveloperDocumentId,
-        value: ConvexObject,
+        value: impl Into<PendingValue> + Send,
     ) -> anyhow::Result<DeveloperDocument> {
         if self.tx.is_system(self.namespace, id.table())
             && !(self.tx.identity.is_admin() || self.tx.identity.is_system())

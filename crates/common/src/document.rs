@@ -699,6 +699,17 @@ impl PendingDocument {
         }
     }
 
+    /// The document's body (including its system fields), e.g. to merge a
+    /// patch into it.
+    pub fn into_pending_value(self) -> PendingValue {
+        match self {
+            Self::Concrete(document) => {
+                ConvexValue::Object(document.into_value().into_value()).into()
+            },
+            Self::Pending { body, .. } => body,
+        }
+    }
+
     /// Size and nesting of the eventual resolved document.
     pub fn size_and_nesting(&self) -> (usize, usize) {
         match self {

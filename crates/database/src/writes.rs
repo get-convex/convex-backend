@@ -312,13 +312,6 @@ impl Writes {
             // Coalescing a later write onto one already staged in this
             // transaction: keep the originally staged `prev`.
             Some(old_update) => {
-                // TODO(commit-ts): support updating a pending write by carrying
-                // its unresolved body instead of converting to i64::MAX.
-                anyhow::ensure!(
-                    old_update.is_resolved() || new_document.is_none(),
-                    "Staged write for {document_id} contains an unresolved commit timestamp and \
-                     cannot be updated"
-                );
                 let (old_document, old_document_ts) = old_document.unzip();
                 anyhow::ensure!(
                     old_update.new_document_with_max_commit_ts()?.as_deref()

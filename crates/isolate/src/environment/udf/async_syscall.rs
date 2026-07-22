@@ -1297,7 +1297,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 .context(ArgName("id"))?;
             check_table_name(&args.table, &actual_table_name)?;
 
-            let value = PatchValue::try_from(args.value).context(ArgName("value"))?;
+            let value = PatchValue::from_uncommitted_json(args.value).context(ArgName("value"))?;
             Ok((id, value, actual_table_name))
         })?;
 
@@ -1306,7 +1306,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .patch(id, value)
             .await?;
-        Ok(document.to_internal_json())
+        developer_document_to_json(tx, component.into(), &document, WriteTimestamp::Pending)
     }
 
     #[fastrace::trace]
@@ -1332,12 +1332,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 .context(ArgName("id"))?;
             check_table_name(&args.table, &actual_table_name)?;
 
-            let value = ConvexValue::try_from(args.value).context(ArgName("value"))?;
-            Ok((
-                id,
-                value.try_into().context(ArgName("value"))?,
-                actual_table_name,
-            ))
+            let value =
+                PendingValue::from_uncommitted_json(args.value).context(ArgName("value"))?;
+            if !value.is_object() {
+                return Err(anyhow::anyhow!("Value must be an Object").context(ArgName("value")));
+            }
+            Ok((id, value, actual_table_name))
         })?;
 
         system_table_guard(&table_name, false)?;
@@ -1345,7 +1345,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .replace(id, value)
             .await?;
-        Ok(document.to_internal_json())
+        developer_document_to_json(tx, component.into(), &document, WriteTimestamp::Pending)
     }
 
     #[fastrace::trace]
