@@ -1288,7 +1288,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             let next_request = if all_workers_busy {
                 Either::Left(
                     receiver
-                        .recv_next_expiration()
+                        .recv_next_expired()
                         .map(|r| r.map(|(req, expired)| (req, Some(expired)))),
                 )
             } else {

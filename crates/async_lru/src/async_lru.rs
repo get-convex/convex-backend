@@ -229,7 +229,7 @@ impl<
         label: &'static str,
     ) -> Self {
         Self::_new(
-            CoDelQueue::new(rt.clone(), queue_size),
+            CoDelQueue::new_with_defaults(rt.clone(), queue_size),
             rt,
             LruCache::unbounded(),
             max_size,
