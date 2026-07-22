@@ -16,6 +16,9 @@ export type CellEditorProps = {
   validator?: ValidatorJSON;
   shouldSurfaceValidatorErrors?: boolean;
   allowTopLevelUndefined?: boolean;
+  // Whether the column this cell belongs to is displayed as dates. Controls
+  // whether the editor opens on the date picker or the raw number by default.
+  inferIsDate?: boolean;
 };
 
 export function CellEditor({
@@ -26,6 +29,7 @@ export function CellEditor({
   validator,
   shouldSurfaceValidatorErrors,
   allowTopLevelUndefined,
+  inferIsDate = true,
 }: CellEditorProps) {
   const [path] = useState(Math.random());
   const [error, setError] = useState<string | undefined>(undefined);
@@ -53,7 +57,7 @@ export function CellEditor({
   const isTimestampLike =
     typeof editedValue === "number" && wasInCommonUTCTimestampRange;
 
-  const [showAsDate, setShowAsDate] = useState(isTimestampLike);
+  const [showAsDate, setShowAsDate] = useState(isTimestampLike && inferIsDate);
 
   const [innerText, setInnerText] = useState<string | undefined>(undefined);
   const { densityValues } = useTableDensity();
@@ -67,7 +71,8 @@ export function CellEditor({
         paddingTop: densityValues.paddingY,
       }}
       onKeyDown={(e) => {
-        if (isTimestampLike && e.ctrlKey && e.shiftKey && e.key === "D") {
+        if (isTimestampLike && e.ctrlKey && e.shiftKey && e.code === "KeyD") {
+          e.preventDefault();
           setShowAsDate(!showAsDate);
         }
       }}

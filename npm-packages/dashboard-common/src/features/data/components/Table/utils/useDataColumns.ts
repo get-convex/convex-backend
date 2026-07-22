@@ -23,6 +23,16 @@ export const useStoredColumnOrder = (localStorageKey = "_disabled_") =>
 export const useStoredHiddenColumns = (localStorageKey = "_disabled_") =>
   useLocalStorage<string[]>(`${localStorageKey}_hiddenColumns`);
 
+// Per-field override of whether timestamp-like numbers are shown as dates.
+// Maps field name to the desired display; a field without an entry falls back
+// to the auto-detection heuristic. Keyed by `${deploymentName}/${tableName}` so
+// the preference is scoped to a specific deployment → table → column.
+export const useStoredShowFieldsAsDates = (localStorageKey = "_disabled_") =>
+  useGlobalLocalStorage<Record<string, boolean>>(
+    `${localStorageKey}_showFieldsAsDates`,
+    {},
+  );
+
 export const useDataColumns = ({
   fields,
   localStorageKey = "_disabled_",
@@ -43,12 +53,27 @@ export const useDataColumns = ({
   >(localStorageKey, { columnWidths: {} });
   const { columnWidths } = settings || { columnWidths: {} };
 
-  const dateRenderedColumns = useMemo(
+  const [showFieldsAsDates] = useStoredShowFieldsAsDates(localStorageKey);
+
+  // Fields the heuristic thinks look like dates, regardless of the user's
+  // preference. Used to decide whether to offer the "show as dates" toggle.
+  const dateLikeColumns = useMemo(
     () =>
       data === undefined
         ? []
         : fields.filter((field) => shouldRenderFieldAsDate(field, data)),
     [data, fields],
+  );
+
+  // Fields actually rendered as dates: the user's per-field preference when
+  // set, otherwise the heuristic.
+  const dateRenderedColumns = useMemo(
+    () =>
+      fields.filter(
+        (field) =>
+          showFieldsAsDates?.[field] ?? dateLikeColumns.includes(field),
+      ),
+    [fields, dateLikeColumns, showFieldsAsDates],
   );
 
   const columns = useMemo(
@@ -70,6 +95,7 @@ export const useDataColumns = ({
           id: field === "" ? emptyColumnName : undefined,
           accessorFn: (row: any) => row[field],
           isDate: dateRenderedColumns.includes(field),
+          isDateLike: dateLikeColumns.includes(field),
           minWidth:
             field === "_creationTime"
               ? CREATION_TIME_COLUMN_MIN_WIDTH
@@ -98,6 +124,8 @@ export const useDataColumns = ({
       JSON.stringify(fields),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       JSON.stringify(dateRenderedColumns),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      JSON.stringify(dateLikeColumns),
     ],
   );
 
