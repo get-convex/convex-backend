@@ -304,7 +304,7 @@ pub struct DataSyncUpToDate {
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListActiveSyncsResponse {
-    /// This page of active data syncs, most recently updated first. A sync is
+    /// Page of active data syncs, most recently updated first. A sync is
     /// active if it fetched a page from `/api/v1/data/sync` within the past 3
     /// days.
     pub syncs: Vec<ActiveDataSync>,
@@ -341,8 +341,15 @@ pub struct ActiveDataSync {
     )
 ))]
 pub enum ActiveDataSyncStatus {
+    /// The sync has not yet reached a consistent snapshot. The entries emitted
+    /// so far are an incomplete initial traversal of the selected tables.
+    /// Syncs begin in this state, and may reenter this state if tables are
+    /// added/replaced
     Snapshotting(ActiveDataSyncSnapshotting),
+    /// The entries emitted so far represent a consistent snapshot at
+    /// a stale `snapshotTs`. The sync is "catching up".
     Stale(ActiveDataSyncStale),
+    /// The sync is up to date and represents a latest consistent snapshot.
     UpToDate(ActiveDataSyncUpToDate),
 }
 

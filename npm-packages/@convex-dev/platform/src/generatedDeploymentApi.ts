@@ -447,18 +447,10 @@ export interface paths {
         };
         /**
          * List active data syncs
-         * @description **Early access:** this API is not yet stable and may change in
-         *     backwards-incompatible ways without notice. Contact the Convex team before
-         *     depending on it.
+         * @description Returns the progress of active data sync (/v1/data/sync).
          *
-         *     Returns the progress of every active data sync: one that fetched a page
-         *     from `/data/sync` within the past 3 days, whether it is still performing
-         *     its initial traversal or is already synced and streaming changes. Progress
-         *     is recorded periodically, so an in-flight sync's numbers may trail its
-         *     most recent page.
-         *
-         *     Results are paginated, most recently updated first. Pass the returned
-         *     `nextCursor` back as `cursor` to fetch the next page.
+         *     A data sync is considered active for 3 days after the most recent API call.
+         *     from `/data/sync` within the past 3 days.
          */
         get: operations["list_active_syncs"];
         put?: never;
@@ -933,7 +925,7 @@ export interface components {
         /** @description Response of the active-syncs listing API
          *     (`/api/v1/data/list_active_syncs`). */
         ListActiveSyncsResponse: {
-            /** @description This page of active data syncs, most recently updated first. A sync is
+            /** @description Page of active data syncs, most recently updated first. A sync is
              *     active if it fetched a page from `/api/v1/data/sync` within the past 3
              *     days. */
             syncs: components["schemas"]["ActiveDataSync"][];

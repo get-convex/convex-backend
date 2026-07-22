@@ -311,18 +311,10 @@ pub struct ListActiveSyncsArgs {
 
 /// List active data syncs
 ///
-/// **Early access:** this API is not yet stable and may change in
-/// backwards-incompatible ways without notice. Contact the Convex team before
-/// depending on it.
+/// Returns the progress of active data sync (/v1/data/sync).
 ///
-/// Returns the progress of every active data sync: one that fetched a page
-/// from `/data/sync` within the past 3 days, whether it is still performing
-/// its initial traversal or is already synced and streaming changes. Progress
-/// is recorded periodically, so an in-flight sync's numbers may trail its
-/// most recent page.
-///
-/// Results are paginated, most recently updated first. Pass the returned
-/// `nextCursor` back as `cursor` to fetch the next page.
+/// A data sync is considered active for 3 days after the most recent API call.
+/// from `/data/sync` within the past 3 days.
 #[utoipa::path(
     get,
     path = "/data/list_active_syncs",
