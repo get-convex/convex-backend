@@ -71,7 +71,7 @@ export function AuditLogItem({
             </span>
             <span className="ml-auto flex gap-1">
               <TimestampDistance date={new Date(entry.createTime)} />
-              <Tooltip tip="View entry metadata" side="left" asChild>
+              <Tooltip tip="View entry" side="left" asChild>
                 <DisclosureButton
                   as={Button}
                   inline
@@ -91,7 +91,7 @@ export function AuditLogItem({
               }}
               disableLineNumbers
               code={stringifyValue(
-                JSON.stringify(entry.metadata, undefined, 2),
+                JSON.stringify(entry, undefined, 2),
                 true,
               ).slice(1, -1)}
               path={`${entry.createTime}`}
