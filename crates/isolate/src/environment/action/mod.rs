@@ -192,6 +192,7 @@ use crate::{
         FunctionExecutionTime,
         Timeout,
     },
+    ConcurrencyPermit,
 };
 
 // `CollectResult` starts off as a future that is forever pending,
@@ -325,9 +326,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[fastrace::trace]
     pub async fn run_http_action(
         mut self,
-        client_id: String,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
+        permit: ConcurrencyPermit,
         isolate_clean: &mut bool,
         http_module_path: ValidatedHttpPath,
         routed_path: RoutedHttpPath,
@@ -344,9 +345,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let udf_path = &component_function_path.udf_path;
 
         let heap_stats = self.heap_stats.clone();
-        let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id.into(), self)
-            .await?;
+        let (handle, state, mut timeout) =
+            isolate.start_request(context_cache, permit, self).await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
@@ -666,9 +666,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[fastrace::trace]
     pub async fn run_action(
         mut self,
-        client_id: String,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
+        permit: ConcurrencyPermit,
         isolate_clean: &mut bool,
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
@@ -677,9 +677,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let start_unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
 
-        let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id.into(), self)
-            .await?;
+        let (handle, state, mut timeout) =
+            isolate.start_request(context_cache, permit, self).await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
         }

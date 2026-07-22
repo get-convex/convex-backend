@@ -39,6 +39,7 @@ use crate::{
         service_request_timer,
         RequestStatus,
     },
+    ConcurrencyPermit,
     IsolateConfig,
 };
 #[derive(Clone)]
@@ -61,6 +62,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
             inner,
             parent_trace: _,
         }: Request<RT>,
+        permit: ConcurrencyPermit,
         heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool) {
         // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
@@ -92,9 +94,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 );
                 let r = environment
                     .run(
-                        client_id,
                         isolate,
                         context_cache,
+                        permit,
                         &mut isolate_clean,
                         response.closed().boxed(),
                         args,
@@ -151,9 +153,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 );
                 let r = environment
                     .run_action(
-                        client_id,
                         isolate,
                         context_cache,
+                        permit,
                         &mut isolate_clean,
                         request.params.clone(),
                         response.closed().boxed(),
@@ -184,9 +186,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 max_user_heap_size: _,
             } => {
                 let r = AnalyzeEnvironment::analyze::<RT>(
-                    client_id,
                     isolate,
                     context_cache,
+                    permit,
                     &mut isolate_clean,
                     udf_config,
                     modules,
@@ -232,9 +234,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 );
                 let r = environment
                     .run_http_action(
-                        client_id,
                         isolate,
                         context_cache,
+                        permit,
                         &mut isolate_clean,
                         request.http_module_path,
                         request.routed_path,
@@ -262,9 +264,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 response,
             } => {
                 let r = SchemaEnvironment::evaluate_schema(
-                    client_id,
                     isolate,
                     context_cache,
+                    permit,
                     schema_bundle,
                     source_map,
                     rng_seed,
@@ -282,9 +284,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 response,
             } => {
                 let r = AuthConfigEnvironment::evaluate_auth_config(
-                    client_id,
                     isolate,
                     context_cache,
+                    permit,
                     auth_config_bundle,
                     source_map,
                     environment_variables,
@@ -312,7 +314,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     user_environment_variables,
                     system_env_vars,
                 );
-                let r = env.evaluate(context_cache, client_id, isolate).await;
+                let r = env.evaluate(context_cache, permit, isolate).await;
                 let _ = response.send(r);
                 "EvaluateAppDefinitions".to_string()
             },
@@ -331,7 +333,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     args,
                     name,
                 );
-                let r = env.evaluate(context_cache, client_id, isolate).await;
+                let r = env.evaluate(context_cache, permit, isolate).await;
                 let _ = response.send(r);
                 "EvaluateComponentInitializer".to_string()
             },
@@ -351,6 +353,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
         request: Request<RT>,
+        permit: ConcurrencyPermit,
         heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool) {
         let pause_client = self.rt.pause_client();
@@ -364,7 +367,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         // Also add the tag to tracing so it shows up in DataDog logs.
         let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
         let result = self
-            .handle_request_inner(isolate, context_cache, request, heap_stats)
+            .handle_request_inner(isolate, context_cache, request, permit, heap_stats)
             .instrument(span)
             .await;
         sentry::configure_scope(|scope| scope.remove_tag("client_id"));

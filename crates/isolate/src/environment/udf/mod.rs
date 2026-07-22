@@ -61,6 +61,7 @@ use crate::{
         IsolateTerminationReason,
     },
     timeout::PauseReason,
+    ConcurrencyPermit,
     IsolateClient,
 };
 pub mod async_syscall;
@@ -359,10 +360,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     fn system_timeout(&self) -> std::time::Duration {
         *DATABASE_UDF_SYSTEM_TIMEOUT
     }
-
-    fn is_nested_function(&self) -> bool {
-        self.reactor_depth > 0
-    }
 }
 
 type UdfRecursiveExecutor<RT> = RecursiveExecutor<
@@ -527,9 +524,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     #[fastrace::trace]
     pub async fn run(
         self,
-        client_id: String,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
+        permit: ConcurrencyPermit,
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
         args: DatabaseUdfArgs,
@@ -538,10 +535,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let executor = UdfRecursiveExecutor::new();
 
-        let client_id = Arc::new(client_id);
-        let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id, self)
-            .await?;
+        let (handle, state, mut timeout) =
+            isolate.start_request(context_cache, permit, self).await?;
         let heap_stats = state.environment.heap_stats.clone();
         let path_for_logging = format!("{:?}", state.environment.path.clone().for_logging());
         if let Some(tx) = function_started {

@@ -54,6 +54,7 @@ use common::{
     },
     knobs::{
         ANALYZE_CONCURRENCY,
+        FUNRUN_INITIAL_PERMIT_TIMEOUT,
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         HEAP_WORKER_REPORT_INTERVAL_SECONDS,
         ISOLATE_IDLE_TIMEOUT,
@@ -180,6 +181,7 @@ use crate::{
         ModuleCache,
         V8ModuleSource,
     },
+    ConcurrencyPermit,
 };
 
 // We gather prometheus stats every 30 seconds, so we should make sure we log
@@ -199,7 +201,7 @@ pub struct IsolateConfig {
     // allows us to set an upper bound to it that we use for tests.
     max_user_timeout: Option<Duration>,
 
-    limiter: ConcurrencyLimiter,
+    pub(crate) limiter: ConcurrencyLimiter,
 }
 
 impl IsolateConfig {
@@ -282,6 +284,13 @@ impl<RT: Runtime> Request<RT> {
             component: function_path.component,
             module_path: function_path.udf_path.module().clone(),
         })
+    }
+
+    pub fn is_nested_function(&self) -> bool {
+        match self.inner {
+            RequestType::Udf { reactor_depth, .. } => reactor_depth > 0,
+            _ => false,
+        }
     }
 }
 
@@ -414,36 +423,15 @@ impl<RT: Runtime> Request<RT> {
         let error = anyhow::anyhow!(error).context(rejected_before_execution_error(
             RejectedBeforeExecutionReason::ExpiredInQueue,
         ));
-        match self.inner {
-            RequestType::Udf { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::Action { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::HttpAction { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::Analyze { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateSchema { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateAuthConfig { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateAppDefinitions { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateComponentInitializer { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-        }
+        self.send_error(error);
     }
 
     fn reject(self, reason: RejectedBeforeExecutionReason) {
         let error = rejected_before_execution_error(reason).into();
+        self.send_error(error);
+    }
+
+    fn send_error(self, error: anyhow::Error) {
         match self.inner {
             RequestType::Udf { response, .. } => {
                 let _ = response.send(Err(error));
@@ -1182,7 +1170,13 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     rt: RT,
     worker: W,
     /// Vec of channels for sending work to individual workers.
-    worker_senders: Vec<mpsc::Sender<(Request<RT>, oneshot::Sender<IdleWorkerInfo>)>>,
+    worker_senders: Vec<
+        mpsc::Sender<(
+            Request<RT>,
+            ConcurrencyPermit,
+            oneshot::Sender<IdleWorkerInfo>,
+        )>,
+    >,
     /// Map from client_id to stack of workers (implemented with a deque). The
     /// most recently used worker for a given client is at the front of the
     /// deque. These workers were previously used by this client, but may
@@ -1288,6 +1282,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     pub async fn run(mut self, mut receiver: CoDelQueueReceiver<RT, Request<RT>>) {
         log_pool_max(self.worker.config().name, self.max_workers);
         let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
+        let limiter = self.worker.config().limiter.clone();
         loop {
             let all_workers_busy = self.active_workers.load(Ordering::Relaxed) >= self.max_workers;
             let next_request = if all_workers_busy {
@@ -1322,6 +1317,19 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         request.expire(expired);
                         continue;
                     }
+                    // Acquire a concurrency permit before selecting a worker.
+                    let is_nested_function = request.is_nested_function();
+                    let permit = tokio::select! {
+                        biased;
+                        permit = limiter.acquire(
+                            request.client_id.clone().into(), is_nested_function) => permit,
+                        // Do not apply a timeout for subfunctions that can't be retried
+                        () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
+                                if !is_nested_function => {
+                            request.reject(RejectedBeforeExecutionReason::InitialPermitTimeout);
+                            continue;
+                        }
+                    };
                     let worker_id = match self.get_worker(&request) {
                         Ok(worker_id) => worker_id,
                         Err(reason) => {
@@ -1350,6 +1358,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     if self.worker_senders[worker_id]
                         .try_send((
                             request,
+                            permit,
                             done_sender,
                         ))
                         .is_err()
@@ -1506,13 +1515,15 @@ impl SharedIsolateHeapStats {
 pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
     async fn service_requests(
         self,
-        reqs: mpsc::Receiver<(Request<RT>, oneshot::Sender<IdleWorkerInfo>)>,
+        reqs: mpsc::Receiver<(
+            Request<RT>,
+            ConcurrencyPermit,
+            oneshot::Sender<IdleWorkerInfo>,
+        )>,
         heap_stats: SharedIsolateHeapStats,
     ) {
         let IsolateConfig {
-            max_user_timeout,
-            limiter,
-            ..
+            max_user_timeout, ..
         } = self.config();
         let mut reqs = std::pin::pin!(ReceiverStream::new(reqs).peekable());
         let mut ready: Option<oneshot::Sender<_>> = None;
@@ -1520,12 +1531,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         'recreate_isolate: loop {
             let mut last_client_id: Option<String> = None;
             let mut last_request: Option<String> = None;
-            let mut isolate = Isolate::new(
-                self.rt(),
-                *max_user_timeout,
-                limiter.clone(),
-                isolate_heap_size,
-            );
+            let mut isolate = Isolate::new(self.rt(), *max_user_timeout, isolate_heap_size);
             let mut context_cache = ContextCache::new();
             // Reset to default heap size for the next isolate, unless
             // overridden before the next `continue 'recreate_isolate`.
@@ -1605,7 +1611,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                             },
                         };
                         // Ok, we're ready to accept the request for real.
-                        let Some((req, done)) = reqs.next().await else { return };
+                        let Some((req, permit, done)) = reqs.next().await else { return };
                         // Note that we won't reply to `done` until
                         // `context_cache` has been prepared. This improves
                         // latency in the common case since requests will be
@@ -1621,6 +1627,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                                 &mut isolate,
                                 &mut context_cache,
                                 req,
+                                permit,
                                 heap_stats.clone(),
                             )
                             .in_span(root)
@@ -1640,6 +1647,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
         req: Request<RT>,
+        permit: ConcurrencyPermit,
         heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool);
 

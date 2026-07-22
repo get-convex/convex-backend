@@ -261,6 +261,10 @@ impl<RT: Runtime> Timeout<RT> {
         self.handle.shutdown();
     }
 
+    pub fn finish_with_permit(mut self) -> anyhow::Result<ConcurrencyPermit> {
+        self.permit.take().context("lost the permit")
+    }
+
     // Similar to releasing the GIL in Python, it's advisable to drop the
     // ConcurrencyPermit when entering async code on the V8 thread. This helper also
     // integrates with our user time tracking to not count async code against the

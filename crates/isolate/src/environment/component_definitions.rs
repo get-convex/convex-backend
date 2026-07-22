@@ -85,6 +85,7 @@ use crate::{
     request_scope::RequestScope,
     strings,
     timeout::Timeout,
+    ConcurrencyPermit,
 };
 
 pub struct AppDefinitionEvaluator {
@@ -116,7 +117,7 @@ impl AppDefinitionEvaluator {
     pub async fn evaluate<RT: Runtime>(
         self,
         context_cache: &mut ContextCache,
-        client_id: String,
+        mut permit: ConcurrencyPermit,
         isolate: &mut Isolate<RT>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         let mut in_progress = BTreeSet::new();
@@ -169,17 +170,18 @@ impl AppDefinitionEvaluator {
                             }),
                         )
                     };
-                    let result = self
+                    let (result, permit_) = self
                         .evaluate_definition(
-                            client_id.clone(),
                             isolate,
                             context_cache,
+                            permit,
                             &path,
                             &definitions,
                             filename,
                             Arc::new(source),
                         )
                         .await?;
+                    permit = permit_;
                     in_progress.remove(&path);
                     definitions.insert(path, result);
                 },
@@ -190,14 +192,14 @@ impl AppDefinitionEvaluator {
 
     async fn evaluate_definition<RT: Runtime>(
         &self,
-        client_id: String,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
+        permit: ConcurrencyPermit,
         path: &ComponentDefinitionPath,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         filename: &str,
         source: Arc<V8ModuleSource>,
-    ) -> anyhow::Result<ComponentDefinitionMetadata> {
+    ) -> anyhow::Result<(ComponentDefinitionMetadata, ConcurrencyPermit)> {
         let environment_variables = if path.is_root() {
             let mut env_vars = self.system_env_vars.clone();
             env_vars.extend(self.user_environment_variables.clone());
@@ -212,9 +214,8 @@ impl AppDefinitionEvaluator {
             environment_variables,
         };
 
-        let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id.into(), env)
-            .await?;
+        let (handle, state, mut timeout) =
+            isolate.start_request(context_cache, permit, env).await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
@@ -306,7 +307,7 @@ impl AppDefinitionEvaluator {
         drop(isolate_context);
         handle.take_termination_error(None, "evaluate_definition")??;
 
-        Ok(result)
+        Ok((result, timeout.finish_with_permit()?))
     }
 }
 
@@ -361,7 +362,7 @@ impl ComponentInitializerEvaluator {
     pub async fn evaluate<RT: Runtime>(
         self,
         context_cache: &mut ContextCache,
-        client_id: String,
+        permit: ConcurrencyPermit,
         isolate: &mut Isolate<RT>,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
         let filename = COMPONENT_CONFIG_FILE_NAME.to_string();
@@ -374,9 +375,8 @@ impl ComponentInitializerEvaluator {
             evaluated_definitions: self.evaluated_definitions,
             environment_variables: None,
         };
-        let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id.into(), env)
-            .await?;
+        let (handle, state, mut timeout) =
+            isolate.start_request(context_cache, permit, env).await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
