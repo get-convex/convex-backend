@@ -457,6 +457,19 @@ impl<RT: Runtime> Request<RT> {
             },
         }
     }
+
+    fn is_response_closed(&self) -> bool {
+        match &self.inner {
+            RequestType::Udf { response, .. } => response.is_closed(),
+            RequestType::Action { response, .. } => response.is_closed(),
+            RequestType::HttpAction { response, .. } => response.is_closed(),
+            RequestType::Analyze { response, .. } => response.is_closed(),
+            RequestType::EvaluateSchema { response, .. } => response.is_closed(),
+            RequestType::EvaluateAuthConfig { response, .. } => response.is_closed(),
+            RequestType::EvaluateAppDefinitions { response, .. } => response.is_closed(),
+            RequestType::EvaluateComponentInitializer { response, .. } => response.is_closed(),
+        }
+    }
 }
 
 impl<RT: Runtime> Clone for IsolateClient<RT> {
@@ -1371,6 +1384,9 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     let Some((request, permit)) = request else {
                         break;
                     };
+                    if request.is_response_closed() {
+                        continue;
+                    }
                     let worker_id = match self.get_worker(&request) {
                         Ok(worker_id) => worker_id,
                         Err(reason) => {
