@@ -330,7 +330,6 @@ pub enum RequestType<RT: Runtime> {
         to_analyze: CanonicalizedModulePath,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<Result<AnalyzedModule, JsError>>>,
-        max_user_heap_size: usize,
     },
     EvaluateSchema {
         schema_bundle: ModuleSource,
@@ -809,7 +808,6 @@ impl<RT: Runtime> IsolateClient<RT> {
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         instance_name: String,
-        max_user_heap_size: usize,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         anyhow::ensure!(
             modules
@@ -849,7 +847,6 @@ impl<RT: Runtime> IsolateClient<RT> {
                         response: tx,
                         udf_config: udf_config.clone(),
                         environment_variables: environment_variables.clone(),
-                        max_user_heap_size,
                     };
                     self.send_request(Request::new(
                         instance_name.clone(),
@@ -1582,15 +1579,12 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         } = self.config();
         let mut reqs = std::pin::pin!(ReceiverStream::new(reqs).peekable());
         let mut ready: Option<oneshot::Sender<_>> = None;
-        let mut isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
         'recreate_isolate: loop {
             let mut last_client_id: Option<String> = None;
             let mut last_request: Option<String> = None;
-            let mut isolate = Isolate::new(self.rt(), *max_user_timeout, isolate_heap_size);
+            let mut isolate =
+                Isolate::new(self.rt(), *max_user_timeout, *ISOLATE_MAX_USER_HEAP_SIZE);
             let mut context_cache = ContextCache::new();
-            // Reset to default heap size for the next isolate, unless
-            // overridden before the next `continue 'recreate_isolate`.
-            isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
             heap_stats.store(isolate.heap_stats());
             loop {
                 context_cache.prepare(isolate.isolate());
@@ -1635,36 +1629,6 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                         } else if reused {
                             tracing::debug!("Reusing isolate for client {}", req.client_id);
                         }
-                        // If this is an analyze request with a higher heap
-                        // requirement, recreate the isolate with the larger heap.
-                        match req.inner {
-                            RequestType::Analyze {
-                                max_user_heap_size: required_heap, ..
-                            } => {
-                                if isolate.max_user_heap_size() < required_heap {
-                                    tracing::debug!(
-                                        "Restarting isolate for analyze: current heap {} < required {}",
-                                        isolate.max_user_heap_size(),
-                                        required_heap,
-                                    );
-                                    metrics::log_recreate_isolate("analyze_heap_upgrade");
-                                    isolate_heap_size = required_heap;
-                                    continue 'recreate_isolate;
-                                }
-                            },
-                            _ => {
-                                // If our last request was allocated more than the default heap size for analyze, recreate the isolate.
-                                if isolate.max_user_heap_size() > *ISOLATE_MAX_USER_HEAP_SIZE {
-                                    tracing::debug!(
-                                        "Restarting isolate after analyze: current heap {}",
-                                        isolate.max_user_heap_size(),
-                                    );
-                                    metrics::log_recreate_isolate("after_analyze_heap_upgrade");
-                                    isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
-                                    continue 'recreate_isolate;
-                                }
-                            },
-                        };
                         // Ok, we're ready to accept the request for real.
                         let Some((req, permit, done)) = reqs.next().await else { return };
                         // Note that we won't reply to `done` until

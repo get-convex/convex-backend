@@ -105,7 +105,6 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         udf_config: UdfConfig,
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-        max_user_heap_size: usize,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>;
 
     async fn evaluate_app_definitions(

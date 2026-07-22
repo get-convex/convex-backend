@@ -183,7 +183,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 to_analyze,
                 environment_variables,
                 response,
-                max_user_heap_size: _,
             } => {
                 let r = AnalyzeEnvironment::analyze::<RT>(
                     isolate,
