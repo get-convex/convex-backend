@@ -72,12 +72,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
                 key,
                 source_package.sha256.clone(),
                 async move {
-                    let package = download_package(
-                        modules_storage,
-                        source_package.storage_key.clone(),
-                        source_package.sha256.clone(),
-                    )
-                    .await?;
+                    let package = download_package(modules_storage, &source_package).await?;
                     Ok(package
                         .into_iter()
                         .map(|(module_path, module_config)| {

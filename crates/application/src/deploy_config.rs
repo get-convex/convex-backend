@@ -678,12 +678,7 @@ impl<RT: Runtime> Application<RT> {
         // in the database.
         let mut downloaded_source_packages = BTreeMap::new();
         for (definition_path, source_package) in &start_push.component_definition_packages {
-            let package = download_package(
-                self.modules_storage().clone(),
-                source_package.storage_key.clone(),
-                source_package.sha256.clone(),
-            )
-            .await?;
+            let package = download_package(self.modules_storage().clone(), source_package).await?;
             downloaded_source_packages.insert(definition_path.clone(), package);
         }
 

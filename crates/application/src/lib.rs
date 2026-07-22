@@ -2319,15 +2319,11 @@ impl<RT: Runtime> Application<RT> {
                 // Download root package
                 let existing_app_modules: BTreeMap<CanonicalizedModulePath, ModuleConfig> =
                     if let Some(root_pkg) = existing_root_package {
-                        download_package(
-                            self.modules_storage().clone(),
-                            root_pkg.storage_key.clone(),
-                            root_pkg.sha256.clone(),
-                        )
-                        .await?
-                        .into_values()
-                        .map(|v| (v.path.clone().canonicalize(), v))
-                        .collect()
+                        download_package(self.modules_storage().clone(), &root_pkg)
+                            .await?
+                            .into_values()
+                            .map(|v| (v.path.clone().canonicalize(), v))
+                            .collect()
                     } else {
                         anyhow::bail!("Failed to download source package for root component.");
                     };

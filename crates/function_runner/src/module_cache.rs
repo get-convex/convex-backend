@@ -115,12 +115,7 @@ impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModul
                 (deployment_name.clone(), source_package.sha256.clone()),
                 try_join("get_modules_and_prefetch", async move {
                     let _timer = module_load_timer("package");
-                    let package = download_package(
-                        modules_storage,
-                        source_package.storage_key.clone(),
-                        source_package.sha256.clone(),
-                    )
-                    .await?;
+                    let package = download_package(modules_storage, &source_package).await?;
                     Ok(package
                         .into_iter()
                         .map(move |(module_path, module_config)| {
