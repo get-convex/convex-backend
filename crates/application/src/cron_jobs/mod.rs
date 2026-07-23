@@ -83,7 +83,6 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     JsonPackedValue,
     ResolvedDocumentId,
-    TableNamespace,
 };
 
 use crate::{
@@ -407,11 +406,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         tx: &mut Transaction<RT>,
         job_id: ResolvedDocumentId,
     ) -> anyhow::Result<(ComponentId, ComponentPath)> {
-        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-        let component = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
+        let component = tx
+            .table_mapping()
+            .tablet_namespace(job_id.tablet_id)?
+            .into();
         let component_path = BootstrapComponentsModel::new(tx).must_component_path(component)?;
         Ok((component, component_path))
     }
@@ -624,11 +622,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         job: CronJob,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
-        let namespace = tx.table_mapping().tablet_namespace(job.id.tablet_id)?;
-        let component = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
+        let component = tx
+            .table_mapping()
+            .tablet_namespace(job.id.tablet_id)?
+            .into();
         let identity = tx.identity().clone();
         let (_, component_path) = self.get_job_component(&mut tx, job.id).await?;
         let caller = FunctionCaller::Cron;
@@ -811,13 +808,10 @@ impl<RT: Runtime> CronJobContext<RT> {
             // Continue without updating since the job state has changed
             return Ok(());
         };
-        let namespace = tx
+        let component = tx
             .table_mapping()
-            .tablet_namespace(expected_state.id.tablet_id)?;
-        let component = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
+            .tablet_namespace(expected_state.id.tablet_id)?
+            .into();
         let mut model = CronModel::new(&mut tx, component);
         model
             .insert_cron_job_log(expected_state, status, log_lines, execution_time)
