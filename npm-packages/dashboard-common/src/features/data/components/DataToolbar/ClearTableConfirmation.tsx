@@ -89,7 +89,9 @@ export function ClearTableConfirmation({
         }
       }}
       validationText={
-        isProd ? `Delete all production documents in ${tableName}` : undefined
+        isProd && !isClearing
+          ? `Delete all production documents in ${tableName}`
+          : undefined
       }
       confirmText="Confirm"
       variant="danger"
