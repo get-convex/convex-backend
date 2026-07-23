@@ -23,7 +23,9 @@ use futures::{
         self,
         Either,
     },
+    pin_mut,
     Future,
+    FutureExt,
 };
 use parking_lot::Mutex;
 use tokio::select;
@@ -324,6 +326,12 @@ impl<RT: Runtime> Timeout<RT> {
         reason: PauseReason,
         f: impl Future<Output = anyhow::Result<T>>,
     ) -> anyhow::Result<T> {
+        pin_mut!(f);
+        // If the future completes without blocking, don't pause.
+        // This is useful if `f` is just reading from caches.
+        if let Some(r) = f.as_mut().now_or_never() {
+            return r;
+        }
         self.with_release_permit_regainable(reason, async move |_| f.await)
             .await
     }
