@@ -64,6 +64,8 @@ const meta = {
           dataEgress: 5_368_709_120,
           searchQueries: 500,
           actionComputeUser: 30,
+          deploymentCount: 3,
+          pausedDeploymentCount: 1,
         },
       ],
       error: undefined,

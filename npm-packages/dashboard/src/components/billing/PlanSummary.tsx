@@ -191,7 +191,6 @@ const selfServeSections: Section[] = [
 
 export function BusinessPlanSummary({
   summary,
-  deploymentCount,
   error,
   isBusinessPlan = true,
   entitlements,
@@ -199,7 +198,6 @@ export function BusinessPlanSummary({
   showEntitlements = false,
 }: {
   summary?: UsageSummaryRow[];
-  deploymentCount?: number;
   error?: any;
   isBusinessPlan?: boolean;
   entitlements?: TeamEntitlementsResponse;
@@ -208,6 +206,16 @@ export function BusinessPlanSummary({
 }) {
   const router = useRouter();
   const activeSections = isBusinessPlan ? businessSections : selfServeSections;
+
+  // Deployment counts live on the summary rows but are team-wide (the gauge has
+  // no project/component dimension we filter on), so sum across every row and
+  // apply the same total to both the full and primary-region aggregates.
+  const deploymentCount = summary
+    ? summary.reduce((sum, row) => sum + row.deploymentCount, 0)
+    : undefined;
+  const pausedDeploymentCount = summary
+    ? summary.reduce((sum, row) => sum + row.pausedDeploymentCount, 0)
+    : undefined;
 
   // Aggregate usage rows by summing each metric in activeSections.
   const aggregateRows = (rows: UsageSummaryRow[]) =>
@@ -236,7 +244,7 @@ export function BusinessPlanSummary({
   // Aggregate across deployment classes and regions
   const aggregated = summary ? aggregateRows(summary) : undefined;
 
-  // Add deployment count from separate data source
+  // Apply the team-wide deployment count to the aggregate.
   if (aggregated && deploymentCount !== undefined) {
     aggregated.deploymentCount = deploymentCount;
   }
@@ -248,8 +256,8 @@ export function BusinessPlanSummary({
       ? aggregateRows(summary.filter((row) => row.region === "aws-us-east-1"))
       : undefined;
 
-  // Deployment count is not region-specific (it comes from a separate data
-  // source), so its primary-region value is the full count.
+  // Deployment count is team-wide, so its primary-region value is the full
+  // count rather than a region-filtered subset.
   if (primaryRegionAggregated && deploymentCount !== undefined) {
     primaryRegionAggregated.deploymentCount = deploymentCount;
   }
@@ -421,6 +429,19 @@ export function BusinessPlanSummary({
                         {section.suffix ? ` ${section.suffix}` : ""}
                       </span>
                     )}
+                    {section.metric === "deploymentCount" &&
+                      isBusinessPlan &&
+                      pausedDeploymentCount !== undefined && (
+                        <span className="text-content-secondary">
+                          {" "}
+                          (
+                          {formatNumberCompact(
+                            Math.max(displayedUsage - pausedDeploymentCount, 0),
+                          )}{" "}
+                          active · {formatNumberCompact(pausedDeploymentCount)}{" "}
+                          paused)
+                        </span>
+                      )}
                   </div>
                   {hasSubscription && (
                     <div className="animate-fadeInFromLoading">

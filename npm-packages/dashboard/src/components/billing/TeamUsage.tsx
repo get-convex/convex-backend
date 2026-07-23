@@ -202,31 +202,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     componentPrefix,
   );
 
-  const { data: deploymentCountData } =
-    useUsageTeamDeploymentCountPerDayByProject(
-      team?.id,
-      dateRange,
-      componentPrefix,
-    );
-
-  // Get the latest deployment count (highest date)
-  const latestDeploymentCount = useMemo(() => {
-    if (deploymentCountData === undefined) {
-      return undefined;
-    }
-    if (deploymentCountData.length === 0) {
-      return 0;
-    }
-    // Sort by date descending and get the first item's value, then sum across all projects
-    const latestDate = deploymentCountData.reduce(
-      (max, item) => (item.ds > max ? item.ds : max),
-      deploymentCountData[0].ds,
-    );
-    return deploymentCountData
-      .filter((item) => item.ds === latestDate)
-      .reduce((sum, item) => sum + item.value, 0);
-  }, [deploymentCountData]);
-
   const entitlements = useTeamEntitlements(team?.id);
 
   const hasOrbSubscription = useHasSubscription(team?.id);
@@ -309,7 +284,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
               >
                 <BusinessPlanSummary
                   summary={summary}
-                  deploymentCount={latestDeploymentCount}
                   error={summaryError}
                   isBusinessPlan={isBusinessPlanType}
                   entitlements={entitlements}

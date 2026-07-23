@@ -62,6 +62,9 @@ export type UsageSummaryRow = {
   dataEgress: number;
   searchQueries: number;
   actionComputeUser: number; // GB-hours — corrected non-node compute for business plans
+  // Current deployment count gauge (team-wide; not filtered by project/component).
+  deploymentCount: number;
+  pausedDeploymentCount: number;
 };
 
 export interface AggregatedFunctionMetrics {
@@ -173,6 +176,8 @@ export function useUsageTeamSummary(
         dataEgress,
         searchQueries,
         actionComputeUser,
+        deploymentCount,
+        pausedDeploymentCount,
       ]) =>
         ({
           deploymentClass,
@@ -188,6 +193,8 @@ export function useUsageTeamSummary(
           dataEgress: Number(dataEgress),
           searchQueries: Number(searchQueries),
           actionComputeUser: Number(actionComputeUser) / 60 / 60,
+          deploymentCount: Number(deploymentCount),
+          pausedDeploymentCount: Number(pausedDeploymentCount),
         }) satisfies UsageSummaryRow,
     ),
     error: undefined,
