@@ -91,7 +91,7 @@ impl PreloadedEnvironmentVariables {
         let Some(doc) = self.range.get(tx, &key)? else {
             return Ok(None);
         };
-        let doc: ParsedDocument<PersistedEnvironmentVariable> = doc.clone().parse()?;
+        let doc: ParsedDocument<PersistedEnvironmentVariable> = doc.parse()?;
         let var = doc.into_value().0;
         anyhow::ensure!(var.name() == name, "Invalid environment variable");
         Ok(Some(var.into_value()))

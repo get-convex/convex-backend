@@ -1263,28 +1263,6 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(results)
     }
 
-    // TODO(lee) Make this private.
-    // We ideally want the transaction to call this internally so caller doesn't
-    // have to call this. However, this is currently hard since the query layer
-    // doesn't persist a stream.
-    pub fn record_read_document(
-        &mut self,
-        document: &ResolvedDocument,
-        table_name: &TableName,
-    ) -> anyhow::Result<()> {
-        let component_path = self
-            .component_path_for_document_id(document.id())?
-            .unwrap_or_default();
-        self.reads.record_read_document(
-            component_path,
-            table_name.clone(),
-            document.size(),
-            &self.usage_tracker,
-            &self.virtual_system_mapping,
-            &self.limits,
-        )
-    }
-
     // Preload an index range against the transaction, building a snapshot of
     // all its current values for future use. Preloading has a few limitations:
     //

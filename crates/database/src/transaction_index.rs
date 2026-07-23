@@ -480,8 +480,8 @@ impl TransactionIndex {
             let (documents, cursor) = result?;
             (_, remaining_interval) = interval.split(cursor, Order::Asc);
             for (_, document, _) in documents {
-                let document = document.unpack();
-                let key = document.value().0.get_path(&indexed_field).cloned();
+                let document = document.pack();
+                let key = document.value().get_path(&indexed_field);
                 anyhow::ensure!(
                     preloaded.insert(key, document).is_none(),
                     "Index {printable_index_name:?} isn't unique",
