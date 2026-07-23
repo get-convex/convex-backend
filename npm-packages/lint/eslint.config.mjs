@@ -545,6 +545,7 @@ const config = [
             "animate-fadeInToVar",
             "bg-stripes",
             "bottom-four",
+            "commandPaletteEditor",
             "DataRow",
             "disabled",
             "focused",

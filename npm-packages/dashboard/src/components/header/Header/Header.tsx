@@ -5,11 +5,13 @@ import { SupportWidget, useSupportFormOpen } from "elements/SupportWidget";
 import { Portal } from "@headlessui/react";
 import { Button } from "@ui/Button";
 import { AskAI } from "elements/AskAI";
+import { CommandPaletteTrigger } from "elements/CommandPalette";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
 import { useCurrentProject } from "api/projects";
 import { User } from "@workos-inc/node";
 import { ConvexStatusBadge } from "lib/ConvexStatusBadge";
 import { useConvexStatus } from "hooks/useConvexStatus";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { UserMenu } from "../UserMenu/UserMenu";
 
 type HeaderProps = {
@@ -57,6 +59,7 @@ function Support() {
 
 export function Header({ children, logoLink = "/", user }: HeaderProps) {
   const project = useCurrentProject();
+  const { commandPalette } = useLaunchDarkly();
 
   return (
     <header
@@ -79,10 +82,13 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
       </div>
       {project && <DeploymentDisplay project={project} />}
       <div className="flex items-center bg-background-secondary px-2">
+        <CommandPaletteTrigger />
         <div className="flex items-center">
           <ConvexStatus />
-          <AskAI />
-          <Support />
+          {/* With the command palette on, Ask AI and Support move into the user
+              menu (mounted there), so the header omits them. */}
+          {!commandPalette && <AskAI />}
+          {!commandPalette && <Support />}
         </div>
         {user && <UserMenu />}
       </div>

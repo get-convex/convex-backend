@@ -27,7 +27,8 @@ export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
 
 export type SettingsPageKind = keyof typeof DEPLOYMENT_SETTINGS_PAGES_AND_NAMES;
 
-// Icon shown next to each deployment settings page in the settings sidebar.
+// Shared between the settings sidebar and the command palette so both surfaces
+// show the same icon for a page.
 export const DEPLOYMENT_SETTINGS_PAGE_ICONS: Record<
   SettingsPageKind,
   FC<{ className?: string }>
