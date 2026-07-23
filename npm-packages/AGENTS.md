@@ -10,7 +10,7 @@ just format-js
 
 # When the change is ready
 just lint-js
-just rush build -t <package>
+just turbo run build --filter=<package>...
 
 # To run a specific test file
 cd npm-packages/<package>/
@@ -19,9 +19,9 @@ npm run test -- <file>
 
 ## Dependencies management
 
-This project uses Rush to manage dependencies.
+This project uses pnpm workspaces to manage dependencies.
 
-After modifying the dependencies of a package, run `just rush update`.
+After modifying the dependencies of a package, run `just update-js`.
 
 ## Code organization
 

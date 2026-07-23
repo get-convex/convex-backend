@@ -7,6 +7,6 @@ This example demonstrates how to use Convex vector search.
 Run:
 
 ```
-just rush install
+just install-js
 npm run dev
 ```

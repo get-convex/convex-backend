@@ -14,11 +14,6 @@ use std::{
     },
     path::Path,
     process::Command,
-    thread,
-    time::{
-        Duration,
-        Instant,
-    },
 };
 
 use anyhow::Context;
@@ -40,7 +35,13 @@ const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
 const COMPONENT_TESTS_DIR: &str = "../../npm-packages/tests/component-tests";
 /// Exceptions to the rule that all directories in `component-tests` are
 /// components.
-const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: &[&str] = &[".rush", "node_modules", "projects"];
+const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: &[&str] = &[
+    // stale in pre-migration checkouts
+    ".rush",
+    ".turbo",
+    "node_modules",
+    "projects",
+];
 /// Directory where test projects that use components live.
 const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/tests/component-tests/projects";
 const COMPONENT_TESTS_PROJECTS: &[&str] = &[
@@ -68,10 +69,31 @@ const COMPONENTS: &[&str] = &[
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
 
-#[cfg(not(target_os = "windows"))]
-const RUSH: &str = "../scripts/node_modules/.bin/rush";
-#[cfg(target_os = "windows")]
-const RUSH: &str = "../../scripts/node_modules/.bin/rush.cmd";
+/// The pinned JS tools in scripts/node_modules, as paths relative to
+/// PACKAGES_DIR.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum JsTool {
+    Pnpm,
+    Turbo,
+}
+
+impl JsTool {
+    #[cfg(not(target_os = "windows"))]
+    fn path(self) -> &'static str {
+        match self {
+            JsTool::Pnpm => "../scripts/node_modules/.bin/pnpm",
+            JsTool::Turbo => "../scripts/node_modules/.bin/turbo",
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn path(self) -> &'static str {
+        match self {
+            JsTool::Pnpm => "../../scripts/node_modules/.bin/pnpm.cmd",
+            JsTool::Turbo => "../../scripts/node_modules/.bin/turbo.cmd",
+        }
+    }
+}
 #[cfg(not(target_os = "windows"))]
 const NPM: &str = "npm";
 #[cfg(target_os = "windows")]
@@ -135,39 +157,59 @@ fn write_bundles(out_dir: &Path, out_name: &str, bundles: Vec<Bundle>) -> anyhow
     Ok(())
 }
 
-// Rush takes a repo-wide lock and fails fast instead of waiting for it. The
-// holder can be another build step (CI runs `rush install`+`rush build` in
-// parallel with cargo, and a cold pnpm store keeps the lock for minutes) or an
-// editor during local dev, so poll with backoff instead of giving up.
-fn run_rush_waiting_for_lock(args: &[&str]) -> anyhow::Result<()> {
-    // Per-invocation deadline: install and build each get their own.
-    let deadline = Instant::now() + Duration::from_secs(600);
-    let mut delay = Duration::from_secs(2);
-    loop {
-        let output = Command::new(RUSH)
-            .current_dir(Path::new(PACKAGES_DIR))
-            .args(args)
-            .output()
-            .with_context(|| format!("Failed on rush {}", args.join(" ")))?;
-        io::stdout().write_all(&output.stdout).unwrap();
-        io::stderr().write_all(&output.stderr).unwrap();
-        if output.status.success() {
-            return Ok(());
-        }
-        let locked = [&output.stdout, &output.stderr].iter().any(|s| {
-            String::from_utf8_lossy(s)
-                .contains("Another Rush command is already running in this repository.")
-        });
-        anyhow::ensure!(locked, "Failed to 'rush {}'", args[0]);
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        anyhow::ensure!(
-            !remaining.is_zero(),
-            "Timed out waiting for the rush repository lock while running 'rush {}'",
-            args[0]
-        );
-        thread::sleep(delay.min(remaining));
-        delay = (delay * 2).min(Duration::from_secs(10));
+// Concurrent pnpm installs serialize on the store and modules-dir locks
+// (though pnpm has had bugs with concurrent installs in one worktree, e.g.
+// pnpm/pnpm#7335). turbo has no cross-process task lock, so concurrent runs
+// (e.g. `just turbo` racing this build script during a parallel CI job) could
+// execute a task twice and race writes to shared outputs/cache entries. flock
+// on a per-checkout lock file (shared with the `just turbo` recipe) serializes
+// them; hosts without flock(1) (macOS, Windows) run unlocked, where such races
+// are transient and a rerun fixes them.
+fn flock_available() -> bool {
+    Command::new("flock")
+        .arg("--version")
+        .output()
+        .is_ok_and(|out| out.status.success())
+}
+
+fn run_js_tool(tool: JsTool, args: &[&str]) -> anyhow::Result<()> {
+    // turbo shells out to `pnpm` by name, so the pinned copy in
+    // scripts/node_modules must be on PATH.
+    let bin_dir = fs::canonicalize(Path::new(PACKAGES_DIR).join("../scripts/node_modules/.bin"))?;
+    let mut paths = vec![bin_dir];
+    if let Some(path) = env::var_os("PATH") {
+        paths.extend(env::split_paths(&path));
     }
+    let mut command = if tool == JsTool::Turbo && flock_available() {
+        fs::create_dir_all(Path::new(PACKAGES_DIR).join(".turbo"))?;
+        let mut c = Command::new("flock");
+        c.arg(".turbo/turbo.lock").arg(tool.path());
+        c
+    } else {
+        Command::new(tool.path())
+    };
+    let output = command
+        .current_dir(Path::new(PACKAGES_DIR))
+        .env("PATH", env::join_paths(paths)?)
+        // Keep turbo hermetic inside cargo builds: no first-run telemetry
+        // banner/phone-home in the output, and no user-exported TURBO_* (UI
+        // mode, remote-cache tokens) changing behavior.
+        .env("TURBO_TELEMETRY_DISABLED", "1")
+        .env_remove("TURBO_UI")
+        .env_remove("TURBO_TOKEN")
+        .env_remove("TURBO_TEAM")
+        .args(args)
+        .output()
+        .with_context(|| format!("Failed to run {} {}", tool.path(), args.join(" ")))?;
+    io::stdout().write_all(&output.stdout).unwrap();
+    io::stderr().write_all(&output.stderr).unwrap();
+    anyhow::ensure!(
+        output.status.success(),
+        "Failed on {} {}",
+        tool.path(),
+        args.join(" ")
+    );
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
@@ -178,13 +220,19 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/convex/package.json")?;
     rerun_if_changed("../../npm-packages/convex/scripts/build.py")?;
 
+    // Dependency resolution inputs: a dep bump or override change alters the
+    // compiled-in bundles without touching any source watched above.
+    rerun_if_changed("../../npm-packages/pnpm-lock.yaml")?;
+    rerun_if_changed("../../npm-packages/pnpm-workspace.yaml")?;
+    rerun_if_changed("../../npm-packages/turbo.json")?;
+
     rerun_if_changed("../../npm-packages/node-executor/src")?;
     rerun_if_changed("../../npm-packages/node-executor/package.json")?;
 
     rerun_if_changed("../../npm-packages/system-udfs/convex/")?;
 
     // Note that we only include the component directory,`convex` directory, and
-    // package.json so we ignore changes to rush files.
+    // package.json so we ignore changes to other workspace files.
     let has_tests = Path::new("../../npm-packages/tests/udf-tests/convex/").exists();
     if has_tests {
         rerun_if_changed("../../npm-packages/tests/udf-tests/convex/")?;
@@ -239,17 +287,30 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/system-udfs/tsconfig.json")?;
 
     // Step 1: Ensure the `server`, `dashboard`, and `cli` deps are installed.
-    run_rush_waiting_for_lock(&["install"])?;
-    let mut pkgs = vec!["convex", "node-executor", "udf-runtime"];
-    if has_tests {
-        pkgs.extend(["simulation", "udf-tests"]);
+    // CI jobs whose workflow already installed and built these packages before
+    // cargo runs set CONVEX_PREBUILT_JS to skip this re-verification pass.
+    // Only sound where the JS build strictly precedes cargo: with concurrent
+    // JS builds this run must stay (under the turbo flock) so it blocks until
+    // the dist outputs it bundles below are complete. Keep the package list in
+    // sync with the `Build JS required by Isolate` step in rust.yml.
+    println!("cargo:rerun-if-env-changed=CONVEX_PREBUILT_JS");
+    if env::var_os("CONVEX_PREBUILT_JS").is_none() {
+        run_js_tool(JsTool::Pnpm, &["install", "--frozen-lockfile"])?;
+        let mut pkgs = vec!["convex", "node-executor", "udf-runtime"];
+        if has_tests {
+            pkgs.extend(["simulation", "udf-tests"]);
+        }
+        let mut args = vec!["run".to_owned(), "build".to_owned()];
+        for pkg in pkgs {
+            // `--filter=pkg...` builds the package and its workspace dependencies,
+            // matching `rush build -t pkg`.
+            args.push(format!("--filter={pkg}..."));
+        }
+        run_js_tool(
+            JsTool::Turbo,
+            &args.iter().map(String::as_str).collect::<Vec<_>>(),
+        )?;
     }
-    let mut args = vec!["build"];
-    for pkg in pkgs {
-        args.push("-t");
-        args.push(pkg);
-    }
-    run_rush_waiting_for_lock(&args)?;
     // Step 2: Use `build-server` to package up our builtin `_system` UDFs.
     let output = Command::new(NPM)
         .current_dir(NPM_DIR)
@@ -329,8 +390,8 @@ fn main() -> anyhow::Result<()> {
         }
 
         // Step 7: Record dependencies for the simulation test build. It's a bit of a
-        // hack that it's in this build script, but we can't safely invoke Rush
-        // across two build scripts since it'll fail if called concurrently.
+        // hack that it's in this build script, but it keeps all the JS builds in
+        // one place.
         let metafile = Path::new(PACKAGES_DIR).join("tests/simulation/dist/metafile.json");
         let metafile_contents = fs::read_to_string(metafile).context("Failed to read metafile")?;
         let metafile: Metafile =

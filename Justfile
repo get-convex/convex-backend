@@ -51,15 +51,41 @@ convex *ARGS:
 reset-local-backend:
   rm -rf convex_local_storage && rm -f convex_local_backend.sqlite3
 
+# (*) install JS deps exactly as pinned in the lockfile (CI, after pulling)
+install-js:
+  cd "{{justfile_directory()}}/npm-packages"; just pnpm install --frozen-lockfile
+
+# (*) install JS deps and update the lockfile (when you're changing JS deps)
+update-js:
+  cd "{{justfile_directory()}}/npm-packages"; just pnpm install
+
 # Global JavaScript tools
 # Common commands are
-# - `just rush build` to build all projects in npm-packages
-# - `just rush rebuild` to build when rush doesn't realize something's changed
-# - `just rush install` when the repo has changed JS deps
-# - `just rush update` when you're changing JS deps
-# (*) rush, the monorepo JS tool for deps and building
-rush *ARGS:
-  cd {{invocation_directory()}}; "{{justfile_directory()}}/scripts/rush_from_npm-packages.sh" "$@"
+# - `just turbo run build` to build all projects in npm-packages
+# - `just turbo run build --force` to build when turbo doesn't realize something's changed
+# - `just install-js` when the repo has changed JS deps
+# - `just update-js` when you're changing JS deps
+# (*) turbo, the task runner for building/testing npm-packages projects
+turbo *ARGS:
+  #!/usr/bin/env bash
+  # turbo shells out to `pnpm` by name, so the pinned copy must be on PATH.
+  export PATH="{{justfile_directory()}}/scripts/node_modules/.bin:$PATH"
+  cd "{{justfile_directory()}}/npm-packages"
+  mkdir -p .turbo
+  # turbo has no cross-process task lock, so concurrent runs (e.g. a JS build
+  # racing isolate's build.rs during a parallel cargo build) can execute the
+  # same task twice and race writes to shared outputs/cache entries. flock(1)
+  # serializes them on a per-checkout lock file (shared with build.rs);
+  # platforms without flock (macOS) run unlocked, where such races are
+  # transient and a rerun fixes them.
+  if command -v flock >/dev/null 2>&1; then
+      exec flock .turbo/turbo.lock "{{justfile_directory()}}/scripts/node_modules/.bin/turbo" "$@"
+  fi
+  exec "{{justfile_directory()}}/scripts/node_modules/.bin/turbo" "$@"
+
+# (*) pnpm, the JS package manager (pinned in scripts/package.json)
+pnpm *ARGS:
+  cd {{invocation_directory()}}; "{{justfile_directory()}}/scripts/node_modules/.bin/pnpm" "$@"
 
 # Generates (or reuses) a random per-installation instance secret
 init-instance-secret:

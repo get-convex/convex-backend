@@ -55,6 +55,7 @@
     "sonner": "^2.0.0"
   },
   "devDependencies": {
+    "@convex-dev/platform": "workspace:*",
     "docusaurus-plugin-typedoc": "npm:@convex-dev/docusaurus-plugin-typedoc@0.19.2",
     "typedoc-plugin-markdown": "npm:@convex-dev/typedoc-plugin-markdown@3.15.6",
     "@docusaurus/module-type-aliases": "~3.10.1",

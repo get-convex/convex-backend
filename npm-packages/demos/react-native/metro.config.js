@@ -10,13 +10,13 @@ config.watchFolders = [monorepoRoot];
 
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
-  path.resolve(monorepoRoot, "common/temp/node_modules"),
+  path.resolve(monorepoRoot, "node_modules"),
 ];
 
 config.resolver.unstable_enableSymlinks = true;
 config.resolver.unstable_enablePackageExports = true;
 
-// In this Rush + pnpm monorepo, the `convex` workspace package brings its own
+// In this pnpm monorepo, the `convex` workspace package brings its own
 // React 18 copy at `npm-packages/convex/node_modules/react`, while this demo
 // uses React 19. Without intervention Metro bundles both copies and React
 // throws "different React version" at runtime. Force a single React copy via
@@ -27,8 +27,8 @@ config.resolver.blockList = [
   /npm-packages\/convex\/node_modules\/react\/.*/,
   /npm-packages\/convex\/node_modules\/react-dom\/.*/,
   /npm-packages\/convex\/node_modules\/scheduler\/.*/,
-  /common\/temp\/node_modules\/\.pnpm\/react@(?!19)[^/]+\/.*/,
-  /common\/temp\/node_modules\/\.pnpm\/react-dom@(?!19)[^/]+\/.*/,
+  /npm-packages\/node_modules\/\.pnpm\/react@(?!19)[^/]+\/.*/,
+  /npm-packages\/node_modules\/\.pnpm\/react-dom@(?!19)[^/]+\/.*/,
 ];
 
 config.resolver.extraNodeModules = {

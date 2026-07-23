@@ -22,11 +22,10 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
         with:
           path: |
-            npm-packages/common/temp/build-cache
-            npm-packages/common/temp/pnpm-store
+            ~/.local/share/pnpm/store
+            npm-packages/.turbo/cache
           key:
-            pnpm-cache-${{
-            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+            pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
           restore-keys: pnpm-cache-
 
       - name: Install mise tools
@@ -38,13 +37,13 @@ jobs:
       - name: NPM install globals
         run: npm ci --prefix scripts
 
-      - name: Rush install
+      - name: Install JS dependencies
         run: |
-          just rush install
+          just install-js
 
       - name: Build dashboard dependencies
         run: |
-          just rush build -T dashboard-self-hosted
+          just turbo run build --filter=dashboard-self-hosted^...
 
       - name: Build dashboard
         run: |
@@ -106,14 +105,14 @@ jobs:
         run: echo 'CARGO_HOME=C:\c' >> "$GITHUB_ENV"
 
       # Windows-only: Defender's real-time scan of every small file dominates the
-      # cargo/rush build wall-clock. Exclude the file-heavy dirs (best-effort).
+      # cargo/JS build wall-clock. Exclude the file-heavy dirs (best-effort).
       - name: Exclude build dirs from Windows Defender
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           foreach ($p in @(
             "${{ github.workspace }}",
-            "$env:USERPROFILE\.rush",
+            "$env:LOCALAPPDATA\pnpm",
             "$env:CARGO_HOME"
           )) { Add-MpPreference -ExclusionPath $p -ErrorAction SilentlyContinue }
           Add-MpPreference -ExclusionProcess node.exe -ErrorAction SilentlyContinue
@@ -133,11 +132,11 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
         with:
           path: |
-            npm-packages/common/temp/build-cache
-            npm-packages/common/temp/pnpm-store
+            ~/.local/share/pnpm/store
+            ~\AppData\Local\pnpm\store
+            npm-packages/.turbo/cache
           key:
-            pnpm-cache-${{
-            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+            pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
           restore-keys: pnpm-cache-
 
       - name: Install mise tools
@@ -149,9 +148,18 @@ jobs:
       - name: NPM install globals
         run: npm ci --prefix scripts
 
+      # pnpm only defaults to this store path when the workspace shares a drive
+      # with $HOME; Windows runners check out on another drive, where the
+      # default would miss the cache path above.
+      - name: Pin pnpm store to the cached path (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "npm_config_store_dir=$LOCALAPPDATA/pnpm/store" >> "$GITHUB_ENV"
+
       - name: Install JS
+        shell: bash
         run: |
-          just rush install
+          just install-js
 
       - name: Precompute release name
         id: release_name

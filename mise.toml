@@ -1,7 +1,7 @@
 # Tool versions for Convex local dev + CI, managed by mise (https://mise.jdx.dev).
 # Node is NOT here -- it stays in .nvmrc (via idiomatic_version_file in [settings]),
 # the shared source of truth for the builder image, copybara, and the OSS repo.
-# Rust (rustup), Python (uv), and pnpm/Rush manage themselves. Pins are exact and
+# Rust (rustup), Python (uv), and pnpm/Turbo manage themselves. Pins are exact and
 # checksum-locked in mise.lock; Renovate proposes bumps.
 
 # mise's own version: read by the bootstrap installer + the release Dockerfiles, and

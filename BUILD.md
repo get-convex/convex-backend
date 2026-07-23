@@ -33,11 +33,12 @@ To [build the backend from source](#building-from-source):
 - The Rust nightly version specified in `rust-toolchain`
   - Assuming you installed Rust/Cargo with `rustup`, this will install
     automatically.
-- Rush
+- pnpm + Turborepo
   - `npm clean-install --prefix scripts`
-  - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
+  - We manage the packages in a pnpm workspace with Turborepo as the task
+    runner.
 - Convex JavaScript dependencies
-  - `just rush install`
+  - `just install-js`
 
 #### Building from source
 
@@ -66,7 +67,7 @@ code to backend.
 To make the local backend run the included demo project, do:
 
 ```bash
-just rush install
+just install-js
 cd npm-packages/demos/tutorial
 just convex dev
 ```
@@ -105,11 +106,11 @@ required dependencies and build the packages this way:
 
 ```sh
 npm clean-install --prefix scripts
-just rush install
+just install-js
 
 # Builds the entire monorepo
-just rush build
-# You can also build individual packages and their dependencies, for example: just rush build -t docs
+just turbo run build
+# You can also build individual packages and their dependencies, for example: just turbo run build --filter=docs...
 ```
 
 For development, individual packages have useful commands in their
@@ -118,9 +119,9 @@ run:
 
 ```sh
 cd npm-packages/docs
-just rush build --to-expect docs # builds the packages docs rely on
+just turbo run build --filter=docs^... # builds the packages docs rely on
 npm run dev
 ```
 
 If you need to modify the dependencies of monorepo packages, modify the right
-`package.json` file, and then run `just rush update`.
+`package.json` file, and then run `just update-js`.

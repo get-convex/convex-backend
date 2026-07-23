@@ -1,0 +1,280 @@
+packages:
+  - "@convex-dev/codemod"
+  - "@convex-dev/codemod/test/explicit-ids/custom-convex-folder"
+  - "@convex-dev/codemod/test/explicit-ids/sample-convex-project"
+  - "@convex-dev/design-system"
+  - "@convex-dev/eslint-plugin"
+  - "@convex-dev/platform"
+  - "@convex-dev/react-query"
+  - "@convex-dev/workos"
+  - components/ratelimiter
+  - components/triggers
+  - convex
+  - "convex-analytics"
+  - "convex-chat-speculative"
+  - dashboard
+  - "dashboard-common"
+  - "dashboard-self-hosted"
+  - "dashboard-storybook"
+  - demo_browser_tests
+  - "demos/args-validation"
+  - demos/clerk
+  - "demos/convex-test"
+  - "demos/cron-jobs"
+  - "demos/custom-errors"
+  - "demos/dall-e-storage-action"
+  - "demos/file-storage"
+  - "demos/file-storage-with-http"
+  - "demos/giphy-action"
+  - demos/html
+  - demos/http
+  - "demos/nextjs-app-router"
+  - "demos/nextjs-pages-router"
+  - demos/node
+  - demos/pagination
+  - "demos/presence-facepile"
+  - "demos/presence-typing-indicator"
+  - demos/prewarming
+  - "demos/python-quickstart"
+  - "demos/react-native"
+  - "demos/react-query"
+  - "demos/relational-data-modeling"
+  - demos/scheduling
+  - demos/search
+  - demos/sessions
+  - "demos/system-tables"
+  - "demos/tour-chat/0-start"
+  - "demos/tour-chat/1-smileys"
+  - "demos/tour-chat/2-likes"
+  - "demos/tour-chat/3-ai"
+  - demos/tutorial
+  - demos/typescript
+  - "demos/users-and-auth"
+  - "demos/users-and-clerk"
+  - "demos/users-and-clerk-webhooks"
+  - "demos/vector-search"
+  - "demos/zod-validation-ts"
+  - docs
+  - "id-encoding"
+  - lint
+  - "local-store"
+  - "node-executor"
+  - "private-demos/actions"
+  - "private-demos/audit-logging"
+  - "private-demos/bundle-size"
+  - "private-demos/cjs-typescript"
+  - "private-demos/clerk-initial-auth"
+  - "private-demos/components-api-import"
+  - "private-demos/components-api-import-ts"
+  - "private-demos/components-legacy"
+  - "private-demos/components-legacy-ts"
+  - "private-demos/components-npm"
+  - "private-demos/components-poc"
+  - "private-demos/components-ts-alias"
+  - "private-demos/convex-tour-chat-tutorial"
+  - "private-demos/cron"
+  - "private-demos/ctx-meta"
+  - "private-demos/deploy-speed-test"
+  - "private-demos/e2e"
+  - "private-demos/env-vars-playground"
+  - "private-demos/http"
+  - "private-demos/javascript"
+  - "private-demos/javascript-old-syntax"
+  - "private-demos/middleware"
+  - "private-demos/nextjs-15-app"
+  - "private-demos/nextjs-15-app-clerk"
+  - "private-demos/nextjs-app-router-snippets"
+  - "private-demos/npm-showcase"
+  - "private-demos/openauth-react"
+  - "private-demos/pagination-adversarial"
+  - "private-demos/pagination-visualization"
+  - "private-demos/quickstarts/bun"
+  - "private-demos/quickstarts/expo"
+  - "private-demos/quickstarts/nextjs"
+  - "private-demos/quickstarts/nextjs-app-dir"
+  - "private-demos/quickstarts/nextjs-app-dir-14"
+  - "private-demos/quickstarts/nextjs-app-dir-js"
+  - "private-demos/quickstarts/nodejs"
+  - "private-demos/quickstarts/nuxt"
+  - "private-demos/quickstarts/react-vite"
+  - "private-demos/quickstarts/react-vite-ts"
+  - "private-demos/quickstarts/remix"
+  - "private-demos/quickstarts/sveltekit"
+  - "private-demos/quickstarts/tanstack-start"
+  - "private-demos/quickstarts/vue"
+  - "private-demos/snippets"
+  - "private-demos/static-codegen"
+  - "private-demos/static-codegen-ts"
+  - "private-demos/tanstack-start"
+  - "private-demos/tanstack-start-clerk"
+  - "private-demos/tanstack-start-workos"
+  - "private-demos/test-data"
+  - "private-demos/test-project"
+  - "private-demos/text-importer"
+  - "private-demos/tsgo-test"
+  - "private-demos/tutorial"
+  - "private-demos/typescript-exact-optional-property-types"
+  - "private-demos/typescript-modern"
+  - "private-demos/typescript-old"
+  - "private-demos/uses-ents"
+  - "private-demos/vector-importer"
+  - "private-demos/vector-search"
+  - "private-demos/waitlist"
+  - "scenario-runner"
+  - shapes
+  - "shared-cursors"
+  - "system-udfs"
+  - "tests/component-tests"
+  - "tests/component-tests/projects/basic"
+  - "tests/component-tests/projects/empty"
+  - "tests/component-tests/projects/env_vars"
+  - "tests/component-tests/projects/http_actions"
+  - "tests/component-tests/projects/http_legacy_routes"
+  - "tests/component-tests/projects/http_mount_routing"
+  - "tests/component-tests/projects/http_no_prefix_mounting"
+  - "tests/component-tests/projects/http_prefix_and_mount_routing"
+  - "tests/component-tests/projects/mounted"
+  - "tests/component-tests/projects/schema_with_index"
+  - "tests/component-tests/projects/with-schema"
+  - "tests/js-integration-tests"
+  - "tests/package-tests"
+  - "tests/publishing-tests"
+  - "tests/retention-tester"
+  - tests/simulation
+  - "tests/udf-tests"
+  - "udf-runtime"
+  - "udf-syscall-ffi"
+  - version
+
+autoInstallPeers: true
+minimumReleaseAge: 10080
+# The next security overrides below force a brand-new next version; next pins
+# its @next/swc platform binaries to that exact (equally new) version, which
+# would otherwise hard-fail the age gate whenever any importer re-resolves.
+minimumReleaseAgeExclude:
+  - next
+  - "@next/swc-*"
+  # First-party publishes; satellite packages pin `convex@^<latest>` right
+  # after a release, which would otherwise fail the age gate whenever anything
+  # re-resolves (e.g. `pnpm deploy`) during the 7 days after a convex release.
+  - convex
+overrides:
+  # domain-browser switched away from MIT after 4.22.0 (was a Rush
+  # preferredVersions pin in common-versions.json).
+  domain-browser: 4.22.0
+  "@babel/core@>=7.0.0 <7.29.6": ^7.29.6
+  "@clerk/backend@>=2.0.0 <2.33.3": ^2.33.3
+  "@clerk/clerk-react@>=5.0.0 <5.61.6": ^5.61.6
+  "@babel/plugin-transform-modules-systemjs@>=7.0.0 <7.29.4": ^7.29.4
+  "@babel/runtime-corejs3@7.26.0": ^7.26.10
+  "@babel/runtime@7.26.0": ^7.26.10
+  "@hono/node-server@>=1.0.0 <1.19.13": ^1.19.13
+  "@opentelemetry/core@>=2.0.0 <2.8.0": ^2.8.0
+  "@isaacs/brace-expansion@<=5.0.0": ^5.0.1
+  "@nuxt/nitro-server@>=4.0.0 <4.4.6": ^4.4.6
+  "@protobufjs/utf8@>=1.0.0 <1.1.1": ^1.1.1
+  "@remix-run/router@<=1.23.1": ^1.23.2
+  "@sveltejs/kit@>=2.0.0 <2.60.1": ^2.60.1
+  "@tootallnate/once@2.0.0": 2.0.1
+  "@xmldom/xmldom@0.8.12": ^0.8.13
+  "ajv@>=8.0.0 <8.18.0": ^8.18.0
+  "ajv@>=6.0.0 <6.14.0": ^6.14.0
+  "axios@>=1.0.0 <1.15.2": ^1.15.2
+  "basic-ftp@>=5.0.0 <5.3.1": ^5.3.1
+  "body-parser@>=2.2.0 <2.2.1": ^2.2.2
+  "brace-expansion@1.1.12": 1.1.13
+  "brace-expansion@2.0.2": 2.0.3
+  "brace-expansion@>=5.0.0 <5.0.6": ^5.0.6
+  "cookie@<0.7.0": ^0.7.2
+  "devalue@>=5.0.0 <5.8.1": ^5.8.1
+  "diff@>=8.0.0 <8.0.3": ^8.0.3
+  "diff@>=4.0.0 <4.0.4": ^4.0.4
+  "dompurify@>=3.0.0 <3.4.11": ^3.4.11
+  "effect@>=3.0.0 <3.20.0": ^3.20.0
+  "esbuild@<=0.24.2": 0.25.0
+  "estree-util-value-to-estree@>=3.0.0 <3.3.3": ^3.3.3
+  "follow-redirects@1.15.11": 1.16.0
+  "glob@>=10.2.0 <10.5.0": ^10.5.0
+  "express-rate-limit@>=8.0.0 <8.2.2": ^8.2.2
+  "fast-uri@>=3.0.0 <3.1.2": ^3.1.2
+  "fast-xml-builder@>=1.0.0 <1.1.7": ^1.1.7
+  "fast-xml-parser@>=4.3.6 <5.7.0": ^5.7.0
+  "flatted@>=3.0.0 <3.4.2": ^3.4.2
+  "form-data@>=2.5.0 <2.5.6": 2.5.6
+  "form-data@>=4.0.0 <4.0.6": 4.0.6
+  "glob@>=11.0.0 <11.1.0": ^11.1.0
+  "h3@<=1.15.4": ^1.15.5
+  "hono@>=4.0.0 <4.12.25": ^4.12.25
+  "h3@>=2.0.0-0 <2.0.1-rc.18": 2.0.1-rc.22
+  "h3@2.0.1-rc.14": 2.0.1-rc.22
+  "h3-v2@2.0.1-rc.20": "npm:h3@2.0.1-rc.22"
+  "handlebars@>=4.0.0 <4.7.9": ^4.7.9
+  "http-proxy-middleware@>=2.0.0 <2.0.10": ^2.0.10
+  "http-proxy@1.11.1": ^1.18.1
+  "immutable@>=5.0.0 <5.1.5": ^5.1.5
+  "ip-address@>=10.0.0 <10.1.1": ^10.1.1
+  "js-cookie@>=3.0.0 <3.0.7": ^3.0.7
+  "js-yaml@>=3.0.0 <3.15.0": ^3.15.0
+  "js-yaml@>=4.0.0 <4.2.0": ^4.2.0
+  "joi@>=17.0.0 <17.13.4": ^17.13.4
+  "jws@4.0.0": ^4.0.1
+  "jws@<3.2.3": ^3.2.3
+  "launch-editor@>=2.0.0 <2.14.1": ^2.14.1
+  "langsmith@<0.6.0": ^0.6.0
+  "lodash@>=4.0.0 <=4.17.23": ^4.18.1
+  "mdast-util-to-hast@>=13.0.0 <13.2.1": ^13.2.1
+  "minimatch@3.1.2": ^3.1.4
+  "minimatch@5.1.6": ^5.1.7
+  "minimatch@7.4.6": ^7.4.7
+  "minimatch@>=10.0.0 <10.2.3": ^10.2.3
+  "minimatch@>=9.0.0 <9.0.6": ^9.0.6
+  "morgan@>=1.0.0 <1.11.0": ^1.11.0
+  "next@>=15.0.0 <15.5.21": ^15.5.21
+  "next@>=16.0.0 <16.2.11": ^16.2.11
+  "nitropack@>=2.0.0 <2.13.4": 2.13.4
+  "node-forge@1.3.1": ^1.3.2
+  "node-forge@>=1.3.2 <1.4.0": ^1.4.0
+  "nuxt@>=4.0.0 <4.4.7": ^4.4.7
+  "path-to-regexp@^0.1.10": ^0.1.13
+  "path-to-regexp@^3": ^3.3.0
+  "path-to-regexp@^6": ^6.3.0
+  "path-to-regexp@>=8.0.0 <8.4.0": ^8.4.0
+  "pbkdf2@3.1.2": ^3.1.3
+  "picomatch@2.3.1": ^2.3.2
+  "picomatch@>=4.0.0 <4.0.4": ^4.0.4
+  "postcss@>=8.0.0 <8.5.10": ^8.5.10
+  "preact@>=10.27.0 <10.27.3": ^10.27.3
+  "prismjs@1.29.0": ^1.30.0
+  "protobufjs@>=7.0.0 <7.6.3": ^7.6.3
+  "qs@>=6.0.0 <6.15.2": ^6.15.2
+  "rollup@2.79.2": ^2.80.0
+  "semver@7.3.5": ^7.5.2
+  "serialize-javascript@>=6.0.0 <7.0.5": ^7.0.5
+  "shell-quote@1.8.3": 1.8.4
+  "seroval@<=1.4.0": ^1.4.1
+  "seroval-plugins@<=1.4.0": ^1.4.1
+  "sha.js@2.4.11": ^2.4.12
+  "simple-git@>=3.0.0 <3.36.0": ^3.36.0
+  "smol-toml@1.5.2": 1.6.1
+  "srvx@>=0.8.0 <0.11.13": ^0.11.13
+  "svelte@>=5.0.0 <5.55.7": ^5.55.7
+  "svgo@>=3.0.0 <3.3.3": ^3.3.3
+  "tar-fs@>=2.0.0 <2.1.3": 2.1.3
+  "tar-fs@>=3.0.0 <3.0.9": 3.0.9
+  "tar@>=6.0.0 <7.5.7": ^7.5.10
+  "tar@>=7.5.7 <7.5.16": ^7.5.16
+  "trim@<0.0.3": ^0.0.3
+  "undici@5.28.4": ^6.24.0
+  "undici@>=5.29.0 <6.0.0": ^6.24.0
+  "undici@>=6.0.0 <6.27.0": ^6.27.0
+  "undici@>=7.0.0 <7.28.0": ^7.28.0
+  "validator@13.15.15": ^13.15.22
+  "vinxi@0.5.3": ^0.5.6
+  "webpack-dev-server@>=5.0.0 <5.2.5": ^5.2.5
+  "vite@5.4.14": ^5.4.19
+  "vite@>=6.0.0 <6.4.3": ^6.4.3
+  "vite@>=7.0.0 <7.3.5": ^7.3.5
+  "ws@>=7.0.0 <7.5.11": ^7.5.11
+  "ws@>=8.0.0 <8.21.0": ^8.21.0
+  "yaml@>=1.0.0 <1.10.3": ^1.10.3
+  "yaml@>=2.0.0 <2.8.3": ^2.8.3

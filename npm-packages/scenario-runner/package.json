@@ -9,6 +9,7 @@
   "bin": "dist/scenario-runner.mjs",
   "dependencies": {
     "@sentry/node": "^7.23.0",
+    "convex": "workspace:*",
     "@sentry/tracing": "^7.23.0",
     "random-words": "1.3.0",
     "langchain": "^0.3.37",
@@ -21,7 +22,6 @@
     "@types/react": "^18.0.0",
     "@types/ws": "^8.5.13",
     "commander": "^14.0.3",
-    "convex": "workspace:*",
     "esbuild": "0.27.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
