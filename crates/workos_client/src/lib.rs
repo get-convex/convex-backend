@@ -65,6 +65,26 @@ pub struct WorkOSUser {
     pub last_name: Option<String>,
 }
 
+/// WorkOS list endpoints wrap their results in a `data` array.
+#[derive(Debug, Deserialize)]
+struct WorkOSListResponse<T> {
+    data: Vec<T>,
+}
+
+/// Minimal projection of a WorkOS user when we only need its id (e.g. when
+/// looking a user up by email).
+#[derive(Debug, Deserialize)]
+struct WorkOSUserId {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkOSAuthFactor {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub factor_type: String,
+}
+
 const APPLICATION_JSON: http::HeaderValue = http::HeaderValue::from_static("application/json");
 
 // Timeout for external WorkOS API calls
@@ -295,6 +315,11 @@ pub enum WorkOSPortalIntent {
 pub trait WorkOSClient: Send + Sync {
     async fn fetch_identities(&self, user_id: &str) -> anyhow::Result<Vec<WorkOSIdentity>>;
     async fn fetch_user(&self, user_id: &str) -> anyhow::Result<WorkOSUser>;
+    /// Whether the WorkOS user with this email has any enrolled MFA factors.
+    async fn email_has_enrolled_mfa(&self, email: &str) -> anyhow::Result<bool>;
+    /// The id of the WorkOS user with this email, if one exists. Emails are
+    /// unique per environment, so at most one user is returned.
+    async fn find_user_id_by_email(&self, email: &str) -> anyhow::Result<Option<String>>;
     async fn delete_user(&self, user_id: &str) -> anyhow::Result<()>;
     async fn update_user_metadata(&self, user_id: &str, member_id: MemberId) -> anyhow::Result<()>;
 
@@ -415,6 +440,14 @@ where
         fetch_workos_user(&self.api_key, user_id, &*self.http_client).await
     }
 
+    async fn email_has_enrolled_mfa(&self, email: &str) -> anyhow::Result<bool> {
+        email_has_enrolled_mfa(&self.api_key, email, &*self.http_client).await
+    }
+
+    async fn find_user_id_by_email(&self, email: &str) -> anyhow::Result<Option<String>> {
+        find_workos_user_id_by_email(&self.api_key, email, &*self.http_client).await
+    }
+
     async fn delete_user(&self, user_id: &str) -> anyhow::Result<()> {
         delete_workos_user(&self.api_key, user_id, &*self.http_client).await
     }
@@ -533,6 +566,14 @@ impl WorkOSClient for MockWorkOSClient {
             first_name: Some("Test".to_string()),
             last_name: Some("User".to_string()),
         })
+    }
+
+    async fn email_has_enrolled_mfa(&self, _email: &str) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+
+    async fn find_user_id_by_email(&self, _email: &str) -> anyhow::Result<Option<String>> {
+        Ok(None)
     }
 
     async fn delete_user(&self, _user_id: &str) -> anyhow::Result<()> {
@@ -1142,6 +1183,117 @@ where
     })?;
 
     Ok(user)
+}
+
+/// Looks up the WorkOS user id for an email address, if a user with that email
+/// exists in the environment. Emails are unique per environment, so at most one
+/// user is returned.
+async fn find_workos_user_id_by_email<F, E>(
+    api_key: &str,
+    email: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Option<String>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let mut url = url::Url::parse("https://api.workos.com/user_management/users")
+        .context("Invalid WorkOS users URL")?;
+    url.query_pairs_mut().append_pair("email", email);
+
+    let request = http::Request::builder()
+        .uri(url.as_str())
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = http_client(request)
+        .await
+        .map_err(|e| anyhow::anyhow!("Could not list WorkOS users: {}", e))?;
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(WorkOSApiError::new("list users", status, &response_body));
+    }
+
+    let response_body = response.into_body();
+    let list: WorkOSListResponse<WorkOSUserId> = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS users response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(list.data.into_iter().next().map(|u| u.id))
+}
+
+/// Lists the MFA authentication factors enrolled for a WorkOS user.
+async fn list_workos_auth_factors<F, E>(
+    api_key: &str,
+    user_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<WorkOSAuthFactor>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!("https://api.workos.com/user_management/users/{user_id}/auth_factors");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = http_client(request)
+        .await
+        .map_err(|e| anyhow::anyhow!("Could not list WorkOS auth factors: {}", e))?;
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(WorkOSApiError::new(
+            "list auth factors",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let list: WorkOSListResponse<WorkOSAuthFactor> = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS auth factors response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(list.data)
+}
+
+/// Whether the WorkOS user with this email has any enrolled MFA factors.
+/// Returns `false` when no WorkOS user exists for the email (no user ⟹ no
+/// factors could have been enrolled).
+async fn email_has_enrolled_mfa<F, E>(
+    api_key: &str,
+    email: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<bool>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let Some(user_id) = find_workos_user_id_by_email(api_key, email, http_client).await? else {
+        return Ok(false);
+    };
+    let factors = list_workos_auth_factors(api_key, &user_id, http_client).await?;
+    Ok(!factors.is_empty())
 }
 
 pub async fn delete_workos_user<F, E>(
