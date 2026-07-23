@@ -199,6 +199,14 @@ export const DEPLOYMENT_CLASS_CATEGORIES: Record<
   ]),
 );
 
+export const DEPLOYMENT_STATUS_CATEGORIES: Record<
+  string,
+  { name: string; color: string }
+> = {
+  active: { name: "Active", color: "fill-chart-line-1" },
+  paused: { name: "Paused", color: "fill-chart-line-4" },
+};
+
 export const CATEGORY_RENAMES = {
   uncached_query: "query",
   cached_query: "query",

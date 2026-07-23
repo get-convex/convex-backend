@@ -37,6 +37,7 @@ import {
   DATABASE_IO_CATEGORIES,
   COMPUTE_CATEGORIES,
   DEPLOYMENT_CLASS_CATEGORIES,
+  DEPLOYMENT_STATUS_CATEGORIES,
 } from "./lib/teamUsageCategories";
 import {
   FunctionBreakdownMetric,
@@ -61,11 +62,13 @@ import {
   GroupBy,
   BusinessGroupBy,
   BusinessDatabaseGroupBy,
+  DeploymentGroupBy,
   GroupBySelector,
   GROUP_BY_OPTIONS,
   DATABASE_GROUP_BY_OPTIONS,
   BUSINESS_GROUP_BY_OPTIONS,
   BUSINESS_DATABASE_GROUP_BY_OPTIONS,
+  DEPLOYMENT_GROUP_BY_OPTIONS,
 } from "./GroupBySelector";
 import { ProjectLink } from "./ProjectLink";
 import {
@@ -86,6 +89,7 @@ import {
   useUsageTeamDocumentsPerDayByProject,
   useUsageTeamDeploymentCountPerDayByProject,
   useUsageTeamDeploymentCountByType,
+  useUsageTeamDeploymentCountByStatus,
   DailyMetric,
   DailyMetricByProject,
   DailyPerTagMetrics,
@@ -569,15 +573,18 @@ function DeploymentCountUsage({
   projectId,
   componentPrefix,
 }: DetailSectionProps) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<BusinessGroupBy>(
-    "usageViewMode_businessDeploymentCount",
-    "byType",
-  );
-  // The by-deployment-class data is only available team-wide, so it isn't a
-  // valid view when filtered to a single project — fall back to by-type.
-  const classDisabled = projectId !== null;
+  const [storedViewMode, setViewMode] =
+    useGlobalLocalStorage<DeploymentGroupBy>(
+      "usageViewMode_businessDeploymentCount",
+      "byType",
+    );
+  // The by-deployment-class and by-status data are only available team-wide, so
+  // they aren't valid views when filtered to a single project — fall back to
+  // by-type.
+  const teamWideDisabled = projectId !== null;
   const viewMode =
-    classDisabled && storedViewMode === "byDeploymentClass"
+    teamWideDisabled &&
+    (storedViewMode === "byDeploymentClass" || storedViewMode === "byStatus")
       ? "byType"
       : storedViewMode;
 
@@ -585,6 +592,9 @@ function DeploymentCountUsage({
 
   const { data: deploymentsByClassAndRegion, error: deploymentsByClassError } =
     useDeploymentsByClassAndRegion(team.id, dateRange);
+
+  const { data: deploymentCountByStatus, error: deploymentCountByStatusError } =
+    useUsageTeamDeploymentCountByStatus(team.id, dateRange);
 
   const { data: deploymentCountByType, error: deploymentCountByTypeError } =
     useUsageTeamDeploymentCountByType(
@@ -660,12 +670,14 @@ function DeploymentCountUsage({
           <GroupBySelector
             value={viewMode}
             onChange={setViewMode}
-            options={BUSINESS_GROUP_BY_OPTIONS}
+            options={DEPLOYMENT_GROUP_BY_OPTIONS}
             disabledOptions={
-              classDisabled
+              teamWideDisabled
                 ? {
                     byDeploymentClass:
                       "Deployment class breakdown isn't available when filtered to a single project.",
+                    byStatus:
+                      "Status breakdown isn't available when filtered to a single project.",
                   }
                 : undefined
             }
@@ -697,6 +709,20 @@ function DeploymentCountUsage({
             <UsageByProjectChart
               rows={deploymentCountDailyByProject}
               team={team}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              isGauge
+            />
+          )
+        ) : viewMode === "byStatus" ? (
+          deploymentCountByStatusError ? (
+            <UsageDataError entity="Deployments" />
+          ) : deploymentCountByStatus === undefined ? (
+            <ChartLoading />
+          ) : (
+            <UsageStackedBarChart
+              rows={deploymentCountByStatus}
+              categories={DEPLOYMENT_STATUS_CATEGORIES}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
               isGauge
