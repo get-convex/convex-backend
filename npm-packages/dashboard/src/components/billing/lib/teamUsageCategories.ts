@@ -204,6 +204,7 @@ export const DEPLOYMENT_STATUS_CATEGORIES: Record<
   { name: string; color: string }
 > = {
   active: { name: "Active", color: "fill-chart-line-1" },
+  idle: { name: "Idle", color: "fill-chart-line-8" },
   paused: { name: "Paused", color: "fill-chart-line-4" },
 };
 

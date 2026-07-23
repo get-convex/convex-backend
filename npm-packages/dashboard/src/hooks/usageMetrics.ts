@@ -65,6 +65,7 @@ export type UsageSummaryRow = {
   // Current deployment count gauge (team-wide; not filtered by project/component).
   deploymentCount: number;
   pausedDeploymentCount: number;
+  idleDeploymentCount: number;
 };
 
 export interface AggregatedFunctionMetrics {
@@ -178,6 +179,7 @@ export function useUsageTeamSummary(
         actionComputeUser,
         deploymentCount,
         pausedDeploymentCount,
+        idleDeploymentCount,
       ]) =>
         ({
           deploymentClass,
@@ -195,6 +197,7 @@ export function useUsageTeamSummary(
           actionComputeUser: Number(actionComputeUser) / 60 / 60,
           deploymentCount: Number(deploymentCount),
           pausedDeploymentCount: Number(pausedDeploymentCount),
+          idleDeploymentCount: Number(idleDeploymentCount),
         }) satisfies UsageSummaryRow,
     ),
     error: undefined,
@@ -839,9 +842,9 @@ export function useUsageTeamDeploymentCountByType(
   };
 }
 
-// Active vs. paused deployment counts per day. "Active" is the count of
-// deployments that are not paused (total - paused); "paused" reflects
-// user-paused deployments recorded in the daily gauge.
+// Active vs. idle vs. paused deployment counts per day. The three are mutually
+// exclusive: "paused" and "idle" come from the daily gauge, and "active" is the
+// remainder (total - paused - idle).
 export function useUsageTeamDeploymentCountByStatus(
   teamId: number,
   period: DateRange | null,
@@ -861,10 +864,11 @@ export function useUsageTeamDeploymentCountByStatus(
   }
 
   return {
-    data: data?.map(([_teamId, ds, active, paused]) => ({
+    data: data?.map(([_teamId, ds, active, paused, idle]) => ({
       ds,
       metrics: [
         { tag: "active", value: Number(active) },
+        { tag: "idle", value: Number(idle) },
         { tag: "paused", value: Number(paused) },
       ],
     })),

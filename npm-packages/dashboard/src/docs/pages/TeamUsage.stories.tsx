@@ -66,6 +66,7 @@ const meta = {
           actionComputeUser: 30,
           deploymentCount: 3,
           pausedDeploymentCount: 1,
+          idleDeploymentCount: 1,
         },
       ],
       error: undefined,

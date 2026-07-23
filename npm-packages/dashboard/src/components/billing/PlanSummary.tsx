@@ -216,6 +216,9 @@ export function BusinessPlanSummary({
   const pausedDeploymentCount = summary
     ? summary.reduce((sum, row) => sum + row.pausedDeploymentCount, 0)
     : undefined;
+  const idleDeploymentCount = summary
+    ? summary.reduce((sum, row) => sum + row.idleDeploymentCount, 0)
+    : undefined;
 
   // Aggregate usage rows by summing each metric in activeSections.
   const aggregateRows = (rows: UsageSummaryRow[]) =>
@@ -431,14 +434,21 @@ export function BusinessPlanSummary({
                     )}
                     {section.metric === "deploymentCount" &&
                       isBusinessPlan &&
-                      pausedDeploymentCount !== undefined && (
+                      pausedDeploymentCount !== undefined &&
+                      idleDeploymentCount !== undefined && (
                         <span className="text-content-secondary">
                           {" "}
                           (
                           {formatNumberCompact(
-                            Math.max(displayedUsage - pausedDeploymentCount, 0),
+                            Math.max(
+                              displayedUsage -
+                                pausedDeploymentCount -
+                                idleDeploymentCount,
+                              0,
+                            ),
                           )}{" "}
-                          active · {formatNumberCompact(pausedDeploymentCount)}{" "}
+                          active · {formatNumberCompact(idleDeploymentCount)}{" "}
+                          idle · {formatNumberCompact(pausedDeploymentCount)}{" "}
                           paused)
                         </span>
                       )}

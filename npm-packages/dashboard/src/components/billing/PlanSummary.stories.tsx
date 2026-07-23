@@ -31,6 +31,7 @@ export const Primary: Story = {
         searchQueries: 0,
         deploymentCount: 10,
         pausedDeploymentCount: 2,
+        idleDeploymentCount: 3,
       },
       {
         deploymentClass: "s16",
@@ -48,6 +49,7 @@ export const Primary: Story = {
         searchQueries: 0,
         deploymentCount: 2,
         pausedDeploymentCount: 0,
+        idleDeploymentCount: 1,
       },
     ],
     entitlements: {
