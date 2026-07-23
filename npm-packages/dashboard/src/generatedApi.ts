@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profile/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_mfa_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/delete_account": {
         parameters: {
             query?: never;
@@ -2095,6 +2111,9 @@ export interface components {
             email: string;
             name?: string | null;
         };
+        MfaStatusResponse: {
+            enabled: boolean;
+        };
         OauthAppResponse: {
             clientId: string;
             appName: components["schemas"]["AppName"];
@@ -2683,6 +2702,7 @@ export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type MemberResponse = components['schemas']['MemberResponse'];
+export type MfaStatusResponse = components['schemas']['MfaStatusResponse'];
 export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
@@ -2943,6 +2963,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_mfa_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaStatusResponse"];
+                };
             };
         };
     };

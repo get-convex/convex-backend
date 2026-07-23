@@ -185,6 +185,23 @@
         }
       }
     },
+    "/profile/mfa": {
+      "get": {
+        "operationId": "get_mfa_status",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/delete_account": {
       "post": {
         "operationId": "delete_account",
@@ -4674,6 +4691,17 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "MfaStatusResponse": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
           }
         }
       },
