@@ -28,6 +28,12 @@ import { Long } from "../../vendor/long.js";
 
 type QueryPageKey = number;
 
+type PageSubscription = {
+  queryToken: QueryToken;
+  unsubscribe: () => void;
+  startCursor: string | null;
+};
+
 /**
  * Represents a paginated query subscription with multiple pages.
  *
@@ -44,10 +50,7 @@ type LocalPaginatedQuery = {
   nextPageKey: QueryPageKey;
   pageKeys: QueryPageKey[]; // These pages make up the active page queries.
   // Map page keys to their query subscriptions
-  pageKeyToQuery: Map<
-    QueryPageKey,
-    { queryToken: QueryToken; unsubscribe: () => void }
-  >;
+  pageKeyToQuery: Map<QueryPageKey, PageSubscription>;
   ongoingSplits: Map<QueryPageKey, [QueryPageKey, QueryPageKey]>;
   skip: boolean;
 
@@ -423,6 +426,8 @@ export class PaginatedQueryClient {
   ): void {
     const splitKey1 = paginatedQuery.nextPageKey++;
     const splitKey2 = paginatedQuery.nextPageKey++;
+    const originalStartCursor =
+      paginatedQuery.pageKeyToQuery.get(pageKey)!.startCursor;
 
     const paginationOpts: Value = {
       cursor: continueCursor,
@@ -437,12 +442,15 @@ export class PaginatedQueryClient {
         ...paginatedQuery.args,
         paginationOpts: {
           ...paginationOpts,
-          cursor: null, // Start from beginning for first split
+          cursor: originalStartCursor,
           endCursor: splitCursor,
         },
       },
     );
-    paginatedQuery.pageKeyToQuery.set(splitKey1, firstSubscription);
+    paginatedQuery.pageKeyToQuery.set(splitKey1, {
+      ...firstSubscription,
+      startCursor: originalStartCursor,
+    });
 
     // Second split page: cursor starts at splitCursor, endCursor is the original continueCursor
     const secondSubscription = this.client.subscribe(
@@ -456,7 +464,10 @@ export class PaginatedQueryClient {
         },
       },
     );
-    paginatedQuery.pageKeyToQuery.set(splitKey2, secondSubscription);
+    paginatedQuery.pageKeyToQuery.set(splitKey2, {
+      ...secondSubscription,
+      startCursor: splitCursor,
+    });
 
     paginatedQuery.ongoingSplits.set(pageKey, [splitKey1, splitKey2]);
   }
@@ -489,7 +500,10 @@ export class PaginatedQueryClient {
     );
 
     paginatedQuery.pageKeys.push(pageKey);
-    paginatedQuery.pageKeyToQuery.set(pageKey, subscription);
+    paginatedQuery.pageKeyToQuery.set(pageKey, {
+      ...subscription,
+      startCursor: continueCursor,
+    });
     return subscription;
   }
 
