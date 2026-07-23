@@ -27,6 +27,7 @@ import {
 } from "./ast/types";
 import { walkAst, WalkAstOptions } from "./ast/walkAst";
 import { registerIdCommands, useIdDecorations } from "./useIdDecorations";
+import { PlainObjectEditor } from "./PlainObjectEditor";
 
 export type ObjectEditorProps = {
   defaultValue?: Value;
@@ -57,12 +58,60 @@ export type ObjectEditorProps = {
   size?: "sm" | "md";
   disabled?: boolean;
   fixedOverflowWidgets?: boolean;
+  placeholder?: string;
+  "aria-label"?: string;
 } & WalkAstOptions;
 
 // Special case -- empty documents should be formatted to include space to entry a new field right away.
 const emptyObject = "{\n\n}";
 
 export function ObjectEditor(props: ObjectEditorProps) {
+  const isTouch = useIsTouchDevice();
+  const valueRef = useRef(props.defaultValue);
+  const onChangeRef = useRef(props.onChange);
+  onChangeRef.current = props.onChange;
+  const handleChange = useCallback((v?: Value) => {
+    valueRef.current = v;
+    onChangeRef.current(v);
+  }, []);
+
+  if (isTouch) {
+    return (
+      <PlainObjectEditor
+        defaultValue={valueRef.current}
+        onChange={handleChange}
+        onError={props.onError}
+        onChangeInnerText={props.onChangeInnerText}
+        mode={props.mode}
+        validator={props.validator}
+        allowTopLevelUndefined={
+          "allowTopLevelUndefined" in props
+            ? !!props.allowTopLevelUndefined
+            : undefined
+        }
+        shouldSurfaceValidatorErrors={props.shouldSurfaceValidatorErrors}
+        disabled={props.disabled}
+        autoFocus={props.autoFocus}
+        fullHeight={props.fullHeight}
+        saveAction={props.saveAction}
+        enterSaves={props.enterSaves}
+        placeholder={props.placeholder}
+        className={cn(props.className, props.editorClassname)}
+        aria-label={props["aria-label"]}
+      />
+    );
+  }
+
+  return (
+    <ObjectEditorImpl
+      {...props}
+      defaultValue={valueRef.current}
+      onChange={handleChange}
+    />
+  );
+}
+
+function ObjectEditorImpl(props: ObjectEditorProps) {
   const {
     className,
     editorClassname,
@@ -87,6 +136,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
     size = "md",
     disabled = false,
     fixedOverflowWidgets = true,
+    placeholder,
   } = props;
 
   const indentTopLevel = mode === "addDocuments" || mode === "editDocument";
@@ -144,6 +194,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
   const [numLines, setNumLines] = useState(
     numLinesFromCode(defaultValueString),
   );
+  const [isEmpty, setIsEmpty] = useState(defaultValueString === "");
   const editorLineHeightRem = (size === "sm" ? 13 : 18) / 16;
   const editorHeight = `${Math.min(Math.max(numLines, 2), 15) * editorLineHeightRem}rem`;
 
@@ -153,6 +204,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
       onChangeInnerText?.(code ?? "");
 
       setNumLines(code ? numLinesFromCode(code) : 1);
+      setIsEmpty(!code);
       handleCodeChange(
         code,
         mode,
@@ -203,6 +255,18 @@ export function ObjectEditor(props: ObjectEditorProps) {
     >
       {disabled && (
         <div className="absolute z-10 size-full cursor-not-allowed bg-background-tertiary/20" />
+      )}
+      {placeholder && isEmpty && !disabled && (
+        <div
+          className="pointer-events-none absolute z-10 font-mono text-content-secondary italic"
+          style={{
+            marginTop: 5,
+            marginLeft: 11,
+            fontSize: size === "sm" ? 12 : undefined,
+          }}
+        >
+          {placeholder}
+        </div>
       )}
       <Editor
         height="100%"
@@ -427,7 +491,7 @@ function handleCodeChange(
   }
 }
 
-function processCode(
+export function processCode(
   code: string | undefined,
   mode: "editField" | "addDocuments" | "editDocument" | "patchDocuments",
   validator: ValidatorJSON | undefined,
@@ -543,4 +607,29 @@ function moveFocus(forward = true) {
   if (nextElement && nextElement instanceof HTMLElement) {
     nextElement.focus();
   }
+}
+
+const TOUCH_DEVICE_QUERY = "(pointer: coarse) and (hover: none)";
+
+function useIsTouchDevice() {
+  const [isTouch, setIsTouch] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(TOUCH_DEVICE_QUERY).matches,
+  );
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return undefined;
+    }
+    const mediaQuery = window.matchMedia(TOUCH_DEVICE_QUERY);
+    setIsTouch(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+  return isTouch;
 }
