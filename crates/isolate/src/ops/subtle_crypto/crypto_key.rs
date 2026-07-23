@@ -9,6 +9,7 @@ use super::{
     aes,
     ec,
     ed25519,
+    hkdf,
     hmac,
     pbkdf2,
     rsa,
@@ -36,6 +37,10 @@ pub(super) enum CryptoKeyKind {
     Pbkdf2 {
         algorithm: pbkdf2::Pbkdf2Algorithm,
         key: pbkdf2::Pbkdf2Key,
+    },
+    Hkdf {
+        algorithm: hkdf::HkdfAlgorithm,
+        key: hkdf::HkdfKey,
     },
     Hmac {
         algorithm: hmac::HmacKeyAlgorithm,
@@ -180,6 +185,7 @@ impl ToV8 for CryptoKey {
         // looks ugly when inspected.
         let algorithm = match &self.kind {
             CryptoKeyKind::Pbkdf2 { algorithm, .. } => algorithm.to_v8(scope)?,
+            CryptoKeyKind::Hkdf { algorithm, .. } => algorithm.to_v8(scope)?,
             CryptoKeyKind::Hmac { algorithm, .. } => algorithm.to_v8(scope)?,
             CryptoKeyKind::Aes { algorithm, .. } => algorithm.to_v8(scope)?,
             CryptoKeyKind::RsaPrivate { algorithm, .. } => algorithm.to_v8(scope)?,

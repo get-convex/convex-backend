@@ -32,6 +32,7 @@ mod serde_helpers;
 mod aes;
 mod ec;
 mod ed25519;
+mod hkdf;
 mod hmac;
 mod pbkdf2;
 mod rsa;
@@ -273,7 +274,7 @@ pub(crate) fn op_crypto_subtle_import_key<'b, P: OpProvider<'b>>(
         },
         ImportKeyAlgorithm::AesKw => unimplemented(provider, "importKey", "AES-KW")?,
         ImportKeyAlgorithm::Pbkdf2 => pbkdf2::import_key(input, extractable, key_usages)?,
-        ImportKeyAlgorithm::Hkdf => unimplemented(provider, "importKey", "HKDF")?,
+        ImportKeyAlgorithm::Hkdf => hkdf::import_key(input, extractable, key_usages)?,
         ImportKeyAlgorithm::Ed25519 => ed25519::import_key(input, extractable, key_usages)?,
         ImportKeyAlgorithm::X25519 => x25519::import_key(input, extractable, key_usages)?,
     };
@@ -284,7 +285,7 @@ pub(crate) fn op_crypto_subtle_import_key<'b, P: OpProvider<'b>>(
 enum KeyDeriveParams {
     Pbkdf2(pbkdf2::Pbkdf2Params),
     Ecdh(ec::EcdhKeyDeriveParams),
-    Hkdf,   // TODO
+    Hkdf(hkdf::HkdfParams),
     X25519, // TODO
 }
 impl FromV8 for KeyDeriveParams {
@@ -297,7 +298,7 @@ impl FromV8 for KeyDeriveParams {
         match get_name(scope, input)?.as_str() {
             "pbkdf2" => Ok(Self::Pbkdf2(pbkdf2::Pbkdf2Params::from_v8(scope, input)?)),
             "ecdh" => Ok(Self::Ecdh(ec::EcdhKeyDeriveParams::from_v8(scope, input)?)),
-            "hkdf" => Ok(Self::Hkdf),
+            "hkdf" => Ok(Self::Hkdf(hkdf::HkdfParams::from_v8(scope, input)?)),
             "x25519" => Ok(Self::X25519),
             _ => anyhow::bail!(DOMException::new(
                 "invalid algorithm for key".to_string(),
@@ -330,7 +331,7 @@ fn derive_bits_inner<'b, P: OpProvider<'b>>(
     match algorithm {
         KeyDeriveParams::Pbkdf2(algorithm) => pbkdf2::derive_bits(algorithm, key, length),
         KeyDeriveParams::Ecdh(params) => ec::derive_bits(params, key, length),
-        KeyDeriveParams::Hkdf => unimplemented(provider, operation, "HKDF")?,
+        KeyDeriveParams::Hkdf(params) => hkdf::derive_bits(params, key, length),
         KeyDeriveParams::X25519 => unimplemented(provider, operation, "X25519")?,
     }
 }
@@ -488,6 +489,12 @@ pub(crate) fn op_crypto_subtle_export_key<'b, P: OpProvider<'b>>(
         CryptoKeyKind::Pbkdf2 { .. } => {
             anyhow::bail!(DOMException::new(
                 "PBKDF2 keys are not exportable",
+                DOMExceptionName::NotSupportedError
+            ))
+        },
+        CryptoKeyKind::Hkdf { .. } => {
+            anyhow::bail!(DOMException::new(
+                "HKDF keys are not exportable",
                 DOMExceptionName::NotSupportedError
             ))
         },
