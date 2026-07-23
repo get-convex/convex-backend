@@ -1852,6 +1852,7 @@
       },
       "DataSyncSnapshotting": {
         "type": "object",
+        "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`. Syncs may return to this state if the table\nselection has changes that requires large data sync.",
         "required": [
           "type"
         ],
@@ -1872,6 +1873,7 @@
       },
       "DataSyncStale": {
         "type": "object",
+        "description": "The entries emitted so far represent a consistent snapshot at\na stale `snapshotTs`.",
         "required": [
           "type",
           "snapshotTs"
@@ -1899,16 +1901,13 @@
       "DataSyncStatus": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/DataSyncSnapshotting",
-            "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`. Syncs may return to this state if the table\nselection has changes that requires large data sync."
+            "$ref": "#/components/schemas/DataSyncSnapshotting"
           },
           {
-            "$ref": "#/components/schemas/DataSyncStale",
-            "description": "The entries emitted so far represent a consistent snapshot at\na stale `snapshotTs`."
+            "$ref": "#/components/schemas/DataSyncStale"
           },
           {
-            "$ref": "#/components/schemas/DataSyncUpToDate",
-            "description": "The sync is up to date and represents a latest consistent snapshot.\nFor a streaming export in this state, it is recommended to backoff for\nsome time, wait for more data, and then continue the streaming sync."
+            "$ref": "#/components/schemas/DataSyncUpToDate"
           }
         ],
         "description": "The consistency state reported alongside a data sync page, discriminated\nby `type`.",
@@ -1941,6 +1940,7 @@
       },
       "DataSyncUpToDate": {
         "type": "object",
+        "description": "The sync is up to date and represents a latest consistent snapshot.\nFor a streaming export in this state, it is recommended to backoff for\nsome time, wait for more data, and then continue the streaming sync.",
         "required": [
           "type",
           "snapshotTs"

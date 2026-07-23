@@ -251,22 +251,17 @@ pub enum UpToDateTag {
     )
 ))]
 pub enum DataSyncStatus {
-    /// The sync has not yet reached a consistent snapshot. The entries emitted
-    /// so far are an incomplete initial traversal of the selected tables.
-    /// Syncs begin in this state. The sync's
-    /// progress can be monitored via `/data/list_active_syncs`, keyed by the
-    /// response's `syncId`. Syncs may return to this state if the table
-    /// selection has changes that requires large data sync.
     Snapshotting(DataSyncSnapshotting),
-    /// The entries emitted so far represent a consistent snapshot at
-    /// a stale `snapshotTs`.
     Stale(DataSyncStale),
-    /// The sync is up to date and represents a latest consistent snapshot.
-    /// For a streaming export in this state, it is recommended to backoff for
-    /// some time, wait for more data, and then continue the streaming sync.
     UpToDate(DataSyncUpToDate),
 }
 
+/// The sync has not yet reached a consistent snapshot. The entries emitted
+/// so far are an incomplete initial traversal of the selected tables.
+/// Syncs begin in this state. The sync's
+/// progress can be monitored via `/data/list_active_syncs`, keyed by the
+/// response's `syncId`. Syncs may return to this state if the table
+/// selection has changes that requires large data sync.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncSnapshotting {
@@ -276,6 +271,8 @@ pub struct DataSyncSnapshotting {
     pub status_type: SnapshottingTag,
 }
 
+/// The entries emitted so far represent a consistent snapshot at
+/// a stale `snapshotTs`.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncStale {
@@ -287,6 +284,9 @@ pub struct DataSyncStale {
     pub snapshot_ts: i64,
 }
 
+/// The sync is up to date and represents a latest consistent snapshot.
+/// For a streaming export in this state, it is recommended to backoff for
+/// some time, wait for more data, and then continue the streaming sync.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncUpToDate {
