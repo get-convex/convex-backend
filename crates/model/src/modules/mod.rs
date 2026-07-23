@@ -29,7 +29,6 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use metrics::get_module_metadata_timer;
 use sync_types::CanonicalizedModulePath;
 use value::{
     sha256::{
@@ -70,7 +69,6 @@ use crate::{
 };
 
 pub mod function_validators;
-mod metrics;
 pub mod module_versions;
 pub mod types;
 pub mod user_error;
@@ -269,18 +267,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<Arc<ParsedDocument<ModuleMetadata>>>> {
-        let timer = get_module_metadata_timer();
-
         let is_system = path.module_path.is_system();
         if is_system && !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("get_module"))
         }
-        let module_metadata = match self.module_metadata(path).await? {
-            Some(r) => r,
-            None => return Ok(None),
-        };
-        timer.finish();
-        Ok(Some(module_metadata))
+        self.module_metadata(path).await
     }
 
     /// Put a module's source at a given path.
