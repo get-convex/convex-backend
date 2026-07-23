@@ -55,7 +55,7 @@ export function TeamSettingsLayout({
           <aside
             className={classNames(
               "flex sm:flex-col gap-1",
-              "min-w-40 sm:w-fit",
+              "min-w-40 sm:w-60",
               "h-fit sm:h-auto sm:min-h-fit",
               "px-3 py-2",
               "overflow-x-auto scrollbar-none",
