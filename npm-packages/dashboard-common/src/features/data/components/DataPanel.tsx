@@ -8,6 +8,12 @@ import { useIsNarrowScreen } from "@ui/useIsNarrowScreen";
 export interface DataPanelProps {
   title: ReactNode;
   onClose: () => void;
+  // Runs before the panel closes; return false to veto (used to confirm
+  // discarding unsaved edits). On narrow screens the panel is a Modal whose
+  // close is animation-driven, so the veto has to happen on the close request
+  // rather than after teardown — passing the confirm as onClose would let the
+  // modal animate shut before the user can cancel.
+  onBeforeClose?: () => boolean;
   children: ReactNode;
   // When rendered as a modal on narrow screens, fill most of the viewport
   // height instead of sizing to the content. Used by panels whose contents
@@ -20,6 +26,7 @@ export interface DataPanelProps {
 export function DataPanel({
   title,
   onClose,
+  onBeforeClose,
   children,
   fillHeight = false,
   ...props
@@ -31,7 +38,13 @@ export function DataPanel({
 
   if (isNarrow) {
     return (
-      <Modal onClose={onClose} title={title} size="lg" contentClassName="mx-0">
+      <Modal
+        onClose={onClose}
+        onBeforeClose={onBeforeClose}
+        title={title}
+        size="lg"
+        contentClassName="mx-0"
+      >
         <div
           {...props}
           className={fillHeight ? "flex h-[70dvh] flex-col" : undefined}
@@ -57,7 +70,14 @@ export function DataPanel({
             <div className="mb-1 px-4 pt-6 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-4 gap-y-2">
                 <h4 className="flex-1 wrap-break-word">{title}</h4>
-                <ClosePanelButton onClose={onClose} className="ml-auto" />
+                <ClosePanelButton
+                  onClose={() => {
+                    if (!onBeforeClose || onBeforeClose()) {
+                      onClose();
+                    }
+                  }}
+                  className="ml-auto"
+                />
               </div>
             </div>
             <div className="flex grow flex-col overflow-y-auto">{children}</div>

@@ -25,17 +25,17 @@ export function EditFieldsPanel({
   const [fields, setFields] = useState(() => [{}]);
   const isDirty = !isEqual(fields, [{}]);
 
-  const closeWithConfirmation = () => {
+  const confirmClose = () => {
     if (isDirty) {
       const shouldClose = window.confirm(
         `You have unsaved changes.
 Press "Cancel" to return to the editor, or "OK" to discard unsaved changes.`,
       );
       if (!shouldClose) {
-        return;
+        return false;
       }
     }
-    onClose();
+    return true;
   };
 
   return (
@@ -43,7 +43,8 @@ Press "Cancel" to return to the editor, or "OK" to discard unsaved changes.`,
       data-testid="editFieldsPanel"
       fillHeight
       title={`Bulk edit ${documentsLabel(numRowsSelected, allRowsSelected)} in ${tableName}`}
-      onClose={closeWithConfirmation}
+      onClose={onClose}
+      onBeforeClose={confirmClose}
     >
       <div className="mb-2 px-4 text-xs text-content-primary sm:px-6">
         <p>You can:</p>

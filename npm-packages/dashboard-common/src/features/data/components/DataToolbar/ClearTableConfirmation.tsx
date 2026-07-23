@@ -32,16 +32,16 @@ export function ClearTableConfirmation({
     ? Math.min(100, Math.floor((numDeleted / initialNumRows) * 100))
     : 0;
 
-  const closeWithConfirmation = () => {
+  const confirmClose = () => {
     if (isClearing) {
       const shouldClose = window.confirm(
         "Closing the popup will cancel the clear table operation with the table partially cleared. Are you sure you want to continue?",
       );
       if (!shouldClose) {
-        return;
+        return false;
       }
     }
-    closePopup();
+    return true;
   };
 
   const isMounted = useMountedState();
@@ -50,7 +50,8 @@ export function ClearTableConfirmation({
 
   return (
     <ConfirmationDialog
-      onClose={closeWithConfirmation}
+      onClose={closePopup}
+      onBeforeClose={confirmClose}
       onConfirm={async () => {
         setInitialNumRows(numRows);
         setIsClearing(true);

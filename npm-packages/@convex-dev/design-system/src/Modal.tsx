@@ -13,6 +13,12 @@ import { cn } from "@ui/cn";
 
 type ModalProps = {
   onClose: () => void;
+  // Runs on a close request (Escape, overlay click, or close button) before the
+  // exit animation starts. Return false to veto the close, e.g. to keep the
+  // modal open after the user cancels a "discard unsaved changes?" prompt. The
+  // veto must happen here rather than in onClose because onClose only fires
+  // after the modal has already animated shut.
+  onBeforeClose?: () => boolean;
   title: string | ReactNode;
   description?: string | ReactNode;
   children: ReactNode;
@@ -22,6 +28,7 @@ type ModalProps = {
 
 export function Modal({
   onClose,
+  onBeforeClose,
   title,
   description,
   children,
@@ -30,8 +37,11 @@ export function Modal({
 }: ModalProps) {
   const [open, setOpen] = useState(true);
   const handleClose = useCallback(() => {
+    if (onBeforeClose && !onBeforeClose()) {
+      return;
+    }
     setOpen(false);
-  }, [setOpen]);
+  }, [onBeforeClose]);
 
   return (
     <Transition show={open} appear afterLeave={onClose}>
