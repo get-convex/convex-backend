@@ -8,6 +8,7 @@ use std::{
     },
     ops::Deref,
     str::FromStr,
+    sync::Arc,
 };
 
 use metrics::StaticMetricLabel;
@@ -100,7 +101,7 @@ pub enum IdentityCacheKey {
     System,
     /// Unknown.
     Unknown(Option<String>),
-    User(UserIdentityAttributes),
+    User(Arc<UserIdentityAttributes>),
 }
 
 impl HeapSize for IdentityCacheKey {

@@ -3152,7 +3152,7 @@ impl<RT: Runtime> Application<RT> {
                                 "Admin identity returned from check_admin_key was not an admin."
                             );
                         };
-                        Identity::ActingUser(i, acting_user)
+                        Identity::ActingUser(i, acting_user.into())
                     },
                     None => admin_identity,
                 }

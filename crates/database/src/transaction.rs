@@ -320,9 +320,9 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub fn user_identity(&self) -> Option<UserIdentityAttributes> {
-        match self.identity.clone() {
-            Identity::User(identity) => Some(identity.attributes),
-            Identity::ActingUser(_, identity) => Some(identity),
+        match &self.identity {
+            Identity::User(identity) => Some((*identity.attributes).clone()),
+            Identity::ActingUser(_, identity) => Some((**identity).clone()),
             _ => None,
         }
     }
