@@ -97,6 +97,10 @@ import {
   DailyPerTagMetricsByProjectAndClass,
 } from "hooks/usageMetrics";
 
+// Status breakdown data only exists starting on this date. Earlier days are
+// rendered as empty bars, never with real (nonexistent) values.
+const DEPLOYMENT_STATUS_DATA_START = "2026-07-23";
+
 const FUNCTION_BREAKDOWN_TABS_ = [
   FunctionBreakdownMetricCalls,
   FunctionBreakdownMetricDatabaseIO,
@@ -353,6 +357,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                     dateRange={dateRange}
                     projectId={projectId}
                     componentPrefix={componentPrefix}
+                    shownBillingPeriod={shownBillingPeriod}
                   />
                 )}
 
@@ -546,7 +551,8 @@ function DeploymentCountUsage({
   dateRange,
   projectId,
   componentPrefix,
-}: DetailSectionProps) {
+  shownBillingPeriod,
+}: DetailSectionProps & { shownBillingPeriod: Period }) {
   const [storedViewMode, setViewMode] =
     useGlobalLocalStorage<DeploymentGroupBy>(
       "usageViewMode_businessDeploymentCount",
@@ -567,8 +573,48 @@ function DeploymentCountUsage({
   const { data: deploymentsByClassAndRegion, error: deploymentsByClassError } =
     useDeploymentsByClassAndRegion(team.id, dateRange);
 
-  const { data: deploymentCountByStatus, error: deploymentCountByStatusError } =
-    useUsageTeamDeploymentCountByStatus(team.id, dateRange);
+  const {
+    data: rawDeploymentCountByStatus,
+    error: deploymentCountByStatusError,
+  } = useUsageTeamDeploymentCountByStatus(team.id, dateRange);
+  // Status data doesn't exist before DEPLOYMENT_STATUS_DATA_START, so drop any
+  // earlier rows the query returns.
+  const deploymentCountByStatus = useMemo(
+    () =>
+      rawDeploymentCountByStatus?.filter(
+        (row) => row.ds >= DEPLOYMENT_STATUS_DATA_START,
+      ),
+    [rawDeploymentCountByStatus],
+  );
+  const statusRangeBeforeCutoff =
+    shownBillingPeriod.from < DEPLOYMENT_STATUS_DATA_START;
+  // Anchor the x-axis at the start of the viewed period with an empty day so
+  // the status chart spans the same range as the other deployment views; the
+  // chart gap-fills the pre-cutoff days as empty bars, avoiding the axis (and
+  // bar widths) shifting when toggling to the status breakdown.
+  const deploymentCountByStatusChartRows = useMemo(() => {
+    if (
+      deploymentCountByStatus === undefined ||
+      deploymentCountByStatus.length === 0 ||
+      !statusRangeBeforeCutoff
+    ) {
+      return deploymentCountByStatus;
+    }
+    return [
+      {
+        ds: shownBillingPeriod.from,
+        metrics: [
+          { tag: "active", value: 0 },
+          { tag: "paused", value: 0 },
+        ],
+      },
+      ...deploymentCountByStatus,
+    ];
+  }, [
+    deploymentCountByStatus,
+    statusRangeBeforeCutoff,
+    shownBillingPeriod.from,
+  ]);
 
   const { data: deploymentCountByType, error: deploymentCountByTypeError } =
     useUsageTeamDeploymentCountByType(
@@ -694,13 +740,30 @@ function DeploymentCountUsage({
           ) : deploymentCountByStatus === undefined ? (
             <ChartLoading />
           ) : (
-            <UsageStackedBarChart
-              rows={deploymentCountByStatus}
-              categories={DEPLOYMENT_STATUS_CATEGORIES}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              isGauge
-            />
+            <div className="flex flex-col gap-2">
+              {statusRangeBeforeCutoff && (
+                <p className="text-center text-sm text-content-secondary">
+                  The deployment status breakdown is only available from July
+                  23, 2026 onwards.
+                </p>
+              )}
+              {deploymentCountByStatus.length === 0 &&
+              statusRangeBeforeCutoff ? (
+                // The whole selected range predates the status data — there are
+                // no bars to render, so reserve the chart's space; the message
+                // above explains why it's blank. A post-cutoff range with no
+                // rows falls through to the chart's own no-data state instead.
+                <div className="h-56" />
+              ) : (
+                <UsageStackedBarChart
+                  rows={deploymentCountByStatusChartRows!}
+                  categories={DEPLOYMENT_STATUS_CATEGORIES}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                  isGauge
+                />
+              )}
+            </div>
           )
         ) : deploymentsByClassError ? (
           <UsageDataError entity="Deployments" />
