@@ -57,7 +57,7 @@ impl PreloadedIndexRange {
         let result = self.range.get(key);
         if let Some(document) = &result {
             let component_path = tx
-                .component_path_for_document_id(document.id())?
+                .component_path_for_tablet_id(*self.tablet_index_name.table())?
                 .unwrap_or_default();
             tx.reads.record_read_document(
                 component_path,

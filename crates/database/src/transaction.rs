@@ -826,18 +826,18 @@ impl<RT: Runtime> Transaction<RT> {
             .must_component_path(component_id, &mut self.reads)
     }
 
-    /// Get the component path for a document ID. This might be None when table
+    /// Get the component path for a tablet. This might be None when table
     /// namespaces for new components are created in `start_push`,  but
     /// components have not yet been created.
-    pub fn component_path_for_document_id(
+    pub fn component_path_for_tablet_id(
         &mut self,
-        id: ResolvedDocumentId,
+        id: TabletId,
     ) -> anyhow::Result<Option<ComponentPath>> {
-        self.component_registry.component_path_from_document_id(
-            self.metadata.table_mapping(),
-            id,
-            &mut self.reads,
-        )
+        let table_namespace = self.table_mapping().tablet_namespace(id)?;
+        let component_id = ComponentId::from(table_namespace);
+        Ok(self
+            .component_registry
+            .get_component_path(component_id, &mut self.reads))
     }
 
     // XXX move to table model?
@@ -1091,7 +1091,7 @@ impl<RT: Runtime> Transaction<RT> {
         let result = match range_results.into_iter().next() {
             Some((_, doc, timestamp)) => {
                 let component_path = self
-                    .component_path_for_document_id(doc.id())?
+                    .component_path_for_tablet_id(id.tablet_id)?
                     .unwrap_or_default();
                 self.reads.record_read_document(
                     component_path,
