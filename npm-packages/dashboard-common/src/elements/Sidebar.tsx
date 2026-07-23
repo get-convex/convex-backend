@@ -170,7 +170,9 @@ export function SidebarLink({
           aria-hidden
         />
       )}
-      <span className={classNames("select-none flex-1", collapsed && "hidden")}>
+      <span
+        className={classNames("select-none flex-1", collapsed && "sm:hidden")}
+      >
         {children}
       </span>
       {proBadge && (

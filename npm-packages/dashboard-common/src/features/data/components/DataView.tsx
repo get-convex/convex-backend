@@ -15,6 +15,7 @@ import {
   DeploymentInfoContext,
   PermissionsContext,
 } from "@common/lib/deploymentContext";
+import { NentSwitcher } from "@common/elements/NentSwitcher";
 import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
@@ -104,6 +105,7 @@ export function DataView({
         {tableMetadata !== undefined && (
           <SidebarDetailLayout
             panelSizeKey={`${deploymentId}/data`}
+            mobileBarContent={<NentSwitcher className="w-40" />}
             sidebarComponent={
               <DataSidebar
                 tableData={tableMetadata}

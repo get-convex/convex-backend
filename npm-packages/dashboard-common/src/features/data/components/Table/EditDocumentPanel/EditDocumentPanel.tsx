@@ -111,6 +111,7 @@ export function EditDocumentPanel({
   return (
     <DataPanel
       data-testid="editDocumentPanel"
+      fillHeight
       title={
         editing ? (
           <div className="flex flex-wrap items-baseline gap-2">

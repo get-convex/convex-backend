@@ -9,6 +9,7 @@ import {
 } from "@headlessui/react";
 import classNames from "classnames";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
+import { cn } from "@ui/cn";
 
 type ModalProps = {
   onClose: () => void;
@@ -16,6 +17,7 @@ type ModalProps = {
   description?: string | ReactNode;
   children: ReactNode;
   size?: "sm" | "md" | "lg";
+  contentClassName?: string;
 };
 
 export function Modal({
@@ -24,6 +26,7 @@ export function Modal({
   description,
   children,
   size = "sm",
+  contentClassName,
 }: ModalProps) {
   const [open, setOpen] = useState(true);
   const handleClose = useCallback(() => {
@@ -93,7 +96,12 @@ export function Modal({
               </div>
 
               {/* Contents */}
-              <div className="mx-6 mb-12 max-h-[80dvh] overflow-y-auto sm:mb-6">
+              <div
+                className={cn(
+                  "mx-6 mb-12 max-h-[80dvh] overflow-y-auto sm:mb-6",
+                  contentClassName,
+                )}
+              >
                 {children}
               </div>
             </DialogPanel>

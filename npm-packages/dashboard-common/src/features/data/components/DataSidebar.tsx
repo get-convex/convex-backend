@@ -14,6 +14,7 @@ import { TableMetadata } from "@common/lib/useTableMetadata";
 import { NentSwitcher } from "@common/elements/NentSwitcher";
 import { Button } from "@ui/Button";
 import { useNents } from "@common/lib/useNents";
+import { useIsNarrowScreen } from "@ui/useIsNarrowScreen";
 import { PermissionsContext } from "@common/lib/deploymentContext";
 import { toast } from "@common/lib/utils";
 import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
@@ -33,6 +34,8 @@ export function DataSidebar({
   const searchQueryLowercase = searchQuery.toLowerCase();
   const schema = useActiveSchema();
 
+  const isNarrow = useIsNarrowScreen();
+
   return (
     <div
       className={classNames(
@@ -40,12 +43,14 @@ export function DataSidebar({
         "py-4",
       )}
     >
-      <div className="mb-2 flex flex-col px-3">
-        <NentSwitcher className="mb-4" />
-        <div className="flex w-full max-w-full flex-wrap items-center justify-between gap-2">
-          <h5>Tables</h5>
+      {!isNarrow && (
+        <div className="mb-2 flex flex-col px-3">
+          <NentSwitcher className="mb-4" />
+          <div className="flex w-full max-w-full flex-wrap items-center justify-between gap-2">
+            <h5>Tables</h5>
+          </div>
         </div>
-      </div>
+      )}
       {tableNames.length > 0 && (
         <div className="flex items-center gap-1 border-b px-3 py-1.5">
           <MagnifyingGlassIcon className="text-content-secondary" />

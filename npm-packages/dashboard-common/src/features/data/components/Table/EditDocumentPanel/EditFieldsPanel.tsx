@@ -41,6 +41,7 @@ Press "Cancel" to return to the editor, or "OK" to discard unsaved changes.`,
   return (
     <DataPanel
       data-testid="editFieldsPanel"
+      fillHeight
       title={`Bulk edit ${documentsLabel(numRowsSelected, allRowsSelected)} in ${tableName}`}
       onClose={closeWithConfirmation}
     >
