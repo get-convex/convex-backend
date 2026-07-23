@@ -22,7 +22,24 @@ use super::stores::{
     UsageMetricResolution,
     UsageMetricStores,
 };
-use crate::app_metric_seed::SeedStatus;
+
+/// How much of a deployment's historical-usage backfill has landed. Owned by
+/// the seeder — it knows its own pass protocol — and surfaced by the usage API
+/// so a consumer of live usage knows whether the numbers reflect the full
+/// window. Delivered alongside each seed pass to
+/// `Application::apply_app_metric_seed`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SeedStatus {
+    /// No usable seed has landed yet: usage covers only traffic since load.
+    Pending,
+    /// Some history has been hydrated, but the backfill isn't finished.
+    Partial,
+    /// The backfill finished and hydrated history.
+    Complete,
+    /// The backfill finished without hydrating any history (e.g. every seed
+    /// query failed).
+    Failed,
+}
 
 /// A limit whose window total reached its configured limit.
 #[derive(Debug, Clone)]

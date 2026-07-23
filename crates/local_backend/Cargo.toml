@@ -97,6 +97,7 @@ tungstenite = { workspace = true }
 udf = { workspace = true }
 url = { workspace = true }
 urlencoding = { workspace = true }
+usage_limits = { path = "../usage_limits" }
 usage_tracking = { path = "../usage_tracking" }
 utoipa = { workspace = true }
 utoipa-axum = { workspace = true }

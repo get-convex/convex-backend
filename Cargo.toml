@@ -255,6 +255,7 @@ udf_metrics = { path = "crates/udf_metrics" }
 url = "2.5.4"
 urlencoding = "2.1.3"
 usage_gauges_tracking_worker = { path = "crates/usage_gauges_tracking_worker" }
+usage_limits = { path = "crates/usage_limits" }
 usage_tracking = { path = "crates/usage_tracking" }
 utoipa = { version = "5.5", features = [ "axum_extras", "preserve_order", "preserve_path_order", "openapi_extensions" ] }
 utoipa-axum = { version = "0.2" }

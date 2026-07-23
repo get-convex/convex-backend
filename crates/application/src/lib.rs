@@ -373,6 +373,12 @@ use udf::{
     HttpActionResult,
 };
 use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
+use usage_limits::{
+    UsageLimitNotifier,
+    UsageLimitRecorder,
+    UsageLimitWorker,
+    UsageMeter,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -410,12 +416,6 @@ use crate::{
         clear_tables,
         SnapshotImportWorker,
     },
-    usage_limits::{
-        UsageLimitNotifier,
-        UsageLimitRecorder,
-        UsageLimitWorker,
-        UsageMeter,
-    },
 };
 
 pub mod airbyte_import;
@@ -441,7 +441,6 @@ pub mod snapshot_import;
 mod streaming_export;
 mod system_table_cleanup;
 mod table_summary_worker;
-pub mod usage_limits;
 pub mod valid_identifier;
 mod worker_handles;
 

@@ -18,6 +18,7 @@ pub use self::{
         SeedComparisonKind,
         SeedComparisonResult,
         SeedRow,
+        SeedStatus,
         UsageLimitEvaluation,
         UsageMeter,
     },

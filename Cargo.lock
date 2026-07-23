@@ -406,6 +406,7 @@ dependencies = [
  "udf_metrics",
  "url",
  "usage_gauges_tracking_worker",
+ "usage_limits",
  "usage_tracking",
  "value",
  "vector",
@@ -5805,6 +5806,7 @@ dependencies = [
  "udf",
  "url",
  "urlencoding",
+ "usage_limits",
  "usage_tracking",
  "utoipa",
  "utoipa-axum",
@@ -11075,6 +11077,28 @@ dependencies = [
  "rand 0.9.4",
  "tracing",
  "usage_tracking",
+ "value",
+]
+
+[[package]]
+name = "usage_limits"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "common",
+ "convex_macro",
+ "database",
+ "events",
+ "futures",
+ "keybroker",
+ "model",
+ "parking_lot",
+ "runtime",
+ "strum 0.28.0",
+ "tracing",
+ "udf_metrics",
  "value",
 ]
 
