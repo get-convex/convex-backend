@@ -10,6 +10,8 @@ export function formatValidator(validator: ValidatorJSON, indent = 0): string {
       return "number";
     case "bigint":
       return "bigint";
+    case "commitTs":
+      return "bigint";
     case "boolean":
       return "boolean";
     case "string":
@@ -58,6 +60,7 @@ export type ValidatorJSON =
   | { type: "null" }
   | { type: "number" }
   | { type: "bigint" }
+  | { type: "commitTs" }
   | { type: "boolean" }
   | { type: "string" }
   | { type: "bytes" }

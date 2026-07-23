@@ -92,7 +92,7 @@ const COMMIT_TS_UNRESOLVED =
  * ordered by commit order. Reading the field back within the writing
  * mutation yields the placeholder, which cannot be used as a number.
  *
- * @internal
+ * @public
  */
 export class CommitTsPlaceholder {
   // A private member makes the class nominal: no structurally-similar object
