@@ -331,7 +331,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             };
             if let Some(build_reason) = needs_backfill {
                 if FlusherType::from(build_reason) != self.flusher_type {
-                    tracing::info!(
+                    tracing::debug!(
                         "Skipping build for index {name} with id {index_id} and {build_reason:?} \
                          because it is a {:?} flusher",
                         self.flusher_type

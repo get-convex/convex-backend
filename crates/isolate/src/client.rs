@@ -1684,7 +1684,7 @@ pub(crate) fn should_recreate_isolate<RT: Runtime>(
         return true;
     }
     if let Err(e) = isolate.check_isolate_clean(context_cache) {
-        tracing::info!(
+        tracing::debug!(
             "Restarting Isolate {}: {e:?}, last request: {last_executed:?}",
             e.reason()
         );

@@ -290,7 +290,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             pin_mut!(subscription_fut);
             select_biased! {
                 _ = subscription_fut.fuse() => {
-                    tracing::info!(
+                    tracing::debug!(
                         "{name} resuming after index subscription notification"
                     );
                 }
