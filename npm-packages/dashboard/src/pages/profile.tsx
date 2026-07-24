@@ -21,15 +21,18 @@ import { DiscordAccounts } from "components/profile/DiscordAccounts";
 import { MemberResponse } from "generatedApi";
 import { LoadingTransition } from "@ui/Loading";
 import { useTheme } from "next-themes";
+import { Security } from "components/profile/Security";
 import { ConnectedIdentities } from "components/profile/ConnectedIdentities";
 import { PersonalAccessTokens } from "components/profile/PersonalAccessTokens";
 import { PROFILE_SECTIONS } from "lib/sectionAnchors";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export { getServerSideProps } from "lib/ssr";
 
 export function Profile() {
   const profile = useProfile();
   const emails = useProfileEmails();
+  const { profileSettingsSecurity } = useLaunchDarkly();
 
   const [showConfirmation, setShowConfirmation] = useState(false);
   const deleteAccount = useDeleteAccount();
@@ -72,7 +75,7 @@ export function Profile() {
 
               <Emails emails={emails} />
 
-              <ConnectedIdentities />
+              {profileSettingsSecurity ? <Security /> : <ConnectedIdentities />}
 
               <PersonalAccessTokens />
 
