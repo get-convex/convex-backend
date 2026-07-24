@@ -70,6 +70,7 @@ export type Value =
   | boolean
   | string
   | ArrayBuffer
+  | CommitTsPlaceholder
   | Value[]
   | { [key: string]: undefined | Value };
 

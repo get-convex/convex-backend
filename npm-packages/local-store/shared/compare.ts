@@ -1,5 +1,5 @@
 import { IndexRangeBounds, Key } from "./types";
-import { Value } from "convex/values";
+import { CommitTsPlaceholder, Value } from "convex/values";
 
 // Returns -1 if k1 < k2
 // Returns 0 if k1 === k2
@@ -80,10 +80,14 @@ function makeComparable(v: Value | undefined): [number, any] {
   if (Array.isArray(v)) {
     return [7, v.map(makeComparable)];
   }
+  if (v instanceof CommitTsPlaceholder) {
+    // All CommitTsPlaceholders are the same
+    return [8, "CommitTsPlaceholder"];
+  }
   // Otherwise, it's an POJO.
   const keys = Object.keys(v).sort();
   const pojo: Value[] = keys.map((k) => [k, v[k]!]);
-  return [8, pojo.map(makeComparable)];
+  return [9, pojo.map(makeComparable)];
 }
 
 export function compareKeys(key1: Key, key2: Key): number {
