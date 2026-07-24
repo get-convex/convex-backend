@@ -95,8 +95,10 @@ pub use crate::{
     pending::{
         PendingValue,
         COMMIT_TS_FIELD,
+        MAX_COMMIT_TS,
     },
     size::{
+        array_size,
         Size,
         MAX_NESTING,
         MAX_SIZE,

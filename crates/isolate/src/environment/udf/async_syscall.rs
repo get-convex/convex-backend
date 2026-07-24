@@ -103,6 +103,7 @@ use udf::{
     helpers::UdfArgsJson,
     validation::{
         validate_schedule_args,
+        PendingArgsPolicy,
         ValidatedPathAndArgs,
     },
     NestedUdfOutcome,
@@ -396,10 +397,10 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
         &mut self,
         udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
-        args: ConvexObject,
+        args: PendingValue,
         transaction_limits: Option<TransactionLimits>,
         udf_callback: impl UdfCallback<RT>,
-    ) -> anyhow::Result<ConvexValue>;
+    ) -> anyhow::Result<PendingValue>;
 
     async fn create_function_handle(
         &mut self,
@@ -572,10 +573,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         &mut self,
         nested_udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
-        args: ConvexObject,
+        args: PendingValue,
         transaction_limits: Option<TransactionLimits>,
         udf_callback: impl UdfCallback<RT>,
-    ) -> anyhow::Result<ConvexValue> {
+    ) -> anyhow::Result<PendingValue> {
         match (self.udf_type, nested_udf_type) {
             // Queries can call other queries, but not snapshot queries.
             (UdfType::Query, NestedUdfType::Query) => (),
@@ -598,12 +599,17 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let called_component_id = path.component;
 
         let execution_type = nested_udf_type.execution_type();
+        let pending_args_policy = match self.udf_type {
+            UdfType::Mutation => PendingArgsPolicy::Allow,
+            _ => PendingArgsPolicy::Reject,
+        };
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
             PublicFunctionPath::ResolvedComponent(path.clone()),
-            SerializedArgs::from_args(vec![args.into()])?,
+            SerializedArgs::from_args(vec![args.to_uncommitted_json()])?,
             execution_type,
+            pending_args_policy,
         )
         .await?;
         let (path_and_args, returns_validator) = match path_and_args_result {
@@ -727,9 +733,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let result = result?;
         let tx = self.phase.tx()?;
         let table_mapping = tx.table_mapping().namespace(called_component_id.into());
-        if let Some(e) =
-            returns_validator.check_output(&result, &table_mapping, virtual_system_mapping())
-        {
+        if let Some(e) = returns_validator.check_pending_output(
+            &result,
+            &table_mapping,
+            virtual_system_mapping(),
+        )? {
             anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
         }
         Ok(result)
@@ -1589,12 +1597,30 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             args,
             transaction_limits,
         } = with_argument_error("runUdf", || Ok(serde_json::from_value(args)?))?;
+        let caller_udf_type = provider.udf_type();
         let (udf_type, args) = with_argument_error("runUdf", || {
             let udf_type: NestedUdfType = udf_type.parse().context(ArgName("udfType"))?;
-            let args: ConvexObject = ConvexValue::try_from(args)
-                .context(ArgName("args"))?
-                .try_into()
-                .context(ArgName("args"))?;
+            // Only a mutation can hold an unresolved commit timestamp to pass
+            // along; queries keep rejecting the `$commitTs` token.
+            let args = match caller_udf_type {
+                UdfType::Mutation => {
+                    let args =
+                        PendingValue::from_uncommitted_json(args).context(ArgName("args"))?;
+                    if !args.is_object() {
+                        return Err(
+                            anyhow::anyhow!("Value must be an Object").context(ArgName("args"))
+                        );
+                    }
+                    args
+                },
+                UdfType::Query | UdfType::Action | UdfType::HttpAction => {
+                    let args: ConvexObject = ConvexValue::try_from(args)
+                        .context(ArgName("args"))?
+                        .try_into()
+                        .context(ArgName("args"))?;
+                    args.into()
+                },
+            };
             Ok((udf_type, args))
         })?;
         let path = match function_handle {
@@ -1638,7 +1664,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let value = provider
             .run_udf(udf_type, path, args, transaction_limits, udf_callback)
             .await?;
-        Ok(value.into())
+        Ok(value.to_uncommitted_json())
     }
 
     async fn create_function_handle(

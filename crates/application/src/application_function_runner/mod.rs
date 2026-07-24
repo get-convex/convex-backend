@@ -170,6 +170,7 @@ use udf::{
     environment::system_env_vars,
     validation::{
         validate_schedule_args,
+        PendingArgsPolicy,
         ValidatedActionOutcome,
         ValidatedPathAndArgs,
         ValidatedUdfOutcome,
@@ -795,7 +796,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let stats = tx.take_stats();
 
-        let result = outcome.result.clone();
+        // A top-level query's result never contains unresolved commit
+        // timestamps.
+        let result = match outcome.result.clone() {
+            Ok(value) => Ok(value.try_into()?),
+            Err(e) => Err(e),
+        };
         let log_lines = outcome.log_lines.clone();
         self.function_log
             .log_query(
@@ -979,7 +985,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .await
             {
                 Ok(ts) => Ok(MutationReturn {
-                    value,
+                    // The commit timestamp is known now, so unresolved commit
+                    // timestamps in the return value resolve to it, matching
+                    // the committer's resolution of the transaction's writes.
+                    value: value.resolve_commit_ts(i64::from(ts))?,
                     log_lines,
                     ts,
                 }),
@@ -1140,6 +1149,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             path.clone(),
             arguments.clone(),
             UdfType::Mutation,
+            PendingArgsPolicy::Reject,
         )
         .await?;
 
@@ -1326,6 +1336,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             path.clone(),
             arguments.clone(),
             UdfType::Action,
+            PendingArgsPolicy::Reject,
         )
         .await?;
 
@@ -1968,8 +1979,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     identifier
                 );
                 log_mutation_already_committed(age);
+                // Sessions are recorded transactionally in mutations so can use the same commit
+                // ts.
                 Ok(MutationReturn {
-                    value: result,
+                    value: result.resolve_commit_ts(i64::from(ts))?,
                     log_lines,
                     ts,
                 })

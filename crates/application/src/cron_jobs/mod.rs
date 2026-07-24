@@ -82,6 +82,7 @@ use udf::validation::ValidatedUdfOutcome;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     JsonPackedValue,
+    PendingValue,
     ResolvedDocumentId,
 };
 
@@ -360,14 +361,19 @@ impl<RT: Runtime> CronJobContext<RT> {
 
     fn truncate_result(
         &self,
-        result: JsonPackedValue,
+        result: JsonPackedValue<PendingValue>,
         udf_path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CronJobResult> {
-        let value = result.unpack().map_err(|e| {
-            e.wrap_error_message(|msg| {
-                format!("Cron job {} result invalid: {msg}", udf_path.debug_str())
-            })
-        })?;
+        // TODO(ENG-10908): the cron job log can't store an unresolved commit
+        // timestamp yet, so a mutation returning one fails here.
+        let value = result
+            .unpack()
+            .and_then(PendingValue::try_into_concrete)
+            .map_err(|e| {
+                e.wrap_error_message(|msg| {
+                    format!("Cron job {} result invalid: {msg}", udf_path.debug_str())
+                })
+            })?;
         let mut value_str = value.to_string();
         if value_str.len() <= CRON_LOG_MAX_RESULT_LENGTH {
             Ok(CronJobResult::Default(value))
@@ -675,7 +681,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 let status = match completion.outcome.result.clone() {
                     Ok(result) => {
                         let truncated_result =
-                            self.truncate_result(result, &completion.outcome.path)?;
+                            self.truncate_result(result.into(), &completion.outcome.path)?;
                         CronJobStatus::Success(truncated_result)
                     },
                     Err(e) => CronJobStatus::Err(e.to_string()),

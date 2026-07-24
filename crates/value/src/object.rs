@@ -16,7 +16,10 @@ use super::size::{
 };
 use crate::{
     field_path::FieldPath,
-    size::check_system_size,
+    size::{
+        check_system_size,
+        object_size,
+    },
     utils::display_map,
     ConvexValue,
     FieldName,
@@ -75,12 +78,7 @@ impl TryFrom<BTreeMap<FieldName, ConvexValue>> for ConvexObject {
 
     fn try_from(fields: BTreeMap<FieldName, ConvexValue>) -> anyhow::Result<Self> {
         check_field_count(fields.len())?;
-        let size = 1
-            + fields
-                .iter()
-                .map(|(k, v)| k.len() + 1 + v.size())
-                .sum::<usize>()
-            + 1;
+        let size = object_size(fields.iter());
         check_system_size(size)?;
         let nesting = 1 + fields.values().map(|v| v.nesting()).max().unwrap_or(0);
         check_nesting(nesting)?;

@@ -41,7 +41,10 @@ use tokio::{
     sync::oneshot,
 };
 use udf::{
-    helpers::parse_udf_args,
+    helpers::{
+        parse_pending_udf_args,
+        pending_udf_args_size,
+    },
     warnings::scheduled_arg_size_warning,
     FunctionOutcome,
     NestedUdfOutcome,
@@ -111,10 +114,6 @@ use common::{
         DeploymentMetadata,
         UdfType,
     },
-    value::{
-        ConvexArray,
-        ConvexValue,
-    },
 };
 use database::{
     BiggestDocumentWrites,
@@ -151,6 +150,7 @@ use value::{
     serialized_args_ext::SerializedArgsExt,
     JsonPackedValue,
     NamespacedTableMapping,
+    PendingValue,
     Size,
     VALUE_TOO_LARGE_SHORT_MSG,
 };
@@ -184,7 +184,7 @@ use crate::{
     },
     helpers::{
         self,
-        deserialize_udf_result,
+        deserialize_udf_result_pending,
         pump_message_loop,
     },
     isolate::{
@@ -365,7 +365,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 type UdfRecursiveExecutor<RT> = RecursiveExecutor<
     anyhow::Result<(
         DatabaseUdfEnvironment<RT>,
-        anyhow::Result<Result<ConvexValue, JsError>>,
+        anyhow::Result<Result<PendingValue, JsError>>,
     )>,
 >;
 struct RunUdf<'a, 'b, RT: Runtime> {
@@ -575,7 +575,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let user_execution_time = execution_time.elapsed;
 
         let success_result_value = result.as_ref().ok();
-        let parsed_args = parse_udf_args(&this.path.udf_path, args.udf_args.clone().into_args()?)?;
+        let parsed_args =
+            parse_pending_udf_args(&this.path.udf_path, args.udf_args.clone().into_args()?)?;
         let mut log_lines = this.log_lines;
         Self::add_warnings_to_log_lines(
             &this.path.clone().for_logging(),
@@ -636,7 +637,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
         udf_callback: Option<IsolateClient<RT>>,
-    ) -> anyhow::Result<(Self, anyhow::Result<Result<ConvexValue, JsError>>)> {
+    ) -> anyhow::Result<(Self, anyhow::Result<Result<PendingValue, JsError>>)> {
         scope!(let handle_scope, isolate);
         let mut context_scope;
         let (mut isolate_context, mut context_read_set) = if args.reuse_context
@@ -825,10 +826,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         args: &DatabaseUdfArgs,
         module: v8::Local<'_, v8::Module>,
         udf_callback: Option<IsolateClient<RT>>,
-    ) -> anyhow::Result<Result<ConvexValue, JsError>> {
+    ) -> anyhow::Result<Result<PendingValue, JsError>> {
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
-        let (rt, udf_type, path, heap_stats) = {
+        let (rt, udf_type, path, heap_stats, reactor_depth) = {
             let state = scope.state()?;
             let environment = &state.environment;
             (
@@ -836,6 +837,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 environment.udf_type,
                 environment.path.clone(),
                 environment.heap_stats.clone(),
+                environment.reactor_depth,
             )
         };
         let udf_path = &path.udf_path;
@@ -1088,7 +1090,24 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 let result_v8_str: v8::Local<v8::String> = promise_result_v8.try_into()?;
                 let result_str = helpers::to_rust_string(&scope, &result_v8_str)?;
                 metrics::log_result_length(&result_str);
-                deserialize_udf_result(&path, &result_str)?
+                // Unresolved commit timestamps can only exist inside a
+                // mutation's transaction: in the mutation itself or in a
+                // nested call within one (a nested query can read one back
+                // from a pending write). A top-level query has no commit
+                // timestamp to resolve to, so it cannot return one.
+                let result = deserialize_udf_result_pending(&path, &result_str)?;
+                if udf_type == UdfType::Mutation || reactor_depth > 0 {
+                    result
+                } else {
+                    match result {
+                        Ok(value) if value.is_pending() => Err(JsError::from_message(format!(
+                            "Function {} return value invalid: queries cannot return an \
+                             unresolved commit timestamp",
+                            path.clone().for_logging().debug_str()
+                        ))),
+                        result => result,
+                    }
+                }
             },
             v8::PromiseState::Rejected => {
                 let e = promise.result(&scope);
@@ -1169,11 +1188,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     // Called when a function finishes
     pub fn add_warnings_to_log_lines(
         path: &CanonicalizedComponentFunctionPath,
-        arguments: &ConvexArray,
+        arguments: &[PendingValue],
         execution_time: FunctionExecutionTime,
         execution_size: FunctionExecutionSize,
         biggest_writes: Option<BiggestDocumentWrites>,
-        result: Option<&ConvexValue>,
+        result: Option<&PendingValue>,
         mut trace_system_warning: impl FnMut(SystemWarning),
     ) -> anyhow::Result<()> {
         let udf_path = path.udf_path.clone();
@@ -1183,7 +1202,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None
         };
         if let Some(warning) = approaching_limit_warning(
-            arguments.size(),
+            pending_udf_args_size(arguments),
             *FUNCTION_MAX_ARGS_SIZE,
             "TooLargeFunctionArguments",
             || "Large size of the function arguments".to_string(),
