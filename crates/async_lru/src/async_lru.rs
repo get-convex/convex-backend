@@ -1,5 +1,6 @@
 use core::hash::Hash;
 use std::{
+    borrow::Borrow,
     collections::{
         hash_map::Entry,
         BTreeMap,
@@ -30,7 +31,10 @@ use common::{
 };
 use fastrace::{
     collector::SpanContext,
-    future::FutureExt as _,
+    future::{
+        FutureExt as _,
+        InSpan,
+    },
     Span,
 };
 use futures::{
@@ -79,9 +83,6 @@ pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized, FetchKey = Key> {
     label: &'static str,
     handle: Arc<Box<dyn SpawnHandle>>,
 }
-
-pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
-pub type ValueGenerator<Key, Value> = BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>;
 
 impl<RT: Runtime, Key, Value: ?Sized, FetchKey> Clone for AsyncLru<RT, Key, Value, FetchKey> {
     fn clone(&self) -> Self {
@@ -177,7 +178,7 @@ type BuildValueResult<Key, Value> = Result<Arc<HashMap<Key, Arc<Value>>>, Arc<an
 
 type BuildValueRequest<Key, Value, FetchKey> = (
     FetchKey,
-    ValueGenerator<Key, Value>,
+    InSpan<BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>>,
     async_broadcast::Sender<BuildValueResult<Key, Value>>,
 );
 
@@ -317,53 +318,72 @@ impl<
     /// that any generator passed with a given `fetch_key` produces a map
     /// containing every `key` that may be requested alongside that
     /// `fetch_key`; otherwise the deduplicated calls will fail.
-    pub async fn get_and_prepopulate(
+    pub async fn get_and_prepopulate<F, Q>(
         &self,
-        key: Key,
-        fetch_key: FetchKey,
-        value_generator: ValueGenerator<Key, Value>,
-    ) -> anyhow::Result<Arc<Value>> {
-        let timer = async_lru_get_timer(self.label);
-        let result = self._get(&key, fetch_key, value_generator).await;
-        timer.finish(result.is_ok());
-        result
-    }
-
-    pub async fn get<V: 'static>(
-        &self,
-        key: Key,
-        value_generator: SingleValueGenerator<V>,
+        key: &Q,
+        value_generator: impl FnOnce() -> (FetchKey, F),
     ) -> anyhow::Result<Arc<Value>>
     where
-        Key: Clone,
-        Arc<Value>: From<V>,
-        FetchKey: From<Key>,
+        F: Future<Output = anyhow::Result<HashMap<Key, Arc<Value>>>> + Send + 'static,
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
     {
         let timer = async_lru_get_timer(self.label);
-        let key_ = key.clone();
         let result = self
-            ._get(
-                &key_,
-                key.clone().into(),
-                Box::pin(async move {
-                    let mut hashmap = HashMap::new();
-                    hashmap.insert(key, <Arc<Value>>::from(value_generator.await?));
-                    Ok(hashmap)
-                }),
-            )
+            ._get(key, || {
+                let (fetch_key, f) = value_generator();
+                (fetch_key, f.boxed())
+            })
             .await;
         timer.finish(result.is_ok());
         result
     }
 
-    async fn _get(
+    pub async fn get<V: 'static, F>(
         &self,
         key: &Key,
-        fetch_key: FetchKey,
-        value_generator: ValueGenerator<Key, Value>,
-    ) -> anyhow::Result<Arc<Value>> {
+        value_generator: impl FnOnce() -> F,
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Key: Clone,
+        Arc<Value>: From<V>,
+        FetchKey: From<Key>,
+        F: Future<Output = anyhow::Result<V>> + Send + 'static,
+    {
+        let timer = async_lru_get_timer(self.label);
+        let result = self
+            ._get(key, || {
+                let key = key.clone();
+                (
+                    key.clone().into(),
+                    value_generator()
+                        .map(|value| {
+                            let mut hashmap = HashMap::new();
+                            hashmap.insert(key, <Arc<Value>>::from(value?));
+                            Ok(hashmap)
+                        })
+                        .boxed(),
+                )
+            })
+            .await;
+        timer.finish(result.is_ok());
+        result
+    }
+
+    async fn _get<Q>(
+        &self,
+        key: &Q,
+        value_generator: impl FnOnce() -> (
+            FetchKey,
+            BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>,
+        ),
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
+    {
         let pause_client = self.runtime.pause_client();
-        let status = self.get_sync(key, fetch_key, value_generator);
+        let status = self.get_sync(key, value_generator);
         tracing::debug!("Getting key {key:?} with status {status}");
         match status {
             Status::Ready(value) => {
@@ -386,12 +406,23 @@ impl<
         }
     }
 
-    fn get_sync(
+    fn get_sync<Q>(
         &self,
-        key: &Key,
-        fetch_key: FetchKey,
-        value_generator: ValueGenerator<Key, Value>,
-    ) -> Status<Key, Value> {
+        key: &Q,
+        value_generator: impl FnOnce() -> (
+            FetchKey,
+            BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>,
+        ),
+    ) -> Status<Key, Value>
+    where
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
+    {
+        if let Some(CacheEntry { value, .. }) = self.inner.lock().cache.get(key) {
+            return Status::Ready(value.clone());
+        }
+        // Create the value generator outside of the lock
+        let (fetch_key, future) = value_generator();
         let mut inner = self.inner.lock();
         let inner = &mut *inner;
         if let Some(CacheEntry { value, .. }) = inner.cache.get(key) {
@@ -409,11 +440,11 @@ impl<
 
                 let (tx, rx) = async_broadcast::broadcast(1);
                 Status::Kickoff(
-                    match inner.tx.clone().try_send((
-                        v.key().clone(),
-                        value_generator.in_span(span).boxed(),
-                        tx,
-                    )) {
+                    match inner
+                        .tx
+                        .clone()
+                        .try_send((v.key().clone(), future.in_span(span), tx))
+                    {
                         Ok(()) => {
                             v.insert(rx.clone());
                             Ok(rx)
@@ -429,10 +460,14 @@ impl<
     }
 
     #[fastrace::trace]
-    async fn wait_for_value(
-        key: &Key,
+    async fn wait_for_value<Q>(
+        key: &Q,
         mut receiver: async_broadcast::Receiver<BuildValueResult<Key, Value>>,
-    ) -> anyhow::Result<Arc<Value>> {
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
+    {
         // No work should be canceled while anyone is waiting on it, so it's a
         // developer error if recv ever returns a failure due to the channel
         // being closed.

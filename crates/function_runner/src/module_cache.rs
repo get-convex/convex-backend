@@ -15,7 +15,6 @@ use common::{
         Runtime,
     },
 };
-use futures::FutureExt;
 use isolate::module_cache::V8ModuleSource;
 use model::{
     modules::{
@@ -103,41 +102,42 @@ impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModul
         module_metadata: &ParsedDocument<ModuleMetadata>,
         source_package: &ParsedDocument<SourcePackage>,
     ) -> anyhow::Result<Arc<V8ModuleSource>> {
-        let deployment_name = self.deployment_name.clone();
         let key = self.cache_key(module_metadata);
-        let modules_storage = self.modules_storage.clone();
-        let source_package = source_package.clone();
         let result = self
             .cache
             .0
-            .get_and_prepopulate(
-                key,
-                (deployment_name.clone(), source_package.sha256.clone()),
-                try_join("get_modules_and_prefetch", async move {
-                    let _timer = module_load_timer("package");
-                    let package = download_package(modules_storage, &source_package).await?;
-                    Ok(package
-                        .into_iter()
-                        .map(move |(module_path, module_config)| {
-                            (
-                                ModuleCacheKey {
-                                    deployment_name: deployment_name.clone(),
-                                    module_path,
-                                    sha256: hash_module_source(
-                                        &module_config.source,
-                                        module_config.source_map.as_ref(),
-                                    ),
-                                },
-                                Arc::new(V8ModuleSource::new(FullModuleSource {
-                                    source: module_config.source,
-                                    source_map: module_config.source_map,
-                                })),
-                            )
-                        })
-                        .collect())
-                })
-                .boxed(),
-            )
+            .get_and_prepopulate(&key, || {
+                let deployment_name = self.deployment_name.clone();
+                let modules_storage = self.modules_storage.clone();
+                let source_package = source_package.clone();
+                let fetch_key = (self.deployment_name.clone(), source_package.sha256.clone());
+                (
+                    fetch_key,
+                    try_join("get_modules_and_prefetch", async move {
+                        let _timer = module_load_timer("package");
+                        let package = download_package(modules_storage, &source_package).await?;
+                        Ok(package
+                            .into_iter()
+                            .map(move |(module_path, module_config)| {
+                                (
+                                    ModuleCacheKey {
+                                        deployment_name: deployment_name.clone(),
+                                        module_path,
+                                        sha256: hash_module_source(
+                                            &module_config.source,
+                                            module_config.source_map.as_ref(),
+                                        ),
+                                    },
+                                    Arc::new(V8ModuleSource::new(FullModuleSource {
+                                        source: module_config.source,
+                                        source_map: module_config.source_map,
+                                    })),
+                                )
+                            })
+                            .collect())
+                    }),
+                )
+            })
             .await?;
         record_module_sizes(
             result.source().heap_size(),

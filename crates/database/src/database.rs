@@ -1314,7 +1314,7 @@ impl<RT: Runtime> Database<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<Arc<TableMapping>> {
         self.table_mapping_snapshot_cache
-            .get(*ts, self.clone().compute_snapshot_table_mapping(ts).boxed())
+            .get(&*ts, || self.clone().compute_snapshot_table_mapping(ts))
             .await
     }
 
@@ -1358,7 +1358,7 @@ impl<RT: Runtime> Database<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<Arc<BTreeMap<TabletId, IndexId>>> {
         self.by_id_indexes_snapshot_cache
-            .get(*ts, self.clone().compute_snapshot_by_id_indexes(ts).boxed())
+            .get(&*ts, || self.clone().compute_snapshot_by_id_indexes(ts))
             .await
     }
 
@@ -1391,10 +1391,7 @@ impl<RT: Runtime> Database<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<Arc<BTreeMap<ComponentId, ComponentPath>>> {
         self.component_paths_snapshot_cache
-            .get(
-                *ts,
-                self.clone().compute_snapshot_component_paths(ts).boxed(),
-            )
+            .get(&*ts, || self.clone().compute_snapshot_component_paths(ts))
             .await
     }
 

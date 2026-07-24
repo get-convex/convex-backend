@@ -410,17 +410,14 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         };
         let result = self
             .cache
-            .get(
-                cache_key.clone(),
-                archive_fetcher
-                    .generate_value(
-                        search_storage.clone(),
-                        key.clone(),
-                        search_file_type,
-                        metric_labels.to_owned(),
-                    )
-                    .boxed(),
-            )
+            .get(&cache_key, || {
+                archive_fetcher.generate_value(
+                    search_storage.clone(),
+                    key.clone(),
+                    search_file_type,
+                    metric_labels.to_owned(),
+                )
+            })
             .await
             .with_context(|| {
                 format!("Failed to get cache_key {cache_key:?} in {search_storage:?}")

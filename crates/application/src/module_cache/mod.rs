@@ -10,7 +10,6 @@ use common::{
     },
     runtime::Runtime,
 };
-use futures::FutureExt;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
@@ -64,14 +63,12 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         let timer = metrics::module_cache_get_module_timer();
 
         let key = (module_metadata.path.clone(), module_metadata.sha256.clone());
-        let modules_storage = self.modules_storage.clone();
-        let source_package = source_package.clone();
         let result = self
             .cache
-            .get_and_prepopulate(
-                key,
-                source_package.sha256.clone(),
-                async move {
+            .get_and_prepopulate(&key, || {
+                let modules_storage = self.modules_storage.clone();
+                let source_package = source_package.clone();
+                (source_package.sha256.clone(), async move {
                     let package = download_package(modules_storage, &source_package).await?;
                     Ok(package
                         .into_iter()
@@ -91,9 +88,8 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
                             )
                         })
                         .collect())
-                }
-                .boxed(),
-            )
+                })
+            })
             .await?;
 
         let source_size = result.source.len();

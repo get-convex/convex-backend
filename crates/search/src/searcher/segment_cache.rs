@@ -13,7 +13,6 @@ use common::{
     id_tracker::StaticIdTracker,
     runtime::Runtime,
 };
-use futures::FutureExt;
 use qdrant_segment::segment::Segment;
 use tantivy::Searcher;
 use text_search::tracker::{
@@ -90,10 +89,9 @@ impl<RT: Runtime> VectorSegmentCache<RT> {
         paths: UntarredVectorDiskSegmentPaths,
     ) -> anyhow::Result<Arc<SizedVectorSegment>> {
         self.lru
-            .get(
-                paths.clone(),
-                self.segment_generator.clone().generate_value(paths).boxed(),
-            )
+            .get(&paths, || {
+                self.segment_generator.clone().generate_value(paths.clone())
+            })
             .await
     }
 }
@@ -180,13 +178,11 @@ impl<RT: Runtime> TextSegmentCache<RT> {
 
     pub async fn get(&self, paths: TextDiskSegmentPaths) -> anyhow::Result<Arc<TextSegment>> {
         self.lru
-            .get(
-                paths.clone(),
+            .get(&paths, || {
                 self.text_segment_generator
                     .clone()
-                    .generate_value(paths)
-                    .boxed(),
-            )
+                    .generate_value(paths.clone())
+            })
             .await
     }
 }
