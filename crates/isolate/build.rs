@@ -295,7 +295,16 @@ fn main() -> anyhow::Result<()> {
     // sync with the `Build JS required by Isolate` step in rust.yml.
     println!("cargo:rerun-if-env-changed=CONVEX_PREBUILT_JS");
     if env::var_os("CONVEX_PREBUILT_JS").is_none() {
-        run_js_tool(JsTool::Pnpm, &["install", "--frozen-lockfile"])?;
+        // --ignore-scripts: a pnpm install reruns every workspace `prepare`
+        // script even when node_modules is already current, rewriting package
+        // dists (e.g. @convex-dev/platform) under any concurrently-running JS
+        // build — and the turbo flock below doesn't cover installs. The turbo
+        // run builds everything this script bundles, so the prepare pass adds
+        // nothing here.
+        run_js_tool(
+            JsTool::Pnpm,
+            &["install", "--frozen-lockfile", "--ignore-scripts"],
+        )?;
         let mut pkgs = vec!["convex", "node-executor", "udf-runtime"];
         if has_tests {
             pkgs.extend(["simulation", "udf-tests"]);

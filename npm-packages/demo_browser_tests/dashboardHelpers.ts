@@ -32,4 +32,16 @@ export async function loginToDashboard(page: Page, path: string = "") {
     page.click('button[type="submit"]'),
     page.waitForNavigation(),
   ]);
+
+  // WorkOS AuthKit can interject a passkey-enrollment interstitial after
+  // sign-in ("Create a passkey for faster and more secure sign in"); the
+  // headless browser can't create passkeys, so dismiss it. It only appears
+  // for some sessions (server-side rollout), so poll briefly instead of
+  // blocking on it.
+  const skipPasskey = await page
+    .waitForSelector("button::-p-text(Skip for now)", { timeout: 5000 })
+    .catch(() => null);
+  if (skipPasskey) {
+    await Promise.all([skipPasskey.click(), page.waitForNavigation()]);
+  }
 }
