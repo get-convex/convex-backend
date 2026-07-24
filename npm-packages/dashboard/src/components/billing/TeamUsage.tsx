@@ -761,6 +761,7 @@ function DeploymentCountUsage({
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                   isGauge
+                  showEmptyCategories
                 />
               )}
             </div>

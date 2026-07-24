@@ -11,13 +11,26 @@ export interface InlineDetailItem {
 export function InlineDetailList({
   items,
   quantityType,
+  showZeroValues = false,
 }: {
   items: InlineDetailItem[];
   quantityType: QuantityType;
+  /**
+   * Keep entries whose value is zero. Off by default so charts don't list
+   * categories a team never uses; on for fixed category sets (e.g. deployment
+   * status) where every category should always appear in the legend.
+   */
+  showZeroValues?: boolean;
 }) {
   const total = items.reduce((sum, item) => sum + item.value, 0);
+  // sortValue only governs ordering (kept stable across day selection); an item
+  // is visible when either its shown value or its sort value is nonzero, so a
+  // category present on the selected day still shows even if its range/gauge
+  // total is zero.
   const sortedItems = items
-    .filter((item) => (item.sortValue ?? item.value) > 0)
+    .filter(
+      (item) => showZeroValues || item.value > 0 || (item.sortValue ?? 0) > 0,
+    )
     .sort((a, b) => (b.sortValue ?? b.value) - (a.sortValue ?? a.value));
 
   return (

@@ -22,6 +22,7 @@ export function UsageStackedBarChart({
   categoryRenames = {},
   quantityType = "unit",
   isGauge = false,
+  showEmptyCategories = false,
   selectedDate,
   setSelectedDate,
 }: {
@@ -37,6 +38,11 @@ export function UsageStackedBarChart({
   quantityType?: QuantityType;
   /** If true, total shows the most recent day's value instead of summing all days */
   isGauge?: boolean;
+  /**
+   * List every category in the legend, including ones with a zero value. Use
+   * for fixed category sets where the full breakdown should always be visible.
+   */
+  showEmptyCategories?: boolean;
   selectedDate: number | null;
   setSelectedDate: (date: number | null) => void;
 }) {
@@ -213,7 +219,11 @@ export function UsageStackedBarChart({
         </DailyChart>
       </div>
 
-      <InlineDetailList items={detailItems} quantityType={quantityType} />
+      <InlineDetailList
+        items={detailItems}
+        quantityType={quantityType}
+        showZeroValues={showEmptyCategories}
+      />
     </div>
   );
 }
