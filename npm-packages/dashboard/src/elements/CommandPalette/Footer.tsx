@@ -1,8 +1,9 @@
 import { useCommandState } from "cmdk";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
+import { cn } from "@ui/cn";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
 
-const KBD_CLASSES =
+export const KBD_CLASSES =
   "rounded-sm border bg-background-tertiary px-1 text-content-secondary";
 
 // Values of items whose Enter action is direct navigation but that can also
@@ -17,7 +18,14 @@ function isBrowsableItemValue(value: string | undefined): boolean {
   );
 }
 
-export function Footer({ inSubPage }: { inSubPage: boolean }) {
+export function Footer({
+  inSubPage,
+  status,
+}: {
+  inSubPage: boolean;
+  // Optional status published by the active page, shown in the right gutter.
+  status?: React.ReactNode;
+}) {
   // cmdk keeps its selection in sync with both keyboard focus and pointer
   // hover, so this covers "hovering or focusing" a browsable item.
   const selectedValue = useCommandState((state) => state.value);
@@ -46,7 +54,10 @@ export function Footer({ inSubPage }: { inSubPage: boolean }) {
           Back
         </span>
       )}
-      <span className="ml-auto flex items-center gap-1">
+      {status && (
+        <span className="ml-auto text-content-secondary">{status}</span>
+      )}
+      <span className={cn("flex items-center gap-1", !status && "ml-auto")}>
         <KeyboardShortcut value={["Esc"]} className={KBD_CLASSES} />
         {inSubPage ? "Back" : "Close"}
       </span>

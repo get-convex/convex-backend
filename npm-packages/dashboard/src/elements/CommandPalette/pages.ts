@@ -16,7 +16,9 @@ export type PalettePage =
       projectSlug?: string;
     }
   | { type: "components" }
-  | { type: "theme" };
+  | { type: "theme" }
+  // Bulk-delete multiple projects in the current team.
+  | { type: "deleteProjects" };
 
 export function pageLabel(page: PalettePage): string {
   switch (page.type) {
@@ -36,6 +38,8 @@ export function pageLabel(page: PalettePage): string {
       return "Switch Component";
     case "theme":
       return "Change Dashboard Theme";
+    case "deleteProjects":
+      return "Delete Projects";
     default: {
       page satisfies never;
       return "";

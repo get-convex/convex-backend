@@ -11,6 +11,10 @@ export type PaletteKeyDownContext = {
   popPage: () => void;
   onClose: () => void;
   armDrillModifier: (active: boolean) => void;
+  // A destructive action the active page has registered behind the
+  // Cmd/Ctrl+Shift+Enter chord (e.g. bulk-deleting projects). Null when the
+  // page has nothing to confirm.
+  confirmAction: (() => void) | null;
 };
 
 // Handles the palette dialog's keydown. Split out from CommandPaletteDialog so
@@ -23,9 +27,23 @@ export function handlePaletteKeyDown(
     popPage,
     onClose,
     armDrillModifier,
+    confirmAction,
   }: PaletteKeyDownContext,
 ) {
-  if (event.key === "Escape") {
+  if (
+    event.key === "Enter" &&
+    (event.metaKey || event.ctrlKey) &&
+    event.shiftKey
+  ) {
+    // Cmd/Ctrl+Shift+Enter confirms the active page's destructive action. The
+    // chord is intentionally awkward so it can't be triggered by accident.
+    // Always swallow it (preventDefault also stops cmdk from selecting the
+    // focused item, since cmdk skips its own Enter handling when the event's
+    // default is already prevented) so it never toggles a row instead.
+    event.preventDefault();
+    event.stopPropagation();
+    confirmAction?.();
+  } else if (event.key === "Escape") {
     event.preventDefault();
     if (inSubPage) {
       popPage();

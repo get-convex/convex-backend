@@ -6,6 +6,7 @@ import {
   Half2Icon,
   PersonIcon,
   QuestionMarkCircledIcon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
@@ -54,7 +55,7 @@ export function RootCommands({
   const router = useRouter();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const { usageLimits } = useLaunchDarkly();
+  const { usageLimits, commandPaletteDeleteProjects } = useLaunchDarkly();
   const [, setSupportFormOpen] = useSupportFormOpen();
 
   const deploymentName =
@@ -178,6 +179,17 @@ export function RootCommands({
             label="Switch Team…"
             drillIn
           />
+          {commandPaletteDeleteProjects && (
+            <ActionItem
+              value="page:delete-projects"
+              onSelect={() => pushPage({ type: "deleteProjects" })}
+              Icon={TrashIcon}
+              label="Delete Projects…"
+              description="DANGER: No confirmation will be offered after selecting projects to delete"
+              destructive
+              drillIn
+            />
+          )}
         </Command.Group>
       )}
       {team && (

@@ -9,8 +9,14 @@ import { Spinner } from "@ui/Spinner";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { toast } from "@common/lib/utils";
 import { NavigationDestination, paletteFilter } from "./navigation";
-import { DrillModifierContext, PaletteLoadingContext } from "./items";
+import {
+  DrillModifierContext,
+  PaletteConfirmContext,
+  PaletteLoadingContext,
+  PaletteStatusContext,
+} from "./items";
 import { ComponentsCommands } from "./ComponentCommands";
+import { DeleteProjectsCommands } from "./DeleteProjectsCommands";
 import { ProjectCommands, SwitchDeploymentCommands } from "./ProjectCommands";
 import { DeploymentCommands } from "./DeploymentCommands";
 import { PalettePage } from "./pages";
@@ -74,6 +80,14 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   // `drillPage` is the view currently shown
   const drillPage = pages[pages.length - 1];
 
+  // A status line the active page can publish into the footer's right gutter.
+  const [footerStatus, setFooterStatus] = useState<React.ReactNode>(null);
+
+  const confirmAction = useRef<(() => void) | null>(null);
+  const setConfirmAction = useCallback((action: (() => void) | null) => {
+    confirmAction.current = action;
+  }, []);
+
   const [loadingCount, setLoadingCount] = useState(0);
   const beginLoading = useCallback(() => {
     setLoadingCount((count) => count + 1);
@@ -134,108 +148,120 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       popPage,
       onClose,
       armDrillModifier,
+      confirmAction: confirmAction.current,
     });
 
   return (
     <DrillModifierContext.Provider value={drillModifier}>
       <PaletteLoadingContext.Provider value={beginLoading}>
-        <Command.Dialog
-          open
-          ref={ref}
-          label="Convex Command Palette"
-          loop
-          filter={paletteFilter}
-          onKeyDown={handleKeyDown}
-        >
-          {/* cmdk renders a Radix Dialog with only an aria-label; Radix still
+        <PaletteStatusContext.Provider value={setFooterStatus}>
+          <PaletteConfirmContext.Provider value={setConfirmAction}>
+            <Command.Dialog
+              open
+              ref={ref}
+              label="Convex Command Palette"
+              loop
+              filter={paletteFilter}
+              onKeyDown={handleKeyDown}
+            >
+              {/* cmdk renders a Radix Dialog with only an aria-label; Radix still
             requires a Dialog.Title inside the content for screen readers, so
             provide a visually hidden one. */}
-          <DialogTitle className="sr-only">Convex Command Palette</DialogTitle>
-          {pages.length > 0 && <Breadcrumbs pages={pages} />}
-          {/* Margin bleeds past the dialog padding so the input's divider spans the
+              <DialogTitle className="sr-only">
+                Convex Command Palette
+              </DialogTitle>
+              {pages.length > 0 && <Breadcrumbs pages={pages} />}
+              {/* Margin bleeds past the dialog padding so the input's divider spans the
               full width. */}
-          <div className="relative -mx-2">
-            <Command.Input
-              autoFocus
-              placeholder="Search for anything…"
-              value={search}
-              onValueChange={setSearch}
-            />
-            {isSearchPending && (
-              <Spinner className="absolute top-2.5 right-5 size-4 animate-fadeInFromLoading" />
-            )}
-          </div>
-          {/* While searching, cmdk re-sorts and reparents every group/item on
-              each keystroke, which restarts their load-in fade animation. This
-              attribute drives the CSS rule that suppresses that fade so results
-              don't flash on every character. */}
-          <Command.List
-            className="scrollbar"
-            data-searching={search ? "" : undefined}
-          >
-            {!isSearchPending && (
-              <Command.Empty>
-                <NoResultsMessage onClose={onClose} />
-              </Command.Empty>
-            )}
-            {drillPage === undefined && (
-              <RootCommands
-                search={search}
-                onNavigate={onNavigate}
-                pushPage={pushPage}
-                onClose={onClose}
-              />
-            )}
-            {drillPage?.type === "teams" && (
-              <TeamsCommands onNavigate={onNavigate} />
-            )}
-            {drillPage?.type === "projects" && (
-              <SwitchProjectCommands
-                search={search}
-                onNavigate={onNavigate}
-                pushPage={pushPage}
-              />
-            )}
-            {drillPage?.type === "components" && (
-              <ComponentsCommands onClose={onClose} />
-            )}
-            {drillPage?.type === "theme" && <ThemeCommands onClose={onClose} />}
-            {drillPage?.type === "project" && (
-              <ProjectCommands
-                project={drillPage.project}
-                onNavigate={onNavigate}
-                onSelectDeployment={(deployment) =>
-                  pushPage({
-                    type: "deployment",
-                    deployment,
-                    projectSlug: drillPage.project.slug,
-                  })
-                }
-              />
-            )}
-            {drillPage?.type === "deployments" && (
-              <SwitchDeploymentCommands
-                project={drillPage.project}
-                onNavigate={onNavigate}
-                onSelectDeployment={(deployment) =>
-                  pushPage({
-                    type: "deployment",
-                    deployment,
-                    projectSlug: drillPage.project.slug,
-                  })
-                }
-              />
-            )}
-            {drillPage?.type === "deployment" && (
-              <DeploymentCommands
-                deployment={drillPage.deployment}
-                projectSlug={drillPage.projectSlug}
-                onNavigate={onNavigate}
-              />
-            )}
-          </Command.List>
-          <Footer inSubPage={pages.length > 0} />
-        </Command.Dialog>
+              <div className="relative -mx-2">
+                <Command.Input
+                  autoFocus
+                  placeholder="Search for anything…"
+                  value={search}
+                  onValueChange={setSearch}
+                />
+                {isSearchPending && (
+                  <Spinner className="absolute top-2.5 right-5 size-4 animate-fadeInFromLoading" />
+                )}
+              </div>
+              {/* While searching, cmdk re-sorts and reparents every group/item on
+                each keystroke, which restarts their load-in fade animation. This
+                attribute drives the CSS rule that suppresses that fade so results
+                don't flash on every character. */}
+              <Command.List
+                className="scrollbar"
+                data-searching={search ? "" : undefined}
+              >
+                {!isSearchPending && (
+                  <Command.Empty>
+                    <NoResultsMessage onClose={onClose} />
+                  </Command.Empty>
+                )}
+                {drillPage === undefined && (
+                  <RootCommands
+                    search={search}
+                    onNavigate={onNavigate}
+                    pushPage={pushPage}
+                    onClose={onClose}
+                  />
+                )}
+                {drillPage?.type === "teams" && (
+                  <TeamsCommands onNavigate={onNavigate} />
+                )}
+                {drillPage?.type === "projects" && (
+                  <SwitchProjectCommands
+                    search={search}
+                    onNavigate={onNavigate}
+                    pushPage={pushPage}
+                  />
+                )}
+                {drillPage?.type === "components" && (
+                  <ComponentsCommands onClose={onClose} />
+                )}
+                {drillPage?.type === "theme" && (
+                  <ThemeCommands onClose={onClose} />
+                )}
+                {drillPage?.type === "deleteProjects" && (
+                  <DeleteProjectsCommands search={search} onClose={onClose} />
+                )}
+                {drillPage?.type === "project" && (
+                  <ProjectCommands
+                    project={drillPage.project}
+                    onNavigate={onNavigate}
+                    onSelectDeployment={(deployment) =>
+                      pushPage({
+                        type: "deployment",
+                        deployment,
+                        projectSlug: drillPage.project.slug,
+                      })
+                    }
+                  />
+                )}
+                {drillPage?.type === "deployments" && (
+                  <SwitchDeploymentCommands
+                    project={drillPage.project}
+                    onNavigate={onNavigate}
+                    onSelectDeployment={(deployment) =>
+                      pushPage({
+                        type: "deployment",
+                        deployment,
+                        projectSlug: drillPage.project.slug,
+                      })
+                    }
+                  />
+                )}
+                {drillPage?.type === "deployment" && (
+                  <DeploymentCommands
+                    deployment={drillPage.deployment}
+                    projectSlug={drillPage.projectSlug}
+                    onNavigate={onNavigate}
+                  />
+                )}
+              </Command.List>
+              <Footer inSubPage={pages.length > 0} status={footerStatus} />
+            </Command.Dialog>
+          </PaletteConfirmContext.Provider>
+        </PaletteStatusContext.Provider>
       </PaletteLoadingContext.Provider>
     </DrillModifierContext.Provider>
   );

@@ -145,18 +145,42 @@ export function ActionItem({
   onSelect,
   Icon,
   label,
+  description,
+  destructive = false,
   drillIn = false,
 }: {
   value: string;
   onSelect: () => void;
   Icon: React.FC<{ className?: string }>;
   label: string;
+  // Optional second line, e.g. a warning about what the action does.
+  description?: string;
+  // Render in the error color, for destructive actions.
+  destructive?: boolean;
   drillIn?: boolean;
 }) {
   return (
     <Command.Item value={value} keywords={[label]} onSelect={onSelect}>
-      <Icon className="text-content-secondary" />
-      <HighlightedText text={label} />
+      <Icon
+        className={
+          destructive ? "text-content-error" : "text-content-secondary"
+        }
+      />
+      <span className="flex min-w-0 flex-col">
+        <span className={cn("truncate", destructive && "text-content-error")}>
+          <HighlightedText text={label} />
+        </span>
+        {description && (
+          <span
+            className={cn(
+              "truncate text-xs",
+              destructive ? "text-content-error/80" : "text-content-tertiary",
+            )}
+          >
+            {description}
+          </span>
+        )}
+      </span>
       {drillIn && <DrillInHint />}
     </Command.Item>
   );
@@ -174,6 +198,16 @@ export function LoadingSignal() {
   React.useEffect(() => beginLoading?.(), [beginLoading]);
   return null;
 }
+
+// Lets the active drill-in page publish a short status line into the palette
+// footer (e.g. how many items are currently selected).
+export const PaletteStatusContext = React.createContext<
+  ((status: React.ReactNode) => void) | null
+>(null);
+
+export const PaletteConfirmContext = React.createContext<
+  ((action: (() => void) | null) => void) | null
+>(null);
 
 export function DrillInHint({
   kind,
