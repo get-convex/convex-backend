@@ -73,7 +73,6 @@ export function ProjectSearchGroup({
           key={candidate.id}
           project={candidate}
           teamSlug={team.slug}
-          teamName={team.name}
           onNavigate={onNavigate}
           onDrill={() => pushPage({ type: "project", project: candidate })}
         />
@@ -134,9 +133,6 @@ export function DeploymentSearchGroup({
             teamSlug={team.slug}
             projectSlug={project?.slug}
             remote
-            // In a project-scoped search, the project would be the same on
-            // every row.
-            showProject={project === undefined}
             onNavigate={onNavigate}
             onDrill={() =>
               pushPage({

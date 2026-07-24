@@ -102,7 +102,7 @@ const sections: {
   },
   {
     id: SECTION_IDS.envVars,
-    label: "Environment Variables",
+    label: "Default Environment Variables",
     Icon: VariableIcon,
   },
   {

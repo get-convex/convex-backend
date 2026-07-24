@@ -7,6 +7,8 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { createGlobalState, useClickAway } from "react-use";
 import { Spinner } from "@ui/Spinner";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useCurrentTeam } from "api/teams";
+import { useCurrentProject } from "api/projects";
 import { toast } from "@common/lib/utils";
 import { NavigationDestination, paletteFilter } from "./navigation";
 import {
@@ -71,6 +73,17 @@ export function CommandPalette() {
 
 function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  // Scope the placeholder to wherever the user currently is: the team, or the
+  // team and project once inside a project or one of its deployments.
+  const searchScope =
+    team && project
+      ? `${team.name} and ${project.name}`
+      : (team?.name ?? project?.name);
+  const placeholder = searchScope
+    ? `Search for anything in ${searchScope}…`
+    : "Search for anything…";
   const [search, setSearch] = useState("");
   // "Drilling" is stepping into a nested view of the palette rather than
   // navigating away (e.g. from the root into a team's list of projects, or
@@ -176,7 +189,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
               <div className="relative -mx-2">
                 <Command.Input
                   autoFocus
-                  placeholder="Search for anything…"
+                  placeholder={placeholder}
                   value={search}
                   onValueChange={setSearch}
                 />

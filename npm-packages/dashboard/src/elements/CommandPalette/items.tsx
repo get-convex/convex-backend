@@ -248,14 +248,11 @@ export function DrillInHint({
 export function ProjectItem({
   project,
   teamSlug,
-  teamName,
   onNavigate,
   onDrill,
 }: {
   project: ProjectDetails;
   teamSlug: string;
-  // The parent team, for the item's second line.
-  teamName?: string;
   onNavigate: (href: string) => void;
   onDrill: () => void;
 }) {
@@ -271,18 +268,13 @@ export function ProjectItem({
       }
     >
       <StackIcon className="text-content-secondary" />
-      {/* Two lines: the project, then the team it belongs to. */}
+      {/* Two lines: the project's name, then its slug. */}
       <span className="flex min-w-0 flex-col">
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate">
-            <HighlightedText text={project.name || project.slug} />
-          </span>
-          <span className="truncate text-xs text-content-tertiary">
-            <HighlightedText text={project.slug} />
-          </span>
+        <span className="truncate">
+          <HighlightedText text={project.name || project.slug} />
         </span>
         <span className="truncate text-xs text-content-tertiary">
-          {teamName ?? teamSlug}
+          <HighlightedText text={project.slug} />
         </span>
       </span>
       <DrillInHint kind="Project" onDrill={onDrill} />
@@ -300,7 +292,6 @@ export function DeploymentItem({
   onNavigate,
   onDrill,
   remote = false,
-  showProject = false,
 }: {
   deployment: PlatformDeploymentResponse;
   teamSlug: string;
@@ -310,8 +301,6 @@ export function DeploymentItem({
   // Whether this item comes from server-side search (bypasses the client
   // filter) rather than an already-loaded local list.
   remote?: boolean;
-  // Show the deployment's project, for lists that span multiple projects.
-  showProject?: boolean;
 }) {
   const consumeDrillModifier = useConsumeDrillModifier();
   const { project } = useProjectById(deployment.projectId);
@@ -338,22 +327,14 @@ export function DeploymentItem({
       >
         <DeploymentTypeIcon deploymentType={deployment.deploymentType} />
       </div>
-      {/* Two lines: the deployment, then the project it belongs to. */}
+      {/* Two lines: the deployment's reference, then its name. */}
       <span className="flex min-w-0 flex-col">
-        {/* Baseline-align the differently-sized reference and name. */}
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate">
-            <HighlightedText text={primary} />
-          </span>
-          <span className="truncate text-xs text-content-tertiary">
-            <HighlightedText text={deployment.name} />
-          </span>
+        <span className="truncate">
+          <HighlightedText text={primary} />
         </span>
-        {showProject && project && (
-          <span className="animate-fadeInFromLoading truncate text-xs text-content-tertiary">
-            <HighlightedText text={project.name || project.slug} />
-          </span>
-        )}
+        <span className="truncate text-xs text-content-tertiary">
+          <HighlightedText text={deployment.name} />
+        </span>
       </span>
       <DrillInHint kind={typeLabel} onDrill={onDrill} />
     </Command.Item>

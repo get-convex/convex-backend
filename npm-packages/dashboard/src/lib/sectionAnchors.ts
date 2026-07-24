@@ -36,7 +36,10 @@ export const PROJECT_SETTINGS_SECTIONS = {
     id: "applications",
     label: "Authorized Applications",
   },
-  environmentVariables: { id: "env-vars", label: "Environment Variables" },
+  environmentVariables: {
+    id: "env-vars",
+    label: "Default Environment Variables",
+  },
   transferProject: { id: "transfer-project", label: "Transfer Project" },
   deleteProject: { id: "delete-project", label: "Delete Project" },
 } satisfies Record<string, SectionAnchor>;
