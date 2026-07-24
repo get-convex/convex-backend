@@ -19,6 +19,7 @@ import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/v
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import { cn } from "@ui/cn";
+import { useIsMobileDevice } from "@ui/useIsMobileDevice";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   ConvexSchemaValidationError,
@@ -66,7 +67,7 @@ export type ObjectEditorProps = {
 const emptyObject = "{\n\n}";
 
 export function ObjectEditor(props: ObjectEditorProps) {
-  const isTouch = useIsTouchDevice();
+  const isMobile = useIsMobileDevice();
   const valueRef = useRef(props.defaultValue);
   const onChangeRef = useRef(props.onChange);
   onChangeRef.current = props.onChange;
@@ -75,7 +76,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
     onChangeRef.current(v);
   }, []);
 
-  if (isTouch) {
+  if (isMobile) {
     return (
       <PlainObjectEditor
         defaultValue={valueRef.current}
@@ -607,29 +608,4 @@ function moveFocus(forward = true) {
   if (nextElement && nextElement instanceof HTMLElement) {
     nextElement.focus();
   }
-}
-
-const TOUCH_DEVICE_QUERY = "(pointer: coarse) and (hover: none)";
-
-function useIsTouchDevice() {
-  const [isTouch, setIsTouch] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia(TOUCH_DEVICE_QUERY).matches,
-  );
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    ) {
-      return undefined;
-    }
-    const mediaQuery = window.matchMedia(TOUCH_DEVICE_QUERY);
-    setIsTouch(mediaQuery.matches);
-    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches);
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
-  }, []);
-  return isTouch;
 }

@@ -6,6 +6,7 @@ import { cn } from "@ui/cn";
 import { Tooltip } from "@ui/Tooltip";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { SearchIndexFilterClause } from "system-udfs/convex/_system/frontend/lib/filters";
+import { useIsMobileDevice } from "@ui/useIsMobileDevice";
 import { ObjectEditorWithPlaceholder } from "./ObjectEditorWithPlaceholder";
 
 export function SearchIndexFilterEditor({
@@ -83,88 +84,124 @@ export function SearchIndexFilterEditor({
     return new Date();
   };
 
+  // On narrow screens the value editor drops to its own full-width line below
+  // the field/operator so it has room to be usable.
+  const isMobile = useIsMobileDevice();
+
+  const checkbox = (
+    <div className="flex items-center pr-2">
+      <Checkbox
+        checked={filter.enabled}
+        onChange={handleEnabledChange}
+        aria-label={`Enable filter on ${field}`}
+      />
+    </div>
+  );
+
+  const fieldPill = (
+    <Tooltip
+      tip={
+        filter.enabled
+          ? "You cannot edit this field because it is a part of the definition of the selected index."
+          : undefined
+      }
+    >
+      <div
+        className={cn(
+          "flex h-full max-w-48 min-w-4 cursor-not-allowed items-center truncate border bg-background-secondary px-2 py-1 text-xs",
+          isMobile ? "rounded-sm" : "rounded-l",
+          filter.enabled
+            ? "bg-background-secondary"
+            : "bg-background-tertiary text-content-secondary",
+        )}
+      >
+        {field}
+      </div>
+    </Tooltip>
+  );
+
+  const operatorPill = (
+    <Tooltip
+      tip={
+        filter.enabled &&
+        "In an search index filter, index filters only support equality expressions."
+      }
+    >
+      <div
+        className={cn(
+          "flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
+          isMobile ? "rounded-sm" : "-ml-px",
+          filter.enabled
+            ? "bg-background-secondary"
+            : "bg-background-tertiary text-content-secondary",
+        )}
+      >
+        equals
+      </div>
+    </Tooltip>
+  );
+
+  const valueEditor = (
+    <div className={cn("min-w-0", isMobile ? "w-full" : "-ml-px flex-1")}>
+      {isCreationTimeField ? (
+        <DateTimePicker
+          date={getTimestampValue(filter.value)}
+          onChange={handleDateChange}
+          disabled={!filter.enabled}
+          className={cn(
+            "border p-1 text-xs",
+            isMobile ? "w-full rounded-sm" : "rounded-r",
+          )}
+          aria-label="Creation time"
+        />
+      ) : (
+        <ObjectEditorWithPlaceholder
+          value={filter.value}
+          onChangeHandler={handleValueChange}
+          path={`searchIndexFilter${idx}-${field}`}
+          autoFocus={autoFocusValueEditor}
+          className="rounded-l-none rounded-r"
+          isMobile={isMobile}
+          enabled={filter.enabled}
+          onApplyFilters={onApplyFilters}
+          handleError={handleError}
+          documentValidator={documentValidator}
+          shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
+        />
+      )}
+    </div>
+  );
+
+  const errorIcon = error && (
+    <Tooltip tip={error}>
+      <div className="ml-1 rounded-sm border bg-background-error p-1">
+        <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
+      </div>
+    </Tooltip>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center gap-1">
+          {checkbox}
+          {fieldPill}
+          {operatorPill}
+          {errorIcon}
+        </div>
+        {valueEditor}
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div className="flex min-w-0 grow">
-        {/* Checkbox for enabled state */}
-        <div className="flex items-center pr-2">
-          <Checkbox
-            checked={filter.enabled}
-            onChange={handleEnabledChange}
-            aria-label={`Enable filter on ${field}`}
-          />
-        </div>
-
-        {/* Field name display */}
-        <Tooltip
-          tip={
-            filter.enabled
-              ? "You cannot edit this field because it is a part of the definition of the selected index."
-              : undefined
-          }
-        >
-          <div
-            className={cn(
-              "flex h-full max-w-48 min-w-4 cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
-              filter.enabled
-                ? "bg-background-secondary"
-                : "bg-background-tertiary text-content-secondary",
-            )}
-          >
-            {field}
-          </div>
-        </Tooltip>
-
-        <Tooltip
-          tip={
-            filter.enabled &&
-            "In an search index filter, index filters only support equality expressions."
-          }
-        >
-          <div
-            className={cn(
-              "-ml-px flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
-              filter.enabled
-                ? "bg-background-secondary"
-                : "bg-background-tertiary text-content-secondary",
-            )}
-          >
-            equals
-          </div>
-        </Tooltip>
-
-        {/* Render the appropriate value editor */}
-        <div className="-ml-px min-w-0 flex-1">
-          {isCreationTimeField ? (
-            <DateTimePicker
-              date={getTimestampValue(filter.value)}
-              onChange={handleDateChange}
-              disabled={!filter.enabled}
-              className="rounded-r border p-1 text-xs"
-              aria-label="Creation time"
-            />
-          ) : (
-            <ObjectEditorWithPlaceholder
-              value={filter.value}
-              onChangeHandler={handleValueChange}
-              path={`searchIndexFilter${idx}-${field}`}
-              autoFocus={autoFocusValueEditor}
-              className="rounded-l-none rounded-r"
-              enabled={filter.enabled}
-              onApplyFilters={onApplyFilters}
-              handleError={handleError}
-              documentValidator={documentValidator}
-              shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
-            />
-          )}
-        </div>
-        {error && (
-          <Tooltip tip={error}>
-            <div className="ml-1 rounded-sm border bg-background-error p-1">
-              <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
-            </div>
-          </Tooltip>
-        )}
+        {checkbox}
+        {fieldPill}
+        {operatorPill}
+        {valueEditor}
+        {errorIcon}
       </div>
     </div>
   );

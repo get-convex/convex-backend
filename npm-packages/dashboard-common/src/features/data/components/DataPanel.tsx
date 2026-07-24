@@ -3,19 +3,19 @@ import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Panel } from "react-resizable-panels";
 import { Modal } from "@ui/Modal";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
-import { useIsNarrowScreen } from "@ui/useIsNarrowScreen";
+import { useIsMobileDevice } from "@ui/useIsMobileDevice";
 
 export interface DataPanelProps {
   title: ReactNode;
   onClose: () => void;
   // Runs before the panel closes; return false to veto (used to confirm
-  // discarding unsaved edits). On narrow screens the panel is a Modal whose
+  // discarding unsaved edits). On mobile devices the panel is a Modal whose
   // close is animation-driven, so the veto has to happen on the close request
   // rather than after teardown — passing the confirm as onClose would let the
   // modal animate shut before the user can cancel.
   onBeforeClose?: () => boolean;
   children: ReactNode;
-  // When rendered as a modal on narrow screens, fill most of the viewport
+  // When rendered as a modal on mobile devices, fill most of the viewport
   // height instead of sizing to the content. Used by panels whose contents
   // (e.g. the document editor) need room to be useful and manage their own
   // internal scrolling.
@@ -31,12 +31,9 @@ export function DataPanel({
   fillHeight = false,
   ...props
 }: DataPanelProps) {
-  // Below this width the resizable side panel squeezes both the table and its
-  // own contents to the point of being unusable, so render the contents in a
-  // full-width modal (a bottom sheet on mobile) instead.
-  const isNarrow = useIsNarrowScreen();
+  const isMobile = useIsMobileDevice();
 
-  if (isNarrow) {
+  if (isMobile) {
     return (
       <Modal
         onClose={onClose}
