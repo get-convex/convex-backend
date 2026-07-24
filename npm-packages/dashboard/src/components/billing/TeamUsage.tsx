@@ -588,6 +588,12 @@ function DeploymentCountUsage({
   );
   const statusRangeBeforeCutoff =
     shownBillingPeriod.from < DEPLOYMENT_STATUS_DATA_START;
+  const statusCutoffNote = (
+    <p className="text-center text-sm text-content-secondary">
+      The deployment status breakdown is only available from July 23, 2026
+      onwards.
+    </p>
+  );
   // Anchor the x-axis at the start of the viewed period with an empty day so
   // the status chart spans the same range as the other deployment views; the
   // chart gap-fills the pre-cutoff days as empty bars, avoiding the axis (and
@@ -741,19 +747,16 @@ function DeploymentCountUsage({
             <ChartLoading />
           ) : (
             <div className="flex flex-col gap-2">
-              {statusRangeBeforeCutoff && (
-                <p className="text-center text-sm text-content-secondary">
-                  The deployment status breakdown is only available from July
-                  23, 2026 onwards.
-                </p>
-              )}
               {deploymentCountByStatus.length === 0 &&
               statusRangeBeforeCutoff ? (
                 // The whole selected range predates the status data — there are
                 // no bars to render, so reserve the chart's space; the message
-                // above explains why it's blank. A post-cutoff range with no
-                // rows falls through to the chart's own no-data state instead.
-                <div className="h-56" />
+                // explains why it's blank. A post-cutoff range with no rows
+                // falls through to the chart's own no-data state instead.
+                <>
+                  <div className="h-56" />
+                  {statusCutoffNote}
+                </>
               ) : (
                 <UsageStackedBarChart
                   rows={deploymentCountByStatusChartRows!}
@@ -762,6 +765,7 @@ function DeploymentCountUsage({
                   setSelectedDate={setSelectedDate}
                   isGauge
                   showEmptyCategories
+                  note={statusRangeBeforeCutoff ? statusCutoffNote : undefined}
                 />
               )}
             </div>

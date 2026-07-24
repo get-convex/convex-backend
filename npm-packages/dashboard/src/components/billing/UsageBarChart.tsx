@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { DailyMetric, DailyPerTagMetrics } from "hooks/usageMetrics";
 import { Bar, Rectangle, ReferenceArea } from "recharts";
-import { useMemo } from "react";
+import { ReactNode, useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
 import { toNumericUTC } from "@common/lib/format";
@@ -25,6 +25,7 @@ export function UsageStackedBarChart({
   showEmptyCategories = false,
   selectedDate,
   setSelectedDate,
+  note,
 }: {
   rows: DailyPerTagMetrics[];
   categories: {
@@ -45,6 +46,7 @@ export function UsageStackedBarChart({
   showEmptyCategories?: boolean;
   selectedDate: number | null;
   setSelectedDate: (date: number | null) => void;
+  note?: ReactNode;
 }) {
   const chartData = useMemo(() => {
     const filledData = [];
@@ -218,6 +220,8 @@ export function UsageStackedBarChart({
           )}
         </DailyChart>
       </div>
+
+      {note}
 
       <InlineDetailList
         items={detailItems}
