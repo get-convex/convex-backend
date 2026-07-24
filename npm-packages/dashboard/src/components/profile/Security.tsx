@@ -128,25 +128,27 @@ export function Security() {
         </>
       ) : (
         <Callout>
-          {primaryEmail && loggedInEmail ? (
-            <>
-              <p>
-                You're signed in with <strong>{loggedInEmail}</strong>, which is
-                not your primary email.{" "}
-              </p>
-              <p>
-                To manage security settings, sign out and sign back in with your
-                primary email (<strong>{primaryEmail}</strong>), or change your
-                primary email address. Once you enable multi-factor
-                authentication, you will no longer be able to sign in with
-                secondary email addresses.
-              </p>
-            </>
-          ) : (
-            <span>
-              Sign in with your primary email to manage security settings.
-            </span>
-          )}
+          <div className="flex flex-col gap-2">
+            {primaryEmail && loggedInEmail ? (
+              <>
+                <p>
+                  You're signed in with <strong>{loggedInEmail}</strong>, which
+                  is not your primary email.{" "}
+                </p>
+                <p>
+                  To manage security settings, sign out and sign back in with
+                  your primary email (<strong>{primaryEmail}</strong>), or
+                  change your primary email address. Once you enable
+                  multi-factor authentication, you will no longer be able to
+                  sign in with secondary email addresses.
+                </p>
+              </>
+            ) : (
+              <span>
+                Sign in with your primary email to manage security settings.
+              </span>
+            )}
+          </div>
         </Callout>
       )}
     </Sheet>
