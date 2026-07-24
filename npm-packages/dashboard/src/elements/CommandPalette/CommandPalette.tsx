@@ -169,7 +169,10 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
               each keystroke, which restarts their load-in fade animation. This
               attribute drives the CSS rule that suppresses that fade so results
               don't flash on every character. */}
-          <Command.List data-searching={search ? "" : undefined}>
+          <Command.List
+            className="scrollbar"
+            data-searching={search ? "" : undefined}
+          >
             {!isSearchPending && (
               <Command.Empty>
                 <NoResultsMessage onClose={onClose} />

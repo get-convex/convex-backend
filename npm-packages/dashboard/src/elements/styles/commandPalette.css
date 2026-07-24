@@ -55,7 +55,7 @@
 }
 
 [cmdk-list] {
-  @apply scrollbar h-[330px] overflow-auto overscroll-contain transition-[height] duration-100 ease-[ease] focus:outline-hidden;
+  @apply h-[330px] overflow-auto overscroll-contain transition-[height] duration-100 ease-[ease] focus:outline-hidden;
 
   /* cmdk scrolls the selected item with `scrollIntoView({ block: "nearest" })`,
      which honors scroll-padding. Keep a little breathing room above and below
