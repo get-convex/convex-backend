@@ -614,26 +614,40 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             (Some(enabled_index), None) => self.identical_or_replaced(enabled_index, new_index),
             (None, Some(pending_index)) => self.identical_or_replaced(pending_index, new_index),
             (Some(enabled_index), Some(pending_index)) => {
-                let mut comparison = self.identical_or_replaced(pending_index.clone(), new_index);
+                let mut pending_comparison =
+                    self.identical_or_replaced(pending_index.clone(), new_index.clone());
+                let mut enabled_comparison =
+                    self.identical_or_replaced(enabled_index.clone(), new_index);
+                if let IndexComparison::Identical(index) = &mut enabled_comparison {
+                    // Allows using a still active index for the current push if a pending
+                    // schema/push mutates the index, but hasn't been enabled
+                    // yet
+                    anyhow::ensure!(index == &enabled_index);
+                    enabled_comparison = IndexComparison::Replaced {
+                        replaced: vec![pending_index],
+                        replacement: ReplacementIndex::Identical(enabled_index),
+                    };
+                    return Ok(enabled_comparison);
+                }
                 if let IndexComparison::Replaced {
                     replaced,
                     replacement: _,
-                } = &mut comparison
+                } = &mut pending_comparison
                 {
                     // If the pending index has been mutated, we need to replace both the
                     // pending and enabled indexes.
                     anyhow::ensure!(*replaced == vec![pending_index.clone()]);
                     *replaced = vec![enabled_index, pending_index];
-                } else if let IndexComparison::Identical(index) = &mut comparison {
+                } else if let IndexComparison::Identical(index) = &mut pending_comparison {
                     // If the pending index is identical to the new index, we need to replace
                     // the enabled index with the pending index.
                     anyhow::ensure!(index == &pending_index);
-                    comparison = IndexComparison::Replaced {
+                    pending_comparison = IndexComparison::Replaced {
                         replaced: vec![enabled_index],
                         replacement: ReplacementIndex::Identical(pending_index),
                     };
                 }
-                comparison
+                pending_comparison
             },
         })
     }
