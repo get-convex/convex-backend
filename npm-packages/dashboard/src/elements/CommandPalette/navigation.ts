@@ -56,8 +56,6 @@ export type DeploymentPageFlags = {
 export function deploymentNavigation(
   uriPrefix: string,
   { usageLimitsEnabled }: DeploymentPageFlags,
-  // The deployment these pages belong to, e.g. "my-project·prod".
-  resource?: string,
 ): { pages: NavigationTarget[]; settings: NavigationTarget[] } {
   const pages: NavigationTarget[] = [
     { label: "Health", href: `${uriPrefix}/`, Icon: PulseIcon },
@@ -81,13 +79,12 @@ export function deploymentNavigation(
       href: `${uriPrefix}/history`,
       Icon: CounterClockwiseClockIcon,
     },
-  ].map((target) => ({ ...target, parent: resource }));
+  ];
   const settings: NavigationTarget[] = [
     {
       label: "Deployment Settings",
       href: `${uriPrefix}/settings`,
       Icon: DEPLOYMENT_SETTINGS_PAGE_ICONS.general,
-      parent: resource,
     },
     {
       label: "Environment Variables",

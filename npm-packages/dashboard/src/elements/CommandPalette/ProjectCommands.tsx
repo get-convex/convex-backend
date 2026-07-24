@@ -2,7 +2,11 @@ import { Command } from "cmdk";
 import React, { useMemo } from "react";
 import { useCurrentTeam } from "api/teams";
 import { useDeployments } from "api/deployments";
-import type { PlatformDeploymentResponse, ProjectDetails } from "generatedApi";
+import type {
+  PlatformDeploymentResponse,
+  ProjectDetails,
+  TeamResponse,
+} from "generatedApi";
 import { projectNavigation, projectSectionNavigation } from "./navigation";
 import { DeploymentItem, LoadingSignal, NavigationItem } from "./items";
 
@@ -18,12 +22,6 @@ export function ProjectCommands({
   onSelectDeployment: (deployment: PlatformDeploymentResponse) => void;
 }) {
   const team = useCurrentTeam();
-  const { deployments, isLoading } = useDeployments(project.id);
-  // Local deployments have no dashboard pages to navigate to.
-  const cloudDeployments = useMemo(
-    () => (deployments ?? []).filter((d) => d.kind === "cloud"),
-    [deployments],
-  );
 
   if (!team) {
     return <LoadingSignal />;
@@ -31,7 +29,7 @@ export function ProjectCommands({
 
   return (
     <>
-      <Command.Group heading={`Project · ${project.name || project.slug}`}>
+      <Command.Group heading="Project">
         {[
           ...projectNavigation(team.slug, project.slug, project.name),
           ...projectSectionNavigation(team.slug, project.slug),
@@ -43,22 +41,77 @@ export function ProjectCommands({
           />
         ))}
       </Command.Group>
-      <Command.Group heading="Deployments">
-        {isLoading && !deployments ? (
-          <LoadingSignal />
-        ) : (
-          cloudDeployments.map((deployment) => (
-            <DeploymentItem
-              key={deployment.name}
-              deployment={deployment}
-              teamSlug={team.slug}
-              projectSlug={project.slug}
-              onNavigate={onNavigate}
-              onDrill={() => onSelectDeployment(deployment)}
-            />
-          ))
-        )}
-      </Command.Group>
+      <DeploymentsGroup
+        team={team}
+        project={project}
+        onNavigate={onNavigate}
+        onSelectDeployment={onSelectDeployment}
+      />
     </>
+  );
+}
+
+// The drilled-into "Switch Deployment" page: just the project's deployments,
+// without the project's own pages.
+export function SwitchDeploymentCommands({
+  project,
+  onNavigate,
+  onSelectDeployment,
+}: {
+  project: ProjectDetails;
+  onNavigate: (href: string) => void;
+  onSelectDeployment: (deployment: PlatformDeploymentResponse) => void;
+}) {
+  const team = useCurrentTeam();
+
+  if (!team) {
+    return <LoadingSignal />;
+  }
+
+  return (
+    <DeploymentsGroup
+      team={team}
+      project={project}
+      onNavigate={onNavigate}
+      onSelectDeployment={onSelectDeployment}
+    />
+  );
+}
+
+function DeploymentsGroup({
+  team,
+  project,
+  onNavigate,
+  onSelectDeployment,
+}: {
+  team: TeamResponse;
+  project: ProjectDetails;
+  onNavigate: (href: string) => void;
+  onSelectDeployment: (deployment: PlatformDeploymentResponse) => void;
+}) {
+  const { deployments, isLoading } = useDeployments(project.id);
+  // Local deployments have no dashboard pages to navigate to.
+  const cloudDeployments = useMemo(
+    () => (deployments ?? []).filter((d) => d.kind === "cloud"),
+    [deployments],
+  );
+
+  return (
+    <Command.Group heading="Deployments">
+      {isLoading && !deployments ? (
+        <LoadingSignal />
+      ) : (
+        cloudDeployments.map((deployment) => (
+          <DeploymentItem
+            key={deployment.name}
+            deployment={deployment}
+            teamSlug={team.slug}
+            projectSlug={project.slug}
+            onNavigate={onNavigate}
+            onDrill={() => onSelectDeployment(deployment)}
+          />
+        ))
+      )}
+    </Command.Group>
   );
 }

@@ -7,11 +7,15 @@ export type PalettePage =
   | { type: "teams" }
   | { type: "projects" }
   | { type: "project"; project: ProjectDetails }
+  // The deployments of a single project, without the project's own pages —
+  // reached from the "Switch Deployment…" command.
+  | { type: "deployments"; project: ProjectDetails }
   | {
       type: "deployment";
       deployment: PlatformDeploymentResponse;
       projectSlug?: string;
     }
+  | { type: "components" }
   | { type: "theme" };
 
 export function pageLabel(page: PalettePage): string {
@@ -22,10 +26,14 @@ export function pageLabel(page: PalettePage): string {
       return "Switch Project";
     case "project":
       return page.project.name || page.project.slug;
+    case "deployments":
+      return "Switch Deployment";
     case "deployment":
       return "reference" in page.deployment
         ? page.deployment.reference
         : page.deployment.name;
+    case "components":
+      return "Switch Component";
     case "theme":
       return "Change Dashboard Theme";
     default: {

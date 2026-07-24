@@ -11,7 +11,6 @@ import { SparklesIcon } from "@heroicons/react/24/outline";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
-import { useCurrentDeployment } from "api/deployments";
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { openAskAI } from "elements/AskAI";
 import { logout } from "lib/logout";
@@ -28,6 +27,10 @@ import {
   teamSectionNavigation,
 } from "./navigation";
 import { ActionItem, NavigationItem } from "./items";
+import {
+  SwitchComponentItem,
+  SwitchComponentSearchItems,
+} from "./ComponentCommands";
 import { DeploymentSearchGroup, ProjectSearchGroup } from "./searchGroups";
 import { PalettePage } from "./pages";
 
@@ -51,7 +54,6 @@ export function RootCommands({
   const router = useRouter();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const deployment = useCurrentDeployment();
   const { usageLimits } = useLaunchDarkly();
   const [, setSupportFormOpen] = useSupportFormOpen();
 
@@ -59,10 +61,6 @@ export function RootCommands({
     typeof router.query.deploymentName === "string"
       ? router.query.deploymentName
       : undefined;
-  const deploymentDisplay =
-    deployment && "reference" in deployment
-      ? deployment.reference
-      : deploymentName;
 
   const deploymentUriPrefix =
     team && project && deploymentName
@@ -70,13 +68,9 @@ export function RootCommands({
       : undefined;
   const deploymentNav =
     deploymentUriPrefix && project
-      ? deploymentNavigation(
-          deploymentUriPrefix,
-          {
-            usageLimitsEnabled: usageLimits,
-          },
-          `${project.name || project.slug}·${deploymentDisplay}`,
-        )
+      ? deploymentNavigation(deploymentUriPrefix, {
+          usageLimitsEnabled: usageLimits,
+        })
       : undefined;
   // Sections within pages are only surfaced while searching, to keep the
   // browsable (empty-search) list scannable.
@@ -111,9 +105,7 @@ export function RootCommands({
         </Command.Group>
       )}
       {deploymentNav && project && (
-        <Command.Group
-          heading={`Deployment · ${project.name || project.slug}·${deploymentDisplay}`}
-        >
+        <Command.Group heading="Deployment">
           {[
             ...deploymentNav.pages,
             ...deploymentNav.settings,
@@ -130,10 +122,14 @@ export function RootCommands({
                 onNavigate={onNavigate}
               />
             ))}
+          <SwitchComponentItem
+            onSelect={() => pushPage({ type: "components" })}
+          />
+          {showSections && <SwitchComponentSearchItems onClose={onClose} />}
         </Command.Group>
       )}
       {team && project && projectNav && (
-        <Command.Group heading={`Project · ${project.name || project.slug}`}>
+        <Command.Group heading="Project">
           {[
             ...projectNav,
             ...(showSections
@@ -150,7 +146,7 @@ export function RootCommands({
             ))}
           <ActionItem
             value="page:switch-deployment"
-            onSelect={() => pushPage({ type: "project", project })}
+            onSelect={() => pushPage({ type: "deployments", project })}
             Icon={CaretSortIcon}
             label="Switch Deployment…"
             drillIn
@@ -159,7 +155,7 @@ export function RootCommands({
         </Command.Group>
       )}
       {team && teamNav && (
-        <Command.Group heading={`Team · ${team.name || team.slug}`}>
+        <Command.Group heading="Team">
           {[
             ...teamNav,
             ...(showSections ? teamSectionNavigation(team.slug) : []),

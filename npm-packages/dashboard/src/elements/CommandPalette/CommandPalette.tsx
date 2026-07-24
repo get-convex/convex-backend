@@ -10,7 +10,8 @@ import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { toast } from "@common/lib/utils";
 import { NavigationDestination, paletteFilter } from "./navigation";
 import { DrillModifierContext, PaletteLoadingContext } from "./items";
-import { ProjectCommands } from "./ProjectCommands";
+import { ComponentsCommands } from "./ComponentCommands";
+import { ProjectCommands, SwitchDeploymentCommands } from "./ProjectCommands";
 import { DeploymentCommands } from "./DeploymentCommands";
 import { PalettePage } from "./pages";
 import { Breadcrumbs } from "./Breadcrumbs";
@@ -188,9 +189,25 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
                 pushPage={pushPage}
               />
             )}
+            {drillPage?.type === "components" && (
+              <ComponentsCommands onClose={onClose} />
+            )}
             {drillPage?.type === "theme" && <ThemeCommands onClose={onClose} />}
             {drillPage?.type === "project" && (
               <ProjectCommands
+                project={drillPage.project}
+                onNavigate={onNavigate}
+                onSelectDeployment={(deployment) =>
+                  pushPage({
+                    type: "deployment",
+                    deployment,
+                    projectSlug: drillPage.project.slug,
+                  })
+                }
+              />
+            )}
+            {drillPage?.type === "deployments" && (
+              <SwitchDeploymentCommands
                 project={drillPage.project}
                 onNavigate={onNavigate}
                 onSelectDeployment={(deployment) =>

@@ -29,15 +29,11 @@ export function DeploymentCommands({
   }
 
   const uriPrefix = `/t/${team.slug}/${projectSlug}/${deployment.name}`;
-  const reference =
-    "reference" in deployment ? deployment.reference : deployment.name;
-  const { pages, settings } = deploymentNavigation(
-    uriPrefix,
-    {
-      usageLimitsEnabled: usageLimits,
-    },
-    `${project?.name ?? projectSlug}·${reference}`,
-  );
+  // The deployment context lives in the breadcrumb, so the pages don't repeat
+  // it on a second line.
+  const { pages, settings } = deploymentNavigation(uriPrefix, {
+    usageLimitsEnabled: usageLimits,
+  });
 
   return (
     <>
