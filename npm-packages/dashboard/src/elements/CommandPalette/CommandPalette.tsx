@@ -165,7 +165,11 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
               <Spinner className="absolute top-2.5 right-5 size-4 animate-fadeInFromLoading" />
             )}
           </div>
-          <Command.List>
+          {/* While searching, cmdk re-sorts and reparents every group/item on
+              each keystroke, which restarts their load-in fade animation. This
+              attribute drives the CSS rule that suppresses that fade so results
+              don't flash on every character. */}
+          <Command.List data-searching={search ? "" : undefined}>
             {!isSearchPending && (
               <Command.Empty>
                 <NoResultsMessage onClose={onClose} />

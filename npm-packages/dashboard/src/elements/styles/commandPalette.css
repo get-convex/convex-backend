@@ -71,6 +71,14 @@
   @apply animate-fadeInFromLoading;
 }
 
+/* While a search is active, cmdk re-sorts on every keystroke and reparents each
+   group/item via appendChild, which restarts CSS animations. Suppress the
+   async-load fade during search so results don't flash on every character. */
+[cmdk-list][data-searching] [cmdk-group],
+[cmdk-list][data-searching] [cmdk-item] {
+  animation: none;
+}
+
 *:not([hidden]) + [cmdk-group] {
   @apply mt-2;
 }
