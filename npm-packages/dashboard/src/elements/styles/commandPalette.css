@@ -25,12 +25,8 @@
      while a search is active (see `[cmdk-list][data-searching]`). */
   @apply rounded-sm text-sm flex items-center gap-2 p-2 cursor-pointer;
 
-  /* In light mode the background tokens are all near-white, so
-     `background-tertiary` barely reads against the translucent glass surface.
-     A darkening overlay gives the selected row real contrast; dark mode keeps
-     `background-tertiary`, which already stands out there. */
   &[data-selected="true"] {
-    @apply bg-black/[0.07] dark:bg-background-tertiary;
+    @apply bg-background-secondary dark:bg-background-tertiary;
   }
 
   &[data-disabled="true"] {
@@ -38,7 +34,7 @@
   }
 
   &:active {
-    @apply bg-black/[0.07] dark:bg-background-tertiary;
+    @apply bg-background-secondary dark:bg-background-tertiary;
   }
 
   & + [cmdk-item] {
