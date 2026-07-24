@@ -46,7 +46,7 @@ function Name({ value }: CellProps<CronDatum, string>) {
 }
 
 function Schedule({
-  value: { schedule },
+  value: { schedule, nextDate },
 }: CellProps<
   CronDatum,
   { schedule: CronSchedule; nextDate: Date | undefined }
@@ -60,8 +60,10 @@ function Schedule({
     const duration = formatDuration({ seconds: Number(schedule.seconds) });
     formattedSchedule = `Every ${duration}`;
   } else if (wasmCron) {
+    // When the schedule omits the minute, Convex chooses it; describe the
+    // schedule using the minute of the actual next run.
     const [cron, description] = wasmCron.parseAndDescribe(
-      scheduleAsCron(schedule),
+      scheduleAsCron(schedule, nextDate?.getUTCMinutes()),
     );
     cron.free();
     formattedSchedule = prettierSaffron(description);
