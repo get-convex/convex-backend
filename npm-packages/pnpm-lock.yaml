@@ -3244,8 +3244,8 @@ importers:
   node-executor:
     dependencies:
       adm-zip:
-        specifier: ^0.5.10
-        version: 0.5.16
+        specifier: ^0.6.0
+        version: 0.6.0
       archiver:
         specifier: ~7.0.0
         version: 7.0.1
@@ -15580,6 +15580,10 @@ packages:
   adm-zip@0.5.16:
     resolution: {integrity: sha512-TGw5yVi4saajsSEgz25grObGHEUaDrniwvA2qwSC060KfqGPdglhvPMA2lPIoxs3PQIItj2iag35fONcQqgUaQ==}
     engines: {node: '>=12.0'}
+
+  adm-zip@0.6.0:
+    resolution: {integrity: sha512-XleryMhbuksdKtofnWZ9Sk+4CUTbms4Mb/EU32SZwToAyZ5RgVos/ki8n+yr0LWHOGKuakbXTuuYNHLQjhddgg==}
+    engines: {node: '>=14.0'}
 
   agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
@@ -41869,6 +41873,8 @@ snapshots:
       regex-parser: 2.3.1
 
   adm-zip@0.5.16: {}
+
+  adm-zip@0.6.0: {}
 
   agent-base@6.0.2:
     dependencies:

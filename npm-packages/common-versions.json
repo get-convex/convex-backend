@@ -59,6 +59,8 @@
     "@types/react-dom": ["^18", "^18.2.21", "^18.3.1", "^19.2.3"],
     "typescript-eslint": ["^8.45.0", "~8.57.0"],
 
-    "zod": ["^3.25.0", "^4.3.6"]
+    "zod": ["^3.25.0", "^4.3.6"],
+    // node-executor bumped adm-zip to the ^0.6.0 major for GHSA-xcpc-8h2w-3j85; other packages still pin ^0.5.10.
+    "adm-zip": ["^0.6.0"]
   }
 }
