@@ -75,6 +75,22 @@ impl From<ConvexValue> for PendingValue {
     }
 }
 
+macro_rules! impl_try_from_via_convex_value {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl TryFrom<$ty> for PendingValue {
+                type Error = anyhow::Error;
+
+                fn try_from(value: $ty) -> anyhow::Result<Self> {
+                    Ok(Self::Concrete(ConvexValue::try_from(value)?))
+                }
+            }
+        )*
+    };
+}
+
+impl_try_from_via_convex_value!(String, &str, i64, f64, bool, Vec<u8>);
+
 impl From<ConvexObject> for PendingValue {
     fn from(value: ConvexObject) -> Self {
         Self::Concrete(ConvexValue::Object(value))

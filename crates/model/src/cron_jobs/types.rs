@@ -38,9 +38,11 @@ use value::{
     id_v6::DeveloperDocumentId,
     json_deserialize,
     obj,
+    pending_obj,
     ConvexArray,
     ConvexObject,
     ConvexValue,
+    PendingValue,
     ResolvedDocumentId,
     Size,
 };
@@ -768,7 +770,7 @@ pub struct CronJobLog {
     pub execution_time: f64,
 }
 
-impl TryFrom<CronJobLog> for ConvexObject {
+impl TryFrom<CronJobLog> for PendingValue {
     type Error = anyhow::Error;
 
     fn try_from(log: CronJobLog) -> anyhow::Result<Self, Self::Error> {
@@ -776,15 +778,23 @@ impl TryFrom<CronJobLog> for ConvexObject {
         // field names can be used in a `Document`'s top-level object.
         let udf_args_bytes = log.udf_args.into_bytes();
 
-        obj!(
+        pending_obj!(
             "name" => log.name.to_string(),
             "ts" => ConvexValue::Int64(log.ts.into()),
             "udfPath" => String::from(log.udf_path),
             "udfArgs" => udf_args_bytes,
-            "status" => ConvexValue::Object(log.status.try_into()?),
+            "status" => log.status,
             "logLines" => ConvexValue::Object(log.log_lines.try_into()?),
             "executionTime" => log.execution_time,
         )
+    }
+}
+
+impl TryFrom<CronJobLog> for ConvexObject {
+    type Error = anyhow::Error;
+
+    fn try_from(log: CronJobLog) -> anyhow::Result<Self, Self::Error> {
+        PendingValue::try_from(log)?.try_into_concrete()?.try_into()
     }
 }
 
@@ -863,24 +873,28 @@ pub enum CronJobStatus {
     Canceled { num_canceled: i64 },
 }
 
+impl TryFrom<CronJobStatus> for PendingValue {
+    type Error = anyhow::Error;
+
+    fn try_from(status: CronJobStatus) -> anyhow::Result<Self, Self::Error> {
+        let value = match status {
+            CronJobStatus::Success(r) => pending_obj!("type" => "success", "result" => r)?,
+            CronJobStatus::Err(e) => obj!("type" => "err", "error" => e)?.into(),
+            CronJobStatus::Canceled { num_canceled } => {
+                obj!("type" => "canceled", "num_canceled" => num_canceled)?.into()
+            },
+        };
+        Ok(value)
+    }
+}
+
 impl TryFrom<CronJobStatus> for ConvexObject {
     type Error = anyhow::Error;
 
     fn try_from(status: CronJobStatus) -> anyhow::Result<Self, Self::Error> {
-        match status {
-            CronJobStatus::Success(r) => {
-                obj!(
-                    "type" => "success",
-                    "result" => ConvexValue::Object(r.try_into()?),
-                )
-            },
-            CronJobStatus::Err(e) => {
-                obj!("type" => "err", "error" => e)
-            },
-            CronJobStatus::Canceled { num_canceled } => {
-                obj!("type" => "canceled", "num_canceled" => num_canceled)
-            },
-        }
+        PendingValue::try_from(status)?
+            .try_into_concrete()?
+            .try_into()
     }
 }
 
@@ -935,25 +949,41 @@ impl TryFrom<ConvexObject> for CronJobStatus {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CronJobResult {
-    Default(ConvexValue),
+    Default(
+        PendingValue,
+    ),
     Truncated(String),
+}
+
+impl TryFrom<CronJobResult> for PendingValue {
+    type Error = anyhow::Error;
+
+    fn try_from(result: CronJobResult) -> anyhow::Result<Self, Self::Error> {
+        let value = match result {
+            CronJobResult::Default(v) => {
+                let value = match v {
+                    PendingValue::Concrete(v) => {
+                        PendingValue::from(ConvexValue::try_from(v.json_serialize()?)?)
+                    },
+                    pending => pending,
+                };
+                pending_obj!("type" => "default", "value" => value)?
+            },
+            CronJobResult::Truncated(s) => {
+                obj!("type" => "truncated", "truncated_log" => s)?.into()
+            },
+        };
+        Ok(value)
+    }
 }
 
 impl TryFrom<CronJobResult> for ConvexObject {
     type Error = anyhow::Error;
 
     fn try_from(result: CronJobResult) -> anyhow::Result<Self, Self::Error> {
-        match result {
-            CronJobResult::Default(v) => {
-                obj!(
-                    "type" => "default",
-                    "value" => v.json_serialize()?,
-                )
-            },
-            CronJobResult::Truncated(s) => {
-                obj!("type" => "truncated", "truncated_log" => s)
-            },
-        }
+        PendingValue::try_from(result)?
+            .try_into_concrete()?
+            .try_into()
     }
 }
 
@@ -974,12 +1004,10 @@ impl TryFrom<ConvexObject> for CronJobResult {
             "default" => {
                 let value = match fields.remove("value") {
                     Some(ConvexValue::String(s)) => json_deserialize(&s)?,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `value` field for CronJobResult: {:?}",
-                        fields
-                    ),
+                    Some(v) => v,
+                    None => anyhow::bail!("Missing `value` field for CronJobResult: {:?}", fields),
                 };
-                Ok(CronJobResult::Default(value))
+                Ok(CronJobResult::Default(value.into()))
             },
             "truncated" => {
                 let truncated_log = match fields.remove("truncated_log") {

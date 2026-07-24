@@ -333,8 +333,11 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             log_lines,
             execution_time,
         };
+        // A mutation's result may contain unresolved commit timestamps; the
+        // log is written in the mutation's own transaction, so the committer
+        // resolves them right alongside the mutation's writes.
         SystemMetadataModel::new(self.tx, self.component.into())
-            .insert_metadata(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
+            .insert_metadata_pending(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
             .await?;
         self.apply_job_log_retention(&job.name, MAX_LOGS_PER_CRON)
             .await?;

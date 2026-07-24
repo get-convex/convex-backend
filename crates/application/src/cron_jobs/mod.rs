@@ -364,17 +364,15 @@ impl<RT: Runtime> CronJobContext<RT> {
         result: JsonPackedValue<PendingValue>,
         udf_path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CronJobResult> {
-        // TODO(ENG-10908): the cron job log can't store an unresolved commit
-        // timestamp yet, so a mutation returning one fails here.
-        let value = result
-            .unpack()
-            .and_then(PendingValue::try_into_concrete)
-            .map_err(|e| {
-                e.wrap_error_message(|msg| {
-                    format!("Cron job {} result invalid: {msg}", udf_path.debug_str())
-                })
-            })?;
-        let mut value_str = value.to_string();
+        let value = result.unpack().map_err(|e| {
+            e.wrap_error_message(|msg| {
+                format!("Cron job {} result invalid: {msg}", udf_path.debug_str())
+            })
+        })?;
+        let mut value_str = match &value {
+            PendingValue::Concrete(value) => value.to_string(),
+            pending => serde_json::to_string(&pending.to_uncommitted_json())?,
+        };
         if value_str.len() <= CRON_LOG_MAX_RESULT_LENGTH {
             Ok(CronJobResult::Default(value))
         } else {
