@@ -32,6 +32,7 @@ export function UsageStackedBarChart({
     [tag: string]: {
       name: string;
       color: string;
+      tip?: string;
     };
   };
   // Merge multiple categories together (e.g. to count cached and uncached queries together)
@@ -118,18 +119,20 @@ export function UsageStackedBarChart({
       if (selectedDate !== null) {
         const dataPoint = chartData.find((d) => d.dateNumeric === selectedDate);
         if (dataPoint) {
-          return categoryEntries.map(([tag, { name, color }]) => ({
+          return categoryEntries.map(([tag, { name, color, tip }]) => ({
             name,
             value: ((dataPoint as any)[tag] as number) || 0,
             sortValue: totalByTag[tag] || 0,
             color,
+            tip,
           }));
         }
       }
-      return categoryEntries.map(([tag, { name, color }]) => ({
+      return categoryEntries.map(([tag, { name, color, tip }]) => ({
         name,
         value: totalByTag[tag] || 0,
         color,
+        tip,
       }));
     }
 

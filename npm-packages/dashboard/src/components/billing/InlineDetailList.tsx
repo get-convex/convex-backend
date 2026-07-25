@@ -1,3 +1,4 @@
+import { Tooltip } from "@ui/Tooltip";
 import { QuantityType, formatQuantity } from "./lib/formatQuantity";
 
 export interface InlineDetailItem {
@@ -6,6 +7,8 @@ export interface InlineDetailItem {
   /** Used for sort order when provided (e.g. total-range value). Falls back to value. */
   sortValue?: number;
   color: string;
+  /** When set, the label gets a dotted underline and this tooltip on hover. */
+  tip?: string;
 }
 
 export function InlineDetailList({
@@ -49,7 +52,16 @@ export function InlineDetailList({
                   backgroundColor: `var(--color-${item.color.replace("fill-", "")})`,
                 }}
               />
-              <span className="truncate">{item.name}</span>
+              {item.tip ? (
+                <Tooltip
+                  tip={item.tip}
+                  className="truncate underline decoration-dotted"
+                >
+                  {item.name}
+                </Tooltip>
+              ) : (
+                <span className="truncate">{item.name}</span>
+              )}
             </span>
             <span className="flex shrink-0 items-center gap-3 tabular-nums">
               <span>{formatQuantity(item.value, quantityType)}</span>

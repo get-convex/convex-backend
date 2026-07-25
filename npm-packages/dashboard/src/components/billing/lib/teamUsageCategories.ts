@@ -201,10 +201,14 @@ export const DEPLOYMENT_CLASS_CATEGORIES: Record<
 
 export const DEPLOYMENT_STATUS_CATEGORIES: Record<
   string,
-  { name: string; color: string }
+  { name: string; color: string; tip?: string }
 > = {
   active: { name: "Active", color: "fill-chart-line-1" },
-  idle: { name: "Idle", color: "fill-chart-line-8" },
+  idle: {
+    name: "Idle",
+    color: "fill-chart-line-8",
+    tip: "Ran no functions in the last 30 days.",
+  },
   paused: { name: "Paused", color: "fill-chart-line-4" },
 };
 
