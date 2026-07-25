@@ -26,6 +26,10 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import { Footer } from "./Footer";
 import { NoResultsMessage } from "./NoResultsMessage";
 import { RootCommands } from "./RootCommands";
+import {
+  SearchResultDetail,
+  SearchResultDetailItem,
+} from "./DeploymentSearchCommands";
 import { SwitchProjectCommands } from "./searchGroups";
 import { ThemeCommands } from "./ThemeCommands";
 import { TeamsCommands } from "./TeamsCommands";
@@ -36,6 +40,9 @@ export const useCommandPaletteOpen = createGlobalState(false);
 export function CommandPalette() {
   const { commandPalette } = useLaunchDarkly();
   const [open, setOpen] = useCommandPaletteOpen();
+  const router = useRouter();
+
+  const [detail, setDetail] = useState<SearchResultDetailItem | null>(null);
 
   useHotkeys(
     ["meta+k", "ctrl+k"],
@@ -52,26 +59,52 @@ export function CommandPalette() {
     setOpen(true);
   });
 
-  if (!commandPalette || !open) {
+  if (!commandPalette) {
     return null;
   }
 
   return (
-    <ErrorBoundary
-      onError={() => {
-        setOpen(false);
-        toast(
-          "error",
-          "Something went wrong with the command palette. Please try again.",
-        );
-      }}
-    >
-      <CommandPaletteDialog onClose={() => setOpen(false)} />
-    </ErrorBoundary>
+    <>
+      {open && (
+        <ErrorBoundary
+          onError={() => {
+            setOpen(false);
+            toast(
+              "error",
+              "Something went wrong with the command palette. Please try again.",
+            );
+          }}
+        >
+          <CommandPaletteDialog
+            onClose={() => setOpen(false)}
+            onOpenDetail={(item) => {
+              setDetail(item);
+              setOpen(false);
+            }}
+          />
+        </ErrorBoundary>
+      )}
+      {detail && (
+        <SearchResultDetail
+          detail={detail}
+          onClose={() => setDetail(null)}
+          onNavigate={(to) => {
+            setDetail(null);
+            void router.push(to);
+          }}
+        />
+      )}
+    </>
   );
 }
 
-function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
+function CommandPaletteDialog({
+  onClose,
+  onOpenDetail,
+}: {
+  onClose: () => void;
+  onOpenDetail: (detail: SearchResultDetailItem) => void;
+}) {
   const router = useRouter();
   const team = useCurrentTeam();
   const project = useCurrentProject();
@@ -214,6 +247,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
                   <RootCommands
                     search={search}
                     onNavigate={onNavigate}
+                    onOpenDetail={onOpenDetail}
                     pushPage={pushPage}
                     onClose={onClose}
                   />

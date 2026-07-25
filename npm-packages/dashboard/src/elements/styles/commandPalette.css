@@ -15,14 +15,6 @@
 }
 
 [cmdk-item] {
-  content-visibility: auto;
-
-  /* No mount animation here: while searching, cmdk (un)mounts non-matching
-     items and re-sorts the rest by score, and its sort reparents every item
-     via appendChild — which restarts CSS animations — so a mount fade would
-     flash on every keystroke. Items that arrive asynchronously opt into the
-     fade via `animate-fadeInFromLoading`; the rule below turns that fade off
-     while a search is active (see `[cmdk-list][data-searching]`). */
   @apply rounded-sm text-sm flex items-center gap-2 p-2 cursor-pointer;
 
   &[data-selected="true"] {
@@ -67,11 +59,8 @@
   @apply animate-fadeInFromLoading;
 }
 
-/* While a search is active, cmdk re-sorts on every keystroke and reparents each
-   group/item via appendChild, which restarts CSS animations. Suppress the
-   async-load fade during search so results don't flash on every character. */
 [cmdk-list][data-searching] [cmdk-group],
-[cmdk-list][data-searching] [cmdk-item] {
+[cmdk-list][data-searching] .animate-fadeInFromLoading {
   animation: none;
 }
 

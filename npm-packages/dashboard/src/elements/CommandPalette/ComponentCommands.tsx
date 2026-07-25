@@ -11,6 +11,7 @@ import {
 import { PuzzlePieceIcon } from "@common/elements/icons";
 import type { Nent } from "@common/lib/useNents";
 import { ActionItem, HighlightedText, LoadingSignal } from "./items";
+import { matchesSearch, REMOTE_VALUE_PREFIX } from "./navigation";
 
 // The deployment pages that render a NentSwitcher, i.e. where the `component`
 // query param has an effect. Suffixes of the Next.js route pattern after
@@ -29,20 +30,29 @@ export function pageHasNentSwitcher(pathname: string): boolean {
   return suffix !== undefined && NENT_AWARE_PAGE_SUFFIXES.has(suffix);
 }
 
-// Sets (or clears) the `component` query param on the current page, exactly
-// like the NentSwitcher, closing the palette first.
+// Switches the viewed component, closing the palette first. On a nent-aware
+// page (Data, Functions, …) it sets the `component` query param in place.
+// Elsewhere that param has no effect, so it opens the component's Data page instead.
 export function useSelectComponent(onClose: () => void) {
   const router = useRouter();
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
   return (id: string | null) => {
-    const query = { ...router.query };
-    if (id) {
-      query.component = id;
-    } else {
-      delete query.component;
-    }
     onClose();
-    void router.push({ pathname: router.pathname, query }, undefined, {
-      shallow: true,
+    if (pageHasNentSwitcher(router.pathname)) {
+      const query = { ...router.query };
+      if (id) {
+        query.component = id;
+      } else {
+        delete query.component;
+      }
+      void router.push({ pathname: router.pathname, query }, undefined, {
+        shallow: true,
+      });
+      return;
+    }
+    void router.push({
+      pathname: `${deploymentsURI}/data`,
+      query: id ? { component: id } : {},
     });
   };
 }
@@ -57,53 +67,43 @@ export function useComponents(): Nent[] | undefined {
     | undefined;
 }
 
-export function SwitchComponentItem({ onSelect }: { onSelect: () => void }) {
-  const router = useRouter();
-  const connected = useMaybeConnectedDeployment();
-  if (!pageHasNentSwitcher(router.pathname) || !connected?.deployment) {
-    return null;
-  }
-  return (
-    <ConvexProvider client={connected.deployment.client}>
-      <SwitchComponentItemInner onSelect={onSelect} />
-    </ConvexProvider>
-  );
-}
-
-function SwitchComponentItemInner({ onSelect }: { onSelect: () => void }) {
-  const components = useComponents();
-  if (!components || components.length === 0) {
-    return null;
-  }
-  return (
-    <ActionItem
-      value="page:components"
-      onSelect={onSelect}
-      Icon={CaretSortIcon}
-      label="Switch Component…"
-      drillIn
-    />
-  );
-}
-
-export function SwitchComponentSearchItems({
+// The root-list "Components" group: the "Switch Component…" drill plus, while
+// searching, a "Switch to <component>" shortcut per component. Rendered on any
+// deployment page — useSelectComponent redirects to the Data page when the
+// current page can't switch components in place.
+export function ComponentSwitchCommands({
+  search,
+  onOpenComponentsPage,
   onClose,
 }: {
+  search: string;
+  onOpenComponentsPage: () => void;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const connected = useMaybeConnectedDeployment();
-  if (!pageHasNentSwitcher(router.pathname) || !connected?.deployment) {
+  if (!connected?.deployment) {
     return null;
   }
   return (
     <ConvexProvider client={connected.deployment.client}>
-      <SwitchComponentSearchItemsInner onClose={onClose} />
+      <ComponentSwitchInner
+        search={search}
+        onOpenComponentsPage={onOpenComponentsPage}
+        onClose={onClose}
+      />
     </ConvexProvider>
   );
 }
 
-function SwitchComponentSearchItemsInner({ onClose }: { onClose: () => void }) {
+function ComponentSwitchInner({
+  search,
+  onOpenComponentsPage,
+  onClose,
+}: {
+  search: string;
+  onOpenComponentsPage: () => void;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const components = useComponents();
   const selected =
@@ -112,22 +112,54 @@ function SwitchComponentSearchItemsInner({ onClose }: { onClose: () => void }) {
   if (!components || components.length === 0) {
     return null;
   }
+  const trimmed = search.trim();
+  // The root app plus every named component, as switch targets (id null = app).
+  const targets: {
+    id: string | null;
+    path: string;
+    keywords: string[];
+    isUnmounted: boolean;
+  }[] = [
+    { id: null, path: "app", keywords: ["app", "root"], isUnmounted: false },
+    ...components.map((component) => ({
+      id: component.id,
+      path: component.path,
+      // "Switch to" is deliberately excluded so it doesn't match the search;
+      // only the component's own name/path does.
+      keywords: [component.path, component.name ?? "", "component"],
+      isUnmounted: component.state !== "active",
+    })),
+  ];
+  // Filter in JS and render as remote items (paletteFilter never drops remote
+  // items), so cmdk doesn't re-score and re-sort — and thus reflow, flashing —
+  // these on every keystroke. The per-component shortcuts only make sense while
+  // searching; browsing shows just the drill command to keep the list clean.
+  const matches = trimmed
+    ? targets.filter((target) =>
+        target.keywords.some((keyword) => matchesSearch(trimmed, keyword)),
+      )
+    : [];
   return (
-    <>
-      {components.map((component) => (
+    <Command.Group heading="Components">
+      <ActionItem
+        value="page:components"
+        onSelect={onOpenComponentsPage}
+        Icon={CaretSortIcon}
+        label="Switch Component…"
+        drillIn
+      />
+      {matches.map((target) => (
         <SwitchToComponentItem
-          key={component.id}
-          value={`switch-component:${component.id}`}
-          path={component.path}
-          // "Switch to" is deliberately excluded so it doesn't match the
-          // search; only the component's own name/path does.
-          keywords={[component.path, component.name ?? "", "component"]}
-          isCurrent={selected === component.id}
-          isUnmounted={component.state !== "active"}
-          onSelect={() => selectComponent(component.id)}
+          key={target.id ?? "app"}
+          value={`${REMOTE_VALUE_PREFIX}switch-component:${target.id ?? "app"}`}
+          path={target.path}
+          keywords={target.keywords}
+          isCurrent={selected === target.id}
+          isUnmounted={target.isUnmounted}
+          onSelect={() => selectComponent(target.id)}
         />
       ))}
-    </>
+    </Command.Group>
   );
 }
 

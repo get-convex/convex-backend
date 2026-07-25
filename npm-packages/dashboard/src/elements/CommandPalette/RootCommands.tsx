@@ -28,10 +28,11 @@ import {
   teamSectionNavigation,
 } from "./navigation";
 import { ActionItem, NavigationItem } from "./items";
+import { ComponentSwitchCommands } from "./ComponentCommands";
 import {
-  SwitchComponentItem,
-  SwitchComponentSearchItems,
-} from "./ComponentCommands";
+  DeploymentSearchCommands,
+  SearchResultDetailItem,
+} from "./DeploymentSearchCommands";
 import { DeploymentSearchGroup, ProjectSearchGroup } from "./searchGroups";
 import { PalettePage } from "./pages";
 
@@ -44,11 +45,13 @@ const PROFILE_TARGET: NavigationTarget = {
 export function RootCommands({
   search,
   onNavigate,
+  onOpenDetail,
   pushPage,
   onClose,
 }: {
   search: string;
   onNavigate: (to: NavigationDestination) => void;
+  onOpenDetail: (detail: SearchResultDetailItem) => void;
   pushPage: (page: PalettePage) => void;
   onClose: () => void;
 }) {
@@ -123,14 +126,31 @@ export function RootCommands({
                 onNavigate={onNavigate}
               />
             ))}
-          <SwitchComponentItem
-            onSelect={() => pushPage({ type: "components" })}
-          />
-          {showSections && <SwitchComponentSearchItems onClose={onClose} />}
         </Command.Group>
+      )}
+      <ComponentSwitchCommands
+        search={search}
+        onOpenComponentsPage={() => pushPage({ type: "components" })}
+        onClose={onClose}
+      />
+      {deploymentNav && (
+        <DeploymentSearchCommands
+          search={search}
+          onNavigate={onNavigate}
+          onOpenDetail={onOpenDetail}
+        />
       )}
       {team && project && projectNav && (
         <Command.Group heading="Project">
+          {/* Switch commands sit above the page-navigation items. */}
+          <ActionItem
+            value="page:switch-deployment"
+            onSelect={() => pushPage({ type: "deployments", project })}
+            Icon={CaretSortIcon}
+            label="Switch Deployment…"
+            drillIn
+          />
+          <SwitchProjectItem pushPage={pushPage} />
           {[
             ...projectNav,
             ...(showSections
@@ -145,18 +165,21 @@ export function RootCommands({
                 onNavigate={onNavigate}
               />
             ))}
-          <ActionItem
-            value="page:switch-deployment"
-            onSelect={() => pushPage({ type: "deployments", project })}
-            Icon={CaretSortIcon}
-            label="Switch Deployment…"
-            drillIn
-          />
-          <SwitchProjectItem pushPage={pushPage} />
         </Command.Group>
       )}
       {team && teamNav && (
         <Command.Group heading="Team">
+          {/* Switch commands sit above the page-navigation items. */}
+          <ActionItem
+            value="page:teams"
+            onSelect={() => pushPage({ type: "teams" })}
+            Icon={CaretSortIcon}
+            label="Switch Team…"
+            drillIn
+          />
+          {!project && (
+            <SwitchProjectItem pushPage={pushPage} label="Go to Project…" />
+          )}
           {[
             ...teamNav,
             ...(showSections ? teamSectionNavigation(team.slug) : []),
@@ -169,16 +192,6 @@ export function RootCommands({
                 onNavigate={onNavigate}
               />
             ))}
-          {!project && (
-            <SwitchProjectItem pushPage={pushPage} label="Go to Project…" />
-          )}
-          <ActionItem
-            value="page:teams"
-            onSelect={() => pushPage({ type: "teams" })}
-            Icon={CaretSortIcon}
-            label="Switch Team…"
-            drillIn
-          />
           {commandPaletteDeleteProjects && (
             <ActionItem
               value="page:delete-projects"

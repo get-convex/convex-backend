@@ -1,6 +1,21 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
 import { useEffect } from "react";
+import type { FunctionReturnType } from "convex/server";
+import type { Value } from "convex/values";
+import udfs from "@common/udfs";
+import {
+  DeploymentInfoContext,
+  useMaybeConnectedDeployment,
+} from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import type {
+  AnalyzedModuleFunction,
+  Module,
+  UdfType,
+} from "system-udfs/convex/_system/frontend/common";
+import type { FileMetadata } from "system-udfs/convex/_system/frontend/fileStorageV2";
 import { flagDefaults, useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCurrentTeam, useTeams } from "api/teams";
 import {
@@ -69,6 +84,8 @@ const devDeployment: PlatformDeploymentResponse = {
   reference: "dev/nicolas",
   region: "aws-us-east-1",
 };
+
+const DEPLOYMENT_URI = "/t/acme/my-amazing-app/happy-capybara-123";
 
 const mockProfile = {
   id: 1,
@@ -196,4 +213,190 @@ export const TeamLevel: Story = {
     mocked(useCurrentProject).mockReturnValue(undefined);
     mocked(useCurrentDeployment).mockReturnValue(undefined);
   },
+};
+
+// --- Data-plane search (tables, functions, and lookup-by-ID) -----------------
+
+// Example document IDs, precomputed so the story doesn't reimplement Convex's
+// ID encoding. Each decodes (via id-encoding, which getReferencedTableName
+// uses) to the table number it's mapped to below.
+const MESSAGE_ID = "m57068j1c1zsxfewzcd3jp3qjttx99vg"; // table 10017
+const STORAGE_ID = "k570e9j5cj1t5gf0zwf3tq3vkawxhqr0"; // table 10009
+const SCHEDULED_ID = "nx70paj9d23tdhf40ch42r3zktyxrddc"; // table 10031
+
+// getTableMapping exposes the two previewable system tables under their
+// internal names; everything else is a user table.
+const TABLE_MAPPING: Record<number, string> = {
+  10017: "messages",
+  10024: "users",
+  10009: "_file_storage",
+  10031: "_scheduled_jobs",
+};
+
+const messageDoc: Record<string, Value> = {
+  _id: MESSAGE_ID,
+  _creationTime: 1_700_000_000_000,
+  author: "Alice",
+  body: "Hello from the command palette!",
+};
+
+const scheduledDoc: Record<string, Value> = {
+  _id: SCHEDULED_ID,
+  _creationTime: 1_700_000_000_000,
+  name: "messages.js:sendDigest",
+  args: [{ template: "weekly-digest-v3", dryRun: false }],
+  scheduledTime: 1_700_000_600_000,
+  state: { kind: "pending" },
+};
+
+const storageFile: FileMetadata = {
+  _id: STORAGE_ID as FileMetadata["_id"],
+  _creationTime: 1_700_000_000_000,
+  contentType: "image/png",
+  sha256: "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
+  size: 20_480,
+  url: "https://example.convex.cloud/api/storage/example.png",
+};
+
+const docsById: Record<string, Value> = {
+  [MESSAGE_ID]: messageDoc,
+  [SCHEDULED_ID]: scheduledDoc,
+};
+
+function makeAnalyzedFunction(
+  name: string,
+  udfType: UdfType,
+): AnalyzedModuleFunction {
+  return { name, udfType, visibility: { kind: "public" } };
+}
+
+// The `modules.list` shape: [modulePath, Module][] for the current component.
+const modules: [string, Module][] = [
+  [
+    "messages",
+    {
+      functions: [
+        makeAnalyzedFunction("list", "Query"),
+        makeAnalyzedFunction("send", "Mutation"),
+      ],
+      sourcePackageId: "storybook",
+    },
+  ],
+  [
+    "users",
+    {
+      functions: [makeAnalyzedFunction("getCurrentUser", "Query")],
+      sourcePackageId: "storybook",
+    },
+  ],
+];
+
+const components = [
+  {
+    id: "waitlist",
+    name: "waitlist",
+    path: "waitlist",
+    args: {},
+    state: "active",
+  },
+  { id: "email", name: "email", path: "email", args: {}, state: "active" },
+] as FunctionReturnType<typeof udfs.components.list>;
+
+const dataPlaneClient = mockConvexReactClient()
+  .registerQueryFake(udfs.getTableMapping.default, () => TABLE_MAPPING)
+  .registerQueryFake(udfs.modules.list, () => modules)
+  .registerQueryFake(udfs.components.list, () => components)
+  .registerQueryFake(udfs.fileStorageV2.getFile, ({ storageId }) =>
+    storageId === STORAGE_ID ? storageFile : null,
+  )
+  .registerQueryFake(udfs.getById.default, ({ id }) => docsById[id] ?? null);
+
+const deploymentInfo = {
+  ...mockDeploymentInfo,
+  deploymentsURI: DEPLOYMENT_URI,
+};
+
+const connectedDeployment = {
+  deployment: {
+    client: dataPlaneClient,
+    httpClient: {} as never,
+    deploymentUrl: devDeployment.deploymentUrl,
+    adminKey: "STORYBOOK-FAKE-KEY",
+    deploymentName: devDeployment.name,
+  },
+  deploymentName: devDeployment.name,
+  loading: false,
+  errorKind: "None",
+} as ReturnType<typeof useMaybeConnectedDeployment>;
+
+// A backdrop listing example IDs to copy into the palette, since the palette
+// looks documents up by their (unguessable) ID.
+function ExampleIdsBackdrop() {
+  const rows: [string, string][] = [
+    ["Document (messages)", MESSAGE_ID],
+    ["Storage file", STORAGE_ID],
+    ["Scheduled function", SCHEDULED_ID],
+  ];
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background-primary p-8">
+      <div className="max-w-xl text-center text-sm text-content-secondary">
+        Search a table name like <code>messages</code>, or paste one of these
+        example IDs to jump straight to a document, file, or scheduled function:
+      </div>
+      <div className="flex w-full max-w-xl flex-col gap-2">
+        {rows.map(([label, id]) => (
+          <div
+            key={id}
+            className="flex items-center justify-between gap-4 rounded-md border bg-background-secondary px-3 py-2"
+          >
+            <span className="shrink-0 text-xs text-content-tertiary">
+              {label}
+            </span>
+            <code className="min-w-0 truncate font-mono text-xs text-content-primary select-all">
+              {id}
+            </code>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DataDeploymentPalette() {
+  return (
+    <DeploymentInfoContext.Provider value={deploymentInfo}>
+      <ExampleIdsBackdrop />
+      <OpenCommandPalette />
+    </DeploymentInfoContext.Provider>
+  );
+}
+
+const dataDeploymentRouter = {
+  nextjs: {
+    router: {
+      pathname: "/t/[team]/[project]/[deploymentName]/data",
+      route: "/t/[team]/[project]/[deploymentName]/data",
+      asPath: "/t/acme/my-amazing-app/happy-capybara-123/data",
+      query: {
+        team: "acme",
+        project: "my-amazing-app",
+        deploymentName: "happy-capybara-123",
+      },
+    },
+  },
+};
+
+function setupDataDeployment() {
+  mocked(useCurrentProject).mockReturnValue(mockProject);
+  mocked(useCurrentDeployment).mockReturnValue(devDeployment);
+  mocked(useMaybeConnectedDeployment).mockReturnValue(connectedDeployment);
+}
+
+// Interactive: the palette wired to a mock deployment. Search a table or
+// function name, or paste one of the example IDs from the backdrop to preview a
+// document, storage file, or scheduled function.
+export const DataPlaneSearch: Story = {
+  parameters: dataDeploymentRouter,
+  render: () => <DataDeploymentPalette />,
+  beforeEach: setupDataDeployment,
 };
