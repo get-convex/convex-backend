@@ -66,7 +66,10 @@ pub fn build_proxied_reqwest_client(
     client_id: String,
     redirect_policy: reqwest::redirect::Policy,
 ) -> reqwest::Client {
-    let mut builder = reqwest::Client::builder().redirect(redirect_policy);
+    let mut builder = reqwest::Client::builder()
+        .redirect(redirect_policy)
+        .http2_keep_alive_interval(*crate::knobs::HTTP2_CLIENT_KEEPALIVE_INTERVAL)
+        .http2_keep_alive_timeout(*crate::knobs::HTTP2_CLIENT_KEEPALIVE_TIMEOUT);
     // It's okay to panic on these errors, as they indicate a serious programming
     // error -- building the reqwest client is expected to be infallible.
     if let Some(proxy_url) = proxy_url {

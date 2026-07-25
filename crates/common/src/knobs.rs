@@ -1917,3 +1917,17 @@ pub static INITIAL_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::ne
 pub static MAX_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_millis(env_config("MAX_PERSISTENCE_WRITES_BACKOFF_MS", 10 * 1000))
 });
+
+/// HTTP/2 keepalive PING interval for proxied reqwest clients. Without
+/// keepalive a connection the peer drops without a TCP FIN/RST (e.g. a
+/// serverless receiver cycling a container mid-request) is awaited until the
+/// request or kernel TCP timeout (~16 min), stalling a sequential consumer like
+/// the webhook log sink. 15s interval/timeout matches usher. No-op on HTTP/1.1.
+pub static HTTP2_CLIENT_KEEPALIVE_INTERVAL: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("HTTP2_CLIENT_KEEPALIVE_INTERVAL_SECONDS", 15))
+});
+
+/// Timeout for an unacked HTTP/2 keepalive PING before the connection is
+/// dropped.
+pub static HTTP2_CLIENT_KEEPALIVE_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("HTTP2_CLIENT_KEEPALIVE_TIMEOUT_SECONDS", 15)));
