@@ -60,10 +60,6 @@ export const PROFILE_SECTIONS = {
   },
   emails: { id: "emails", label: "Emails" },
   security: { id: "security", label: "Security" },
-  // Shown instead of `security` when the profileSettingsSecurity flag is off.
-  // Removed once the flag is fully rolled out (see the ConnectedIdentities
-  // removal follow-up).
-  identities: { id: "identities", label: "Identities" },
   personalAccessTokens: {
     id: "personal-access-tokens",
     label: "Personal Access Tokens",
