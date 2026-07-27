@@ -778,11 +778,11 @@ impl WriteLogIndexReader for LogReader {
         >,
     > {
         let timer = write_log_iter_writes_timer();
-        let guard = self.inner.lock();
-        if ts < guard.log.purged_ts {
+        let snapshot = self.inner.lock().log.clone();
+        if ts < snapshot.purged_ts {
             anyhow::bail!("Timestamp is out of retention window");
         }
-        let Some(writes_by_ts) = guard.log.by_database_index.iter_since(index_name, ts) else {
+        let Some(writes_by_ts) = snapshot.by_database_index.iter_since(index_name, ts) else {
             return Ok(None);
         };
         let results: Vec<_> = writes_by_ts
