@@ -17,6 +17,7 @@ import { useProjectById } from "api/projects";
 import type { PlatformDeploymentResponse, ProjectDetails } from "generatedApi";
 import type { NavigationTarget } from "./navigation";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
+import { usePaletteAnalytics } from "./analytics";
 
 // Items whose default action is direct navigation drill into their nested
 // view instead when this flag is set. The dialog sets it from Shift+Enter and
@@ -110,13 +111,15 @@ export function NavigationItem({
 }) {
   const { label, href, Icon, parent, keywords } = target;
   const searchKeywords = keywords ?? [label];
+  const { trackSelected } = usePaletteAnalytics();
   return (
     <Command.Item
-      // Section targets share their page's href, so include the label to
-      // keep values unique.
       value={`nav:${href}:${label}`}
       keywords={parent ? [...searchKeywords, parent] : searchKeywords}
-      onSelect={() => onNavigate(href)}
+      onSelect={() => {
+        trackSelected(`navigate:${label}`);
+        onNavigate(href);
+      }}
     >
       <Icon className="text-content-secondary" />
       {/* Two lines: the page/section itself, then where it lives. */}
@@ -159,8 +162,16 @@ export function ActionItem({
   destructive?: boolean;
   drillIn?: boolean;
 }) {
+  const { trackSelected } = usePaletteAnalytics();
   return (
-    <Command.Item value={value} keywords={[label]} onSelect={onSelect}>
+    <Command.Item
+      value={value}
+      keywords={[label]}
+      onSelect={() => {
+        trackSelected(value);
+        onSelect();
+      }}
+    >
       <Icon
         className={
           destructive ? "text-content-error" : "text-content-secondary"
@@ -257,15 +268,17 @@ export function ProjectItem({
   onDrill: () => void;
 }) {
   const consumeDrillModifier = useConsumeDrillModifier();
+  const { trackSelected } = usePaletteAnalytics();
   return (
     <Command.Item
       value={`${REMOTE_VALUE_PREFIX}project:${project.id}`}
       className="animate-fadeInFromLoading"
-      onSelect={() =>
-        consumeDrillModifier()
+      onSelect={() => {
+        trackSelected("switch-project");
+        return consumeDrillModifier()
           ? onDrill()
-          : onNavigate(`/t/${teamSlug}/${project.slug}`)
-      }
+          : onNavigate(`/t/${teamSlug}/${project.slug}`);
+      }}
     >
       <StackIcon className="text-content-secondary" />
       {/* Two lines: the project's name, then its slug. */}
@@ -308,16 +321,18 @@ export function DeploymentItem({
   const typeLabel = deploymentTypeLabel(deployment.deploymentType);
   const primary =
     deployment.kind === "cloud" ? deployment.reference : deployment.name;
+  const { trackSelected } = usePaletteAnalytics();
   return (
     <Command.Item
       value={`${remote ? REMOTE_VALUE_PREFIX : ""}deployment:${deployment.name}`}
       className="animate-fadeInFromLoading"
       keywords={remote ? undefined : [primary, deployment.name, typeLabel]}
-      onSelect={() =>
-        consumeDrillModifier() || !projectSlug
+      onSelect={() => {
+        trackSelected("switch-deployment");
+        return consumeDrillModifier() || !projectSlug
           ? onDrill()
-          : onNavigate(`/t/${teamSlug}/${projectSlug}/${deployment.name}`)
-      }
+          : onNavigate(`/t/${teamSlug}/${projectSlug}/${deployment.name}`);
+      }}
     >
       <div
         className={cn(

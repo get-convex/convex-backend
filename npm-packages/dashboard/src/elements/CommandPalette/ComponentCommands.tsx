@@ -12,6 +12,7 @@ import { PuzzlePieceIcon } from "@common/elements/icons";
 import type { Nent } from "@common/lib/useNents";
 import { ActionItem, HighlightedText, LoadingSignal } from "./items";
 import { matchesSearch, REMOTE_VALUE_PREFIX } from "./navigation";
+import { usePaletteAnalytics } from "./analytics";
 
 // The deployment pages that render a NentSwitcher, i.e. where the `component`
 // query param has an effect. Suffixes of the Next.js route pattern after
@@ -265,12 +266,16 @@ export function ComponentItem({
   isUnmounted?: boolean;
   onSelect: () => void;
 }) {
+  const { trackSelected } = usePaletteAnalytics();
   return (
     <Command.Item
       value={value}
       className="animate-fadeInFromLoading"
       keywords={keywords}
-      onSelect={onSelect}
+      onSelect={() => {
+        trackSelected("switch-component");
+        onSelect();
+      }}
     >
       <PuzzlePieceIcon className="text-content-secondary" />
       <span className="min-w-0 truncate">

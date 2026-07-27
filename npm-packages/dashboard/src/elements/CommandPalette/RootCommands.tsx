@@ -37,6 +37,7 @@ import {
 import { DeploymentSearchGroup, ProjectSearchGroup } from "./searchGroups";
 import { NoResultsMessage } from "./NoResultsMessage";
 import { PalettePage } from "./pages";
+import { usePaletteAnalytics } from "./analytics";
 
 const PROFILE_TARGET: NavigationTarget = {
   label: "Profile Settings",
@@ -62,6 +63,7 @@ export function RootCommands({
   const project = useCurrentProject();
   const { usageLimits, commandPaletteDeleteProjects } = useLaunchDarkly();
   const [, setSupportFormOpen] = useSupportFormOpen();
+  const { trackSelected } = usePaletteAnalytics();
 
   const deploymentName =
     typeof router.query.deploymentName === "string"
@@ -138,8 +140,17 @@ export function RootCommands({
       {deploymentNav && (
         <DeploymentSearchCommands
           search={search}
-          onNavigate={onNavigate}
-          onOpenDetail={onOpenDetail}
+          // Every data-plane result counts as one "data-search" selection kind.
+          // Tables and functions navigate directly; documents, files, and
+          // scheduled jobs open the detail panel — so track both paths.
+          onNavigate={(to) => {
+            trackSelected("data-search");
+            onNavigate(to);
+          }}
+          onOpenDetail={(item) => {
+            trackSelected("data-search");
+            onOpenDetail(item);
+          }}
         />
       )}
       {team && project && projectNav && (
@@ -303,6 +314,7 @@ export function AskAIQueryItem({
 }) {
   const search = useCommandState((state) => state.search).trim();
   const visibleCount = useCommandState((state) => state.filtered.count);
+  const { trackSelected } = usePaletteAnalytics();
   if (!search) {
     return null;
   }
@@ -312,6 +324,7 @@ export function AskAIQueryItem({
         value={`${REMOTE_VALUE_PREFIX}ask-ai-query`}
         className="animate-fadeInFromLoading"
         onSelect={() => {
+          trackSelected("ask-ai-query");
           onClose();
           openAskAI(search);
         }}

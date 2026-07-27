@@ -3,11 +3,13 @@ import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCommandPaletteOpen } from "./CommandPalette";
+import { usePaletteAnalytics } from "./analytics";
 
 // The header search bar that opens the command palette.
 export function CommandPaletteTrigger() {
   const { commandPalette } = useLaunchDarkly();
   const [, setOpen] = useCommandPaletteOpen();
+  const { trackOpened } = usePaletteAnalytics();
 
   if (!commandPalette) {
     return null;
@@ -16,7 +18,10 @@ export function CommandPaletteTrigger() {
   return (
     <Button
       variant="unstyled"
-      onClick={() => setOpen(true)}
+      onClick={() => {
+        trackOpened("button");
+        setOpen(true);
+      }}
       className="mx-2 hidden w-56 items-center gap-2 rounded-full border bg-background-secondary px-3 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-background-tertiary md:flex"
     >
       <MagnifyingGlassIcon className="size-4 shrink-0" />

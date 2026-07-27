@@ -2,10 +2,12 @@ import { Command } from "cmdk";
 import { useTheme } from "next-themes";
 import { LaptopIcon, MoonIcon, SunIcon } from "@radix-ui/react-icons";
 import { HighlightedText } from "./items";
+import { usePaletteAnalytics } from "./analytics";
 
 // The drilled-into "Change Dashboard Theme" page.
 export function ThemeCommands({ onClose }: { onClose: () => void }) {
   const { theme: currentTheme, setTheme } = useTheme();
+  const { trackSelected } = usePaletteAnalytics();
   const themes = [
     { value: "light", label: "Light", Icon: SunIcon },
     { value: "dark", label: "Dark", Icon: MoonIcon },
@@ -19,6 +21,7 @@ export function ThemeCommands({ onClose }: { onClose: () => void }) {
           value={`theme:${value}`}
           keywords={[label]}
           onSelect={() => {
+            trackSelected(`theme:${value}`);
             setTheme(value);
             onClose();
           }}

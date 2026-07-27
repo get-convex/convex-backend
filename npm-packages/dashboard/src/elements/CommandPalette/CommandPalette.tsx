@@ -34,6 +34,7 @@ import { SwitchProjectCommands } from "./searchGroups";
 import { ThemeCommands } from "./ThemeCommands";
 import { TeamsCommands } from "./TeamsCommands";
 import { handlePaletteKeyDown } from "./keyboard";
+import { usePaletteAnalytics } from "./analytics";
 
 export const useCommandPaletteOpen = createGlobalState(false);
 
@@ -43,11 +44,15 @@ export function CommandPalette() {
   const router = useRouter();
 
   const [detail, setDetail] = useState<SearchResultDetailItem | null>(null);
+  const { trackOpened } = usePaletteAnalytics();
 
   useHotkeys(
     ["meta+k", "ctrl+k"],
     (event) => {
       event.preventDefault();
+      if (!open) {
+        trackOpened("hotkey");
+      }
       setOpen((isOpen) => !isOpen);
     },
     // Allows this shortcut to work even if you're focusing a form element
@@ -56,6 +61,9 @@ export function CommandPalette() {
 
   useHotkeys("slash", (event) => {
     event.preventDefault();
+    if (!open) {
+      trackOpened("slash");
+    }
     setOpen(true);
   });
 

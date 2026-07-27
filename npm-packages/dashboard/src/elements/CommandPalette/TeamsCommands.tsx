@@ -2,6 +2,7 @@ import { Command } from "cmdk";
 import { useTeams } from "api/teams";
 import { Avatar } from "elements/Avatar";
 import { HighlightedText, LoadingSignal } from "./items";
+import { usePaletteAnalytics } from "./analytics";
 
 // The drilled-into "Switch Team" page.
 export function TeamsCommands({
@@ -10,6 +11,7 @@ export function TeamsCommands({
   onNavigate: (href: string) => void;
 }) {
   const { teams, selectedTeamSlug } = useTeams();
+  const { trackSelected } = usePaletteAnalytics();
 
   if (!teams) {
     return <LoadingSignal />;
@@ -23,7 +25,10 @@ export function TeamsCommands({
           value={`team:${team.slug}`}
           className="animate-fadeInFromLoading"
           keywords={[team.name, team.slug]}
-          onSelect={() => onNavigate(`/t/${team.slug}`)}
+          onSelect={() => {
+            trackSelected("switch-team");
+            onNavigate(`/t/${team.slug}`);
+          }}
         >
           <Avatar name={team.name} hashKey={team.id.toString()} />
           <span className="flex min-w-0 items-baseline gap-1.5">
