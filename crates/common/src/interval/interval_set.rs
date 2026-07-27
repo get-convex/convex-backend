@@ -75,12 +75,18 @@ impl TryFrom<Vec<IntervalProto>> for IntervalSet {
     type Error = anyhow::Error;
 
     fn try_from(intervals: Vec<IntervalProto>) -> anyhow::Result<Self> {
-        let mut set = IntervalSet::new();
         if intervals == ALL_INTERVAL_PROTO {
             return Ok(IntervalSet::All);
         }
+        let mut set: Vec<(StartIncluded, End)> = vec![];
         for interval in intervals {
             let start = StartIncluded(interval.start_inclusive.into());
+            if let Some((_, last_end)) = set.last() {
+                anyhow::ensure!(
+                    !last_end.is_overlapping_or_adjacent(&start),
+                    "IntervalProtos out of order: {last_end:?} >= {start:?}"
+                );
+            }
             let end = match interval.end {
                 None => return Err(anyhow::anyhow!("Interval missing end")),
                 Some(end) => match end {
@@ -88,9 +94,15 @@ impl TryFrom<Vec<IntervalProto>> for IntervalSet {
                     EndProto::Exclusive(end) => End::Excluded(end.into()),
                 },
             };
-            set.add(Interval { start, end });
+            anyhow::ensure!(
+                end.greater_than(&start.0),
+                "empty IntervalProto {start:?}..{end:?}"
+            );
+            set.push((start, end));
         }
-        Ok(set)
+        Ok(IntervalSet::Intervals(
+            set.into_iter().collect::<BTreeMap<_, _>>().into(),
+        ))
     }
 }
 
