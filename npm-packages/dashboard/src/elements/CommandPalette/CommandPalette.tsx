@@ -25,7 +25,7 @@ import { PalettePage } from "./pages";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Footer } from "./Footer";
 import { NoResultsMessage } from "./NoResultsMessage";
-import { RootCommands } from "./RootCommands";
+import { AskAIQueryItem, RootCommands } from "./RootCommands";
 import {
   SearchResultDetail,
   SearchResultDetailItem,
@@ -244,13 +244,19 @@ function CommandPaletteDialog({
                   </Command.Empty>
                 )}
                 {drillPage === undefined && (
-                  <RootCommands
-                    search={search}
-                    onNavigate={onNavigate}
-                    onOpenDetail={onOpenDetail}
-                    pushPage={pushPage}
-                    onClose={onClose}
-                  />
+                  <>
+                    <RootCommands
+                      search={search}
+                      onNavigate={onNavigate}
+                      onOpenDetail={onOpenDetail}
+                      pushPage={pushPage}
+                      onClose={onClose}
+                    />
+                    <AskAIQueryItem
+                      onClose={onClose}
+                      canShowNoResults={!isSearchPending}
+                    />
+                  </>
                 )}
                 {drillPage?.type === "teams" && (
                   <TeamsCommands onNavigate={onNavigate} />

@@ -1,4 +1,4 @@
-import { Command } from "cmdk";
+import { Command, useCommandState } from "cmdk";
 import { useRouter } from "next/router";
 import {
   CaretSortIcon,
@@ -24,6 +24,7 @@ import {
   profileSectionNavigation,
   projectNavigation,
   projectSectionNavigation,
+  REMOTE_VALUE_PREFIX,
   teamNavigation,
   teamSectionNavigation,
 } from "./navigation";
@@ -34,6 +35,7 @@ import {
   SearchResultDetailItem,
 } from "./DeploymentSearchCommands";
 import { DeploymentSearchGroup, ProjectSearchGroup } from "./searchGroups";
+import { NoResultsMessage } from "./NoResultsMessage";
 import { PalettePage } from "./pages";
 
 const PROFILE_TARGET: NavigationTarget = {
@@ -289,5 +291,39 @@ function SwitchProjectItem({
       label={label}
       drillIn
     />
+  );
+}
+
+export function AskAIQueryItem({
+  onClose,
+  canShowNoResults,
+}: {
+  onClose: () => void;
+  canShowNoResults: boolean;
+}) {
+  const search = useCommandState((state) => state.search).trim();
+  const visibleCount = useCommandState((state) => state.filtered.count);
+  if (!search) {
+    return null;
+  }
+  return (
+    <>
+      <Command.Item
+        value={`${REMOTE_VALUE_PREFIX}ask-ai-query`}
+        className="animate-fadeInFromLoading"
+        onSelect={() => {
+          onClose();
+          openAskAI(search);
+        }}
+      >
+        <SparklesIcon className="text-content-secondary" />
+        <span className="min-w-0 truncate">Ask AI “{search}”</span>
+      </Command.Item>
+      {canShowNoResults && visibleCount <= 1 && (
+        <div className="flex flex-col items-center justify-center gap-1 py-6 text-sm whitespace-pre-wrap text-content-tertiary">
+          <NoResultsMessage onClose={onClose} />
+        </div>
+      )}
+    </>
   );
 }
