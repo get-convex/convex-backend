@@ -35,20 +35,12 @@ export const BANDWIDTH_CATEGORIES = {
 
 export const FILE_BANDWIDTH_CATEGORIES = {
   servingEgress: {
-    name: "Serving Reads",
+    name: "File Serving",
     color: "fill-chart-line-1",
-  },
-  servingIngress: {
-    name: "Serving Writes",
-    color: "fill-chart-line-2",
   },
   userFunctionEgress: {
     name: "User Function Reads",
     color: "fill-chart-line-3",
-  },
-  userFunctionIngress: {
-    name: "User Function Writes",
-    color: "fill-chart-line-4",
   },
   cloudRestore: {
     name: "Cloud Restore",
@@ -105,7 +97,7 @@ export const DATA_EGRESS_CATEGORIES = {
     color: "fill-chart-line-6",
   },
   servingEgress: {
-    name: "Serving Reads",
+    name: "File Serving",
     color: "fill-chart-line-3",
   },
   userFunctionEgress: {
