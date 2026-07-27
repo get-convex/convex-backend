@@ -1,4 +1,5 @@
 #![feature(portable_simd)]
+#![feature(btree_cursors)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(never_type)]
 #![feature(iterator_try_collect)]
