@@ -285,7 +285,7 @@ export function jsonToConvex(value: JSONValue): Value {
       if (value.$commitTs !== null) {
         throw new Error(`Malformed $commitTs field on ${value as any}`);
       }
-      return commitTsPlaceholder as unknown as Value;
+      return commitTsPlaceholder;
     }
     if (key === "$set") {
       throw new Error(
