@@ -20,6 +20,50 @@ export type PalettePage =
   // Bulk-delete multiple projects in the current team.
   | { type: "deleteProjects" };
 
+// The input placeholder, scoped to whatever page the user has drilled into so
+// it names what a search here will actually match (e.g. a deployment within the
+// project you're switching inside of).
+export function palettePlaceholder(
+  page: PalettePage | undefined,
+  teamName: string | undefined,
+  projectName: string | undefined,
+): string {
+  switch (page?.type) {
+    case undefined: {
+      const scope =
+        teamName && projectName
+          ? `${teamName} and ${projectName}`
+          : (teamName ?? projectName);
+      return scope
+        ? `Search for anything in ${scope}…`
+        : "Search for anything…";
+    }
+    case "teams":
+      return "Search for a team…";
+    case "projects":
+      return teamName
+        ? `Search for a project in ${teamName}…`
+        : "Search for a project…";
+    case "project":
+      return `Search in ${page.project.name || page.project.slug}…`;
+    case "deployments":
+      return `Search for a deployment in ${page.project.name || page.project.slug}…`;
+    case "deployment":
+      return `Search in ${pageLabel(page)}…`;
+    case "components":
+      return "Search for a component…";
+    case "theme":
+      return "Search for a theme…";
+    case "deleteProjects":
+      return teamName
+        ? `Search for a project to delete in ${teamName}…`
+        : "Search for a project to delete…";
+    default:
+      page satisfies never;
+      return "Search for anything…";
+  }
+}
+
 export function pageLabel(page: PalettePage): string {
   switch (page.type) {
     case "teams":

@@ -21,7 +21,7 @@ import { ComponentsCommands } from "./ComponentCommands";
 import { DeleteProjectsCommands } from "./DeleteProjectsCommands";
 import { ProjectCommands, SwitchDeploymentCommands } from "./ProjectCommands";
 import { DeploymentCommands } from "./DeploymentCommands";
-import { PalettePage } from "./pages";
+import { PalettePage, palettePlaceholder } from "./pages";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Footer } from "./Footer";
 import { NoResultsMessage } from "./NoResultsMessage";
@@ -116,15 +116,6 @@ function CommandPaletteDialog({
   const router = useRouter();
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  // Scope the placeholder to wherever the user currently is: the team, or the
-  // team and project once inside a project or one of its deployments.
-  const searchScope =
-    team && project
-      ? `${team.name} and ${project.name}`
-      : (team?.name ?? project?.name);
-  const placeholder = searchScope
-    ? `Search for anything in ${searchScope}…`
-    : "Search for anything…";
   const [search, setSearch] = useState("");
   // "Drilling" is stepping into a nested view of the palette rather than
   // navigating away (e.g. from the root into a team's list of projects, or
@@ -133,6 +124,7 @@ function CommandPaletteDialog({
   const [pages, setPages] = useState<PalettePage[]>([]);
   // `drillPage` is the view currently shown
   const drillPage = pages[pages.length - 1];
+  const placeholder = palettePlaceholder(drillPage, team?.name, project?.name);
 
   // A status line the active page can publish into the footer's right gutter.
   const [footerStatus, setFooterStatus] = useState<React.ReactNode>(null);
