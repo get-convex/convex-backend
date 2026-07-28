@@ -17,7 +17,12 @@ const STATUS_CODE_UDF_FAILED = 560;
 // Retry settings for transient (5xx) failures when an action calls back into
 // the backend to run a query or mutation.
 const CALLBACK_MAX_ATTEMPTS = 5;
-const CALLBACK_INITIAL_BACKOFF_MS = 1000;
+// Env-overridable so tests exercising retries against an unreachable backend
+// can zero out the backoff. Must be read at module load, before invocations
+// replace `process.env` with user environment variables.
+const CALLBACK_INITIAL_BACKOFF_MS = process.env.CALLBACK_INITIAL_BACKOFF_MS
+  ? parseInt(process.env.CALLBACK_INITIAL_BACKOFF_MS)
+  : 1000;
 const CALLBACK_MAX_BACKOFF_MS = 20000;
 
 function callbackBackoffMs(attempt: number): number {
@@ -82,6 +87,47 @@ async function parkIfAborted<T>(
 // that is safe to retry.
 function isTransientStatus(status: number): boolean {
   return status >= 500 && status < 600 && status !== STATUS_CODE_UDF_FAILED;
+}
+
+// Failures during connection establishment: no bytes were sent, so the
+// request provably never ran and even a non-idempotent callback is safe to
+// retry. Mid-flight codes (ECONNRESET, EPIPE, ...) stay non-retryable here
+// because the request may have been delivered.
+const CONNECT_PHASE_ERROR_CODES = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
+
+function isConnectPhaseError(e: unknown): boolean {
+  const cause = (e as any)?.cause;
+  // Multi-address connect failures arrive as an AggregateError.
+  if (cause instanceof AggregateError) {
+    return cause.errors.every((err) =>
+      CONNECT_PHASE_ERROR_CODES.has(err?.code),
+    );
+  }
+  return CONNECT_PHASE_ERROR_CODES.has(cause?.code);
+}
+
+// Undici reports every network-level failure as a bare `TypeError: fetch
+// failed` with the real reason (ECONNRESET, DNS, connect timeout, ...) on
+// `cause`, which log serialization drops. Surface it in the message.
+function callbackNetworkError(
+  e: unknown,
+  operationName: string,
+  attempts: number,
+): Error {
+  const cause = (e as any)?.cause;
+  const code =
+    (cause instanceof AggregateError ? cause.errors[0]?.code : cause?.code) ??
+    "unknown cause";
+  return new Error(
+    `Transient network error running ${operationName} (${code}, ` +
+      `${attempts} attempt${attempts === 1 ? "" : "s"})`,
+    { cause: e },
+  );
 }
 
 const runFunctionArgs = z.object({
@@ -234,19 +280,29 @@ export class SyscallsImpl {
     let response: Response;
     let attempt = 0;
     for (;;) {
+      attempt += 1;
       try {
         response = await fetch(url, { body, method: "POST", headers, signal });
       } catch (e) {
         // If the owning action has already settled, this is a dangling call.
         // Never settle so its failure can't be misattributed to a later,
-        // unrelated invocation that reuses this process. Otherwise it's a real
-        // network error for a call the action is still awaiting; propagate it.
+        // unrelated invocation that reuses this process.
         if (signal.aborted) {
           return await neverSettle();
         }
-        throw e;
+        // A rejected fetch is as transient as a 5xx response. Retry when the
+        // callback is idempotent (retryTransient), or when the connection was
+        // never established so the request provably never ran.
+        const retryable = args.retryTransient || isConnectPhaseError(e);
+        if (!retryable || attempt >= CALLBACK_MAX_ATTEMPTS) {
+          throw callbackNetworkError(e, args.operationName, attempt);
+        }
+        await abortableSleep(callbackBackoffMs(attempt - 1), signal);
+        if (signal.aborted) {
+          return await neverSettle();
+        }
+        continue;
       }
-      attempt += 1;
       if (!isTransientStatus(response.status) || attempt >= maxAttempts) {
         break;
       }
@@ -265,6 +321,7 @@ export class SyscallsImpl {
     // settle instead — otherwise that rejection would leak into a later,
     // unrelated invocation just like an aborted fetch would.
     try {
+      // errorHandler is a no-op
       await errorHandler(response, args.operationName);
     } catch (e) {
       if (signal.aborted) {
