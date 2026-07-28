@@ -52,9 +52,7 @@ export function DeleteProjectsCommands({
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   // Anchor for Shift+click range selection.
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
-    null,
-  );
+  const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Set by an item's onMouseDown just before cmdk fires its onSelect, so a
   // click can extend the selection as a range instead of toggling one project.
@@ -92,14 +90,18 @@ export function DeleteProjectsCommands({
       if (!project) {
         return;
       }
-      const rangeSelect = shiftHeld.current && lastSelectedIndex !== null;
+      const anchorIndex =
+        lastSelectedId !== null
+          ? shown.findIndex((p) => p.id === lastSelectedId)
+          : -1;
+      const rangeSelect = shiftHeld.current && anchorIndex !== -1;
       shiftHeld.current = false;
       setSelectedIds((current) => {
         if (rangeSelect) {
           // Fill (or clear) the whole span between the anchor and this row,
           // matching whether this row is being turned on or off.
-          const start = Math.min(lastSelectedIndex!, index);
-          const end = Math.max(lastSelectedIndex!, index);
+          const start = Math.min(anchorIndex, index);
+          const end = Math.max(anchorIndex, index);
           const turningOn = !current.includes(project.id);
           const next = new Set(current);
           for (let i = start; i <= end; i++) {
@@ -127,9 +129,9 @@ export function DeleteProjectsCommands({
         }
         return [...current, project.id];
       });
-      setLastSelectedIndex(index);
+      setLastSelectedId(project.id);
     },
-    [shown, lastSelectedIndex],
+    [shown, lastSelectedId],
   );
 
   const handleDelete = useCallback(async () => {
