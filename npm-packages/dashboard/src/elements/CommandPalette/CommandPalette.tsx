@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import { Title as DialogTitle } from "@radix-ui/react-dialog";
 import { ErrorBoundary } from "@sentry/nextjs";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useHotkeys } from "react-hotkeys-hook";
 import { createGlobalState, useClickAway } from "react-use";
@@ -59,13 +59,30 @@ export function CommandPalette() {
     { enableOnFormTags: true },
   );
 
-  useHotkeys("slash", (event) => {
-    event.preventDefault();
-    if (!open) {
-      trackOpened("slash");
-    }
-    setOpen(true);
-  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const el = document.activeElement;
+      // Don't steal "/" while the user is typing in a field.
+      if (
+        el instanceof HTMLElement &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (!open) {
+        trackOpened("slash");
+      }
+      setOpen(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, setOpen, trackOpened]);
 
   if (!commandPalette) {
     return null;
