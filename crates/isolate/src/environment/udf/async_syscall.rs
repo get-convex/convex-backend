@@ -663,7 +663,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 },
                 EnvironmentData {
                     key_broker: self.key_broker.clone(),
-                    default_system_env_vars: BTreeMap::new(),
+                    default_system_env_vars: self.phase.default_system_env_vars().clone(),
                     file_storage: self.file_storage.clone(),
                     module_loader: self.phase.module_loader().clone(),
                     deployment: self.deployment.clone(),

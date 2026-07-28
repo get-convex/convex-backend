@@ -222,47 +222,33 @@ impl<RT: Runtime> ActionPhase<RT> {
                 if let Some(cloud_url) = canonical_urls.get(&RequestDestination::ConvexCloud) {
                     *convex_origin_override.lock() = Some(ConvexOrigin::from(&cloud_url.url));
                 }
-                // Environment variables are not accessible in component functions,
-                // except CONVEX_SITE_URL which is prefixed with the component's HTTP
-                // prefix (if one is configured).
+                // System env vars are visible to every function; user-defined env
+                // vars are visible only to root functions.
                 let system_env_var_overrides = parse_system_env_var_overrides(canonical_urls)?;
-                let env_vars = if self.component.is_root() {
-                    let mut env_vars = default_system_env_vars;
-                    env_vars.extend(system_env_var_overrides);
+                let mut env_vars = default_system_env_vars;
+                env_vars.extend(system_env_var_overrides);
+                if self.component.is_root() {
                     let user_env_vars = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
                     env_vars.extend(user_env_vars);
-                    env_vars
                 } else {
-                    // Non-root components get a prefixed CONVEX_SITE_URL if the component
-                    // has an http_prefix configured.
+                    // Non-root components with an HTTP prefix see a prefixed
+                    // CONVEX_SITE_URL so they can construct correct absolute URLs.
                     let component_metadata = BootstrapComponentsModel::new(&mut tx)
                         .load_component(self.component)
                         .await?;
-                    let http_prefix = component_metadata
+                    if let Some(http_prefix) = component_metadata
                         .as_ref()
-                        .and_then(|m| m.http_prefix.as_deref());
-                    if let Some(http_prefix) = http_prefix {
-                        // Compute the base CONVEX_SITE_URL (system override takes precedence
-                        // over default).
-                        let base_site_url = system_env_var_overrides
-                            .get(&*CONVEX_SITE)
-                            .or_else(|| default_system_env_vars.get(&*CONVEX_SITE));
-                        if let Some(base_url) = base_site_url {
-                            let prefixed_url = format!(
-                                "{}{}",
-                                base_url.as_ref().trim_end_matches('/'),
-                                http_prefix.trim_end_matches('/')
-                            );
-                            let mut env_vars = BTreeMap::new();
-                            env_vars.insert(CONVEX_SITE.clone(), prefixed_url.parse()?);
-                            env_vars
-                        } else {
-                            BTreeMap::new()
-                        }
-                    } else {
-                        BTreeMap::new()
+                        .and_then(|m| m.http_prefix.as_deref())
+                        && let Some(base_url) = env_vars.get(&*CONVEX_SITE).cloned()
+                    {
+                        let prefixed_url = format!(
+                            "{}{}",
+                            base_url.as_ref().trim_end_matches('/'),
+                            http_prefix.trim_end_matches('/')
+                        );
+                        env_vars.insert(CONVEX_SITE.clone(), prefixed_url.parse()?);
                     }
-                };
+                }
 
                 let component_env = if self.component.is_root() {
                     None

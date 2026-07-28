@@ -409,7 +409,8 @@ impl<RT: Runtime> Application<RT> {
                     udf_config,
                     component_def.functions.clone(),
                     component_pkg.clone(),
-                    // Component functions do not have access to environment variables.
+                    // User env vars are root-only; analyze() itself supplies
+                    // the default system env vars.
                     BTreeMap::new(),
                     BTreeMap::new(),
                 )

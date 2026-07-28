@@ -218,8 +218,11 @@ should not import from this directory with the exception of
 ### Environment variables
 
 A component's functions are isolated from the app's environment variables and
-cannot access just any value from the app's `process.env`. Instead, components
-can declare their own typed environment variables in `convex.config.ts`:
+cannot access just any value from the app's `process.env`. Only the
+[system environment variables](/production/environment-variables.mdx#system-environment-variables)
+(`CONVEX_CLOUD_URL` and `CONVEX_SITE_URL`) are available in every component
+function. For anything else, components can declare their own typed environment
+variables in `convex.config.ts`:
 
 ```ts title="component/convex.config.ts"
 import { defineComponent } from "convex/server";
@@ -307,6 +310,11 @@ return await ctx.runAction(components.sampleComponent.lib.translate, {
 
 See below for other strategies for static configuration.
 
+A component's declared environment variables are bound to the installed
+component instance and only exist at runtime. Read them inside function handlers
+rather than at module scope: module-scope code also runs during deployment
+analysis, where these values are not yet defined.
+
 ### HTTP Actions
 
 Components can define their own `http.ts` file with HTTP routes, just like the
@@ -345,9 +353,9 @@ component.use(childComponent, { httpPrefix: "/child/" });
 export default component;
 ```
 
-Within a component’s HTTP action, `process.env.CONVEX_SITE_URL` reflects the
-full URL where the component is mounted, including the `httpPrefix`. This allows
-the component to construct correct URLs for callbacks, redirects, or
+Within all of a component’s functions, `process.env.CONVEX_SITE_URL` reflects
+the full URL where the component is mounted, including the `httpPrefix`. This
+allows the component to construct correct URLs for callbacks, redirects, or
 self-referencing links without needing to know its mount path at build time.
 
 **Limitation:** Component HTTP actions do not have access to `ctx.auth` or the

@@ -125,6 +125,7 @@ enum UdfPreloaded {
         observed_time_during_execution: bool,
         performance_api: Option<PerformanceApi>,
         observed_identity_during_execution: bool,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         root_env_vars: Option<PreloadedEnvironmentVariables>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component: ComponentId,
@@ -293,6 +294,7 @@ impl<RT: Runtime> UdfPhase<RT> {
                     observed_time_during_execution: false,
                     performance_api: unix_timestamp.map(PerformanceApi::new),
                     observed_identity_during_execution: false,
+                    default_system_env_vars,
                     root_env_vars,
                     system_env_vars,
                     component,
@@ -304,6 +306,18 @@ impl<RT: Runtime> UdfPhase<RT> {
             .await?;
 
         Ok(())
+    }
+
+    pub fn default_system_env_vars(&self) -> &BTreeMap<EnvVarName, EnvVarValue> {
+        match &self.preloaded {
+            UdfPreloaded::Created {
+                default_system_env_vars,
+            } => default_system_env_vars,
+            UdfPreloaded::Ready {
+                default_system_env_vars,
+                ..
+            } => default_system_env_vars,
+        }
     }
 
     pub fn component(&self) -> anyhow::Result<ComponentId> {
