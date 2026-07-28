@@ -394,7 +394,7 @@ impl IndexCacheHandle {
             });
     }
 
-    pub fn get(
+    pub(crate) fn get(
         &self,
         index_id: IndexId,
         interval: Arc<Interval>,
@@ -458,7 +458,7 @@ impl IndexCacheHandle {
     /// conflicting writes.
     ///
     /// Phase 2: Mark the entry as ready.
-    pub fn populate(
+    pub(crate) fn populate(
         &self,
         index_id: IndexId,
         interval: Arc<Interval>,
