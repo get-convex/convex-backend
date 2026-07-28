@@ -16,6 +16,7 @@ use biscuit::JWT;
 use chrono::DateTime;
 pub use common::types::SystemKey;
 use common::{
+    audit_log_lines::ConvexActorVar,
     components::ComponentId,
     identity::{
         IdentityCacheKey,
@@ -354,6 +355,33 @@ impl Identity {
 
     pub fn is_acting_as_user(&self) -> bool {
         matches!(self, Identity::ActingUser(..))
+    }
+
+    pub fn convex_actor_var(&self) -> Option<ConvexActorVar> {
+        let admin_identity = match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity
+            },
+            Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => return None,
+        };
+        // Mirror `model::deployment_audit_log::types::DeploymentAuditLogActor`: an
+        // identity backed by an access token is a `Token` (with the member that
+        // owns the token, if any), otherwise a member-authenticated identity is a
+        // `Member`.
+        let member_id = match admin_identity.principal {
+            AdminIdentityPrincipal::Member(member_id) => Some(member_id.0),
+            AdminIdentityPrincipal::Team(_) => None,
+        };
+        Some(match admin_identity.token_id {
+            Some(token_id) => ConvexActorVar::Token {
+                member_id,
+                token_id: token_id.0,
+                client_id: admin_identity.app_client_id.clone(),
+            },
+            None => ConvexActorVar::Member {
+                member_id: member_id?,
+            },
+        })
     }
 
     pub fn is_user(&self) -> bool {

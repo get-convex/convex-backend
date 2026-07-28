@@ -495,7 +495,8 @@ impl<RT: Runtime> CacheManager<RT> {
             }
 
             // Step 5: Log some stuff and return.
-            let vars = AuditLogVars::from_context(context.clone(), &self.rt)?;
+            let vars =
+                AuditLogVars::from_context(context.clone(), identity.convex_actor_var(), &self.rt)?;
             self.audit_log_client
                 .send_logs(
                     cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?,
