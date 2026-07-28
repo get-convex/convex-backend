@@ -2037,44 +2037,6 @@
         }
       }
     },
-    "/unlink_identity": {
-      "post": {
-        "description": "Unlink a secondary identity from a user's account",
-        "operationId": "unlink_identity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UnlinkIdentityRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {}
-      }
-    },
-    "/identities": {
-      "get": {
-        "description": "List simplified identities grouped by WorkOS user ID",
-        "operationId": "identities",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/IdentityResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_id}/oauth_apps": {
       "get": {
         "operationId": "list_oauth_apps_for_team",
@@ -4371,30 +4333,6 @@
           }
         }
       },
-      "IdentityResponse": {
-        "type": "object",
-        "required": [
-          "id",
-          "providers"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "providers": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "email": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      },
       "InstanceAuthForDashboardInteractionsResponse": {
         "oneOf": [
           {
@@ -6113,17 +6051,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "UnlinkIdentityRequest": {
-        "type": "object",
-        "required": [
-          "userId"
-        ],
-        "properties": {
-          "userId": {
-            "type": "string"
-          }
-        }
       },
       "UpdateBillingAddressArgs": {
         "type": "object",

@@ -96,21 +96,3 @@ export function useDeleteAccount() {
     toastOnError: false,
   });
 }
-
-export function useIdentities() {
-  const { data: identities } = useBBQuery({
-    path: "/identities",
-    pathParams: undefined,
-  });
-  return identities;
-}
-
-export function useUnlinkIdentity() {
-  return useBBMutation({
-    path: "/unlink_identity",
-    pathParams: undefined,
-    mutateKey: "/identities",
-    successToast: "Identity unlinked.",
-    toastOnError: false,
-  });
-}

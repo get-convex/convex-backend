@@ -1158,40 +1158,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/unlink_identity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Unlink a secondary identity from a user's account */
-        post: operations["unlink_identity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/identities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description List simplified identities grouped by WorkOS user ID */
-        get: operations["identities"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/oauth_apps": {
         parameters: {
             query?: never;
@@ -2027,11 +1993,6 @@ export interface components {
         HasFailedPaymentResponse: {
             hasFailedPayment: boolean;
         };
-        IdentityResponse: {
-            id: string;
-            providers: string[];
-            email?: string | null;
-        };
         InstanceAuthForDashboardInteractionsResponse: {
             adminKey: components["schemas"]["SerializedAccessToken"];
             instanceUrl: string;
@@ -2531,9 +2492,6 @@ export interface components {
         UnlinkDiscordAccountRequest: {
             discordId: components["schemas"]["DiscordId"];
         };
-        UnlinkIdentityRequest: {
-            userId: string;
-        };
         UpdateBillingAddressArgs: {
             billingAddress: components["schemas"]["Address"];
         };
@@ -2687,7 +2645,6 @@ export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimits
 export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse'];
 export type HasAssociatedWorkOsTeamResponse = components['schemas']['HasAssociatedWorkOSTeamResponse'];
 export type HasFailedPaymentResponse = components['schemas']['HasFailedPaymentResponse'];
-export type IdentityResponse = components['schemas']['IdentityResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
 export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOSTeamMemberRequest'];
@@ -2762,7 +2719,6 @@ export type TeamSlug = components['schemas']['TeamSlug'];
 export type TeamUsageStateResponse = components['schemas']['TeamUsageStateResponse'];
 export type TransferProjectArgs = components['schemas']['TransferProjectArgs'];
 export type UnlinkDiscordAccountRequest = components['schemas']['UnlinkDiscordAccountRequest'];
-export type UnlinkIdentityRequest = components['schemas']['UnlinkIdentityRequest'];
 export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddressArgs'];
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
 export type UpdateOauthAppArgs = components['schemas']['UpdateOauthAppArgs'];
@@ -4398,39 +4354,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetTokenInfoResponse"];
-                };
-            };
-        };
-    };
-    unlink_identity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UnlinkIdentityRequest"];
-            };
-        };
-        responses: never;
-    };
-    identities: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IdentityResponse"][];
                 };
             };
         };
