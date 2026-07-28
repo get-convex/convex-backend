@@ -151,6 +151,13 @@ function CommandPaletteDialog({
     setSearch("");
   }, []);
 
+  // Jump back to a given depth in the drill-in stack via the breadcrumbs: 0
+  // returns to the root, n keeps the first n pages.
+  const goToDepth = useCallback((depth: number) => {
+    setPages((current) => current.slice(0, depth));
+    setSearch("");
+  }, []);
+
   const onNavigate = useCallback(
     (to: NavigationDestination) => {
       onClose();
@@ -216,7 +223,9 @@ function CommandPaletteDialog({
               <DialogTitle className="sr-only">
                 Convex Command Palette
               </DialogTitle>
-              {pages.length > 0 && <Breadcrumbs pages={pages} />}
+              {pages.length > 0 && (
+                <Breadcrumbs pages={pages} onNavigate={goToDepth} />
+              )}
               {/* Margin bleeds past the dialog padding so the input's divider spans the
               full width. */}
               <div className="relative -mx-2">
