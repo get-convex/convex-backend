@@ -70,7 +70,10 @@ use crate::{
     Token,
 };
 
-pub type OrderedDocumentWrites = Vec<PackedDocumentUpdate>;
+/// The packed writes of a single commit, in `table_dependency_sort_key` order.
+/// Shared because both `PendingWrites` and the off-thread persistence write
+/// need them, and neither mutates them.
+pub type OrderedDocumentWrites = Arc<[PackedDocumentUpdate]>;
 
 #[derive(Clone)]
 pub struct PackedDocumentUpdate {
@@ -130,19 +133,19 @@ impl OrderedIndexKeyWrites {
 /// contains full documents) to [OrderedIndexKeyWrites] (the log used
 /// in `WriteLog` that contains index keys too).
 pub fn index_keys_from_full_documents(
-    ordered_writes: OrderedDocumentWrites,
+    ordered_writes: &[PackedDocumentUpdate],
     index_registry: &IndexRegistry,
 ) -> OrderedIndexKeyWrites {
     let _timer = metrics::pending_writes_to_write_log_timer();
     let mut database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>> =
         BTreeMap::new();
     let mut text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>> = BTreeMap::new();
-    for update in ordered_writes.into_iter() {
+    for update in ordered_writes {
         for (index_name, index_update) in index_registry
             .document_index_keys(
                 update.id,
-                update.old_document,
-                update.new_document,
+                update.old_document.as_ref(),
+                update.new_document.as_ref(),
                 tokenize,
             )
             .0
@@ -275,25 +278,25 @@ impl WriteLogManager {
         }
     }
 
-    fn append(&mut self, ts: Timestamp, writes: OrderedIndexKeyWrites, write_source: WriteSource) {
+    fn append(&mut self, ts: Timestamp, writes: &OrderedIndexKeyWrites, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
-        for (index, updates) in writes.database {
+        for (index, updates) in &writes.database {
             self.log.by_database_index.append(
                 index,
                 ts,
-                updates,
+                updates.clone(),
                 write_source.clone(),
                 IndexKind::Database,
                 &mut self.log.size,
                 &mut self.log.min_ts_to_index,
             );
         }
-        for (index, updates) in writes.text {
+        for (index, updates) in &writes.text {
             self.log.by_text_index.append(
                 index,
                 ts,
-                updates,
+                updates.clone(),
                 write_source.clone(),
                 IndexKind::Text,
                 &mut self.log.size,
@@ -394,7 +397,7 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
 
     fn append(
         &mut self,
-        index: TabletIndexName,
+        index: &TabletIndexName,
         ts: Timestamp,
         updates: WithHeapSize<Vector<T>>,
         write_source: WriteSource,
@@ -414,7 +417,7 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
                 min_ts_to_index
                     .entry(ts)
                     .or_default()
-                    .push_back((index, kind));
+                    .push_back((index.clone(), kind));
             },
         };
     }
@@ -809,7 +812,7 @@ impl LogWriter {
     pub fn append(
         &mut self,
         ts: Timestamp,
-        writes: OrderedIndexKeyWrites,
+        writes: &OrderedIndexKeyWrites,
         write_source: WriteSource,
         apply_writes_callback: impl FnOnce(),
     ) {

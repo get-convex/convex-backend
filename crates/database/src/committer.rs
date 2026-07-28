@@ -705,7 +705,7 @@ impl<RT: Runtime> Committer<RT> {
         if snapshot_manager.bump_persisted_max_repeatable_ts(new_max_repeatable)? {
             self.log.append(
                 new_max_repeatable,
-                OrderedIndexKeyWrites::empty(),
+                &OrderedIndexKeyWrites::empty(),
                 "publish_max_repeatable_ts".into(),
                 || {},
             );
@@ -771,18 +771,20 @@ impl<RT: Runtime> Committer<RT> {
             .into_iter()
             .map(|update| PackedDocumentUpdate::pack(&update))
             .collect();
-        let ordered_updates = packed_updates.clone();
         let index_registry = snapshot.index_registry.clone();
-        let pending_write =
-            self.pending_writes
-                .push_back(commit_ts, packed_updates, write_source, snapshot);
+        let pending_write = self.pending_writes.push_back(
+            commit_ts,
+            packed_updates.clone(),
+            write_source,
+            snapshot,
+        );
         drop(timer);
 
         Ok(ValidatedCommit {
             index_writes,
             document_writes,
             pending_write,
-            ordered_updates,
+            ordered_updates: packed_updates,
             index_registry,
         })
     }
@@ -895,7 +897,7 @@ impl<RT: Runtime> Committer<RT> {
             &virtual_system_mapping,
         );
 
-        let index_key_writes = index_keys_from_full_documents(ordered_updates, &index_registry);
+        let index_key_writes = index_keys_from_full_documents(&ordered_updates, &index_registry);
 
         let mut write_bytes: u64 = 0;
         let document_writes = Arc::new(
@@ -972,18 +974,17 @@ impl<RT: Runtime> Committer<RT> {
         metrics::write_log_commit_bytes(write_bytes as usize);
 
         let timer = metrics::write_log_append_timer();
-        let db_writes = writes.database.clone();
         let index_registry = &new_snapshot.index_registry;
         let apply_writes_callback = || {
             self.index_cache_handle
-                .apply_writes(&db_writes, &|index_name| {
+                .apply_writes(&writes.database, &|index_name| {
                     index_registry
                         .get_enabled(index_name)
                         .map(|index| index.id())
                 })
         };
         self.log
-            .append(commit_ts, writes, write_source, apply_writes_callback);
+            .append(commit_ts, &writes, write_source, apply_writes_callback);
         drop(timer);
 
         if let Some(table_counts) = new_snapshot.table_counts.as_ref() {
