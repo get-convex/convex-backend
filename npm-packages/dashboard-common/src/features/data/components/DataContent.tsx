@@ -486,6 +486,11 @@ export function DataContent({
                 />
               ))}
           </LoadingTransition>
+          {rowsThatAreSelected.size > 0 && !allRowsSelected && (
+            <p className="flex shrink-0 items-center gap-1 pt-1 text-xs text-content-secondary">
+              Shift-click a checkbox to select a range of documents
+            </p>
+          )}
         </div>
       </Panel>
       {popupEl}
