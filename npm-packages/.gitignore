@@ -72,4 +72,3 @@ common/temp/
 rush-logs
 
 *.chunks.jsonl
-.turbo/
