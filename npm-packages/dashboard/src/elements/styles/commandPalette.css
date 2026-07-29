@@ -9,14 +9,10 @@
 }
 
 [cmdk-input] {
-  /* px-5 keeps the text aligned with the p-2 dialog padding now that the
-     input's wrapper bleeds past it so the divider spans the full width. */
-  @apply bg-transparent border-b mb-2 rounded-b-none px-5 py-2 text-sm block rounded-sm placeholder:text-content-tertiary border-0 w-full focus:outline-hidden;
+  @apply bg-transparent border-b rounded-b-none pl-10 pr-4 py-2.5 text-sm block rounded-sm placeholder:text-content-tertiary border-0 w-full focus:outline-hidden;
 }
 
 [cmdk-overlay] {
-  /* A heavier scrim in dark mode gives the dialog some depth, since shadows
-     are barely visible on dark backgrounds. */
   @apply fixed inset-0 z-40 bg-black/25 dark:bg-black/60;
 }
 

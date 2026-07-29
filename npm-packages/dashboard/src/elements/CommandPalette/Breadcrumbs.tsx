@@ -13,7 +13,7 @@ export function Breadcrumbs({
   onNavigate: (depth: number) => void;
 }) {
   return (
-    <div className="flex animate-fadeInFromLoading items-center gap-1 px-3 pt-2 select-none">
+    <div className="-mx-2 -mt-2 mb-2 flex animate-fadeInFromLoading items-center gap-1 border-b bg-background-tertiary/40 px-4 py-2 select-none">
       <Crumb onClick={() => onNavigate(0)}>Home</Crumb>
       {pages.map((page, i) => {
         const isCurrent = i === pages.length - 1;

@@ -1,5 +1,6 @@
 import { Command } from "cmdk";
 import { Title as DialogTitle } from "@radix-ui/react-dialog";
+import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { ErrorBoundary } from "@sentry/nextjs";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
@@ -245,7 +246,8 @@ function CommandPaletteDialog({
               )}
               {/* Margin bleeds past the dialog padding so the input's divider spans the
               full width. */}
-              <div className="relative -mx-2">
+              <div className="relative -mx-2 mb-2 flex items-center">
+                <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-content-tertiary" />
                 <Command.Input
                   autoFocus
                   placeholder={placeholder}
@@ -253,7 +255,7 @@ function CommandPaletteDialog({
                   onValueChange={setSearch}
                 />
                 {isSearchPending && (
-                  <Spinner className="absolute top-2.5 right-5 size-4 animate-fadeInFromLoading" />
+                  <Spinner className="absolute top-1/2 right-5 size-4 -translate-y-1/2 animate-fadeInFromLoading" />
                 )}
               </div>
               {/* While searching, cmdk re-sorts and reparents every group/item on
