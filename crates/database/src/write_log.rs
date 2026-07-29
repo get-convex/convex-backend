@@ -1,6 +1,8 @@
 use std::{
+    cmp::Reverse,
     collections::{
         BTreeMap,
+        BinaryHeap,
         VecDeque,
     },
     ops::Bound,
@@ -107,7 +109,7 @@ impl PackedDocumentUpdate {
 }
 /// Indicates whether an index entry in the write log belongs to the
 /// `by_database_index` or `by_text_index` map.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum IndexKind {
     Database,
     Text,
@@ -250,6 +252,10 @@ impl HeapSize for WriteSource {
 
 struct WriteLogManager {
     log: WriteLog,
+    /// Keeps track of the minimum timestamps in each index's log, used for fast
+    /// purging. Each entry records which map (`IndexKind`) the index belongs to
+    /// so we can remove from the right map.
+    min_ts_to_index: BinaryHeap<Reverse<(Timestamp, TabletIndexName, IndexKind)>>,
     waiters: VecDeque<(Timestamp, oneshot::Sender<()>)>,
 }
 
@@ -257,7 +263,11 @@ impl WriteLogManager {
     fn new(initial_timestamp: Timestamp) -> Self {
         let log = WriteLog::new(initial_timestamp);
         let waiters = VecDeque::new();
-        Self { log, waiters }
+        Self {
+            log,
+            min_ts_to_index: BinaryHeap::new(),
+            waiters,
+        }
     }
 
     fn notify_waiters(&mut self) {
@@ -289,7 +299,7 @@ impl WriteLogManager {
                 write_source.clone(),
                 IndexKind::Database,
                 &mut self.log.size,
-                &mut self.log.min_ts_to_index,
+                &mut self.min_ts_to_index,
             );
         }
         for (index, updates) in &writes.text {
@@ -300,7 +310,7 @@ impl WriteLogManager {
                 write_source.clone(),
                 IndexKind::Text,
                 &mut self.log.size,
-                &mut self.log.min_ts_to_index,
+                &mut self.min_ts_to_index,
             );
         }
         self.log.max_ts = ts;
@@ -337,47 +347,39 @@ impl WriteLogManager {
             .sub(*WRITE_LOG_MAX_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
         loop {
-            let Some((ts, indexes)) = self
-                .log
+            let limit_ts = if self.log.size >= *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
+                hard_limit_ts
+            } else {
+                soft_limit_ts
+            };
+            let Some(Reverse((ts, index, kind))) = self
                 .min_ts_to_index
-                .get_min()
-                .map(|(ts, indexes)| (*ts, indexes.clone()))
+                .pop_if(|&Reverse((ts, ..))| ts == self.log.purged_ts || ts < limit_ts)
             else {
                 break;
             };
 
-            if ts >= hard_limit_ts {
-                break;
-            }
-
-            if ts >= soft_limit_ts && self.log.size < *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
-                break;
-            }
-
             self.log.purged_ts = ts;
-            self.log.min_ts_to_index.remove(&ts);
 
-            for (index, kind) in indexes {
-                match kind {
-                    IndexKind::Database => {
-                        self.log.by_database_index.remove_at_ts(
-                            &index,
-                            ts,
-                            IndexKind::Database,
-                            &mut self.log.size,
-                            &mut self.log.min_ts_to_index,
-                        );
-                    },
-                    IndexKind::Text => {
-                        self.log.by_text_index.remove_at_ts(
-                            &index,
-                            ts,
-                            IndexKind::Text,
-                            &mut self.log.size,
-                            &mut self.log.min_ts_to_index,
-                        );
-                    },
-                }
+            match kind {
+                IndexKind::Database => {
+                    self.log.by_database_index.remove_at_ts(
+                        index,
+                        ts,
+                        IndexKind::Database,
+                        &mut self.log.size,
+                        &mut self.min_ts_to_index,
+                    );
+                },
+                IndexKind::Text => {
+                    self.log.by_text_index.remove_at_ts(
+                        index,
+                        ts,
+                        IndexKind::Text,
+                        &mut self.log.size,
+                        &mut self.min_ts_to_index,
+                    );
+                },
             }
         }
     }
@@ -403,7 +405,7 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
         write_source: WriteSource,
         kind: IndexKind,
         by_index_size: &mut usize,
-        min_ts_to_index: &mut OrdMap<Timestamp, Vector<(TabletIndexName, IndexKind)>>,
+        min_ts_to_index: &mut BinaryHeap<Reverse<(Timestamp, TabletIndexName, IndexKind)>>,
     ) {
         *by_index_size += updates.heap_size();
         match self.0.entry(index.clone()) {
@@ -414,10 +416,7 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
                 let mut inner = OrdMap::new();
                 inner.insert(ts, (updates, write_source));
                 e.insert(inner);
-                min_ts_to_index
-                    .entry(ts)
-                    .or_default()
-                    .push_back((index.clone(), kind));
+                min_ts_to_index.push(Reverse((ts, index.clone(), kind)));
             },
         };
     }
@@ -426,13 +425,13 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
     /// entries, re-register its new minimum timestamp.
     fn remove_at_ts(
         &mut self,
-        index: &TabletIndexName,
+        index: TabletIndexName,
         ts: Timestamp,
         kind: IndexKind,
         by_index_size: &mut usize,
-        min_ts_to_index: &mut OrdMap<Timestamp, Vector<(TabletIndexName, IndexKind)>>,
+        min_ts_to_index: &mut BinaryHeap<Reverse<(Timestamp, TabletIndexName, IndexKind)>>,
     ) {
-        let Some(inner) = self.0.get_mut(index) else {
+        let Some(inner) = self.0.get_mut(&index) else {
             return;
         };
         if let Some((updates, _)) = inner.remove(&ts) {
@@ -440,12 +439,9 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
         }
         if let Some((new_min_ts, _)) = inner.get_min() {
             let new_min_ts = *new_min_ts;
-            min_ts_to_index
-                .entry(new_min_ts)
-                .or_default()
-                .push_back((index.clone(), kind));
+            min_ts_to_index.push(Reverse((new_min_ts, index, kind)));
         } else {
-            self.0.remove(index);
+            self.0.remove(&index);
         }
     }
 
@@ -482,11 +478,6 @@ struct WriteLog {
     by_database_index: WritesByIndex<DatabaseIndexWrite>,
     by_text_index: WritesByIndex<TextIndexWrite>,
     size: usize,
-    /// Keeps track of the minimum timestamps and what indexes have entries in
-    /// the maps at those timestamps, used for fast purging. Each entry records
-    /// which map (`IndexKind`) the index belongs to so we can remove from the
-    /// right map.
-    min_ts_to_index: OrdMap<Timestamp, Vector<(TabletIndexName, IndexKind)>>,
     max_ts: Timestamp,
     purged_ts: Timestamp,
 }
@@ -497,7 +488,6 @@ impl WriteLog {
             by_database_index: WritesByIndex::new(),
             by_text_index: WritesByIndex::new(),
             size: 0,
-            min_ts_to_index: OrdMap::new(),
             max_ts: initial_timestamp,
             purged_ts: initial_timestamp,
         }
