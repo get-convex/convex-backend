@@ -95,7 +95,7 @@ function isTransientStatus(status: number): boolean {
 // because the request may have been delivered.
 const CONNECT_PHASE_ERROR_CODES = new Set([
   "ECONNREFUSED",
-  "ENOTFOUND",
+  "ENOTFOUND", // DNS lookup failed (https://nodejs.org/api/errors.html#common-system-errors)
   "EAI_AGAIN",
   "UND_ERR_CONNECT_TIMEOUT",
 ]);
@@ -113,7 +113,9 @@ function isConnectPhaseError(e: unknown): boolean {
 
 // Undici reports every network-level failure as a bare `TypeError: fetch
 // failed` with the real reason (ECONNRESET, DNS, connect timeout, ...) on
-// `cause`, which log serialization drops. Surface it in the message.
+// `cause`, which log serialization drops. Surface it in the message. Codes:
+// https://nodejs.org/api/errors.html#common-system-errors
+// https://github.com/nodejs/undici/blob/1089808/docs/docs/api/Errors.md
 function callbackNetworkError(
   e: unknown,
   operationName: string,
