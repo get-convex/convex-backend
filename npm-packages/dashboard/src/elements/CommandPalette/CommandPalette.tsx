@@ -159,14 +159,21 @@ function CommandPaletteDialog({
   }, []);
   const isSearchPending = loadingCount > 0;
 
+  // Switching submenus (drilling in/out, or jumping via breadcrumbs) can move
+  // focus onto the clicked row or breadcrumb. The search input stays mounted
+  // across page changes, so returning focus to it keeps the user typing.
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const pushPage = useCallback((newPage: PalettePage) => {
     setPages((current) => [...current, newPage]);
     setSearch("");
+    inputRef.current?.focus();
   }, []);
 
   const popPage = useCallback(() => {
     setPages((current) => current.slice(0, -1));
     setSearch("");
+    inputRef.current?.focus();
   }, []);
 
   // Jump back to a given depth in the drill-in stack via the breadcrumbs: 0
@@ -174,6 +181,7 @@ function CommandPaletteDialog({
   const goToDepth = useCallback((depth: number) => {
     setPages((current) => current.slice(0, depth));
     setSearch("");
+    inputRef.current?.focus();
   }, []);
 
   const onNavigate = useCallback(
@@ -249,6 +257,7 @@ function CommandPaletteDialog({
               <div className="relative -mx-2 mb-2 flex items-center">
                 <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-content-tertiary" />
                 <Command.Input
+                  ref={inputRef}
                   autoFocus
                   placeholder={placeholder}
                   value={search}
