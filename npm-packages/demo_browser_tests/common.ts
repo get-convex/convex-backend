@@ -11,15 +11,25 @@ export async function withBrowser(
     await testFn(page, browser);
   } catch (error) {
     try {
-      const screenshotDir = process.env.SCREENSHOT_DIR || ".";
+      const outDir = process.env.SCREENSHOT_DIR || ".";
       const testName = path.basename(process.argv[1] || "unknown", ".js");
-      const filename = `${testName}-failure-${Date.now()}.png`;
-      const filepath = path.join(screenshotDir, filename);
-      fs.mkdirSync(screenshotDir, { recursive: true });
-      await page.screenshot({ path: filepath, fullPage: true });
-      console.error(`Screenshot saved to: ${filepath}`);
-    } catch (screenshotError) {
-      console.error("Failed to capture screenshot:", screenshotError);
+      const prefix = `${testName}-failure-${Date.now()}`;
+      fs.mkdirSync(outDir, { recursive: true });
+
+      // A screenshot alone can't tell "the page we wanted rendered nothing"
+      // apart from "we were on a different page than we thought", which is the
+      // difference between a third-party outage and a bug here.
+      console.error(`Failed on ${page.url()} (title: ${await page.title()})`);
+
+      const screenshot = path.join(outDir, `${prefix}.png`);
+      await page.screenshot({ path: screenshot, fullPage: true });
+      console.error(`Screenshot saved to: ${screenshot}`);
+
+      const html = path.join(outDir, `${prefix}.html`);
+      fs.writeFileSync(html, await page.content());
+      console.error(`Page HTML saved to: ${html}`);
+    } catch (diagnosticError) {
+      console.error("Failed to capture failure diagnostics:", diagnosticError);
     }
     throw error;
   } finally {
