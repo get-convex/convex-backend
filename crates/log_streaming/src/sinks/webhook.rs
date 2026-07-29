@@ -31,11 +31,11 @@ use common::{
         WithTimeout,
     },
 };
+use const_hex::ToHexExt;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use hex::ToHex;
 use http::{
     header::CONTENT_TYPE,
     HeaderValue,

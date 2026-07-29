@@ -1272,7 +1272,7 @@ impl TryFrom<ModuleHashJson> for ModuleHashConfig {
             sha256,
         }: ModuleHashJson,
     ) -> anyhow::Result<ModuleHashConfig> {
-        let sha256_bytes = hex::decode(&sha256).context("Invalid hex in sha256")?;
+        let sha256_bytes = const_hex::decode(&sha256).context("Invalid hex in sha256")?;
         let sha256_array: [u8; 32] = sha256_bytes
             .try_into()
             .ok()

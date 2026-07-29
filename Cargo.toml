@@ -52,6 +52,7 @@ cmd_util = { path = "crates/cmd_util" }
 colored = "3"
 common = { path = "crates/common" }
 compact_str = { version = "0.9.0", features = [ "serde" ] }
+const-hex = "1"
 const-oid = "0.9.6"
 const_format = { version = "0.2.34", features = [ "fmt" ] }
 convex = { path = "crates/convex" }
@@ -98,7 +99,6 @@ hashlink = "0.11"
 hdrhistogram = "7.5.4"
 headers = "0.4"
 health_check = { path = "crates/health_check" }
-hex = "0.4"
 home = "0.5"
 http = "1.0.0"
 http-body-util = "0.1.2"
