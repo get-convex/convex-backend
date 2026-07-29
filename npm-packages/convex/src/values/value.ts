@@ -11,7 +11,7 @@ import { isSimpleObject } from "../common/index.js";
 const LITTLE_ENDIAN = true;
 // This code is used by code that may not have bigint literals.
 const MIN_INT64 = BigInt("-9223372036854775808");
-const MAX_INT64 = BigInt("9223372036854775807");
+export const MAX_INT64 = BigInt("9223372036854775807");
 const ZERO = BigInt("0");
 const EIGHT = BigInt("8");
 const TWOFIFTYSIX = BigInt("256");
