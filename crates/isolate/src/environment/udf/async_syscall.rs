@@ -64,6 +64,7 @@ use database::{
 };
 use deno_core::v8;
 use errors::{
+    ErrorCode,
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
@@ -672,7 +673,25 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 new_reactor_depth,
             )
             .await
-            .map_err(remove_rejected_before_execution)?;
+            .map_err(|mut e| {
+                e = remove_rejected_before_execution(e);
+                if let Some(em) = e.downcast_mut::<ErrorMetadata>()
+                    && em.is_deterministic_user_error()
+                {
+                    // This is a bit gross, but at this layer, "deterministic
+                    // user errors" get converted into catchable JS exceptions.
+                    // However, if there is an error at this point, we cannot
+                    // return to JS because the transaction has been lost.
+                    //
+                    // So upgrade such an error to a non-catchable system error.
+                    // However this should only be happening for nested system
+                    // timeouts and so it's likely that this error will again be
+                    // replaced with a higher error.
+                    em.code = ErrorCode::OperationalInternalServerError;
+                    tracing::warn!("Upgrading error from nested UDF: {e:#}");
+                }
+                e
+            })?;
         match nested_udf_type {
             NestedUdfType::Mutation if outcome.result.is_err() => {
                 result_tx.rollback_subtransaction(tokens)?
