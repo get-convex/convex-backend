@@ -18,7 +18,10 @@ import {
 } from "api/personalAccessTokens";
 import { useTeams } from "api/teams";
 import { PaginationControls } from "elements/PaginationControls";
-import { useCursorPagination } from "hooks/useCursorPagination";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 import {
   TokenExpirationSelector,
@@ -50,6 +53,11 @@ export function PersonalAccessTokens() {
   const tokens = data?.items;
   const hasMore = data?.pagination.hasMore ?? false;
   const nextCursor = data?.pagination.nextCursor;
+
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    { isLoading, currentPageItems: tokens },
+  );
 
   return (
     <Sheet

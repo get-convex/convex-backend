@@ -8,7 +8,10 @@ import { TeamResponse } from "generatedApi";
 import { TeamAccessTokens } from "components/teamSettings/TeamAccessTokens";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { teamTokenResource } from "lib/permissions";
-import { useCursorPagination } from "hooks/useCursorPagination";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 
 export function TokensLayout({ team }: { team: TeamResponse }) {
   const profile = useProfile();
@@ -51,6 +54,11 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
   const tokens = data?.items;
   const hasMore = data?.pagination.hasMore ?? false;
   const nextCursor = data?.pagination.nextCursor;
+
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    { isLoading, currentPageItems: tokens },
+  );
 
   const createTeamAccessToken = useCreateTeamAccessToken(team.id);
 

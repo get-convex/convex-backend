@@ -40,3 +40,32 @@ export function useCursorPagination() {
     resetPagination,
   };
 }
+
+/**
+ * Navigates back one page when the current page has no items but earlier pages
+ * exist (e.g. the user deleted every item on this page). Steps back until a
+ * non-empty page or page 1 is reached.
+ *
+ * Pops during render rather than in an effect, so React re-renders with the
+ * previous cursor before painting — the empty state never flashes — and the
+ * check re-runs on every render instead of waiting for a dependency to change.
+ */
+export function useSnapBackOnEmptyPage(
+  pagination: Pick<
+    ReturnType<typeof useCursorPagination>,
+    "canGoPrevious" | "onPreviousPage"
+  >,
+  {
+    isLoading,
+    currentPageItems,
+  }: {
+    isLoading: boolean;
+    /** `undefined` when the query is paused or errored: not an empty page. */
+    currentPageItems: readonly unknown[] | undefined;
+  },
+) {
+  const { canGoPrevious, onPreviousPage } = pagination;
+  if (!isLoading && currentPageItems?.length === 0 && canGoPrevious) {
+    onPreviousPage();
+  }
+}

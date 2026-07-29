@@ -24,7 +24,10 @@ import {
   useProjectsPageSize,
   PROJECT_PAGE_SIZES,
 } from "hooks/useProjectsPageSize";
-import { useCursorPagination } from "hooks/useCursorPagination";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 import { ProjectLink } from "./AuditLogItem";
 
 export function MemberProjectRolesModal({
@@ -86,6 +89,14 @@ export function MemberProjectRolesModal({
   const hasMore = paginatedData?.pagination.hasMore ?? false;
   const nextCursor = paginatedData?.pagination.nextCursor;
   const isLoading = paginatedData === undefined;
+
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    {
+      isLoading: paginatedData?.isLoading ?? true,
+      currentPageItems: paginatedData?.items,
+    },
+  );
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);

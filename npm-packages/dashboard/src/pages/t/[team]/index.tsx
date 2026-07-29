@@ -24,7 +24,10 @@ import { useReferralState } from "api/referrals";
 import { ProjectDetails, TeamResponse } from "generatedApi";
 import { ReferralsBanner } from "components/referral/ReferralsBanner";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
-import { useCursorPagination } from "hooks/useCursorPagination";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 import { useHasCustomRolePermission } from "api/roles";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
@@ -304,6 +307,14 @@ function ProjectGrid({
   const hasMore = paginatedData?.pagination.hasMore ?? false;
   const nextCursor = paginatedData?.pagination.nextCursor;
   const isLoading = paginatedData === undefined;
+
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    {
+      isLoading: paginatedData?.isLoading ?? true,
+      currentPageItems: paginatedData?.items,
+    },
+  );
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);

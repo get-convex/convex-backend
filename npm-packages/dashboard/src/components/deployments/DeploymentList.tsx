@@ -16,7 +16,10 @@ import { useDebounce } from "react-use";
 import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { PaginationControls } from "elements/PaginationControls";
-import { useCursorPagination } from "hooks/useCursorPagination";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import sortBy from "lodash/sortBy";
@@ -171,6 +174,14 @@ export function useDeploymentsWithFilters(
   const hasMore = paginatedData?.pagination.hasMore ?? false;
   const nextCursor = paginatedData?.pagination.nextCursor;
   const isLoading = paginatedData === undefined;
+
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    {
+      isLoading: paginatedData?.isLoading ?? true,
+      currentPageItems: paginatedData?.items,
+    },
+  );
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
