@@ -16,6 +16,7 @@ import { useDebounce } from "react-use";
 import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { PaginationControls } from "elements/PaginationControls";
+import { useCursorPagination } from "hooks/useCursorPagination";
 import { useRouter } from "next/router";
 import { Link } from "@ui/Link";
 import sortBy from "lodash/sortBy";
@@ -112,12 +113,14 @@ export function useDeploymentsWithFilters(
     (router.query.q as string) || "",
   );
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
-  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
-    undefined,
-  );
-  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
-    undefined,
-  ]);
+  const {
+    currentCursor,
+    currentPage: currentPageNumber,
+    canGoPrevious,
+    onNextPage,
+    onPreviousPage,
+    resetPagination,
+  } = useCursorPagination();
 
   useDebounce(
     () => {
@@ -168,35 +171,23 @@ export function useDeploymentsWithFilters(
   const hasMore = paginatedData?.pagination.hasMore ?? false;
   const nextCursor = paginatedData?.pagination.nextCursor;
   const isLoading = paginatedData === undefined;
-  const currentPageNumber = cursorHistory.length;
-
-  const handleNextPage = () => {
-    if (nextCursor) {
-      setCursorHistory((prev) => [...prev, nextCursor]);
-      setCurrentCursor(nextCursor);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (cursorHistory.length > 1) {
-      const newHistory = [...cursorHistory];
-      newHistory.pop();
-      setCursorHistory(newHistory);
-      setCurrentCursor(newHistory[newHistory.length - 1]);
-    }
-  };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
-    setCurrentCursor(undefined);
-    setCursorHistory([undefined]);
+    resetPagination();
   };
 
   // Reset cursor when filters/search change
   useEffect(() => {
-    setCurrentCursor(undefined);
-    setCursorHistory([undefined]);
-  }, [debouncedQuery, sort, typeFilter, creatorFilter, projectFilter]);
+    resetPagination();
+  }, [
+    debouncedQuery,
+    sort,
+    typeFilter,
+    creatorFilter,
+    projectFilter,
+    resetPagination,
+  ]);
 
   const memberOptions = useMemo(
     () => [
@@ -291,9 +282,10 @@ export function useDeploymentsWithFilters(
     isLoading,
     currentPageNumber,
     pageSize,
-    cursorHistory,
-    handleNextPage,
-    handlePrevPage,
+    canGoPrevious,
+    nextCursor,
+    onNextPage,
+    onPreviousPage,
     handlePageSizeChange,
     memberOptions,
     projectOptions,
@@ -428,9 +420,10 @@ export function DeploymentList({
     teamMembers,
     hasMore,
     currentPageNumber,
-    cursorHistory,
-    handleNextPage,
-    handlePrevPage,
+    canGoPrevious,
+    nextCursor,
+    onNextPage,
+    onPreviousPage,
     handlePageSizeChange,
   } = filters;
 
@@ -504,9 +497,9 @@ export function DeploymentList({
             hasMore={hasMore}
             pageSize={pageSize}
             onPageSizeChange={handlePageSizeChange}
-            onPreviousPage={handlePrevPage}
-            onNextPage={handleNextPage}
-            canGoPrevious={cursorHistory.length > 1}
+            onPreviousPage={onPreviousPage}
+            onNextPage={() => onNextPage(nextCursor)}
+            canGoPrevious={canGoPrevious}
             pageSizeOptions={DEPLOYMENT_PAGE_SIZES}
           />
         </div>

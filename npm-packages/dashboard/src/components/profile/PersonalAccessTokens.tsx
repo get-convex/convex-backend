@@ -18,6 +18,7 @@ import {
 } from "api/personalAccessTokens";
 import { useTeams } from "api/teams";
 import { PaginationControls } from "elements/PaginationControls";
+import { useCursorPagination } from "hooks/useCursorPagination";
 import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 import {
   TokenExpirationSelector,
@@ -36,35 +37,19 @@ type PersonalAccessToken = {
 export function PersonalAccessTokens() {
   const createToken = useCreatePersonalAccessToken();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
-    undefined,
-  );
-  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
-    undefined,
-  ]);
+  const {
+    currentCursor,
+    currentPage,
+    canGoPrevious,
+    onNextPage,
+    onPreviousPage,
+  } = useCursorPagination();
 
   const { data, isLoading } = usePaginatedPersonalAccessTokens(currentCursor);
 
   const tokens = data?.items;
   const hasMore = data?.pagination.hasMore ?? false;
   const nextCursor = data?.pagination.nextCursor;
-  const currentPage = cursorHistory.length;
-
-  const handleNextPage = () => {
-    if (nextCursor) {
-      setCursorHistory((prev) => [...prev, nextCursor]);
-      setCurrentCursor(nextCursor);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (cursorHistory.length > 1) {
-      const newHistory = [...cursorHistory];
-      newHistory.pop();
-      setCursorHistory(newHistory);
-      setCurrentCursor(newHistory[newHistory.length - 1]);
-    }
-  };
 
   return (
     <Sheet
@@ -99,16 +84,16 @@ export function PersonalAccessTokens() {
           </div>
         )}
       </LoadingTransition>
-      {tokens && tokens.length > 0 && (hasMore || cursorHistory.length > 1) && (
+      {tokens && tokens.length > 0 && (hasMore || canGoPrevious) && (
         <PaginationControls
           isCursorBasedPagination
           currentPage={currentPage}
           hasMore={hasMore}
           pageSize={10}
           onPageSizeChange={() => {}}
-          onPreviousPage={handlePrevPage}
-          onNextPage={handleNextPage}
-          canGoPrevious={cursorHistory.length > 1}
+          onPreviousPage={onPreviousPage}
+          onNextPage={() => onNextPage(nextCursor)}
+          canGoPrevious={canGoPrevious}
           showPageSize={false}
         />
       )}

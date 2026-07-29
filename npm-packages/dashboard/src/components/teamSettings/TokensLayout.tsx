@@ -8,7 +8,7 @@ import { TeamResponse } from "generatedApi";
 import { TeamAccessTokens } from "components/teamSettings/TeamAccessTokens";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { teamTokenResource } from "lib/permissions";
-import React, { useState } from "react";
+import { useCursorPagination } from "hooks/useCursorPagination";
 
 export function TokensLayout({ team }: { team: TeamResponse }) {
   const profile = useProfile();
@@ -38,35 +38,19 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
     tokenResource,
     true,
   );
-  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
-    undefined,
-  );
-  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
-    undefined,
-  ]);
+  const {
+    currentCursor,
+    currentPage,
+    canGoPrevious,
+    onNextPage,
+    onPreviousPage,
+  } = useCursorPagination();
 
   const { data, isLoading } = useTeamAccessTokens(team.id, currentCursor);
 
   const tokens = data?.items;
   const hasMore = data?.pagination.hasMore ?? false;
   const nextCursor = data?.pagination.nextCursor;
-  const currentPage = cursorHistory.length;
-
-  const handleNextPage = () => {
-    if (nextCursor) {
-      setCursorHistory((prev) => [...prev, nextCursor]);
-      setCurrentCursor(nextCursor);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (cursorHistory.length > 1) {
-      const newHistory = [...cursorHistory];
-      newHistory.pop();
-      setCursorHistory(newHistory);
-      setCurrentCursor(newHistory[newHistory.length - 1]);
-    }
-  };
 
   const createTeamAccessToken = useCreateTeamAccessToken(team.id);
 
@@ -101,9 +85,9 @@ export function TokensLayout({ team }: { team: TeamResponse }) {
         isLoading={isLoading}
         hasMore={hasMore}
         currentPage={currentPage}
-        canGoPrevious={cursorHistory.length > 1}
-        onPreviousPage={handlePrevPage}
-        onNextPage={handleNextPage}
+        canGoPrevious={canGoPrevious}
+        onPreviousPage={onPreviousPage}
+        onNextPage={() => onNextPage(nextCursor)}
       />
     </div>
   );
