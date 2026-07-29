@@ -3,7 +3,7 @@ import { Link } from "@ui/Link";
 import { useDiscordAccounts, useUnlinkDiscordAccount } from "api/discord";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
-import { TrashIcon } from "@radix-ui/react-icons";
+import { Cross2Icon } from "@radix-ui/react-icons";
 import { DiscordAccount, DiscordAccountDetails } from "generatedApi";
 import { PROFILE_SECTIONS } from "lib/sectionAnchors";
 
@@ -67,16 +67,14 @@ function DiscordAccountListRow({ account }: { account: DiscordAccount }) {
 
       <div className="ml-auto">
         <Button
-          tip="Unlink"
-          aria-label="Unlink"
-          type="button"
+          variant="danger"
+          icon={<Cross2Icon />}
           onClick={() => {
             void unlinkAccount({ discordId: account.id });
           }}
-          variant="danger"
-          inline
-          icon={<TrashIcon />}
-        />
+        >
+          Unlink
+        </Button>
       </div>
     </div>
   );
@@ -104,7 +102,7 @@ export function DiscordAccounts() {
       id={PROFILE_SECTIONS.discordAccounts.id}
       className="flex flex-col gap-4"
     >
-      <h3>Discord</h3>
+      <h3>Discord Accounts</h3>
 
       <p className="max-w-lg text-sm">
         Join the{" "}
