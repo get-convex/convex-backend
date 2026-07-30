@@ -18,7 +18,7 @@ import {
   Logger,
 } from "../logging.js";
 import { LocalSyncState } from "./local_state.js";
-import { RequestManager } from "./request_manager.js";
+import { RequestManager, type RequestResult } from "./request_manager.js";
 import {
   OptimisticLocalStore,
   OptimisticUpdate,
@@ -916,11 +916,8 @@ export class BaseConvexClient {
     args?: Record<string, Value>,
     options?: MutationOptions | MutationOptionsWithCommitTimestamp,
   ): Promise<any> {
-    const { result, commitTimestamp } = await this.mutationInternal(
-      name,
-      args,
-      options,
-    );
+    const { mutationResultPromise } = this.enqueueMutation(name, args, options);
+    const { result, commitTimestamp } = await mutationResultPromise;
     if (!result.success) {
       if (result.errorData !== undefined) {
         throw forwardData(
@@ -949,7 +946,7 @@ export class BaseConvexClient {
     args?: Record<string, Value>,
     options?: MutationOptions | MutationOptionsWithCommitTimestamp,
     componentPath?: string,
-  ) {
+  ): Promise<FunctionResult> {
     const { mutationPromise } = this.enqueueMutation(
       udfPath,
       args,
@@ -967,7 +964,11 @@ export class BaseConvexClient {
     args?: Record<string, Value>,
     options?: MutationOptions | MutationOptionsWithCommitTimestamp,
     componentPath?: string,
-  ) {
+  ): {
+    requestId: RequestId;
+    mutationPromise: Promise<FunctionResult>;
+    mutationResultPromise: Promise<RequestResult>;
+  } {
     const mutationArgs = parseArgs(args);
     this.tryReportLongDisconnect();
     const requestId = this.nextRequestId;
@@ -1027,10 +1028,15 @@ export class BaseConvexClient {
       args: [convexToJson(mutationArgs)],
     };
     const mightBeSent = this.webSocketManager.sendMessage(message);
-    const mutationPromise = this.requestManager.request(message, mightBeSent);
+    const mutationResultPromise = this.requestManager.request(
+      message,
+      mightBeSent,
+    );
+    const mutationPromise = mutationResultPromise.then(({ result }) => result);
     return {
       requestId,
       mutationPromise,
+      mutationResultPromise,
     };
   }
 
