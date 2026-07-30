@@ -280,9 +280,19 @@ fn event_from_error(err: &anyhow::Error) -> sentry::protocol::Event<'static> {
 ///
 /// See https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations
 pub async fn recapture_stacktrace(mut err: anyhow::Error) -> anyhow::Error {
-    let new_error = recapture_stacktrace_noreport(&err);
-    report_error(&mut err).await; // report original error, mutating it to strip pii
-    new_error
+    // Recapture before reporting: reporting strips PII from `err` in place, and
+    // the recaptured error is developer-facing, so it must keep the original
+    // message.
+    let mut new_err = recapture_stacktrace_noreport(&err);
+    report_error(&mut err).await;
+    // Carry over the `source` that reporting stamped, or the dedup guard in
+    // `report_error_sync_no_tracing` reports the recaptured error a second time.
+    if let Some(reported) = err.downcast_ref::<ErrorMetadata>()
+        && let Some(recaptured) = new_err.downcast_mut::<ErrorMetadata>()
+    {
+        recaptured.source = reported.source.clone();
+    }
+    new_err
 }
 
 pub fn recapture_stacktrace_noreport(err: &anyhow::Error) -> anyhow::Error {
