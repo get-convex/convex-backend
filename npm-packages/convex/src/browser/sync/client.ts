@@ -228,8 +228,8 @@ export interface MutationOptions {
   /**
    * Return the mutation's commit timestamp along with its value.
    *
-   * The timestamp can be compared with {@link Transition.timestamp} to
-   * determine whether a transition includes this mutation's writes.
+   * Use `result.ts.lessThanOrEqual(transition.timestamp)` to determine whether
+   * a {@link Transition} includes this mutation's writes.
    */
   returnCommitTimestamp?: false | undefined;
 }
@@ -251,6 +251,12 @@ export interface MutationOptionsWithCommitTimestamp
  */
 export type MutationResult<Value> = {
   value: Value;
+  /**
+   * The mutation's commit timestamp.
+   *
+   * Use `ts.lessThanOrEqual(transition.timestamp)` to determine whether a
+   * {@link Transition} includes this mutation's writes.
+   */
   ts: TS;
 };
 
@@ -579,7 +585,13 @@ export class BaseConvexClient {
     }
   }
 
-  getMaxObservedTimestamp() {
+  /**
+   * Get the latest timestamp observed by this client.
+   *
+   * @returns The latest observed timestamp, or `undefined` before the first
+   * server message carrying a timestamp.
+   */
+  getMaxObservedTimestamp(): TS | undefined {
     return this.maxObservedTimestamp;
   }
 
@@ -1189,6 +1201,14 @@ export class BaseConvexClient {
  */
 export interface BaseConvexClientInterface {
   addOnTransitionHandler(fn: (transition: Transition) => void): () => void;
+
+  /**
+   * Get the latest timestamp observed by this client.
+   *
+   * @returns The latest observed timestamp, or `undefined` before the first
+   * server message carrying a timestamp.
+   */
+  getMaxObservedTimestamp(): TS | undefined;
 
   setAuth(
     fetchToken: AuthTokenFetcher,

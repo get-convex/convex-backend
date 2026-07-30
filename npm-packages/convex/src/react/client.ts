@@ -286,8 +286,9 @@ export interface MutationOptions<Args extends Record<string, Value>> {
   /**
    * Return the mutation's commit timestamp along with its value.
    *
-   * The timestamp can be compared with transition timestamps from
-   * {@link ConvexReactClient.sync}.
+   * Use `result.ts.lessThanOrEqual(transition.timestamp)` to determine whether
+   * a transition from {@link ConvexReactClient.sync} includes this mutation's
+   * writes.
    */
   returnCommitTimestamp?: false | undefined;
 }
