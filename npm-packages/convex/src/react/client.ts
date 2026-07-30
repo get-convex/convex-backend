@@ -13,6 +13,7 @@ import {
   BaseConvexClientOptions,
   ConnectionState,
   BaseConvexClientInterface,
+  MutationResult,
 } from "../browser/sync/client.js";
 import type { UserIdentityAttributes } from "../browser/sync/protocol.js";
 import { RequestForQueries, useQueries } from "./use_queries.js";
@@ -281,6 +282,25 @@ export interface MutationOptions<Args extends Record<string, Value>> {
    * Once the mutation completes, the update will be rolled back.
    */
   optimisticUpdate?: OptimisticUpdate<Args> | undefined;
+
+  /**
+   * Return the mutation's commit timestamp along with its value.
+   *
+   * The timestamp can be compared with transition timestamps from
+   * {@link ConvexReactClient.sync}.
+   */
+  returnCommitTimestamp?: false | undefined;
+}
+
+/**
+ * Options for returning a mutation's commit timestamp.
+ *
+ * @public
+ */
+export interface MutationOptionsWithCommitTimestamp<
+  Args extends Record<string, Value>,
+> extends Omit<MutationOptions<Args>, "returnCommitTimestamp"> {
+  returnCommitTimestamp: true;
 }
 
 /**
@@ -373,9 +393,9 @@ export class ConvexReactClient {
    * Lazily instantiate the `BaseConvexClient` so we don't create the WebSocket
    * when server-side rendering.
    *
-   * @internal
+   * @public
    */
-  get sync() {
+  get sync(): BaseConvexClientInterface {
     if (this.closed) {
       throw new Error("ConvexReactClient has already been closed.");
     }
@@ -636,13 +656,32 @@ export class ConvexReactClient {
    */
   mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
+    args: FunctionArgs<Mutation>,
+    options: MutationOptionsWithCommitTimestamp<FunctionArgs<Mutation>>,
+  ): Promise<MutationResult<FunctionReturnType<Mutation>>>;
+  mutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
     ...argsAndOptions: ArgsAndOptions<
       Mutation,
       MutationOptions<FunctionArgs<Mutation>>
     >
-  ): Promise<FunctionReturnType<Mutation>> {
+  ): Promise<FunctionReturnType<Mutation>>;
+  mutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
+    ...argsAndOptions:
+      | ArgsAndOptions<Mutation, MutationOptions<FunctionArgs<Mutation>>>
+      | [
+          args: FunctionArgs<Mutation>,
+          options: MutationOptionsWithCommitTimestamp<FunctionArgs<Mutation>>,
+        ]
+  ):
+    | Promise<FunctionReturnType<Mutation>>
+    | Promise<MutationResult<FunctionReturnType<Mutation>>> {
     const [args, options] = argsAndOptions;
     const name = getFunctionName(mutation);
+    if (options?.returnCommitTimestamp === true) {
+      return this.sync.mutation(name, args, options);
+    }
     return this.sync.mutation(name, args, options);
   }
 

@@ -75,6 +75,7 @@ export type { AuthTokenFetcher } from "../browser/sync/client.js";
 export * from "./auth_helpers.js";
 export * from "./ConvexAuthState.js";
 export * from "./hydration.js";
+export type { MutationResult } from "../browser/sync/client.js";
 /* @internal */
 export { useSubscription } from "./use_subscription.js";
 export {
@@ -83,6 +84,7 @@ export {
   type Watch,
   type WatchQueryOptions,
   type MutationOptions,
+  type MutationOptionsWithCommitTimestamp,
   type ConvexReactClientOptions,
   type OptionalRestArgsOrSkip,
   type UseQueryResult,

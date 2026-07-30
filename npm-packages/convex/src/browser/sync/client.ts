@@ -224,7 +224,35 @@ export interface MutationOptions {
    * Once the mutation completes, the update will be rolled back.
    */
   optimisticUpdate?: OptimisticUpdate<any> | undefined;
+
+  /**
+   * Return the mutation's commit timestamp along with its value.
+   *
+   * The timestamp can be compared with {@link Transition.timestamp} to
+   * determine whether a transition includes this mutation's writes.
+   */
+  returnCommitTimestamp?: false | undefined;
 }
+
+/**
+ * Options for returning a mutation's commit timestamp.
+ *
+ * @public
+ */
+export interface MutationOptionsWithCommitTimestamp
+  extends Omit<MutationOptions, "returnCommitTimestamp"> {
+  returnCommitTimestamp: true;
+}
+
+/**
+ * A mutation's return value and the timestamp at which it committed.
+ *
+ * @public
+ */
+export type MutationResult<Value> = {
+  value: Value;
+  ts: TS;
+};
 
 /**
  * Type describing updates to a query within a `Transition`.
@@ -873,12 +901,26 @@ export class BaseConvexClient {
 
    * @returns - A promise of the mutation's result.
    */
-  async mutation(
+  mutation(
+    name: string,
+    args: Record<string, Value> | undefined,
+    options: MutationOptionsWithCommitTimestamp,
+  ): Promise<MutationResult<any>>;
+  mutation(
     name: string,
     args?: Record<string, Value>,
     options?: MutationOptions,
+  ): Promise<any>;
+  async mutation(
+    name: string,
+    args?: Record<string, Value>,
+    options?: MutationOptions | MutationOptionsWithCommitTimestamp,
   ): Promise<any> {
-    const result = await this.mutationInternal(name, args, options);
+    const { result, commitTimestamp } = await this.mutationInternal(
+      name,
+      args,
+      options,
+    );
     if (!result.success) {
       if (result.errorData !== undefined) {
         throw forwardData(
@@ -890,6 +932,12 @@ export class BaseConvexClient {
       }
       throw new Error(createHybridErrorStacktrace("mutation", name, result));
     }
+    if (options?.returnCommitTimestamp === true) {
+      if (commitTimestamp === undefined) {
+        throw new Error("Mutation succeeded without a commit timestamp");
+      }
+      return { value: result.value, ts: commitTimestamp };
+    }
     return result.value;
   }
 
@@ -899,9 +947,9 @@ export class BaseConvexClient {
   async mutationInternal(
     udfPath: string,
     args?: Record<string, Value>,
-    options?: MutationOptions,
+    options?: MutationOptions | MutationOptionsWithCommitTimestamp,
     componentPath?: string,
-  ): Promise<FunctionResult> {
+  ) {
     const { mutationPromise } = this.enqueueMutation(
       udfPath,
       args,
@@ -917,9 +965,9 @@ export class BaseConvexClient {
   enqueueMutation(
     udfPath: string,
     args?: Record<string, Value>,
-    options?: MutationOptions,
+    options?: MutationOptions | MutationOptionsWithCommitTimestamp,
     componentPath?: string,
-  ): { requestId: RequestId; mutationPromise: Promise<FunctionResult> } {
+  ) {
     const mutationArgs = parseArgs(args);
     this.tryReportLongDisconnect();
     const requestId = this.nextRequestId;
@@ -1030,7 +1078,8 @@ export class BaseConvexClient {
     };
 
     const mightBeSent = this.webSocketManager.sendMessage(message);
-    return this.requestManager.request(message, mightBeSent);
+    const { result } = await this.requestManager.request(message, mightBeSent);
+    return result;
   }
 
   /**
@@ -1130,7 +1179,7 @@ export class BaseConvexClient {
 /**
  * The public API of {@link BaseConvexClient}.
  *
- * @internal
+ * @public
  */
 export interface BaseConvexClientInterface {
   addOnTransitionHandler(fn: (transition: Transition) => void): () => void;
@@ -1176,6 +1225,12 @@ export interface BaseConvexClientInterface {
   subscribeToConnectionState(
     cb: (connectionState: ConnectionState) => void,
   ): () => void;
+
+  mutation(
+    name: string,
+    args: Record<string, Value> | undefined,
+    options: MutationOptionsWithCommitTimestamp,
+  ): Promise<MutationResult<any>>;
 
   mutation(
     name: string,

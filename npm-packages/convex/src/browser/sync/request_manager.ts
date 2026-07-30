@@ -9,12 +9,18 @@ import {
   MutationRequest,
   MutationResponse,
   RequestId,
+  TS,
 } from "./protocol.js";
+
+export type RequestResult = {
+  result: FunctionResult;
+  commitTimestamp?: TS;
+};
 
 type RequestStatus =
   | {
       status: "Requested" | "NotSent";
-      onResult: (result: FunctionResult) => void;
+      onResult: (result: RequestResult) => void;
       requestedAt: Date;
     }
   | {
@@ -46,8 +52,8 @@ export class RequestManager {
   request(
     message: MutationRequest | ActionRequest,
     sent: boolean,
-  ): Promise<FunctionResult> {
-    const result = new Promise<FunctionResult>((resolve) => {
+  ): Promise<RequestResult> {
+    const result = new Promise<RequestResult>((resolve) => {
       const status = sent ? "Requested" : "NotSent";
       this.inflightRequests.set(message.requestId, {
         message,
@@ -119,7 +125,13 @@ export class RequestManager {
         logLines: response.logLines,
         value: jsonToConvex(response.result),
       };
-      onResolve = () => status.onResult(result);
+      onResolve = () =>
+        status.onResult({
+          result,
+          ...(response.type === "MutationResponse"
+            ? { commitTimestamp: response.ts }
+            : {}),
+        });
     } else {
       const errorMessage = response.result as string;
       const { errorData } = response;
@@ -131,7 +143,7 @@ export class RequestManager {
           errorData !== undefined ? jsonToConvex(errorData) : undefined,
         logLines: response.logLines,
       };
-      onResolve = () => status.onResult(result);
+      onResolve = () => status.onResult({ result });
     }
 
     // We can resolve Mutation failures immediately since they don't have any
@@ -219,9 +231,11 @@ export class RequestManager {
           throw new Error("Action should never be in 'Completed' state");
         }
         value.status.onResult({
-          success: false,
-          errorMessage: "Connection lost while action was in flight",
-          logLines: [],
+          result: {
+            success: false,
+            errorMessage: "Connection lost while action was in flight",
+            logLines: [],
+          },
         });
       }
     }

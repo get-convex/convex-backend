@@ -12,6 +12,8 @@ import {
   BaseConvexClientOptions,
   ConnectionState,
   MutationOptions,
+  MutationOptionsWithCommitTimestamp,
+  MutationResult,
 } from "./sync/client.js";
 import {
   ExtendedTransition,
@@ -487,13 +489,30 @@ export class ConvexClient {
    * @param options - A {@link MutationOptions} options object for the mutation.
    * @returns A promise of the mutation's result.
    */
-  async mutation<Mutation extends FunctionReference<"mutation">>(
+  mutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
+    args: FunctionArgs<Mutation>,
+    options: MutationOptionsWithCommitTimestamp,
+  ): Promise<MutationResult<Awaited<FunctionReturnType<Mutation>>>>;
+  mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     args: FunctionArgs<Mutation>,
     options?: MutationOptions,
-  ): Promise<Awaited<FunctionReturnType<Mutation>>> {
+  ): Promise<Awaited<FunctionReturnType<Mutation>>>;
+  async mutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
+    args: FunctionArgs<Mutation>,
+    options?: MutationOptions | MutationOptionsWithCommitTimestamp,
+  ): Promise<
+    | Awaited<FunctionReturnType<Mutation>>
+    | MutationResult<Awaited<FunctionReturnType<Mutation>>>
+  > {
     if (this.disabled) throw new Error("ConvexClient is disabled");
-    return await this.client.mutation(getFunctionName(mutation), args, options);
+    const name = getFunctionName(mutation);
+    if (options?.returnCommitTimestamp === true) {
+      return await this.client.mutation(name, args, options);
+    }
+    return await this.client.mutation(name, args, options);
   }
 
   /**
