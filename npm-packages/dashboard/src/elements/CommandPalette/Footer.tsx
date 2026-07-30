@@ -39,19 +39,16 @@ export function Footer({
         <KeyboardShortcut value={["Return"]} className={KBD_CLASSES} />
         Select
       </span>
-      {isBrowsableItemValue(selectedValue) && (
-        <span className="flex animate-fadeInFromLoading items-center gap-1">
-          <KeyboardShortcut
-            value={["Shift", "Return"]}
-            className={KBD_CLASSES}
-          />
-          Browse
-        </span>
-      )}
       {inSubPage && (
         <span className="flex items-center gap-1">
-          <KeyboardShortcut value={["Backspace"]} className={KBD_CLASSES} />
+          <KeyboardShortcut value={["Left"]} className={KBD_CLASSES} />
           Back
+        </span>
+      )}
+      {isBrowsableItemValue(selectedValue) && (
+        <span className="flex animate-fadeInFromLoading items-center gap-1">
+          <KeyboardShortcut value={["Right"]} className={KBD_CLASSES} />
+          Browse
         </span>
       )}
       {status && (

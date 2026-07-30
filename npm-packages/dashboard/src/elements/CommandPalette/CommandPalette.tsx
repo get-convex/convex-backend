@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { useHotkeys } from "react-hotkeys-hook";
 import { createGlobalState, useClickAway } from "react-use";
 import { Spinner } from "@ui/Spinner";
+import { cn } from "@ui/cn";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
@@ -254,9 +255,9 @@ function CommandPaletteDialog({
               {pages.length > 0 && (
                 <Breadcrumbs pages={pages} onNavigate={goToDepth} />
               )}
-              {/* Margin bleeds past the dialog padding so the input's divider spans the
-              full width. */}
-              <div className="relative -mx-2 mb-2 flex items-center">
+              <div
+                className={cn("relative -mx-2 -mt-2 mb-2 flex items-center")}
+              >
                 <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-content-tertiary" />
                 <Command.Input
                   ref={inputRef}
