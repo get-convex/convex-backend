@@ -1,5 +1,4 @@
 import { Command } from "cmdk";
-import { PlusIcon } from "@radix-ui/react-icons";
 import React, {
   useCallback,
   useContext,
@@ -26,6 +25,7 @@ import {
   PaletteStatusContext,
 } from "./items";
 import { KBD_CLASSES } from "./Footer";
+import { InfiniteScrollSentinel } from "./InfiniteScrollSentinel";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
 
 // The backend deletes projects one API call at a time, so cap a single bulk
@@ -46,8 +46,14 @@ export function DeleteProjectsCommands({
   const team = useCurrentTeam();
   const currentProject = useCurrentProject();
 
-  const { projects, isLoading, hasMore, loadMore, debouncedQuery } =
-    useInfiniteProjects(team?.id ?? 0, search, false);
+  const {
+    projects,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    debouncedQuery,
+  } = useInfiniteProjects(team?.id ?? 0, search, false);
   const deleteProjects = useDeleteProjects(team?.id);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -193,15 +199,12 @@ export function DeleteProjectsCommands({
           />
         ))
       )}
-      {!stale && hasMore && (
-        <Command.Item
-          value={`${REMOTE_VALUE_PREFIX}delete-projects-load-more`}
-          className="animate-fadeInFromLoading"
-          onSelect={loadMore}
-        >
-          <PlusIcon className="text-content-secondary" />
-          Load more projects
-        </Command.Item>
+      {!stale && (
+        <InfiniteScrollSentinel
+          hasMore={hasMore}
+          isLoadingMore={!!isLoadingMore}
+          loadMore={loadMore}
+        />
       )}
     </Command.Group>
   );

@@ -239,7 +239,9 @@ function CommandPaletteDialog({
               open
               ref={ref}
               label="Convex Command Palette"
-              loop
+              // No `loop`: with infinite-scroll lists, wrapping from the last
+              // loaded item back to the first snaps past not-yet-loaded pages,
+              // so arrow/Tab navigation stops at the ends instead.
               filter={paletteFilter}
               onKeyDown={handleKeyDown}
             >

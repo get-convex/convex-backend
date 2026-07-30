@@ -192,6 +192,7 @@ export function useInfiniteProjects(
   return {
     projects,
     isLoading,
+    isLoadingMore,
     hasMore,
     loadMore,
     debouncedQuery,

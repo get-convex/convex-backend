@@ -1,11 +1,11 @@
 import { Command } from "cmdk";
-import { PlusIcon } from "@radix-ui/react-icons";
 import { useCurrentTeam } from "api/teams";
 import { useInfiniteProjects } from "api/projects";
-import { usePaginatedDeployments } from "api/deployments";
+import { useInfiniteDeployments } from "api/deployments";
 import type { ProjectDetails, TeamResponse } from "generatedApi";
-import { NavigationDestination, REMOTE_VALUE_PREFIX } from "./navigation";
+import { NavigationDestination } from "./navigation";
 import { DeploymentItem, LoadingSignal, ProjectItem } from "./items";
+import { InfiniteScrollSentinel } from "./InfiniteScrollSentinel";
 import { PalettePage } from "./pages";
 
 // The drilled-into "Switch Project" page: the full, searchable project list.
@@ -49,8 +49,14 @@ export function ProjectSearchGroup({
   // Show the whole (paginated) list rather than a root-page teaser.
   full?: boolean;
 }) {
-  const { projects, isLoading, hasMore, loadMore, debouncedQuery } =
-    useInfiniteProjects(team.id, search, false);
+  const {
+    projects,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    debouncedQuery,
+  } = useInfiniteProjects(team.id, search, false);
   const trimmed = search.trim();
   const stale = isLoading || debouncedQuery.trim() !== trimmed;
 
@@ -77,15 +83,12 @@ export function ProjectSearchGroup({
           onDrill={() => pushPage({ type: "project", project: candidate })}
         />
       ))}
-      {(full || trimmed) && hasMore && (
-        <Command.Item
-          value={`${REMOTE_VALUE_PREFIX}projects-load-more`}
-          className="animate-fadeInFromLoading"
-          onSelect={loadMore}
-        >
-          <PlusIcon className="text-content-secondary" />
-          Load more projects
-        </Command.Item>
+      {(full || trimmed) && (
+        <InfiniteScrollSentinel
+          hasMore={hasMore}
+          isLoadingMore={!!isLoadingMore}
+          loadMore={loadMore}
+        />
       )}
     </Command.Group>
   );
@@ -106,18 +109,22 @@ export function DeploymentSearchGroup({
   pushPage: (page: PalettePage) => void;
 }) {
   const q = search.trim();
-  const result = usePaginatedDeployments(team.id, {
-    q,
+  const {
+    deployments,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    debouncedQuery,
+  } = useInfiniteDeployments(team.id, q, {
     projectId: project?.id,
     // These rows bypass cmdk's filter (paletteFilter always keeps remote
     // items), so clear to a loading row rather than keeping the prior query's
     // deployments visible while a new query loads.
     keepPreviousData: false,
   });
-  const deployments = (result?.items ?? [])
-    .filter((d) => d.kind === "cloud")
-    .slice(0, 8);
-  const stale = result === undefined || result.isLoading;
+  const cloudDeployments = deployments.filter((d) => d.kind === "cloud");
+  const stale = isLoading || debouncedQuery.trim() !== q;
 
   return (
     <Command.Group
@@ -126,23 +133,30 @@ export function DeploymentSearchGroup({
       {stale ? (
         <LoadingSignal />
       ) : (
-        deployments.map((deployment) => (
-          <DeploymentItem
-            key={deployment.name}
-            deployment={deployment}
-            teamSlug={team.slug}
-            projectSlug={project?.slug}
-            remote
-            onNavigate={onNavigate}
-            onDrill={() =>
-              pushPage({
-                type: "deployment",
-                deployment,
-                projectSlug: project?.slug,
-              })
-            }
+        <>
+          {cloudDeployments.map((deployment) => (
+            <DeploymentItem
+              key={deployment.name}
+              deployment={deployment}
+              teamSlug={team.slug}
+              projectSlug={project?.slug}
+              remote
+              onNavigate={onNavigate}
+              onDrill={() =>
+                pushPage({
+                  type: "deployment",
+                  deployment,
+                  projectSlug: project?.slug,
+                })
+              }
+            />
+          ))}
+          <InfiniteScrollSentinel
+            hasMore={hasMore}
+            isLoadingMore={!!isLoadingMore}
+            loadMore={loadMore}
           />
-        ))
+        </>
       )}
     </Command.Group>
   );

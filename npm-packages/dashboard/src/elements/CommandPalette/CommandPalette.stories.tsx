@@ -26,7 +26,7 @@ import {
 import {
   useCurrentDeployment,
   useDeployments,
-  usePaginatedDeployments,
+  useInfiniteDeployments,
 } from "api/deployments";
 import { useProfile } from "api/profile";
 import type { PlatformDeploymentResponse } from "generatedApi";
@@ -138,6 +138,7 @@ const meta = {
         return {
           projects,
           isLoading: false,
+          isLoadingMore: false,
           hasMore: false,
           loadMore: () => {},
           debouncedQuery: searchQuery,
@@ -145,19 +146,27 @@ const meta = {
         };
       },
     );
-    mocked(usePaginatedDeployments).mockImplementation((_teamId, options) => {
-      const q = (options?.q ?? "").trim().toLowerCase();
-      const items = [devDeployment].filter(
-        (d) =>
-          !q ||
-          `${"reference" in d ? d.reference : ""} ${d.name}`
-            .toLowerCase()
-            .includes(q),
-      );
-      return { items, isLoading: false } as ReturnType<
-        typeof usePaginatedDeployments
-      >;
-    });
+    mocked(useInfiniteDeployments).mockImplementation(
+      (_teamId, searchQuery = "") => {
+        const q = searchQuery.trim().toLowerCase();
+        const deployments = [devDeployment].filter(
+          (d) =>
+            !q ||
+            `${"reference" in d ? d.reference : ""} ${d.name}`
+              .toLowerCase()
+              .includes(q),
+        );
+        return {
+          deployments,
+          isLoading: false,
+          isLoadingMore: false,
+          hasMore: false,
+          loadMore: () => {},
+          debouncedQuery: searchQuery,
+          pageSize: 25,
+        };
+      },
+    );
     mocked(useDeployments).mockReturnValue({
       deployments: [devDeployment],
       isLoading: false,
