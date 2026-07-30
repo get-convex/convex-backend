@@ -91,6 +91,22 @@ struct IndexCacheReader {
     index_registry: ReadOnly<IndexRegistry>,
 }
 
+impl IndexCacheHandle {
+    /// Constructs an `IndexReader` that reads through from `reader` and caches
+    /// the result.
+    pub fn caching_index_reader(
+        self,
+        reader: Arc<dyn IndexReader>,
+        index_registry: IndexRegistry,
+    ) -> impl IndexReader {
+        IndexCacheReader {
+            reader,
+            handle: self,
+            index_registry: ReadOnly::new(index_registry),
+        }
+    }
+}
+
 /// Deliberately logs only document ids, timestamps, and sizes — never index
 /// keys or document values, which are user data — plus a category for the first
 /// divergence. The `diff_kind` lets us distinguish a stale *value* (a write
@@ -305,11 +321,7 @@ impl DatabaseIndexSnapshot {
             .map(|c| c.cache)
             .unwrap_or(DatabaseIndexSnapshotCache::new());
         let reader = if let Some(handle) = index_cache_handle {
-            Arc::new(IndexCacheReader {
-                reader,
-                handle,
-                index_registry: ReadOnly::new(index_registry.clone()),
-            })
+            Arc::new(handle.caching_index_reader(reader, index_registry.clone()))
         } else {
             reader
         };
@@ -652,54 +664,6 @@ impl DatabaseIndexSnapshot {
 
     pub fn timestamp(&self) -> RepeatableTimestamp {
         self.reader.timestamp()
-    }
-
-    /// Scan a page of the index, checking in-memory indexes first and falling
-    /// back to the persistence reader. Unlike `range_batch`, this skips the
-    /// per-transaction cache. Later this will be served by the IndexCache.
-    pub async fn index_page(
-        &self,
-        index_id: IndexId,
-        tablet_id: TabletId,
-        interval: &Interval,
-        order: Order,
-        max_size: usize,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
-        CursorPosition,
-    )> {
-        // Try to serve from in-memory indexes.
-        let table_name = self.table_mapping.tablet_to_name()(tablet_id)?;
-        if let Some(range) = self
-            .in_memory_indexes
-            .range(index_id, interval, order, tablet_id, table_name)
-            .await?
-        {
-            let results = range
-                .into_iter()
-                .take(max_size)
-                .map(|(key, ts, doc)| (key, ts, LazyDocument::Memory(doc)))
-                .collect::<Vec<_>>();
-            let cursor = if results.len() >= max_size {
-                CursorPosition::After(results.last().unwrap().0.clone())
-            } else {
-                CursorPosition::End
-            };
-            return Ok((results, cursor));
-        }
-        let index_page = self
-            .reader
-            .index_page(index_id, tablet_id, interval, order, max_size)
-            .await?;
-        let results = index_page
-            .entries
-            .into_iter()
-            .map(|entry| {
-                let IndexEntry { key, ts, value } = Arc::unwrap_or_clone(entry);
-                (key, ts, LazyDocument::Packed(value))
-            })
-            .collect();
-        Ok((results, index_page.cursor))
     }
 }
 

@@ -19,10 +19,7 @@ CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
 RUSTY_V8_MIRROR = "https://github.com/get-convex/rusty_v8/releases/download"
 
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-Ctarget-cpu=neoverse-n1", "-Cforce-frame-pointers=yes"]
-
-[target.aarch64-apple-darwin]
-rustflags = ["-Ctarget-cpu=apple-m1"]
+rustflags = ["-Cforce-frame-pointers=yes"]
 
 [target.x86_64-pc-windows-msvc]
 # FORCE:MULTIPLE is a bit sketchy. v8 and rocksdb both export the same symbol.

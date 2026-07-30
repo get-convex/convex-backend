@@ -5,7 +5,6 @@ import omit from "lodash/omit";
 import { RefObject } from "react";
 import { ColumnHeader } from "@common/features/data/components/Table/ColumnHeader";
 import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
-import { SchemaJson } from "@common/lib/format";
 
 export function TableHeader({
   headerGroups,
@@ -17,8 +16,7 @@ export function TableHeader({
   topBorderAnimation,
   openContextMenu,
   sort,
-  activeSchema,
-  tableName,
+  localStorageKey,
   tableContainerRef,
 }: {
   headerGroups: HeaderGroup<GenericDocument>[];
@@ -33,8 +31,7 @@ export function TableHeader({
     order: "asc" | "desc";
     field: string;
   };
-  activeSchema: SchemaJson | null;
-  tableName: string;
+  localStorageKey: string;
   tableContainerRef: RefObject<HTMLDivElement>;
 }) {
   return (
@@ -61,8 +58,7 @@ export function TableHeader({
               toggleAll={toggleAll}
               openContextMenu={openContextMenu}
               sort={sort.field === column.Header ? sort.order : undefined}
-              activeSchema={activeSchema}
-              tableName={tableName}
+              localStorageKey={localStorageKey}
               tableContainerRef={tableContainerRef}
             />
           ))}

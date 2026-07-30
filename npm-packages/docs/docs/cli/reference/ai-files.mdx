@@ -13,7 +13,7 @@ Convex AI files help AI coding assistants (Cursor, Claude Code, etc.) understand
 Convex patterns and APIs. They are set up during your first `npx convex dev`
 and can be managed at any time with the commands below.
 
-## Usage
+## Syntax
 
 ```sh
 npx convex ai-files [options] [command]
@@ -40,7 +40,7 @@ Fetches the latest hashes from version.convex.dev to report whether
 each file is up to date. If the network is unavailable the staleness
 check is skipped silently.
 
-### Usage
+### Syntax
 
 ```sh
 npx convex ai-files status [options]
@@ -54,7 +54,7 @@ Installs the following (or refreshes them if already present):
 - CLAUDE.md (Convex section only)
 - Agent skills (installed to each coding agent's native path, configured via convex.json)
 
-### Usage
+### Syntax
 
 ```sh
 npx convex ai-files install [options]
@@ -65,7 +65,7 @@ npx convex ai-files install [options]
 Re-enables Convex AI files by writing `aiFiles.enabled: true` to
 `convex.json`, then installs or refreshes the managed AI files.
 
-### Usage
+### Syntax
 
 ```sh
 npx convex ai-files enable [options]
@@ -79,7 +79,7 @@ Updates the following to their latest versions:
 - CLAUDE.md (Convex section only)
 - Agent skills (installed to each coding agent's native path, configured via convex.json)
 
-### Usage
+### Syntax
 
 ```sh
 npx convex ai-files update [options]
@@ -95,7 +95,7 @@ if you also want to delete them.
 
 Run `npx convex ai-files enable` to re-enable at any time.
 
-### Usage
+### Syntax
 
 ```sh
 npx convex ai-files disable [options]
@@ -116,7 +116,7 @@ Skills installed from other sources are not affected.
 Note: after `remove`, `npx convex dev` will suggest reinstalling AI files.
 Use `npx convex ai-files disable` to opt out entirely without deleting files.
 
-### Usage
+### Syntax
 
 ```sh
 npx convex ai-files remove [options]

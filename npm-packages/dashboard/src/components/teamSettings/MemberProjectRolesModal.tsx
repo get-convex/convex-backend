@@ -24,6 +24,10 @@ import {
   useProjectsPageSize,
   PROJECT_PAGE_SIZES,
 } from "hooks/useProjectsPageSize";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 import { ProjectLink } from "./AuditLogItem";
 
 export function MemberProjectRolesModal({
@@ -52,12 +56,14 @@ export function MemberProjectRolesModal({
   // Pagination and search state
   const [projectQuery, setProjectQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
-    undefined,
-  );
-  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
-    undefined,
-  ]);
+  const {
+    currentCursor,
+    currentPage: currentPageNumber,
+    canGoPrevious,
+    onNextPage,
+    onPreviousPage,
+    resetPagination,
+  } = useCursorPagination();
   const { pageSize, setPageSize } = useProjectsPageSize();
 
   // Debounce search query (300ms delay)
@@ -84,37 +90,24 @@ export function MemberProjectRolesModal({
   const nextCursor = paginatedData?.pagination.nextCursor;
   const isLoading = paginatedData === undefined;
 
-  // Calculate current page range for display
-  const currentPageNumber = cursorHistory.length;
-
-  const handleNextPage = () => {
-    if (nextCursor) {
-      setCursorHistory((prev) => [...prev, currentCursor]);
-      setCurrentCursor(nextCursor);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (cursorHistory.length > 1) {
-      const newHistory = [...cursorHistory];
-      newHistory.pop();
-      setCursorHistory(newHistory);
-      setCurrentCursor(newHistory[newHistory.length - 1]);
-    }
-  };
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    {
+      isLoading: paginatedData?.isLoading ?? true,
+      currentPageItems: paginatedData?.items,
+    },
+  );
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     // Reset to first page when page size changes
-    setCurrentCursor(undefined);
-    setCursorHistory([undefined]);
+    resetPagination();
   };
 
   // Reset cursor when debounced search query changes
   useEffect(() => {
-    setCurrentCursor(undefined);
-    setCursorHistory([undefined]);
-  }, [debouncedQuery]);
+    resetPagination();
+  }, [debouncedQuery, resetPagination]);
 
   const closeWithConfirmation = () => {
     if (addedProjects.length > 0 || removedProjects.length > 0) {
@@ -232,9 +225,9 @@ export function MemberProjectRolesModal({
             hasMore={hasMore}
             pageSize={pageSize}
             onPageSizeChange={handlePageSizeChange}
-            onPreviousPage={handlePrevPage}
-            onNextPage={handleNextPage}
-            canGoPrevious={cursorHistory.length > 1}
+            onPreviousPage={onPreviousPage}
+            onNextPage={() => onNextPage(nextCursor)}
+            canGoPrevious={canGoPrevious}
             pageSizeOptions={PROJECT_PAGE_SIZES}
           />
         )}

@@ -1,0 +1,361 @@
+import { Command } from "cmdk";
+import { Title as DialogTitle } from "@radix-ui/react-dialog";
+import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { ErrorBoundary } from "@sentry/nextjs";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
+import { useHotkeys } from "react-hotkeys-hook";
+import { createGlobalState, useClickAway } from "react-use";
+import { Spinner } from "@ui/Spinner";
+import { cn } from "@ui/cn";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useCurrentTeam } from "api/teams";
+import { useCurrentProject } from "api/projects";
+import { toast } from "@common/lib/utils";
+import { NavigationDestination, paletteFilter } from "./navigation";
+import {
+  DrillModifierContext,
+  PaletteConfirmContext,
+  PaletteLoadingContext,
+  PaletteStatusContext,
+} from "./items";
+import { ComponentsCommands } from "./ComponentCommands";
+import { DeleteProjectsCommands } from "./DeleteProjectsCommands";
+import { ProjectCommands, SwitchDeploymentCommands } from "./ProjectCommands";
+import { DeploymentCommands } from "./DeploymentCommands";
+import { PalettePage, palettePlaceholder } from "./pages";
+import { Breadcrumbs } from "./Breadcrumbs";
+import { Footer } from "./Footer";
+import { NoResultsMessage } from "./NoResultsMessage";
+import { AskAIQueryItem, RootCommands } from "./RootCommands";
+import {
+  SearchResultDetail,
+  SearchResultDetailItem,
+} from "./DeploymentSearchCommands";
+import { SwitchProjectCommands } from "./searchGroups";
+import { ThemeCommands } from "./ThemeCommands";
+import { TeamsCommands } from "./TeamsCommands";
+import { handlePaletteKeyDown } from "./keyboard";
+import { usePaletteAnalytics } from "./analytics";
+
+export const useCommandPaletteOpen = createGlobalState(false);
+
+export function CommandPalette() {
+  const { commandPalette } = useLaunchDarkly();
+  const [open, setOpen] = useCommandPaletteOpen();
+  const router = useRouter();
+
+  const [detail, setDetail] = useState<SearchResultDetailItem | null>(null);
+  const { trackOpened } = usePaletteAnalytics();
+
+  useHotkeys(
+    ["meta+k", "ctrl+k"],
+    (event) => {
+      event.preventDefault();
+      if (!open) {
+        trackOpened("hotkey");
+      }
+      setOpen((isOpen) => !isOpen);
+    },
+    // Allows this shortcut to work even if you're focusing a form element
+    { enableOnFormTags: true },
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const el = document.activeElement;
+      // Don't steal "/" while the user is typing in a field.
+      if (
+        el instanceof HTMLElement &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (!open) {
+        trackOpened("slash");
+      }
+      setOpen(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, setOpen, trackOpened]);
+
+  if (!commandPalette) {
+    return null;
+  }
+
+  return (
+    <>
+      {open && (
+        <ErrorBoundary
+          onError={() => {
+            setOpen(false);
+            toast(
+              "error",
+              "Something went wrong with the command palette. Please try again.",
+            );
+          }}
+        >
+          <CommandPaletteDialog
+            onClose={() => setOpen(false)}
+            onOpenDetail={(item) => {
+              setDetail(item);
+              setOpen(false);
+            }}
+          />
+        </ErrorBoundary>
+      )}
+      {detail && (
+        <SearchResultDetail
+          detail={detail}
+          onClose={() => setDetail(null)}
+          onNavigate={(to) => {
+            setDetail(null);
+            void router.push(to);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function CommandPaletteDialog({
+  onClose,
+  onOpenDetail,
+}: {
+  onClose: () => void;
+  onOpenDetail: (detail: SearchResultDetailItem) => void;
+}) {
+  const router = useRouter();
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const [search, setSearch] = useState("");
+  // "Drilling" is stepping into a nested view of the palette rather than
+  // navigating away (e.g. from the root into a team's list of projects, or
+  // from a project into its deployments). Each drill pushes a page onto this
+  // stack and clears the search.
+  const [pages, setPages] = useState<PalettePage[]>([]);
+  // `drillPage` is the view currently shown
+  const drillPage = pages[pages.length - 1];
+  const placeholder = palettePlaceholder(drillPage, team?.name, project?.name);
+
+  // A status line the active page can publish into the footer's right gutter.
+  const [footerStatus, setFooterStatus] = useState<React.ReactNode>(null);
+
+  const confirmAction = useRef<(() => void) | null>(null);
+  const setConfirmAction = useCallback((action: (() => void) | null) => {
+    confirmAction.current = action;
+  }, []);
+
+  const [loadingCount, setLoadingCount] = useState(0);
+  const beginLoading = useCallback(() => {
+    setLoadingCount((count) => count + 1);
+    return () => setLoadingCount((count) => count - 1);
+  }, []);
+  const isSearchPending = loadingCount > 0;
+
+  // Switching submenus (drilling in/out, or jumping via breadcrumbs) can move
+  // focus onto the clicked row or breadcrumb. The search input stays mounted
+  // across page changes, so returning focus to it keeps the user typing.
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const pushPage = useCallback((newPage: PalettePage) => {
+    setPages((current) => [...current, newPage]);
+    setSearch("");
+    inputRef.current?.focus();
+  }, []);
+
+  const popPage = useCallback(() => {
+    setPages((current) => current.slice(0, -1));
+    setSearch("");
+    inputRef.current?.focus();
+  }, []);
+
+  // Jump back to a given depth in the drill-in stack via the breadcrumbs: 0
+  // returns to the root, n keeps the first n pages.
+  const goToDepth = useCallback((depth: number) => {
+    setPages((current) => current.slice(0, depth));
+    setSearch("");
+    inputRef.current?.focus();
+  }, []);
+
+  const onNavigate = useCallback(
+    (to: NavigationDestination) => {
+      onClose();
+      void router.push(to).then(() => {
+        // For section targets, scroll the section into view once the
+        // destination has rendered. This also covers re-selecting the section
+        // you're already on, which is a no-op for the router.
+        const hash =
+          typeof to === "string" && to.includes("#")
+            ? to.split("#")[1]
+            : undefined;
+        if (hash) {
+          setTimeout(() => {
+            document
+              .getElementById(hash)
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        }
+      });
+    },
+    [router, onClose],
+  );
+
+  const ref = useRef<HTMLDivElement>(null);
+  useClickAway(ref, onClose);
+
+  // Used as a signal to what action should be performed by the selected list item in the palette.
+  // Updated when the event handler detects the user is using a modifier key.
+  const drillModifier = useRef(false);
+  const armDrillModifier = (active: boolean) => {
+    drillModifier.current = active;
+    setTimeout(() => {
+      drillModifier.current = false;
+    }, 0);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) =>
+    handlePaletteKeyDown(event, {
+      inSubPage: pages.length > 0,
+      search,
+      popPage,
+      onClose,
+      armDrillModifier,
+      confirmAction: confirmAction.current,
+    });
+
+  return (
+    <DrillModifierContext.Provider value={drillModifier}>
+      <PaletteLoadingContext.Provider value={beginLoading}>
+        <PaletteStatusContext.Provider value={setFooterStatus}>
+          <PaletteConfirmContext.Provider value={setConfirmAction}>
+            <Command.Dialog
+              open
+              ref={ref}
+              label="Convex Command Palette"
+              // No `loop`: with infinite-scroll lists, wrapping from the last
+              // loaded item back to the first snaps past not-yet-loaded pages,
+              // so arrow/Tab navigation stops at the ends instead.
+              filter={paletteFilter}
+              onKeyDown={handleKeyDown}
+            >
+              {/* cmdk renders a Radix Dialog with only an aria-label; Radix still
+            requires a Dialog.Title inside the content for screen readers, so
+            provide a visually hidden one. */}
+              <DialogTitle className="sr-only">
+                Convex Command Palette
+              </DialogTitle>
+              {pages.length > 0 && (
+                <Breadcrumbs pages={pages} onNavigate={goToDepth} />
+              )}
+              <div
+                className={cn("relative -mx-2 -mt-2 mb-2 flex items-center")}
+              >
+                <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-content-tertiary" />
+                <Command.Input
+                  ref={inputRef}
+                  autoFocus
+                  placeholder={placeholder}
+                  value={search}
+                  onValueChange={setSearch}
+                />
+                {isSearchPending && (
+                  <Spinner className="absolute top-1/2 right-5 size-4 -translate-y-1/2 animate-fadeInFromLoading" />
+                )}
+              </div>
+              {/* While searching, cmdk re-sorts and reparents every group/item on
+                each keystroke, which restarts their load-in fade animation. This
+                attribute drives the CSS rule that suppresses that fade so results
+                don't flash on every character. */}
+              <Command.List
+                className="scrollbar"
+                data-searching={search ? "" : undefined}
+              >
+                {!isSearchPending && (
+                  <Command.Empty>
+                    <NoResultsMessage onClose={onClose} />
+                  </Command.Empty>
+                )}
+                {drillPage === undefined && (
+                  <>
+                    <RootCommands
+                      search={search}
+                      onNavigate={onNavigate}
+                      onOpenDetail={onOpenDetail}
+                      pushPage={pushPage}
+                      onClose={onClose}
+                    />
+                    <AskAIQueryItem
+                      onClose={onClose}
+                      canShowNoResults={!isSearchPending}
+                    />
+                  </>
+                )}
+                {drillPage?.type === "teams" && (
+                  <TeamsCommands onNavigate={onNavigate} />
+                )}
+                {drillPage?.type === "projects" && (
+                  <SwitchProjectCommands
+                    search={search}
+                    onNavigate={onNavigate}
+                    pushPage={pushPage}
+                  />
+                )}
+                {drillPage?.type === "components" && (
+                  <ComponentsCommands onClose={onClose} />
+                )}
+                {drillPage?.type === "theme" && (
+                  <ThemeCommands onClose={onClose} />
+                )}
+                {drillPage?.type === "deleteProjects" && (
+                  <DeleteProjectsCommands search={search} onClose={onClose} />
+                )}
+                {drillPage?.type === "project" && (
+                  <ProjectCommands
+                    project={drillPage.project}
+                    onNavigate={onNavigate}
+                    onSelectDeployment={(deployment) =>
+                      pushPage({
+                        type: "deployment",
+                        deployment,
+                        projectSlug: drillPage.project.slug,
+                      })
+                    }
+                  />
+                )}
+                {drillPage?.type === "deployments" && (
+                  <SwitchDeploymentCommands
+                    project={drillPage.project}
+                    onNavigate={onNavigate}
+                    onSelectDeployment={(deployment) =>
+                      pushPage({
+                        type: "deployment",
+                        deployment,
+                        projectSlug: drillPage.project.slug,
+                      })
+                    }
+                  />
+                )}
+                {drillPage?.type === "deployment" && (
+                  <DeploymentCommands
+                    deployment={drillPage.deployment}
+                    projectSlug={drillPage.projectSlug}
+                    onNavigate={onNavigate}
+                  />
+                )}
+              </Command.List>
+              <Footer inSubPage={pages.length > 0} status={footerStatus} />
+            </Command.Dialog>
+          </PaletteConfirmContext.Provider>
+        </PaletteStatusContext.Provider>
+      </PaletteLoadingContext.Provider>
+    </DrillModifierContext.Provider>
+  );
+}

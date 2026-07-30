@@ -1,7 +1,7 @@
 import { Expand } from "../type_utils.js";
 import { GenericId } from "./index.js";
 import { GenericValidator, ObjectType } from "./validator.js";
-import { JSONValue, convexToJson } from "./value.js";
+import { CommitTsPlaceholder, JSONValue, convexToJson } from "./value.js";
 
 type TableNameFromType<T> =
   T extends GenericId<infer TableName> ? TableName : string;
@@ -152,6 +152,30 @@ export class VInt64<
   /** @internal */
   asOptional() {
     return new VInt64<Type | undefined, "optional">({ isOptional: "optional" });
+  }
+}
+
+/**
+ * The type of the `v.commitTs()` validator.
+ */
+export class VCommitTs<
+  Type = bigint | CommitTsPlaceholder,
+  IsOptional extends OptionalProperty = "required",
+> extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"commitTs"`.
+   */
+  readonly kind = "commitTs" as const;
+
+  /** @internal */
+  get json(): ValidatorJSON {
+    return { type: this.kind };
+  }
+  /** @internal */
+  asOptional() {
+    return new VCommitTs<Type | undefined, "optional">({
+      isOptional: "optional",
+    });
   }
 }
 
@@ -653,6 +677,8 @@ export type VOptional<T extends Validator<any, OptionalProperty, any>> =
     ? VFloat64<Type | undefined, "optional">
   : T extends VInt64<infer Type, OptionalProperty>
     ? VInt64<Type | undefined, "optional">
+  : T extends VCommitTs<infer Type, OptionalProperty>
+    ? VCommitTs<Type | undefined, "optional">
   : T extends VBoolean<infer Type, OptionalProperty>
     ? VBoolean<Type | undefined, "optional">
   : T extends VNull<infer Type, OptionalProperty>
@@ -712,6 +738,7 @@ export type Validator<
   | VString<Type, IsOptional>
   | VFloat64<Type, IsOptional>
   | VInt64<Type, IsOptional>
+  | VCommitTs<Type, IsOptional>
   | VBoolean<Type, IsOptional>
   | VNull<Type, IsOptional>
   | VAny<Type, IsOptional>
@@ -750,6 +777,7 @@ export type ValidatorJSON =
   | { type: "null" }
   | { type: "number" }
   | { type: "bigint" }
+  | { type: "commitTs" }
   | { type: "boolean" }
   | { type: "string" }
   | { type: "bytes" }

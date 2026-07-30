@@ -18,7 +18,7 @@ import {
   FilterEditor,
   FilterState,
 } from "@common/features/data/components/FilterEditor/FilterEditor";
-import { SchemaJson } from "@common/lib/format";
+import { SchemaJson, formatNumberCompact } from "@common/lib/format";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { HelpTooltip } from "@ui/HelpTooltip";
@@ -229,8 +229,11 @@ export function DataFilters({
                   "text-xs whitespace-nowrap",
                 )}
               >
-                <span className="font-semibold">
-                  {numRowsWeKnowOf.toLocaleString()}{" "}
+                <span
+                  className="font-semibold"
+                  title={numRowsWeKnowOf.toLocaleString()}
+                >
+                  {formatNumberCompact(numRowsWeKnowOf)}{" "}
                 </span>
                 {numRowsWeKnowOf === 1 ? "document" : "documents"}{" "}
                 {hasFilters && (
@@ -250,7 +253,7 @@ export function DataFilters({
         </div>
         {indexes && showFilters && (
           <div className="w-full animate-fadeInFromLoading">
-            <div className="scrollbar flex w-full flex-col gap-2 overflow-x-auto rounded-sm rounded-tl-none border bg-background-secondary p-2 pb-2.5">
+            <div className="scrollbar flex max-h-64 w-full flex-col gap-2 overflow-auto rounded-sm rounded-tl-none border bg-background-secondary p-2 pb-2.5">
               <IndexFilters
                 shownFilters={shownFilters}
                 defaultDocument={defaultDocument}

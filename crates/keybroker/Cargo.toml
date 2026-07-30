@@ -26,9 +26,9 @@ chrono = { workspace = true }
 clap = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
+const-hex = { workspace = true }
 derive_more = { workspace = true }
 errors = { workspace = true }
-hex = { workspace = true }
 metrics = { workspace = true }
 openidconnect = { workspace = true }
 pb = { workspace = true }

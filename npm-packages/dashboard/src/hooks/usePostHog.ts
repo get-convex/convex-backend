@@ -30,6 +30,13 @@ export type PostHogEventMap = {
   created_backup: {
     includedStorage: boolean;
   };
+  // How the command palette was opened.
+  command_palette_opened: {
+    via: "hotkey" | "slash" | "button";
+  };
+  command_palette_item_selected: {
+    kind: string;
+  };
 };
 
 export type PostHogEvent = keyof PostHogEventMap;

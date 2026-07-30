@@ -560,11 +560,10 @@ impl ErrorMetadata {
             | ErrorCode::PaginationLimit => Some((sentry::Level::Info, Some(0.001))),
 
             // Sample operational errors - since they only matter at high volume
-            ErrorCode::OutOfRetention
-            | ErrorCode::RejectedBeforeExecution
-            | ErrorCode::OperationalInternalServerError => {
+            ErrorCode::OutOfRetention | ErrorCode::OperationalInternalServerError => {
                 Some((sentry::Level::Warning, Some(0.1)))
             },
+            ErrorCode::RejectedBeforeExecution => Some((sentry::Level::Warning, Some(0.01))),
 
             // Sampling for OCC/Overloaded/RateLimited, since we only really care about the
             // details if they happen at high volume.

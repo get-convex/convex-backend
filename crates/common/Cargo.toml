@@ -41,6 +41,7 @@ bytes = { workspace = true }
 clap = { workspace = true }
 cmd_util = { workspace = true }
 compact_str = { workspace = true }
+const-hex = { workspace = true }
 crossbeam-channel = { workspace = true }
 csf = { workspace = true }
 cstr = { workspace = true }
@@ -56,7 +57,6 @@ futures-async-stream = { workspace = true }
 futures-util = { workspace = true }
 governor = { workspace = true }
 headers = { workspace = true }
-hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 humansize = { workspace = true }

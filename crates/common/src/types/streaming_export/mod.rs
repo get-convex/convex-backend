@@ -137,36 +137,47 @@ pub struct DataSyncArgs {
     /// Opaque cursor returned by a previous call. Omit to start from scratch.
     pub cursor: Option<String>,
 
-    /// The components, tables, and columns to export. When omitted, everything
-    /// is exported. Supports the shorthand forms `{"tableName": "...",
-    /// "component": "..."}` and `{"component": "..."}`, or the exact form
-    /// `{"selection": {...}}` (a map of component -> table -> column
-    /// inclusion).
-    #[serde(flatten)]
-    #[schema(value_type = Object)]
-    pub selection: SelectionArg,
+    /// When set, only sync the selected subset of the data.
+    ///
+    /// Selects the components, tables, and columns to export. Each key is a
+    /// component path (`""` for the root component), mapped to the selection
+    /// for that component.
+    ///
+    /// The selection may change between calls of the same sync: newly selected
+    /// tables are synced from scratch, possibly moving the sync into
+    /// `snapshotting` state if necessary, and emit a truncate on the first page
+    /// they appear so the consumer starts them from a clean slate. Deselected
+    /// tables stop being exported, with a truncate emitted.
+    #[serde(default)]
+    pub selection: Selection,
 }
 
 /// One page returned by the data sync API.
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncResponse {
-    /// Tables truncated by this page: the consumer should drop everything it
-    /// previously synced for each, then apply `values` (which re-sync them from
-    /// scratch). Logically applies before `values`.
+    /// The status of the sync after this page.
+    pub status: DataSyncStatus,
+    /// Tables truncated by this page. The consumer should drop everything it
+    /// previously synced for each table, then apply `values` (which re-sync
+    /// them from scratch). Logically applies before `values`.
+    ///
+    /// A table is truncated whenever it (re)enters the export from scratch —
+    /// the first page it is synced (including on a cold start), when it is
+    /// newly selected, or when it is replaced by a bulk operation such as
+    /// `npx convex import` — and when it leaves the export after being
+    /// deselected.
     pub truncates: Vec<DataSyncTruncate>,
-    /// Documents and tombstones produced by this page.
+    /// Documents created, updated, or deleted in this page.
     pub values: Vec<DataSyncValue>,
     /// Unique id of the sync, assigned on the first page and stable across
     /// the sync's lifetime. Identifies this sync in `/data/list_active_syncs`.
     pub sync_id: String,
-    /// The consistency state of the sync after this page.
-    pub status: DataSyncStatus,
     /// Pagination information. The data sync endpoint is an infinite streaming
-    /// endpoint, so `nextCursor` is always present. `hasMore` is `true` while
-    /// data can be fetched immediately. When `hasMore` is `false`, the cursor
-    /// has caught up; in that case, it is recommended to back off significantly
-    /// to wait for more writes before making another call.
+    /// endpoint, so `nextCursor` is always present and `hasMore` is always
+    /// `true` — another page can always be fetched with the cursor. Use
+    /// `status` to pace calls: back off significantly to wait for more writes
+    /// once it reports `upToDate`.
     pub pagination: PaginationMetadata,
 }
 
@@ -200,70 +211,91 @@ pub struct DataSyncValue {
     pub deleted: bool,
 
     /// The fields of the document, including the built-in `_id` and
-    /// `_creationTime`. For tombstones, only `_id` is present.
+    /// `_creationTime`. For `deleted` documents, only `_id` is present.
     #[schema(value_type = Object)]
     pub value: BTreeMap<String, JsonValue>,
 }
 
-/// The literal string `synced`, discriminating "synced" status objects.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
-pub enum SyncedTag {
-    #[serde(rename = "synced")]
-    Synced,
-}
-
-/// The literal string `inProgress`, discriminating "in progress" status
+/// The literal string `snapshotting`, discriminating "snapshotting" status
 /// objects.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
-pub enum InProgressTag {
-    #[serde(rename = "inProgress")]
-    InProgress,
+pub enum SnapshottingTag {
+    #[serde(rename = "snapshotting")]
+    Snapshotting,
+}
+
+/// The literal string `stale`, discriminating "stale" status objects.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
+pub enum StaleTag {
+    #[serde(rename = "stale")]
+    Stale,
+}
+
+/// The literal string `upToDate`, discriminating "up to date" status objects.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, ToSchema)]
+pub enum UpToDateTag {
+    #[serde(rename = "upToDate")]
+    UpToDate,
 }
 
 /// The consistency state reported alongside a data sync page, discriminated
 /// by `type`.
-// Modeled as a serde-untagged enum over structs that each carry a
-// single-value `type` tag (rather than `#[serde(tag = "type")]`): the wire
-// format is identical, but this shape lets utoipa emit an OpenAPI
-// `discriminator`, which the docs render as tabs labeled by `type`.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(untagged)]
 #[schema(discriminator(
     property_name = "type",
     mapping(
-        ("synced" = "#/components/schemas/DataSyncSynced"),
-        ("inProgress" = "#/components/schemas/DataSyncInProgress"),
+        ("snapshotting" = "#/components/schemas/DataSyncSnapshotting"),
+        ("stale" = "#/components/schemas/DataSyncStale"),
+        ("upToDate" = "#/components/schemas/DataSyncUpToDate"),
     )
 ))]
 pub enum DataSyncStatus {
-    Synced(DataSyncSynced),
-    InProgress(DataSyncInProgress),
+    Snapshotting(DataSyncSnapshotting),
+    Stale(DataSyncStale),
+    UpToDate(DataSyncUpToDate),
 }
 
-/// The entries emitted so far represent a consistent snapshot at `syncedTs`.
-/// The cursor can be persisted and used to continue the sync later (within
-/// the document retention window).
+/// The sync has not yet reached a consistent snapshot. The entries emitted
+/// so far are an incomplete initial traversal of the selected tables.
+/// Syncs begin in this state. The sync's
+/// progress can be monitored via `/data/list_active_syncs`, keyed by the
+/// response's `syncId`. Syncs may return to this state if the table
+/// selection has changes that requires large data sync.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSyncSynced {
-    /// Always `synced`.
+pub struct DataSyncSnapshotting {
+    /// Always `snapshotting`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: SyncedTag,
+    pub status_type: SnapshottingTag,
+}
+
+/// The entries emitted so far represent a consistent snapshot at
+/// a stale `snapshotTs`.
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DataSyncStale {
+    /// Always `stale`.
+    #[serde(rename = "type")]
+    #[schema(inline)]
+    pub status_type: StaleTag,
     /// The database timestamp at which the synced data is consistent.
-    pub synced_ts: i64,
+    pub snapshot_ts: i64,
 }
 
-/// More pages are required before the view is consistent. The sync's progress
-/// can be monitored via `/data/list_active_syncs`, keyed by the response's
-/// `syncId`.
+/// The sync is up to date and represents a latest consistent snapshot.
+/// For a streaming export in this state, it is recommended to backoff for
+/// some time, wait for more data, and then continue the streaming sync.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSyncInProgress {
-    /// Always `inProgress`.
+pub struct DataSyncUpToDate {
+    /// Always `upToDate`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: InProgressTag,
+    pub status_type: UpToDateTag,
+    /// The database timestamp at which the synced data is consistent.
+    pub snapshot_ts: i64,
 }
 
 /// Response of the active-syncs listing API
@@ -272,7 +304,7 @@ pub struct DataSyncInProgress {
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ListActiveSyncsResponse {
-    /// This page of active data syncs, most recently updated first. A sync is
+    /// Page of active data syncs, most recently updated first. A sync is
     /// active if it fetched a page from `/api/v1/data/sync` within the past 3
     /// days.
     pub syncs: Vec<ActiveDataSync>,
@@ -303,13 +335,22 @@ pub struct ActiveDataSync {
 #[schema(discriminator(
     property_name = "type",
     mapping(
-        ("inProgress" = "#/components/schemas/ActiveDataSyncInProgress"),
-        ("synced" = "#/components/schemas/ActiveDataSyncSynced"),
+        ("snapshotting" = "#/components/schemas/ActiveDataSyncSnapshotting"),
+        ("stale" = "#/components/schemas/ActiveDataSyncStale"),
+        ("upToDate" = "#/components/schemas/ActiveDataSyncUpToDate"),
     )
 ))]
 pub enum ActiveDataSyncStatus {
-    InProgress(ActiveDataSyncInProgress),
-    Synced(ActiveDataSyncSynced),
+    /// The sync has not yet reached a consistent snapshot. The entries emitted
+    /// so far are an incomplete initial traversal of the selected tables.
+    /// Syncs begin in this state, and may reenter this state if tables are
+    /// added/replaced
+    Snapshotting(ActiveDataSyncSnapshotting),
+    /// The entries emitted so far represent a consistent snapshot at
+    /// a stale `snapshotTs`. The sync is "catching up".
+    Stale(ActiveDataSyncStale),
+    /// The sync is up to date and represents a latest consistent snapshot.
+    UpToDate(ActiveDataSyncUpToDate),
 }
 
 /// The sync is still traversing its selected tables; the data returned so
@@ -317,11 +358,11 @@ pub enum ActiveDataSyncStatus {
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ActiveDataSyncInProgress {
-    /// Always `inProgress`.
+pub struct ActiveDataSyncSnapshotting {
+    /// Always `snapshotting`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: InProgressTag,
+    pub status_type: SnapshottingTag,
     /// Tables whose initial traversal has completed.
     pub num_tables_synced: u64,
     /// Total tables selected for the sync.
@@ -343,15 +384,35 @@ pub struct ActiveDataSyncInProgress {
     pub total_documents: u64,
 }
 
-/// The sync reached a consistent snapshot and is streaming later changes.
+/// The sync reached a consistent snapshot at `syncedTs`, but newer data is
+/// already available; it is streaming later changes (CDC).
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ActiveDataSyncSynced {
-    /// Always `synced`.
+pub struct ActiveDataSyncStale {
+    /// Always `stale`.
     #[serde(rename = "type")]
     #[schema(inline)]
-    pub status_type: SyncedTag,
+    pub status_type: StaleTag,
+    /// Total tables selected for the sync.
+    pub total_tables: u64,
+    /// Documents synced over the sync's lifetime, including deletions and
+    /// re-synced revisions.
+    pub num_documents_synced: u64,
+    /// The database timestamp at which the synced data is consistent.
+    pub synced_ts: i64,
+}
+
+/// The sync reached a consistent snapshot at `syncedTs` and has caught up to
+/// the latest data.
+#[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveDataSyncUpToDate {
+    /// Always `upToDate`.
+    #[serde(rename = "type")]
+    #[schema(inline)]
+    pub status_type: UpToDateTag,
     /// Total tables selected for the sync.
     pub total_tables: u64,
     /// Documents synced over the sync's lifetime, including deletions and

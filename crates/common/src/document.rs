@@ -2,6 +2,7 @@
 //!
 //! This is the authoritative representation of a document within the database.
 use std::{
+    borrow::Cow,
     cmp::Ordering,
     fmt::{
         self,
@@ -31,7 +32,8 @@ use packed_value::{
 };
 use pb::common::{
     DocumentUpdate as DocumentUpdateProto,
-    DocumentUpdateWithPrevTs as DocumentUpdateWithPrevTsProto,
+    PendingDocument as PendingDocumentProto,
+    PendingDocumentUpdate as PendingDocumentUpdateProto,
     ResolvedDocument as ResolvedDocumentProto,
 };
 use serde_json::{
@@ -56,9 +58,11 @@ use value::{
     IdentifierFieldName,
     InternalDocumentId,
     Namespace,
+    PendingValue,
     ResolvedDocumentId,
     TableNumber,
     TabletId,
+    MAX_COMMIT_TS,
     VALUE_TOO_LARGE_SHORT_MSG,
 };
 
@@ -591,15 +595,318 @@ pub struct DocumentUpdateWithPrevTs {
     pub new_document: Option<ResolvedDocument>,
 }
 
-impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {
-    type Error = anyhow::Error;
+/// A new document staged in a transaction whose body may contain commit
+/// timestamps that are unknown until the transaction commits (see
+/// [`PendingValue`]).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PendingDocument {
+    Concrete(ResolvedDocument),
+    Pending {
+        id: ResolvedDocumentId,
+        creation_time: CreationTime,
+        body: PendingValue,
+    },
+}
 
-    fn try_from(
-        DocumentUpdateWithPrevTs {
+impl From<ResolvedDocument> for PendingDocument {
+    fn from(document: ResolvedDocument) -> Self {
+        Self::Concrete(document)
+    }
+}
+
+impl PendingDocument {
+    pub fn new(
+        id: ResolvedDocumentId,
+        creation_time: CreationTime,
+        body: PendingValue,
+    ) -> anyhow::Result<Self> {
+        match body {
+            PendingValue::Concrete(value) => {
+                let document = ResolvedDocument::new(id, creation_time, document_object(value)?)?;
+                Ok(document.into())
+            },
+            PendingValue::Object { mut fields, .. } => {
+                // The body carries the system fields, exactly like a
+                // materialized document's value. If the body already has
+                // them, they must match `id` and `creation_time`.
+                for (field, value) in [
+                    (ID_FIELD, ConvexValue::from(id)),
+                    (CREATION_TIME_FIELD, ConvexValue::from(creation_time)),
+                ] {
+                    let value = PendingValue::Concrete(value);
+                    if let Some(existing) = fields.insert(field.clone().into(), value.clone()) {
+                        anyhow::ensure!(
+                            existing == value,
+                            ErrorMetadata::bad_request(
+                                "InvalidDocumentError",
+                                format!("Document's {field} field doesn't match"),
+                            )
+                        );
+                    }
+                }
+                Ok(Self::Pending {
+                    id,
+                    creation_time,
+                    body: PendingValue::object(fields)?,
+                })
+            },
+            _ => anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidDocumentError",
+                "Documents must be objects",
+            )),
+        }
+    }
+
+    pub fn id(&self) -> ResolvedDocumentId {
+        match self {
+            Self::Concrete(document) => document.id(),
+            Self::Pending { id, .. } => *id,
+        }
+    }
+
+    pub fn creation_time(&self) -> CreationTime {
+        match self {
+            Self::Concrete(document) => document.creation_time(),
+            Self::Pending { creation_time, .. } => *creation_time,
+        }
+    }
+
+    /// The document, if it contains no unresolved commit timestamps.
+    pub fn as_concrete(&self) -> Option<&ResolvedDocument> {
+        match self {
+            Self::Concrete(document) => Some(document),
+            Self::Pending { .. } => None,
+        }
+    }
+
+    /// The document's pre-commit view, with unresolved commit timestamps set to
+    /// `Int64(i64::MAX)`
+    pub fn to_document_with_max_commit_ts(&self) -> anyhow::Result<Cow<'_, ResolvedDocument>> {
+        match self {
+            Self::Concrete(document) => Ok(Cow::Borrowed(document)),
+            Self::Pending {
+                id,
+                creation_time,
+                body,
+            } => Ok(Cow::Owned(ResolvedDocument::new(
+                *id,
+                *creation_time,
+                document_object(body.resolve(MAX_COMMIT_TS)?.into_owned())?,
+            )?)),
+        }
+    }
+
+    /// The document's body (including its system fields), e.g. to merge a
+    /// patch into it.
+    pub fn into_pending_value(self) -> PendingValue {
+        match self {
+            Self::Concrete(document) => {
+                ConvexValue::Object(document.into_value().into_value()).into()
+            },
+            Self::Pending { body, .. } => body,
+        }
+    }
+
+    /// Size and nesting of the eventual resolved document.
+    pub fn size_and_nesting(&self) -> (usize, usize) {
+        match self {
+            Self::Concrete(document) => (document.size(), document.value().nesting()),
+            Self::Pending { body, .. } => (body.size(), body.nesting()),
+        }
+    }
+
+    /// Internal JSON with `{"$commitTs": null}` at each unresolved commit
+    /// timestamp.
+    pub fn to_uncommitted_internal_json(&self) -> JsonValue {
+        match self {
+            Self::Concrete(document) => document.value().to_internal_json(),
+            Self::Pending { body, .. } => body.to_uncommitted_json(),
+        }
+    }
+
+    // Must be a document that does not contain unresolved commit timestamps
+    pub fn into_resolved(self) -> anyhow::Result<ResolvedDocument> {
+        match self {
+            Self::Concrete(document) => Ok(document),
+            Self::Pending { .. } => {
+                anyhow::bail!("Document contains an unresolved commit timestamp")
+            },
+        }
+    }
+
+    /// Replace each unresolved commit timestamp with `commit_ts`. Concrete
+    /// documents are returned without cloning.
+    pub fn resolve(self, commit_ts: i64) -> anyhow::Result<ResolvedDocument> {
+        match self {
+            Self::Concrete(document) => Ok(document),
+            Self::Pending {
+                id,
+                creation_time,
+                body,
+            } => ResolvedDocument::new(
+                id,
+                creation_time,
+                document_object(body.into_resolved(commit_ts)?)?,
+            ),
+        }
+    }
+}
+
+fn document_object(value: ConvexValue) -> anyhow::Result<ConvexObject> {
+    let ConvexValue::Object(object) = value else {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "InvalidDocumentError",
+            "Documents must be objects",
+        ));
+    };
+    Ok(object)
+}
+
+/// A single document's update in a transaction's write set. The new document
+/// may contain unresolved commit timestamps; [`PendingDocumentUpdate::resolve`]
+/// produces the final [`DocumentUpdateWithPrevTs`] once the commit timestamp
+/// is known, borrowing when there is nothing to resolve.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingDocumentUpdate {
+    pub id: ResolvedDocumentId,
+    pub old_document: Option<(ResolvedDocument, Timestamp)>,
+    pub new_document: Option<PendingDocument>,
+}
+
+impl From<DocumentUpdateWithPrevTs> for PendingDocumentUpdate {
+    fn from(update: DocumentUpdateWithPrevTs) -> Self {
+        Self {
+            id: update.id,
+            old_document: update.old_document,
+            new_document: update.new_document.map(PendingDocument::from),
+        }
+    }
+}
+
+impl PendingDocumentUpdate {
+    pub fn new(
+        id: ResolvedDocumentId,
+        old_document: Option<(ResolvedDocument, Timestamp)>,
+        new_document: Option<PendingDocument>,
+    ) -> Self {
+        if let Some(document) = &new_document {
+            debug_assert_eq!(id, document.id());
+        }
+        Self {
             id,
             old_document,
             new_document,
-        }: DocumentUpdateWithPrevTs,
+        }
+    }
+
+    pub fn id(&self) -> ResolvedDocumentId {
+        self.id
+    }
+
+    pub fn id_ref(&self) -> &ResolvedDocumentId {
+        &self.id
+    }
+
+    pub fn old_document(&self) -> Option<&(ResolvedDocument, Timestamp)> {
+        self.old_document.as_ref()
+    }
+
+    /// The new document's pre-commit view, with unresolved commit timestamps
+    /// at `Int64(i64::MAX)`
+    pub fn new_document_with_max_commit_ts(
+        &self,
+    ) -> anyhow::Result<Option<Cow<'_, ResolvedDocument>>> {
+        self.new_document
+            .as_ref()
+            .map(|document| document.to_document_with_max_commit_ts())
+            .transpose()
+    }
+
+    pub fn new_document_size_and_nesting(&self) -> Option<(usize, usize)> {
+        self.new_document
+            .as_ref()
+            .map(PendingDocument::size_and_nesting)
+    }
+
+    /// Whether this update contains no unresolved commit timestamps.
+    pub fn is_resolved(&self) -> bool {
+        !matches!(self.new_document, Some(PendingDocument::Pending { .. }))
+    }
+
+    pub fn into_resolved(self) -> anyhow::Result<DocumentUpdateWithPrevTs> {
+        Ok(DocumentUpdateWithPrevTs {
+            id: self.id,
+            old_document: self.old_document,
+            new_document: self
+                .new_document
+                .map(PendingDocument::into_resolved)
+                .transpose()?,
+        })
+    }
+
+    /// Replace each unresolved commit timestamp with `commit_ts`. Concrete
+    /// documents are moved through without cloning.
+    pub fn resolve(self, commit_ts: Timestamp) -> anyhow::Result<DocumentUpdateWithPrevTs> {
+        Ok(DocumentUpdateWithPrevTs {
+            id: self.id,
+            old_document: self.old_document,
+            new_document: self
+                .new_document
+                .map(|document| document.resolve(i64::from(commit_ts)))
+                .transpose()?,
+        })
+    }
+
+    /// Internal JSON of the new document, with `{"$commitTs": null}` at each
+    /// unresolved commit timestamp.
+    pub fn new_document_internal_json(&self) -> Option<JsonValue> {
+        self.new_document
+            .as_ref()
+            .map(PendingDocument::to_uncommitted_internal_json)
+    }
+}
+
+impl TryFrom<PendingDocument> for PendingDocumentProto {
+    type Error = anyhow::Error;
+
+    fn try_from(document: PendingDocument) -> anyhow::Result<Self> {
+        let value = serde_json::to_vec(&document.to_uncommitted_internal_json())?;
+        Ok(Self {
+            id: Some(document.id().into()),
+            creation_time: Some(document.creation_time().into()),
+            value: Some(value),
+        })
+    }
+}
+
+impl TryFrom<PendingDocumentProto> for PendingDocument {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        PendingDocumentProto {
+            id,
+            creation_time,
+            value,
+        }: PendingDocumentProto,
+    ) -> anyhow::Result<Self> {
+        let id: ResolvedDocumentId = id.context("Missing id")?.try_into()?;
+        let creation_time = creation_time.context("Missing creation time")?.try_into()?;
+        let body = PendingValue::from_uncommitted_json(serde_json::from_slice(
+            &value.context("Missing value")?,
+        )?)?;
+        Self::new(id, creation_time, body)
+    }
+}
+
+impl TryFrom<PendingDocumentUpdate> for PendingDocumentUpdateProto {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        PendingDocumentUpdate {
+            id,
+            old_document,
+            new_document,
+        }: PendingDocumentUpdate,
     ) -> anyhow::Result<Self> {
         let (old_document, old_ts) = old_document.unzip();
         Ok(Self {
@@ -611,16 +918,16 @@ impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {
     }
 }
 
-impl TryFrom<DocumentUpdateWithPrevTsProto> for DocumentUpdateWithPrevTs {
+impl TryFrom<PendingDocumentUpdateProto> for PendingDocumentUpdate {
     type Error = anyhow::Error;
 
     fn try_from(
-        DocumentUpdateWithPrevTsProto {
+        PendingDocumentUpdateProto {
             id,
             old_document,
             old_ts,
             new_document,
-        }: DocumentUpdateWithPrevTsProto,
+        }: PendingDocumentUpdateProto,
     ) -> anyhow::Result<Self> {
         let id = id
             .context("Document updates missing document id")?

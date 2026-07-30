@@ -423,6 +423,12 @@ const MaybeConnectedDeploymentContext = createContext<MaybeConnectedDeployment>(
   },
 );
 
+export function useMaybeConnectedDeployment():
+  | MaybeConnectedDeployment
+  | undefined {
+  return useContext(MaybeConnectedDeploymentContext);
+}
+
 const useConnectedDeployment = (
   deploymentName: string | undefined,
 ):

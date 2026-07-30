@@ -3,6 +3,7 @@ import {
   EnterFullScreenIcon,
   ExternalLinkIcon,
   FileIcon,
+  FileTextIcon,
   MixerHorizontalIcon,
   Pencil1Icon,
   ResetIcon,
@@ -31,6 +32,8 @@ import { stringifyValue } from "@common/lib/stringifyValue";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
+import { SchemaJson } from "@common/lib/format";
+import { documentValidatorForTable } from "@common/features/data/components/Table/utils/validators";
 
 export function useTableContextMenuState(): {
   contextMenuState: TableContextMenuState | null;
@@ -72,6 +75,8 @@ export type TableContextMenuProps = {
   resetColumns: () => void;
   canManageTable: boolean;
   isProtectedDeployment: boolean;
+  activeSchema: SchemaJson | null;
+  tableName: string;
 };
 
 export function TableContextMenu({
@@ -85,6 +90,8 @@ export function TableContextMenu({
   resetColumns,
   canManageTable,
   isProtectedDeployment,
+  activeSchema,
+  tableName,
 }: TableContextMenuProps) {
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
@@ -182,6 +189,13 @@ export function TableContextMenu({
           {state.selectedCell && !state.selectedCell.rowId && (
             <>
               <hr className="my-1" />
+              <ColumnSchemaAction
+                activeSchema={activeSchema}
+                tableName={tableName}
+                columnName={state.selectedCell.column}
+                setPopup={setPopup}
+                close={close}
+              />
               <ContextMenu.Item
                 icon={<ResetIcon aria-hidden="true" />}
                 label="Reset column positions and widths"
@@ -597,5 +611,47 @@ function DocumentActions({
         />
       ))}
     </>
+  );
+}
+
+// Header action to open a side panel with the schema for the clicked column.
+// Only rendered when the column is actually defined in the table's schema.
+function ColumnSchemaAction({
+  activeSchema,
+  tableName,
+  columnName,
+  setPopup,
+  close,
+}: {
+  activeSchema: SchemaJson | null;
+  tableName: string;
+  columnName: string;
+  setPopup: PopupState["setPopup"];
+  close: () => void;
+}) {
+  const documentValidator =
+    activeSchema && documentValidatorForTable(activeSchema, tableName);
+  const hasFieldSchema =
+    documentValidator?.type === "object" &&
+    documentValidator.value[columnName] !== undefined;
+
+  if (columnName === "*select" || !hasFieldSchema) {
+    return null;
+  }
+
+  return (
+    <ContextMenu.Item
+      icon={<FileTextIcon aria-hidden="true" />}
+      label={
+        <div className="flex items-center gap-1">
+          View schema for <code>{columnName}</code>
+        </div>
+      }
+      tipSide="right"
+      action={() => {
+        setPopup({ type: "viewSchema", tableName, highlightField: columnName });
+        close();
+      }}
+    />
   );
 }

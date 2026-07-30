@@ -27,10 +27,10 @@
 //!
 //! # During Initial Sync phase
 //!
-//! - During initial sync, pages report [`DataSyncStatus::InProgress`]. During
+//! - During initial sync, pages report [`DataSyncStatus::Snapshotting`]. During
 //!   this phase, pages do not necessarily represent consistent snapshots.
-//! - Once initial sync is complete, the final page reports
-//!   [`DataSyncStatus::Synced`]
+//! - Once initial sync is complete, the final page reports a consistent
+//!   snapshot ([`DataSyncStatus::Stale`] or [`DataSyncStatus::UpToDate`])
 //! - Each document may be emitted more than once, at successive revisions.
 //! - Each rev of a given document will be emitted in increasing timestamp
 //!   order.
@@ -39,8 +39,9 @@
 //!
 //! - The final emitted version of every captured document is the version as of
 //!   `ts` (a consistent snapshot).
-//! - The caller may continue iterating from [`DataSyncStatus::Synced`] to
-//!   continue a streaming sync to a newer consistent snapshot.
+//! - The caller may continue iterating from [`DataSyncStatus::Stale`] or
+//!   [`DataSyncStatus::UpToDate`] to continue a streaming sync to a newer
+//!   consistent snapshot.
 //! - Transactions are not split across pages.
 //! - May switch back to Initial Sync phase if a large operation occurs
 //!   (changing the set of synced tables, or an `npx convex import` replacing a
@@ -252,14 +253,15 @@ impl DataSyncCursor {
 }
 
 /// Progress indicator returned while a sync is still
-/// [`DataSyncStatus::InProgress`].
+/// [`DataSyncStatus::Snapshotting`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProgressStatus {
     pub num_tables_synced: u64,
     pub total_tables: u64,
     /// The table mid-traversal in the `by_id` dimension. An in-progress sync
     /// always has one: finishing a table either starts the next one or
-    /// completes the sync ([`DataSyncStatus::Synced`]).
+    /// completes the sync ([`DataSyncStatus::Stale`] or
+    /// [`DataSyncStatus::UpToDate`]).
     pub current_table: TabletId,
     /// Documents emitted so far from the current table's `by_id` traversal,
     /// across all pages of this sync.
@@ -273,17 +275,16 @@ pub struct ProgressStatus {
 /// The consistency state reported alongside a page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DataSyncStatus {
-    /// The entries emitted so far represent a consistent snapshot at `ts`.
-    Synced {
-        ts: Timestamp,
-        /// Whether `ts` is behind the latest timestamp — i.e. the snapshot is
-        /// consistent but not fully caught up to the most recent commit.
-        /// `false` means the sync read all the way to latest. Callers use this
-        /// to decide whether to keep iterating or take a break.
-        has_more: bool,
-    },
-    /// More pages are required before the view is consistent.
-    InProgress { progress: ProgressStatus },
+    /// More pages are required before the entries form a consistent snapshot.
+    Snapshotting { progress: ProgressStatus },
+    /// The entries emitted so far represent a consistent snapshot at `ts`, but
+    /// `ts` is behind the latest timestamp — there are commits past the
+    /// snapshot still to sync.
+    Stale { ts: Timestamp },
+    /// The entries emitted so far represent a consistent snapshot at `ts` that
+    /// has read all the way to the latest commit; the caller can take a break
+    /// before iterating again.
+    UpToDate { ts: Timestamp },
 }
 
 /// A single emitted document revision, paired with its previous revision.
@@ -766,13 +767,15 @@ impl<RT: Runtime> DataSyncIterator<RT> {
 
 fn status(cursor: &DataSyncCursor, latest: Timestamp, total_tables: u64) -> DataSyncStatus {
     match &cursor.table_cursor {
-        TableCursor::Synced => DataSyncStatus::Synced {
+        // `synced_ts <= latest` always holds; if it's strictly behind there are
+        // commits past the snapshot still to sync.
+        TableCursor::Synced if cursor.synced_ts < latest => DataSyncStatus::Stale {
             ts: cursor.synced_ts,
-            // `synced_ts <= latest` always holds; if it's strictly behind there
-            // are commits past the snapshot still to sync.
-            has_more: cursor.synced_ts < latest,
         },
-        TableCursor::InProgress { current_table, .. } => DataSyncStatus::InProgress {
+        TableCursor::Synced => DataSyncStatus::UpToDate {
+            ts: cursor.synced_ts,
+        },
+        TableCursor::InProgress { current_table, .. } => DataSyncStatus::Snapshotting {
             progress: ProgressStatus {
                 num_tables_synced: cursor.synced_tables.len() as u64,
                 total_tables,

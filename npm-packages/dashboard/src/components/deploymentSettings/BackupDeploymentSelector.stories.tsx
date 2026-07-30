@@ -145,6 +145,7 @@ const meta = {
     mocked(useInfiniteProjects).mockReturnValue({
       projects: mockProjects,
       isLoading: false,
+      isLoadingMore: false,
       hasMore: false,
       loadMore: fn(),
       debouncedQuery: "",
@@ -277,6 +278,7 @@ export const ManyProjects: Story = {
         mocked(useInfiniteProjects).mockReturnValue({
           projects: loadedProjects,
           isLoading: false,
+          isLoadingMore: isLoadingMore.current,
           hasMore,
           loadMore,
           debouncedQuery: "",

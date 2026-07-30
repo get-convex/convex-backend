@@ -8,6 +8,7 @@ import { TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
+import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export type TeamSlugFormProps = {
   team: TeamResponse;
@@ -48,7 +49,7 @@ export function TeamSlugForm({
   const copyToClipboard = useCopy("Team slug");
 
   return (
-    <Sheet className="text-sm">
+    <Sheet id={TEAM_SETTINGS_SECTIONS.teamSlug.id} className="text-sm">
       <h3 className="mb-1">Team Slug</h3>
       <p className="mb-4 max-w-prose text-content-secondary">
         The unique identifier for your team in dashboard URLs.
@@ -60,7 +61,7 @@ export function TeamSlugForm({
       >
         <div className="max-w-[20rem] flex-1">
           <Tooltip
-            className="block"
+            className="block w-full"
             tip={
               !canUpdate
                 ? permissionDeniedTip(

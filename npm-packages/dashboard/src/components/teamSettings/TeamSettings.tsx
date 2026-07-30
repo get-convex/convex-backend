@@ -23,6 +23,7 @@ import { TeamNameForm } from "./TeamNameForm";
 import { TeamSlugForm } from "./TeamSlugForm";
 import { TeamIdSheet } from "./TeamIdSheet";
 import { DefaultRegionForm } from "./DefaultRegionForm";
+import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 export function TeamSettings({ team }: { team: TeamResponse }) {
   const updateTeam = useUpdateTeam(team.id);
@@ -78,7 +79,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
         onUpdateTeam={updateTeam}
         canUpdate={canUpdate}
       />
-      <Sheet>
+      <Sheet id={TEAM_SETTINGS_SECTIONS.deleteTeam.id}>
         <h3 className="mb-4">Delete Team</h3>
         <p className="mb-4">
           Permanently deletes this team.{" "}

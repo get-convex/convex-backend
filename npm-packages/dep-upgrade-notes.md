@@ -1,7 +1,8 @@
 # npm dependency notes
 
-Rush pushes us toward using a single a version of each dependency in the
-monorepo. Our version choices are compromises between the competing needs of
+The version consistency check (`just check-js-versions`) pushes us toward using
+a single version of each dependency in the monorepo. Our version choices are
+compromises between the competing needs of
 
 - staying up to date enough to cutting edge to be able to pull in security
   updates
@@ -11,15 +12,8 @@ monorepo. Our version choices are compromises between the competing needs of
   customer use cases.
 
 We can use multiple versions by adding the less common one to
-allowedAlternativeVersions in
-npm-packages/common/config/rush/common-versions.json
-
-# Rush
-
-We don't really need Rush, we mostly use features of pnpm. We could replace Rush
-with Turborepo if we wanted to.
-
-See rush.json for notes on what version we use.
+allowedAlternativeVersions in npm-packages/common-versions.json (checked by
+`just check-js-versions`).
 
 # node version
 
@@ -37,11 +31,12 @@ for npm-packages/convex.
 
 # Dependencies that are hard to upgrade
 
-Run `just rush update --full` to upgrade withing semver specs. If this doesn't
-work we need to narrow our semver requirement spec for that library.
+Run `just pnpm update -r` from npm-packages to upgrade within semver specs. If
+this doesn't work we need to narrow our semver requirement spec for that
+library.
 
-Run `just rush upgrade-interactive` to upgrade libraries beyond their current
-semver spec. See notes below for these libraries.
+Run `just pnpm update -r --latest --interactive` to upgrade libraries beyond
+their current semver spec. See notes below for these libraries.
 
 ### react and react-dom
 

@@ -75,12 +75,18 @@ impl TryFrom<Vec<IntervalProto>> for IntervalSet {
     type Error = anyhow::Error;
 
     fn try_from(intervals: Vec<IntervalProto>) -> anyhow::Result<Self> {
-        let mut set = IntervalSet::new();
         if intervals == ALL_INTERVAL_PROTO {
             return Ok(IntervalSet::All);
         }
+        let mut set: Vec<(StartIncluded, End)> = vec![];
         for interval in intervals {
             let start = StartIncluded(interval.start_inclusive.into());
+            if let Some((_, last_end)) = set.last() {
+                anyhow::ensure!(
+                    !last_end.is_overlapping_or_adjacent(&start),
+                    "IntervalProtos out of order: {last_end:?} >= {start:?}"
+                );
+            }
             let end = match interval.end {
                 None => return Err(anyhow::anyhow!("Interval missing end")),
                 Some(end) => match end {
@@ -88,9 +94,15 @@ impl TryFrom<Vec<IntervalProto>> for IntervalSet {
                     EndProto::Exclusive(end) => End::Excluded(end.into()),
                 },
             };
-            set.add(Interval { start, end });
+            anyhow::ensure!(
+                end.greater_than(&start.0),
+                "empty IntervalProto {start:?}..{end:?}"
+            );
+            set.push((start, end));
         }
-        Ok(set)
+        Ok(IntervalSet::Intervals(
+            set.into_iter().collect::<BTreeMap<_, _>>().into(),
+        ))
     }
 }
 
@@ -117,48 +129,6 @@ impl IntervalSet {
         }
     }
 
-    // Return all of the intervals in `self` that intersect with or are adjacent to
-    // `interval`. This is O(log(n) + m), with `n` intervals in this IntervalSet and
-    // `m` matches.
-    fn intersecting_or_adjacent<'a>(
-        intervals: &'a WithHeapSize<BTreeMap<StartIncluded, End>>,
-        interval: &'a Interval,
-    ) -> impl Iterator<Item = Interval> + 'a {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                // We *might* intersect with the preceeding interval.
-                if let Some((other_start, other_end)) = intervals
-                    .range::<StartIncluded, _>(..&interval.start)
-                    .next_back()
-                {
-                    let other = Interval {
-                        start: other_start.clone(),
-                        end: other_end.clone(),
-                    };
-                    if !interval.is_disjoint(&other) || interval.is_adjacent(&other) {
-                        yield other;
-                    }
-                }
-
-                // We definitely intersect with any interval with a `start` inside `interval`.
-                for (other_start, other_end) in
-                    intervals.range::<StartIncluded, _>(&interval.start..)
-                {
-                    if interval.end.is_disjoint(other_start)
-                        && !interval.end.is_adjacent(other_start)
-                    {
-                        break;
-                    }
-                    yield Interval {
-                        start: other_start.clone(),
-                        end: other_end.clone(),
-                    };
-                }
-            },
-        )
-    }
-
     /// Add the given `Interval` to the set.
     pub fn add(&mut self, interval: Interval) {
         if interval.is_empty() {
@@ -170,8 +140,6 @@ impl IntervalSet {
         match self {
             IntervalSet::All => {},
             IntervalSet::Intervals(intervals) => {
-                let mut merged_start = interval.start.clone();
-                let mut merged_end = interval.end.clone();
                 // In order to merge adjacent and overlapping intervals, we need to find all of
                 // the overlapping intervals and take the min of our new interval and
                 // all of the overlapping to find the start of the merged interval
@@ -198,20 +166,38 @@ impl IntervalSet {
                 // merged start                       ^
                 // merged_end                                       ^
                 // -> self.intervals after   ---      ---------------  --
-                let other_intervals: Vec<Interval> =
-                    Self::intersecting_or_adjacent(intervals, &interval).collect();
-                for other_interval in other_intervals {
-                    if other_interval.start < merged_start {
-                        merged_start = other_interval.start.clone();
+                let mut cursor = intervals.upper_bound_mut(match &interval.end {
+                    End::Excluded(binary_key) => Bound::Included(&binary_key[..]),
+                    End::Unbounded => Bound::Unbounded,
+                });
+                let mut merged_interval = interval;
+                // Iterate all overlapping intervals in descending order
+                if let Some((_other_start, other_end)) = cursor.peek_prev()
+                    && other_end.is_overlapping_or_adjacent(&merged_interval.start)
+                {
+                    let (other_start, other_end) = cursor.remove_prev().expect("peeked");
+                    if other_end > merged_interval.end {
+                        merged_interval.end = other_end;
                     }
-                    if other_interval.end > merged_end {
-                        merged_end = other_interval.end.clone();
+                    if other_start <= merged_interval.start {
+                        merged_interval.start = other_start;
+                    } else {
+                        while let Some((_other_start, other_end)) = cursor.peek_prev()
+                            && other_end.is_overlapping_or_adjacent(&merged_interval.start)
+                        {
+                            let (other_start, other_end) = cursor.remove_prev().expect("peeked");
+                            // Only the first visited interval can extend `merged_interval.end`
+                            debug_assert!(other_end < merged_interval.end);
+                            if other_start <= merged_interval.start {
+                                merged_interval.start = other_start;
+                                break;
+                            }
+                        }
                     }
-                    intervals
-                        .remove(&other_interval.start)
-                        .expect("tried to remove existing interval");
                 }
-                intervals.insert(merged_start, merged_end);
+                cursor
+                    .insert_after(merged_interval.start, merged_interval.end)
+                    .expect("invariant broken?");
             },
         };
     }

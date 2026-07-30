@@ -1,4 +1,5 @@
 #![feature(coroutines)]
+#![feature(try_blocks)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
 

@@ -778,11 +778,6 @@ async fn import_objects<RT: Runtime>(
         .collect();
     let mut total_num_documents = 0;
 
-    // In ReplaceAll mode, we want to delete all unaffected user tables
-    // If there's a schema, then we want to clear it instead.
-    let db_snapshot = database.latest_snapshot()?;
-    let original_table_mapping = db_snapshot.table_mapping();
-
     // First make sure all components exist, and find their IDs.
     let tables: Vec<(
         ComponentPath,
@@ -800,6 +795,13 @@ async fn import_objects<RT: Runtime>(
         })
         .try_collect()
         .await?;
+
+    // In ReplaceAll mode, we want to delete all unaffected user tables.
+    // If there's a schema, then we want to clear it instead. Capture this
+    // mapping after component preparation so it includes the system tables
+    // initialized for newly created component namespaces.
+    let db_snapshot = database.latest_snapshot()?;
+    let original_table_mapping = db_snapshot.table_mapping();
 
     let (tables_tables, mut tables) = tables
         .into_iter()
@@ -848,6 +850,7 @@ async fn import_objects<RT: Runtime>(
             .insert(table_id.tablet_id, num_to_skip)
             .is_none());
     }
+    validate_prepared_table_numbers(database, mode, &table_mapping_in_import).await?;
 
     let table_mapping_for_schema = {
         let mut mapping = TableMapping::new();
@@ -909,6 +912,86 @@ async fn import_objects<RT: Runtime>(
     }
 
     Ok((table_mapping_in_import, total_num_documents))
+}
+
+/// Verifies the realized table numbers can coexist after finalization.
+///
+/// [`assign_table_numbers`] leaves fresh allocations as `None`, so preparation
+/// can choose a fresh number that conflicts with one explicitly assigned to
+/// another imported table. The active mapping can also change after the
+/// snapshot used for assignment is captured. This check catches both cases
+/// before importing rows; finalization remains authoritative for later races.
+async fn validate_prepared_table_numbers<RT: Runtime>(
+    database: &Database<RT>,
+    mode: ImportMode,
+    imported_tables: &TableMapping,
+) -> anyhow::Result<()> {
+    #[derive(Default)]
+    struct Candidates {
+        prepared: BTreeSet<TableName>,
+        surviving: BTreeSet<TableName>,
+    }
+
+    let mut tx = database.begin_system().await?;
+    let current_table_mapping = tx.table_mapping().clone();
+    let mut candidates = BTreeMap::<(TableNamespace, TableNumber), Candidates>::new();
+    for (_, namespace, table_number, table_name) in imported_tables.iter() {
+        candidates
+            .entry((namespace, table_number))
+            .or_default()
+            .prepared
+            .insert(table_name.clone());
+    }
+
+    // Include active tables that finalization will neither replace nor delete.
+    for (tablet_id, namespace, table_number, table_name) in current_table_mapping.iter() {
+        if !current_table_mapping.is_active(tablet_id)
+            || imported_tables.tablet_id_exists(tablet_id)
+        {
+            continue;
+        }
+        let replaced_by_import = imported_tables.namespace(namespace).name_exists(table_name);
+        let deleted_by_replace_all = matches!(mode, ImportMode::ReplaceAll)
+            && !table_name.is_system()
+            && tx.get_component_path(namespace.into()).is_some();
+        if !replaced_by_import && !deleted_by_replace_all {
+            candidates
+                .entry((namespace, table_number))
+                .or_default()
+                .surviving
+                .insert(table_name.clone());
+        }
+    }
+
+    for ((namespace, number), candidates) in candidates {
+        let mut prepared = candidates.prepared.into_iter();
+        let Some(first_prepared) = prepared.next() else {
+            continue;
+        };
+        if let Some(second_prepared) = prepared.next() {
+            let component_path =
+                BootstrapComponentsModel::new(&mut tx).get_component_path(namespace.into());
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TableNumberConflict",
+                format!(
+                    "conflict between `{first_prepared}` and `{second_prepared}`{} with table \
+                     number {number}",
+                    component_path.unwrap_or_default().in_component_str(),
+                )
+            ));
+        }
+        if let Some(existing) = candidates.surviving.into_iter().next() {
+            let component_path =
+                BootstrapComponentsModel::new(&mut tx).get_component_path(namespace.into());
+            anyhow::bail!(TableModel::<RT>::table_conflict_error(
+                tx.virtual_system_mapping(),
+                &component_path.unwrap_or_default(),
+                &first_prepared,
+                &existing,
+            ));
+        }
+    }
+    Ok(())
 }
 
 struct TableMappingForImport {

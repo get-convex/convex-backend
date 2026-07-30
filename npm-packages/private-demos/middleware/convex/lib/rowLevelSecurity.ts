@@ -367,6 +367,8 @@ class WrapWriter<Ctx, DataModel extends GenericDataModel> implements Omit<
   db: GenericDatabaseWriter<DataModel>;
   reader: Omit<GenericDatabaseReader<DataModel>, "system">;
   rules: Rules<Ctx, DataModel>;
+  // Plain values with no access-control surface; pass them through.
+  vars: GenericDatabaseWriter<DataModel>["vars"];
 
   async modifyPredicate<T extends GenericTableInfo>(
     tableName: string,
@@ -387,6 +389,7 @@ class WrapWriter<Ctx, DataModel extends GenericDataModel> implements Omit<
     this.db = db;
     this.reader = new WrapReader(ctx, db, rules);
     this.rules = rules;
+    this.vars = db.vars;
   }
   async insert<TableName extends string>(
     table: TableName,

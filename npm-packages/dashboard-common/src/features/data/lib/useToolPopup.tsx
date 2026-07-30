@@ -25,7 +25,7 @@ type PopupType =
   | { type: "deleteRows"; rowIds: Set<string> }
   | { type: "deleteTable"; tableName: string }
   | { type: "metrics"; tableName: string }
-  | { type: "viewSchema"; tableName: string }
+  | { type: "viewSchema"; tableName: string; highlightField?: string }
   | { type: "viewIndexes"; tableName: string };
 
 export type PopupState = ReturnType<typeof useToolPopup>;
@@ -188,7 +188,13 @@ export function useToolPopup({
       );
       break;
     case "viewSchema":
-      popupEl = <TableSchemaPanel onClose={closePopup} tableName={tableName} />;
+      popupEl = (
+        <TableSchemaPanel
+          onClose={closePopup}
+          tableName={tableName}
+          highlightField={popup.highlightField}
+        />
+      );
       break;
     case "viewIndexes":
       popupEl = (

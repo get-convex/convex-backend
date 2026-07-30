@@ -572,7 +572,7 @@ impl SnapshotManager {
         snapshot
     }
 
-    fn earliest_ts(&self) -> Timestamp {
+    pub fn earliest_ts(&self) -> Timestamp {
         self.versions
             .front()
             .map(|(ts, ..)| *ts)

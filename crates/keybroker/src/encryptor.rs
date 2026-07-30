@@ -37,6 +37,8 @@ impl Purpose {
     /// we want them to be deterministic to avoid breaking caching.
     /// These do not need to be secret in the first place - only tamper-proof.
     pub const CURSOR: DeterministicPurpose = Purpose("cursor");
+    /// Cursor for the data sync (streaming export) API.
+    pub const DATA_SYNC_CURSOR: Purpose = Purpose("data sync cursor");
     pub const QUERY_JOURNAL: Purpose = Purpose("query journal");
     pub const STORE_FILE_AUTHORIZATION: Purpose = Purpose("store file authorization");
 }
@@ -116,7 +118,7 @@ impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
         }
         buffer.extend_from_slice(&encoded_message);
         buffer.extend_from_slice(tag.as_ref());
-        hex::encode(buffer)
+        const_hex::encode(buffer)
     }
 
     pub fn decrypt_proto<M: Default + Message>(
@@ -124,7 +126,7 @@ impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
         version: u8,
         encoded: &str,
     ) -> anyhow::Result<M> {
-        let mut bytes = hex::decode(encoded)?;
+        let mut bytes = const_hex::decode(encoded)?;
         let mut reader = Cursor::new(&bytes[..]);
         let message_version = reader.read_u8()?;
         if message_version != version {

@@ -1,4 +1,5 @@
 #![feature(coroutines)]
+#![feature(binary_heap_pop_if)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
 #![feature(iterator_try_collect)]

@@ -1,4 +1,5 @@
 import { GenericId } from "../values/index.js";
+import { CommitTsPlaceholder } from "../values/value.js";
 import {
   DocumentByName,
   GenericDataModel,
@@ -370,6 +371,22 @@ export interface GenericDatabaseWriter<
    * @param id - The {@link values.GenericId} of the document to remove.
    */
   delete(id: GenericId<TableNamesInDataModel<DataModel>>): Promise<void>;
+
+  /**
+   * Values that are not known until the mutation commits.
+   *
+   * @internal
+   */
+  vars: {
+    /**
+     * The placeholder for the transaction's commit timestamp. Written into a
+     * document field via `db.insert`, it resolves at commit to an int64
+     * (`bigint`) ordered by commit order. Within the writing mutation,
+     * reading the field back yields the placeholder, which cannot be used as
+     * a number.
+     */
+    commitTs: CommitTsPlaceholder;
+  };
 }
 
 /**

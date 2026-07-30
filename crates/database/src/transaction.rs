@@ -29,7 +29,8 @@ use common::{
     },
     document::{
         CreationTime,
-        DocumentUpdateWithPrevTs,
+        PendingDocument,
+        PendingDocumentUpdate,
         ResolvedDocument,
     },
     identity::InertIdentity,
@@ -66,9 +67,7 @@ use common::{
     },
     value::{
         id_v6::DeveloperDocumentId,
-        ConvexObject,
         ResolvedDocumentId,
-        Size,
         TableMapping,
     },
     virtual_system_mapping::VirtualSystemMapping,
@@ -101,6 +100,7 @@ use value::{
         Sha256,
         Sha256Digest,
     },
+    PendingValue,
     TableNamespace,
     TableNumber,
     TabletId,
@@ -320,9 +320,9 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub fn user_identity(&self) -> Option<UserIdentityAttributes> {
-        match self.identity.clone() {
-            Identity::User(identity) => Some(identity.attributes),
-            Identity::ActingUser(_, identity) => Some(identity),
+        match &self.identity {
+            Identity::User(identity) => Some((*identity.attributes).clone()),
+            Identity::ActingUser(_, identity) => Some((**identity).clone()),
             _ => None,
         }
     }
@@ -399,16 +399,9 @@ impl<RT: Runtime> Transaction<RT> {
         let mut biggest_document_id = None;
         let mut max_nesting = 0;
         let mut most_nested_document_id = None;
-        for DocumentUpdateWithPrevTs {
-            id: document_id,
-            new_document,
-            ..
-        } in self.writes.coalesced_writes()
-        {
-            let (size, nesting) = new_document
-                .as_ref()
-                .map(|document| (document.value().size(), document.value().nesting()))
-                .unwrap_or((0, 0));
+        for update in self.writes.coalesced_writes() {
+            let document_id = update.id_ref();
+            let (size, nesting) = update.new_document_size_and_nesting().unwrap_or_default();
             if size > max_size {
                 max_size = size;
                 biggest_document_id = Some(document_id);
@@ -467,7 +460,7 @@ impl<RT: Runtime> Transaction<RT> {
         num_intervals: usize,
         user_tx_size: crate::reads::TransactionReadSize,
         system_tx_size: crate::reads::TransactionReadSize,
-        updates: Vec<DocumentUpdateWithPrevTs>,
+        updates: Vec<PendingDocumentUpdate>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -494,7 +487,7 @@ impl<RT: Runtime> Transaction<RT> {
     // In most scenarios this transaction will have no writes.
     pub fn merge_writes(
         &mut self,
-        updates: impl IntoIterator<Item = DocumentUpdateWithPrevTs>,
+        updates: impl IntoIterator<Item = PendingDocumentUpdate>,
     ) -> anyhow::Result<()> {
         let existing_updates = self.writes().as_flat()?.clone().into_updates();
 
@@ -504,7 +497,13 @@ impl<RT: Runtime> Transaction<RT> {
             table_dependency_sort_key(
                 bootstrap_tables,
                 update.id.into(),
-                update.new_document.as_ref(),
+                // Only bootstrap-table (`_tables`/`_index`) metadata affects
+                // the sort key, and those documents are system-constructed and
+                // always concrete.
+                update
+                    .new_document
+                    .as_ref()
+                    .and_then(PendingDocument::as_concrete),
             )
         });
 
@@ -592,19 +591,37 @@ impl<RT: Runtime> Transaction<RT> {
                     format!("Update on nonexistent document ID {id}"),
                 ))?;
 
-        let new_document = {
-            let patched_value = value.apply(old_document.value().clone().into_value())?;
-            old_document.replace_value(patched_value)?
-        };
-        if new_document == old_document {
-            return Ok(new_document);
+        // Merge into the staged pending body when there is one, so unresolved
+        // commit timestamps the patch doesn't touch stay unresolved.
+        let old_pending = self.old_pending_document(&old_document, old_ts)?;
+        let new_body = value.apply(old_pending.clone().into_pending_value())?;
+        let new_document = PendingDocument::new(id, old_document.creation_time(), new_body)?;
+        if new_document == old_pending {
+            return Ok(old_document);
         }
+        let new_document_view = new_document.to_document_with_max_commit_ts()?.into_owned();
         SchemaModel::new(self, namespace)
-            .enforce(&new_document)
+            .enforce(&new_document_view)
             .await?;
 
-        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document.clone()))?;
-        Ok(new_document)
+        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document))?;
+        Ok(new_document_view)
+    }
+
+    /// The current revision of a document as a [`PendingDocument`]: the staged
+    /// write when `old_ts` is pending, the committed document otherwise.
+    fn old_pending_document(
+        &self,
+        old_document: &ResolvedDocument,
+        old_ts: WriteTimestamp,
+    ) -> anyhow::Result<PendingDocument> {
+        match old_ts {
+            WriteTimestamp::Pending => self
+                .pending_write(&old_document.id())
+                .and_then(|update| update.new_document.clone())
+                .context("Old document timestamp is Pending, but there is no pending write"),
+            WriteTimestamp::Committed(_) => Ok(old_document.clone().into()),
+        }
     }
 
     pub fn is_system(&mut self, namespace: TableNamespace, table_number: TableNumber) -> bool {
@@ -617,7 +634,7 @@ impl<RT: Runtime> Transaction<RT> {
     pub(crate) async fn replace_inner(
         &mut self,
         id: ResolvedDocumentId,
-        value: ConvexObject,
+        value: impl Into<PendingValue> + Send,
     ) -> anyhow::Result<ResolvedDocument> {
         task::consume_budget().await;
 
@@ -632,21 +649,17 @@ impl<RT: Runtime> Transaction<RT> {
                 ))?;
 
         // Replace document.
-        let new_document = old_document.replace_value(value)?;
-        if new_document == old_document {
-            return Ok(new_document);
+        let new_document = PendingDocument::new(id, old_document.creation_time(), value.into())?;
+        if new_document == self.old_pending_document(&old_document, old_ts)? {
+            return Ok(old_document);
         }
-
+        let new_document_view = new_document.to_document_with_max_commit_ts()?.into_owned();
         SchemaModel::new(self, namespace)
-            .enforce(&new_document)
+            .enforce(&new_document_view)
             .await?;
 
-        self.apply_validated_write(
-            new_document.id(),
-            Some((old_document, old_ts)),
-            Some(new_document.clone()),
-        )?;
-        Ok(new_document)
+        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document))?;
+        Ok(new_document_view)
     }
 
     #[convex_macro::instrument_future]
@@ -813,18 +826,18 @@ impl<RT: Runtime> Transaction<RT> {
             .must_component_path(component_id, &mut self.reads)
     }
 
-    /// Get the component path for a document ID. This might be None when table
+    /// Get the component path for a tablet. This might be None when table
     /// namespaces for new components are created in `start_push`,  but
     /// components have not yet been created.
-    pub fn component_path_for_document_id(
+    pub fn component_path_for_tablet_id(
         &mut self,
-        id: ResolvedDocumentId,
+        id: TabletId,
     ) -> anyhow::Result<Option<ComponentPath>> {
-        self.component_registry.component_path_from_document_id(
-            self.metadata.table_mapping(),
-            id,
-            &mut self.reads,
-        )
+        let table_namespace = self.table_mapping().tablet_namespace(id)?;
+        let component_id = ComponentId::from(table_namespace);
+        Ok(self
+            .component_registry
+            .get_component_path(component_id, &mut self.reads))
     }
 
     // XXX move to table model?
@@ -1078,7 +1091,7 @@ impl<RT: Runtime> Transaction<RT> {
         let result = match range_results.into_iter().next() {
             Some((_, doc, timestamp)) => {
                 let component_path = self
-                    .component_path_for_document_id(doc.id())?
+                    .component_path_for_tablet_id(id.tablet_id)?
                     .unwrap_or_default();
                 self.reads.record_read_document(
                     component_path,
@@ -1104,38 +1117,44 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
         old_document_and_ts: Option<(ResolvedDocument, WriteTimestamp)>,
-        new_document: Option<ResolvedDocument>,
+        new_document: Option<PendingDocument>,
     ) -> anyhow::Result<()> {
         // Implement something like two-phase commit between the index and the document
         // store. We first guarantee that the changes are valid for the index and
         // metadata and then let inserting into writes the commit
         // point so that the Transaction is never in an inconsistent state.
         let is_system_document = self.table_mapping().is_system_tablet(id.tablet_id);
-        if !is_system_document && let Some(new_document) = &new_document {
-            new_document.check_user_size()?;
+        let new_document_view = new_document
+            .as_ref()
+            .map(|d| d.to_document_with_max_commit_ts())
+            .transpose()?;
+        if !is_system_document && let Some(view) = &new_document_view {
+            // Size of document with max commit_ts injected should be the same as the size
+            // of the document with the correct commit_ts injected since both are i64.
+            view.check_user_size()?;
         }
         let bootstrap_tables = self.bootstrap_tables();
         let old_document = old_document_and_ts.as_ref().map(|(doc, _)| doc);
         let index_update = self
             .index
-            .begin_update(old_document.cloned(), new_document.clone())?;
+            .begin_update(old_document.cloned(), new_document_view.as_deref().cloned())?;
         let schema_update = self.schema_registry.begin_update(
             self.metadata.table_mapping(),
             id,
             old_document,
-            new_document.as_ref(),
+            new_document_view.as_deref(),
         )?;
         let component_update = self.component_registry.begin_update(
             self.metadata.table_mapping(),
             id,
             old_document,
-            new_document.as_ref(),
+            new_document_view.as_deref(),
         )?;
         let metadata_update = self.metadata.begin_update(
             index_update.registry(),
             id,
             old_document.map(|d| d.value().deref()),
-            new_document.as_ref().map(|d| d.value().deref()),
+            new_document_view.as_deref().map(|d| d.value().deref()),
         )?;
         let stats = self.stats.entry(id.tablet_id).or_default();
         let mut delta = 0;
@@ -1184,13 +1203,28 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         document: ResolvedDocument,
     ) -> anyhow::Result<ResolvedDocumentId> {
+        self.insert_pending_document(document.into()).await
+    }
+
+    /// Insert a new document whose body may contain unresolved commit
+    /// timestamps (see [`PendingDocument`]).
+    pub(crate) async fn insert_pending_document(
+        &mut self,
+        document: PendingDocument,
+    ) -> anyhow::Result<ResolvedDocumentId> {
         let document_id = document.id();
         let namespace = self
             .table_mapping()
             .tablet_namespace(document_id.tablet_id)?;
-        SchemaModel::new(self, namespace).enforce(&document).await?;
+        SchemaModel::new(self, namespace)
+            .enforce(document.to_document_with_max_commit_ts()?.as_ref())
+            .await?;
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
+    }
+
+    pub fn pending_write(&self, id: &ResolvedDocumentId) -> Option<&PendingDocumentUpdate> {
+        self.writes.get(id)
     }
 
     pub async fn text_search(
@@ -1227,28 +1261,6 @@ impl<RT: Runtime> Transaction<RT> {
         self.usage_tracker
             .track_text_query(component_path, index_name, index_size);
         Ok(results)
-    }
-
-    // TODO(lee) Make this private.
-    // We ideally want the transaction to call this internally so caller doesn't
-    // have to call this. However, this is currently hard since the query layer
-    // doesn't persist a stream.
-    pub fn record_read_document(
-        &mut self,
-        document: &ResolvedDocument,
-        table_name: &TableName,
-    ) -> anyhow::Result<()> {
-        let component_path = self
-            .component_path_for_document_id(document.id())?
-            .unwrap_or_default();
-        self.reads.record_read_document(
-            component_path,
-            table_name.clone(),
-            document.size(),
-            &self.usage_tracker,
-            &self.virtual_system_mapping,
-            &self.limits,
-        )
     }
 
     // Preload an index range against the transaction, building a snapshot of
@@ -1414,7 +1426,7 @@ impl FinalTransaction {
         let modified_tables: BTreeSet<_> = self
             .writes
             .coalesced_writes()
-            .map(|update| update.id.tablet_id)
+            .map(|update| update.id().tablet_id)
             .collect();
         Self::validate_memory_index_size(
             &self.table_mapping,

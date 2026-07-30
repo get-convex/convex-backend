@@ -24,6 +24,10 @@ import { useReferralState } from "api/referrals";
 import { ProjectDetails, TeamResponse } from "generatedApi";
 import { ReferralsBanner } from "components/referral/ReferralsBanner";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
+import {
+  useCursorPagination,
+  useSnapBackOnEmptyPage,
+} from "hooks/useCursorPagination";
 import { useHasCustomRolePermission } from "api/roles";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
@@ -280,12 +284,14 @@ function ProjectGrid({
   const { pageSize, setPageSize } = useProjectsPageSize();
 
   const debouncedQuery = debouncedProjectQuery;
-  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
-    undefined,
-  );
-  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
-    undefined,
-  ]);
+  const {
+    currentCursor,
+    currentPage: currentPageNumber,
+    canGoPrevious,
+    onNextPage,
+    onPreviousPage,
+    resetPagination,
+  } = useCursorPagination();
 
   // Fetch paginated projects with debounced query
   const paginatedData = usePaginatedProjects(
@@ -302,37 +308,24 @@ function ProjectGrid({
   const nextCursor = paginatedData?.pagination.nextCursor;
   const isLoading = paginatedData === undefined;
 
-  // Calculate current page range for display
-  const currentPageNumber = cursorHistory.length;
-
-  const handleNextPage = () => {
-    if (nextCursor) {
-      setCursorHistory((prev) => [...prev, nextCursor]);
-      setCurrentCursor(nextCursor);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (cursorHistory.length > 1) {
-      const newHistory = [...cursorHistory];
-      newHistory.pop();
-      setCursorHistory(newHistory);
-      setCurrentCursor(newHistory[newHistory.length - 1]);
-    }
-  };
+  useSnapBackOnEmptyPage(
+    { canGoPrevious, onPreviousPage },
+    {
+      isLoading: paginatedData?.isLoading ?? true,
+      currentPageItems: paginatedData?.items,
+    },
+  );
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     // Reset to first page when page size changes
-    setCurrentCursor(undefined);
-    setCursorHistory([undefined]);
+    resetPagination();
   };
 
   // Reset cursor when debounced search query changes
   useEffect(() => {
-    setCurrentCursor(undefined);
-    setCursorHistory([undefined]);
-  }, [debouncedQuery]);
+    resetPagination();
+  }, [debouncedQuery, resetPagination]);
 
   return (
     <div className="flex flex-col items-center">
@@ -408,9 +401,9 @@ function ProjectGrid({
             hasMore={hasMore}
             pageSize={pageSize}
             onPageSizeChange={handlePageSizeChange}
-            onPreviousPage={handlePrevPage}
-            onNextPage={handleNextPage}
-            canGoPrevious={cursorHistory.length > 1}
+            onPreviousPage={onPreviousPage}
+            onNextPage={() => onNextPage(nextCursor)}
+            canGoPrevious={canGoPrevious}
             pageSizeOptions={PROJECT_PAGE_SIZES}
           />
         </div>

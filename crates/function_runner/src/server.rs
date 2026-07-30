@@ -467,7 +467,6 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         deployment_name: String,
-        max_user_heap_size: usize,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         anyhow::ensure!(
             modules
@@ -477,13 +476,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         );
 
         self.isolate_client
-            .analyze(
-                udf_config,
-                modules,
-                environment_variables,
-                deployment_name,
-                max_user_heap_size,
-            )
+            .analyze(udf_config, modules, environment_variables, deployment_name)
             .await
     }
 

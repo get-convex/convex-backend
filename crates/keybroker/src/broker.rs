@@ -4,6 +4,7 @@ use std::{
         HashMap,
     },
     fmt,
+    sync::Arc,
     time::{
         Duration,
         SystemTime,
@@ -15,6 +16,7 @@ use biscuit::JWT;
 use chrono::DateTime;
 pub use common::types::SystemKey;
 use common::{
+    audit_log_lines::ConvexActorVar,
     components::ComponentId,
     identity::{
         IdentityCacheKey,
@@ -130,6 +132,7 @@ pub struct KeyBroker {
     admin_key_encryptor: RandomEncryptor,
     action_callback_encryptor: RandomEncryptor,
     cursor_encryptor: DeterministicEncryptor,
+    data_sync_encryptor: RandomEncryptor,
     journal_encryptor: RandomEncryptor,
     store_file_encryptor: RandomEncryptor,
 }
@@ -146,7 +149,7 @@ pub enum Identity {
     User(UserIdentity),
     // ActingUser keeps track of the ID of the admin acting as a user,
     // and that user's fake attributes
-    ActingUser(AdminIdentity, UserIdentityAttributes),
+    ActingUser(AdminIdentity, Arc<UserIdentityAttributes>),
     // Unknown(None) means no identity was provided.
     // Unknown(Some(error_message)) means an error occurred while parsing the identity.
     // We allow the request to go through, but keep the error to throw when code tries to
@@ -159,7 +162,7 @@ impl From<Identity> for AuthenticationToken {
         match i {
             Identity::User(identity) => AuthenticationToken::User(identity.original_token),
             Identity::ActingUser(identity, user) => {
-                AuthenticationToken::Admin(identity.key, Some(user))
+                AuthenticationToken::Admin(identity.key, Some(Arc::unwrap_or_clone(user)))
             },
             Identity::DeploymentAdmin(identity) => AuthenticationToken::Admin(identity.key, None),
             _ => AuthenticationToken::None,
@@ -182,7 +185,7 @@ impl TryFrom<Identity> for pb::convex_identity::UncheckedIdentity {
             Identity::ActingUser(admin_identity, attributes) => {
                 UncheckedIdentityProto::ActingUser(ActingUser {
                     admin_identity: Some(admin_identity.try_into()?),
-                    attributes: Some(attributes.into()),
+                    attributes: Some(Arc::unwrap_or_clone(attributes).into()),
                 })
             },
             Identity::Unknown(error_message) => UncheckedIdentityProto::Unknown(UnknownIdentity {
@@ -229,7 +232,10 @@ impl Identity {
                 )?;
                 let attributes =
                     attributes.ok_or_else(|| anyhow::anyhow!("Missing user attributes"))?;
-                Ok(Identity::ActingUser(admin_identity, attributes.try_into()?))
+                Ok(Identity::ActingUser(
+                    admin_identity,
+                    Arc::new(attributes.try_into()?),
+                ))
             },
             UncheckedIdentityProto::Unknown(UnknownIdentity { error_message }) => Ok(
                 Identity::Unknown(error_message.map(|e| e.try_into()).transpose()?),
@@ -271,13 +277,13 @@ impl From<Identity> for InertIdentity {
             Identity::DeploymentAdmin(i) => InertIdentity::DeploymentAdmin(i.deployment_name),
             Identity::System(_) => InertIdentity::System,
             Identity::Unknown(_) => InertIdentity::Unknown,
-            Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
+            Identity::User(user) => InertIdentity::User(user.attributes.token_identifier.clone()),
             Identity::ActingUser(identity, user) => match identity.principal {
                 AdminIdentityPrincipal::Member(member_id) => {
-                    InertIdentity::MemberActingUser(member_id, user.token_identifier)
+                    InertIdentity::MemberActingUser(member_id, user.token_identifier.clone())
                 },
                 AdminIdentityPrincipal::Team(team_id) => {
-                    InertIdentity::TeamActingUser(team_id, user.token_identifier)
+                    InertIdentity::TeamActingUser(team_id, user.token_identifier.clone())
                 },
             },
         }
@@ -351,6 +357,33 @@ impl Identity {
         matches!(self, Identity::ActingUser(..))
     }
 
+    pub fn convex_actor_var(&self) -> Option<ConvexActorVar> {
+        let admin_identity = match self {
+            Identity::DeploymentAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity
+            },
+            Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => return None,
+        };
+        // Mirror `model::deployment_audit_log::types::DeploymentAuditLogActor`: an
+        // identity backed by an access token is a `Token` (with the member that
+        // owns the token, if any), otherwise a member-authenticated identity is a
+        // `Member`.
+        let member_id = match admin_identity.principal {
+            AdminIdentityPrincipal::Member(member_id) => Some(member_id.0),
+            AdminIdentityPrincipal::Team(_) => None,
+        };
+        Some(match admin_identity.token_id {
+            Some(token_id) => ConvexActorVar::Token {
+                member_id,
+                token_id: token_id.0,
+                client_id: admin_identity.app_client_id.clone(),
+            },
+            None => ConvexActorVar::Member {
+                member_id: member_id?,
+            },
+        })
+    }
+
     pub fn is_user(&self) -> bool {
         matches!(self, Identity::User(..))
     }
@@ -419,7 +452,7 @@ pub struct UserIdentity {
     // Might be useful for developers to know which provider authenticated this user.
     pub issuer: String,
     pub expiration: SystemTime,
-    pub attributes: UserIdentityAttributes,
+    pub attributes: Arc<UserIdentityAttributes>,
     // The original token this user identity was created from. This may either by an
     // OIDC JWT or a custom JWT.
     pub original_token: String,
@@ -439,7 +472,7 @@ impl From<UserIdentity> for pb::convex_identity::UserIdentity {
             subject: Some(subject),
             issuer: Some(issuer),
             expiration: Some(expiration.into()),
-            attributes: Some(attributes.into()),
+            attributes: Some(Arc::unwrap_or_clone(attributes).into()),
             original_token: Some(original_token),
         }
     }
@@ -506,7 +539,8 @@ impl UserIdentity {
                 issuer: Some(issuer.clone()),
                 custom_claims,
                 ..Default::default()
-            },
+            }
+            .into(),
             original_token,
         })
     }
@@ -597,7 +631,8 @@ impl UserIdentity {
                     .map(|f| f.to_string()),
                 updated_at: claims.updated_at().map(|dt| dt.to_rfc3339()),
                 custom_claims,
-            },
+            }
+            .into(),
         })
     }
 
@@ -615,10 +650,11 @@ impl UserIdentity {
             .expiration
             .ok_or_else(|| anyhow::anyhow!("Missing expiration"))?
             .try_into()?;
-        let attributes = msg
-            .attributes
-            .ok_or_else(|| anyhow::anyhow!("Missing user identity attributes"))?
-            .try_into()?;
+        let attributes = Arc::new(
+            msg.attributes
+                .ok_or_else(|| anyhow::anyhow!("Missing user identity attributes"))?
+                .try_into()?,
+        );
         let original_token = msg
             .original_token
             .ok_or_else(|| anyhow::anyhow!("Missing original_token"))?
@@ -879,6 +915,10 @@ impl KeyBroker {
                 &deployment_secret,
                 Purpose::CURSOR,
             )?,
+            data_sync_encryptor: RandomEncryptor::derive_from_secret(
+                &deployment_secret,
+                Purpose::DATA_SYNC_CURSOR,
+            )?,
             journal_encryptor: RandomEncryptor::derive_from_secret(
                 &deployment_secret,
                 Purpose::QUERY_JOURNAL,
@@ -904,6 +944,11 @@ impl KeyBroker {
             DeploymentSecret::try_from(LOCAL_DEV_SECRET).unwrap(),
         )
         .unwrap()
+    }
+
+    /// Encryptor for data sync (streaming export) cursors.
+    pub fn data_sync_encryptor(&self) -> &RandomEncryptor {
+        &self.data_sync_encryptor
     }
 
     pub fn function_runner_keybroker(&self) -> FunctionRunnerKeyBroker {

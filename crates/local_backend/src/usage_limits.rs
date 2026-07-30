@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use application::{
-    app_metric_seed::SeedStatus,
-    usage_limits::UsageMeter,
+use ::usage_limits::{
+    SeedStatus,
+    UsageMeter,
 };
 use axum::{
     extract::FromRef,

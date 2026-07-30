@@ -144,6 +144,10 @@ use indexing::{
         IndexCacheHandle,
         IndexCacheHandleBuilder,
     },
+    index_reader::{
+        IndexEntry,
+        IndexReader,
+    },
     index_registry::IndexRegistry,
 };
 use itertools::Itertools;
@@ -546,6 +550,22 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
             1000,
+        )
+    }
+
+    /// A streaming-export iterator over this snapshot's persistence. Note the
+    /// iterator picks its own recent snapshot rather than reading at this
+    /// snapshot's timestamp. See [`DataSyncIterator`] and
+    /// [`Database::data_sync_iterator`].
+    pub fn data_sync_iterator(&self) -> anyhow::Result<DataSyncIterator<RT>> {
+        DataSyncIterator::new(
+            self.runtime.clone(),
+            self.persistence_reader.clone(),
+            self.retention_validator.clone(),
+            *DATA_SYNC_PAGE_SIZE_LIMIT,
+            *DATA_SYNC_PAGE_BYTES_LIMIT,
+            *DATA_SYNC_MAX_ROWS_READ,
+            *DATA_SYNC_BY_ID_FRESHNESS,
         )
     }
 
@@ -1298,7 +1318,7 @@ impl<RT: Runtime> Database<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<Arc<TableMapping>> {
         self.table_mapping_snapshot_cache
-            .get(*ts, self.clone().compute_snapshot_table_mapping(ts).boxed())
+            .get(&*ts, || self.clone().compute_snapshot_table_mapping(ts))
             .await
     }
 
@@ -1342,7 +1362,7 @@ impl<RT: Runtime> Database<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<Arc<BTreeMap<TabletId, IndexId>>> {
         self.by_id_indexes_snapshot_cache
-            .get(*ts, self.clone().compute_snapshot_by_id_indexes(ts).boxed())
+            .get(&*ts, || self.clone().compute_snapshot_by_id_indexes(ts))
             .await
     }
 
@@ -1375,10 +1395,7 @@ impl<RT: Runtime> Database<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<Arc<BTreeMap<ComponentId, ComponentPath>>> {
         self.component_paths_snapshot_cache
-            .get(
-                *ts,
-                self.clone().compute_snapshot_component_paths(ts).boxed(),
-            )
+            .get(&*ts, || self.clone().compute_snapshot_component_paths(ts))
             .await
     }
 
@@ -1621,6 +1638,11 @@ impl<RT: Runtime> Database<RT> {
         self.reader.version()
     }
 
+    /// Scan a page of the index, checking in-memory indexes and the index cache
+    /// first and falling back to the persistence reader.
+    ///
+    /// The read is not attached to any transaction. Reads inside of a
+    /// transaction should go through `DatabaseIndexSnapshot` instead.
     pub async fn index_page(
         &self,
         ts: RepeatableTimestamp,
@@ -1633,26 +1655,56 @@ impl<RT: Runtime> Database<RT> {
         Vec<(IndexKeyBytes, Timestamp, PackedDocument)>,
         CursorPosition,
     )> {
-        let snapshot = self.snapshot_manager.lock().snapshot(*ts)?;
-        let persistence_snapshot =
-            RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator())
-                .read_snapshot(ts)?;
-        let db_index_snapshot = DatabaseIndexSnapshot::new(
-            snapshot.index_registry,
-            Arc::new(snapshot.in_memory_indexes),
-            snapshot.table_registry.table_mapping().clone(),
-            Arc::new(persistence_snapshot),
-            self.index_cache_handle.clone(),
-            None,
-        );
-        let (results, cursor) = db_index_snapshot
-            .index_page(index_id, tablet_id, interval, order, max_size)
-            .await?;
-        let entries = results
-            .into_iter()
-            .map(|(key, ts, doc)| (key, ts, doc.pack()))
-            .collect();
-        Ok((entries, cursor))
+        let snapshot = {
+            let snapshot_manager = self.snapshot_manager.lock();
+            if *ts < snapshot_manager.earliest_ts() {
+                None
+            } else {
+                Some(snapshot_manager.snapshot(*ts)?)
+            }
+        };
+        // Try to serve from in-memory indexes.
+        if let Some(snapshot) = &snapshot
+            && let Some(range) = snapshot
+                .in_memory_indexes
+                .range(index_id, interval, order)?
+        {
+            let results = range
+                .into_iter()
+                .take(max_size)
+                .map(|(key, ts, doc)| (key, ts, doc.packed_document))
+                .collect::<Vec<_>>();
+            let cursor = if results.len() >= max_size {
+                CursorPosition::After(results.last().unwrap().0.clone())
+            } else {
+                CursorPosition::End
+            };
+            Ok((results, cursor))
+        } else {
+            let persistence_snapshot =
+                RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator())
+                    .read_snapshot(ts)?;
+            let mut reader = Arc::new(persistence_snapshot) as Arc<dyn IndexReader>;
+            if let Some(snapshot) = snapshot
+                && let Some(handle) = self.index_cache_handle.clone()
+            {
+                // TODO: it is probably OK to still use the index cache even if
+                // we don't have an index_registry at the same timestamp.
+                reader = Arc::new(handle.caching_index_reader(reader, snapshot.index_registry));
+            }
+            let index_page = reader
+                .index_page(index_id, tablet_id, interval, order, max_size)
+                .await?;
+            let results = index_page
+                .entries
+                .into_iter()
+                .map(|entry| {
+                    let IndexEntry { key, ts, value } = Arc::unwrap_or_clone(entry);
+                    (key, ts, value)
+                })
+                .collect();
+            Ok((results, index_page.cursor))
+        }
     }
 
     pub fn now_ts_for_reads(&self) -> RepeatableTimestamp {

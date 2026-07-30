@@ -3,6 +3,7 @@ import {
   loadSealedSessionFromRequest,
   deleteSessionCookie,
 } from "server/workos";
+import { safeReturnTo } from "lib/returnTo";
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,12 +13,7 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const returnTo =
-    typeof req.query.returnTo === "string" &&
-    req.query.returnTo.startsWith("/") &&
-    !req.query.returnTo.startsWith("//")
-      ? req.query.returnTo
-      : "/login";
+  const returnTo = safeReturnTo(req.query.returnTo, "/login");
 
   const sessionDeleted = req.query.sessionDeleted === "true";
 

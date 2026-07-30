@@ -180,6 +180,8 @@ function displayValidator(validator: ValidatorJSON): string {
       return `v.float64()`;
     case "bigint":
       return `v.int64()`;
+    case "commitTs":
+      return `v.commitTs()`;
     case "boolean":
       return `v.boolean()`;
     case "string":

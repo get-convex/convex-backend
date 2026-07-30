@@ -52,6 +52,7 @@ cmd_util = { path = "crates/cmd_util" }
 colored = "3"
 common = { path = "crates/common" }
 compact_str = { version = "0.9.0", features = [ "serde" ] }
+const-hex = "1"
 const-oid = "0.9.6"
 const_format = { version = "0.2.34", features = [ "fmt" ] }
 convex = { path = "crates/convex" }
@@ -98,7 +99,6 @@ hashlink = "0.11"
 hdrhistogram = "7.5.4"
 headers = "0.4"
 health_check = { path = "crates/health_check" }
-hex = "0.4"
 home = "0.5"
 http = "1.0.0"
 http-body-util = "0.1.2"
@@ -115,7 +115,7 @@ indexmap = "2"
 interval_map = { path = "crates/interval_map" }
 isolate = { path = "crates/isolate" }
 itertools = "0.14"
-jemalloc_pprof = "0.8"
+jemalloc_pprof = "0.9"
 json_trait = { path = "crates/json_trait" }
 jsonschema = "0.33"
 keybroker = { path = "crates/keybroker" }
@@ -224,10 +224,10 @@ text_search = { path = "crates/text_search" }
 textplots = "0.8"
 thiserror = "2"
 thousands = "0.2.0"
-tikv-jemalloc-sys = { version = "0.6", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
-tikv-jemallocator = { version = "0.6", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
+tikv-jemalloc-sys = { version = "0.7", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
+tikv-jemallocator = { version = "0.7", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
 tld = "2.36.0"
-tokio = { version = "1.47.1", features = [ "full" ] }
+tokio = { version = "1.53.1", features = [ "full" ] }
 tokio-metrics = { version = "0.4.0" }
 tokio-metrics-collector = { version = "0.3.1" }
 tokio-postgres = { version = "0.7.13", features = [ "with-serde_json-1" ] }
@@ -255,8 +255,9 @@ udf_metrics = { path = "crates/udf_metrics" }
 url = "2.5.4"
 urlencoding = "2.1.3"
 usage_gauges_tracking_worker = { path = "crates/usage_gauges_tracking_worker" }
+usage_limits = { path = "crates/usage_limits" }
 usage_tracking = { path = "crates/usage_tracking" }
-utoipa = { version = "5.3", features = [ "axum_extras", "preserve_path_order", "openapi_extensions" ] }
+utoipa = { version = "5.5", features = [ "axum_extras", "preserve_order", "preserve_path_order", "openapi_extensions" ] }
 utoipa-axum = { version = "0.2" }
 uuid = { version = "1.6", features = [ "fast-rng", "serde", "v4" ] }
 value = { path = "crates/value" }
@@ -282,6 +283,7 @@ postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev =
 tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
 moka = { git = "https://github.com/get-convex/moka", rev = "abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04" }
 validator_derive = { git = "https://github.com/Keats/validator", rev = "598ad83024529a2ff57da44d398533e3d4528490" }
+tikv-jemalloc-sys = { git = "https://github.com/get-convex/jemallocator", rev = "d6f82852479c9962239a634688e60a3d1e873ffb" }
 shuttle = { git = "https://github.com/awslabs/shuttle" }
 shuttle-parking_lot = { git = "https://github.com/awslabs/shuttle" }
 

@@ -8,6 +8,7 @@ import {
   VBytes,
   VFloat64,
   VId,
+  VCommitTs,
   VInt64,
   VLiteral,
   VNull,
@@ -204,6 +205,18 @@ export const v = {
    */
   int64: () => {
     return new VInt64({ isOptional: "required" });
+  },
+
+  /**
+   * Validates that the value is a commit timestamp: an int64 (`bigint`)
+   * assigned from the transaction's commit timestamp.
+   *
+   * An index on a field with this validator orders documents by commit order.
+   * Accepts any int64 value; write `db.vars.commitTs` to have the field
+   * resolve to the commit timestamp when the mutation commits.
+   */
+  commitTs: () => {
+    return new VCommitTs({ isOptional: "required" });
   },
 
   /**

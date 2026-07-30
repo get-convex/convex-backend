@@ -33,6 +33,7 @@ use common::{
         PaginationMetadata,
     },
     json_schemas,
+    runtime::try_join,
     schemas::{
         validator::{
             AddTopLevelFields,
@@ -46,27 +47,30 @@ use common::{
         streaming_export::{
             selection::Selection,
             ActiveDataSync,
-            ActiveDataSyncInProgress,
+            ActiveDataSyncSnapshotting,
+            ActiveDataSyncStale,
             ActiveDataSyncStatus,
-            ActiveDataSyncSynced,
+            ActiveDataSyncUpToDate,
             DataSyncArgs,
-            DataSyncInProgress,
             DataSyncResponse,
+            DataSyncSnapshotting,
+            DataSyncStale,
             DataSyncStatus,
-            DataSyncSynced,
             DataSyncTruncate,
+            DataSyncUpToDate,
             DataSyncValue,
             DocumentDeltasArgs,
             DocumentDeltasResponse,
             DocumentDeltasValue,
             GetTableColumnNameTable,
             GetTableColumnNamesResponse,
-            InProgressTag,
             ListActiveSyncsResponse,
             ListSnapshotArgs,
             ListSnapshotResponse,
             ListSnapshotValue,
-            SyncedTag,
+            SnapshottingTag,
+            StaleTag,
+            UpToDateTag,
         },
         RepeatableTimestamp,
         Timestamp,
@@ -252,50 +256,23 @@ pub async fn _document_deltas(
 
 /// Data sync
 ///
-/// **Early access:** this API is not yet stable and may change in
-/// backwards-incompatible ways without notice. Contact the Convex team before
-/// depending on it.
+/// Paginated streamable export of some or all of a deployment's data.
 ///
-/// Streams a consistent, resumable export of a deployment's data — either the
-/// whole deployment or a subset of components, tables, and columns (see the
-/// request body). Streaming export must be enabled on the deployment, and the
-/// caller must have the `deployment:data:view` permission.
+/// Call this endpoint repeatedly, passing the opaque `pagination.nextCursor`
+/// from each response back in the next request as `cursor`. Omit `cursor` on
+/// the first call.
 ///
-/// Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
-/// response back in the next request as `cursor`; omit `cursor` on the first
-/// call. The cursor is opaque — store and send it back verbatim. Each response
-/// contains:
+/// To do a one time data sync, keep fetching pages until reaching an `upToDate`
+/// page. For a continuous streaming export, continue fetching pages
+/// periodically. It's recommended to sleep between `upToDate` pages to reduce
+/// overhead.
 ///
-/// - `values`: document revisions in the order they should be applied. Each
-///   entry carries the document's fields under `value`; an entry with `deleted:
-///   true` is a tombstone marking that document as deleted.
-/// - `truncates`: tables whose contents were replaced wholesale (for example by
-///   an `npx convex import`). Drop everything you have stored for each listed
-///   table; the `values` in this and later responses re-populate it.
-/// - `status`: `inProgress` while the export is still being assembled — the
-///   data returned so far is not yet a consistent view, so keep calling. Once
-///   it becomes `synced`, the values applied so far form a consistent snapshot
-///   of the deployment as of the returned `syncedTs` timestamp. You can keep
-///   calling to continue streaming later changes.
-/// - `pagination`: `nextCursor` to pass back on the next call (always present,
-///   since the sync is always resumable) and `hasMore`, which tells you whether
-///   more data is already available (`true`) or you've caught up to the latest
-///   commit (`false`).
-///
-/// Persist the results and cursor to each page atomically. Continue calling the
-/// endpoint with the cursor to progress the data sync. This endpoint must be
-/// called at least once every 3 days, or the sync will expire and can no longer
-/// be resumed. When that happens the endpoint responds with a `400`
-/// (`DataSyncCursorExpired`), and you must restart the sync from scratch by
-/// calling again with no cursor.
-///
-/// Each sync's progress is periodically recorded while the sync is in
-/// progress and can be monitored via `/data/list_active_syncs`, keyed by the
-/// `syncId` returned in every response.
+/// The caller must have the `deployment:data:view` permission.
 #[utoipa::path(
     post,
     path = "/data/sync",
     tag = "Data Sync",
+    tags = ["beta"],
     request_body = DataSyncArgs,
     responses((status = 200, body = DataSyncResponse)),
     security(
@@ -306,7 +283,7 @@ pub async fn _document_deltas(
     ),
 )]
 #[fastrace::trace]
-pub async fn data_sync_post(
+pub async fn data_sync(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -334,22 +311,15 @@ pub struct ListActiveSyncsArgs {
 
 /// List active data syncs
 ///
-/// **Early access:** this API is not yet stable and may change in
-/// backwards-incompatible ways without notice. Contact the Convex team before
-/// depending on it.
+/// Returns the progress of active data sync (/v1/data/sync).
 ///
-/// Returns the progress of every active data sync: one that fetched a page
-/// from `/data/sync` within the past 3 days, whether it is still performing
-/// its initial traversal or is already synced and streaming changes. Progress
-/// is recorded periodically, so an in-flight sync's numbers may trail its
-/// most recent page.
-///
-/// Results are paginated, most recently updated first. Pass the returned
-/// `nextCursor` back as `cursor` to fetch the next page.
+/// A data sync is considered active for 3 days after the most recent API call.
+/// from `/data/sync` within the past 3 days.
 #[utoipa::path(
     get,
     path = "/data/list_active_syncs",
     tag = "Data Sync",
+    tags = ["beta"],
     params(ListActiveSyncsArgs),
     responses((status = 200, body = ListActiveSyncsResponse)),
     security(
@@ -360,7 +330,7 @@ pub struct ListActiveSyncsArgs {
     ),
 )]
 #[fastrace::trace]
-pub async fn list_active_syncs_get(
+pub async fn list_active_syncs(
     MtState(st): MtState<LocalAppState>,
     Query(args): Query<ListActiveSyncsArgs>,
     ExtractIdentity(identity): ExtractIdentity,
@@ -382,7 +352,7 @@ pub async fn list_active_syncs_get(
                 sync_id: progress.sync_id,
                 last_updated: progress.last_updated_ms as i64,
                 status: match progress.state {
-                    DataSyncState::InitialSync {
+                    DataSyncState::Snapshotting {
                         num_tables_synced,
                         total_tables,
                         current_component,
@@ -391,8 +361,8 @@ pub async fn list_active_syncs_get(
                         total_documents_in_current_table,
                         num_documents_synced,
                         total_documents,
-                    } => ActiveDataSyncStatus::InProgress(ActiveDataSyncInProgress {
-                        status_type: InProgressTag::InProgress,
+                    } => ActiveDataSyncStatus::Snapshotting(ActiveDataSyncSnapshotting {
+                        status_type: SnapshottingTag::Snapshotting,
                         num_tables_synced,
                         total_tables,
                         current_component: String::from(current_component),
@@ -402,12 +372,22 @@ pub async fn list_active_syncs_get(
                         num_documents_synced,
                         total_documents,
                     }),
-                    DataSyncState::Synced {
+                    DataSyncState::Stale {
                         total_tables,
                         num_documents_synced,
                         synced_ts,
-                    } => ActiveDataSyncStatus::Synced(ActiveDataSyncSynced {
-                        status_type: SyncedTag::Synced,
+                    } => ActiveDataSyncStatus::Stale(ActiveDataSyncStale {
+                        status_type: StaleTag::Stale,
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    }),
+                    DataSyncState::UpToDate {
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    } => ActiveDataSyncStatus::UpToDate(ActiveDataSyncUpToDate {
+                        status_type: UpToDateTag::UpToDate,
                         total_tables,
                         num_documents_synced,
                         synced_ts,
@@ -433,8 +413,8 @@ where
     S: Clone + Send + Sync + 'static,
 {
     utoipa_axum::router::OpenApiRouter::new()
-        .routes(utoipa_axum::routes!(data_sync_post))
-        .routes(utoipa_axum::routes!(list_active_syncs_get))
+        .routes(utoipa_axum::routes!(data_sync))
+        .routes(utoipa_axum::routes!(list_active_syncs))
 }
 
 async fn _data_sync(
@@ -449,21 +429,22 @@ async fn _data_sync(
         .await?;
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
+    let data_sync_encryptor = st.application.key_broker().data_sync_encryptor();
     let cursor = cursor
         .map(|cursor| -> anyhow::Result<SyncCursor> {
-            let bytes = base64::decode(&cursor).context(ErrorMetadata::bad_request(
-                "InvalidDataSyncCursor",
-                "Could not base64-decode the data sync cursor",
-            ))?;
-            SyncCursor::from_bytes(&bytes).context(ErrorMetadata::bad_request(
+            SyncCursor::decrypt(data_sync_encryptor, &cursor).context(ErrorMetadata::bad_request(
                 "InvalidDataSyncCursor",
                 "Could not parse the data sync cursor",
             ))
         })
         .transpose()?;
 
-    let selection = Selection::from(selection);
-    let selection = StreamingExportSelection::try_from(selection)?;
+    // Selection errors (invalid table/column names, excluding `_id`) are the
+    // caller's fault: surface them as 400s rather than internal errors.
+    let selection = StreamingExportSelection::try_from(selection).map_err(|e| {
+        let msg = format!("Invalid selection: {e:#}");
+        e.context(ErrorMetadata::bad_request("InvalidDataSyncSelection", msg))
+    })?;
 
     // The data sync API always uses the uniform, lossless `ConvexExportJSON`
     // encoding (the same format as snapshot/zip exports). Callers don't get to
@@ -539,23 +520,22 @@ async fn _data_sync(
         })
         .try_collect()?;
 
-    let (status, has_more) = match status {
-        SyncStatus::Synced { ts, has_more } => (
-            DataSyncStatus::Synced(DataSyncSynced {
-                status_type: SyncedTag::Synced,
-                synced_ts: i64::from(ts),
-            }),
-            has_more,
-        ),
+    let status = match status {
+        // A consistent snapshot with newer data already available to fetch.
+        SyncStatus::Stale { ts } => DataSyncStatus::Stale(DataSyncStale {
+            status_type: StaleTag::Stale,
+            snapshot_ts: i64::from(ts),
+        }),
+        // A consistent snapshot that has caught up to the latest data.
+        SyncStatus::UpToDate { ts } => DataSyncStatus::UpToDate(DataSyncUpToDate {
+            status_type: UpToDateTag::UpToDate,
+            snapshot_ts: i64::from(ts),
+        }),
         // Progress details are not part of this response; callers monitor
-        // them via `/data/list_active_syncs`, keyed by `sync_id`. The snapshot
-        // isn't consistent yet, so there is always more to fetch.
-        SyncStatus::InProgress { .. } => (
-            DataSyncStatus::InProgress(DataSyncInProgress {
-                status_type: InProgressTag::InProgress,
-            }),
-            true,
-        ),
+        // them via `/data/list_active_syncs`, keyed by `sync_id`.
+        SyncStatus::Snapshotting { .. } => DataSyncStatus::Snapshotting(DataSyncSnapshotting {
+            status_type: SnapshottingTag::Snapshotting,
+        }),
     };
 
     let response = DataSyncResponse {
@@ -564,10 +544,16 @@ async fn _data_sync(
         sync_id: new_cursor.sync_id().to_string(),
         status,
         pagination: PaginationMetadata {
-            has_more,
-            // The cursor is always resumable, so a data sync never signals the
-            // end with a null cursor the way a finite listing does.
-            next_cursor: Some(base64::encode(new_cursor.to_bytes()?)),
+            // A data sync is a stream with no end: another page can always be
+            // fetched with the returned cursor, even once caught up to the
+            // latest data. Callers use `status` to decide whether to poll again
+            // immediately or periodically. The cursor is always resumable, so a
+            // data sync never signals the end with a null cursor the way a
+            // finite listing does.
+            has_more: true,
+            next_cursor: Some(
+                new_cursor.encrypt(st.application.key_broker().data_sync_encryptor())?,
+            ),
         },
     };
     let response_bytes = serde_json::to_vec(&response).context("Failed to serialize response")?;
@@ -756,56 +742,65 @@ pub async fn get_table_column_names(
     let ts = st.application.now_ts_for_reads();
     let snapshot = st.application.snapshot(ts)?;
     let table_shapes = st.application.table_shapes_at(ts).await?;
-    let mapping = snapshot.table_mapping();
-    let component_paths = snapshot.component_ids_to_paths();
 
-    let by_component: BTreeMap<ComponentPath, Vec<GetTableColumnNameTable>> = snapshot
-        .table_registry
-        .user_table_names()
-        .flat_map(
-            |row| -> Option<anyhow::Result<(&ComponentPath, GetTableColumnNameTable)>> {
-                let (namespace, table_name) = row;
+    // This can block the CPU for a long time so as a stopgap, spawn
+    // it onto its own task
 
-                let Some(component_path) = component_paths.get(&ComponentId::from(namespace))
-                else {
-                    // table_registry.user_table_names includes tables from orphaned namespaces:
-                    // it is safe to ignore tables in components that are not present in
-                    // component_paths
-                    return None;
-                };
+    let by_component: BTreeMap<ComponentPath, Vec<GetTableColumnNameTable>> =
+        try_join("get_table_column_names", async move {
+            let mapping = snapshot.table_mapping();
+            let component_paths = snapshot.component_ids_to_paths();
+            snapshot
+                .table_registry
+                .user_table_names()
+                .flat_map(
+                    |row| -> Option<anyhow::Result<(&ComponentPath, GetTableColumnNameTable)>> {
+                        let (namespace, table_name) = row;
 
-                let shape = match reduced_table_shape(
-                    &table_shapes,
-                    ts,
-                    &mapping.namespace(namespace),
-                    table_name,
-                ) {
-                    Ok(shape) => shape,
-                    Err(err) => return Some(Err(err)),
-                };
-                let columns = get_columns_for_table(shape);
+                        let Some(component_path) =
+                            component_paths.get(&ComponentId::from(namespace))
+                        else {
+                            // table_registry.user_table_names includes tables from orphaned
+                            // namespaces: it is safe to ignore tables
+                            // in components that are not present in
+                            // component_paths
+                            return None;
+                        };
 
-                Some(Ok((
-                    component_path,
-                    GetTableColumnNameTable {
-                        name: table_name.to_string(),
-                        columns,
+                        let shape = match reduced_table_shape(
+                            &table_shapes,
+                            ts,
+                            &mapping.namespace(namespace),
+                            table_name,
+                        ) {
+                            Ok(shape) => shape,
+                            Err(err) => return Some(Err(err)),
+                        };
+                        let columns = get_columns_for_table(shape);
+
+                        Some(Ok((
+                            component_path,
+                            GetTableColumnNameTable {
+                                name: table_name.to_string(),
+                                columns,
+                            },
+                        )))
                     },
-                )))
-            },
-        )
-        .try_fold(
-            BTreeMap::<ComponentPath, Vec<GetTableColumnNameTable>>::new(),
-            |mut acc, row| -> anyhow::Result<_> {
-                let (component_path, table) = row?;
-                if let Some(vec) = acc.get_mut(component_path) {
-                    vec.push(table);
-                } else {
-                    acc.insert(component_path.clone(), vec![table]);
-                }
-                Ok(acc)
-            },
-        )?;
+                )
+                .try_fold(
+                    BTreeMap::<ComponentPath, Vec<GetTableColumnNameTable>>::new(),
+                    |mut acc, row| -> anyhow::Result<_> {
+                        let (component_path, table) = row?;
+                        if let Some(vec) = acc.get_mut(component_path) {
+                            vec.push(table);
+                        } else {
+                            acc.insert(component_path.clone(), vec![table]);
+                        }
+                        Ok(acc)
+                    },
+                )
+        })
+        .await?;
 
     Ok(Json(GetTableColumnNamesResponse {
         by_component: by_component

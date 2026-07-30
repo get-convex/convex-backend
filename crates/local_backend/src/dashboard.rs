@@ -21,6 +21,7 @@ use common::{
         ExtractRequestMetadata,
         HttpResponseError,
     },
+    runtime::try_join,
     shapes::{
         dashboard_shape_json,
         reduced::ReducedShape,
@@ -98,34 +99,40 @@ pub async fn shapes2(
     ExtractIdentity(identity): ExtractIdentity,
     Query(ShapesArgs { component }): Query<ShapesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let mut out = serde_json::Map::new();
-
     identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let snapshot = st.application.latest_snapshot()?;
     let table_shapes = st.application.table_shapes();
     let mapping = snapshot.table_mapping().namespace(component.into());
 
-    for (namespace, table_name) in snapshot.table_registry.user_table_names() {
-        if TableNamespace::from(component) != namespace {
-            continue;
-        }
-        let table_shape = table_shapes
-            .as_ref()
-            .and_then(|shapes| shapes.table_shape(&mapping, table_name));
+    // This can block the CPU for a long time so as a stopgap, spawn
+    // it onto its own task
+    let out = try_join("shapes2", async move {
+        let mut out = serde_json::Map::new();
+        for (namespace, table_name) in snapshot.table_registry.user_table_names() {
+            if TableNamespace::from(component) != namespace {
+                continue;
+            }
+            let table_shape = table_shapes
+                .as_ref()
+                .and_then(|shapes| shapes.table_shape(&mapping, table_name));
 
-        let shape = match table_shape {
-            Some(table_shape) => {
-                ReducedShape::from_type(table_shape.inferred_type(), &mapping.table_number_exists())
-            },
-            // Table shapes haven't been published yet, or the table was
-            // created after the last shape checkpoint; use `Unknown` in the
-            // meantime.
-            None => ReducedShape::Unknown,
-        };
-        let json = dashboard_shape_json(&shape, &mapping, virtual_system_mapping())?;
-        out.insert(String::from(table_name.clone()), json);
-    }
+            let shape = match table_shape {
+                Some(table_shape) => ReducedShape::from_type(
+                    table_shape.inferred_type(),
+                    &mapping.table_number_exists(),
+                ),
+                // Table shapes haven't been published yet, or the table was
+                // created after the last shape checkpoint; use `Unknown` in the
+                // meantime.
+                None => ReducedShape::Unknown,
+            };
+            let json = dashboard_shape_json(&shape, &mapping, virtual_system_mapping())?;
+            out.insert(String::from(table_name.clone()), json);
+        }
+        Ok(out)
+    })
+    .await?;
     Ok(Json(out))
 }
 

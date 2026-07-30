@@ -11,6 +11,7 @@ import { DateTimePicker } from "@common/features/data/components/FilterEditor/Da
 import { cn } from "@ui/cn";
 import { Tooltip } from "@ui/Tooltip";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { useIsMobileDevice } from "@ui/useIsMobileDevice";
 import { ObjectEditorWithPlaceholder } from "./ObjectEditorWithPlaceholder";
 
 // Options for the filter type combobox
@@ -57,6 +58,8 @@ export function DatabaseIndexFilterEditor({
   const [prevIsLastEnabledFilter, setPrevIsLastEnabledFilter] = useState<
     boolean | null
   >(null);
+
+  const isMobile = useIsMobileDevice();
 
   // Check if all previous filters are enabled
   const canBeEnabled = previousFiltersEnabled.every((enabled) => enabled);
@@ -453,7 +456,10 @@ export function DatabaseIndexFilterEditor({
       onChange={onChangeHandler}
       aria-label="Creation time"
       disabled={!filter.enabled}
-      className={cn("align-top", className)}
+      className={cn(
+        "w-full bg-background-secondary align-top focus:border-border-selected",
+        className,
+      )}
     />
   );
 
@@ -462,12 +468,14 @@ export function DatabaseIndexFilterEditor({
     // Regular filter (equals)
     if (filter.type === "indexEq") {
       return (
-        <div className="-ml-px min-w-0 flex-1">
+        <div className={cn("min-w-0", isMobile ? "w-full" : "-ml-px flex-1")}>
           {isCreationTimeField ? (
             renderDateTimePicker(
               filter.value,
               handleDateChange,
-              "text-xs border p-1 rounded-r",
+              isMobile
+                ? "w-full rounded border px-2 py-1 text-xs"
+                : "text-xs border px-2 py-1 rounded-r",
             )
           ) : (
             <ObjectEditorWithPlaceholder
@@ -476,6 +484,7 @@ export function DatabaseIndexFilterEditor({
               path={`indexFilter${idx}-${field}-${filter.type}`}
               autoFocus={autoFocusValueEditor}
               className="rounded-l-none rounded-r"
+              isMobile={isMobile}
               enabled={filter.enabled}
               onApplyFilters={onApplyFilters}
               handleError={handleError}
@@ -507,12 +516,14 @@ export function DatabaseIndexFilterEditor({
           : handleLowerValueChange;
 
       return (
-        <div className="-ml-px flex-1">
+        <div className={cn("min-w-0", isMobile ? "w-full" : "-ml-px flex-1")}>
           {isCreationTimeField ? (
             renderDateTimePicker(
               value,
               handleDateChange,
-              "text-xs border p-1 rounded-r",
+              isMobile
+                ? "w-full rounded border px-2 py-1 text-xs"
+                : "text-xs border px-2 py-1 rounded-r",
             )
           ) : (
             <ObjectEditorWithPlaceholder
@@ -521,6 +532,7 @@ export function DatabaseIndexFilterEditor({
               path={`indexFilter${idx}-${field}-${filter.type}`}
               autoFocus={autoFocusValueEditor}
               className="rounded-l-none rounded-r"
+              isMobile={isMobile}
               enabled={filter.enabled}
               onApplyFilters={onApplyFilters}
               handleError={handleError}
@@ -535,14 +547,21 @@ export function DatabaseIndexFilterEditor({
     // Between range filter
     if (isRangeFilter && currentOperator === "between") {
       return (
-        <div className="-ml-px flex w-full min-w-0 flex-1 grow flex-col items-center">
+        <div
+          className={cn(
+            "flex w-full min-w-0 flex-col items-center",
+            isMobile ? "gap-2" : "-ml-px flex-1 grow",
+          )}
+        >
           {/* Lower bound value */}
           <div className="w-full flex-1">
             {isCreationTimeField ? (
               renderDateTimePicker(
                 filter.lowerValue,
                 handleLowerDateChange,
-                "text-xs border p-1 rounded-tr",
+                isMobile
+                  ? "w-full rounded border px-2 py-1 text-xs"
+                  : "text-xs border px-2 py-1 rounded-tr",
               )
             ) : (
               <ObjectEditorWithPlaceholder
@@ -551,6 +570,7 @@ export function DatabaseIndexFilterEditor({
                 path={`indexFilterLower${idx}-${field}-${filter.type}`}
                 autoFocus={autoFocusValueEditor}
                 className="rounded-l-none rounded-tr rounded-br-none"
+                isMobile={isMobile}
                 enabled={filter.enabled}
                 onApplyFilters={onApplyFilters}
                 handleError={handleError}
@@ -566,7 +586,9 @@ export function DatabaseIndexFilterEditor({
               renderDateTimePicker(
                 filter.upperValue,
                 handleUpperDateChange,
-                "rounded-br text-xs border border-t-0 p-1",
+                isMobile
+                  ? "w-full rounded border px-2 py-1 text-xs"
+                  : "rounded-br text-xs border border-t-0 px-2 py-1",
               )
             ) : (
               <ObjectEditorWithPlaceholder
@@ -574,6 +596,7 @@ export function DatabaseIndexFilterEditor({
                 onChangeHandler={handleUpperValueChange}
                 path={`indexFilterUpper${idx}-${field}-${filter.type}`}
                 className="rounded-l-none rounded-tr-none rounded-br border-t-0"
+                isMobile={isMobile}
                 enabled={filter.enabled}
                 onApplyFilters={onApplyFilters}
                 handleError={handleError}
@@ -589,102 +612,127 @@ export function DatabaseIndexFilterEditor({
     return null;
   };
 
+  const checkbox = (
+    <div className="flex items-center pr-2">
+      <Tooltip
+        tip={
+          filter.enabled && !canBeDisabled
+            ? "Cannot disable this index filter because subsequent filters are enabled."
+            : !filter.enabled && !canBeEnabled
+              ? "Cannot enable this index filter because previous filters are disabled."
+              : undefined
+        }
+        side="right"
+      >
+        <Checkbox
+          checked={filter.enabled}
+          onChange={handleEnabledChange}
+          disabled={!canBeEnabled || (filter.enabled && !canBeDisabled)}
+          aria-label={`Enable filter ${idx}`}
+        />
+      </Tooltip>
+    </div>
+  );
+
+  const fieldPill = (
+    <Tooltip
+      asChild
+      tip={
+        filter.enabled
+          ? "You cannot edit this field because it is a part of the definition of the selected index."
+          : undefined
+      }
+    >
+      <div
+        className={cn(
+          "flex max-w-48 min-w-4 cursor-not-allowed items-center self-stretch truncate border bg-background-secondary px-2 py-1 text-xs",
+          isMobile ? "rounded-sm" : "rounded-l",
+          filter.enabled
+            ? "bg-background-secondary"
+            : "bg-background-tertiary text-content-secondary",
+        )}
+      >
+        {field}
+      </div>
+    </Tooltip>
+  );
+
+  const operator = isLastEnabledFilter ? (
+    <Combobox
+      label="Select filter type"
+      size="sm"
+      optionsWidth="fixed"
+      buttonClasses="w-fit h-full"
+      innerButtonClasses={cn(
+        "h-full min-w-fit",
+        !isMobile && "-ml-px rounded-l-none rounded-r-none border-l",
+      )}
+      options={filterTypeOptions}
+      selectedOption={currentOperator}
+      setSelectedOption={handleFilterTypeChange}
+      disabled={!filter.enabled}
+    />
+  ) : (
+    <Tooltip
+      tip={
+        filter.enabled &&
+        "In an index filter, you can only change the operator of the last enabled filter."
+      }
+    >
+      <div
+        className={cn(
+          "flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
+          isMobile ? "rounded-sm" : "-ml-px",
+          filter.enabled
+            ? "bg-background-secondary"
+            : "bg-background-tertiary text-content-secondary",
+        )}
+      >
+        {currentOperator === "between"
+          ? "is between"
+          : currentOperator === "lt"
+            ? "<"
+            : currentOperator === "lte"
+              ? "<="
+              : currentOperator === "gt"
+                ? ">"
+                : currentOperator === "gte"
+                  ? ">="
+                  : "equals"}
+      </div>
+    </Tooltip>
+  );
+
+  const errorIcon = error && (
+    <Tooltip tip={error}>
+      <div className="ml-1 rounded-sm border bg-background-error p-1">
+        <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
+      </div>
+    </Tooltip>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center gap-1">
+          {checkbox}
+          {fieldPill}
+          {operator}
+          {errorIcon}
+        </div>
+        {renderValueEditor()}
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div className="flex min-w-0 grow">
-        {/* Checkbox for enabled state */}
-        <div className="flex items-center pr-2">
-          <Tooltip
-            tip={
-              filter.enabled && !canBeDisabled
-                ? "Cannot disable this index filter because subsequent filters are enabled."
-                : !filter.enabled && !canBeEnabled
-                  ? "Cannot enable this index filter because previous filters are disabled."
-                  : undefined
-            }
-            side="right"
-          >
-            <Checkbox
-              checked={filter.enabled}
-              onChange={handleEnabledChange}
-              disabled={!canBeEnabled || (filter.enabled && !canBeDisabled)}
-              aria-label={`Enable filter ${idx}`}
-            />
-          </Tooltip>
-        </div>
-
-        {/* Field name display */}
-        <Tooltip
-          tip={
-            filter.enabled
-              ? "You cannot edit this field because it is a part of the definition of the selected index."
-              : undefined
-          }
-        >
-          <div
-            className={cn(
-              "flex h-full max-w-48 min-w-4 cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
-              filter.enabled
-                ? "bg-background-secondary"
-                : "bg-background-tertiary text-content-secondary",
-            )}
-          >
-            {field}
-          </div>
-        </Tooltip>
-
-        {/* Filter type selector only for the last enabled filter */}
-        {isLastEnabledFilter ? (
-          <Combobox
-            label="Select filter type"
-            size="sm"
-            optionsWidth="fixed"
-            buttonClasses="w-fit h-full"
-            innerButtonClasses="min-w-fit h-full rounded-r-none rounded-l-none ml-[-1px] border-l"
-            options={filterTypeOptions}
-            selectedOption={currentOperator}
-            setSelectedOption={handleFilterTypeChange}
-            disabled={!filter.enabled}
-          />
-        ) : (
-          <Tooltip
-            tip={
-              filter.enabled &&
-              "In an index filter, you can only change the operator of the last enabled filter."
-            }
-          >
-            <div
-              className={cn(
-                "-ml-px flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
-                filter.enabled
-                  ? "bg-background-secondary"
-                  : "bg-background-tertiary text-content-secondary",
-              )}
-            >
-              {currentOperator === "between"
-                ? "is between"
-                : currentOperator === "lt"
-                  ? "<"
-                  : currentOperator === "lte"
-                    ? "<="
-                    : currentOperator === "gt"
-                      ? ">"
-                      : currentOperator === "gte"
-                        ? ">="
-                        : "equals"}
-            </div>
-          </Tooltip>
-        )}
-
-        {/* Render the appropriate value editor */}
+        {checkbox}
+        {fieldPill}
+        {operator}
         {renderValueEditor()}
-        {error && (
-          <Tooltip tip={error}>
-            <div className="ml-1 rounded-sm border bg-background-error p-1">
-              <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
-            </div>
-          </Tooltip>
-        )}
+        {errorIcon}
       </div>
     </div>
   );

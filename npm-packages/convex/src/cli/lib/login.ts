@@ -326,46 +326,44 @@ export async function performLogin(
   }
 
   const issuer = overrideAuthUrl ?? "https://auth.convex.dev";
-  let authIssuer;
+  const clientId = overrideAuthClient ?? "HFtA247jp9iNs08NTLIB7JsNPMmRIyfi";
   let accessToken: string;
 
-  if (loginFlow === "paste" || (loginFlow === "auto" && isWebContainer())) {
+  if (overrideAccessToken) {
+    // Access token was supplied directly.
+    accessToken = overrideAccessToken;
+  } else if (overrideAuthUsername && overrideAuthPassword) {
+    // Username/Password auth
+    accessToken = await performPasswordAuthentication(
+      ctx,
+      clientId,
+      overrideAuthUsername,
+      overrideAuthPassword,
+    );
+  } else if (
+    loginFlow === "paste" ||
+    (loginFlow === "auto" && isWebContainer())
+  ) {
     accessToken = await promptString(ctx, {
       message:
         "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
     });
   } else {
+    // Device authorization flow. Contact OIDC issuer.
+    let authIssuer;
     try {
       authIssuer = await Issuer.discover(issuer);
     } catch {
       // Couldn't contact https://auth.convex.dev/.well-known/openid-configuration,
       // proceed with manual auth.
-      accessToken = await promptString(ctx, {
-        message:
-          "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
-      });
+      authIssuer = undefined;
     }
-  }
-
-  // typical path
-  if (authIssuer) {
-    const clientId = overrideAuthClient ?? "HFtA247jp9iNs08NTLIB7JsNPMmRIyfi";
-    const authClient = new authIssuer.Client({
-      client_id: clientId,
-      token_endpoint_auth_method: "none",
-      id_token_signed_response_alg: "RS256",
-    });
-
-    if (overrideAccessToken) {
-      accessToken = overrideAccessToken;
-    } else if (overrideAuthUsername && overrideAuthPassword) {
-      accessToken = await performPasswordAuthentication(
-        ctx,
-        clientId,
-        overrideAuthUsername,
-        overrideAuthPassword,
-      );
-    } else {
+    if (authIssuer) {
+      const authClient = new authIssuer.Client({
+        client_id: clientId,
+        token_endpoint_auth_method: "none",
+        id_token_signed_response_alg: "RS256",
+      });
       accessToken = await performDeviceAuthorization(
         ctx,
         authClient,
@@ -373,11 +371,16 @@ export async function performLogin(
         vercel,
         vercelOverride,
       );
+    } else {
+      accessToken = await promptString(ctx, {
+        message:
+          "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
+      });
     }
   }
 
   if (dumpAccessToken) {
-    logOutput(`${accessToken!}`);
+    logOutput(`${accessToken}`);
     return await ctx.crash({
       exitCode: 0,
       errorType: "fatal",
@@ -387,9 +390,9 @@ export async function performLogin(
 
   // Exchange the WorkOS access token for a Convex personal access token.
   ctx._updateBigBrainAuth({
-    accessToken: accessToken!,
+    accessToken: accessToken,
     kind: "accessToken",
-    header: `Bearer ${accessToken!}`,
+    header: `Bearer ${accessToken}`,
   });
   const response = await typedPlatformClient(ctx).POST(
     "/create_personal_access_token",

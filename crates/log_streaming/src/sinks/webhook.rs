@@ -26,13 +26,16 @@ use common::{
         LogEventFormatVersion,
         LogTopic,
     },
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        WithTimeout,
+    },
 };
+use const_hex::ToHexExt;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use hex::ToHex;
 use http::{
     header::CONTENT_TYPE,
     HeaderValue,
@@ -213,15 +216,19 @@ impl<RT: Runtime> WebhookSink<RT> {
         };
         for _ in 0..max_attempts {
             let response = self
-                .fetch_client
-                .fetch(
-                    HttpRequest {
-                        url: self.config.url.clone(),
-                        method: http::Method::POST,
-                        headers: headers.clone(),
-                        body: Some(payload.clone()),
-                    }
-                    .into(),
+                .runtime
+                .with_timeout(
+                    "webhook_sink_request",
+                    consts::WEBHOOK_SINK_REQUEST_TIMEOUT,
+                    self.fetch_client.fetch(
+                        HttpRequest {
+                            url: self.config.url.clone(),
+                            method: http::Method::POST,
+                            headers: headers.clone(),
+                            body: Some(payload.clone()),
+                        }
+                        .into(),
+                    ),
                 )
                 .await;
 

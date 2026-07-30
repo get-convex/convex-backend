@@ -351,6 +351,7 @@ function DataCellImpl({
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
           allowTopLevelUndefined={allowTopLevelUndefined}
+          inferIsDate={inferIsDate}
           onClose={closeEditor}
           onSave={async (v) => {
             if (v !== undefined) {
@@ -431,6 +432,7 @@ function CellEditorPopper({
   validator,
   shouldSurfaceValidatorErrors,
   allowTopLevelUndefined,
+  inferIsDate,
   onClose,
   onSave,
 }: {
@@ -441,6 +443,7 @@ function CellEditorPopper({
   validator: ReturnType<typeof useValidator>["validator"];
   shouldSurfaceValidatorErrors: boolean | undefined;
   allowTopLevelUndefined: boolean;
+  inferIsDate: boolean;
   onClose: () => void;
   onSave: (value?: Value) => Promise<void>;
 }) {
@@ -492,6 +495,7 @@ function CellEditorPopper({
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
           allowTopLevelUndefined={allowTopLevelUndefined}
+          inferIsDate={inferIsDate}
           onStopEditing={onClose}
           defaultValue={pastedValue}
           value={value}

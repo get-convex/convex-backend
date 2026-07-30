@@ -50,11 +50,12 @@
     "@docusaurus/plugin-content-docs": "~3.10.1",
     "copy-text-to-clipboard": "^3.2.0",
     "degit": "^2.8.4",
-    "docusaurus-plugin-openapi-docs": "~5.0.0",
-    "docusaurus-theme-openapi-docs": "5.0.2",
+    "docusaurus-plugin-openapi-docs": "~5.1.2",
+    "docusaurus-theme-openapi-docs": "github:nipunn1313/docusaurus-openapi-docs#33ca8ab0ecbe76adc157c6c7ade3e53e5c990428&path:/packages/docusaurus-theme-openapi-docs",
     "sonner": "^2.0.0"
   },
   "devDependencies": {
+    "@convex-dev/platform": "workspace:*",
     "docusaurus-plugin-typedoc": "npm:@convex-dev/docusaurus-plugin-typedoc@0.19.2",
     "typedoc-plugin-markdown": "npm:@convex-dev/typedoc-plugin-markdown@3.15.6",
     "@docusaurus/module-type-aliases": "~3.10.1",

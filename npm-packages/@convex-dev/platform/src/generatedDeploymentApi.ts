@@ -418,48 +418,20 @@ export interface paths {
         put?: never;
         /**
          * Data sync
-         * @description **Early access:** this API is not yet stable and may change in
-         *     backwards-incompatible ways without notice. Contact the Convex team before
-         *     depending on it.
+         * @description Paginated streamable export of some or all of a deployment's data.
          *
-         *     Streams a consistent, resumable export of a deployment's data — either the
-         *     whole deployment or a subset of components, tables, and columns (see the
-         *     request body). Streaming export must be enabled on the deployment, and the
-         *     caller must have the `deployment:data:view` permission.
+         *     Call this endpoint repeatedly, passing the opaque `pagination.nextCursor`
+         *     from each response back in the next request as `cursor`. Omit `cursor` on
+         *     the first call.
          *
-         *     Call this endpoint repeatedly, passing the `pagination.nextCursor` from each
-         *     response back in the next request as `cursor`; omit `cursor` on the first
-         *     call. The cursor is opaque — store and send it back verbatim. Each response
-         *     contains:
+         *     To do a one time data sync, keep fetching pages until reaching an `upToDate`
+         *     page. For a continuous streaming export, continue fetching pages
+         *     periodically. It's recommended to sleep between `upToDate` pages to reduce
+         *     overhead.
          *
-         *     - `values`: document revisions in the order they should be applied. Each
-         *       entry carries the document's fields under `value`; an entry with `deleted:
-         *       true` is a tombstone marking that document as deleted.
-         *     - `truncates`: tables whose contents were replaced wholesale (for example by
-         *       an `npx convex import`). Drop everything you have stored for each listed
-         *       table; the `values` in this and later responses re-populate it.
-         *     - `status`: `inProgress` while the export is still being assembled — the
-         *       data returned so far is not yet a consistent view, so keep calling. Once
-         *       it becomes `synced`, the values applied so far form a consistent snapshot
-         *       of the deployment as of the returned `syncedTs` timestamp. You can keep
-         *       calling to continue streaming later changes.
-         *     - `pagination`: `nextCursor` to pass back on the next call (always present,
-         *       since the sync is always resumable) and `hasMore`, which tells you whether
-         *       more data is already available (`true`) or you've caught up to the latest
-         *       commit (`false`).
-         *
-         *     Persist the results and cursor to each page atomically. Continue calling the
-         *     endpoint with the cursor to progress the data sync. This endpoint must be
-         *     called at least once every 3 days, or the sync will expire and can no longer
-         *     be resumed. When that happens the endpoint responds with a `400`
-         *     (`DataSyncCursorExpired`), and you must restart the sync from scratch by
-         *     calling again with no cursor.
-         *
-         *     Each sync's progress is periodically recorded while the sync is in
-         *     progress and can be monitored via `/data/list_active_syncs`, keyed by the
-         *     `syncId` returned in every response.
+         *     The caller must have the `deployment:data:view` permission.
          */
-        post: operations["data_sync_post"];
+        post: operations["data_sync"];
         delete?: never;
         options?: never;
         head?: never;
@@ -475,20 +447,12 @@ export interface paths {
         };
         /**
          * List active data syncs
-         * @description **Early access:** this API is not yet stable and may change in
-         *     backwards-incompatible ways without notice. Contact the Convex team before
-         *     depending on it.
+         * @description Returns the progress of active data sync (/v1/data/sync).
          *
-         *     Returns the progress of every active data sync: one that fetched a page
-         *     from `/data/sync` within the past 3 days, whether it is still performing
-         *     its initial traversal or is already synced and streaming changes. Progress
-         *     is recorded periodically, so an in-flight sync's numbers may trail its
-         *     most recent page.
-         *
-         *     Results are paginated, most recently updated first. Pass the returned
-         *     `nextCursor` back as `cursor` to fetch the next page.
+         *     A data sync is considered active for 3 days after the most recent API call.
+         *     from `/data/sync` within the past 3 days.
          */
-        get: operations["list_active_syncs_get"];
+        get: operations["list_active_syncs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -505,6 +469,10 @@ export interface components {
         AccessTokenId: number;
         /** @description The status of one active data sync, as of its most recent page. */
         ActiveDataSync: {
+            /** @description Unique id of the sync, assigned when it started (i.e. when
+             *     `/api/v1/data/sync` was called without a cursor) and stable across its
+             *     pages. */
+            syncId: string;
             /**
              * Format: int64
              * @description Wall-clock time of the last `/data/sync` call made by this sync, as a
@@ -513,14 +481,25 @@ export interface components {
             lastUpdated: number;
             /** @description The sync's progress as of its most recently recorded page. */
             status: components["schemas"]["ActiveDataSyncStatus"];
-            /** @description Unique id of the sync, assigned when it started (i.e. when
-             *     `/api/v1/data/sync` was called without a cursor) and stable across its
-             *     pages. */
-            syncId: string;
         };
         /** @description The sync is still traversing its selected tables; the data returned so
          *     far is not yet a consistent snapshot. */
-        ActiveDataSyncInProgress: {
+        ActiveDataSyncSnapshotting: {
+            /**
+             * @description Always `snapshotting`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "snapshotting";
+            /**
+             * Format: int64
+             * @description Tables whose initial traversal has completed.
+             */
+            numTablesSynced: number;
+            /**
+             * Format: int64
+             * @description Total tables selected for the sync.
+             */
+            totalTables: number;
             /** @description The component of the table currently being traversed (the empty
              *     string for the root component). */
             currentComponent: string;
@@ -533,6 +512,11 @@ export interface components {
             numDocumentsInCurrentTable: number;
             /**
              * Format: int64
+             * @description Total documents in the current table, as of a recent snapshot.
+             */
+            totalDocumentsInCurrentTable: number;
+            /**
+             * Format: int64
              * @description Documents synced over the sync's lifetime, including deletions and
              *     re-synced revisions of documents that changed mid-sync — so this can
              *     slightly exceed `totalDocuments`.
@@ -540,34 +524,23 @@ export interface components {
             numDocumentsSynced: number;
             /**
              * Format: int64
-             * @description Tables whose initial traversal has completed.
-             */
-            numTablesSynced: number;
-            /**
-             * Format: int64
              * @description Total documents across all selected tables, as of a recent snapshot.
              */
             totalDocuments: number;
+        };
+        /** @description The sync reached a consistent snapshot at `syncedTs`, but newer data is
+         *     already available; it is streaming later changes (CDC). */
+        ActiveDataSyncStale: {
             /**
-             * Format: int64
-             * @description Total documents in the current table, as of a recent snapshot.
+             * @description Always `stale`. (enum property replaced by openapi-typescript)
+             * @enum {string}
              */
-            totalDocumentsInCurrentTable: number;
+            type: "stale";
             /**
              * Format: int64
              * @description Total tables selected for the sync.
              */
             totalTables: number;
-            /**
-             * @description Always `inProgress`. (enum property replaced by openapi-typescript)
-             * @enum {string}
-             */
-            type: "inProgress";
-        };
-        /** @description The progress of an active data sync, discriminated by `type`. */
-        ActiveDataSyncStatus: components["schemas"]["ActiveDataSyncInProgress"] | components["schemas"]["ActiveDataSyncSynced"];
-        /** @description The sync reached a consistent snapshot and is streaming later changes. */
-        ActiveDataSyncSynced: {
             /**
              * Format: int64
              * @description Documents synced over the sync's lifetime, including deletions and
@@ -579,35 +552,52 @@ export interface components {
              * @description The database timestamp at which the synced data is consistent.
              */
             syncedTs: number;
+        };
+        /** @description The progress of an active data sync, discriminated by `type`. */
+        ActiveDataSyncStatus: components["schemas"]["ActiveDataSyncSnapshotting"] | components["schemas"]["ActiveDataSyncStale"] | components["schemas"]["ActiveDataSyncUpToDate"];
+        /** @description The sync reached a consistent snapshot at `syncedTs` and has caught up to
+         *     the latest data. */
+        ActiveDataSyncUpToDate: {
+            /**
+             * @description Always `upToDate`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "upToDate";
             /**
              * Format: int64
              * @description Total tables selected for the sync.
              */
             totalTables: number;
             /**
-             * @description Always `synced`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * Format: int64
+             * @description Documents synced over the sync's lifetime, including deletions and
+             *     re-synced revisions.
              */
-            type: "synced";
+            numDocumentsSynced: number;
+            /**
+             * Format: int64
+             * @description The database timestamp at which the synced data is consistent.
+             */
+            syncedTs: number;
         };
         /** @description The identity that performed an audit log action. */
         AuditLogActor: {
             /** @enum {string} */
             kind: "system";
         } | {
-            /** @enum {string} */
-            kind: "member";
             /** @description Member ID */
             member_id: components["schemas"]["MemberId"];
-        } | {
-            /** @description Client ID of the OAuth application, if the token belongs to one. */
-            client_id?: string | null;
             /** @enum {string} */
-            kind: "token";
+            kind: "member";
+        } | {
             member_id?: null | components["schemas"]["MemberId"];
             /** @description Token ID. `0` for legacy audit log rows created before token IDs
              *     were recorded. */
             token_id: components["schemas"]["AccessTokenId"];
+            /** @description Client ID of the OAuth application, if the token belongs to one. */
+            client_id?: string | null;
+            /** @enum {string} */
+            kind: "token";
         };
         AxiomAttribute: {
             key: string;
@@ -615,28 +605,39 @@ export interface components {
         };
         /** AxiomConfig */
         AxiomLogStreamConfig: {
+            id: string;
+            /** @description Status of the log stream */
+            status: components["schemas"]["LogStreamStatus"];
+            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
+            datasetName: string;
             /** @description Optional list of attributes. These are extra fields and values sent to
              *     Axiom in each log event. */
             attributes: components["schemas"]["AxiomAttribute"][];
-            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
-            datasetName: string;
-            id: string;
             /** @description Optional ingest endpoint for Axiom */
             ingestUrl?: string | null;
-            /** @description Status of the log stream */
-            status: components["schemas"]["LogStreamStatus"];
             /** @description The topics this log stream is subscribed to. `null` means subscribed to
              *     all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
         };
+        /**
+         * @description Whether the column is exported.
+         * @enum {string}
+         */
+        ColumnSelection: "excluded" | "included";
+        ComponentSelection: ({
+            /** @description Whether tables not explicitly listed are exported */
+            _other: components["schemas"]["InclusionDefault"];
+        } & {
+            [key: string]: components["schemas"]["TableSelection"];
+        }) | components["schemas"]["ExcludedTag"];
         CreateAxiomLogStreamArgs: {
             /** @description Axiom API key for authentication. */
             apiKey: string;
+            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
+            datasetName: string;
             /** @description Optional list of attributes. These are extra fields and values sent to
              *     Axiom in each log event. */
             attributes: components["schemas"]["AxiomAttribute"][];
-            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
-            datasetName: string;
             /** @description Optional ingest endpoint for Axiom */
             ingestUrl?: string | null;
             /** @description The topics this log stream is subscribed to. Omit to
@@ -644,6 +645,8 @@ export interface components {
             topics?: components["schemas"]["LogTopic"][] | null;
         };
         CreateDatadogLogStreamArgs: {
+            /** @description Location of your Datadog deployment. */
+            siteLocation: components["schemas"]["DatadogSiteLocation"];
             /** @description Datadog API key for authentication. */
             ddApiKey: string;
             /** @description Optional comma-separated list of tags. These are sent to Datadog in each
@@ -651,8 +654,6 @@ export interface components {
             ddTags: string[];
             /** @description Service name used as a special tag in Datadog. */
             service?: string | null;
-            /** @description Location of your Datadog deployment. */
-            siteLocation: components["schemas"]["DatadogSiteLocation"];
             /** @description The topics this log stream is subscribed to. Omit to
              *     subscribe to all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
@@ -726,73 +727,93 @@ export interface components {
             } | null;
         };
         CreateWebhookLogStreamArgs: {
+            /** @description URL to send logs to. */
+            url: string;
             /** @description Format for the webhook payload. JSONL sends one object per line of
              *     request, JSON sends one array per request. */
             format: components["schemas"]["WebhookFormat"];
             /** @description The topics this log stream is subscribed to. Omit to
              *     subscribe to all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
-            /** @description URL to send logs to. */
-            url: string;
         };
         CreateWebhookLogStreamResponse: {
+            id: string;
             /** @description Use this secret to verify webhook signatures. */
             hmacSecret: string;
-            id: string;
         };
         /** @description Arguments to the data sync (streaming export) API (`/api/v1/data/sync`). */
-        DataSyncArgs: Record<string, never> & {
+        DataSyncArgs: {
             /** @description Opaque cursor returned by a previous call. Omit to start from scratch. */
             cursor?: string | null;
-        };
-        /** @description More pages are required before the view is consistent. The sync's progress
-         *     can be monitored via `/data/list_active_syncs`, keyed by the response's
-         *     `syncId`. */
-        DataSyncInProgress: {
-            /**
-             * @description Always `inProgress`. (enum property replaced by openapi-typescript)
-             * @enum {string}
-             */
-            type: "inProgress";
+            /** @description When set, only sync the selected subset of the data.
+             *
+             *     Selects the components, tables, and columns to export. Each key is a
+             *     component path (`""` for the root component), mapped to the selection
+             *     for that component.
+             *
+             *     The selection may change between calls of the same sync: newly selected
+             *     tables are synced from scratch, possibly moving the sync into
+             *     `snapshotting` state if necessary, and emit a truncate on the first page
+             *     they appear so the consumer starts them from a clean slate. Deselected
+             *     tables stop being exported, with a truncate emitted. */
+            selection?: components["schemas"]["Selection"];
         };
         /** @description One page returned by the data sync API. */
         DataSyncResponse: {
-            /** @description Pagination information. The data sync endpoint is an infinite streaming
-             *     endpoint, so `nextCursor` is always present. `hasMore` is `true` while
-             *     data can be fetched immediately. When `hasMore` is `false`, the cursor
-             *     has caught up; in that case, it is recommended to back off significantly
-             *     to wait for more writes before making another call. */
-            pagination: components["schemas"]["PaginationMetadata"];
-            /** @description The consistency state of the sync after this page. */
+            /** @description The status of the sync after this page. */
             status: components["schemas"]["DataSyncStatus"];
+            /** @description Tables truncated by this page. The consumer should drop everything it
+             *     previously synced for each table, then apply `values` (which re-sync
+             *     them from scratch). Logically applies before `values`.
+             *
+             *     A table is truncated whenever it (re)enters the export from scratch —
+             *     the first page it is synced (including on a cold start), when it is
+             *     newly selected, or when it is replaced by a bulk operation such as
+             *     `npx convex import` — and when it leaves the export after being
+             *     deselected. */
+            truncates: components["schemas"]["DataSyncTruncate"][];
+            /** @description Documents created, updated, or deleted in this page. */
+            values: components["schemas"]["DataSyncValue"][];
             /** @description Unique id of the sync, assigned on the first page and stable across
              *     the sync's lifetime. Identifies this sync in `/data/list_active_syncs`. */
             syncId: string;
-            /** @description Tables truncated by this page: the consumer should drop everything it
-             *     previously synced for each, then apply `values` (which re-sync them from
-             *     scratch). Logically applies before `values`. */
-            truncates: components["schemas"]["DataSyncTruncate"][];
-            /** @description Documents and tombstones produced by this page. */
-            values: components["schemas"]["DataSyncValue"][];
+            /** @description Pagination information. The data sync endpoint is an infinite streaming
+             *     endpoint, so `nextCursor` is always present and `hasMore` is always
+             *     `true` — another page can always be fetched with the cursor. Use
+             *     `status` to pace calls: back off significantly to wait for more writes
+             *     once it reports `upToDate`. */
+            pagination: components["schemas"]["PaginationMetadata"];
         };
-        /** @description The consistency state reported alongside a data sync page, discriminated
-         *     by `type`. */
-        DataSyncStatus: components["schemas"]["DataSyncSynced"] | components["schemas"]["DataSyncInProgress"];
-        /** @description The entries emitted so far represent a consistent snapshot at `syncedTs`.
-         *     The cursor can be persisted and used to continue the sync later (within
-         *     the document retention window). */
-        DataSyncSynced: {
+        /** @description The sync has not yet reached a consistent snapshot. The entries emitted
+         *     so far are an incomplete initial traversal of the selected tables.
+         *     Syncs begin in this state. The sync's
+         *     progress can be monitored via `/data/list_active_syncs`, keyed by the
+         *     response's `syncId`. Syncs may return to this state if the table
+         *     selection has changes that requires large data sync. */
+        DataSyncSnapshotting: {
+            /**
+             * @description Always `snapshotting`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "snapshotting";
+        };
+        /** @description The entries emitted so far represent a consistent snapshot at
+         *     a stale `snapshotTs`. */
+        DataSyncStale: {
+            /**
+             * @description Always `stale`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "stale";
             /**
              * Format: int64
              * @description The database timestamp at which the synced data is consistent.
              */
-            syncedTs: number;
-            /**
-             * @description Always `synced`. (enum property replaced by openapi-typescript)
-             * @enum {string}
-             */
-            type: "synced";
+            snapshotTs: number;
         };
+        /** @description The consistency state reported alongside a data sync page, discriminated
+         *     by `type`. */
+        DataSyncStatus: components["schemas"]["DataSyncSnapshotting"] | components["schemas"]["DataSyncStale"] | components["schemas"]["DataSyncUpToDate"];
         /** @description A table whose contents were replaced wholesale (e.g. by `npx convex
          *     import`). Reported separately from `values` since it carries none of the
          *     per-document fields. */
@@ -802,14 +823,27 @@ export interface components {
             /** @description The name of the truncated table. */
             table: string;
         };
+        /** @description The sync is up to date and represents a latest consistent snapshot.
+         *     For a streaming export in this state, it is recommended to backoff for
+         *     some time, wait for more data, and then continue the streaming sync. */
+        DataSyncUpToDate: {
+            /**
+             * @description Always `upToDate`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "upToDate";
+            /**
+             * Format: int64
+             * @description The database timestamp at which the synced data is consistent.
+             */
+            snapshotTs: number;
+        };
         /** @description A single document-level entry emitted by the data sync API: a Convex
          *     document (or a tombstone, for a deletion) nested under `value`, with
          *     metadata fields alongside it. */
         DataSyncValue: {
             /** @description The path of the component this entry is from. */
             component: string;
-            /** @description Whether the document was deleted (a tombstone). */
-            deleted: boolean;
             /** @description The name of the table this entry is from. */
             table: string;
             /**
@@ -817,22 +851,24 @@ export interface components {
              * @description The timestamp at which this revision was written.
              */
             ts: number;
+            /** @description Whether the document was deleted (a tombstone). */
+            deleted: boolean;
             /** @description The fields of the document, including the built-in `_id` and
-             *     `_creationTime`. For tombstones, only `_id` is present. */
+             *     `_creationTime`. For `deleted` documents, only `_id` is present. */
             value: Record<string, never>;
         };
         /** DatadogConfig */
         DatadogLogStreamConfig: {
+            id: string;
+            /** @description Status of the log stream */
+            status: components["schemas"]["LogStreamStatus"];
+            /** @description Location of your Datadog deployment. */
+            siteLocation: components["schemas"]["DatadogSiteLocation"];
             /** @description Optional comma-separated list of tags. These are sent to Datadog in each
              *     log event via the `ddtags` field. */
             ddTags: string[];
-            id: string;
             /** @description Service name used as a special tag in Datadog. */
             service?: string | null;
-            /** @description Location of your Datadog deployment. */
-            siteLocation: components["schemas"]["DatadogSiteLocation"];
-            /** @description Status of the log stream */
-            status: components["schemas"]["LogStreamStatus"];
             /** @description The topics this log stream is subscribed to. `null` means subscribed to
              *     all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
@@ -843,14 +879,10 @@ export interface components {
          */
         DatadogSiteLocation: "US1" | "US3" | "US5" | "EU" | "US1_FED" | "AP1";
         DeploymentAuditLogEventResponse: {
-            /** @enum {string} */
-            action: "create_environment_variable" | "update_environment_variable" | "delete_environment_variable" | "create_usage_limit" | "update_usage_limit" | "delete_usage_limit" | "usage_limit_exceeded" | "change_usage_limit_stop_state" | "replace_environment_variable" | "update_canonical_url" | "delete_canonical_url" | "push_config" | "push_config_with_components" | "build_indexes" | "change_deployment_state" | "pause_deployment" | "unpause_deployment" | "change_system_stop_state" | "clear_tables" | "snapshot_import" | "delete_scheduled_jobs_table" | "delete_tables" | "delete_component" | "cancel_all_scheduled_functions" | "cancel_scheduled_function" | "request_export" | "cancel_export" | "set_export_expiration" | "create_integration" | "update_integration" | "delete_integration" | "add_documents" | "delete_documents" | "update_documents" | "create_table" | "delete_files" | "generate_upload_url" | "create_data_sync";
             /** @description The identity that performed the action. */
             actor: components["schemas"]["AuditLogActor"];
-            /** @description IP address of the client that performed the action, if known. */
-            clientIp?: string | null;
-            /** @description User agent of the client that performed the action, if known. */
-            clientUserAgent?: string | null;
+            /** @enum {string} */
+            action: "create_environment_variable" | "update_environment_variable" | "delete_environment_variable" | "create_usage_limit" | "update_usage_limit" | "delete_usage_limit" | "usage_limit_exceeded" | "change_usage_limit_stop_state" | "replace_environment_variable" | "update_canonical_url" | "delete_canonical_url" | "push_config" | "push_config_with_components" | "build_indexes" | "change_deployment_state" | "pause_deployment" | "unpause_deployment" | "change_system_stop_state" | "clear_tables" | "snapshot_import" | "delete_scheduled_jobs_table" | "delete_tables" | "delete_component" | "cancel_all_scheduled_functions" | "cancel_scheduled_function" | "request_export" | "cancel_export" | "set_export_expiration" | "create_integration" | "update_integration" | "delete_integration" | "add_documents" | "delete_documents" | "update_documents" | "create_table" | "delete_files" | "generate_upload_url" | "create_data_sync";
             /**
              * Format: int64
              * @description Time the event was created, in milliseconds since epoch.
@@ -858,25 +890,35 @@ export interface components {
             createTime: number;
             /** @description Additional JSON metadata about the audit log event. */
             metadata: components["schemas"]["Value"];
+            /** @description IP address of the client that performed the action, if known. */
+            clientIp?: string | null;
+            /** @description User agent of the client that performed the action, if known. */
+            clientUserAgent?: string | null;
         };
         /** Format: int64 */
         DeploymentId: number;
         DeploymentInfoResponse: {
-            deploymentType: components["schemas"]["DeploymentType"];
-            id: components["schemas"]["DeploymentId"];
-            /** @enum {string} */
-            kind: "cloud";
+            teamId: components["schemas"]["TeamId"];
             projectId: components["schemas"]["ProjectId"];
             projectName?: string | null;
             projectSlug?: string | null;
+            id: components["schemas"]["DeploymentId"];
+            deploymentType: components["schemas"]["DeploymentType"];
             reference?: string | null;
-            teamId: components["schemas"]["TeamId"];
+            /** @enum {string} */
+            kind: "cloud";
         } | {
             /** @enum {string} */
             kind: "selfHosted";
         };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
+        /**
+         * Excluded
+         * @description The literal string `"excluded"`, excluding the item entirely.
+         * @enum {string}
+         */
+        ExcludedTag: "excluded";
         GetCanonicalUrlsResponse: {
             convexCloudUrl: string;
             convexSiteUrl: string;
@@ -889,14 +931,16 @@ export interface components {
             };
             seedStatus: components["schemas"]["SeedStatusResponse"];
         };
+        /** @enum {string} */
+        InclusionDefault: "excluded" | "included";
         /** @description Response of the active-syncs listing API
          *     (`/api/v1/data/list_active_syncs`). */
         ListActiveSyncsResponse: {
-            pagination: components["schemas"]["PaginationMetadata"];
-            /** @description This page of active data syncs, most recently updated first. A sync is
+            /** @description Page of active data syncs, most recently updated first. A sync is
              *     active if it fetched a page from `/api/v1/data/sync` within the past 3
              *     days. */
             syncs: components["schemas"]["ActiveDataSync"][];
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         ListDeploymentAuditLogEventsResponse: {
             /** @description The audit log events for this page, from least to most recent. */
@@ -970,21 +1014,21 @@ export interface components {
         };
         /** PostHogErrorTrackingConfig */
         PostHogErrorTrackingLogStreamConfig: {
-            /** @description PostHog host URL. */
-            host?: string | null;
             id: string;
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
+            /** @description PostHog host URL. */
+            host?: string | null;
         };
         /** PostHogLogsConfig */
         PostHogLogsLogStreamConfig: {
-            /** @description PostHog host URL. */
-            host?: string | null;
             id: string;
-            /** @description OTLP service.name attribute. */
-            serviceName?: string | null;
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
+            /** @description PostHog host URL. */
+            host?: string | null;
+            /** @description OTLP service.name attribute. */
+            serviceName?: string | null;
             /** @description The topics this log stream is subscribed to. `null` means subscribed to
              *     all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
@@ -1007,6 +1051,25 @@ export interface components {
          * @enum {string}
          */
         SeedStatusResponse: "pending" | "partial" | "complete" | "failed";
+        /** @example {
+         *       "_other": "excluded",
+         *       "": {
+         *         "_other": "excluded",
+         *         "posts": {
+         *           "_other": "included"
+         *         },
+         *         "users": {
+         *           "_other": "included",
+         *           "ssn": "excluded"
+         *         }
+         *       }
+         *     } */
+        Selection: {
+            /** @description Whether components not explicitly listed are exported */
+            _other: components["schemas"]["InclusionDefault"];
+        } & {
+            [key: string]: components["schemas"]["ComponentSelection"];
+        };
         /** SentryConfig */
         SentryLogStreamConfig: {
             id: string;
@@ -1017,16 +1080,22 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        TableSelection: ({
+            /** @description Whether columns not explicitly listed are exported */
+            _other: components["schemas"]["InclusionDefault"];
+        } & {
+            [key: string]: components["schemas"]["ColumnSelection"];
+        }) | components["schemas"]["ExcludedTag"];
         /** Format: int64 */
         TeamId: number;
         UpdateAxiomSinkArgs: {
             /** @description Axiom API key for authentication. */
             apiKey?: string | null;
+            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
+            datasetName?: string | null;
             /** @description Optional list of attributes. These are extra fields and values sent to
              *     Axiom in each log event. */
             attributes?: components["schemas"]["AxiomAttribute"][] | null;
-            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
-            datasetName?: string | null;
             /** @description Optional ingest endpoint for Axiom */
             ingestUrl?: string | null;
             /** @description The topics this log stream is subscribed to. Omit to keep the current
@@ -1042,6 +1111,7 @@ export interface components {
             url?: string | null;
         };
         UpdateDatadogSinkArgs: {
+            siteLocation?: null | components["schemas"]["DatadogSiteLocation"];
             /** @description Datadog API key for authentication. */
             ddApiKey?: string | null;
             /** @description Optional comma-separated list of tags. These are sent to Datadog in each
@@ -1049,7 +1119,6 @@ export interface components {
             ddTags?: string[] | null;
             /** @description Service name used as a special tag in Datadog. */
             service?: string | null;
-            siteLocation?: null | components["schemas"]["DatadogSiteLocation"];
             /** @description The topics this log stream is subscribed to. Omit to keep the current
              *     subscription, or pass `null` to subscribe to all topics (including ones
              *     added in the future). */
@@ -1108,30 +1177,30 @@ export interface components {
             } | null;
         };
         UpdateWebhookSinkArgs: {
+            /** @description URL to send logs to. */
+            url?: string | null;
             format?: null | components["schemas"]["WebhookFormat"];
             /** @description The topics this log stream is subscribed to. Omit to keep the current
              *     subscription, or pass `null` to subscribe to all topics (including ones
              *     added in the future). */
             topics?: components["schemas"]["LogTopic"][] | null;
-            /** @description URL to send logs to. */
-            url?: string | null;
         };
         UsageLimitConfigRequest: {
-            enabled: boolean;
-            /** Format: int64 */
-            limit: number;
-            limitType: components["schemas"]["UsageLimitType"];
             metric: components["schemas"]["UsageLimitMetric"];
             window: components["schemas"]["UsageLimitWindow"];
+            limitType: components["schemas"]["UsageLimitType"];
+            /** Format: int64 */
+            limit: number;
+            enabled: boolean;
         };
         UsageLimitConfigResponse: {
-            enabled: boolean;
             id: string;
-            /** Format: int64 */
-            limit: number;
-            limitType: components["schemas"]["UsageLimitType"];
             metric: components["schemas"]["UsageLimitMetric"];
             window: components["schemas"]["UsageLimitWindow"];
+            limitType: components["schemas"]["UsageLimitType"];
+            /** Format: int64 */
+            limit: number;
+            enabled: boolean;
         };
         /** @enum {string} */
         UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours";
@@ -1150,19 +1219,19 @@ export interface components {
         WebhookFormat: "json" | "jsonl";
         /** WebhookConfig */
         WebhookLogStreamConfig: {
+            id: string;
+            /** @description Status of the log stream */
+            status: components["schemas"]["LogStreamStatus"];
+            /** @description URL to send logs to. */
+            url: string;
             /** @description Format for the webhook payload. JSONL sends one object per line of
              *     request, JSON sends one array per request. */
             format: components["schemas"]["WebhookFormat"];
             /** @description Use this secret to verify webhook signatures. */
             hmacSecret: string;
-            id: string;
-            /** @description Status of the log stream */
-            status: components["schemas"]["LogStreamStatus"];
             /** @description The topics this log stream is subscribed to. `null` means subscribed to
              *     all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
-            /** @description URL to send logs to. */
-            url: string;
         };
         /** @description Usage in each calendar-aligned window currently in progress. */
         WindowUsageResponse: {
@@ -1180,12 +1249,15 @@ export interface components {
 }
 export type AccessTokenId = components['schemas']['AccessTokenId'];
 export type ActiveDataSync = components['schemas']['ActiveDataSync'];
-export type ActiveDataSyncInProgress = components['schemas']['ActiveDataSyncInProgress'];
+export type ActiveDataSyncSnapshotting = components['schemas']['ActiveDataSyncSnapshotting'];
+export type ActiveDataSyncStale = components['schemas']['ActiveDataSyncStale'];
 export type ActiveDataSyncStatus = components['schemas']['ActiveDataSyncStatus'];
-export type ActiveDataSyncSynced = components['schemas']['ActiveDataSyncSynced'];
+export type ActiveDataSyncUpToDate = components['schemas']['ActiveDataSyncUpToDate'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AxiomAttribute = components['schemas']['AxiomAttribute'];
 export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];
+export type ColumnSelection = components['schemas']['ColumnSelection'];
+export type ComponentSelection = components['schemas']['ComponentSelection'];
 export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStreamArgs'];
 export type CreateDatadogLogStreamArgs = components['schemas']['CreateDatadogLogStreamArgs'];
 export type CreateLogStreamArgs = components['schemas']['CreateLogStreamArgs'];
@@ -1196,11 +1268,12 @@ export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogSt
 export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
 export type DataSyncArgs = components['schemas']['DataSyncArgs'];
-export type DataSyncInProgress = components['schemas']['DataSyncInProgress'];
 export type DataSyncResponse = components['schemas']['DataSyncResponse'];
+export type DataSyncSnapshotting = components['schemas']['DataSyncSnapshotting'];
+export type DataSyncStale = components['schemas']['DataSyncStale'];
 export type DataSyncStatus = components['schemas']['DataSyncStatus'];
-export type DataSyncSynced = components['schemas']['DataSyncSynced'];
 export type DataSyncTruncate = components['schemas']['DataSyncTruncate'];
+export type DataSyncUpToDate = components['schemas']['DataSyncUpToDate'];
 export type DataSyncValue = components['schemas']['DataSyncValue'];
 export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
 export type DatadogSiteLocation = components['schemas']['DatadogSiteLocation'];
@@ -1208,8 +1281,10 @@ export type DeploymentAuditLogEventResponse = components['schemas']['DeploymentA
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentInfoResponse = components['schemas']['DeploymentInfoResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
+export type ExcludedTag = components['schemas']['ExcludedTag'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
 export type GetCurrentUsageResponse = components['schemas']['GetCurrentUsageResponse'];
+export type InclusionDefault = components['schemas']['InclusionDefault'];
 export type ListActiveSyncsResponse = components['schemas']['ListActiveSyncsResponse'];
 export type ListDeploymentAuditLogEventsResponse = components['schemas']['ListDeploymentAuditLogEventsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
@@ -1227,7 +1302,9 @@ export type ProjectId = components['schemas']['ProjectId'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
 export type SeedStatusResponse = components['schemas']['SeedStatusResponse'];
+export type Selection = components['schemas']['Selection'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
+export type TableSelection = components['schemas']['TableSelection'];
 export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
 export type UpdateCanonicalUrlRequest = components['schemas']['UpdateCanonicalUrlRequest'];
@@ -1648,7 +1725,7 @@ export interface operations {
             };
         };
     };
-    data_sync_post: {
+    data_sync: {
         parameters: {
             query?: never;
             header?: never;
@@ -1671,7 +1748,7 @@ export interface operations {
             };
         };
     };
-    list_active_syncs_get: {
+    list_active_syncs: {
         parameters: {
             query?: {
                 /** @description Maximum number of syncs to return (defaults to 50, capped at 100). */
