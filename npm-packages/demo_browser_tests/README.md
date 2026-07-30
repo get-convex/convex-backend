@@ -4,6 +4,20 @@ This directory contains a number of tests which use puppeteer to drive headless
 chromium to make sure that the in-browser behavior of our demo apps actually
 works!
 
+## Getting a browser
+
+`postinstall` downloads a Chrome for puppeteer, unless
+`PUPPETEER_EXECUTABLE_PATH` already points at one. CI's arm64 runners set that
+variable to a chromium baked into the AMI, because Chrome for Testing publishes
+no linux-arm64 build — the download silently yields an x86-64 binary that can't
+exec, reported as `chrome: 1: Syntax error: ";" unexpected`.
+
+So on a linux-arm64 workstation, install a chromium and point at it:
+
+```sh
+export PUPPETEER_EXECUTABLE_PATH=/path/to/chromium
+```
+
 ## Current Oddities + Limitations
 
 1.  The selectors are a little funky, indirect, and dependent on our current
