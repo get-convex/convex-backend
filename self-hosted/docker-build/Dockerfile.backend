@@ -114,7 +114,9 @@ WORKDIR /convex
 
 # Install libraries needed for running the backend
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOF
+set -e
 apt-get update
+apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin
 apt-get install -y --no-install-recommends libclang1 curl ca-certificates
 EOF
 
