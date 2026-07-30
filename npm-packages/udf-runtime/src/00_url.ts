@@ -189,6 +189,23 @@ class URL {
   #urlInfo: UrlInfo;
   #searchParams: URLSearchParams;
 
+  static canParse(url: string | URL, base?: string | URL): boolean {
+    try {
+      new URL(url, base);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  static parse(url: string | URL, base?: string | URL): URL | null {
+    try {
+      return new URL(url, base);
+    } catch {
+      return null;
+    }
+  }
+
   constructor(url: string | URL, base?: string | URL) {
     let baseHref: string | null = null;
     if (base !== undefined) {
