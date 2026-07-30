@@ -3,13 +3,11 @@ import { Button } from "@ui/Button";
 import { Link } from "@ui/Link";
 import { LoginLayout } from "layouts/LoginLayout";
 import { useRouter } from "next/router";
+import { safeReturnTo } from "lib/returnTo";
 
 export default function LoginError() {
   const { query } = useRouter();
-  const returnTo =
-    typeof query.returnTo === "string" && query.returnTo.startsWith("/")
-      ? query.returnTo
-      : "/";
+  const returnTo = safeReturnTo(query.returnTo, "/");
 
   return (
     <div className="h-screen">
