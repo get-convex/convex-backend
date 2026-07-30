@@ -1,6 +1,16 @@
-use deno_core::ToJsBuffer;
+use std::{
+    cell::RefCell,
+    rc::Rc,
+};
+
+use anyhow::Context as _;
+use deno_core::{
+    v8,
+    ToJsBuffer,
+};
 use encoding_rs::{
     CoderResult,
+    Decoder,
     DecoderResult,
     Encoding,
 };
@@ -13,9 +23,117 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use slab::Slab;
 
 use super::OpProvider;
-use crate::request_scope::TextDecoderResource;
+use crate::{
+    convert_v8::{
+        FromV8,
+        ToV8,
+        TypeError,
+    },
+    strings,
+};
+
+#[derive(Default)]
+struct TextDecoderStore {
+    decoders: Slab<(v8::Weak<v8::Object>, Rc<RefCell<TextDecoderResource>>)>,
+}
+
+pub(crate) struct TextDecoderResource {
+    decoder: Decoder,
+    fatal: bool,
+}
+
+fn get_text_decoder_template<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+) -> anyhow::Result<v8::Local<'s, v8::FunctionTemplate>> {
+    let s = strings::TextDecoder.create(scope)?;
+    let private = v8::Private::for_api(scope, Some(s));
+    let obj: v8::Local<'_, v8::Object> = scope
+        .get_current_context()
+        .global(scope)
+        .get_private(scope, private)
+        .context("missing TextDecoder private")?
+        .try_cast()?;
+    let template: v8::Local<'_, v8::FunctionTemplate> = obj
+        .get_internal_field(scope, 0)
+        .context("internal field missing")?
+        .try_cast()?;
+    Ok(template)
+}
+
+// Looks up a Rust TextDecoderResource in the TextDecoderStore based on the
+// passed-in resource object.
+impl FromV8 for TextDecoderResource {
+    type Output = Rc<RefCell<Self>>;
+
+    fn from_v8<'s>(
+        scope: &mut v8::PinScope<'s, '_>,
+        input: v8::Local<'s, v8::Value>,
+    ) -> anyhow::Result<Self::Output> {
+        let template = get_text_decoder_template(scope)?;
+        let constructor = template
+            .get_function(scope)
+            .context("get TextDecoder constructor")?;
+        let input = input.try_cast::<v8::Object>()?;
+        anyhow::ensure!(
+            input.instance_of(scope, constructor.into()) == Some(true),
+            TypeError::new("not a TextDecoder resource")
+        );
+        let (id, ok) = input
+            .get_internal_field(scope, 0)
+            .context("missing internal field")?
+            .try_cast::<v8::BigInt>()?
+            .u64_value();
+        anyhow::ensure!(ok);
+        let (weak, resource) = scope
+            .get_slot::<TextDecoderStore>()
+            .context("missing TextDecoderStore")?
+            .decoders
+            .get(id as usize)
+            .context("dangling TextDecoder")?;
+        anyhow::ensure!(*weak == input, "TextDecoder id reused");
+        Ok(resource.clone())
+    }
+}
+
+// Converts a freshly created TextDecoderResource into a new JS object and
+// records it in the TextDecoderStore so that it can be passed back into
+// decoding ops.
+impl ToV8 for TextDecoderResource {
+    fn to_v8<'s>(
+        self,
+        scope: &mut v8::PinScope<'s, '_>,
+    ) -> anyhow::Result<v8::Local<'s, v8::Value>> {
+        let template = get_text_decoder_template(scope)?;
+        let object = template
+            .instance_template(scope)
+            .new_instance(scope)
+            .context("failed to create instance")?;
+        anyhow::ensure!(object.internal_field_count() == 1);
+        let mut store: TextDecoderStore = scope.remove_slot().unwrap_or_default();
+        let entry = store.decoders.vacant_entry();
+        let id = entry.key();
+        assert!(object.set_internal_field(0, v8::BigInt::new_from_u64(scope, id as u64).into()));
+        // Install a finalizer so that we garbage collect the Rust data together
+        // with the JS object.
+        // This does not need to be a "guaranteed finalizer" because the data is
+        // also dropped when the Isolate is destroyed.
+        let weak = v8::Weak::with_finalizer(
+            scope,
+            object,
+            Box::new(move |isolate| {
+                if let Some(store) = isolate.get_slot_mut::<TextDecoderStore>() {
+                    store.decoders.remove(id);
+                }
+            }),
+        );
+        entry.insert((weak, Rc::new(RefCell::new(self))));
+        scope.set_slot(store);
+        Ok(object.into())
+    }
+}
 
 #[convex_macro::v8_op]
 pub fn op_text_encoder_encode<'b, P: OpProvider<'b>>(
@@ -144,11 +262,11 @@ pub fn op_text_encoder_new_decoder<'b, P: OpProvider<'b>>(
     encoding: String,
     fatal: bool,
     ignore_bom: bool,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<TextDecoderResource> {
     let Some(encoding) = Encoding::for_label(encoding.as_bytes()) else {
-        return Ok(
-            json!({ "errorRangeError": format!("The encoding label provided ('{}') is invalid.", encoding) }),
-        );
+        // The TextDecoder constructor validates the label via
+        // `textEncoder/normalizeLabel` before a decoder is created.
+        anyhow::bail!("The encoding label provided ('{encoding}') is invalid.");
     };
 
     let decoder = if ignore_bom {
@@ -157,29 +275,19 @@ pub fn op_text_encoder_new_decoder<'b, P: OpProvider<'b>>(
         encoding.new_decoder_with_bom_removal()
     };
 
-    let rid = provider.create_text_decoder(TextDecoderResource { decoder, fatal })?;
-    Ok(json!({ "result": rid.to_string() }))
-}
-
-#[convex_macro::v8_op]
-pub fn op_text_encoder_cleanup<'b, P: OpProvider<'b>>(
-    provider: &mut P,
-    decoder_id: uuid::Uuid,
-) -> anyhow::Result<JsonValue> {
-    provider.remove_text_decoder(&decoder_id)?;
-    Ok(JsonValue::Null)
+    Ok(TextDecoderResource { decoder, fatal })
 }
 
 #[convex_macro::v8_op]
 pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
     provider: &mut P,
     data: ByteBuf,
-    decoder_id: uuid::Uuid,
+    resource: TextDecoderResource,
     stream: bool,
 ) -> anyhow::Result<JsonValue> {
-    let resource = provider.get_text_decoder(&decoder_id)?;
-    let decoder = &mut resource.decoder;
+    let mut resource = resource.borrow_mut();
     let fatal = resource.fatal;
+    let decoder = &mut resource.decoder;
 
     let Some(max_buffer_length) = decoder.max_utf8_buffer_length(data.len()) else {
         return Ok(json!({ "error": "Value too large to decode" }));
