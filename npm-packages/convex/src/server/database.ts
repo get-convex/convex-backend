@@ -374,8 +374,6 @@ export interface GenericDatabaseWriter<
 
   /**
    * Values that are not known until the mutation commits.
-   *
-   * @internal
    */
   vars: {
     /**
