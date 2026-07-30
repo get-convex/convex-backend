@@ -911,6 +911,13 @@ pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
 pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("COMMITTER_QUEUE_SIZE", 128));
 
+/// Maximum number of commits that may be between starting their persistence
+/// write and publishing (i.e. in the committer's `persistence_writes`
+/// pipeline). At this cap, the committer pauses admitting messages, so backlog
+/// accumulates in the bounded committer queue instead of inside the database.
+pub static COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES: LazyLock<usize> =
+    LazyLock::new(|| env_config("COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES", 256));
+
 /// 0 -> default (number of cores)
 pub static V8_THREADS: LazyLock<u32> = LazyLock::new(|| env_config("V8_THREADS", 0));
 

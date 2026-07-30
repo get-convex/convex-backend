@@ -52,6 +52,14 @@ pub fn user_documents_size_subgauge() -> Subgauge {
     Subgauge::new(USER_DOCUMENTS_SIZE_BYTES.clone())
 }
 
+register_convex_int_gauge!(
+    COMMITTER_CONCURRENT_PERSISTENCE_WRITES,
+    "Number of commits between starting their persistence write and publishing"
+);
+pub fn concurrent_persistence_writes_subgauge() -> Subgauge {
+    Subgauge::new(COMMITTER_CONCURRENT_PERSISTENCE_WRITES.clone())
+}
+
 register_convex_histogram!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");
 pub fn log_num_keys(num_keys: u64) {
     log_distribution(&DOCUMENTS_KEYS_TOTAL, num_keys as f64);

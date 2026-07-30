@@ -35,6 +35,7 @@ use common::{
     },
     fastrace_helpers::root_span_with_parents,
     knobs::{
+        COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES,
         COMMITTER_QUEUE_SIZE,
         COMMIT_TRACE_THRESHOLD,
         INITIAL_PERSISTENCE_WRITES_BACKOFF,
@@ -120,6 +121,7 @@ use crate::{
     metrics::{
         self,
         bootstrap_update_timer,
+        concurrent_persistence_writes_subgauge,
         finish_bootstrap_update,
         next_commit_ts_seconds,
         table_summary_finish_bootstrap_timer,
@@ -198,6 +200,7 @@ pub struct Committer<RT: Runtime> {
     virtual_system_mapping: VirtualSystemMapping,
 
     user_documents_size_gauge: Subgauge,
+    concurrent_persistence_writes_gauge: Subgauge,
 
     index_cache_handle: IndexCacheHandle,
 }
@@ -228,6 +231,7 @@ impl<RT: Runtime> Committer<RT> {
             retention_validator: retention_validator.clone(),
             virtual_system_mapping,
             user_documents_size_gauge: user_documents_size_subgauge(),
+            concurrent_persistence_writes_gauge: concurrent_persistence_writes_subgauge(),
             index_cache_handle,
         };
         let handle = runtime.spawn("committer", async move {
@@ -273,6 +277,18 @@ impl<RT: Runtime> Committer<RT> {
                     self.runtime
                         .wait(wait.saturating_sub(last_bumped_repeatable_ts.elapsed())),
                 )
+            } else {
+                Either::Right(std::future::pending())
+            };
+            let concurrent_persistence_writes = self.persistence_writes.len();
+            self.concurrent_persistence_writes_gauge
+                .set(concurrent_persistence_writes as i64);
+            // While the persistence-write pipeline is at capacity, pause
+            // admitting messages
+            let recv_fut = if concurrent_persistence_writes
+                < (*COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES).max(1)
+            {
+                Either::Left(rx.recv())
             } else {
                 Either::Right(std::future::pending())
             };
@@ -361,7 +377,7 @@ impl<RT: Runtime> Committer<RT> {
                         }
                     }
                 },
-                maybe_message = rx.recv().fuse() => {
+                maybe_message = recv_fut.fuse() => {
                     match maybe_message {
                         None => {
                             tracing::info!(
