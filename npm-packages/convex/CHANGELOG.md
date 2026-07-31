@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.43.0 (unreleased)
+## 1.43.0
 - Added new `npx convex deployment usage` and 
   `npx convex deployment usage-limits` CLI commands to
   view a deployment’s current resource usage, and
@@ -10,7 +10,7 @@
   choose a stable start time within the scheduled hour,
   avoiding concentrating jobs at the top of the hour.
 - Mutations can now reference their upcoming
-  [_commit timestamp_](https://docs.convex.dev/database/advanced/commit-timestamp)
+  [commit timestamp](https://docs.convex.dev/database/advanced/commit-timestamp)
   with `ctx.db.vars.commitTs`. While the mutation is running,
   `ctx.db.vars.commitTs` is a placeholder symbol that is
   replaced with a Int64 value at commit time that is guaranteed
