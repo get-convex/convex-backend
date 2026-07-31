@@ -1,5 +1,6 @@
 import { argv } from "node:process";
 import { Locator, Page } from "puppeteer";
+import { noteBrowserEvent } from "./common.js";
 
 export const DASHBOARD_URL = "http://localhost:6789";
 
@@ -20,13 +21,24 @@ async function gotoLoginForm(page: Page, path: string) {
         visible: true,
         timeout,
       });
+      if (attempt > 0) {
+        // The retry salvaged a run that used to fail outright. Counting these is
+        // the only way to tell "AuthKit never blanked" from "it blanked and we
+        // recovered", so record it where a passing test can't swallow it.
+        noteBrowserEvent(
+          `login-form-recovered after ${attempt} blank render(s), ` +
+            `on attempt ${attempt + 1}/${attempts}`,
+        );
+      }
       return;
     } catch (error) {
-      console.error(
+      const message =
         `login form did not render at ${page.url()} ` +
-          `(attempt ${attempt + 1}/${attempts}): ${error}`,
-      );
+        `(attempt ${attempt + 1}/${attempts}): ${error}`;
+      console.error(message);
+      noteBrowserEvent(`login-form-blank ${message}`);
       if (attempt === attempts - 1) {
+        noteBrowserEvent("login-form-gave-up");
         throw error;
       }
     }

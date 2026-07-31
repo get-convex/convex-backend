@@ -2,6 +2,26 @@ import puppeteer, { type Browser, type Page } from "puppeteer";
 import * as path from "node:path";
 import * as fs from "node:fs";
 
+// Record a notable event to a file CI archives (integration.yml uploads
+// smoke/test_tempdir/*.log), because console output alone does not survive a
+// PASSING test: pytest captures this process's stdout/stderr at the fd level and
+// prints it only for tests that fail. A retry that works is exactly the case we
+// most want to count, so it must not depend on the test going red.
+export function noteBrowserEvent(message: string) {
+  try {
+    const outDir = process.env.SCREENSHOT_DIR || ".";
+    const testName = path.basename(process.argv[1] || "unknown", ".js");
+    fs.mkdirSync(outDir, { recursive: true });
+    // O_APPEND keeps single short lines intact when xdist workers interleave.
+    fs.appendFileSync(
+      path.join(outDir, "browser-events.log"),
+      `${new Date().toISOString()} ${testName} ${message}\n`,
+    );
+  } catch (error) {
+    console.error("Failed to record browser event:", error);
+  }
+}
+
 export async function withBrowser(
   testFn: (page: Page, browser: Browser) => Promise<void>,
 ): Promise<void> {

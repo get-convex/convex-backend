@@ -18,6 +18,18 @@ So on a linux-arm64 workstation, install a chromium and point at it:
 export PUPPETEER_EXECUTABLE_PATH=/path/to/chromium
 ```
 
+## Finding out what happened in CI
+
+Failures write a screenshot and a page HTML dump next to the logs, and notable
+events — a blank AuthKit login page, and whether re-navigating recovered it —
+are appended to `browser-events.log`. All of it lands in the `smoke logs`
+artifact of the run.
+
+Grep that file for `login-form-recovered` to count flakes the retry absorbed,
+and `login-form-gave-up` for the ones it couldn't. Console output can't be used
+for this: pytest captures it and prints it only for tests that fail, so a
+successful retry would leave no trace.
+
 ## Current Oddities + Limitations
 
 1.  The selectors are a little funky, indirect, and dependent on our current
