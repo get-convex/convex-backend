@@ -2815,6 +2815,10 @@ impl ConflictingReadWithWriteSource {
     }
 }
 
+/// `op` requires system identity, and the caller does not have it.
 pub fn unauthorized_error(op: &'static str) -> ErrorMetadata {
-    ErrorMetadata::forbidden("Unauthorized", format!("Operation {op} not permitted"))
+    ErrorMetadata::forbidden(
+        "SystemIdentityRequired",
+        format!("Operation {op} not permitted"),
+    )
 }
