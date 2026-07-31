@@ -75,15 +75,6 @@ const getProps: GetServerSideProps<{
       "Google-Analytics-Client-Id": googleAnalyticsId,
     };
 
-    // Big Brain includes this metadata in account_created for ad-platform
-    // matching. Forward the browser values instead of the dashboard server's.
-    if (req.headers["x-forwarded-for"]) {
-      headers["x-forwarded-for"] = req.headers["x-forwarded-for"].toString();
-    }
-    if (req.headers["user-agent"]) {
-      headers["user-agent"] = req.headers["user-agent"];
-    }
-
     const resp = await retryingFetch(
       `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/member_data`,
       {
