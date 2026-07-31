@@ -31,13 +31,6 @@ export const vars = {
    * Unix epoch.
    */
   now: NOW,
-} as const;
-
-/**
- * Internal-only log vars, surfaced via `log.internalVars`. These are kept out
- * of the public `log.vars` surface.
- */
-export const internalVars = {
   /**
    * If the function was invoked using admin auth (either directly or while
    * acting as an end user, e.g. from the dashboard), resolved to information

@@ -20,7 +20,7 @@ export const loggedQueryWithConvexActor = query({
   handler: async (_ctx) => {
     await log.audit({
       source: "loggedQueryWithConvexActor",
-      convexActor: log.internalVars.convexActor,
+      convexActor: log.vars.convexActor,
     });
   },
 });
