@@ -52,7 +52,36 @@ pub fn map_workos_identities_to_subjects(
     }
 }
 
-#[derive(Debug, Deserialize)]
+/// WorkOS provider name for Vercel Marketplace OAuth identities. Their
+/// `idp_id` encodes the Vercel account and user as
+/// `account:{account_id}:user:{user_id}`.
+pub const VERCEL_MARKETPLACE_PROVIDER: &str = "VercelMarketplaceOAuth";
+
+/// Parse a Vercel Marketplace identity `idp_id` of the form
+/// `account:{account_id}:user:{user_id}` into `(account_id, user_id)`. The
+/// `account_id` matches `vercel_installations.account_id`.
+pub fn parse_vercel_marketplace_idp_id(idp_id: &str) -> Option<(&str, &str)> {
+    let rest = idp_id.strip_prefix("account:")?;
+    let parts: Vec<&str> = rest.split(':').collect();
+    if parts.len() >= 3 && parts[1] == "user" {
+        Some((parts[0], parts[2]))
+    } else {
+        None
+    }
+}
+
+/// Extract the `(account_id, user_id)` pairs of a WorkOS user's Vercel
+/// Marketplace identities.
+pub fn vercel_marketplace_accounts(identities: &[WorkOSIdentity]) -> Vec<(String, String)> {
+    identities
+        .iter()
+        .filter(|identity| identity.provider == VERCEL_MARKETPLACE_PROVIDER)
+        .filter_map(|identity| parse_vercel_marketplace_idp_id(&identity.idp_id))
+        .map(|(account_id, user_id)| (account_id.to_string(), user_id.to_string()))
+        .collect()
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct WorkOSIdentity {
     pub idp_id: String,
     pub provider: String,

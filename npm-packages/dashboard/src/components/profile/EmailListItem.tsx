@@ -1,5 +1,6 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { Link } from "@ui/Link";
 import { Menu, MenuItem } from "@ui/Menu";
 import {
   useDeleteProfileEmail,
@@ -7,8 +8,36 @@ import {
   useResendProfileEmailVerification,
   useUpdatePrimaryProfileEmail,
 } from "api/profile";
+import { useTeams } from "api/teams";
 import { useState } from "react";
 import { MemberEmailResponse } from "generatedApi";
+
+// The backend rejects deleting an email that ties the account to a
+// Vercel-managed team with the code `EmailBoundToVercelTeam(<team slug>)`.
+// Parse out the slug so we can link the user to that team.
+function vercelBoundTeamSlug(code: unknown): string | undefined {
+  if (typeof code !== "string") {
+    return undefined;
+  }
+  const match = code.match(/^EmailBoundToVercelTeam\((.+)\)$/);
+  return match?.[1];
+}
+
+// Resolves the bound team's slug to its display name. Kept in its own component
+// so `useTeams` (and its router dependency) only runs when the delete is
+// actually rejected for this reason, not on every email row.
+function VercelBoundTeamError({ slug }: { slug: string }) {
+  const { teams } = useTeams();
+  // Fall back to the slug if the bound team isn't in the member's team list.
+  const name = teams?.find((team) => team.slug === slug)?.name ?? slug;
+  return (
+    <span>
+      This email connects your account to the Vercel-managed team{" "}
+      <Link href={`/t/${slug}/settings/members`}>{name}</Link>. Leave the Vercel
+      team before removing this email.
+    </span>
+  );
+}
 
 export function EmailListItem({ email }: { email: MemberEmailResponse }) {
   const deleteEmail = useDeleteProfileEmail();
@@ -20,6 +49,7 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [error, setError] = useState<string>();
+  const [boundTeamSlug, setBoundTeamSlug] = useState<string>();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 border-b py-2 last:border-b-0">
@@ -83,13 +113,21 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
           onClose={() => {
             setShowDeleteConfirmation(false);
             setError(undefined);
+            setBoundTeamSlug(undefined);
           }}
           onConfirm={async () => {
             try {
               await deleteEmail({ email: email.email });
               setShowDeleteConfirmation(false);
             } catch (e: any) {
-              setError(e.message);
+              const slug = vercelBoundTeamSlug(e?.code);
+              if (slug !== undefined) {
+                setBoundTeamSlug(slug);
+                setError(undefined);
+              } else {
+                setBoundTeamSlug(undefined);
+                setError(e.message);
+              }
               throw e;
             }
           }}
@@ -99,7 +137,13 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
           dialogBody={
             <p>Deleting this email will remove it from your account.</p>
           }
-          error={error}
+          error={
+            boundTeamSlug !== undefined ? (
+              <VercelBoundTeamError slug={boundTeamSlug} />
+            ) : (
+              error
+            )
+          }
           validationText={email.email}
         />
       )}

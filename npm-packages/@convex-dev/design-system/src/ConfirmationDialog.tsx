@@ -26,7 +26,7 @@ export function ConfirmationDialog({
   dialogTitle: ReactNode;
   dialogBody: ReactNode;
   variant?: "primary" | "danger" | "neutral" | "unstyled";
-  error?: string;
+  error?: ReactNode;
 }) {
   const [validation, setValidation] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
