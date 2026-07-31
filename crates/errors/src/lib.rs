@@ -83,6 +83,24 @@ pub struct OccInfo {
     pub retry_count: Option<u64>,
 }
 
+/// `short_msg`s from `crates/log_streaming/src/sinks`. Listed rather than
+/// matched by suffix: `categorize_http_response_stream` hands non-sink callers
+/// a bare `"RequestFailed"`, which must keep full Sentry fidelity.
+const LOG_SINK_REQUEST_FAILURES: [&str; 5] = [
+    "AxiomRequestFailed",
+    "DatadogRequestFailed",
+    "PostHogErrorTrackingRequestFailed",
+    "PostHogLogsRequestFailed",
+    "WebhookRequestFailed",
+];
+
+struct SampledClientErrorFamily {
+    /// `family` label on `SAMPLED_CLIENT_ERROR_TOTAL`; must stay a small fixed
+    /// set, never derived from tenant data.
+    label: &'static str,
+    sample_rate: f64,
+}
+
 impl ErrorMetadata {
     /// Returns an error containing no information other than a HTTP status
     /// code. This should only be used in cases where there is no
@@ -525,6 +543,40 @@ impl ErrorMetadata {
         }
     }
 
+    /// Single source of truth for a family's sample rate and counter label, so
+    /// the two cannot drift apart.
+    fn sampled_client_error_family(&self) -> Option<SampledClientErrorFamily> {
+        let family = match (&self.code, &*self.short_msg) {
+            (ErrorCode::BadRequest | ErrorCode::Forbidden, short_msg)
+                if LOG_SINK_REQUEST_FAILURES.contains(&short_msg) =>
+            {
+                SampledClientErrorFamily {
+                    label: "log_sink_request_failed",
+                    sample_rate: 0.001,
+                }
+            },
+            (ErrorCode::Forbidden, "Unauthorized") => SampledClientErrorFamily {
+                label: "forbidden_unauthorized",
+                sample_rate: 0.001,
+            },
+            (ErrorCode::Forbidden, "OperationNotPermitted") => SampledClientErrorFamily {
+                label: "operation_not_permitted",
+                sample_rate: 0.01,
+            },
+            _ => return None,
+        };
+        Some(family)
+    }
+
+    /// Must run before the Sentry sampling gate: sampled counts hide
+    /// regressions that fan out across many small tenants instead of spiking on
+    /// one.
+    pub fn log_sampled_client_error(&self) {
+        if let Some(family) = self.sampled_client_error_family() {
+            crate::metrics::log_sampled_client_error(family.label);
+        }
+    }
+
     /// Returns the level at which the given error should report to sentry
     /// INFO -> it's a client-at-fault error
     /// WARNING -> it's a server-at-fault error that is expected
@@ -537,6 +589,12 @@ impl ErrorMetadata {
         // Sentry considers errors invalid if this field is empty.
         if self.short_msg.is_empty() {
             return None;
+        }
+
+        // Ahead of the match so a family's rate wins over the catch-all arm for
+        // its `ErrorCode`.
+        if let Some(family) = self.sampled_client_error_family() {
+            return Some((sentry::Level::Info, Some(family.sample_rate)));
         }
 
         match self.code {

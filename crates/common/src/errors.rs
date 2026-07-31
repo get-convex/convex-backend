@@ -196,6 +196,7 @@ fn report_error_sync_no_tracing(err: &mut anyhow::Error) -> Option<Uuid> {
         if let Some(counter) = e.custom_metric() {
             log_counter(counter, 1);
         }
+        e.log_sampled_client_error();
         // Set the source of this error to the service name if it's not already set,
         // denoting that this error has been reported and downstream callers that
         // receive this error need not re-report it.
