@@ -14,7 +14,6 @@ import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { SupportWidget, useSupportFormOpen } from "elements/SupportWidget";
 import { FeedbackForm } from "elements/CommandPalette/FeedbackForm";
 import { AskAIScript, openAskAI } from "elements/AskAI";
@@ -28,22 +27,16 @@ export function UserMenu() {
   const project = useCurrentProject();
   const router = useRouter();
   const isAcceptingOptions = router.pathname.startsWith("/accept");
-  const { commandPalette } = useLaunchDarkly();
   const [, setSupportFormOpen] = useSupportFormOpen();
   return (
     <>
-      {/* With the palette on, Ask AI and Support live in this menu, so mount
-          their widgets here (persistently, outside the dropdown) instead of in
-          the header. */}
-      {commandPalette && (
-        <>
-          <AskAIScript />
-          <Portal>
-            <SupportWidget />
-            <FeedbackForm />
-          </Portal>
-        </>
-      )}
+      {/* Ask AI and Support live in this menu, so mount their widgets here
+          (persistently, outside the dropdown) instead of in the header. */}
+      <AskAIScript />
+      <Portal>
+        <SupportWidget />
+        <FeedbackForm />
+      </Portal>
       <Menu
         buttonProps={{
           icon: user?.profilePictureUrl ? (
@@ -129,23 +122,19 @@ export function UserMenu() {
             ) : null}
           </>
         ) : null}
-        {commandPalette ? (
-          <>
-            <hr className="mx-4" />
-            <MenuItem action={() => openAskAI()}>
-              <div className="flex w-full items-center justify-between">
-                Ask AI
-                <SparklesIcon className="size-4 text-content-secondary" />
-              </div>
-            </MenuItem>
-            <MenuItem action={() => setSupportFormOpen(true)}>
-              <div className="flex w-full items-center justify-between">
-                Contact Support
-                <QuestionMarkCircledIcon className="text-content-secondary" />
-              </div>
-            </MenuItem>
-          </>
-        ) : null}
+        <hr className="mx-4" />
+        <MenuItem action={() => openAskAI()}>
+          <div className="flex w-full items-center justify-between">
+            Ask AI
+            <SparklesIcon className="size-4 text-content-secondary" />
+          </div>
+        </MenuItem>
+        <MenuItem action={() => setSupportFormOpen(true)}>
+          <div className="flex w-full items-center justify-between">
+            Contact Support
+            <QuestionMarkCircledIcon className="text-content-secondary" />
+          </div>
+        </MenuItem>
         <hr className="mx-4" />
         <MenuItem action={() => logout()}>
           <div className="flex w-full items-center justify-between">

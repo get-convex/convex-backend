@@ -1,17 +1,11 @@
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import Link from "next/link";
-import { SupportWidget, useSupportFormOpen } from "elements/SupportWidget";
-import { Portal } from "@headlessui/react";
-import { Button } from "@ui/Button";
-import { AskAI } from "elements/AskAI";
 import { CommandPaletteTrigger } from "elements/CommandPalette";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
 import { useCurrentProject } from "api/projects";
 import { User } from "@workos-inc/node";
 import { ConvexStatusBadge } from "lib/ConvexStatusBadge";
 import { useConvexStatus } from "hooks/useConvexStatus";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { UserMenu } from "../UserMenu/UserMenu";
 
 type HeaderProps = {
@@ -35,31 +29,8 @@ function ConvexStatus() {
   );
 }
 
-function Support() {
-  const [openState, setOpenState] = useSupportFormOpen();
-  return (
-    <>
-      <Button
-        inline
-        onClick={() => {
-          setOpenState(!openState);
-        }}
-        type="button"
-        className="flex items-center gap-1 rounded-full px-2.5 text-sm text-content-primary"
-      >
-        <QuestionMarkCircledIcon />
-        <span className="hidden md:block">Support</span>
-      </Button>
-      <Portal>
-        <SupportWidget />
-      </Portal>
-    </>
-  );
-}
-
 export function Header({ children, logoLink = "/", user }: HeaderProps) {
   const project = useCurrentProject();
-  const { commandPalette } = useLaunchDarkly();
 
   return (
     <header
@@ -85,10 +56,6 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
         <CommandPaletteTrigger />
         <div className="flex items-center">
           <ConvexStatus />
-          {/* With the command palette on, Ask AI and Support move into the user
-              menu (mounted there), so the header omits them. */}
-          {!commandPalette && <AskAI />}
-          {!commandPalette && <Support />}
         </div>
         {user && <UserMenu />}
       </div>

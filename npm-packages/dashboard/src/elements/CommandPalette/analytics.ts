@@ -5,8 +5,14 @@ import { usePostHog } from "hooks/usePostHog";
 export function usePaletteAnalytics() {
   const { capture } = usePostHog();
   return {
-    trackOpened: (via: "hotkey" | "slash" | "button") =>
-      capture("command_palette_opened", { via }),
+    trackOpened: (
+      via:
+        | "hotkey"
+        | "slash"
+        | "button"
+        | "project-selector"
+        | "deployment-selector",
+    ) => capture("command_palette_opened", { via }),
     trackSelected: (kind: string) =>
       capture("command_palette_item_selected", { kind }),
   };

@@ -1,37 +1,89 @@
 import { Command } from "cmdk";
+import { PlusIcon } from "@radix-ui/react-icons";
 import { useCurrentTeam } from "api/teams";
 import { useInfiniteProjects } from "api/projects";
 import { useInfiniteDeployments } from "api/deployments";
+import { useHasCustomRolePermission } from "api/roles";
+import { useCreateProjectModalRequest } from "hooks/useCreateProjectModal";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import type { ProjectDetails, TeamResponse } from "generatedApi";
 import { NavigationDestination } from "./navigation";
-import { DeploymentItem, LoadingSignal, ProjectItem } from "./items";
+import {
+  ActionItem,
+  DeploymentItem,
+  LoadingSignal,
+  PinnedActions,
+  ProjectItem,
+} from "./items";
 import { InfiniteScrollSentinel } from "./InfiniteScrollSentinel";
 import { PalettePage } from "./pages";
+import { usePaletteAnalytics } from "./analytics";
 
 // The drilled-into "Switch Project" page: the full, searchable project list.
 export function SwitchProjectCommands({
   search,
   onNavigate,
   pushPage,
+  onClose,
 }: {
   search: string;
   onNavigate: (to: NavigationDestination) => void;
   pushPage: (page: PalettePage) => void;
+  onClose: () => void;
 }) {
   const team = useCurrentTeam();
+  const { trackSelected } = usePaletteAnalytics();
+  const [, requestCreateProject] = useCreateProjectModalRequest();
+  const canCreateCustom = useHasCustomRolePermission(
+    team?.id,
+    "project:create",
+    { segments: [{ kind: "project", id: 0, slug: "" }] },
+    true,
+  );
 
-  if (!team) {
-    return <LoadingSignal />;
-  }
+  const isVercelManaged = team?.managedBy === "vercel";
+  const canCreateProject =
+    !!team && !isVercelManaged && canCreateCustom !== false;
+  const createProjectTip = isVercelManaged
+    ? "This team is managed by Vercel. You can create new projects through the Vercel dashboard."
+    : canCreateCustom === false
+      ? permissionDeniedTip(
+          "You do not have permission to create projects in this team.",
+          "project:create",
+        )
+      : undefined;
 
   return (
-    <ProjectSearchGroup
-      team={team}
-      search={search}
-      onNavigate={onNavigate}
-      pushPage={pushPage}
-      full
-    />
+    <>
+      {team ? (
+        <ProjectSearchGroup
+          team={team}
+          search={search}
+          onNavigate={onNavigate}
+          pushPage={pushPage}
+          full
+        />
+      ) : (
+        <LoadingSignal />
+      )}
+      <PinnedActions>
+        <ActionItem
+          value="action:create-project"
+          onSelect={() => {
+            if (!team) {
+              return;
+            }
+            trackSelected("create-project");
+            onClose();
+            requestCreateProject({ team });
+          }}
+          Icon={PlusIcon}
+          label="Create Project…"
+          disabled={!canCreateProject}
+          tip={createProjectTip}
+        />
+      </PinnedActions>
+    </>
   );
 }
 

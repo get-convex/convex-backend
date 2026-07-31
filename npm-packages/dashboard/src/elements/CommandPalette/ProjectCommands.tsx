@@ -1,6 +1,17 @@
 import { Command } from "cmdk";
 import React, { useMemo } from "react";
+import { GearIcon, PlusIcon } from "@radix-ui/react-icons";
+import { cn } from "@ui/cn";
+import {
+  deploymentTypeColorClasses,
+  deploymentTypeLabel,
+} from "@common/lib/deploymentTypeColorClasses";
+import {
+  PROVISION_DEV_PAGE_NAME,
+  PROVISION_PROD_PAGE_NAME,
+} from "@common/lib/deploymentContext";
 import { useCurrentTeam } from "api/teams";
+import { useProfile } from "api/profile";
 import { useDeployments } from "api/deployments";
 import type {
   PlatformDeploymentResponse,
@@ -8,7 +19,13 @@ import type {
   TeamResponse,
 } from "generatedApi";
 import { projectNavigation, projectSectionNavigation } from "./navigation";
-import { DeploymentItem, LoadingSignal, NavigationItem } from "./items";
+import {
+  DeploymentItem,
+  DeploymentTypeIcon,
+  LoadingSignal,
+  NavigationItem,
+} from "./items";
+import { usePaletteAnalytics } from "./analytics";
 
 // Commands for a drilled-into project: its pages plus all of its (cloud)
 // deployments, which drill further into deployment pages.
@@ -51,16 +68,21 @@ export function ProjectCommands({
   );
 }
 
-// The drilled-into "Switch Deployment" page: just the project's deployments,
-// without the project's own pages.
+// The drilled-into "Switch Deployment" page: the project's deployments to
+// switch between, preceded by a Project Settings shortcut only in the
+// contextual menu the header's deployment switcher opens into.
 export function SwitchDeploymentCommands({
   project,
   onNavigate,
   onSelectDeployment,
+  contextual,
 }: {
   project: ProjectDetails;
   onNavigate: (href: string) => void;
   onSelectDeployment: (deployment: PlatformDeploymentResponse) => void;
+  // Only the anchored deployment-switcher menu shows the Project Settings
+  // shortcut; the main palette's Switch Deployment page omits it.
+  contextual: boolean;
 }) {
   const team = useCurrentTeam();
 
@@ -69,12 +91,26 @@ export function SwitchDeploymentCommands({
   }
 
   return (
-    <DeploymentsGroup
-      team={team}
-      project={project}
-      onNavigate={onNavigate}
-      onSelectDeployment={onSelectDeployment}
-    />
+    <>
+      {contextual && (
+        <Command.Group heading="Project">
+          <NavigationItem
+            target={{
+              label: "Project Settings",
+              href: `/t/${team.slug}/${project.slug}/settings`,
+              Icon: GearIcon,
+            }}
+            onNavigate={onNavigate}
+          />
+        </Command.Group>
+      )}
+      <DeploymentsGroup
+        team={team}
+        project={project}
+        onNavigate={onNavigate}
+        onSelectDeployment={onSelectDeployment}
+      />
+    </>
   );
 }
 
@@ -89,11 +125,18 @@ function DeploymentsGroup({
   onNavigate: (href: string) => void;
   onSelectDeployment: (deployment: PlatformDeploymentResponse) => void;
 }) {
+  const member = useProfile();
   const { deployments, isLoading } = useDeployments(project.id);
-  // Local deployments have no dashboard pages to navigate to.
-  const cloudDeployments = useMemo(
-    () => (deployments ?? []).filter((d) => d.kind === "cloud"),
-    [deployments],
+  const shownDeployments = useMemo(
+    () =>
+      (deployments ?? [])
+        .filter((d) => (d.kind === "local" ? d.isActive : true))
+        .sort(compareSwitcherDeployments(member?.id)),
+    [deployments, member?.id],
+  );
+  const hasProd = shownDeployments.some((d) => d.deploymentType === "prod");
+  const hasPersonalDev = shownDeployments.some(
+    (d) => d.deploymentType === "dev" && d.creator === member?.id,
   );
 
   return (
@@ -101,17 +144,137 @@ function DeploymentsGroup({
       {isLoading && !deployments ? (
         <LoadingSignal />
       ) : (
-        cloudDeployments.map((deployment) => (
-          <DeploymentItem
-            key={deployment.name}
-            deployment={deployment}
-            teamSlug={team.slug}
-            projectSlug={project.slug}
-            onNavigate={onNavigate}
-            onDrill={() => onSelectDeployment(deployment)}
-          />
-        ))
+        <>
+          {!hasProd && (
+            <CreateDeploymentItem
+              deploymentType="prod"
+              team={team}
+              project={project}
+              onNavigate={onNavigate}
+            />
+          )}
+          {!hasPersonalDev && (
+            <CreateDeploymentItem
+              deploymentType="dev"
+              team={team}
+              project={project}
+              onNavigate={onNavigate}
+            />
+          )}
+          {shownDeployments.map((deployment) => (
+            <DeploymentItem
+              key={deployment.name}
+              deployment={deployment}
+              teamSlug={team.slug}
+              projectSlug={project.slug}
+              onNavigate={onNavigate}
+              onDrill={() => onSelectDeployment(deployment)}
+            />
+          ))}
+        </>
       )}
     </Command.Group>
   );
+}
+
+function CreateDeploymentItem({
+  deploymentType,
+  team,
+  project,
+  onNavigate,
+}: {
+  deploymentType: "prod" | "dev";
+  team: TeamResponse;
+  project: ProjectDetails;
+  onNavigate: (href: string) => void;
+}) {
+  const { trackSelected } = usePaletteAnalytics();
+  const typeLabel = deploymentTypeLabel(deploymentType);
+  const provisionPage =
+    deploymentType === "prod"
+      ? PROVISION_PROD_PAGE_NAME
+      : PROVISION_DEV_PAGE_NAME;
+  return (
+    <Command.Item
+      value={`action:create-${deploymentType}-deployment`}
+      keywords={[typeLabel, deploymentType, "create deployment"]}
+      className="rounded-md outline-1 -outline-offset-1 outline-border-selected/60 outline-dashed"
+      onSelect={() => {
+        trackSelected(`create-${deploymentType}-deployment`);
+        onNavigate(`/t/${team.slug}/${project.slug}/${provisionPage}`);
+      }}
+    >
+      <div
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-full p-1 opacity-50",
+          deploymentTypeColorClasses(deploymentType),
+        )}
+      >
+        <DeploymentTypeIcon deploymentType={deploymentType} />
+      </div>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-content-secondary">{typeLabel}</span>
+        <span className="truncate text-xs text-content-tertiary">
+          Create a {typeLabel.toLowerCase()} deployment
+        </span>
+      </span>
+      <PlusIcon className="ml-auto size-4 shrink-0 text-content-tertiary" />
+    </Command.Item>
+  );
+}
+
+// The switcher's group into which a deployment falls, in display order:
+// production, then your own dev deployments, then teammates' devs, previews,
+// and custom deployments.
+function switcherDeploymentRank(
+  deployment: PlatformDeploymentResponse,
+  memberId: number | undefined,
+): number {
+  switch (deployment.deploymentType) {
+    case "prod":
+      return 0;
+    case "dev":
+      return deployment.creator === memberId ? 1 : 2;
+    case "preview":
+      return 3;
+    case "custom":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function compareSwitcherDeployments(memberId: number | undefined) {
+  return (a: PlatformDeploymentResponse, b: PlatformDeploymentResponse) => {
+    const rankA = switcherDeploymentRank(a, memberId);
+    const rankB = switcherDeploymentRank(b, memberId);
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    // Production (cloud only): the default prod first, then newest first.
+    if (
+      a.kind === "cloud" &&
+      b.kind === "cloud" &&
+      a.deploymentType === "prod"
+    ) {
+      if (a.isDefault !== b.isDefault) {
+        return a.isDefault ? -1 : 1;
+      }
+      return b.createTime - a.createTime;
+    }
+    // Your own dev deployments: local ones ahead of cloud, then oldest first.
+    if (rankA === 1) {
+      if ((a.kind === "local") !== (b.kind === "local")) {
+        return a.kind === "local" ? -1 : 1;
+      }
+      return a.createTime - b.createTime;
+    }
+    if (a.deploymentType === "preview" && b.deploymentType === "preview") {
+      return (a.previewIdentifier?.toLowerCase() ?? "").localeCompare(
+        b.previewIdentifier?.toLowerCase() ?? "",
+      );
+    }
+    // Teammates' devs and custom deployments, newest first.
+    return b.createTime - a.createTime;
+  };
 }

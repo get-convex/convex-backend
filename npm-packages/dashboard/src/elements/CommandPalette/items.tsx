@@ -1,5 +1,6 @@
 import { Command, useCommandState } from "cmdk";
 import React, { useContext } from "react";
+import { useRouter } from "next/router";
 import { CaretRightIcon, Pencil2Icon, StackIcon } from "@radix-ui/react-icons";
 import {
   CommandLineIcon,
@@ -7,6 +8,7 @@ import {
   WrenchIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
 import {
@@ -14,6 +16,10 @@ import {
   deploymentTypeLabel,
 } from "@common/lib/deploymentTypeColorClasses";
 import { useProjectById } from "api/projects";
+import { useCurrentTeam } from "api/teams";
+import { useMyCustomRoles } from "api/roles";
+import { useDeploymentUris } from "hooks/useDeploymentUris";
+import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import type { PlatformDeploymentResponse, ProjectDetails } from "generatedApi";
 import type { NavigationTarget } from "./navigation";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
@@ -151,6 +157,8 @@ export function ActionItem({
   description,
   destructive = false,
   drillIn = false,
+  disabled = false,
+  tip,
 }: {
   value: string;
   onSelect: () => void;
@@ -161,21 +169,17 @@ export function ActionItem({
   // Render in the error color, for destructive actions.
   destructive?: boolean;
   drillIn?: boolean;
+  disabled?: boolean;
+  tip?: React.ReactNode;
 }) {
   const { trackSelected } = usePaletteAnalytics();
-  return (
-    <Command.Item
-      value={value}
-      keywords={[label]}
-      onSelect={() => {
-        trackSelected(value);
-        onSelect();
-      }}
-    >
+  const body = (
+    <>
       <Icon
-        className={
-          destructive ? "text-content-error" : "text-content-secondary"
-        }
+        className={cn(
+          "size-4.5 shrink-0",
+          destructive ? "text-content-error" : "text-content-secondary",
+        )}
       />
       <span className="flex min-w-0 flex-col">
         <span className={cn("truncate", destructive && "text-content-error")}>
@@ -193,6 +197,34 @@ export function ActionItem({
         )}
       </span>
       {drillIn && <DrillInHint />}
+    </>
+  );
+  return (
+    <Command.Item
+      value={value}
+      keywords={[label]}
+      disabled={disabled}
+      className={cn("select-none", disabled && "pointer-events-none")}
+      onSelect={() => {
+        trackSelected(value);
+        onSelect();
+      }}
+    >
+      {disabled && tip ? (
+        // A disabled item is pointer-events-none so cmdk ignores it; re-enable
+        // events on just the tooltip trigger so hovering the row still explains
+        // why the action is unavailable.
+        <Tooltip
+          tip={tip}
+          side="top"
+          asChild
+          className="pointer-events-auto flex w-full items-center gap-2"
+        >
+          <span>{body}</span>
+        </Tooltip>
+      ) : (
+        body
+      )}
     </Command.Item>
   );
 }
@@ -220,13 +252,29 @@ export const PaletteConfirmContext = React.createContext<
   ((action: (() => void) | null) => void) | null
 >(null);
 
+export function PinnedActions({ children }: { children: React.ReactNode }) {
+  return (
+    <Command.Group
+      data-pinned=""
+      className={cn(
+        "sticky bottom-0 z-20 -mx-2 border-t px-2 py-1",
+        "bg-background-secondary",
+      )}
+    >
+      {children}
+    </Command.Group>
+  );
+}
+
+export function CurrentBadge() {
+  return <span className="rounded-sm border px-1.5 py-0.5">Current</span>;
+}
+
 export function DrillInHint({
   kind,
   onDrill,
 }: {
-  kind?: string;
-  // When set, the caret becomes a click target for drilling into the item's
-  // nested view (the row itself navigates directly).
+  kind?: React.ReactNode;
   onDrill?: () => void;
 }) {
   return (
@@ -269,15 +317,38 @@ export function ProjectItem({
 }) {
   const consumeDrillModifier = useConsumeDrillModifier();
   const { trackSelected } = usePaletteAnalytics();
+  const router = useRouter();
+  const isCurrent = router.query.project === project.slug;
+  const team = useCurrentTeam();
+  const isCustomRoleMember = useMyCustomRoles(team?.id)?.role === "custom";
+  // Prefer the project's last-viewed deployment (and current subpage) like the
+  // old header menu; `/t/team/project` would instead redirect to the default
+  // dev/prod deployment, dropping that context and bouncing you off the
+  // deployment you're already on. Custom-role members go to the deployments
+  // list instead, since they may not be able to view the default deployment.
+  const { generateHref, defaultHref } = useDeploymentUris(
+    project.id,
+    project.slug,
+    teamSlug,
+  );
+  const [lastViewedDeployment] = useLastViewedDeploymentForProject(
+    project.slug,
+  );
+  const projectHref = isCustomRoleMember
+    ? `/t/${teamSlug}?view=deployments&projectId=${project.id}`
+    : lastViewedDeployment
+      ? generateHref(lastViewedDeployment)
+      : defaultHref;
   return (
     <Command.Item
       value={`${REMOTE_VALUE_PREFIX}project:${project.id}`}
       className="animate-fadeInFromLoading"
       onSelect={() => {
         trackSelected("switch-project");
-        return consumeDrillModifier()
-          ? onDrill()
-          : onNavigate(`/t/${teamSlug}/${project.slug}`);
+        if (consumeDrillModifier()) {
+          return onDrill();
+        }
+        return onNavigate(projectHref);
       }}
     >
       <StackIcon className="text-content-secondary" />
@@ -290,7 +361,10 @@ export function ProjectItem({
           <HighlightedText text={project.slug} />
         </span>
       </span>
-      <DrillInHint kind="Project" onDrill={onDrill} />
+      <DrillInHint
+        kind={isCurrent ? <CurrentBadge /> : undefined}
+        onDrill={onDrill}
+      />
     </Command.Item>
   );
 }
@@ -316,12 +390,25 @@ export function DeploymentItem({
   remote?: boolean;
 }) {
   const consumeDrillModifier = useConsumeDrillModifier();
+  const router = useRouter();
   const { project } = useProjectById(deployment.projectId);
   const projectSlug = knownProjectSlug ?? project?.slug;
   const typeLabel = deploymentTypeLabel(deployment.deploymentType);
+  // Local deployments have no cloud reference; show the device and port they're
+  // running on instead, matching the header's old deployment menu.
   const primary =
-    deployment.kind === "cloud" ? deployment.reference : deployment.name;
+    deployment.kind === "cloud" ? deployment.reference : deployment.deviceName;
+  const secondary =
+    deployment.kind === "local" ? `Port ${deployment.port}` : deployment.name;
   const { trackSelected } = usePaletteAnalytics();
+  // When switching straight to another deployment, keep whatever subpage the
+  // user is on (Data, Logs, a settings tab, …) instead of resetting to Health.
+  // Only meaningful while already viewing a deployment.
+  const currentView =
+    typeof router.query.deploymentName === "string"
+      ? router.asPath.split(/[?#]/)[0].split("/").slice(5).join("/")
+      : "";
+  const isCurrent = router.query.deploymentName === deployment.name;
   return (
     <Command.Item
       value={`${remote ? REMOTE_VALUE_PREFIX : ""}deployment:${deployment.name}`}
@@ -329,9 +416,11 @@ export function DeploymentItem({
       keywords={remote ? undefined : [primary, deployment.name, typeLabel]}
       onSelect={() => {
         trackSelected("switch-deployment");
-        return consumeDrillModifier() || !projectSlug
-          ? onDrill()
-          : onNavigate(`/t/${teamSlug}/${projectSlug}/${deployment.name}`);
+        if (consumeDrillModifier() || !projectSlug) {
+          return onDrill();
+        }
+        const base = `/t/${teamSlug}/${projectSlug}/${deployment.name}`;
+        return onNavigate(currentView ? `${base}/${currentView}` : base);
       }}
     >
       <div
@@ -342,21 +431,25 @@ export function DeploymentItem({
       >
         <DeploymentTypeIcon deploymentType={deployment.deploymentType} />
       </div>
-      {/* Two lines: the deployment's reference, then its name. */}
+      {/* Two lines: the deployment's reference (or device), then its name (or
+          port). */}
       <span className="flex min-w-0 flex-col">
         <span className="truncate">
           <HighlightedText text={primary} />
         </span>
         <span className="truncate text-xs text-content-tertiary">
-          <HighlightedText text={deployment.name} />
+          <HighlightedText text={secondary} />
         </span>
       </span>
-      <DrillInHint kind={typeLabel} onDrill={onDrill} />
+      <DrillInHint
+        kind={isCurrent ? <CurrentBadge /> : undefined}
+        onDrill={onDrill}
+      />
     </Command.Item>
   );
 }
 
-function DeploymentTypeIcon({
+export function DeploymentTypeIcon({
   deploymentType,
 }: {
   deploymentType: DeploymentType;

@@ -30,7 +30,7 @@ export function Footer({
   // hover, so this covers "hovering or focusing" a browsable item.
   const selectedValue = useCommandState((state) => state.value);
   return (
-    <div className="-mx-2 mt-2 flex items-center gap-4 border-t px-5 pt-2 text-xs text-content-tertiary select-none">
+    <div className="-mx-2 flex items-center gap-4 border-t px-5 pt-2 text-xs text-content-tertiary select-none">
       <span className="flex items-center gap-1">
         <KeyboardShortcut value={["Up", "Down"]} className={KBD_CLASSES} />
         Navigate

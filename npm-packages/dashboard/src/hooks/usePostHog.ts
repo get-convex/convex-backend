@@ -32,7 +32,12 @@ export type PostHogEventMap = {
   };
   // How the command palette was opened.
   command_palette_opened: {
-    via: "hotkey" | "slash" | "button";
+    via:
+      | "hotkey"
+      | "slash"
+      | "button"
+      | "project-selector"
+      | "deployment-selector";
   };
   command_palette_item_selected: {
     kind: string;

@@ -30,7 +30,12 @@ import {
 } from "api/deployments";
 import { useProfile } from "api/profile";
 import type { PlatformDeploymentResponse } from "generatedApi";
-import { CommandPalette, useCommandPaletteOpen } from "./CommandPalette";
+import {
+  CommandPalette,
+  useCommandPaletteAnchor,
+  useCommandPaletteInitialPage,
+  useCommandPaletteOpen,
+} from "./CommandPalette";
 
 const mockTeam = {
   id: 2,
@@ -116,7 +121,6 @@ const meta = {
   beforeEach: () => {
     mocked(useLaunchDarkly).mockReturnValue({
       ...flagDefaults,
-      commandPalette: true,
       usageLimits: true,
     });
     mocked(useTeams).mockReturnValue({
@@ -221,6 +225,75 @@ export const TeamLevel: Story = {
   beforeEach: () => {
     mocked(useCurrentProject).mockReturnValue(undefined);
     mocked(useCurrentDeployment).mockReturnValue(undefined);
+  },
+};
+
+// --- Deployment menu (the header's deployment switcher) ----------------------
+
+// The deployment switcher in the header opens the palette anchored beneath its
+// trigger, drilled straight onto the project's "Switch Deployment" page. This
+// renders that anchored menu the way it appears in the app: a compact popover
+// attached under a stand-in trigger, showing the Project Settings shortcut
+// (contextual), the create-deployment actions, and the project's deployments.
+function DeploymentSwitcherMenu() {
+  const [, setOpen] = useCommandPaletteOpen();
+  const [, setAnchor] = useCommandPaletteAnchor();
+  const [, setInitialPage] = useCommandPaletteInitialPage();
+  useEffect(() => {
+    setInitialPage({ type: "deployments", project: mockProject });
+    setAnchor({ left: 16, top: 56, source: "deployment-switcher" });
+    setOpen(true);
+    return () => {
+      setOpen(false);
+      setAnchor(null);
+    };
+  }, [setOpen, setAnchor, setInitialPage]);
+  return (
+    <div className="h-screen bg-background-primary">
+      <div className="flex h-14 items-center border-b bg-background-secondary px-4">
+        <div className="flex h-9 items-center gap-2 rounded-full border bg-background-primary px-4 text-sm font-medium text-content-primary">
+          <span className="font-mono font-normal">dev/nicolas</span>
+        </div>
+      </div>
+      <CommandPalette />
+    </div>
+  );
+}
+
+// The Switch Deployment menu anchored under the header's deployment switcher.
+export const DeploymentMenu: Story = {
+  parameters: {
+    nextjs: {
+      router: {
+        pathname: "/t/[team]/[project]/[deploymentName]/data",
+        route: "/t/[team]/[project]/[deploymentName]/data",
+        asPath: "/t/acme/my-amazing-app/happy-capybara-123/data",
+        query: {
+          team: "acme",
+          project: "my-amazing-app",
+          deploymentName: "happy-capybara-123",
+        },
+      },
+    },
+  },
+  render: () => <DeploymentSwitcherMenu />,
+  beforeEach: () => {
+    mocked(useCurrentProject).mockReturnValue(mockProject);
+    mocked(useCurrentDeployment).mockReturnValue(devDeployment);
+  },
+};
+
+// A project with nothing provisioned yet: the menu is just the two dashed
+// create-deployment placeholders.
+export const DeploymentMenuNothingProvisioned: Story = {
+  ...DeploymentMenu,
+  beforeEach: () => {
+    mocked(useCurrentProject).mockReturnValue(mockProject);
+    mocked(useCurrentDeployment).mockReturnValue(undefined);
+    mocked(useDeployments).mockReturnValue({
+      deployments: [],
+      isLoading: false,
+    });
   },
 };
 

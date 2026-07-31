@@ -1,2 +1,7 @@
-export { CommandPalette } from "./CommandPalette";
+export {
+  CommandPalette,
+  useCommandPaletteAnchor,
+  useCommandPaletteOpen,
+  useOpenCommandPalette,
+} from "./CommandPalette";
 export { CommandPaletteTrigger } from "./CommandPaletteTrigger";

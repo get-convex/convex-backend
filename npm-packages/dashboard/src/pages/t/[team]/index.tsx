@@ -23,7 +23,7 @@ import { useTeamOrbSubscription } from "api/billing";
 import { useReferralState } from "api/referrals";
 import { ProjectDetails, TeamResponse } from "generatedApi";
 import { ReferralsBanner } from "components/referral/ReferralsBanner";
-import { useCreateProjectModal } from "hooks/useCreateProjectModal";
+import { useCreateProjectModalRequest } from "hooks/useCreateProjectModal";
 import {
   useCursorPagination,
   useSnapBackOnEmptyPage,
@@ -227,7 +227,7 @@ function DeploymentsView({
 }
 
 function ProjectActions({ team }: { team: TeamResponse }) {
-  const [createProjectModal, showCreateProjectModal] = useCreateProjectModal();
+  const [, requestCreateProject] = useCreateProjectModalRequest();
   // Built-in admin/developer members can always create projects; custom-role
   // members need an explicit `project:create` grant.
   const canCreateCustom = useHasCustomRolePermission(
@@ -241,7 +241,7 @@ function ProjectActions({ team }: { team: TeamResponse }) {
     <div className="ml-auto flex items-center gap-2">
       {!team.managedBy && (
         <Button
-          onClick={() => showCreateProjectModal()}
+          onClick={() => requestCreateProject({ team })}
           variant="neutral"
           size="sm"
           icon={<PlusIcon />}
@@ -267,7 +267,6 @@ function ProjectActions({ team }: { team: TeamResponse }) {
       >
         Start Tutorial
       </Button>
-      {createProjectModal}
     </div>
   );
 }

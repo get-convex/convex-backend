@@ -1,19 +1,13 @@
 import React from "react";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCommandPaletteOpen } from "./CommandPalette";
 import { usePaletteAnalytics } from "./analytics";
 
 // The header search bar that opens the command palette.
 export function CommandPaletteTrigger() {
-  const { commandPalette } = useLaunchDarkly();
   const [, setOpen] = useCommandPaletteOpen();
   const { trackOpened } = usePaletteAnalytics();
-
-  if (!commandPalette) {
-    return null;
-  }
 
   return (
     <Button

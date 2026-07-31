@@ -26,6 +26,8 @@ import {
   MaybeLaunchDarklyProvider,
 } from "providers/LaunchDarklyProviders";
 import { CommandPalette } from "elements/CommandPalette";
+import { CreateProjectModal } from "hooks/useCreateProjectModal";
+import { CreateTeamModal } from "components/header/CreateTeamModal";
 import { Fallback } from "pages/500";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
@@ -130,6 +132,8 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                     taken below. */}
                 {(isSsoLocked || !inDeployment) && <CommandPalette />}
                 <DashboardHeader />
+                <CreateProjectModal />
+                <CreateTeamModal />
                 {isSsoLocked ? (
                   <div className="flex size-full items-center justify-center">
                     <Sheet className="flex max-w-prose flex-col gap-4">

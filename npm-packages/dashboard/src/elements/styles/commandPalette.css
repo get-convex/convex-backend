@@ -8,6 +8,20 @@
   }
 }
 
+/* Opened from a trigger (the project switcher): a compact menu attached just
+   below it. `left`/`top` come from the trigger's rect as inline styles; this
+   only needs to undo the centered layout's translate and narrow the width. The
+   higher-specificity selector wins over the base and the media query above. */
+[cmdk-root].command-palette--anchored {
+  @apply w-[38rem] max-w-[calc(100vw-1rem)] translate-x-0 translate-y-0;
+}
+
+@media (max-height: 700px) {
+  [cmdk-root].command-palette--anchored {
+    @apply translate-x-0 translate-y-0;
+  }
+}
+
 [cmdk-input] {
   @apply bg-transparent border-b rounded-b-none pl-10 pr-4 py-2.5 text-sm block rounded-sm placeholder:text-content-tertiary border-0 w-full focus:outline-hidden;
 }
@@ -66,8 +80,16 @@
   animation: none;
 }
 
-*:not([hidden]) + [cmdk-group] {
+*:not([hidden]) + [cmdk-group]:not([data-pinned]) {
   @apply mt-2;
+}
+
+[cmdk-list].command-palette-list--pinned > [cmdk-list-sizer] {
+  @apply flex h-full flex-col;
+}
+
+[data-pinned] {
+  @apply mt-auto;
 }
 
 [cmdk-group-heading] {
