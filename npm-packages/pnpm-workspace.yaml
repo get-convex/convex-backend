@@ -64,6 +64,7 @@ packages:
   - "private-demos/bundle-size"
   - "private-demos/cjs-typescript"
   - "private-demos/clerk-initial-auth"
+  - "private-demos/commit-timestamp"
   - "private-demos/components-api-import"
   - "private-demos/components-api-import-ts"
   - "private-demos/components-legacy"
