@@ -148,6 +148,7 @@ packages:
   - version
 
 autoInstallPeers: true
+publishBranch: release
 minimumReleaseAge: 10080
 # The next security overrides below force a brand-new next version; next pins
 # its @next/swc platform binaries to that exact (equally new) version, which
