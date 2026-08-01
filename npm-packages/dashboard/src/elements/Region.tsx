@@ -69,7 +69,7 @@ export function Region({
               <div className="flex flex-col gap-0.5">
                 <Label
                   className={cn(
-                    "text-sm leading-tight font-semibold",
+                    "text-sm/tight font-semibold",
                     disabled
                       ? "text-content-secondary"
                       : "text-content-primary",
@@ -78,7 +78,7 @@ export function Region({
                   {mainName}
                 </Label>
                 {placeName && (
-                  <span className="text-xs leading-tight text-content-secondary">
+                  <span className="text-xs/tight text-content-secondary">
                     {placeName}
                   </span>
                 )}
