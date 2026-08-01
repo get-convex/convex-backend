@@ -83,17 +83,6 @@ pub struct OccInfo {
     pub retry_count: Option<u64>,
 }
 
-/// `short_msg`s from `crates/log_streaming/src/sinks`. Listed rather than
-/// matched by suffix: `categorize_http_response_stream` hands non-sink callers
-/// a bare `"RequestFailed"`, which must keep full Sentry fidelity.
-const LOG_SINK_REQUEST_FAILURES: [&str; 5] = [
-    "AxiomRequestFailed",
-    "DatadogRequestFailed",
-    "PostHogErrorTrackingRequestFailed",
-    "PostHogLogsRequestFailed",
-    "WebhookRequestFailed",
-];
-
 struct SampledClientErrorFamily {
     /// `family` label on `SAMPLED_CLIENT_ERROR_TOTAL`; must stay a small fixed
     /// set, never derived from tenant data.
@@ -547,14 +536,6 @@ impl ErrorMetadata {
     /// the two cannot drift apart.
     fn sampled_client_error_family(&self) -> Option<SampledClientErrorFamily> {
         let family = match (&self.code, &*self.short_msg) {
-            (ErrorCode::BadRequest | ErrorCode::Forbidden, short_msg)
-                if LOG_SINK_REQUEST_FAILURES.contains(&short_msg) =>
-            {
-                SampledClientErrorFamily {
-                    label: "log_sink_request_failed",
-                    sample_rate: 0.001,
-                }
-            },
             (ErrorCode::Forbidden, "Unauthorized") => SampledClientErrorFamily {
                 label: "forbidden_unauthorized",
                 sample_rate: 0.001,

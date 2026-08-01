@@ -6,12 +6,11 @@ use std::{
     },
 };
 
+use anyhow::Context;
 use bytes::Bytes;
 use common::{
     backoff::Backoff,
-    errors::report_error,
     http::{
-        categorize_http_response_stream,
         fetch::FetchClient,
         HttpRequestStream,
         APPLICATION_JSON_CONTENT_TYPE,
@@ -24,10 +23,6 @@ use common::{
         StructuredLogEvent,
     },
     runtime::Runtime,
-};
-use errors::{
-    ErrorMetadata,
-    ErrorMetadataAnyhowExt,
 };
 use http::{
     header::{
@@ -51,11 +46,18 @@ use tokio::sync::mpsc;
 use crate::{
     consts,
     metrics::posthog_logs_sink_network_egress_bytes,
-    sinks::utils::{
-        self,
-        build_event_batches,
-        EgressCounter,
-        SinkFilter,
+    sinks::{
+        failure::{
+            classify_sink_response,
+            SinkEgressFailure,
+            SinkFailureReporter,
+        },
+        utils::{
+            self,
+            build_event_batches,
+            EgressCounter,
+            SinkFilter,
+        },
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -72,6 +74,7 @@ pub struct PostHogLogsSink<RT: Runtime> {
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
     egress_counter: EgressCounter,
+    failure_reporter: SinkFailureReporter,
 }
 
 impl<RT: Runtime> PostHogLogsSink<RT> {
@@ -82,6 +85,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         egress_counter: EgressCounter,
+        failure_reporter: SinkFailureReporter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting PostHogLogsSink");
@@ -108,6 +112,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
                 consts::POSTHOG_LOGS_SINK_MAX_BACKOFF,
             ),
             egress_counter,
+            failure_reporter,
         };
 
         if should_verify {
@@ -148,15 +153,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
             })
             .await;
 
-        match response.and_then(categorize_http_response_stream) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "PostHogLogsInvalidProjectToken",
-                    format!("Failed to verify PostHog project token: {e}"),
-                ));
-            },
-        }
+        classify_sink_response(response).context("Failed to verify PostHog project token")
     }
 
     async fn go(mut self) {
@@ -175,13 +172,12 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
 
                     for batch in batches {
                         let track_egress = utils::batch_has_non_egress_events(&batch);
-                        if let Err(mut e) = self.process_events(batch, track_egress).await {
-                            tracing::error!(
-                                "Error emitting log event batch in PostHogLogsSink: {e:?}."
-                            );
-                            report_error(&mut e).await;
-                        } else {
-                            self.backoff.reset();
+                        match self.process_events(batch, track_egress).await {
+                            Ok(()) => {
+                                self.backoff.reset();
+                                self.failure_reporter.reset();
+                            },
+                            Err(e) => self.failure_reporter.record_failure(e).await,
                         }
                     }
                 },
@@ -322,6 +318,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
         ]);
         let batch_json = Bytes::from(batch_json);
 
+        let mut last_failure = None;
         for _ in 0..consts::POSTHOG_LOGS_SINK_MAX_REQUEST_ATTEMPTS {
             let batch_json = batch_json.clone();
             let response = self
@@ -344,31 +341,24 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
                 );
             }
 
-            match response.and_then(categorize_http_response_stream) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    if e.is_deterministic_user_error() {
-                        anyhow::bail!(e.map_error_metadata(|e| ErrorMetadata {
-                            code: e.code,
-                            short_msg: "PostHogLogsRequestFailed".into(),
-                            msg: e.msg,
-                            source: None,
-                        }));
-                    } else {
-                        let delay = self.backoff.fail(&mut self.runtime.rng());
-                        tracing::warn!(
-                            "Failed to send in PostHog Logs sink: {e}. Waiting {delay:?} before \
-                             retrying."
-                        );
-                        self.runtime.wait(delay).await;
-                    }
+            match classify_sink_response(response) {
+                Ok(()) => return Ok(()),
+                Err(failure) if failure.is_rejected() => anyhow::bail!(failure),
+                Err(failure) => {
+                    let delay = self.backoff.fail(&mut self.runtime.rng());
+                    tracing::warn!(
+                        "Failed to send in PostHog Logs sink: {failure}. Waiting {delay:?} before \
+                         retrying."
+                    );
+                    last_failure = Some(failure);
+                    self.runtime.wait(delay).await;
                 },
             }
         }
 
-        anyhow::bail!(ErrorMetadata::overloaded(
-            "PostHogLogsMaxRetriesExceeded",
-            "Exceeded max number of retry requests to PostHog Logs. Please try again later."
+        anyhow::bail!(SinkEgressFailure::retries_exhausted(
+            consts::POSTHOG_LOGS_SINK_MAX_REQUEST_ATTEMPTS,
+            last_failure,
         ))
     }
 }
