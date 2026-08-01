@@ -45,7 +45,7 @@
     "sharp": "~0.34.0",
     "storybook": "^10.3.3",
     "tailwind-scrollbar": "^4.0.2",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.19.4",
     "vitest": "^4.1.0"
   }

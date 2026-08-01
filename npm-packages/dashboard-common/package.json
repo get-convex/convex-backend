@@ -76,7 +76,7 @@
   "devDependencies": {
     "@jest/types": "^30.0.0",
     "@tailwindcss/forms": "^0.5.10",
-    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "~10.4.0",
     "@testing-library/jest-dom": "~6.9.0",
     "@testing-library/react": "~16.3.0",
@@ -101,7 +101,7 @@
     "prettier": "3.8.1",
     "storybook": "^10.3.3",
     "prettier-plugin-tailwindcss": "~0.7.0",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^4.3.3",
     "tailwind-scrollbar": "^4.0.2",
     "typescript": "^5.9.2"
   }

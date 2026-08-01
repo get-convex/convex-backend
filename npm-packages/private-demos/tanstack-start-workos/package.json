@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/postcss": "^4.3.3",
     "@tanstack/eslint-config": "^0.4.0",
     "@types/node": "^20",
     "@types/react": "^18.2.65",
@@ -43,7 +43,7 @@
     "dotenv": "^16.4.7",
     "eslint": "^9.37.0",
     "prettier": "3.8.1",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
     "vite-tsconfig-paths": "^6.0.0",
     "vite": "^7.3.5"

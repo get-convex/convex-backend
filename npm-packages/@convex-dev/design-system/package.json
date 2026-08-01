@@ -60,6 +60,7 @@
     "prettier": "3.8.1",
     "prettier-plugin-tailwindcss": "~0.7.0",
     "storybook": "^10.3.3",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
     "tsc-alias": "~1.8.15",
     "@types/lodash-es": "~4.17.12"
