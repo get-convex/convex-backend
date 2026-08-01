@@ -97,7 +97,7 @@
     "jest": "^30.0.0",
     "jest-environment-jsdom": "^30.0.0",
     "next-router-mock": "~1.0.0",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.18",
     "prettier": "3.8.1",
     "storybook": "^10.3.3",
     "prettier-plugin-tailwindcss": "~0.7.0",

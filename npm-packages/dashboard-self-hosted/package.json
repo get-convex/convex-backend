@@ -34,7 +34,7 @@
     "@types/react-dom": "^18.0.0",
     "@types/react-table": "^7.7.2",
     "dotenv": "^16.4.7",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.18",
     "prettier": "3.8.1",
     "prettier-plugin-tailwindcss": "~0.7.0",
     "tailwind-scrollbar": "^4.0.2",
