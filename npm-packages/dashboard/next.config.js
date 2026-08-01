@@ -129,6 +129,10 @@ const nextConfig = {
   },
   // from https://github.com/vercel/next.js/blob/c110dfd57c754f88cb239dc154a4b7d49e5696a3/examples/with-webassembly/next.config.js
   webpack(config, { isServer, dev }) {
+    if (!dev && !isServer) {
+      config.cache = false;
+    }
+
     config.resolve.symlinks = true; // Ensure Webpack follows symlinks
     // Force Webpack to watch changes in the src directory of local packages
     config.watchOptions = {
