@@ -10,11 +10,17 @@ description:
 import schema from "!!raw-loader!@site/../private-demos/commit-timestamp/convex/schema.ts";
 import commitTsExample from "!!raw-loader!@site/../private-demos/commit-timestamp/convex/commitTs.ts";
 
-The `db.vars.commitTs` symbol can be used to implement efficient iteration over
-a table. Some potential use cases include modeling a FIFO queue (e.g. with the
-[batch worker component](https://github.com/get-convex/batch-worker)), or for an
-`updatedAt` field, which allows you to continually iterate over new updates in a
-table without needing to delete or insert entries.
+A commit timestamp represents the time (in nanoseconds) when a mutation commits.
+The value is not observable within the mutation, but with the `db.vars.commitTs`
+placeholder you can have the value inserted at commit time into documents or the
+return value.
+
+This can be used to to model a queue, or to implement an `updatedAt` field. You
+could define an index on a field that captures the commit time, then use that to
+iterate over new or updated documents without worrying about missing changes due
+to out-of-order commits. For tips on using CommitTs for efficient iteration, see
+the notes in the
+[Batch Worker Component README](https://github.com/get-convex/batch-worker).
 
 <Snippet source={commitTsExample} snippet="insert" title="convex/work.ts" />
 
@@ -25,26 +31,22 @@ nanoseconds.
 ## Commit timestamp vs. `_creationTime`
 
 Note that the commit timestamp is not the same as the `_creationTime` system
-field. The commit timestamp is strictly increasing, so the resolved
-`db.vars.commitTs` values for different documents are guaranteed to be ordered
-the same way as the corresponding mutations that committed the documents (note
-that documents updated in the same transaction will all have the same commit
-timestamp).
+field.
 
-On the other hand, `_creationTime` does not have this same guarantee, as it is
-set when the mutation begins executing. Since mutations execute concurrently
-before committing, `_creationTime` does not reflect the order in which the
-mutations are committed. Furthermore, unlike `db.vars.commitTs`, `_creationTime`
-is in milliseconds.
+|                                           | `db.vars.commitTs`      | `_creationTime`              |
+| ----------------------------------------- | ----------------------- | ---------------------------- |
+| **Timing**                                | Assigned at commit time | Based on function start time |
+| **Units**                                 | Nanoseconds             | Milliseconds                 |
+| **Type when inserted**                    | CommitTsPlaceholder     | Float64 (Number)             |
+| **Type after committed**                  | Int64 (BigInt)          | Float64 (Number)             |
+| **Reflects commit order**                 | ✅ Yes                  | ❌ No                        |
+| **Shared for inserts within transaction** | ✅ Yes                  | ❌ No (db.insert advances)   |
 
-Iterating over a table using the commit timestamp is more efficient because it
-enables skipping over tombstones. When you delete a document, Convex writes a
-tombstone in the place of the document that indicates it was deleted. However,
-tombstones still take up space in indexes. If you are using `_creationTime` as a
-cursor, new documents may be inserted with an earlier `_creationTime` after you
-have already deleted documents with later `_creationTime`. Scanning through the
-`_creationTime` index may iterate over many tombstones, especially if you have a
-delete-heavy workload on your table.
+Mutations execute concurrently before committing, so `_creationTime` does not
+necessarily reflect the order in which the mutations committed. This mean you
+can be reading the last committed document in a table, ordered by
+`_creationTime`, and then later a new document could be inserted with an earlier
+`_creationTime`. This can lead to missing documents when iterating over a table.
 
 With an index on `db.vars.commitTs`, you do not need to worry about this, as the
 timestamp is strictly increasing. Since inserted documents will always have a
@@ -54,10 +56,11 @@ begin.
 ## Using the commit timestamp
 
 During function execution, new documents inserted with `db.vars.commitTs` will
-have the `CommitTsPlaceholder`. Resolved commit timestamps are Int64s. You can
-use the `v.commitTs()` validator in argument and return validators and schema
-definitions. It accepts both placeholders and the resolved Int64 values for the
-commit timestamp.
+have the `CommitTsPlaceholder`. Resolved commit timestamps are Int64s (bigint in
+JS). You can use the `v.commitTs()` validator in argument and return validators
+and schema definitions. It accepts both resolved Int64 values and the commit
+timestamp placeholder. Fields with the commit timestamp are otherwise like any
+other field: they can be used in indexes, nested objects, arrays, and unions.
 
 <Snippet source={schema} title="convex/schema.ts" />
 
