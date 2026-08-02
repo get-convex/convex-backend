@@ -21,7 +21,13 @@ import { useCallback, useMemo, useState } from "react";
 import { TeamResponse } from "generatedApi";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { createPortal } from "react-dom";
-import { usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+} from "@floating-ui/react";
 import { FullDeploymentName } from "./BackupListItem";
 
 /** How many placeholder rows we show when loading more projects */
@@ -152,9 +158,11 @@ function RestoreFromDropdown({
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(
     null,
   );
-  const { styles, attributes } = usePopper(referenceElement, popperElement, {
+  const { floatingStyles } = useFloating({
     placement: "bottom-start",
-    modifiers: [{ name: "offset", options: { offset: [0, 8] } }],
+    middleware: [offsetMiddleware(8), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: referenceElement, floating: popperElement },
   });
 
   return (
@@ -232,7 +240,6 @@ function RestoreFromDropdown({
                 >
                   <ListboxOptions
                     ref={(el) => setPopperElement(el as HTMLDivElement | null)}
-                    {...attributes.popper}
                     className="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-sm border bg-background-secondary shadow-sm transition-[max-height] focus:outline-hidden"
                     onKeyDown={(e) => {
                       switch (e.key) {
@@ -246,7 +253,7 @@ function RestoreFromDropdown({
                       }
                     }}
                     style={{
-                      ...styles.popper,
+                      ...floatingStyles,
                       maxHeight: `${heightRem}rem`,
                     }}
                   >
