@@ -4,7 +4,13 @@ import classNames from "classnames";
 import React, { memo, useLayoutEffect, useRef, useState } from "react";
 import { useClickAway } from "react-use";
 import { areEqual } from "react-window";
-import { usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+} from "@floating-ui/react";
 import { ColumnInstance } from "react-table";
 import { DotsVerticalIcon, Link2Icon } from "@radix-ui/react-icons";
 import { Portal } from "@headlessui/react";
@@ -449,19 +455,12 @@ function CellEditorPopper({
 }) {
   const { densityValues } = useTableDensity();
   const [editorPopper, setEditorPopper] = useState<HTMLDivElement | null>(null);
-  const { styles: editorStyles, attributes: editorAttrs } = usePopper(
-    cellRef.current,
-    editorPopper,
-    {
-      placement: "bottom-start",
-      modifiers: [
-        {
-          name: "offset",
-          options: { offset: [0, -densityValues.height] },
-        },
-      ],
-    },
-  );
+  const { floatingStyles: editorStyles } = useFloating({
+    placement: "bottom-start",
+    middleware: [offsetMiddleware(-densityValues.height), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: cellRef.current, floating: editorPopper },
+  });
 
   // When you click away from the cell, close the editor if it is open
   useClickAway({ current: editorPopper }, onClose);
@@ -472,7 +471,7 @@ function CellEditorPopper({
       <div
         ref={setEditorPopper}
         style={{
-          ...editorStyles.popper,
+          ...editorStyles,
           width,
         }}
         className="z-50 -ml-px min-w-[24rem] animate-fadeInFromLoading"
@@ -489,7 +488,6 @@ function CellEditorPopper({
             onClose();
           }
         }}
-        {...editorAttrs.popper}
       >
         <CellEditor
           validator={validator}
