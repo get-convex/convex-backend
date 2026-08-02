@@ -9,8 +9,7 @@
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "convex-helpers": "^0.1.105",
-    "prettier": "3.8.1"
+    "convex-helpers": "^0.1.105"
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.0",

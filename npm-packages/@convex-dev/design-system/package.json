@@ -57,8 +57,6 @@
     "jest-environment-jsdom": "^30.0.0",
     "jsdom-testing-mocks": "^1.16.0",
     "postcss": "^8.5.18",
-    "prettier": "3.8.1",
-    "prettier-plugin-tailwindcss": "~0.7.0",
     "storybook": "^10.3.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
