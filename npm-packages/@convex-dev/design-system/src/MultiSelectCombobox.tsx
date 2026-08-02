@@ -18,7 +18,13 @@ import { useHoverDirty } from "react-use";
 import { test } from "fuzzy";
 import { Button } from "@ui/Button";
 import { createPortal } from "react-dom";
-import { usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+} from "@floating-ui/react";
 import { useIsNarrowScreen } from "./useIsNarrowScreen";
 
 const MAX_DISPLAYED_OPTIONS = 100;
@@ -77,21 +83,12 @@ export function MultiSelectCombobox({
     wasOpen.current = isOpen;
   }, [isOpen, referenceElement]);
 
-  const { styles, attributes, update } = usePopper(
-    referenceElement,
-    popperElement,
-    {
-      placement: "bottom-start",
-      modifiers: [
-        {
-          name: "offset",
-          options: {
-            offset: [0, 4],
-          },
-        },
-      ],
-    },
-  );
+  const { floatingStyles } = useFloating({
+    placement: "bottom-start",
+    middleware: [offsetMiddleware(4), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: referenceElement, floating: popperElement },
+  });
 
   // Get the width for the dropdown
   const getOptionsWidth = () => {
@@ -121,13 +118,6 @@ export function MultiSelectCombobox({
     selectedOptions === "all"
       ? `All ${unitPlural}`
       : `${count} ${count !== 1 ? unitPlural : unit}`;
-
-  // Update popper position when dropdown opens
-  useEffect(() => {
-    if (isOpen && update) {
-      void update();
-    }
-  }, [isOpen, update]);
 
   const handleSelectAll = () => {
     if (selectedOptions === "all") {
@@ -199,9 +189,8 @@ export function MultiSelectCombobox({
                     style={
                       isNarrow
                         ? undefined
-                        : { ...styles.popper, width: getOptionsWidth() }
+                        : { ...floatingStyles, width: getOptionsWidth() }
                     }
-                    {...(isNarrow ? {} : attributes.popper)}
                     className={
                       isNarrow ? "fixed inset-0 z-50 flex items-end" : "z-50"
                     }
