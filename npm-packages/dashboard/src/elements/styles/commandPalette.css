@@ -51,10 +51,29 @@
 
   /* Only size direct-child (leading) icons so nested decorations, like
      deployment type badges, keep their own dimensions. */
-  & > svg {
+  & > svg,
+  & > [data-item-primary] > svg {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+  }
+}
+
+[cmdk-item]:has([data-secondary-action]) {
+  @apply gap-0 p-0;
+
+  &[data-selected="true"],
+  &:active {
+    @apply bg-transparent;
+  }
+
+  & > [data-item-primary] {
+    @apply flex min-w-0 grow items-center gap-2 rounded-lg p-2;
+  }
+
+  &[data-selected="true"] > [data-item-primary],
+  & > [data-item-primary]:active {
+    @apply bg-background-secondary dark:bg-background-tertiary;
   }
 }
 

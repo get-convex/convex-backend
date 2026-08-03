@@ -8,6 +8,7 @@ import {
   WrenchIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@ui/Button";
+import { KEYCAP_CLASSES, KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
@@ -271,33 +272,43 @@ export function CurrentBadge({ label = "Current" }: { label?: string }) {
   return <span className="rounded-sm border px-1.5 py-0.5">{label}</span>;
 }
 
-export function DrillInHint({
-  kind,
-  onDrill,
-}: {
-  kind?: React.ReactNode;
-  onDrill?: () => void;
-}) {
+function ItemPrimary({ children }: { children: React.ReactNode }) {
+  return <span data-item-primary="">{children}</span>;
+}
+
+function DrillButton({ onDrill }: { onDrill: () => void }) {
+  return (
+    <Button
+      variant="unstyled"
+      aria-label="Browse"
+      tip={
+        <span className="flex items-center gap-1">
+          Browse
+          <KeyboardShortcut value={["Right"]} className={KEYCAP_CLASSES} />
+        </span>
+      }
+      data-secondary-action=""
+      className={cn(
+        "mr-1 ml-1.5 shrink-0 rounded-lg p-1.5 text-content-tertiary",
+        "hover:bg-background-secondary hover:text-content-primary",
+        "dark:hover:bg-background-tertiary",
+      )}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDrill();
+      }}
+    >
+      <CaretRightIcon className="size-4" />
+    </Button>
+  );
+}
+
+export function DrillInHint({ kind }: { kind?: React.ReactNode }) {
   return (
     <span className="ml-auto flex shrink-0 items-center gap-1 text-xs text-content-tertiary">
       {kind}
-      {onDrill ? (
-        <Button
-          variant="unstyled"
-          aria-label="Browse"
-          tip="Browse (⇧⏎)"
-          className="rounded-sm p-0.5 hover:bg-background-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onDrill();
-          }}
-        >
-          <CaretRightIcon className="size-4" />
-        </Button>
-      ) : (
-        <CaretRightIcon className="size-4" />
-      )}
+      <CaretRightIcon className="size-4" />
     </span>
   );
 }
@@ -352,11 +363,15 @@ export function ProjectItem({
         return onNavigate(projectHref);
       }}
     >
-      <ProjectRowBody project={project} />
-      <DrillInHint
-        kind={isCurrent ? <CurrentBadge /> : undefined}
-        onDrill={onDrill}
-      />
+      <ItemPrimary>
+        <ProjectRowBody project={project} />
+        {isCurrent && (
+          <span className="ml-auto shrink-0 text-xs text-content-tertiary">
+            <CurrentBadge />
+          </span>
+        )}
+      </ItemPrimary>
+      <DrillButton onDrill={onDrill} />
     </Command.Item>
   );
 }
@@ -410,11 +425,15 @@ export function DeploymentItem({
         return onNavigate(currentView ? `${base}/${currentView}` : base);
       }}
     >
-      <DeploymentRowBody deployment={deployment} />
-      <DrillInHint
-        kind={isCurrent ? <CurrentBadge /> : undefined}
-        onDrill={onDrill}
-      />
+      <ItemPrimary>
+        <DeploymentRowBody deployment={deployment} />
+        {isCurrent && (
+          <span className="ml-auto shrink-0 text-xs text-content-tertiary">
+            <CurrentBadge />
+          </span>
+        )}
+      </ItemPrimary>
+      <DrillButton onDrill={onDrill} />
     </Command.Item>
   );
 }
