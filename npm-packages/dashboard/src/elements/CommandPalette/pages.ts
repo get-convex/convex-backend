@@ -18,7 +18,12 @@ export type PalettePage =
   | { type: "components" }
   | { type: "theme" }
   // Bulk-delete multiple projects in the current team.
-  | { type: "deleteProjects" };
+  | { type: "deleteProjects" }
+  // Picker mode (see picker.ts): hand a deployment back to the control that
+  // opened the palette. `pickProject` is the root of that menu; menus open one
+  // level in, on the deployments of the project they already point at.
+  | { type: "pickProject" }
+  | { type: "pickDeployment"; project: ProjectDetails };
 
 // The input placeholder, scoped to whatever page the user has drilled into so
 // it names what a search here will actually match (e.g. a deployment within the
@@ -58,6 +63,12 @@ export function palettePlaceholder(
       return teamName
         ? `Search for a project to delete in ${teamName}…`
         : "Search for a project to delete…";
+    case "pickProject":
+      return teamName
+        ? `Search for a project in ${teamName}…`
+        : "Search for a project…";
+    case "pickDeployment":
+      return `Search for a deployment in ${page.project.name || page.project.slug}…`;
     default:
       page satisfies never;
       return "Search for anything…";
@@ -84,6 +95,10 @@ export function pageLabel(page: PalettePage): string {
       return "Change Dashboard Theme";
     case "deleteProjects":
       return "Delete Projects";
+    case "pickProject":
+      return "Select Project";
+    case "pickDeployment":
+      return page.project.name || page.project.slug;
     default: {
       page satisfies never;
       return "";

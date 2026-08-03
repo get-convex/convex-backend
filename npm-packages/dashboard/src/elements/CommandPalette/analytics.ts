@@ -11,7 +11,8 @@ export function usePaletteAnalytics() {
         | "slash"
         | "button"
         | "project-selector"
-        | "deployment-selector",
+        | "deployment-selector"
+        | "backup-restore-from",
     ) => capture("command_palette_opened", { via }),
     trackSelected: (kind: string) =>
       capture("command_palette_item_selected", { kind }),

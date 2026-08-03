@@ -59,9 +59,16 @@ export function SwitchProjectCommands({
         <ProjectSearchGroup
           team={team}
           search={search}
-          onNavigate={onNavigate}
-          pushPage={pushPage}
           full
+          renderItem={(candidate) => (
+            <ProjectItem
+              key={candidate.id}
+              project={candidate}
+              teamSlug={team.slug}
+              onNavigate={onNavigate}
+              onDrill={() => pushPage({ type: "project", project: candidate })}
+            />
+          )}
         />
       ) : (
         <LoadingSignal />
@@ -90,16 +97,20 @@ export function SwitchProjectCommands({
 export function ProjectSearchGroup({
   team,
   search,
-  onNavigate,
-  pushPage,
   full = false,
+  pinnedProject,
+  renderItem,
 }: {
   team: TeamResponse;
   search: string;
-  onNavigate: (to: NavigationDestination) => void;
-  pushPage: (page: PalettePage) => void;
   // Show the whole (paginated) list rather than a root-page teaser.
   full?: boolean;
+  // A project to list first, ahead of the fetched page. Only while the list is
+  // unfiltered: once the user searches, results stand on their own relevance.
+  pinnedProject?: ProjectDetails;
+  // How each result renders: a row that navigates into the project in the
+  // palette proper, a pickable row in a picker menu.
+  renderItem: (project: ProjectDetails) => React.ReactNode;
 }) {
   const {
     projects,
@@ -114,7 +125,13 @@ export function ProjectSearchGroup({
 
   // With no search, show a short list so the root page stays scannable;
   // server-side search takes over as soon as the user types.
-  const shown = full || trimmed ? projects : projects?.slice(0, 5);
+  const page = full || trimmed ? projects : projects?.slice(0, 5);
+  const pinned = trimmed ? undefined : pinnedProject;
+  // cmdk keys rows by value, so the pinned project has to leave the list it's
+  // hoisted out of.
+  const shown = pinned
+    ? [pinned, ...(page ?? []).filter((p) => p.id !== pinned.id)]
+    : page;
 
   if (stale) {
     return (
@@ -126,15 +143,7 @@ export function ProjectSearchGroup({
 
   return (
     <Command.Group heading={`${team.name || team.slug} · Projects`}>
-      {shown?.map((candidate) => (
-        <ProjectItem
-          key={candidate.id}
-          project={candidate}
-          teamSlug={team.slug}
-          onNavigate={onNavigate}
-          onDrill={() => pushPage({ type: "project", project: candidate })}
-        />
-      ))}
+      {shown?.map(renderItem)}
       {(full || trimmed) && (
         <InfiniteScrollSentinel
           hasMore={hasMore}

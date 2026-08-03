@@ -435,7 +435,7 @@ function useDeploymentSwitcherTrigger(
       trackOpened("deployment-selector");
       const rect = button.getBoundingClientRect();
       openCommandPalette({
-        page: { type: "deployments", project },
+        pages: [{ type: "deployments", project }],
         anchor: {
           left: rect.left,
           top: rect.bottom + 8,

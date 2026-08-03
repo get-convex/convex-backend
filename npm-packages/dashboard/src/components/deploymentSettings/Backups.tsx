@@ -188,7 +188,6 @@ export function Backups({
 
           <Sheet padding={false} className="min-h-72">
             <BackupList
-              team={team}
               targetDeployment={deployment}
               canCreate={canCreate}
               canImport={canImport}

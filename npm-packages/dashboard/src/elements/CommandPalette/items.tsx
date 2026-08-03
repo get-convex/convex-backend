@@ -23,6 +23,7 @@ import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import type { PlatformDeploymentResponse, ProjectDetails } from "generatedApi";
 import type { NavigationTarget } from "./navigation";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
+import type { DeploymentPicker } from "./picker";
 import { usePaletteAnalytics } from "./analytics";
 
 // Items whose default action is direct navigation drill into their nested
@@ -266,8 +267,8 @@ export function PinnedActions({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function CurrentBadge() {
-  return <span className="rounded-sm border px-1.5 py-0.5">Current</span>;
+export function CurrentBadge({ label = "Current" }: { label?: string }) {
+  return <span className="rounded-sm border px-1.5 py-0.5">{label}</span>;
 }
 
 export function DrillInHint({
@@ -351,16 +352,7 @@ export function ProjectItem({
         return onNavigate(projectHref);
       }}
     >
-      <StackIcon className="text-content-secondary" />
-      {/* Two lines: the project's name, then its slug. */}
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate">
-          <HighlightedText text={project.name || project.slug} />
-        </span>
-        <span className="truncate text-xs text-content-tertiary">
-          <HighlightedText text={project.slug} />
-        </span>
-      </span>
+      <ProjectRowBody project={project} />
       <DrillInHint
         kind={isCurrent ? <CurrentBadge /> : undefined}
         onDrill={onDrill}
@@ -394,12 +386,7 @@ export function DeploymentItem({
   const { project } = useProjectById(deployment.projectId);
   const projectSlug = knownProjectSlug ?? project?.slug;
   const typeLabel = deploymentTypeLabel(deployment.deploymentType);
-  // Local deployments have no cloud reference; show the device and port they're
-  // running on instead, matching the header's old deployment menu.
-  const primary =
-    deployment.kind === "cloud" ? deployment.reference : deployment.deviceName;
-  const secondary =
-    deployment.kind === "local" ? `Port ${deployment.port}` : deployment.name;
+  const { primary } = deploymentRowText(deployment);
   const { trackSelected } = usePaletteAnalytics();
   // When switching straight to another deployment, keep whatever subpage the
   // user is on (Data, Logs, a settings tab, …) instead of resetting to Health.
@@ -423,6 +410,146 @@ export function DeploymentItem({
         return onNavigate(currentView ? `${base}/${currentView}` : base);
       }}
     >
+      <DeploymentRowBody deployment={deployment} />
+      <DrillInHint
+        kind={isCurrent ? <CurrentBadge /> : undefined}
+        onDrill={onDrill}
+      />
+    </Command.Item>
+  );
+}
+
+// A deployment row in picker mode: choosing it hands the deployment to the
+// picker rather than navigating to it.
+export function DeploymentPickerItem({
+  deployment,
+  picker,
+  onSelect,
+}: {
+  deployment: PlatformDeploymentResponse;
+  picker: DeploymentPicker;
+  onSelect: () => void;
+}) {
+  const { trackSelected } = usePaletteAnalytics();
+  const { primary, secondary } = deploymentRowText(deployment);
+  const typeLabel = deploymentTypeLabel(deployment.deploymentType);
+  const unavailableReason = picker.unavailableReason?.(deployment);
+  const isSelected = picker.selectedDeploymentName === deployment.name;
+  const body = (
+    <>
+      <DeploymentRowBody deployment={deployment} />
+      {isSelected && (
+        <span className="ml-auto shrink-0 text-xs text-content-tertiary">
+          <CurrentBadge label="Selected" />
+        </span>
+      )}
+    </>
+  );
+  return (
+    <Command.Item
+      // Not the `deployment:` value the switcher rows use: that marks a row as
+      // browsable, and a picked deployment has no nested view to browse into.
+      value={`pick-deployment:${deployment.name}`}
+      className={cn(
+        "animate-fadeInFromLoading",
+        unavailableReason && "pointer-events-none",
+      )}
+      keywords={[primary, secondary, deployment.name, typeLabel]}
+      disabled={unavailableReason !== undefined}
+      onSelect={() => {
+        trackSelected("pick-deployment");
+        onSelect();
+      }}
+    >
+      {unavailableReason ? (
+        // A disabled item is pointer-events-none so cmdk ignores it; re-enable
+        // events on just the tooltip trigger so hovering the row still explains
+        // why it can't be picked.
+        <Tooltip
+          tip={unavailableReason}
+          side="top"
+          asChild
+          className="pointer-events-auto flex w-full items-center gap-2"
+        >
+          <span>{body}</span>
+        </Tooltip>
+      ) : (
+        body
+      )}
+    </Command.Item>
+  );
+}
+
+// A project row in picker mode: choosing it drills into that project's
+// deployments rather than navigating anywhere.
+export function ProjectPickerItem({
+  project,
+  selected,
+  onSelect,
+}: {
+  project: ProjectDetails;
+  // The project the picker currently points at.
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { trackSelected } = usePaletteAnalytics();
+  return (
+    <Command.Item
+      value={`${REMOTE_VALUE_PREFIX}project:${project.id}`}
+      className="animate-fadeInFromLoading"
+      onSelect={() => {
+        trackSelected("pick-project");
+        onSelect();
+      }}
+    >
+      <ProjectRowBody project={project} />
+      <DrillInHint
+        kind={selected ? <CurrentBadge label="Selected" /> : undefined}
+      />
+    </Command.Item>
+  );
+}
+
+// The stacked-projects icon, then the project's name over its slug.
+function ProjectRowBody({ project }: { project: ProjectDetails }) {
+  return (
+    <>
+      <StackIcon className="text-content-secondary" />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">
+          <HighlightedText text={project.name || project.slug} />
+        </span>
+        <span className="truncate text-xs text-content-tertiary">
+          <HighlightedText text={project.slug} />
+        </span>
+      </span>
+    </>
+  );
+}
+
+// Local deployments have no cloud reference; show the device and port they're
+// running on instead, matching the header's old deployment menu.
+function deploymentRowText(deployment: PlatformDeploymentResponse) {
+  return {
+    primary:
+      deployment.kind === "cloud"
+        ? deployment.reference
+        : deployment.deviceName,
+    secondary:
+      deployment.kind === "local" ? `Port ${deployment.port}` : deployment.name,
+  };
+}
+
+// The type badge, then the deployment's reference (or device) over its name
+// (or port).
+function DeploymentRowBody({
+  deployment,
+}: {
+  deployment: PlatformDeploymentResponse;
+}) {
+  const { primary, secondary } = deploymentRowText(deployment);
+  return (
+    <>
       <div
         className={cn(
           "inline-flex shrink-0 items-center justify-center rounded-full p-1",
@@ -431,8 +558,6 @@ export function DeploymentItem({
       >
         <DeploymentTypeIcon deploymentType={deployment.deploymentType} />
       </div>
-      {/* Two lines: the deployment's reference (or device), then its name (or
-          port). */}
       <span className="flex min-w-0 flex-col">
         <span className="truncate">
           <HighlightedText text={primary} />
@@ -441,11 +566,7 @@ export function DeploymentItem({
           <HighlightedText text={secondary} />
         </span>
       </span>
-      <DrillInHint
-        kind={isCurrent ? <CurrentBadge /> : undefined}
-        onDrill={onDrill}
-      />
-    </Command.Item>
+    </>
   );
 }
 

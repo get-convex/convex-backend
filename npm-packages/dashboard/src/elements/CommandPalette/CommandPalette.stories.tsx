@@ -33,7 +33,7 @@ import type { PlatformDeploymentResponse } from "generatedApi";
 import {
   CommandPalette,
   useCommandPaletteAnchor,
-  useCommandPaletteInitialPage,
+  useCommandPaletteInitialPages,
   useCommandPaletteOpen,
 } from "./CommandPalette";
 
@@ -238,16 +238,16 @@ export const TeamLevel: Story = {
 function DeploymentSwitcherMenu() {
   const [, setOpen] = useCommandPaletteOpen();
   const [, setAnchor] = useCommandPaletteAnchor();
-  const [, setInitialPage] = useCommandPaletteInitialPage();
+  const [, setInitialPages] = useCommandPaletteInitialPages();
   useEffect(() => {
-    setInitialPage({ type: "deployments", project: mockProject });
+    setInitialPages([{ type: "deployments", project: mockProject }]);
     setAnchor({ left: 16, top: 56, source: "deployment-switcher" });
     setOpen(true);
     return () => {
       setOpen(false);
       setAnchor(null);
     };
-  }, [setOpen, setAnchor, setInitialPage]);
+  }, [setOpen, setAnchor, setInitialPages]);
   return (
     <div className="h-screen bg-background-primary">
       <div className="flex h-14 items-center border-b bg-background-secondary px-4">

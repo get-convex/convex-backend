@@ -28,7 +28,7 @@ import {
   teamNavigation,
   teamSectionNavigation,
 } from "./navigation";
-import { ActionItem, NavigationItem } from "./items";
+import { ActionItem, NavigationItem, ProjectItem } from "./items";
 import { ComponentSwitchCommands } from "./ComponentCommands";
 import {
   DeploymentSearchCommands,
@@ -222,8 +222,15 @@ export function RootCommands({
         <ProjectSearchGroup
           team={team}
           search={search}
-          onNavigate={onNavigate}
-          pushPage={pushPage}
+          renderItem={(candidate) => (
+            <ProjectItem
+              key={candidate.id}
+              project={candidate}
+              teamSlug={team.slug}
+              onNavigate={onNavigate}
+              onDrill={() => pushPage({ type: "project", project: candidate })}
+            />
+          )}
         />
       )}
       {team && search.trim() && (

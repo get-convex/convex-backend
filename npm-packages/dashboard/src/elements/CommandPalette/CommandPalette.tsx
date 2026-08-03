@@ -22,6 +22,8 @@ import { ComponentsCommands } from "./ComponentCommands";
 import { DeleteProjectsCommands } from "./DeleteProjectsCommands";
 import { ProjectCommands, SwitchDeploymentCommands } from "./ProjectCommands";
 import { DeploymentCommands } from "./DeploymentCommands";
+import { PickDeploymentCommands, PickProjectCommands } from "./PickerCommands";
+import { DeploymentPicker, useCommandPaletteDeploymentPicker } from "./picker";
 import { PalettePage, palettePlaceholder } from "./pages";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Footer } from "./Footer";
@@ -39,12 +41,15 @@ import { usePaletteAnalytics } from "./analytics";
 
 export const useCommandPaletteOpen = createGlobalState(false);
 
-// A one-shot page to drill straight into when the palette next opens (e.g. the
-// top-left project switcher opens it directly on the "Switch Project" view).
-// The dialog consumes this on mount and clears it, so a subsequent open via
-// ⌘K/slash starts at the root as usual.
-export const useCommandPaletteInitialPage =
-  createGlobalState<PalettePage | null>(null);
+// A one-shot drill-in stack for the palette's next open (e.g. the top-left
+// project switcher opens it directly on the "Switch Project" view). More than
+// one page opens the menu partway down its own stack, so the user can step back
+// up it — the deployment picker opens on a project's deployments with the
+// project list behind it. The dialog consumes this on mount and clears it, so a
+// subsequent open via ⌘K/slash starts at the root as usual.
+export const useCommandPaletteInitialPages = createGlobalState<
+  PalettePage[] | null
+>(null);
 
 // The viewport point (a trigger's bottom-left) to anchor the palette under when
 // it's opened from the project switcher, rendering a compact menu attached to
@@ -65,36 +70,46 @@ export const useCommandPaletteAnchor = createGlobalState<PaletteAnchor | null>(
   null,
 );
 
-// Opens the command palette, optionally drilled into a nested page and/or
-// anchored beneath a trigger.
+// Opens the command palette, optionally drilled into a stack of nested pages,
+// anchored beneath a trigger, and/or in picker mode (where the caller, rather
+// than the palette, decides what selecting a deployment does).
 export function useOpenCommandPalette() {
   const [, setOpen] = useCommandPaletteOpen();
-  const [, setInitialPage] = useCommandPaletteInitialPage();
+  const [, setInitialPages] = useCommandPaletteInitialPages();
   const [, setAnchor] = useCommandPaletteAnchor();
+  const [, setPicker] = useCommandPaletteDeploymentPicker();
   return useCallback(
-    (options?: { page?: PalettePage; anchor?: PaletteAnchor }) => {
-      setInitialPage(options?.page ?? null);
+    (options?: {
+      pages?: PalettePage[];
+      anchor?: PaletteAnchor;
+      picker?: DeploymentPicker;
+    }) => {
+      setInitialPages(options?.pages ?? null);
       setAnchor(options?.anchor ?? null);
+      setPicker(options?.picker ?? null);
       setOpen(true);
     },
-    [setOpen, setInitialPage, setAnchor],
+    [setOpen, setInitialPages, setAnchor, setPicker],
   );
 }
 
 export function CommandPalette() {
   const [open, setOpen] = useCommandPaletteOpen();
   const [, setAnchor] = useCommandPaletteAnchor();
+  const [, setPicker] = useCommandPaletteDeploymentPicker();
   const router = useRouter();
 
   const [detail, setDetail] = useState<SearchResultDetailItem | null>(null);
   const { trackOpened } = usePaletteAnalytics();
 
-  // Closing always clears any trigger anchor so the next keyboard-driven open
-  // is the centered dialog rather than re-anchoring to the project switcher.
+  // Closing always clears any trigger anchor and picker so the next
+  // keyboard-driven open is the centered, navigating dialog rather than
+  // re-anchoring to the switcher or menu that opened it last.
   const closePalette = useCallback(() => {
     setOpen(false);
     setAnchor(null);
-  }, [setOpen, setAnchor]);
+    setPicker(null);
+  }, [setOpen, setAnchor, setPicker]);
 
   useHotkeys(
     ["meta+k", "ctrl+k"],
@@ -104,6 +119,7 @@ export function CommandPalette() {
         trackOpened("hotkey");
       }
       setAnchor(null);
+      setPicker(null);
       setOpen((isOpen) => !isOpen);
     },
     // Allows this shortcut to work even if you're focusing a form element
@@ -130,11 +146,12 @@ export function CommandPalette() {
         trackOpened("slash");
       }
       setAnchor(null);
+      setPicker(null);
       setOpen(true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, setOpen, setAnchor, trackOpened]);
+  }, [open, setOpen, setAnchor, setPicker, trackOpened]);
 
   return (
     <>
@@ -186,18 +203,17 @@ function CommandPaletteDialog({
   // navigating away (e.g. from the root into a team's list of projects, or
   // from a project into its deployments). Each drill pushes a page onto this
   // stack and clears the search.
-  const [initialPage, setInitialPage] = useCommandPaletteInitialPage();
+  const [initialPages, setInitialPages] = useCommandPaletteInitialPages();
   const [anchor] = useCommandPaletteAnchor();
-  const [pages, setPages] = useState<PalettePage[]>(
-    initialPage ? [initialPage] : [],
-  );
+  const [picker] = useCommandPaletteDeploymentPicker();
+  const [pages, setPages] = useState<PalettePage[]>(initialPages ?? []);
   useEffect(() => {
-    if (initialPage) {
-      setPages([initialPage]);
+    if (initialPages) {
+      setPages(initialPages);
       setSearch("");
-      setInitialPage(null);
+      setInitialPages(null);
     }
-  }, [initialPage, setInitialPage]);
+  }, [initialPages, setInitialPages]);
   // `drillPage` is the view currently shown
   const drillPage = pages[pages.length - 1];
   const placeholder = palettePlaceholder(drillPage, team?.name, project?.name);
@@ -488,6 +504,25 @@ function CommandPaletteDialog({
                     deployment={drillPage.deployment}
                     projectSlug={drillPage.projectSlug}
                     onNavigate={onNavigate}
+                  />
+                )}
+                {drillPage?.type === "pickDeployment" && picker && (
+                  <PickDeploymentCommands
+                    project={drillPage.project}
+                    picker={picker}
+                    onSelect={(deployment) => {
+                      onClose();
+                      picker.onSelect(deployment);
+                    }}
+                  />
+                )}
+                {drillPage?.type === "pickProject" && (
+                  <PickProjectCommands
+                    search={search}
+                    pinnedProject={picker?.selectedProject}
+                    onSelectProject={(project) =>
+                      pushPage({ type: "pickDeployment", project })
+                    }
                   />
                 )}
               </Command.List>

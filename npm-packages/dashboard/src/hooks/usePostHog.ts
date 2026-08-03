@@ -37,7 +37,8 @@ export type PostHogEventMap = {
       | "slash"
       | "button"
       | "project-selector"
-      | "deployment-selector";
+      | "deployment-selector"
+      | "backup-restore-from";
   };
   command_palette_item_selected: {
     kind: string;

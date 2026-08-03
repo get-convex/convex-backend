@@ -1,4 +1,3 @@
-import { TeamResponse } from "generatedApi";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { ArchiveIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
@@ -14,14 +13,12 @@ import { useLatestRestore } from "./BackupRestoreStatus";
 
 export function BackupList({
   targetDeployment,
-  team,
   canCreate,
   canImport,
   canDelete,
   maxCloudBackups,
 }: {
   targetDeployment: PlatformDeploymentResponse; // = deployment the settings page is open for
-  team: TeamResponse;
   canCreate: boolean;
   canImport: boolean;
   canDelete: boolean;
@@ -52,7 +49,6 @@ export function BackupList({
         <BackupDeploymentSelector
           selectedDeployment={selectedDeployment}
           onChange={setSelectedDeployment}
-          team={team}
           targetDeployment={targetDeployment}
         />
       </div>

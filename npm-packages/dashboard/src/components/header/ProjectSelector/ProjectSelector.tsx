@@ -51,7 +51,7 @@ export function ProjectSelector({
     trackOpened("project-selector");
     const rect = event.currentTarget.getBoundingClientRect();
     openCommandPalette({
-      page,
+      pages: [page],
       anchor: { left: rect.left, top: rect.bottom + 8, source },
     });
   };
