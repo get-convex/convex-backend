@@ -117,9 +117,10 @@ WORKOS_COOKIE_PASSWORD={copy from production env vars}
 WORKOS_API_SECRET={copy from production env vars}
 ```
 
-Run the CORS Anywhere proxy locally:
+Run the CORS proxy locally (`cors-proxy.js`, which only forwards to
+`https://api.convex.dev`):
 
-`npm run corsAnywhere`
+`npm run corsProxy`
 
 Now when you `npm run dev:pure`, the dashboard will talk to production big brain
 and backends.
