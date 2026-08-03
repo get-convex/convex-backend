@@ -257,8 +257,8 @@ export function PinnedActions({ children }: { children: React.ReactNode }) {
     <Command.Group
       data-pinned=""
       className={cn(
-        "sticky bottom-0 z-20 -mx-2 border-t px-2 py-1",
-        "bg-background-secondary",
+        "sticky bottom-0 z-20 -mx-1 border-t p-1",
+        "bg-background-primary",
       )}
     >
       {children}

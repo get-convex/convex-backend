@@ -1,6 +1,8 @@
 import React from "react";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
+import { KEYCAP_CLASSES } from "@ui/KeyboardShortcut";
+import { cn } from "@ui/cn";
 import { useCommandPaletteOpen } from "./CommandPalette";
 import { usePaletteAnalytics } from "./analytics";
 
@@ -20,9 +22,7 @@ export function CommandPaletteTrigger() {
     >
       <MagnifyingGlassIcon className="size-4 shrink-0" />
       <span className="select-none">Find anything</span>
-      <kbd className="ml-auto rounded-sm border bg-background-tertiary px-1.5 font-sans text-xs text-content-secondary">
-        /
-      </kbd>
+      <kbd className={cn(KEYCAP_CLASSES, "ml-auto font-sans text-xs")}>/</kbd>
     </Button>
   );
 }

@@ -21,7 +21,10 @@ import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEdit
 
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { DataDetail } from "@common/features/data/components/Table/DataCell/DataDetail";
-import { CellEditor } from "@common/features/data/components/Table/DataCell/CellEditor";
+import {
+  CELL_EDITOR_OVERHANG,
+  CellEditor,
+} from "@common/features/data/components/Table/DataCell/CellEditor";
 import { DataCellValue } from "@common/features/data/components/Table/DataCell/DataCellValue";
 
 import type { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
@@ -457,7 +460,14 @@ function CellEditorPopper({
   const [editorPopper, setEditorPopper] = useState<HTMLDivElement | null>(null);
   const { floatingStyles: editorStyles } = useFloating({
     placement: "bottom-start",
-    middleware: [offsetMiddleware(-densityValues.height), flip(), shift()],
+    middleware: [
+      offsetMiddleware({
+        mainAxis: -(densityValues.height + CELL_EDITOR_OVERHANG),
+        alignmentAxis: -CELL_EDITOR_OVERHANG,
+      }),
+      flip(),
+      shift(),
+    ],
     whileElementsMounted: autoUpdate,
     elements: { reference: cellRef.current, floating: editorPopper },
   });
@@ -472,9 +482,9 @@ function CellEditorPopper({
         ref={setEditorPopper}
         style={{
           ...editorStyles,
-          width,
+          width: width && `calc(${width} + ${2 * CELL_EDITOR_OVERHANG}px)`,
         }}
-        className="z-50 -ml-px min-w-[24rem] animate-fadeInFromLoading"
+        className="z-50 min-w-[24rem] animate-fadeInFromLoading"
         data-testid="cell-editor-popper"
         tabIndex={-1}
         onBlur={(e) => {

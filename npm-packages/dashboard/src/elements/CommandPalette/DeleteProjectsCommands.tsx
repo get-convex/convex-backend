@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import { Checkbox } from "@ui/Checkbox";
-import { KeyboardShortcut } from "@ui/KeyboardShortcut";
+import { KEYCAP_CLASSES, KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import {
   useCurrentProject,
@@ -24,12 +24,9 @@ import {
   PaletteConfirmContext,
   PaletteStatusContext,
 } from "./items";
-import { KBD_CLASSES } from "./Footer";
 import { InfiniteScrollSentinel } from "./InfiniteScrollSentinel";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
 
-// The backend deletes projects one API call at a time, so cap a single bulk
-// action to keep it from running long / timing out.
 const MAX_SELECTED = 100;
 
 // The drilled-into "Delete Projects" page: a searchable, multi-select list of
@@ -80,7 +77,7 @@ export function DeleteProjectsCommands({
           <span className="flex items-center gap-1 text-content-error">
             <KeyboardShortcut
               value={["CtrlOrCmd", "Shift", "Return"]}
-              className={KBD_CLASSES}
+              className={KEYCAP_CLASSES}
             />
             Delete
           </span>

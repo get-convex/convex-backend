@@ -1,10 +1,7 @@
 import { useCommandState } from "cmdk";
-import { KeyboardShortcut } from "@ui/KeyboardShortcut";
+import { KEYCAP_CLASSES, KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { cn } from "@ui/cn";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
-
-export const KBD_CLASSES =
-  "rounded-sm border bg-background-tertiary px-1 text-content-secondary";
 
 // Values of items whose Enter action is direct navigation but that can also
 // be browsed (drilled into) with the modifier — project and deployment
@@ -30,24 +27,24 @@ export function Footer({
   // hover, so this covers "hovering or focusing" a browsable item.
   const selectedValue = useCommandState((state) => state.value);
   return (
-    <div className="-mx-2 flex items-center gap-4 border-t px-5 pt-2 text-xs text-content-tertiary select-none">
+    <div className="-mx-1 flex items-center gap-4 border-t px-3 pt-2 pb-1.5 text-xs text-content-tertiary select-none">
       <span className="flex items-center gap-1">
-        <KeyboardShortcut value={["Up", "Down"]} className={KBD_CLASSES} />
+        <KeyboardShortcut value={["Up", "Down"]} className={KEYCAP_CLASSES} />
         Navigate
       </span>
       <span className="flex items-center gap-1">
-        <KeyboardShortcut value={["Return"]} className={KBD_CLASSES} />
+        <KeyboardShortcut value={["Return"]} className={KEYCAP_CLASSES} />
         Select
       </span>
       {inSubPage && (
         <span className="flex items-center gap-1">
-          <KeyboardShortcut value={["Left"]} className={KBD_CLASSES} />
+          <KeyboardShortcut value={["Left"]} className={KEYCAP_CLASSES} />
           Back
         </span>
       )}
       {isBrowsableItemValue(selectedValue) && (
         <span className="flex animate-fadeInFromLoading items-center gap-1">
-          <KeyboardShortcut value={["Right"]} className={KBD_CLASSES} />
+          <KeyboardShortcut value={["Right"]} className={KEYCAP_CLASSES} />
           Browse
         </span>
       )}
@@ -55,7 +52,7 @@ export function Footer({
         <span className="ml-auto text-content-secondary">{status}</span>
       )}
       <span className={cn("flex items-center gap-1", !status && "ml-auto")}>
-        <KeyboardShortcut value={["Esc"]} className={KBD_CLASSES} />
+        <KeyboardShortcut value={["Esc"]} className={KEYCAP_CLASSES} />
         {inSubPage ? "Back" : "Close"}
       </span>
     </div>

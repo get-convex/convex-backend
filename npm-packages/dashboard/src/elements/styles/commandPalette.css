@@ -1,5 +1,5 @@
 [cmdk-root] {
-  @apply p-2 bg-background-secondary/90 dark:bg-background-secondary/70 backdrop-blur-xl border fixed left-1/2 top-1/3 z-50 -translate-x-1/2 -translate-y-1/2 shadow-xl max-w-[640px] w-[calc(100%-2rem)] overflow-hidden rounded-lg;
+  @apply px-1 py-1.5 bg-background-secondary/90 dark:bg-background-secondary/70 backdrop-blur-xl border fixed left-1/2 top-1/3 z-50 -translate-x-1/2 -translate-y-1/2 shadow-xl max-w-[640px] w-[calc(100%-2rem)] overflow-hidden rounded-2xl;
 }
 
 @media (max-height: 700px) {
@@ -23,7 +23,7 @@
 }
 
 [cmdk-input] {
-  @apply bg-transparent border-b rounded-b-none pl-10 pr-4 py-2.5 text-sm block rounded-sm placeholder:text-content-tertiary border-0 w-full focus:outline-hidden;
+  @apply bg-transparent border-b rounded-b-none pl-9 pr-3 pt-4 pb-2.5 text-sm block rounded-sm placeholder:text-content-tertiary border-0 w-full focus:outline-hidden;
 }
 
 [cmdk-overlay] {
@@ -31,7 +31,7 @@
 }
 
 [cmdk-item] {
-  @apply rounded-sm text-sm flex items-center gap-2 p-2 cursor-pointer;
+  @apply rounded-lg text-sm flex items-center gap-2 p-2 cursor-pointer;
 
   &[data-selected="true"] {
     @apply bg-background-secondary dark:bg-background-tertiary;
@@ -95,7 +95,7 @@
 [cmdk-group-heading] {
   /* Headings scroll with their group (not sticky): floating them would need
      an opaque background band over the glass surface. */
-  @apply select-none text-xs text-content-tertiary p-2 py-1 flex items-center;
+  @apply select-none text-xs text-content-tertiary px-2 py-1 flex items-center;
 }
 
 [cmdk-empty] {

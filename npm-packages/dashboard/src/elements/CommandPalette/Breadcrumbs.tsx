@@ -23,7 +23,7 @@ export function Breadcrumbs({
   // the palette's Home root.
   const startIndex = baseDepth > 0 ? baseDepth - 1 : 0;
   return (
-    <div className="-mx-2 -mt-2 mb-2 flex animate-fadeInFromLoading items-center gap-1 border-b bg-background-tertiary/40 px-4 py-2 select-none">
+    <div className="-mx-1 -mt-1.5 mb-1.5 flex animate-fadeInFromLoading items-center gap-1 border-b bg-background-tertiary/40 px-3 pt-3 pb-2 select-none">
       {baseDepth === 0 && <Crumb onClick={() => onNavigate(0)}>Home</Crumb>}
       {pages.map((page, i) => {
         if (i < startIndex) {

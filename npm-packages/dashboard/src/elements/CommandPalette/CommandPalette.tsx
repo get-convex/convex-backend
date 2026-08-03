@@ -368,9 +368,14 @@ function CommandPaletteDialog({
                 />
               )}
               <div
-                className={cn("relative -mx-2 -mt-2 mb-2 flex items-center")}
+                className={cn(
+                  "relative -mx-1 -mt-1.5 mb-1.5 flex items-center",
+                )}
               >
-                <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-content-tertiary" />
+                {/* The input's top padding is larger than its bottom, so
+                    center these on its text line (pt-4 + half of the 20px
+                    line box, less half the icon) rather than on its box. */}
+                <MagnifyingGlassIcon className="pointer-events-none absolute top-4.5 left-3 size-4 text-content-tertiary" />
                 <Command.Input
                   ref={inputRef}
                   autoFocus
@@ -379,7 +384,7 @@ function CommandPaletteDialog({
                   onValueChange={setSearch}
                 />
                 {isSearchPending && (
-                  <Spinner className="absolute top-1/2 right-5 size-4 -translate-y-1/2 animate-fadeInFromLoading" />
+                  <Spinner className="absolute top-4.5 right-3 size-4 animate-fadeInFromLoading" />
                 )}
               </div>
               {/* While searching, cmdk re-sorts and reparents every group/item on
@@ -387,11 +392,11 @@ function CommandPaletteDialog({
                 attribute drives the CSS rule that suppresses that fade so results
                 don't flash on every character. */}
               {/* Bleed the list to the palette's edges (its content is padded
-                  back by px-2) so a pinned bar inside it can span the full
+                  back by px-1) so a pinned bar inside it can span the full
                   width; without this the list's overflow clips the bleed. */}
               <Command.List
                 className={cn(
-                  "-mx-2 scrollbar px-2",
+                  "-mx-1 scrollbar px-1",
                   !hasPinnedActions && "pb-2",
                   // Flex-fills the sizer so the pinned create bar sits at the
                   // list bottom (see commandPalette.css).
