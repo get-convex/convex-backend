@@ -553,17 +553,23 @@ where
     }
 }
 
-pub struct MockWorkOSClient;
-
-impl Default for MockWorkOSClient {
-    fn default() -> Self {
-        Self::new()
-    }
+#[derive(Default)]
+pub struct MockWorkOSClient {
+    /// Configured `find_user_id_by_email` responses, keyed by lowercased email.
+    email_to_user_id: std::collections::HashMap<String, String>,
 }
 
 impl MockWorkOSClient {
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    /// Configure `find_user_id_by_email` to return `workos_user_id` for
+    /// `email`.
+    pub fn with_email_user_id(mut self, email: &str, workos_user_id: &str) -> Self {
+        self.email_to_user_id
+            .insert(email.to_lowercase(), workos_user_id.to_string());
+        self
     }
 }
 
@@ -601,8 +607,8 @@ impl WorkOSClient for MockWorkOSClient {
         Ok(false)
     }
 
-    async fn find_user_id_by_email(&self, _email: &str) -> anyhow::Result<Option<String>> {
-        Ok(None)
+    async fn find_user_id_by_email(&self, email: &str) -> anyhow::Result<Option<String>> {
+        Ok(self.email_to_user_id.get(&email.to_lowercase()).cloned())
     }
 
     async fn delete_user(&self, _user_id: &str) -> anyhow::Result<()> {
