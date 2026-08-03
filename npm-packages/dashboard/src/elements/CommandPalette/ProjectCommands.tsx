@@ -134,7 +134,12 @@ function DeploymentsGroup({
         .sort(compareSwitcherDeployments(member?.id)),
     [deployments, member?.id],
   );
-  const hasProd = shownDeployments.some((d) => d.deploymentType === "prod");
+  const prodDeployments = shownDeployments.filter(
+    (d) => d.deploymentType === "prod",
+  );
+  const nonProdDeployments = shownDeployments.filter(
+    (d) => d.deploymentType !== "prod",
+  );
   const hasPersonalDev = shownDeployments.some(
     (d) => d.deploymentType === "dev" && d.creator === member?.id,
   );
@@ -145,7 +150,7 @@ function DeploymentsGroup({
         <LoadingSignal />
       ) : (
         <>
-          {!hasProd && (
+          {prodDeployments.length === 0 && (
             <CreateDeploymentItem
               deploymentType="prod"
               team={team}
@@ -153,6 +158,18 @@ function DeploymentsGroup({
               onNavigate={onNavigate}
             />
           )}
+          {prodDeployments.map((deployment) => (
+            <DeploymentItem
+              key={deployment.name}
+              deployment={deployment}
+              teamSlug={team.slug}
+              projectSlug={project.slug}
+              onNavigate={onNavigate}
+              onDrill={() => onSelectDeployment(deployment)}
+            />
+          ))}
+          {/* Each create row sits in the slot its deployment type would occupy,
+              so production stays above development whichever one is missing. */}
           {!hasPersonalDev && (
             <CreateDeploymentItem
               deploymentType="dev"
@@ -161,7 +178,7 @@ function DeploymentsGroup({
               onNavigate={onNavigate}
             />
           )}
-          {shownDeployments.map((deployment) => (
+          {nonProdDeployments.map((deployment) => (
             <DeploymentItem
               key={deployment.name}
               deployment={deployment}
