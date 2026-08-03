@@ -468,7 +468,11 @@ function FunctionUsageBreakdown({
   team: TeamResponse;
 }) {
   const maxValue = useMemo(
-    () => Math.max(...metricsByDeployment.map(metric.getTotal)),
+    () =>
+      metricsByDeployment.reduce(
+        (max, row) => Math.max(max, metric.getTotal(row)),
+        0,
+      ),
     [metricsByDeployment, metric],
   );
 
