@@ -64,6 +64,7 @@ export function handlePaletteKeyDown(
     // Dispatching from the root gave it a <div> target, slipping past those
     // guards so a stray Arrow key triggered page-level navigation.
     event.preventDefault();
+    event.stopPropagation();
     (event.target as HTMLElement).dispatchEvent(
       new KeyboardEvent("keydown", {
         key: event.shiftKey ? "ArrowUp" : "ArrowDown",

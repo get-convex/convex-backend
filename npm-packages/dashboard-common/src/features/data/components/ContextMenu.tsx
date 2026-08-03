@@ -201,7 +201,7 @@ function ContextMenuInner({ target, onClose, children }: ContextMenuProps) {
                     />
                     {/* Bottom sheet */}
                     <div
-                      className="fixed inset-x-0 bottom-0 z-50 flex animate-slideUp flex-col rounded-t-xl bg-background-secondary shadow-xl dark:border dark:border-b-0"
+                      className="fixed inset-x-0 bottom-0 z-50 flex animate-slideUp flex-col rounded-t-xl bg-background-secondary shadow-xl outline-hidden dark:border dark:border-b-0"
                       ref={refs.setFloating}
                       {...getFloatingProps()}
                     >

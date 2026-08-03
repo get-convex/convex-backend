@@ -74,7 +74,7 @@ export function Menu({
             <HeadlessMenuItems
               ref={setPopperElement}
               style={floatingStyles}
-              className="z-50 flex max-h-128 flex-col gap-1 overflow-auto rounded-lg border bg-background-secondary py-2 text-sm whitespace-nowrap shadow-md"
+              className="z-50 flex max-h-128 flex-col gap-1 overflow-auto rounded-lg border bg-background-secondary py-2 text-sm whitespace-nowrap shadow-md focus:outline-hidden"
             >
               {children}
             </HeadlessMenuItems>
