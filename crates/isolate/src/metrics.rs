@@ -36,7 +36,10 @@ use metrics::{
 };
 use prometheus::VMHistogram;
 
-use crate::IsolateHeapStats;
+use crate::{
+    client::NO_AVAILABLE_WORKERS,
+    IsolateHeapStats,
+};
 
 register_convex_histogram!(
     UDF_EXECUTE_SECONDS,
@@ -98,13 +101,67 @@ pub fn log_pool_allocated_count(name: &'static str, count: usize) {
 }
 
 register_convex_counter!(UDF_EXECUTE_FULL_TOTAL, "UDF execution queue full count");
+
+register_convex_counter!(
+    UDF_REJECTED_BEFORE_EXECUTION_TOTAL,
+    "UDF execution attempts rejected before execution",
+    &["reason"]
+);
+
+#[derive(Clone, Copy, Debug, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum RejectedBeforeExecutionReason {
+    ExpiredInQueue,
+    PerClientWorkerOverloaded,
+    WorkerPoolOverloaded,
+    IsolateNotClean,
+    InitialPermitTimeout,
+    ExecuteQueueFull,
+}
+
+impl RejectedBeforeExecutionReason {
+    fn error_metadata(self) -> ErrorMetadata {
+        match self {
+            Self::ExpiredInQueue => ErrorMetadata::rejected_before_execution(
+                "ExpiredInQueue",
+                "Too many concurrent requests in a short period of time. Spread out your requests \
+                 out over time or throttle them to avoid errors.",
+            ),
+            Self::PerClientWorkerOverloaded | Self::WorkerPoolOverloaded => {
+                ErrorMetadata::rejected_before_execution("WorkerOverloaded", NO_AVAILABLE_WORKERS)
+            },
+            Self::IsolateNotClean => ErrorMetadata::rejected_before_execution(
+                "IsolateNotClean",
+                "Selected isolate was not clean",
+            ),
+            Self::InitialPermitTimeout => ErrorMetadata::rejected_before_execution(
+                "InitialPermitTimeoutError",
+                "Couldn't acquire a permit on this funrun",
+            ),
+            Self::ExecuteQueueFull => ErrorMetadata::rejected_before_execution(
+                "ExecuteFullError",
+                "Too many concurrent requests in a short period of time. Spread out your requests \
+                 out over time or throttle them to avoid errors.",
+            ),
+        }
+    }
+}
+
+pub(crate) fn rejected_before_execution_error(
+    reason: RejectedBeforeExecutionReason,
+) -> ErrorMetadata {
+    let label: &'static str = reason.into();
+    log_counter_with_labels(
+        &UDF_REJECTED_BEFORE_EXECUTION_TOTAL,
+        1,
+        vec![StaticMetricLabel::new("reason", label)],
+    );
+    reason.error_metadata()
+}
+
 pub fn execute_full_error() -> ErrorMetadata {
     log_counter(&UDF_EXECUTE_FULL_TOTAL, 1);
-    ErrorMetadata::rejected_before_execution(
-        "ExecuteFullError",
-        "Too many concurrent requests in a short period of time. Spread out your requests out \
-         over time or throttle them to avoid errors.",
-    )
+    rejected_before_execution_error(RejectedBeforeExecutionReason::ExecuteQueueFull)
 }
 
 register_convex_histogram!(

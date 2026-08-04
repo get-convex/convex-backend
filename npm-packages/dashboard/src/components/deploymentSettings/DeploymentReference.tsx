@@ -7,6 +7,7 @@ import { Pencil1Icon } from "@radix-ui/react-icons";
 import * as Sentry from "@sentry/nextjs";
 import { Sheet } from "@ui/Sheet";
 import { CopyButton } from "@common/elements/CopyButton";
+import { DEPLOYMENT_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 const referenceValidationSchema = Yup.object().shape({
   reference: Yup.string()
@@ -101,7 +102,7 @@ export function DeploymentReference({
   }, [formState]);
 
   return (
-    <Sheet>
+    <Sheet id={DEPLOYMENT_SETTINGS_SECTIONS.deploymentReference.id}>
       <h4 className="mb-2">Deployment Reference</h4>
       <p className="mb-4 text-xs text-content-secondary">
         You can use the reference to target this deployment from the CLI (e.g.{" "}

@@ -41,31 +41,30 @@ reconcile_cargo_lock() {
   fi
 }
 
-# Reconcile Rush's generated pnpm-lock.yaml against the merged workspace.
-# The upstream lockfile can be correct for upstream while stale for this fork's
-# extra dashboard packages, so regenerate it before pushing sync commits.
-reconcile_rush_shrinkwrap() {
-  if ! command -v node >/dev/null 2>&1; then
-    echo "node not on PATH; skipping Rush shrinkwrap reconciliation" >&2
+# Reconcile the generated pnpm-lock.yaml against the merged workspace. The
+# upstream lockfile can be correct for upstream while stale for this fork's
+# extra workspace packages (dashboard-orchestrator), so regenerate it before
+# pushing sync commits. `pnpm install` (not `--frozen-lockfile`) is what
+# updates the lockfile — that's `just update-js`.
+reconcile_pnpm_lock() {
+  if [ ! -f npm-packages/pnpm-workspace.yaml ]; then
     return 0
   fi
-  if [ ! -f npm-packages/rush.json ]; then
+  if ! command -v just >/dev/null 2>&1; then
+    echo "just not on PATH; skipping pnpm lockfile reconciliation" >&2
     return 0
   fi
-  (
-    cd npm-packages
-    node common/scripts/install-run-rush.js update
-  ) 2>&1 | sed 's/^/  /'
-  if ! git diff --quiet -- npm-packages/common/config/rush/pnpm-lock.yaml; then
-    git add npm-packages/common/config/rush/pnpm-lock.yaml
+  just update-js 2>&1 | tail -20 | sed 's/^/  /'
+  if ! git diff --quiet -- npm-packages/pnpm-lock.yaml; then
+    git add npm-packages/pnpm-lock.yaml
     git commit --amend --no-edit
-    echo "Amended merge commit with regenerated Rush shrinkwrap"
+    echo "Amended merge commit with regenerated pnpm lockfile"
   fi
 }
 
 reconcile_generated_locks() {
   reconcile_cargo_lock
-  reconcile_rush_shrinkwrap
+  reconcile_pnpm_lock
 }
 
 # dprint pinned to the same version CI's Prettier job uses (scripts/package.json).
@@ -134,20 +133,23 @@ git push origin ${TARGET_BRANCH}
 # format-level check can see. Release pushes additionally publish the
 # self-hosted dashboard images, so this must stay fail-closed there too.
 validate_dashboard_build() {
-  if [ ! -f npm-packages/rush.json ]; then
+  if [ ! -f npm-packages/pnpm-workspace.yaml ]; then
     return 0
   fi
-  if ! command -v node >/dev/null 2>&1; then
-    echo "node not on PATH; cannot validate dashboard build" >&2
+  if ! command -v just >/dev/null 2>&1; then
+    echo "just not on PATH; cannot validate dashboard build" >&2
     return 1
   fi
   (
     set -e
-    cd npm-packages
-    node common/scripts/install-run-rush.js install
-    RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-self-hosted
-    RUSH_BUILD_CACHE_ENABLED=0 node common/scripts/install-run-rush.js build -t dashboard-orchestrator
-  ) 2>&1 | sed 's/^/  /'
+    just install-js
+    # `pkg...` builds the package and everything it depends on. --force skips
+    # the turbo cache so a merged tree is always really compiled, never
+    # replayed from a cache entry keyed on pre-merge inputs.
+    just turbo run build --force \
+      --filter=dashboard-self-hosted... \
+      --filter=dashboard-orchestrator...
+  ) 2>&1 | tail -40 | sed 's/^/  /'
 }
 
 # Full-workspace compile gate: `cargo check --workspace --all-targets` catches
@@ -164,12 +166,13 @@ validate_backend_build() {
     echo "cargo not on PATH; cannot validate backend build" >&2
     return 1
   fi
-  if [ -f npm-packages/rush.json ]; then
+  if [ -f npm-packages/pnpm-workspace.yaml ]; then
     (
       set -e
-      cd npm-packages
-      node common/scripts/install-run-rush.js build \
-        -t component-tests -t convex -t system-udfs -t udf-runtime -t udf-tests
+      just install-js
+      just turbo run build \
+        --filter=component-tests... --filter=convex... --filter=system-udfs... \
+        --filter=udf-runtime... --filter=udf-tests...
     ) 2>&1 | tail -20 | sed 's/^/  /' || return 1
   fi
   cargo check --workspace --all-targets 2>&1 | tail -60 | sed 's/^/  /'

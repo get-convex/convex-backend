@@ -210,7 +210,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             _ => None,
         };
         if let Some(user_identity) = user_identity {
-            return user_identity.try_into();
+            return Arc::unwrap_or_clone(user_identity).try_into();
         }
         Ok(JsonValue::Null)
     }

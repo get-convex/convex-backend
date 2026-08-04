@@ -14,7 +14,7 @@
     "dashboard": "workspace:*",
     "convex": "workspace:*",
     "dashboard-common": "workspace:*",
-    "next": "^15.5.18",
+    "next": "^15.5.21",
     "next-themes": "~0.4.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
@@ -37,7 +37,6 @@
     "@workos-inc/authkit-nextjs": "~2.17.0",
     "@workos-inc/node": "~7.69.0",
     "chalk": "5",
-    "eslint-plugin-better-tailwindcss": "^4.5.0",
     "get-port": "~7.1.0",
     "ora": "^9.0.0",
     "pixelmatch": "^7.0.0",
@@ -45,7 +44,7 @@
     "sharp": "~0.34.0",
     "storybook": "^10.3.3",
     "tailwind-scrollbar": "^4.0.2",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.19.4",
     "vitest": "^4.1.0"
   }

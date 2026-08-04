@@ -245,16 +245,24 @@ export function IndexFilters({
                       searchIndex ? undefined : shownFilters.order,
                     index: {
                       name: option.name,
-                      clauses: option.fields.map((field: string) => ({
-                        type: "indexEq",
-                        enabled: false,
-                        value:
+                      clauses: option.fields.map(
+                        (field: string): DatabaseIndexFilterClause =>
                           field === "_creationTime"
-                            ? new Date().getTime()
-                            : field === "_id"
-                              ? ""
-                              : defaultDocument[field],
-                      })),
+                            ? // Timestamps are rarely filtered for equality, so
+                              // default the creation time field to a `>=` range.
+                              {
+                                type: "indexRange",
+                                enabled: false,
+                                lowerOp: "gte",
+                                lowerValue: new Date().getTime(),
+                              }
+                            : {
+                                type: "indexEq",
+                                enabled: false,
+                                value:
+                                  field === "_id" ? "" : defaultDocument[field],
+                              },
+                      ) as DatabaseIndexFilter["clauses"],
                     } satisfies DatabaseIndexFilter,
                   };
             setDraftFilters(newFilters);

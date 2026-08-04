@@ -47,27 +47,30 @@ use common::{
         streaming_export::{
             selection::Selection,
             ActiveDataSync,
-            ActiveDataSyncInProgress,
+            ActiveDataSyncSnapshotting,
+            ActiveDataSyncStale,
             ActiveDataSyncStatus,
-            ActiveDataSyncSynced,
+            ActiveDataSyncUpToDate,
             DataSyncArgs,
-            DataSyncInProgress,
             DataSyncResponse,
+            DataSyncSnapshotting,
+            DataSyncStale,
             DataSyncStatus,
-            DataSyncSynced,
             DataSyncTruncate,
+            DataSyncUpToDate,
             DataSyncValue,
             DocumentDeltasArgs,
             DocumentDeltasResponse,
             DocumentDeltasValue,
             GetTableColumnNameTable,
             GetTableColumnNamesResponse,
-            InProgressTag,
             ListActiveSyncsResponse,
             ListSnapshotArgs,
             ListSnapshotResponse,
             ListSnapshotValue,
-            SyncedTag,
+            SnapshottingTag,
+            StaleTag,
+            UpToDateTag,
         },
         RepeatableTimestamp,
         Timestamp,
@@ -253,39 +256,23 @@ pub async fn _document_deltas(
 
 /// Data sync
 ///
-/// **Early access:** this API is not yet stable and may change in
-/// backwards-incompatible ways without notice. Contact the Convex team before
-/// depending on it.
-///
-/// Streams a resumable export of some or all of a deployment's data. Streaming
-/// export must be enabled on the deployment, and the caller must have the
-/// `deployment:data:view` permission.
+/// Paginated streamable export of some or all of a deployment's data.
 ///
 /// Call this endpoint repeatedly, passing the opaque `pagination.nextCursor`
 /// from each response back in the next request as `cursor`. Omit `cursor` on
 /// the first call.
 ///
-/// To handle the response, first drop all tables listed in `truncates`. Then
-/// apply document updates from `values`, in order. Each update replaces the
-/// existing document with the same `_id` if present. Persist the results to
-/// each page atomically with the returned cursor.
+/// To do a one time data sync, keep fetching pages until reaching an `upToDate`
+/// page. For a continuous streaming export, continue fetching pages
+/// periodically. It's recommended to sleep between `upToDate` pages to reduce
+/// overhead.
 ///
-/// Continue calling the endpoint with the most recent cursor to progress the
-/// data sync. If `pagination.hasMore` is `true`, there is more progress to be
-/// made immediately, so you should call again soon. Otherwise, you can call
-/// back periodically to discover newly written data. This endpoint must be
-/// called at least once every 3 days, or the sync will expire and can no longer
-/// be resumed. When that happens the endpoint responds with a `400`
-/// (`DataSyncCursorExpired`), and you must restart the sync from scratch by
-/// calling again with no cursor.
-///
-/// Each sync's progress is periodically recorded while the sync is in
-/// progress and can be monitored via `/data/list_active_syncs`, keyed by the
-/// `syncId` returned in every response.
+/// The caller must have the `deployment:data:view` permission.
 #[utoipa::path(
     post,
     path = "/data/sync",
     tag = "Data Sync",
+    tags = ["beta"],
     request_body = DataSyncArgs,
     responses((status = 200, body = DataSyncResponse)),
     security(
@@ -296,7 +283,7 @@ pub async fn _document_deltas(
     ),
 )]
 #[fastrace::trace]
-pub async fn data_sync_post(
+pub async fn data_sync(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -324,22 +311,15 @@ pub struct ListActiveSyncsArgs {
 
 /// List active data syncs
 ///
-/// **Early access:** this API is not yet stable and may change in
-/// backwards-incompatible ways without notice. Contact the Convex team before
-/// depending on it.
+/// Returns the progress of active data sync (/v1/data/sync).
 ///
-/// Returns the progress of every active data sync: one that fetched a page
-/// from `/data/sync` within the past 3 days, whether it is still performing
-/// its initial traversal or is already synced and streaming changes. Progress
-/// is recorded periodically, so an in-flight sync's numbers may trail its
-/// most recent page.
-///
-/// Results are paginated, most recently updated first. Pass the returned
-/// `nextCursor` back as `cursor` to fetch the next page.
+/// A data sync is considered active for 3 days after the most recent API call.
+/// from `/data/sync` within the past 3 days.
 #[utoipa::path(
     get,
     path = "/data/list_active_syncs",
     tag = "Data Sync",
+    tags = ["beta"],
     params(ListActiveSyncsArgs),
     responses((status = 200, body = ListActiveSyncsResponse)),
     security(
@@ -350,7 +330,7 @@ pub struct ListActiveSyncsArgs {
     ),
 )]
 #[fastrace::trace]
-pub async fn list_active_syncs_get(
+pub async fn list_active_syncs(
     MtState(st): MtState<LocalAppState>,
     Query(args): Query<ListActiveSyncsArgs>,
     ExtractIdentity(identity): ExtractIdentity,
@@ -372,7 +352,7 @@ pub async fn list_active_syncs_get(
                 sync_id: progress.sync_id,
                 last_updated: progress.last_updated_ms as i64,
                 status: match progress.state {
-                    DataSyncState::InitialSync {
+                    DataSyncState::Snapshotting {
                         num_tables_synced,
                         total_tables,
                         current_component,
@@ -381,8 +361,8 @@ pub async fn list_active_syncs_get(
                         total_documents_in_current_table,
                         num_documents_synced,
                         total_documents,
-                    } => ActiveDataSyncStatus::InProgress(ActiveDataSyncInProgress {
-                        status_type: InProgressTag::InProgress,
+                    } => ActiveDataSyncStatus::Snapshotting(ActiveDataSyncSnapshotting {
+                        status_type: SnapshottingTag::Snapshotting,
                         num_tables_synced,
                         total_tables,
                         current_component: String::from(current_component),
@@ -392,12 +372,22 @@ pub async fn list_active_syncs_get(
                         num_documents_synced,
                         total_documents,
                     }),
-                    DataSyncState::Synced {
+                    DataSyncState::Stale {
                         total_tables,
                         num_documents_synced,
                         synced_ts,
-                    } => ActiveDataSyncStatus::Synced(ActiveDataSyncSynced {
-                        status_type: SyncedTag::Synced,
+                    } => ActiveDataSyncStatus::Stale(ActiveDataSyncStale {
+                        status_type: StaleTag::Stale,
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    }),
+                    DataSyncState::UpToDate {
+                        total_tables,
+                        num_documents_synced,
+                        synced_ts,
+                    } => ActiveDataSyncStatus::UpToDate(ActiveDataSyncUpToDate {
+                        status_type: UpToDateTag::UpToDate,
                         total_tables,
                         num_documents_synced,
                         synced_ts,
@@ -423,8 +413,8 @@ where
     S: Clone + Send + Sync + 'static,
 {
     utoipa_axum::router::OpenApiRouter::new()
-        .routes(utoipa_axum::routes!(data_sync_post))
-        .routes(utoipa_axum::routes!(list_active_syncs_get))
+        .routes(utoipa_axum::routes!(data_sync))
+        .routes(utoipa_axum::routes!(list_active_syncs))
 }
 
 async fn _data_sync(
@@ -530,23 +520,22 @@ async fn _data_sync(
         })
         .try_collect()?;
 
-    let (status, has_more) = match status {
-        SyncStatus::Synced { ts, has_more } => (
-            DataSyncStatus::Synced(DataSyncSynced {
-                status_type: SyncedTag::Synced,
-                synced_ts: i64::from(ts),
-            }),
-            has_more,
-        ),
+    let status = match status {
+        // A consistent snapshot with newer data already available to fetch.
+        SyncStatus::Stale { ts } => DataSyncStatus::Stale(DataSyncStale {
+            status_type: StaleTag::Stale,
+            snapshot_ts: i64::from(ts),
+        }),
+        // A consistent snapshot that has caught up to the latest data.
+        SyncStatus::UpToDate { ts } => DataSyncStatus::UpToDate(DataSyncUpToDate {
+            status_type: UpToDateTag::UpToDate,
+            snapshot_ts: i64::from(ts),
+        }),
         // Progress details are not part of this response; callers monitor
-        // them via `/data/list_active_syncs`, keyed by `sync_id`. The snapshot
-        // isn't consistent yet, so there is always more to fetch.
-        SyncStatus::InProgress { .. } => (
-            DataSyncStatus::InProgress(DataSyncInProgress {
-                status_type: InProgressTag::InProgress,
-            }),
-            true,
-        ),
+        // them via `/data/list_active_syncs`, keyed by `sync_id`.
+        SyncStatus::Snapshotting { .. } => DataSyncStatus::Snapshotting(DataSyncSnapshotting {
+            status_type: SnapshottingTag::Snapshotting,
+        }),
     };
 
     let response = DataSyncResponse {
@@ -555,9 +544,13 @@ async fn _data_sync(
         sync_id: new_cursor.sync_id().to_string(),
         status,
         pagination: PaginationMetadata {
-            has_more,
-            // The cursor is always resumable, so a data sync never signals the
-            // end with a null cursor the way a finite listing does.
+            // A data sync is a stream with no end: another page can always be
+            // fetched with the returned cursor, even once caught up to the
+            // latest data. Callers use `status` to decide whether to poll again
+            // immediately or periodically. The cursor is always resumable, so a
+            // data sync never signals the end with a null cursor the way a
+            // finite listing does.
+            has_more: true,
             next_cursor: Some(
                 new_cursor.encrypt(st.application.key_broker().data_sync_encryptor())?,
             ),

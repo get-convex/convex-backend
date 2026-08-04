@@ -2,6 +2,7 @@ import {
   ChevronDownIcon,
   DesktopIcon,
   DownloadIcon,
+  FileIcon,
   PaperPlaneIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
@@ -31,13 +32,15 @@ type SystemRowKind =
   | "dashboard"
   | "cloudBackup"
   | "logStreaming"
-  | "streamingExport";
+  | "streamingExport"
+  | "fileServing";
 
 function getSystemRowKind(fn: string): SystemRowKind | null {
   if (fn.startsWith("_system/")) return "dashboard";
   if (fn === "_system_job/cloud_backup") return "cloudBackup";
   if (fn === "_system_job/log_stream_payload") return "logStreaming";
   if (fn === "_system_job/streaming_export") return "streamingExport";
+  if (fn === "_system_job/get_range") return "fileServing";
   return null;
 }
 
@@ -69,6 +72,13 @@ function renderSystemRowLabel(kind: SystemRowKind): ReactNode {
         <span className="flex items-center gap-1.5">
           <UploadIcon />
           Streaming Export
+        </span>
+      );
+    case "fileServing":
+      return (
+        <span className="flex items-center gap-1.5">
+          <FileIcon />
+          File Serving
         </span>
       );
   }

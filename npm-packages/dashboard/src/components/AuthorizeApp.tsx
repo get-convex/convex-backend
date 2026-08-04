@@ -203,7 +203,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
         <LoginLayout>
           <Sheet className="flex max-w-prose flex-col gap-4 sm:min-w-lg">
             <h3>Authorize access to your {authorizationScope}</h3>
-            <Callout variant="error" className="max-w-prose">
+            <Callout variant="error">
               <div>
                 Missing required OAuth parameters.
                 <ul className="list-disc pl-4">
@@ -257,7 +257,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
         <LoginLayout>
           <Sheet className="flex max-w-prose flex-col gap-4 sm:min-w-lg">
             <h3>Authorize access to your {authorizationScope}</h3>
-            <Callout variant="error" className="max-w-prose">
+            <Callout variant="error">
               <div>
                 {currentError}
                 <p className="mt-2">

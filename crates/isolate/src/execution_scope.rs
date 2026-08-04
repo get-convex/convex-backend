@@ -440,8 +440,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
                     helpers::to_rust_string(&scope, &module_request.get_specifier())?;
                 let module_specifier = deno_core::resolve_import(&import_specifier, name.as_str())?;
                 let offset = module_request.get_source_offset();
-                let location = module.source_offset_to_location(offset);
-                import_specifiers.push((module_specifier, location));
+                import_specifiers.push((module_specifier, offset));
             }
             timer.finish();
 
@@ -456,13 +455,22 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
 
         // Step 3: Recursively load the dependencies. Since we've already registered
         // ourselves, this won't create an infinite loop on import cycles.
-        for (import_specifier, location) in import_specifiers {
-            self.register_module(&import_specifier, timeout)
-                .await
-                .map_err(|e| {
-                    let Err(e) = self.nicely_show_line_number_on_error(name, location, e);
-                    e
-                })?;
+        for (import_specifier, offset) in import_specifiers {
+            if let Err(e) = self.register_module(&import_specifier, timeout).await {
+                // Recover the source location. This is relatively expensive so
+                // we only do it on error.
+                let location = {
+                    scope!(let scope, &mut **self);
+                    let mut scope = ExecutionScope::<RT, E>::new(scope);
+                    let module = scope
+                        .module_map()
+                        .handle_by_id(id)
+                        .context("module disappeared from ModuleMap")?;
+                    v8::Local::new(&scope, module).source_offset_to_location(offset)
+                };
+                let Err(e) = self.nicely_show_line_number_on_error(name, location, e);
+                return Err(e);
+            }
         }
 
         Ok(id)

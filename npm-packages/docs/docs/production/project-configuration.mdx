@@ -183,24 +183,29 @@ Let us know if you run into any issues or have any feedback!
 
 ### Configuring the TypeScript compiler
 
-By default, Convex will use the `tsc` binary installed in your project for
-typechecking. If you would like to use the TypeScript 7 native preview instead,
-you can set the `typescriptCompiler` option to `tsgo`. Note that
-`@typescript/native-preview` must be installed in your project to use `tsgo`.
+By default, Convex uses the `tsc` binary installed in your project for
+typechecking. This works with TypeScript 6 and TypeScript 7 without any
+additional `convex.json` configuration.
 
-<Admonition type="info" title="Convex version requirement">
+To use TypeScript 7, install it as your project's TypeScript version:
 
-To use the TypeScript 7 native preview, you must use the `convex` NPM package
-version 1.31.1 or later.
+```sh
+npm install --save-dev typescript@^7
+```
+
+TypeScript 7.0 does not include a JavaScript API, so if other tools in your
+project import it, follow TypeScript's
+[side-by-side installation](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-60)
+instructions. Convex picks up TypeScript 7 in that setup too.
+
+<Admonition type="info" title="Migrating from the TypeScript 7 preview">
+
+If you previously installed `@typescript/native-preview` and set
+`"typescriptCompiler": "tsgo"`, replace the preview package with stable
+TypeScript 7 and remove the `typescriptCompiler` setting. Stable TypeScript 7
+uses Convex's default `tsc` selection.
 
 </Admonition>
-
-```json title="convex.json"
-{
-  "$schema": "./node_modules/convex/schemas/convex.schema.json",
-  "typescriptCompiler": "tsgo"
-}
-```
 
 ### Configuring bundler options
 

@@ -90,6 +90,7 @@ declare_strings!(
     setup,
     stack,
     syscall,
+    TextDecoder,
 
     // crypto
     CryptoKey,

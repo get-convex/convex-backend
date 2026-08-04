@@ -13,9 +13,18 @@ bottlenecks.
 
 ## Use the TypeScript 7 compiler
 
-The TypeScript 7 native preview, `tsgo`, may run faster than `tsc`. You can
-[configure your project](/production/project-configuration#configuring-the-typescript-compiler)
-to use `tsgo` with the `typescriptCompiler` option in `convex.json`.
+TypeScript 7's native compiler is generally much faster than earlier versions of
+TypeScript. To use it, install it as your project's TypeScript version. Convex
+will use it automatically.
+
+```sh
+npm install --save-dev typescript@^7
+```
+
+TypeScript 7.0 does not include a JavaScript API, so if other tools in your
+project need it, follow TypeScript's
+[side-by-side installation](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-60)
+instructions. Convex picks up TypeScript 7 in that setup too.
 
 ## Debug slow typechecking
 

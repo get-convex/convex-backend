@@ -82,8 +82,8 @@ use udf::validation::ValidatedUdfOutcome;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     JsonPackedValue,
+    PendingValue,
     ResolvedDocumentId,
-    TableNamespace,
 };
 
 use crate::{
@@ -361,7 +361,7 @@ impl<RT: Runtime> CronJobContext<RT> {
 
     fn truncate_result(
         &self,
-        result: JsonPackedValue,
+        result: JsonPackedValue<PendingValue>,
         udf_path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CronJobResult> {
         let value = result.unpack().map_err(|e| {
@@ -369,7 +369,10 @@ impl<RT: Runtime> CronJobContext<RT> {
                 format!("Cron job {} result invalid: {msg}", udf_path.debug_str())
             })
         })?;
-        let mut value_str = value.to_string();
+        let mut value_str = match &value {
+            PendingValue::Concrete(value) => value.to_string(),
+            pending => serde_json::to_string(&pending.to_uncommitted_json())?,
+        };
         if value_str.len() <= CRON_LOG_MAX_RESULT_LENGTH {
             Ok(CronJobResult::Default(value))
         } else {
@@ -407,11 +410,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         tx: &mut Transaction<RT>,
         job_id: ResolvedDocumentId,
     ) -> anyhow::Result<(ComponentId, ComponentPath)> {
-        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-        let component = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
+        let component = tx
+            .table_mapping()
+            .tablet_namespace(job_id.tablet_id)?
+            .into();
         let component_path = BootstrapComponentsModel::new(tx).must_component_path(component)?;
         Ok((component, component_path))
     }
@@ -624,11 +626,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         job: CronJob,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
-        let namespace = tx.table_mapping().tablet_namespace(job.id.tablet_id)?;
-        let component = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
+        let component = tx
+            .table_mapping()
+            .tablet_namespace(job.id.tablet_id)?
+            .into();
         let identity = tx.identity().clone();
         let (_, component_path) = self.get_job_component(&mut tx, job.id).await?;
         let caller = FunctionCaller::Cron;
@@ -678,7 +679,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 let status = match completion.outcome.result.clone() {
                     Ok(result) => {
                         let truncated_result =
-                            self.truncate_result(result, &completion.outcome.path)?;
+                            self.truncate_result(result.into(), &completion.outcome.path)?;
                         CronJobStatus::Success(truncated_result)
                     },
                     Err(e) => CronJobStatus::Err(e.to_string()),
@@ -811,13 +812,10 @@ impl<RT: Runtime> CronJobContext<RT> {
             // Continue without updating since the job state has changed
             return Ok(());
         };
-        let namespace = tx
+        let component = tx
             .table_mapping()
-            .tablet_namespace(expected_state.id.tablet_id)?;
-        let component = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
+            .tablet_namespace(expected_state.id.tablet_id)?
+            .into();
         let mut model = CronModel::new(&mut tx, component);
         model
             .insert_cron_job_log(expected_state, status, log_lines, execution_time)
@@ -848,14 +846,14 @@ impl<RT: Runtime> CronJobContext<RT> {
     ) -> anyhow::Result<()> {
         let now = self.rt.generate_timestamp()?;
         let prev_ts = job.next_ts;
-        let mut next_ts = compute_next_ts(&job.cron_spec, Some(prev_ts), now)?;
+        let mut next_ts = compute_next_ts(&job.cron_spec, Some(prev_ts), now, &mut self.rt.rng())?;
         let mut num_skipped = 0;
         let first_skipped_ts = next_ts;
         let (component, component_path) = self.get_job_component(tx, job.id).await?;
         let mut model = CronModel::new(tx, component);
         while next_ts < now {
             num_skipped += 1;
-            next_ts = compute_next_ts(&job.cron_spec, Some(next_ts), now)?;
+            next_ts = compute_next_ts(&job.cron_spec, Some(next_ts), now, &mut self.rt.rng())?;
         }
         if num_skipped > 0 {
             let job_id = job.id.developer_id;

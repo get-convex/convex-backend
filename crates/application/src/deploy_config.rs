@@ -409,7 +409,8 @@ impl<RT: Runtime> Application<RT> {
                     udf_config,
                     component_def.functions.clone(),
                     component_pkg.clone(),
-                    // Component functions do not have access to environment variables.
+                    // User env vars are root-only; analyze() itself supplies
+                    // the default system env vars.
                     BTreeMap::new(),
                     BTreeMap::new(),
                 )
@@ -678,12 +679,7 @@ impl<RT: Runtime> Application<RT> {
         // in the database.
         let mut downloaded_source_packages = BTreeMap::new();
         for (definition_path, source_package) in &start_push.component_definition_packages {
-            let package = download_package(
-                self.modules_storage().clone(),
-                source_package.storage_key.clone(),
-                source_package.sha256.clone(),
-            )
-            .await?;
+            let package = download_package(self.modules_storage().clone(), source_package).await?;
             downloaded_source_packages.insert(definition_path.clone(), package);
         }
 
@@ -1276,7 +1272,7 @@ impl TryFrom<ModuleHashJson> for ModuleHashConfig {
             sha256,
         }: ModuleHashJson,
     ) -> anyhow::Result<ModuleHashConfig> {
-        let sha256_bytes = hex::decode(&sha256).context("Invalid hex in sha256")?;
+        let sha256_bytes = const_hex::decode(&sha256).context("Invalid hex in sha256")?;
         let sha256_array: [u8; 32] = sha256_bytes
             .try_into()
             .ok()

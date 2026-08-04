@@ -61,6 +61,11 @@ jobs:
           file: self-hosted/docker-build/Dockerfile.backend
           tags: |
             ghcr.io/${{ env.IMAGE_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}
+          # Fork divergence: upstream sets `no-cache: true` here, because a
+          # *shared* build cache is not safe for a release build — a poisoned
+          # cache entry could put incorrect content into the image. This fork
+          # caches into its own private RunsOn S3 bucket, which is not shared
+          # with untrusted writers, and keeps the cache for build speed.
           cache-from: |
             type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.sha }},prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
             type=s3,name=convex-backend-${{ matrix.arch }}-${{ github.ref_name }},prefix=cache/buildkit/,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}

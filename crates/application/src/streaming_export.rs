@@ -153,7 +153,7 @@ impl<RT: Runtime> Application<RT> {
         // error policy below.
         let recorded = async {
             let state = match &result.status {
-                SyncStatus::InProgress { progress } => DataSyncState::InitialSync {
+                SyncStatus::Snapshotting { progress } => DataSyncState::Snapshotting {
                     num_tables_synced: progress.num_tables_synced,
                     total_tables: progress.total_tables,
                     current_component: progress.current_component.clone(),
@@ -167,7 +167,12 @@ impl<RT: Runtime> Application<RT> {
                         .total_documents
                         .context("table summaries are still bootstrapping")?,
                 },
-                SyncStatus::Synced { ts, .. } => DataSyncState::Synced {
+                SyncStatus::Stale { ts } => DataSyncState::Stale {
+                    total_tables: result.cursor.num_synced_tables(),
+                    num_documents_synced: result.cursor.num_docs_synced(),
+                    synced_ts: i64::from(*ts),
+                },
+                SyncStatus::UpToDate { ts } => DataSyncState::UpToDate {
                     total_tables: result.cursor.num_synced_tables(),
                     num_documents_synced: result.cursor.num_docs_synced(),
                     synced_ts: i64::from(*ts),
@@ -181,13 +186,7 @@ impl<RT: Runtime> Application<RT> {
             // A fully caught-up snapshot is the sync's settled progress; flush
             // it past the throttle so its final document count is recorded
             // even if a page wrote moments earlier.
-            let caught_up = matches!(
-                &result.status,
-                SyncStatus::Synced {
-                    has_more: false,
-                    ..
-                }
-            );
+            let caught_up = matches!(&result.status, SyncStatus::UpToDate { .. });
             let old = DataSyncProgressModel::new(&mut tx)
                 .update(metadata, *DATA_SYNC_PROGRESS_WRITE_INTERVAL, caught_up)
                 .await?;

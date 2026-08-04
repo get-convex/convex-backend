@@ -22,13 +22,13 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
 common = { workspace = true }
+const-hex = { workspace = true }
 const_format = { workspace = true }
 dynfmt = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
-hex = { workspace = true }
 itertools = { workspace = true }
 lz4_flex = { workspace = true }
 metrics = { workspace = true }

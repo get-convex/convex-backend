@@ -10,7 +10,7 @@ use serde_json::{
 use udf::helpers::UdfArgsJson;
 use value::{
     serialized_args_ext::SerializedArgsExt,
-    ConvexArray,
+    PendingValue,
 };
 
 use super::OpProvider;
@@ -30,17 +30,17 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
     };
 
     let args: UdfArgsJson = serde_json::from_str(&args)?;
-    let args_array = args
+    // Arguments may contain unresolved commit timestamps.
+    let args_vec = args
         .into_serialized_args()?
         .into_args()?
         .into_iter()
-        .map(|arg| arg.try_into())
+        .map(PendingValue::from_uncommitted_json)
         .collect::<anyhow::Result<Vec<_>>>()
-        .and_then(ConvexArray::try_from)
         .map_err(|err| anyhow::anyhow!(format!("{}", err)))?;
 
     let table_mapping = provider.get_all_table_mappings()?;
-    match args_validator.check_args(&args_array, &table_mapping, virtual_system_mapping())? {
+    match args_validator.check_pending_args(args_vec, &table_mapping, virtual_system_mapping())? {
         Some(js_error) => Ok(json!({
             "valid": false,
             "message": format!("{}", js_error)

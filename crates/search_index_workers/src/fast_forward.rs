@@ -219,7 +219,7 @@ impl FastForwardIndexWorker {
             indexes_fast_forwarded.push((name.clone(), ts));
         }
         if !indexes_fast_forwarded.is_empty() {
-            tracing::info!("Fast-forwarding {indexes_fast_forwarded:?} to {fast_forward_ts}");
+            tracing::debug!("Fast-forwarding {indexes_fast_forwarded:?} to {fast_forward_ts}");
         }
         database
             .commit_with_write_source(tx, "index_worker_commit_ff")

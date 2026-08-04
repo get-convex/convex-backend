@@ -277,15 +277,15 @@ async fn run(config: &Config) -> anyhow::Result<()> {
     if !config.skip_build {
         tracing::info!("building scenario-runner");
         logs.spawn_with_prefixed_logs(
-            "rush build".into(),
+            "turbo build".into(),
             Command::new("just")
-                .arg("rush")
+                .arg("turbo")
+                .arg("run")
                 .arg("build")
-                .arg("-t")
-                .arg("scenario-runner")
+                .arg("--filter=scenario-runner...")
                 .current_dir("npm-packages"),
         )
-        .context("Couldn't spawn rush build in npm-packages/. Run from repo root?")?
+        .context("Couldn't spawn turbo build in npm-packages/. Run from repo root?")?
         .wait()
         .await?
         .exit_ok()?;

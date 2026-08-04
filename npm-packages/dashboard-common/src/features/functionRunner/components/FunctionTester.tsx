@@ -63,28 +63,67 @@ import udfs from "@common/udfs";
 const CUSTOM_TEST_QUERY_PLACEHOLDER =
   "__CONVEX_PLACEHOLDER_custom_test_query_1255035852";
 
-const impersonatedUserSchema = z.object({
-  subject: z.string(),
-  issuer: z.string(),
-  name: z.string().optional(),
-  givenName: z.string().optional(),
-  familyName: z.string().optional(),
-  nickname: z.string().optional(),
-  preferredUsername: z.string().optional(),
-  profileUrl: z.string().optional(),
-  pictureUrl: z.string().optional(),
-  email: z.string().optional(),
-  emailVerified: z.boolean().optional(),
-  gender: z.string().optional(),
-  birthday: z.string().optional(),
-  timezone: z.string().optional(),
-  language: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  phoneNumberVerified: z.boolean().optional(),
-  address: z.string().optional(),
-  updatedAt: z.string().optional(),
-  customClaims: z.record(z.any()).optional(),
+// Claims are sent to the backend as JSON, so Convex-only values (bigints,
+// bytes) can't be represented.
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "boolean") {
+    return true;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+  if (typeof value === "string") {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+  if (
+    typeof value === "object" &&
+    Object.getPrototypeOf(value) === Object.prototype
+  ) {
+    return Object.values(value as Record<string, unknown>).every(isJsonValue);
+  }
+  return false;
+}
+
+const customClaimSchema = z.custom<any>(isJsonValue, {
+  message: "custom claims must be JSON values",
 });
+
+const impersonatedUserSchema = z
+  .object({
+    subject: z.string(),
+    issuer: z.string(),
+    name: z.string().optional(),
+    givenName: z.string().optional(),
+    familyName: z.string().optional(),
+    nickname: z.string().optional(),
+    preferredUsername: z.string().optional(),
+    profileUrl: z.string().optional(),
+    pictureUrl: z.string().optional(),
+    email: z.string().optional(),
+    emailVerified: z.boolean().optional(),
+    gender: z.string().optional(),
+    birthday: z.string().optional(),
+    timezone: z.string().optional(),
+    language: z.string().optional(),
+    phoneNumber: z.string().optional(),
+    phoneNumberVerified: z.boolean().optional(),
+    address: z.string().optional(),
+    updatedAt: z.string().optional(),
+    customClaims: z.record(customClaimSchema).optional(),
+  })
+  .catchall(customClaimSchema);
+
+/** Throws a {@link ZodError} if `value` isn't a valid identity. */
+export function parseImpersonatedUser(value: Value): UserIdentityAttributes {
+  const { customClaims, ...rootClaims } = impersonatedUserSchema.parse(value);
+  return {
+    ...rootClaims,
+    ...(customClaims || {}),
+  };
+}
 
 const SUPPORTED_FUNCTION_TYPES = new Set(["Query", "Mutation", "Action"]);
 
@@ -496,15 +535,7 @@ export function useFunctionTester({
           setIsImpersonating(false);
           return;
         }
-        const user = impersonatedUserSchema.parse(v);
-
-        const { customClaims, ...rootClaims } = user;
-        const flattenedUser = {
-          ...rootClaims,
-          ...(customClaims || {}),
-        };
-
-        setImpersonatedUser(flattenedUser);
+        setImpersonatedUser(parseImpersonatedUser(v));
         setImpersonatedUserError(undefined);
       } catch (e: any) {
         if (e instanceof ZodError) {

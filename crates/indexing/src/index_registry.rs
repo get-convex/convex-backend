@@ -291,8 +291,8 @@ impl IndexRegistry {
     pub fn document_index_keys<F>(
         &self,
         id: ResolvedDocumentId,
-        old_document: Option<PackedDocument>,
-        new_document: Option<PackedDocument>,
+        old_document: Option<&PackedDocument>,
+        new_document: Option<&PackedDocument>,
         search_tokenizer: F,
     ) -> DocumentIndexKeys
     where
@@ -303,8 +303,8 @@ impl IndexRegistry {
             .filter_map(|index| {
                 let update = Self::index_keys_for_index(
                     index,
-                    old_document.as_ref(),
-                    new_document.as_ref(),
+                    old_document,
+                    new_document,
                     &search_tokenizer,
                 )?;
                 Some((
@@ -312,7 +312,7 @@ impl IndexRegistry {
                     IndexUpdate {
                         document_id: id,
                         update,
-                        new_document: new_document.clone(),
+                        new_document: new_document.cloned(),
                     },
                 ))
             })
@@ -324,12 +324,10 @@ impl IndexRegistry {
             )
             .expect("invalid built-in index name");
 
-            let old_key = old_document
-                .as_ref()
-                .map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
-            let new_key = new_document
-                .as_ref()
-                .map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
+            let old_key =
+                old_document.map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
+            let new_key =
+                new_document.map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
 
             map.insert(
                 index_name,
@@ -339,7 +337,7 @@ impl IndexRegistry {
                         old: old_key,
                         new: new_key,
                     }),
-                    new_document,
+                    new_document: new_document.cloned(),
                 },
             );
         }

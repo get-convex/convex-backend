@@ -1,4 +1,5 @@
 #![feature(portable_simd)]
+#![feature(btree_cursors)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(never_type)]
 #![feature(iterator_try_collect)]
@@ -95,8 +96,10 @@ pub use crate::{
     pending::{
         PendingValue,
         COMMIT_TS_FIELD,
+        MAX_COMMIT_TS,
     },
     size::{
+        array_size,
         Size,
         MAX_NESTING,
         MAX_SIZE,

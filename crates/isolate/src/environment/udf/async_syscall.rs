@@ -42,6 +42,7 @@ use common::{
         AllowedVisibility,
         DeploymentMetadata,
         UdfType,
+        WriteTimestamp,
     },
     value::ConvexValue,
     version::Version,
@@ -63,6 +64,7 @@ use database::{
 };
 use deno_core::v8;
 use errors::{
+    ErrorCode,
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
@@ -102,6 +104,7 @@ use udf::{
     helpers::UdfArgsJson,
     validation::{
         validate_schedule_args,
+        PendingArgsPolicy,
         ValidatedPathAndArgs,
     },
     NestedUdfOutcome,
@@ -113,7 +116,9 @@ use value::{
     serialized_args_ext::SerializedArgsExt,
     ConvexArray,
     ConvexObject,
+    PendingValue,
     TableName,
+    TableNamespace,
 };
 
 use super::DatabaseUdfEnvironment;
@@ -393,10 +398,10 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
         &mut self,
         udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
-        args: ConvexObject,
+        args: PendingValue,
         transaction_limits: Option<TransactionLimits>,
         udf_callback: impl UdfCallback<RT>,
-    ) -> anyhow::Result<ConvexValue>;
+    ) -> anyhow::Result<PendingValue>;
 
     async fn create_function_handle(
         &mut self,
@@ -569,10 +574,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         &mut self,
         nested_udf_type: NestedUdfType,
         path: ResolvedComponentFunctionPath,
-        args: ConvexObject,
+        args: PendingValue,
         transaction_limits: Option<TransactionLimits>,
         udf_callback: impl UdfCallback<RT>,
-    ) -> anyhow::Result<ConvexValue> {
+    ) -> anyhow::Result<PendingValue> {
         match (self.udf_type, nested_udf_type) {
             // Queries can call other queries, but not snapshot queries.
             (UdfType::Query, NestedUdfType::Query) => (),
@@ -595,12 +600,17 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let called_component_id = path.component;
 
         let execution_type = nested_udf_type.execution_type();
+        let pending_args_policy = match self.udf_type {
+            UdfType::Mutation => PendingArgsPolicy::Allow,
+            _ => PendingArgsPolicy::Reject,
+        };
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
             PublicFunctionPath::ResolvedComponent(path.clone()),
-            SerializedArgs::from_args(vec![args.into()])?,
+            SerializedArgs::from_args(vec![args.to_uncommitted_json()])?,
             execution_type,
+            pending_args_policy,
         )
         .await?;
         let (path_and_args, returns_validator) = match path_and_args_result {
@@ -654,7 +664,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 },
                 EnvironmentData {
                     key_broker: self.key_broker.clone(),
-                    default_system_env_vars: BTreeMap::new(),
+                    default_system_env_vars: self.phase.default_system_env_vars().clone(),
                     file_storage: self.file_storage.clone(),
                     module_loader: self.phase.module_loader().clone(),
                     deployment: self.deployment.clone(),
@@ -663,7 +673,25 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 new_reactor_depth,
             )
             .await
-            .map_err(remove_rejected_before_execution)?;
+            .map_err(|mut e| {
+                e = remove_rejected_before_execution(e);
+                if let Some(em) = e.downcast_mut::<ErrorMetadata>()
+                    && em.is_deterministic_user_error()
+                {
+                    // This is a bit gross, but at this layer, "deterministic
+                    // user errors" get converted into catchable JS exceptions.
+                    // However, if there is an error at this point, we cannot
+                    // return to JS because the transaction has been lost.
+                    //
+                    // So upgrade such an error to a non-catchable system error.
+                    // However this should only be happening for nested system
+                    // timeouts and so it's likely that this error will again be
+                    // replaced with a higher error.
+                    em.code = ErrorCode::OperationalInternalServerError;
+                    tracing::warn!("Upgrading error from nested UDF: {e:#}");
+                }
+                e
+            })?;
         match nested_udf_type {
             NestedUdfType::Mutation if outcome.result.is_err() => {
                 result_tx.rollback_subtransaction(tokens)?
@@ -724,9 +752,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let result = result?;
         let tx = self.phase.tx()?;
         let table_mapping = tx.table_mapping().namespace(called_component_id.into());
-        if let Some(e) =
-            returns_validator.check_output(&result, &table_mapping, virtual_system_mapping())
-        {
+        if let Some(e) = returns_validator.check_pending_output(
+            &result,
+            &table_mapping,
+            virtual_system_mapping(),
+        )? {
             anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
         }
         Ok(result)
@@ -1250,12 +1280,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         }
         let (table, value) = with_argument_error("db.insert", || {
             let args: InsertArgs = serde_json::from_value(args)?;
+            let value =
+                PendingValue::from_uncommitted_json(args.value).context(ArgName("value"))?;
+            if !value.is_object() {
+                return Err(anyhow::anyhow!("Value must be an Object").context(ArgName("value")));
+            }
             Ok((
-                args.table.parse().context(ArgName("table"))?,
-                ConvexValue::try_from(args.value)
-                    .context(ArgName("value"))?
-                    .try_into()
-                    .context(ArgName("value"))?,
+                args.table.parse::<TableName>().context(ArgName("table"))?,
+                value,
             ))
         })?;
 
@@ -1292,7 +1324,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 .context(ArgName("id"))?;
             check_table_name(&args.table, &actual_table_name)?;
 
-            let value = PatchValue::try_from(args.value).context(ArgName("value"))?;
+            let value = PatchValue::from_uncommitted_json(args.value).context(ArgName("value"))?;
             Ok((id, value, actual_table_name))
         })?;
 
@@ -1301,7 +1333,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .patch(id, value)
             .await?;
-        Ok(document.to_internal_json())
+        developer_document_to_json(tx, component.into(), &document, WriteTimestamp::Pending)
     }
 
     #[fastrace::trace]
@@ -1327,12 +1359,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 .context(ArgName("id"))?;
             check_table_name(&args.table, &actual_table_name)?;
 
-            let value = ConvexValue::try_from(args.value).context(ArgName("value"))?;
-            Ok((
-                id,
-                value.try_into().context(ArgName("value"))?,
-                actual_table_name,
-            ))
+            let value =
+                PendingValue::from_uncommitted_json(args.value).context(ArgName("value"))?;
+            if !value.is_object() {
+                return Err(anyhow::anyhow!("Value must be an Object").context(ArgName("value")));
+            }
+            Ok((id, value, actual_table_name))
         })?;
 
         system_table_guard(&table_name, false)?;
@@ -1340,7 +1372,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .replace(id, value)
             .await?;
-        Ok(document.to_internal_json())
+        developer_document_to_json(tx, component.into(), &document, WriteTimestamp::Pending)
     }
 
     #[fastrace::trace]
@@ -1500,21 +1532,20 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     .context("batch_key missing")??;
 
                 let done = maybe_next.is_none();
+                let component = provider.component()?;
+                let tx = provider.tx()?;
                 let value = match maybe_next {
-                    Some((doc, _)) => doc.into_value().0.into(),
-                    None => ConvexValue::Null,
+                    Some((doc, ts)) => developer_document_to_json(tx, component.into(), &doc, ts)?,
+                    None => JsonValue::Null,
                 };
 
                 if let Some(query_id) = query_id {
                     if done {
                         provider.cleanup_query(query_id);
                     }
-                    serde_json::to_value(QueryStreamNextResult {
-                        value: value.into(),
-                        done,
-                    })?
+                    serde_json::to_value(QueryStreamNextResult { value, done })?
                 } else {
-                    value.into()
+                    value
                 }
             });
             results.insert(batch_key, result);
@@ -1585,12 +1616,30 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             args,
             transaction_limits,
         } = with_argument_error("runUdf", || Ok(serde_json::from_value(args)?))?;
+        let caller_udf_type = provider.udf_type();
         let (udf_type, args) = with_argument_error("runUdf", || {
             let udf_type: NestedUdfType = udf_type.parse().context(ArgName("udfType"))?;
-            let args: ConvexObject = ConvexValue::try_from(args)
-                .context(ArgName("args"))?
-                .try_into()
-                .context(ArgName("args"))?;
+            // Only a mutation can hold an unresolved commit timestamp to pass
+            // along; queries keep rejecting the `$commitTs` token.
+            let args = match caller_udf_type {
+                UdfType::Mutation => {
+                    let args =
+                        PendingValue::from_uncommitted_json(args).context(ArgName("args"))?;
+                    if !args.is_object() {
+                        return Err(
+                            anyhow::anyhow!("Value must be an Object").context(ArgName("args"))
+                        );
+                    }
+                    args
+                },
+                UdfType::Query | UdfType::Action | UdfType::HttpAction => {
+                    let args: ConvexObject = ConvexValue::try_from(args)
+                        .context(ArgName("args"))?
+                        .try_into()
+                        .context(ArgName("args"))?;
+                    args.into()
+                },
+            };
             Ok((udf_type, args))
         })?;
         let path = match function_handle {
@@ -1634,7 +1683,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let value = provider
             .run_udf(udf_type, path, args, transaction_limits, udf_callback)
             .await?;
-        Ok(value.into())
+        Ok(value.to_uncommitted_json())
     }
 
     async fn create_function_handle(
@@ -1708,12 +1757,45 @@ struct QueryPageMetadata {
     page_status: Option<QueryPageStatus>,
 }
 
+/// Serialize a queried document for JS, emitting `{"$commitTs": null}` at each
+/// unresolved commit timestamp when the document is one of this transaction's
+/// own staged writes.
+fn developer_document_to_json<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    namespace: TableNamespace,
+    document: &DeveloperDocument,
+    ts: WriteTimestamp,
+) -> anyhow::Result<JsonValue> {
+    if ts == WriteTimestamp::Pending {
+        let id = document.id();
+        // Virtual-table reads are also tagged pending when they hit a staged
+        // system-table write, but virtual tables aren't in the user table
+        // mapping and their documents never contain unresolved commit
+        // timestamps.
+        if tx
+            .table_mapping()
+            .namespace(namespace)
+            .table_number_exists()(id.table())
+        {
+            let id = tx.resolve_developer_id(&id, namespace)?;
+            if let Some(update) = tx.pending_write(&id)
+                && !update.is_resolved()
+            {
+                return update
+                    .new_document_internal_json()
+                    .context("Staged write for a returned document has no new document");
+            }
+        }
+    }
+    Ok(document.to_internal_json())
+}
+
 impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
     async fn read_page_from_query(
         mut query: DeveloperQuery<RT>,
         tx: &mut Transaction<RT>,
         page_size: usize,
-    ) -> anyhow::Result<(Vec<DeveloperDocument>, QueryPageMetadata)> {
+    ) -> anyhow::Result<(Vec<(DeveloperDocument, WriteTimestamp)>, QueryPageMetadata)> {
         let end_cursor = query.end_cursor();
         let has_end_cursor = end_cursor.is_some();
         let mut page = Vec::with_capacity(page_size);
@@ -1730,7 +1812,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 Some(page_size - page.len())
             };
 
-            let next_value = match query.next(tx, prefetch_hint).await {
+            let next_value = match query.next_with_ts(tx, prefetch_hint).await {
                 Ok(Some(v)) => v,
                 Ok(None) => {
                     break;
@@ -1855,7 +1937,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 table_filter,
             )?;
             let (page, metadata) = Self::read_page_from_query(query, tx, page_size).await?;
-            let page = page.into_iter().map(|doc| doc.to_internal_json()).collect();
+            let page = page
+                .into_iter()
+                .map(|(doc, ts)| developer_document_to_json(tx, component.into(), &doc, ts))
+                .collect::<anyhow::Result<_>>()?;
             (page, metadata)
         };
 

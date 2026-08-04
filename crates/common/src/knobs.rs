@@ -158,7 +158,7 @@ pub static APP_METRICS_SEED_MAX_BATCH: LazyLock<usize> =
 /// fleet-wide restart (e.g. a bad deploy crash-looping many conductors) does
 /// not align every conductor's re-seed into a thundering herd on Databricks.
 pub static APP_METRICS_SEED_STARTUP_JITTER: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config("APP_METRICS_SEED_STARTUP_JITTER_SECS", 5 * 60))
+    Duration::from_secs(env_config("APP_METRICS_SEED_STARTUP_JITTER_SECS", 15 * 60))
 });
 
 /// Kill switch for conductor's app-metrics seed worker. When set, the worker
@@ -508,6 +508,15 @@ pub static SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE: LazyLock<usize> =
 /// behind.
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 10)));
+
+/// Exclusive upper bound, in seconds, for the stable random offset applied to
+/// cron runs so jobs sharing a schedule don't all fire at once and spike load.
+/// A job whose previous run is exactly schedule-aligned draws a fresh offset,
+/// which is how jobs created before splaying pick one up. Keep this at or
+/// below 60 so a run remains within its scheduled minute; set it to 0 to
+/// disable splaying.
+pub static CRON_SPLAY_SECONDS: LazyLock<u64> =
+    LazyLock::new(|| env_config("CRON_SPLAY_SECONDS", 60));
 
 /// Maximum number of syscalls that can run in a batch together when
 /// awaited in parallel. Higher values improve latency, while lower ones
@@ -875,9 +884,19 @@ pub static ISOLATE_ANALYZE_USER_TIMEOUT: LazyLock<Duration> =
 /// a CoDel queue [https://queue.acm.org/detail.cfm?id=2209336], which will
 /// switch from FIFO to LIFO queue when overloaded, in order to process as much
 /// as possible and avoid a congestion collapse. The primary downside of
-/// increase this is memory usage from the UDF arguments.
+/// increasing this is memory usage from the UDF arguments.
 pub static ISOLATE_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_QUEUE_SIZE", 2000));
+
+/// The maximum length of time to wait to start running a function when the
+/// isolate scheduler is idle.
+pub static ISOLATE_QUEUE_IDLE_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("ISOLATE_QUEUE_IDLE_TIMEOUT_MS", 2000)));
+
+/// The maximum length of time to wait to start running a function when the
+/// isolate scheduler is "congested", according to the CoDel queue.
+pub static ISOLATE_QUEUE_CONGESTED_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("ISOLATE_QUEUE_CONGESTED_TIMEOUT_MS", 200)));
 
 /// Maximum number of isolate worker threads in a function runner process.
 pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
@@ -891,6 +910,13 @@ pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
 /// in any process.
 pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("COMMITTER_QUEUE_SIZE", 128));
+
+/// Maximum number of commits that may be between starting their persistence
+/// write and publishing (i.e. in the committer's `persistence_writes`
+/// pipeline). At this cap, the committer pauses admitting messages, so backlog
+/// accumulates in the bounded committer queue instead of inside the database.
+pub static COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES: LazyLock<usize> =
+    LazyLock::new(|| env_config("COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES", 256));
 
 /// 0 -> default (number of cores)
 pub static V8_THREADS: LazyLock<u32> = LazyLock::new(|| env_config("V8_THREADS", 0));
@@ -1023,12 +1049,6 @@ pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
 /// by the UDF.
 pub static ISOLATE_MAX_HEAP_EXTRA_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_EXTRA_SIZE", 1 << 25));
-
-/// Set the heap size limit for analyze requests. Analyze imports all user
-/// modules into a single isolate, which can require more memory than a single
-/// UDF execution. Defaults to the same as ISOLATE_MAX_USER_HEAP_SIZE.
-pub static ISOLATE_MAX_HEAP_FOR_ANALYZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_FOR_ANALYZE", *ISOLATE_MAX_USER_HEAP_SIZE));
 
 /// Set a separate 64MB limit on ArrayBuffer allocations.
 pub static ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE: LazyLock<usize> =
@@ -1294,15 +1314,10 @@ pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
 pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_ISOLATE_ACTIVE_THREADS", 0));
 
-/// The maximum length of time to wait to start running a function (when the
-/// FUNRUN_ISOLATE_ACTIVE_THREADS limit is reached).
-pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 200)));
-
 /// Isolate worker usage at which the funrun load reporter's
 /// `effective_load` saturates to 1.0.
 pub static FUNRUN_TARGET_ISOLATE_WORKER_USAGE: LazyLock<f64> =
-    LazyLock::new(|| env_config("FUNRUN_TARGET_CPU_USAGE", 0.75));
+    LazyLock::new(|| env_config("FUNRUN_TARGET_ISOLATE_WORKER_USAGE", 0.75));
 
 /// CPU utilization at which the funrun load reporter's
 /// `effective_load` saturates to 1.0.
@@ -1899,10 +1914,6 @@ pub static ADMIN_IDENTITY_REVALIDATION_DELAY: LazyLock<Duration> = LazyLock::new
 pub static UDF_404_ON_BAD_PATH: LazyLock<bool> =
     LazyLock::new(|| env_config("UDF_404_ON_BAD_PATH", false));
 
-/// If set, allows `experimental_reuseContext` to be set.
-pub static ALLOW_FUNCTION_CONTEXT_REUSE: LazyLock<bool> =
-    LazyLock::new(|| env_config("ALLOW_FUNCTION_CONTEXT_REUSE", true));
-
 /// Percentage of index page queries to send to the database to verify that
 /// cache results match.
 pub static INDEX_CACHE_VERIFY_PERCENT: LazyLock<u8> =
@@ -1917,3 +1928,17 @@ pub static INITIAL_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::ne
 pub static MAX_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_millis(env_config("MAX_PERSISTENCE_WRITES_BACKOFF_MS", 10 * 1000))
 });
+
+/// HTTP/2 keepalive PING interval for proxied reqwest clients. Without
+/// keepalive a connection the peer drops without a TCP FIN/RST (e.g. a
+/// serverless receiver cycling a container mid-request) is awaited until the
+/// request or kernel TCP timeout (~16 min), stalling a sequential consumer like
+/// the webhook log sink. 15s interval/timeout matches usher. No-op on HTTP/1.1.
+pub static HTTP2_CLIENT_KEEPALIVE_INTERVAL: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("HTTP2_CLIENT_KEEPALIVE_INTERVAL_SECONDS", 15))
+});
+
+/// Timeout for an unacked HTTP/2 keepalive PING before the connection is
+/// dropped.
+pub static HTTP2_CLIENT_KEEPALIVE_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("HTTP2_CLIENT_KEEPALIVE_TIMEOUT_SECONDS", 15)));

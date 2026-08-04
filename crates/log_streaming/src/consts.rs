@@ -37,6 +37,11 @@ pub const AXIOM_SINK_MAX_LOGS_PER_BATCH: usize = 10000;
 pub const WEBHOOK_SINK_EVENTS_BUFFER_SIZE: usize = 8;
 pub const WEBHOOK_SINK_INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 pub const WEBHOOK_SINK_MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// Bound on a single request attempt. Without it, a connection the remote end
+/// drops without a FIN/RST hangs the sink until the kernel TCP retransmission
+/// timeout (~16 minutes), during which the events buffer overflows and logs
+/// are dropped.
+pub const WEBHOOK_SINK_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub const WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS: usize = 6;
 pub const WEBHOOK_SINK_VERIFICATION_MAX_ATTEMPTS: usize = 3;
 pub const WEBHOOK_SINK_MAX_LOGS_PER_BATCH: usize = 128;

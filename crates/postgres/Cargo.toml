@@ -17,12 +17,12 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
+const-hex = { workspace = true }
 const_format = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
-hex = { workspace = true }
 itertools = { workspace = true }
 lru = { workspace = true }
 metrics = { workspace = true }

@@ -1,5 +1,6 @@
 use core::hash::Hash;
 use std::{
+    borrow::Borrow,
     collections::{
         hash_map::Entry,
         BTreeMap,
@@ -9,7 +10,6 @@ use std::{
     sync::Arc,
 };
 
-use ::metrics::StatusTimer;
 use anyhow::Context as _;
 use async_broadcast::Receiver as BroadcastReceiver;
 use common::{
@@ -31,7 +31,10 @@ use common::{
 };
 use fastrace::{
     collector::SpanContext,
-    future::FutureExt as _,
+    future::{
+        FutureExt as _,
+        InSpan,
+    },
     Span,
 };
 use futures::{
@@ -80,9 +83,6 @@ pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized, FetchKey = Key> {
     label: &'static str,
     handle: Arc<Box<dyn SpawnHandle>>,
 }
-
-pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
-pub type ValueGenerator<Key, Value> = BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>;
 
 impl<RT: Runtime, Key, Value: ?Sized, FetchKey> Clone for AsyncLru<RT, Key, Value, FetchKey> {
     fn clone(&self) -> Self {
@@ -178,17 +178,14 @@ type BuildValueResult<Key, Value> = Result<Arc<HashMap<Key, Arc<Value>>>, Arc<an
 
 type BuildValueRequest<Key, Value, FetchKey> = (
     FetchKey,
-    ValueGenerator<Key, Value>,
+    InSpan<BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>>,
     async_broadcast::Sender<BuildValueResult<Key, Value>>,
 );
 
 enum Status<Key, Value: ?Sized> {
     Ready(Arc<Value>),
     Waiting(async_broadcast::Receiver<BuildValueResult<Key, Value>>),
-    Kickoff(
-        async_broadcast::Receiver<BuildValueResult<Key, Value>>,
-        StatusTimer,
-    ),
+    Kickoff(anyhow::Result<async_broadcast::Receiver<BuildValueResult<Key, Value>>>),
 }
 
 impl<Key, Value: ?Sized> std::fmt::Display for Status<Key, Value> {
@@ -229,7 +226,7 @@ impl<
         label: &'static str,
     ) -> Self {
         Self::_new(
-            CoDelQueue::new(rt.clone(), queue_size),
+            CoDelQueue::new_with_defaults(rt.clone(), queue_size),
             rt,
             LruCache::unbounded(),
             max_size,
@@ -250,7 +247,7 @@ impl<
         let inner = Inner::new(cache, max_size, label, tx);
         let handle = rt.spawn(
             label,
-            Self::value_generating_worker_thread(rt.clone(), rx, inner.clone(), concurrency),
+            Self::value_generating_worker_thread(rt.clone(), rx, inner.clone(), concurrency, label),
         );
         Self {
             runtime: rt.clone(),
@@ -260,8 +257,7 @@ impl<
         }
     }
 
-    fn drop_waiting(inner: &Mutex<Inner<RT, Key, Value, FetchKey>>, key: &FetchKey) {
-        let mut inner = inner.lock();
+    fn drop_waiting(inner: &mut Inner<RT, Key, Value, FetchKey>, key: &FetchKey) {
         inner.in_progress.remove(key);
     }
 
@@ -322,58 +318,86 @@ impl<
     /// that any generator passed with a given `fetch_key` produces a map
     /// containing every `key` that may be requested alongside that
     /// `fetch_key`; otherwise the deduplicated calls will fail.
-    pub async fn get_and_prepopulate(
+    pub async fn get_and_prepopulate<F, Q>(
         &self,
-        key: Key,
-        fetch_key: FetchKey,
-        value_generator: ValueGenerator<Key, Value>,
-    ) -> anyhow::Result<Arc<Value>> {
-        let timer = async_lru_get_timer(self.label);
-        let result = self._get(&key, fetch_key, value_generator).await;
-        timer.finish(result.is_ok());
-        result
-    }
-
-    pub async fn get<V: 'static>(
-        &self,
-        key: Key,
-        value_generator: SingleValueGenerator<V>,
+        key: &Q,
+        value_generator: impl FnOnce() -> (FetchKey, F),
     ) -> anyhow::Result<Arc<Value>>
     where
-        Key: Clone,
-        Arc<Value>: From<V>,
-        FetchKey: From<Key>,
+        F: Future<Output = anyhow::Result<HashMap<Key, Arc<Value>>>> + Send + 'static,
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
     {
         let timer = async_lru_get_timer(self.label);
-        let key_ = key.clone();
         let result = self
-            ._get(
-                &key_,
-                key.clone().into(),
-                Box::pin(async move {
-                    let mut hashmap = HashMap::new();
-                    hashmap.insert(key, <Arc<Value>>::from(value_generator.await?));
-                    Ok(hashmap)
-                }),
-            )
+            ._get(key, || {
+                let (fetch_key, f) = value_generator();
+                (fetch_key, f.boxed())
+            })
             .await;
         timer.finish(result.is_ok());
         result
     }
 
-    async fn _get(
+    pub async fn get<V: 'static, F>(
         &self,
         key: &Key,
-        fetch_key: FetchKey,
-        value_generator: ValueGenerator<Key, Value>,
-    ) -> anyhow::Result<Arc<Value>> {
+        value_generator: impl FnOnce() -> F,
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Key: Clone,
+        Arc<Value>: From<V>,
+        FetchKey: From<Key>,
+        F: Future<Output = anyhow::Result<V>> + Send + 'static,
+    {
+        let timer = async_lru_get_timer(self.label);
+        let result = self
+            ._get(key, || {
+                let key = key.clone();
+                (
+                    key.clone().into(),
+                    value_generator()
+                        .map(|value| {
+                            let mut hashmap = HashMap::new();
+                            hashmap.insert(key, <Arc<Value>>::from(value?));
+                            Ok(hashmap)
+                        })
+                        .boxed(),
+                )
+            })
+            .await;
+        timer.finish(result.is_ok());
+        result
+    }
+
+    async fn _get<Q>(
+        &self,
+        key: &Q,
+        value_generator: impl FnOnce() -> (
+            FetchKey,
+            BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>,
+        ),
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
+    {
         let pause_client = self.runtime.pause_client();
-        let status = self.get_sync(key, fetch_key, value_generator)?;
+        let status = self.get_sync(key, value_generator);
         tracing::debug!("Getting key {key:?} with status {status}");
         match status {
-            Status::Ready(value) => Ok(value),
-            Status::Waiting(rx) => Ok(Self::wait_for_value(key, rx).await?),
-            Status::Kickoff(rx, timer) => {
+            Status::Ready(value) => {
+                log_async_lru_cache_hit(self.label);
+                Ok(value)
+            },
+            Status::Waiting(rx) => {
+                log_async_lru_cache_waiting(self.label);
+                Ok(Self::wait_for_value(key, rx).await?)
+            },
+            Status::Kickoff(rx) => {
+                log_async_lru_cache_miss(self.label);
+                let rx = rx?;
+                let timer = async_lru_compute_timer(self.label);
                 pause_client.wait(PAUSE_DURING_GENERATE_VALUE_LABEL).await;
                 let result = Self::wait_for_value(key, rx).await?;
                 timer.finish();
@@ -382,27 +406,31 @@ impl<
         }
     }
 
-    fn get_sync(
+    fn get_sync<Q>(
         &self,
-        key: &Key,
-        fetch_key: FetchKey,
-        value_generator: ValueGenerator<Key, Value>,
-    ) -> anyhow::Result<Status<Key, Value>> {
+        key: &Q,
+        value_generator: impl FnOnce() -> (
+            FetchKey,
+            BoxFuture<'static, anyhow::Result<HashMap<Key, Arc<Value>>>>,
+        ),
+    ) -> Status<Key, Value>
+    where
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
+    {
+        if let Some(CacheEntry { value, .. }) = self.inner.lock().cache.get(key) {
+            return Status::Ready(value.clone());
+        }
+        // Create the value generator outside of the lock
+        let (fetch_key, future) = value_generator();
         let mut inner = self.inner.lock();
         let inner = &mut *inner;
-        log_async_lru_size(inner.cache.len(), inner.current_size, self.label);
         if let Some(CacheEntry { value, .. }) = inner.cache.get(key) {
-            log_async_lru_cache_hit(self.label);
-            return Ok(Status::Ready(value.clone()));
+            return Status::Ready(value.clone());
         }
         match inner.in_progress.entry(fetch_key) {
-            Entry::Occupied(waiting) => {
-                log_async_lru_cache_waiting(self.label);
-                Ok(Status::Waiting(waiting.get().clone()))
-            },
+            Entry::Occupied(waiting) => Status::Waiting(waiting.get().clone()),
             Entry::Vacant(v) => {
-                log_async_lru_cache_miss(self.label);
-
                 // Run the value_generator in the span context of the original client that
                 // fired off the job. If multiple callers instantiate the same job, only the
                 // first one will execute the future and get the sub-spans.
@@ -410,27 +438,36 @@ impl<
                     .map(|ctx| Span::root("async_lru_compute_value", ctx))
                     .unwrap_or(Span::noop());
 
-                let timer = async_lru_compute_timer(self.label);
                 let (tx, rx) = async_broadcast::broadcast(1);
-                // If the queue is too full, just bail here. The cache state is unmodified and
-                // there can't be any other waiters for this key right now, so
-                // it should be safe to abort.
-                inner.tx.clone().try_send((
-                    v.key().clone(),
-                    value_generator.in_span(span).boxed(),
-                    tx,
-                ))?;
-                v.insert(rx.clone());
-                Ok(Status::Kickoff(rx, timer))
+                Status::Kickoff(
+                    match inner
+                        .tx
+                        .clone()
+                        .try_send((v.key().clone(), future.in_span(span), tx))
+                    {
+                        Ok(()) => {
+                            v.insert(rx.clone());
+                            Ok(rx)
+                        },
+                        // If the queue is too full, just bail here. The cache state is unmodified
+                        // and there can't be any other waiters for this key
+                        // right now, so it should be safe to abort.
+                        Err(e) => Err(e.into()),
+                    },
+                )
             },
         }
     }
 
     #[fastrace::trace]
-    async fn wait_for_value(
-        key: &Key,
+    async fn wait_for_value<Q>(
+        key: &Q,
         mut receiver: async_broadcast::Receiver<BuildValueResult<Key, Value>>,
-    ) -> anyhow::Result<Arc<Value>> {
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Q: Hash + Eq + Debug + ?Sized,
+        Key: Borrow<Q>,
+    {
         // No work should be canceled while anyone is waiting on it, so it's a
         // developer error if recv ever returns a failure due to the channel
         // being closed.
@@ -454,14 +491,15 @@ impl<
         rx: CoDelQueueReceiver<RT, BuildValueRequest<Key, Value, FetchKey>>,
         inner: Arc<Mutex<Inner<RT, Key, Value, FetchKey>>>,
         concurrency: usize,
+        label: &'static str,
     ) {
         rx.for_each_concurrent(concurrency, |((fetch_key, generator, tx), expired)| {
             let inner = inner.clone();
             let rt = rt.clone();
             async move {
                 if let Some(expired) = expired {
-                    Self::drop_waiting(&inner, &fetch_key);
-                    let _ = tx.broadcast(Err(Arc::new(anyhow::anyhow!(expired)))).await;
+                    Self::drop_waiting(&mut *inner.lock(), &fetch_key);
+                    _ = tx.try_broadcast(Err(Arc::new(anyhow::anyhow!(expired))));
                     return;
                 }
 
@@ -470,13 +508,15 @@ impl<
                         for (k, value) in &values {
                             Self::update_value(&rt, &inner, k.clone(), value);
                         }
-                        _ = tx.broadcast(Ok(values.into())).await;
+                        _ = tx.try_broadcast(Ok(values.into()));
                     },
                     Err(e) => {
-                        _ = tx.broadcast(Err(Arc::new(e))).await;
+                        _ = tx.try_broadcast(Err(Arc::new(e)));
                     },
                 }
-                Self::drop_waiting(&inner, &fetch_key);
+                let mut inner = inner.lock();
+                Self::drop_waiting(&mut *inner, &fetch_key);
+                log_async_lru_size(inner.cache.len(), inner.current_size, label);
             }
         })
         .await;

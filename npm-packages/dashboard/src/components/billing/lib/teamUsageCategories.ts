@@ -35,20 +35,12 @@ export const BANDWIDTH_CATEGORIES = {
 
 export const FILE_BANDWIDTH_CATEGORIES = {
   servingEgress: {
-    name: "Serving Reads",
+    name: "File Serving",
     color: "fill-chart-line-1",
-  },
-  servingIngress: {
-    name: "Serving Writes",
-    color: "fill-chart-line-2",
   },
   userFunctionEgress: {
     name: "User Function Reads",
     color: "fill-chart-line-3",
-  },
-  userFunctionIngress: {
-    name: "User Function Writes",
-    color: "fill-chart-line-4",
   },
   cloudRestore: {
     name: "Cloud Restore",
@@ -105,7 +97,7 @@ export const DATA_EGRESS_CATEGORIES = {
     color: "fill-chart-line-6",
   },
   servingEgress: {
-    name: "Serving Reads",
+    name: "File Serving",
     color: "fill-chart-line-3",
   },
   userFunctionEgress: {
@@ -198,6 +190,19 @@ export const DEPLOYMENT_CLASS_CATEGORIES: Record<
     { name: key.toUpperCase(), color },
   ]),
 );
+
+export const DEPLOYMENT_STATUS_CATEGORIES: Record<
+  string,
+  { name: string; color: string; tip?: string }
+> = {
+  active: { name: "Active", color: "fill-chart-line-1" },
+  idle: {
+    name: "Idle",
+    color: "fill-chart-line-8",
+    tip: "Ran no functions in the last 30 days.",
+  },
+  paused: { name: "Paused", color: "fill-chart-line-4" },
+};
 
 export const CATEGORY_RENAMES = {
   uncached_query: "query",

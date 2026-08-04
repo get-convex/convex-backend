@@ -189,17 +189,32 @@ class URL {
   #urlInfo: UrlInfo;
   #searchParams: URLSearchParams;
 
+  static canParse(url: string | URL, base?: string | URL): boolean {
+    try {
+      new URL(url, base);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  static parse(url: string | URL, base?: string | URL): URL | null {
+    try {
+      return new URL(url, base);
+    } catch {
+      return null;
+    }
+  }
+
   constructor(url: string | URL, base?: string | URL) {
+    // Both arguments are USVStrings per WebIDL, so anything that isn't a URL
+    // object is stringified before parsing.
     let baseHref: string | null = null;
     if (base !== undefined) {
-      baseHref = typeof base === "string" ? base : base.href;
+      baseHref = base instanceof URL ? base.href : String(base);
     }
-    if (typeof url === "string") {
-      const urlInfo: UrlInfo = performOp("url/getUrlInfo", url, baseHref);
-      this.#urlInfo = urlInfo;
-    } else {
-      this.#urlInfo = { ...url.#urlInfo };
-    }
+    const href = url instanceof URL ? url.href : String(url);
+    this.#urlInfo = performOp("url/getUrlInfo", href, baseHref);
     this.#searchParams = new URLSearchParams(this.#urlInfo.search ?? "");
     this.#searchParams[_urlObjectUpdate] = this.#updateUrl.bind(this);
   }

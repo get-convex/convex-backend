@@ -50,7 +50,7 @@ function DisplayP({ children }: React.PropsWithChildren) {
   return (
     <p
       // eslint-disable-next-line no-restricted-syntax
-      className="mb-4 text-xl leading-snug font-medium text-content-primary"
+      className="mb-4 text-xl/snug font-medium text-content-primary"
     >
       {children}
     </p>

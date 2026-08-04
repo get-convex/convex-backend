@@ -154,7 +154,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         if document.deleted_ts.is_some() {
             anyhow::bail!(function_handle_not_found())
         }
-        Ok(FunctionHandle::new(document.developer_id()))
+        Ok(FunctionHandle::new(document.developer_id(), Some(path)))
     }
 
     #[fastrace::trace]

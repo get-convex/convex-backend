@@ -118,25 +118,35 @@ export function ReadonlyCode({
   disableLineNumbers = false,
 }: ReadonlyCodeProps) {
   const [editor, setEditor] = useState<any>();
+  // Track the decoration IDs we've applied so we can replace them when
+  // `highlightLines` changes (or clear them when it goes away) — otherwise
+  // stale highlights pile up while a panel stays open.
+  const decorationIds = useRef<string[]>([]);
   useEffect(() => {
-    if (highlightLines === undefined) {
+    if (!editor) {
       return;
     }
 
-    // Paint the selected line.
-    editor?.deltaDecorations(
-      [],
-      [
-        {
-          range: highlightLines,
-          options: {
-            isWholeLine: true,
-            marginClassName: "monacoLineHighlight",
-            inlineClassName: "monacoLineHighlight",
-          },
-        },
-      ],
+    // Paint the selected line, replacing any previously-painted lines.
+    decorationIds.current = editor.deltaDecorations(
+      decorationIds.current,
+      highlightLines
+        ? [
+            {
+              range: highlightLines,
+              options: {
+                isWholeLine: true,
+                marginClassName: "monacoLineHighlight",
+                inlineClassName: "monacoLineHighlight",
+              },
+            },
+          ]
+        : [],
     );
+
+    if (highlightLines) {
+      editor.revealLineNearTop(highlightLines.startLineNumber);
+    }
   }, [editor, highlightLines, path]);
 
   const ref = useRef<HTMLDivElement>(null);

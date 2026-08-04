@@ -37,6 +37,7 @@ import {
   DATABASE_IO_CATEGORIES,
   COMPUTE_CATEGORIES,
   DEPLOYMENT_CLASS_CATEGORIES,
+  DEPLOYMENT_STATUS_CATEGORIES,
 } from "./lib/teamUsageCategories";
 import {
   FunctionBreakdownMetric,
@@ -61,11 +62,13 @@ import {
   GroupBy,
   BusinessGroupBy,
   BusinessDatabaseGroupBy,
+  DeploymentGroupBy,
   GroupBySelector,
   GROUP_BY_OPTIONS,
   DATABASE_GROUP_BY_OPTIONS,
   BUSINESS_GROUP_BY_OPTIONS,
   BUSINESS_DATABASE_GROUP_BY_OPTIONS,
+  DEPLOYMENT_GROUP_BY_OPTIONS,
 } from "./GroupBySelector";
 import { ProjectLink } from "./ProjectLink";
 import {
@@ -86,12 +89,17 @@ import {
   useUsageTeamDocumentsPerDayByProject,
   useUsageTeamDeploymentCountPerDayByProject,
   useUsageTeamDeploymentCountByType,
+  useUsageTeamDeploymentCountByStatus,
   DailyMetric,
   DailyMetricByProject,
   DailyPerTagMetrics,
   DailyPerTagMetricsByProject,
   DailyPerTagMetricsByProjectAndClass,
 } from "hooks/usageMetrics";
+
+// Status breakdown data only exists starting on this date. Earlier days are
+// rendered as empty bars, never with real (nonexistent) values.
+const DEPLOYMENT_STATUS_DATA_START = "2026-07-23";
 
 const FUNCTION_BREAKDOWN_TABS_ = [
   FunctionBreakdownMetricCalls,
@@ -198,31 +206,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     componentPrefix,
   );
 
-  const { data: deploymentCountData } =
-    useUsageTeamDeploymentCountPerDayByProject(
-      team?.id,
-      dateRange,
-      componentPrefix,
-    );
-
-  // Get the latest deployment count (highest date)
-  const latestDeploymentCount = useMemo(() => {
-    if (deploymentCountData === undefined) {
-      return undefined;
-    }
-    if (deploymentCountData.length === 0) {
-      return 0;
-    }
-    // Sort by date descending and get the first item's value, then sum across all projects
-    const latestDate = deploymentCountData.reduce(
-      (max, item) => (item.ds > max ? item.ds : max),
-      deploymentCountData[0].ds,
-    );
-    return deploymentCountData
-      .filter((item) => item.ds === latestDate)
-      .reduce((sum, item) => sum + item.value, 0);
-  }, [deploymentCountData]);
-
   const entitlements = useTeamEntitlements(team?.id);
 
   const hasOrbSubscription = useHasSubscription(team?.id);
@@ -305,7 +288,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
               >
                 <BusinessPlanSummary
                   summary={summary}
-                  deploymentCount={latestDeploymentCount}
                   error={summaryError}
                   isBusinessPlan={isBusinessPlanType}
                   entitlements={entitlements}
@@ -375,6 +357,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                     dateRange={dateRange}
                     projectId={projectId}
                     componentPrefix={componentPrefix}
+                    shownBillingPeriod={shownBillingPeriod}
                   />
                 )}
 
@@ -485,7 +468,11 @@ function FunctionUsageBreakdown({
   team: TeamResponse;
 }) {
   const maxValue = useMemo(
-    () => Math.max(...metricsByDeployment.map(metric.getTotal)),
+    () =>
+      metricsByDeployment.reduce(
+        (max, row) => Math.max(max, metric.getTotal(row)),
+        0,
+      ),
     [metricsByDeployment, metric],
   );
 
@@ -568,16 +555,20 @@ function DeploymentCountUsage({
   dateRange,
   projectId,
   componentPrefix,
-}: DetailSectionProps) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<BusinessGroupBy>(
-    "usageViewMode_businessDeploymentCount",
-    "byType",
-  );
-  // The by-deployment-class data is only available team-wide, so it isn't a
-  // valid view when filtered to a single project — fall back to by-type.
-  const classDisabled = projectId !== null;
+  shownBillingPeriod,
+}: DetailSectionProps & { shownBillingPeriod: Period }) {
+  const [storedViewMode, setViewMode] =
+    useGlobalLocalStorage<DeploymentGroupBy>(
+      "usageViewMode_businessDeploymentCount",
+      "byType",
+    );
+  // The by-deployment-class and by-status data are only available team-wide, so
+  // they aren't valid views when filtered to a single project — fall back to
+  // by-type.
+  const teamWideDisabled = projectId !== null;
   const viewMode =
-    classDisabled && storedViewMode === "byDeploymentClass"
+    teamWideDisabled &&
+    (storedViewMode === "byDeploymentClass" || storedViewMode === "byStatus")
       ? "byType"
       : storedViewMode;
 
@@ -585,6 +576,55 @@ function DeploymentCountUsage({
 
   const { data: deploymentsByClassAndRegion, error: deploymentsByClassError } =
     useDeploymentsByClassAndRegion(team.id, dateRange);
+
+  const {
+    data: rawDeploymentCountByStatus,
+    error: deploymentCountByStatusError,
+  } = useUsageTeamDeploymentCountByStatus(team.id, dateRange);
+  // Status data doesn't exist before DEPLOYMENT_STATUS_DATA_START, so drop any
+  // earlier rows the query returns.
+  const deploymentCountByStatus = useMemo(
+    () =>
+      rawDeploymentCountByStatus?.filter(
+        (row) => row.ds >= DEPLOYMENT_STATUS_DATA_START,
+      ),
+    [rawDeploymentCountByStatus],
+  );
+  const statusRangeBeforeCutoff =
+    shownBillingPeriod.from < DEPLOYMENT_STATUS_DATA_START;
+  const statusCutoffNote = (
+    <p className="text-center text-sm text-content-secondary">
+      The deployment status breakdown is only available from July 23, 2026
+      onwards.
+    </p>
+  );
+  // Anchor the x-axis at the start of the viewed period with an empty day so
+  // the status chart spans the same range as the other deployment views; the
+  // chart gap-fills the pre-cutoff days as empty bars, avoiding the axis (and
+  // bar widths) shifting when toggling to the status breakdown.
+  const deploymentCountByStatusChartRows = useMemo(() => {
+    if (
+      deploymentCountByStatus === undefined ||
+      deploymentCountByStatus.length === 0 ||
+      !statusRangeBeforeCutoff
+    ) {
+      return deploymentCountByStatus;
+    }
+    return [
+      {
+        ds: shownBillingPeriod.from,
+        metrics: [
+          { tag: "active", value: 0 },
+          { tag: "paused", value: 0 },
+        ],
+      },
+      ...deploymentCountByStatus,
+    ];
+  }, [
+    deploymentCountByStatus,
+    statusRangeBeforeCutoff,
+    shownBillingPeriod.from,
+  ]);
 
   const { data: deploymentCountByType, error: deploymentCountByTypeError } =
     useUsageTeamDeploymentCountByType(
@@ -660,12 +700,14 @@ function DeploymentCountUsage({
           <GroupBySelector
             value={viewMode}
             onChange={setViewMode}
-            options={BUSINESS_GROUP_BY_OPTIONS}
+            options={DEPLOYMENT_GROUP_BY_OPTIONS}
             disabledOptions={
-              classDisabled
+              teamWideDisabled
                 ? {
                     byDeploymentClass:
                       "Deployment class breakdown isn't available when filtered to a single project.",
+                    byStatus:
+                      "Status breakdown isn't available when filtered to a single project.",
                   }
                 : undefined
             }
@@ -701,6 +743,36 @@ function DeploymentCountUsage({
               setSelectedDate={setSelectedDate}
               isGauge
             />
+          )
+        ) : viewMode === "byStatus" ? (
+          deploymentCountByStatusError ? (
+            <UsageDataError entity="Deployments" />
+          ) : deploymentCountByStatus === undefined ? (
+            <ChartLoading />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {deploymentCountByStatus.length === 0 &&
+              statusRangeBeforeCutoff ? (
+                // The whole selected range predates the status data — there are
+                // no bars to render, so reserve the chart's space; the message
+                // explains why it's blank. A post-cutoff range with no rows
+                // falls through to the chart's own no-data state instead.
+                <>
+                  <div className="h-56" />
+                  {statusCutoffNote}
+                </>
+              ) : (
+                <UsageStackedBarChart
+                  rows={deploymentCountByStatusChartRows!}
+                  categories={DEPLOYMENT_STATUS_CATEGORIES}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                  isGauge
+                  showEmptyCategories
+                  note={statusRangeBeforeCutoff ? statusCutoffNote : undefined}
+                />
+              )}
+            </div>
           )
         ) : deploymentsByClassError ? (
           <UsageDataError entity="Deployments" />

@@ -9,36 +9,35 @@ use utoipa::ToSchema;
 
 use super::SelectionArg;
 
-/// Selects the components, tables, and columns to export. Each key is a
-/// component path (`""` for the root component, which holds your tables
-/// unless you use components), mapped to the selection for that component;
-/// the required `_other` key sets the default for components not listed.
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
 #[schema(example = json!({
-    "_other": "excl",
+    "_other": "excluded",
     "": {
-        "_other": "excl",
-        "posts": {"_other": "incl"},
-        "users": {"_other": "incl", "ssn": "excl"},
+        "_other": "excluded",
+        "posts": {"_other": "included"},
+        "users": {"_other": "included", "ssn": "excluded"},
     },
 }))]
 pub struct Selection {
+    /// Set of components to include/exclude in sync.
+    ///
+    /// Mapping from the component path to the inclusion/exclusion.
+    /// Use the empty string to represent the root component.
     #[serde(flatten)]
     pub components: BTreeMap<
         String, // The component name ("" for the default component)
         ComponentSelection,
     >,
+    /// Whether components not explicitly listed are exported
     #[serde(rename = "_other")]
     pub other_components: InclusionDefault,
 }
 
-/// Whether items not explicitly listed are exported (`"incl"`) or not
-/// (`"excl"`).
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
 pub enum InclusionDefault {
-    #[serde(rename = "excl")]
+    #[serde(alias = "excl", rename = "excluded")]
     Excluded,
-    #[serde(rename = "incl")]
+    #[serde(alias = "incl", rename = "included")]
     Included,
 }
 
@@ -52,56 +51,52 @@ impl Default for Selection {
     }
 }
 
-/// The literal string `"excl"`, excluding the item entirely.
-// A dedicated newtype-wrapped tag (rather than a `#[serde(rename)]`d unit
-// variant with `#[serde(untagged)]` on the *other* variant) so that the
-// enums below can use container-level `#[serde(untagged)]`: the wire format
-// is identical, but utoipa's `ToSchema` derive only understands `untagged`
-// at the container level and silently ignores it on variants.
+/// The literal string `"excluded"`, excluding the item entirely.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
+#[schema(title = "Excluded")]
 pub enum ExcludedTag {
-    #[serde(rename = "excl")]
+    #[serde(alias = "excl", rename = "excluded")]
     Excluded,
 }
 
-/// What to export from one component: either the literal string `"excl"` to
-/// exclude the component entirely, or an object selecting some of its
-/// tables — each key is a table name, and the required `_other` key sets the
-/// default for tables not listed.
-// Serializable version of `StreamingExportComponentSelection`.
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum ComponentSelection {
-    /// Exclude this component entirely.
-    Excluded(ExcludedTag),
     /// Export some of this component's tables.
+    #[schema(title = "Included")]
     Included {
+        /// Set of tables to include/exclude in sync within the component.
+        ///
+        /// Mapping from the table name to the inclusion/exclusion.
         #[serde(flatten)]
         tables: BTreeMap<String, TableSelection>,
+        /// Whether tables not explicitly listed are exported
         #[serde(rename = "_other")]
         other_tables: InclusionDefault,
     },
+    #[schema(title = "Excluded")]
+    /// Exclude this component entirely.
+    Excluded(ExcludedTag),
 }
 
-/// What to export from one table: either the literal string `"excl"` to
-/// exclude the table entirely, or an object selecting some of its columns —
-/// each key is a column (field) name mapped to whether it is exported, and
-/// the required `_other` key sets the default for columns not listed. `_id`
-/// cannot be excluded.
-// Serializable version of
-// `StreamingExportTableSelection` + `StreamingExportColumnSelection`.
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
 #[serde(untagged)]
 pub enum TableSelection {
-    /// Exclude this table entirely.
-    Excluded(ExcludedTag),
-    /// Export some of this table's columns.
+    #[schema(title = "Included")]
     Included {
+        /// Set of columns to include/exclude in sync within the table.
+        ///
+        /// Mapping from the column name to the inclusion/exclusion. `_id`
+        /// cannot be excluded.
         #[serde(flatten)]
-        columns: BTreeMap<String, ColumnInclusion>,
+        columns: BTreeMap<String, ColumnSelection>,
+        /// Whether columns not explicitly listed are exported
         #[serde(rename = "_other")]
         other_columns: InclusionDefault,
     },
+    #[schema(title = "Excluded")]
+    /// Exclude this table entirely.
+    Excluded(ExcludedTag),
 }
 
 impl TableSelection {
@@ -116,10 +111,10 @@ impl TableSelection {
 /// Whether the column is exported.
 // Serializable version of `StreamingExportColumnInclusion`.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize, ToSchema)]
-pub enum ColumnInclusion {
-    #[serde(rename = "excl")]
+pub enum ColumnSelection {
+    #[serde(alias = "excl", rename = "excluded")]
     Excluded,
-    #[serde(rename = "incl")]
+    #[serde(alias = "incl", rename = "included")]
     Included,
 }
 

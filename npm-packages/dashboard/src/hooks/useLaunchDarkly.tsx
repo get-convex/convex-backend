@@ -2,7 +2,6 @@ import { useFlags } from "launchdarkly-react-client-sdk";
 import kebabCase from "lodash/kebabCase";
 
 export const flagDefaults: {
-  commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
   enableNewDashboardVersionNotification: boolean;
   connectionStateCheckIntervalMs: number;
@@ -10,7 +9,6 @@ export const flagDefaults: {
   nonDefaultTeamDevsInMainMenu: number;
   copyEnvVarNameAndValue: boolean;
 } = {
-  commandPalette: false,
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
   connectionStateCheckIntervalMs: 2500,

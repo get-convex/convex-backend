@@ -336,32 +336,6 @@ impl HttpResponseStream {
     }
 }
 
-/// Transforms a common::http::HttpResponseStream into a
-/// anyhow::Result<HttpResponseStream>, categorizing HTTP status code errors
-/// into the ErrorMetadata data model. If no such status code is extractable,
-/// the error is left uncategorized with ErrorMetadata.
-pub fn categorize_http_response_stream(
-    response: HttpResponseStream,
-) -> anyhow::Result<HttpResponseStream> {
-    if !(response.status.is_server_error() || response.status.is_client_error()) {
-        return Ok(response);
-    };
-
-    let canonical_reason = response.status.canonical_reason().unwrap_or("Unknown");
-    let Some(em) =
-        ErrorMetadata::from_http_status_code(response.status, "RequestFailed", canonical_reason)
-    else {
-        anyhow::bail!(
-            "Http request to {:?} failed with status code {} {}",
-            response.url,
-            response.status,
-            canonical_reason,
-        );
-    };
-
-    Err(em.into())
-}
-
 /// `HttpError` is used as a vehicle for getting client facing error messages
 /// to clients on the HTTP protocol. Errors that are tagged with ErrorMetadata
 /// can be used to build these.

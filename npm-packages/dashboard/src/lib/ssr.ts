@@ -1,5 +1,9 @@
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
-import { getAccessToken, withPageAuthRequired } from "server/workos";
+import {
+  getAccessToken,
+  withPageAuthRequired,
+  WorkOSUnavailableError,
+} from "server/workos";
 import groupBy from "lodash/groupBy";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { TeamResponse, ProjectDetails } from "generatedApi";
@@ -34,6 +38,14 @@ const getProps: GetServerSideProps<{
   try {
     token = await getAccessToken(req);
   } catch (error) {
+    if (error instanceof WorkOSUnavailableError) {
+      // WorkOS is unreachable. Send the user to the retry pagerather
+      res.writeHead(307, {
+        Location: `/login-error?returnTo=${encodeURIComponent(req.url || "/")}`,
+      });
+      res.end();
+      return { props: {} };
+    }
     console.error("Couldn't fetch auth token", error);
     // If we can't get the token, we should try to login again
     res.writeHead(307, {
@@ -62,6 +74,7 @@ const getProps: GetServerSideProps<{
       authorization: `Bearer ${token.accessToken}`,
       "Google-Analytics-Client-Id": googleAnalyticsId,
     };
+
     const resp = await retryingFetch(
       `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/member_data`,
       {

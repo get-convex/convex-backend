@@ -18,7 +18,14 @@ import { useHoverDirty } from "react-use";
 import { test } from "fuzzy";
 import { Button } from "@ui/Button";
 import { createPortal } from "react-dom";
-import { usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+} from "@floating-ui/react";
+import { useIsNarrowScreen } from "./useIsNarrowScreen";
 
 const MAX_DISPLAYED_OPTIONS = 100;
 
@@ -65,6 +72,7 @@ export function MultiSelectCombobox({
 
   const [isOpen, setIsOpen] = useState(false);
   const wasOpen = useRef(false);
+  const isNarrow = useIsNarrowScreen();
 
   // Restore focus to the button when the dropdown closes
   useEffect(() => {
@@ -75,21 +83,12 @@ export function MultiSelectCombobox({
     wasOpen.current = isOpen;
   }, [isOpen, referenceElement]);
 
-  const { styles, attributes, update } = usePopper(
-    referenceElement,
-    popperElement,
-    {
-      placement: "bottom-start",
-      modifiers: [
-        {
-          name: "offset",
-          options: {
-            offset: [0, 4],
-          },
-        },
-      ],
-    },
-  );
+  const { floatingStyles } = useFloating({
+    placement: "bottom-start",
+    middleware: [offsetMiddleware(4), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: referenceElement, floating: popperElement },
+  });
 
   // Get the width for the dropdown
   const getOptionsWidth = () => {
@@ -119,13 +118,6 @@ export function MultiSelectCombobox({
     selectedOptions === "all"
       ? `All ${unitPlural}`
       : `${count} ${count !== 1 ? unitPlural : unit}`;
-
-  // Update popper position when dropdown opens
-  useEffect(() => {
-    if (isOpen && update) {
-      void update();
-    }
-  }, [isOpen, update]);
 
   const handleSelectAll = () => {
     if (selectedOptions === "all") {
@@ -193,18 +185,31 @@ export function MultiSelectCombobox({
               {open &&
                 createPortal(
                   <div
-                    ref={setPopperElement}
-                    style={{
-                      ...styles.popper,
-                      width: getOptionsWidth(),
-                    }}
-                    {...attributes.popper}
-                    className="z-50"
+                    ref={isNarrow ? undefined : setPopperElement}
+                    style={
+                      isNarrow
+                        ? undefined
+                        : { ...floatingStyles, width: getOptionsWidth() }
+                    }
+                    className={
+                      isNarrow ? "fixed inset-0 z-50 flex items-end" : "z-50"
+                    }
                   >
+                    {isNarrow && (
+                      <div
+                        className="absolute inset-0 bg-black/50"
+                        aria-hidden="true"
+                      />
+                    )}
                     <HeadlessComboboxOptions
                       modal={false}
                       static
-                      className="scrollbar max-h-60 w-fit max-w-80 min-w-full overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm focus:outline-hidden"
+                      className={cn(
+                        "scrollbar overflow-auto border bg-background-secondary focus:outline-hidden",
+                        isNarrow
+                          ? "relative max-h-[70dvh] w-full rounded-t-xl pb-2 text-sm shadow-xl"
+                          : "max-h-60 w-fit max-w-80 min-w-full rounded-md pb-1 text-xs shadow-sm",
+                      )}
                     >
                       <div className="min-w-fit">
                         {disableSearch ? (

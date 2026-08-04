@@ -69,6 +69,7 @@ use crate::{
     request_scope::RequestScope,
     strings,
     timeout::Timeout,
+    ConcurrencyPermit,
 };
 
 pub struct SchemaEnvironment {
@@ -194,9 +195,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
 
 impl SchemaEnvironment {
     pub async fn evaluate_schema<RT: Runtime>(
-        client_id: String,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
+        permit: ConcurrencyPermit,
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
@@ -209,9 +210,8 @@ impl SchemaEnvironment {
             rng,
             unix_timestamp,
         };
-        let client_id = Arc::new(client_id);
         let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id, environment)
+            .start_request(context_cache, permit, environment)
             .await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = context_cache.get_or_create_fresh_context(handle_scope);

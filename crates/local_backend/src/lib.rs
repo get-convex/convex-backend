@@ -14,11 +14,11 @@ use ::authentication::{
     access_token_auth::NullAccessTokenAuth,
     application_auth::ApplicationAuth,
 };
+use ::usage_limits::NoopUsageLimitNotifier;
 use application::{
     self,
     api::ApplicationApi,
     log_visibility::RedactLogsToClient,
-    usage_limits::NoopUsageLimitNotifier,
     Application,
     QueryCache,
 };

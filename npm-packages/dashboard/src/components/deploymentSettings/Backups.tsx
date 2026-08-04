@@ -188,7 +188,6 @@ export function Backups({
 
           <Sheet padding={false} className="min-h-72">
             <BackupList
-              team={team}
               targetDeployment={deployment}
               canCreate={canCreate}
               canImport={canImport}
@@ -211,7 +210,7 @@ function PhysicalBackupsSection({
   return (
     <div className="flex flex-col gap-2">
       <h4 className="min-w-fit">Physical backups</h4>
-      <Callout className="max-w-prose">
+      <Callout>
         <span>
           {deployment.class.toUpperCase()} deployments include physical backups.
           Physical backups are faster and cheaper due to the ability to rely on

@@ -22,7 +22,7 @@ import { useProfile } from "api/profile";
 import { projectResource, projectTokenResource } from "lib/permissions";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { useRouter } from "next/router";
-import { useState, useEffect, type FC } from "react";
+import { useState } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
 import {
   GearIcon,
@@ -46,9 +46,10 @@ import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
 import { DeploymentAccessTokenList } from "components/deploymentSettings/DeploymentAccessTokenList";
 import { CustomDomains } from "components/projectSettings/CustomDomains";
 import { TransferProject } from "components/projects/TransferProject";
-import { cn } from "@ui/cn";
 import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { HelpTooltip } from "@ui/HelpTooltip";
+import { PROJECT_SETTINGS_SECTIONS } from "lib/sectionAnchors";
+import { SettingsLayout, type SettingsSection } from "elements/SettingsLayout";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -62,23 +63,21 @@ export function ProjectSettingsPage() {
 
 export default withAuthenticatedPage(ProjectSettingsPage);
 
+// Anchor ids are shared with the command palette (which deep-links to them)
+// via `lib/sectionAnchors`, so the two can't drift.
 const SECTION_IDS = {
-  projectForm: "project-form",
-  projectRoles: "project-roles",
-  projectUsage: "project-usage",
-  customDomains: "custom-domains",
-  previewDeployKeys: "preview-deploy-keys",
-  authorizedApps: "applications",
-  envVars: "env-vars",
-  transferProject: "transfer-project",
-  deleteProject: "delete-project",
+  projectForm: PROJECT_SETTINGS_SECTIONS.editProject.id,
+  projectRoles: PROJECT_SETTINGS_SECTIONS.projectAdmins.id,
+  projectUsage: PROJECT_SETTINGS_SECTIONS.projectUsage.id,
+  customDomains: PROJECT_SETTINGS_SECTIONS.customDomains.id,
+  previewDeployKeys: PROJECT_SETTINGS_SECTIONS.previewDeployKeys.id,
+  authorizedApps: PROJECT_SETTINGS_SECTIONS.authorizedApplications.id,
+  envVars: PROJECT_SETTINGS_SECTIONS.environmentVariables.id,
+  transferProject: PROJECT_SETTINGS_SECTIONS.transferProject.id,
+  deleteProject: PROJECT_SETTINGS_SECTIONS.deleteProject.id,
 } as const;
 
-const sections: {
-  id: string;
-  label: string;
-  Icon: FC<{ className?: string }>;
-}[] = [
+const sections: SettingsSection[] = [
   { id: SECTION_IDS.projectForm, label: "Edit Project", Icon: GearIcon },
   { id: SECTION_IDS.projectRoles, label: "Project Admins", Icon: PersonIcon },
   { id: SECTION_IDS.projectUsage, label: "Project Usage", Icon: PieChartIcon },
@@ -95,7 +94,7 @@ const sections: {
   },
   {
     id: SECTION_IDS.envVars,
-    label: "Environment Variables",
+    label: "Default Environment Variables",
     Icon: VariableIcon,
   },
   {
@@ -106,176 +105,11 @@ const sections: {
   { id: SECTION_IDS.deleteProject, label: "Delete Project", Icon: TrashIcon },
 ];
 
-function SettingsNavigation() {
-  return (
-    <nav
-      data-settings-nav
-      className="relative"
-      aria-label="Settings navigation"
-    >
-      <div
-        className="absolute left-0 h-full w-0.5 rounded-sm bg-background-tertiary"
-        aria-hidden="true"
-      />
-      <SettingsNavigationScrollProgress />
-      <ul className="pl-1 text-sm">
-        {sections.map(({ id, label, Icon }) => (
-          <li key={id} className="py-px">
-            <a
-              href={`#${id}`}
-              className={cn(
-                "flex items-center gap-2 rounded-sm p-2 transition-all duration-200",
-                "text-content-primary hover:bg-background-secondary",
-              )}
-              onClick={(e) => {
-                e.preventDefault();
-                const element = document.getElementById(id);
-                if (element) {
-                  const rect = element.getBoundingClientRect();
-                  const isInView =
-                    rect.top >= 0 && rect.bottom <= window.innerHeight;
-                  element.scrollIntoView({
-                    behavior: "smooth",
-                    block: isInView ? "start" : "nearest",
-                    inline: "nearest",
-                  });
-
-                  window.history.pushState(null, "", `#${id}`);
-                }
-              }}
-            >
-              <Icon
-                className="size-4.5 min-h-4.5 shrink-0 text-content-secondary"
-                aria-hidden
-              />
-              {label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
-
-function SettingsNavigationScrollProgress() {
-  const [transform, setTransform] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const contentWrapper = document.querySelector(
-      "[data-settings-content-wrapper]",
-    );
-    const content = document.querySelector("[data-settings-content]");
-    if (!contentWrapper) return undefined;
-
-    const forceUpdate = () => {
-      // Don't show indicator until sections are rendered
-      const firstElement = document.getElementById(sections[0].id);
-      if (!firstElement) {
-        setTransform(undefined);
-        return;
-      }
-
-      const containerRect = contentWrapper.getBoundingClientRect();
-
-      const elementHeight = 1 / sections.length;
-
-      const firstBoundary = findScrollBoundary("first", containerRect);
-      const lastBoundary = findScrollBoundary("last", containerRect);
-
-      const y =
-        (firstBoundary.index + firstBoundary.topClippedFraction) *
-        elementHeight;
-      const height =
-        firstBoundary.index === lastBoundary.index
-          ? firstBoundary.visibilityFraction * elementHeight
-          : (firstBoundary.visibilityFraction +
-              lastBoundary.visibilityFraction +
-              lastBoundary.index -
-              firstBoundary.index -
-              1) *
-            elementHeight;
-
-      setTransform(`translateY(${y * 100}%) scaleY(${height})`);
-    };
-
-    forceUpdate(); // Initial calculation
-
-    const update = () => {
-      window.requestAnimationFrame(forceUpdate);
-    };
-    contentWrapper.addEventListener("scroll", update);
-    window.addEventListener("resize", update);
-
-    const resizeObserver = new ResizeObserver(update);
-    if (content) {
-      resizeObserver.observe(content);
-    }
-
-    return () => {
-      contentWrapper.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  if (transform === undefined) return null;
-
-  return (
-    <div
-      className="absolute left-0 h-full w-0.5 origin-top rounded-sm bg-content-primary"
-      style={{
-        transform,
-      }}
-      aria-hidden="true"
-    />
-  );
-}
-
-function findScrollBoundary(
-  boundary: "first" | "last",
-  containerRect: DOMRect,
-) {
-  for (
-    let i = boundary === "first" ? 0 : sections.length - 1;
-    boundary === "first" ? i < sections.length : i >= 0;
-    boundary === "first" ? i++ : i--
-  ) {
-    const section = sections[i];
-    const element = document.getElementById(section.id);
-    if (!element) {
-      continue;
-    }
-
-    const rect = element.getBoundingClientRect();
-
-    const visibleHeight =
-      Math.min(rect.bottom, containerRect.bottom) -
-      Math.max(rect.top, containerRect.top);
-
-    if (visibleHeight > 0) {
-      const elementHeight = rect.height;
-      return {
-        index: i,
-        visibilityFraction: visibleHeight / elementHeight,
-        topClippedFraction:
-          Math.max(0, containerRect.top - rect.top) / elementHeight,
-      };
-    }
-  }
-
-  return {
-    index: 0,
-    visibilityFraction: 0,
-    topClippedFraction: 0,
-  };
-}
-
 function ProjectSettings() {
   const team = useCurrentTeam();
   const project = useCurrentProject();
   const entitlements = useTeamEntitlements(team?.id);
   const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
-  const router = useRouter();
 
   // Custom-role gates: project admins (and team admins via
   // `hasAdminPermissions`) keep full access, custom-role members opt in via
@@ -371,26 +205,6 @@ function ProjectSettings() {
     </>
   );
 
-  useEffect(() => {
-    // Handle initial scroll based on hash
-    if (typeof window !== "undefined" && window.location.hash) {
-      const id = window.location.hash.slice(1); // Remove the # from the hash
-      const element = document.getElementById(id);
-      if (element) {
-        // Add a small delay to ensure the content is rendered
-        setTimeout(() => {
-          element.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-            inline: "start",
-          });
-        }, 100);
-      }
-    }
-  }, [team, project, router]); // Only run when team/project load since that's when content becomes available
-
-  const title = <h2 className="pointer-events-auto py-6">Project Settings</h2>;
-
   return (
     <>
       <Head>
@@ -398,132 +212,101 @@ function ProjectSettings() {
           <title>Project Settings | {project.name} | Convex Dashboard</title>
         )}
       </Head>
-      <div className="relative h-full [--container-px:--spacing(6)] [--container-width:80rem] [--sidebar-gap:--spacing(8)] [--sidebar-width:14rem]">
-        <div className="pointer-events-none absolute inset-0 top-0 z-10 hidden md:block">
-          <div className="mx-auto flex h-full max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
-            <div className="h-full w-(--sidebar-width)">
-              <div className="grid h-full grid-rows-[auto_1fr]">
-                {title}
-                <div className="scrollbar overflow-y-auto">
-                  <div className="pointer-events-auto pb-8">
-                    <SettingsNavigation />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="grow" />
+      <SettingsLayout
+        title="Project Settings"
+        sections={sections}
+        contentReady={!!(team && project)}
+      >
+        {team && project ? (
+          <div id={SECTION_IDS.projectForm}>
+            <ProjectForm
+              team={team}
+              project={project}
+              hasAdminPermissions={canEditProject}
+              permissionDeniedTip={
+                canEditProject
+                  ? undefined
+                  : permissionDeniedTip(
+                      "You do not have permission to update this project.",
+                      "project:update",
+                    )
+              }
+            />
           </div>
+        ) : (
+          <Loading className="h-200" fullHeight={false} />
+        )}
+        <div id={SECTION_IDS.projectRoles}>
+          <MemberProjectRoles />
         </div>
-        <div
-          className="scrollbar h-full overflow-y-auto"
-          data-settings-content-wrapper
-        >
-          <div className="m-auto flex min-h-0 max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
-            <div className="hidden w-(--sidebar-width) shrink-0 md:block" />
-
-            <div className="flex grow flex-col items-start">
-              <div className="md:hidden">{title}</div>
-
-              <div
-                data-settings-content
-                className="flex w-full grow flex-col gap-6 pr-2 pb-6 *:scroll-mt-3 md:pt-20"
+        {team && project && (
+          <Sheet id={SECTION_IDS.projectUsage}>
+            <h3 className="mb-4">Project Usage</h3>
+            <p className="text-sm">
+              View this project's usage and limits on{" "}
+              <Link
+                href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
               >
-                {team && project ? (
-                  <div id={SECTION_IDS.projectForm}>
-                    <ProjectForm
-                      team={team}
-                      project={project}
-                      hasAdminPermissions={canEditProject}
-                      permissionDeniedTip={
-                        canEditProject
-                          ? undefined
-                          : permissionDeniedTip(
-                              "You do not have permission to update this project.",
-                              "project:update",
-                            )
-                      }
-                    />
-                  </div>
-                ) : (
-                  <Loading className="h-200" fullHeight={false} />
-                )}
-                <div id={SECTION_IDS.projectRoles}>
-                  <MemberProjectRoles />
-                </div>
-                {team && project && (
-                  <Sheet id={SECTION_IDS.projectUsage}>
-                    <h3 className="mb-4">Project Usage</h3>
-                    <p className="text-sm">
-                      View this project's usage and limits on{" "}
-                      <Link
-                        href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
-                      >
-                        this team's usage page
-                      </Link>
-                      .
-                    </p>
-                  </Sheet>
-                )}
-                {team && entitlements && (
-                  <div id={SECTION_IDS.customDomains}>
-                    <CustomDomains
-                      team={team}
-                      hasEntitlement={
-                        entitlements.customDomainsEnabled ?? false
-                      }
-                    />
-                  </div>
-                )}
-                {project && (
-                  <div id={SECTION_IDS.previewDeployKeys}>
-                    <PreviewDeployKeys project={project} />
-                  </div>
-                )}
-                {project && (
-                  <div id={SECTION_IDS.authorizedApps}>
-                    {isAuthorizedAppsDenied ? (
-                      <Sheet>
-                        <h3 className="mb-2">Authorized Applications</h3>
-                        <NoPermissionMessage
-                          message="You do not have permission to view authorized applications for this project."
-                          missingPermission="project:token:view"
-                        />
-                      </Sheet>
-                    ) : (
-                      <AuthorizedApplications
-                        accessTokens={projectAppAccessTokens}
-                        explainer={authorizedAppsExplainer}
-                        onRevoke={async (token) => {
-                          await deleteAppAccessTokenByName({
-                            name: token.name,
-                          });
-                        }}
-                        revokeDisabledReason={
-                          canRevokeAuthorizedApp
-                            ? undefined
-                            : permissionDeniedTip(
-                                "You do not have permission to revoke authorized applications.",
-                                "project:token:delete",
-                              )
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-                <div id={SECTION_IDS.envVars}>
-                  <DefaultEnvironmentVariables />
-                </div>
-                <div id={SECTION_IDS.transferProject}>
-                  <TransferProject />
-                </div>
-                <div id={SECTION_IDS.deleteProject}>
-                  <DeleteProject />
-                </div>
-              </div>
-            </div>
+                this team's usage page
+              </Link>
+              .
+            </p>
+          </Sheet>
+        )}
+        {team && entitlements && (
+          <div id={SECTION_IDS.customDomains}>
+            <CustomDomains
+              team={team}
+              hasEntitlement={entitlements.customDomainsEnabled ?? false}
+            />
           </div>
+        )}
+        {project && (
+          <div id={SECTION_IDS.previewDeployKeys}>
+            <PreviewDeployKeys project={project} />
+          </div>
+        )}
+        {project && (
+          <div id={SECTION_IDS.authorizedApps}>
+            {isAuthorizedAppsDenied ? (
+              <Sheet>
+                <h3 className="mb-2">Authorized Applications</h3>
+                <NoPermissionMessage
+                  message="You do not have permission to view authorized applications for this project."
+                  missingPermission="project:token:view"
+                />
+              </Sheet>
+            ) : (
+              <AuthorizedApplications
+                accessTokens={projectAppAccessTokens}
+                explainer={authorizedAppsExplainer}
+                onRevoke={async (token) => {
+                  await deleteAppAccessTokenByName({
+                    name: token.name,
+                  });
+                }}
+                revokeDisabledReason={
+                  canRevokeAuthorizedApp
+                    ? undefined
+                    : permissionDeniedTip(
+                        "You do not have permission to revoke authorized applications.",
+                        "project:token:delete",
+                      )
+                }
+              />
+            )}
+          </div>
+        )}
+        <div id={SECTION_IDS.envVars}>
+          <DefaultEnvironmentVariables />
         </div>
-      </div>
+        <div id={SECTION_IDS.transferProject}>
+          <TransferProject />
+        </div>
+        <div id={SECTION_IDS.deleteProject}>
+          <DeleteProject />
+        </div>
+      </SettingsLayout>
     </>
   );
 }

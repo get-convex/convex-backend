@@ -377,6 +377,12 @@ use udf::{
     HttpActionResult,
 };
 use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
+use usage_limits::{
+    UsageLimitNotifier,
+    UsageLimitRecorder,
+    UsageLimitWorker,
+    UsageMeter,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -415,12 +421,6 @@ use crate::{
         clear_tables,
         SnapshotImportWorker,
     },
-    usage_limits::{
-        UsageLimitNotifier,
-        UsageLimitRecorder,
-        UsageLimitWorker,
-        UsageMeter,
-    },
 };
 
 pub mod admin_keys_cache;
@@ -448,7 +448,6 @@ pub mod snapshot_import;
 mod streaming_export;
 mod system_table_cleanup;
 mod table_summary_worker;
-pub mod usage_limits;
 pub mod valid_identifier;
 mod worker_handles;
 
@@ -2362,15 +2361,11 @@ impl<RT: Runtime> Application<RT> {
                 // Download root package
                 let existing_app_modules: BTreeMap<CanonicalizedModulePath, ModuleConfig> =
                     if let Some(root_pkg) = existing_root_package {
-                        download_package(
-                            self.modules_storage().clone(),
-                            root_pkg.storage_key.clone(),
-                            root_pkg.sha256.clone(),
-                        )
-                        .await?
-                        .into_values()
-                        .map(|v| (v.path.clone().canonicalize(), v))
-                        .collect()
+                        download_package(self.modules_storage().clone(), &root_pkg)
+                            .await?
+                            .into_values()
+                            .map(|v| (v.path.clone().canonicalize(), v))
+                            .collect()
                     } else {
                         anyhow::bail!("Failed to download source package for root component.");
                     };
@@ -3345,7 +3340,7 @@ impl<RT: Runtime> Application<RT> {
                                 "Admin identity returned from check_admin_key was not an admin."
                             );
                         };
-                        Identity::ActingUser(i, acting_user)
+                        Identity::ActingUser(i, acting_user.into())
                     },
                     None => admin_identity,
                 }

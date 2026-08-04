@@ -828,11 +828,12 @@
     "/data/sync": {
       "post": {
         "tags": [
-          "Data Sync"
+          "Data Sync",
+          "beta"
         ],
         "summary": "Data sync",
-        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nStreams a resumable export of some or all of a deployment's data. Streaming\nexport must be enabled on the deployment, and the caller must have the\n`deployment:data:view` permission.\n\nCall this endpoint repeatedly, passing the opaque `pagination.nextCursor`\nfrom each response back in the next request as `cursor`. Omit `cursor` on\nthe first call.\n\nTo handle the response, first drop all tables listed in `truncates`. Then\napply document updates from `values`, in order. Each update replaces the\nexisting document with the same `_id` if present. Persist the results to\neach page atomically with the returned cursor.\n\nContinue calling the endpoint with the most recent cursor to progress the\ndata sync. If `pagination.hasMore` is `true`, there is more progress to be\nmade immediately, so you should call again soon. Otherwise, you can call\nback periodically to discover newly written data. This endpoint must be\ncalled at least once every 3 days, or the sync will expire and can no longer\nbe resumed. When that happens the endpoint responds with a `400`\n(`DataSyncCursorExpired`), and you must restart the sync from scratch by\ncalling again with no cursor.\n\nEach sync's progress is periodically recorded while the sync is in\nprogress and can be monitored via `/data/list_active_syncs`, keyed by the\n`syncId` returned in every response.",
-        "operationId": "data_sync_post",
+        "description": "Paginated streamable export of some or all of a deployment's data.\n\nCall this endpoint repeatedly, passing the opaque `pagination.nextCursor`\nfrom each response back in the next request as `cursor`. Omit `cursor` on\nthe first call.\n\nTo do a one time data sync, keep fetching pages until reaching an `upToDate`\npage. For a continuous streaming export, continue fetching pages\nperiodically. It's recommended to sleep between `upToDate` pages to reduce\noverhead.\n\nThe caller must have the `deployment:data:view` permission.",
+        "operationId": "data_sync",
         "requestBody": {
           "content": {
             "application/json": {
@@ -874,11 +875,12 @@
     "/data/list_active_syncs": {
       "get": {
         "tags": [
-          "Data Sync"
+          "Data Sync",
+          "beta"
         ],
         "summary": "List active data syncs",
-        "description": "**Early access:** this API is not yet stable and may change in\nbackwards-incompatible ways without notice. Contact the Convex team before\ndepending on it.\n\nReturns the progress of every active data sync: one that fetched a page\nfrom `/data/sync` within the past 3 days, whether it is still performing\nits initial traversal or is already synced and streaming changes. Progress\nis recorded periodically, so an in-flight sync's numbers may trail its\nmost recent page.\n\nResults are paginated, most recently updated first. Pass the returned\n`nextCursor` back as `cursor` to fetch the next page.",
-        "operationId": "list_active_syncs_get",
+        "description": "Returns the progress of active data sync (/v1/data/sync).\n\nA data sync is considered active for 3 days after the most recent API call.\nfrom `/data/sync` within the past 3 days.",
+        "operationId": "list_active_syncs",
         "parameters": [
           {
             "name": "limit",
@@ -951,6 +953,10 @@
           "status"
         ],
         "properties": {
+          "syncId": {
+            "type": "string",
+            "description": "Unique id of the sync, assigned when it started (i.e. when\n`/api/v1/data/sync` was called without a cursor) and stable across its\npages."
+          },
           "lastUpdated": {
             "type": "integer",
             "format": "int64",
@@ -959,14 +965,10 @@
           "status": {
             "$ref": "#/components/schemas/ActiveDataSyncStatus",
             "description": "The sync's progress as of its most recently recorded page."
-          },
-          "syncId": {
-            "type": "string",
-            "description": "Unique id of the sync, assigned when it started (i.e. when\n`/api/v1/data/sync` was called without a cursor) and stable across its\npages."
           }
         }
       },
-      "ActiveDataSyncInProgress": {
+      "ActiveDataSyncSnapshotting": {
         "type": "object",
         "description": "The sync is still traversing its selected tables; the data returned so\nfar is not yet a consistent snapshot.",
         "required": [
@@ -981,6 +983,30 @@
           "totalDocuments"
         ],
         "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `snapshotting`, discriminating \"snapshotting\" status\nobjects.",
+                "enum": [
+                  "snapshotting"
+                ]
+              }
+            ],
+            "description": "Always `snapshotting`."
+          },
+          "numTablesSynced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tables whose initial traversal has completed.",
+            "minimum": 0
+          },
+          "totalTables": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total tables selected for the sync.",
+            "minimum": 0
+          },
           "currentComponent": {
             "type": "string",
             "description": "The component of the table currently being traversed (the empty\nstring for the root component)."
@@ -995,16 +1021,16 @@
             "description": "Documents synced so far from the current table.",
             "minimum": 0
           },
+          "totalDocumentsInCurrentTable": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total documents in the current table, as of a recent snapshot.",
+            "minimum": 0
+          },
           "numDocumentsSynced": {
             "type": "integer",
             "format": "int64",
             "description": "Documents synced over the sync's lifetime, including deletions and\nre-synced revisions of documents that changed mid-sync — so this can\nslightly exceed `totalDocuments`.",
-            "minimum": 0
-          },
-          "numTablesSynced": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Tables whose initial traversal has completed.",
             "minimum": 0
           },
           "totalDocuments": {
@@ -1012,54 +1038,12 @@
             "format": "int64",
             "description": "Total documents across all selected tables, as of a recent snapshot.",
             "minimum": 0
-          },
-          "totalDocumentsInCurrentTable": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total documents in the current table, as of a recent snapshot.",
-            "minimum": 0
-          },
-          "totalTables": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total tables selected for the sync.",
-            "minimum": 0
-          },
-          "type": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "The literal string `inProgress`, discriminating \"in progress\" status\nobjects.",
-                "enum": [
-                  "inProgress"
-                ]
-              }
-            ],
-            "description": "Always `inProgress`."
           }
         }
       },
-      "ActiveDataSyncStatus": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/ActiveDataSyncInProgress"
-          },
-          {
-            "$ref": "#/components/schemas/ActiveDataSyncSynced"
-          }
-        ],
-        "description": "The progress of an active data sync, discriminated by `type`.",
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "inProgress": "#/components/schemas/ActiveDataSyncInProgress",
-            "synced": "#/components/schemas/ActiveDataSyncSynced"
-          }
-        }
-      },
-      "ActiveDataSyncSynced": {
+      "ActiveDataSyncStale": {
         "type": "object",
-        "description": "The sync reached a consistent snapshot and is streaming later changes.",
+        "description": "The sync reached a consistent snapshot at `syncedTs`, but newer data is\nalready available; it is streaming later changes (CDC).",
         "required": [
           "type",
           "totalTables",
@@ -1067,6 +1051,24 @@
           "syncedTs"
         ],
         "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `stale`, discriminating \"stale\" status objects.",
+                "enum": [
+                  "stale"
+                ]
+              }
+            ],
+            "description": "Always `stale`."
+          },
+          "totalTables": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total tables selected for the sync.",
+            "minimum": 0
+          },
           "numDocumentsSynced": {
             "type": "integer",
             "format": "int64",
@@ -1077,6 +1079,55 @@
             "type": "integer",
             "format": "int64",
             "description": "The database timestamp at which the synced data is consistent."
+          }
+        }
+      },
+      "ActiveDataSyncStatus": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncSnapshotting",
+            "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state, and may reenter this state if tables are\nadded/replaced"
+          },
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncStale",
+            "description": "The entries emitted so far represent a consistent snapshot at\na stale `snapshotTs`. The sync is \"catching up\"."
+          },
+          {
+            "$ref": "#/components/schemas/ActiveDataSyncUpToDate",
+            "description": "The sync is up to date and represents a latest consistent snapshot."
+          }
+        ],
+        "description": "The progress of an active data sync, discriminated by `type`.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "snapshotting": "#/components/schemas/ActiveDataSyncSnapshotting",
+            "stale": "#/components/schemas/ActiveDataSyncStale",
+            "upToDate": "#/components/schemas/ActiveDataSyncUpToDate"
+          }
+        }
+      },
+      "ActiveDataSyncUpToDate": {
+        "type": "object",
+        "description": "The sync reached a consistent snapshot at `syncedTs` and has caught up to\nthe latest data.",
+        "required": [
+          "type",
+          "totalTables",
+          "numDocumentsSynced",
+          "syncedTs"
+        ],
+        "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `upToDate`, discriminating \"up to date\" status objects.",
+                "enum": [
+                  "upToDate"
+                ]
+              }
+            ],
+            "description": "Always `upToDate`."
           },
           "totalTables": {
             "type": "integer",
@@ -1084,17 +1135,16 @@
             "description": "Total tables selected for the sync.",
             "minimum": 0
           },
-          "type": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "The literal string `synced`, discriminating \"synced\" status objects.",
-                "enum": [
-                  "synced"
-                ]
-              }
-            ],
-            "description": "Always `synced`."
+          "numDocumentsSynced": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Documents synced over the sync's lifetime, including deletions and\nre-synced revisions.",
+            "minimum": 0
+          },
+          "syncedTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
           }
         }
       },
@@ -1125,15 +1175,15 @@
               "kind"
             ],
             "properties": {
+              "member_id": {
+                "$ref": "#/components/schemas/MemberId",
+                "description": "Member ID"
+              },
               "kind": {
                 "type": "string",
                 "enum": [
                   "member"
                 ]
-              },
-              "member_id": {
-                "$ref": "#/components/schemas/MemberId",
-                "description": "Member ID"
               }
             }
           },
@@ -1146,19 +1196,6 @@
               "kind"
             ],
             "properties": {
-              "client_id": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "description": "Client ID of the OAuth application, if the token belongs to one."
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "token"
-                ]
-              },
               "member_id": {
                 "oneOf": [
                   {
@@ -1173,6 +1210,19 @@
               "token_id": {
                 "$ref": "#/components/schemas/AccessTokenId",
                 "description": "Token ID. `0` for legacy audit log rows created before token IDs\nwere recorded."
+              },
+              "client_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Client ID of the OAuth application, if the token belongs to one."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "token"
+                ]
               }
             }
           }
@@ -1204,6 +1254,17 @@
           "attributes"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
+          },
+          "datasetName": {
+            "type": "string",
+            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
+          },
           "attributes": {
             "type": "array",
             "items": {
@@ -1211,23 +1272,12 @@
             },
             "description": "Optional list of attributes. These are extra fields and values sent to\nAxiom in each log event."
           },
-          "datasetName": {
-            "type": "string",
-            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
-          },
-          "id": {
-            "type": "string"
-          },
           "ingestUrl": {
             "type": [
               "string",
               "null"
             ],
             "description": "Optional ingest endpoint for Axiom"
-          },
-          "status": {
-            "$ref": "#/components/schemas/LogStreamStatus",
-            "description": "Status of the log stream"
           },
           "topics": {
             "type": [
@@ -1241,37 +1291,44 @@
           }
         }
       },
-      "ColumnInclusion": {
+      "ColumnSelection": {
         "type": "string",
         "description": "Whether the column is exported.",
         "enum": [
-          "excl",
-          "incl"
+          "excluded",
+          "included"
         ]
       },
       "ComponentSelection": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/ExcludedTag",
-            "description": "Exclude this component entirely."
-          },
-          {
             "type": "object",
+            "title": "Included",
             "description": "Export some of this component's tables.",
             "required": [
               "_other"
             ],
             "properties": {
               "_other": {
-                "$ref": "#/components/schemas/InclusionDefault"
+                "$ref": "#/components/schemas/InclusionDefault",
+                "description": "Whether tables not explicitly listed are exported"
               }
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/TableSelection"
+              "$ref": "#/components/schemas/TableSelection",
+              "description": "Set of tables to include/exclude in sync within the component.\n\nMapping from the table name to the inclusion/exclusion."
             }
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExcludedTag",
+                "description": "Exclude this component entirely."
+              }
+            ],
+            "title": "Excluded"
           }
-        ],
-        "description": "What to export from one component: either the literal string `\"excl\"` to\nexclude the component entirely, or an object selecting some of its\ntables — each key is a table name, and the required `_other` key sets the\ndefault for tables not listed."
+        ]
       },
       "CreateAxiomLogStreamArgs": {
         "type": "object",
@@ -1285,16 +1342,16 @@
             "type": "string",
             "description": "Axiom API key for authentication."
           },
+          "datasetName": {
+            "type": "string",
+            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
+          },
           "attributes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AxiomAttribute"
             },
             "description": "Optional list of attributes. These are extra fields and values sent to\nAxiom in each log event."
-          },
-          "datasetName": {
-            "type": "string",
-            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
           },
           "ingestUrl": {
             "type": [
@@ -1323,6 +1380,10 @@
           "ddTags"
         ],
         "properties": {
+          "siteLocation": {
+            "$ref": "#/components/schemas/DatadogSiteLocation",
+            "description": "Location of your Datadog deployment."
+          },
           "ddApiKey": {
             "type": "string",
             "description": "Datadog API key for authentication."
@@ -1340,10 +1401,6 @@
               "null"
             ],
             "description": "Service name used as a special tag in Datadog."
-          },
-          "siteLocation": {
-            "$ref": "#/components/schemas/DatadogSiteLocation",
-            "description": "Location of your Datadog deployment."
           },
           "topics": {
             "type": [
@@ -1701,6 +1758,10 @@
           "format"
         ],
         "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL to send logs to."
+          },
           "format": {
             "$ref": "#/components/schemas/WebhookFormat",
             "description": "Format for the webhook payload. JSONL sends one object per line of\nrequest, JSON sends one array per request."
@@ -1714,10 +1775,6 @@
               "$ref": "#/components/schemas/LogTopic"
             },
             "description": "The topics this log stream is subscribed to. Omit to\nsubscribe to all topics, including ones added in the future."
-          },
-          "url": {
-            "type": "string",
-            "description": "URL to send logs to."
           }
         }
       },
@@ -1728,12 +1785,12 @@
           "hmacSecret"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "hmacSecret": {
             "type": "string",
             "description": "Use this secret to verify webhook signatures."
-          },
-          "id": {
-            "type": "string"
           }
         }
       },
@@ -1750,13 +1807,52 @@
           },
           "selection": {
             "$ref": "#/components/schemas/Selection",
-            "description": "The components, tables, and columns to export. When omitted, everything\nis exported. The selection may change between calls of the same sync:\nnewly selected tables are synced from scratch, and deselected tables\nstop being exported (documents already exported from them are not\ntombstoned)."
+            "description": "When set, only sync the selected subset of the data.\n\nSelects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component), mapped to the selection\nfor that component.\n\nThe selection may change between calls of the same sync: newly selected\ntables are synced from scratch, possibly moving the sync into\n`snapshotting` state if necessary, and emit a truncate on the first page\nthey appear so the consumer starts them from a clean slate. Deselected\ntables stop being exported, with a truncate emitted."
           }
         }
       },
-      "DataSyncInProgress": {
+      "DataSyncResponse": {
         "type": "object",
-        "description": "More pages are required before the view is consistent. The sync's progress\ncan be monitored via `/data/list_active_syncs`, keyed by the response's\n`syncId`.",
+        "description": "One page returned by the data sync API.",
+        "required": [
+          "status",
+          "truncates",
+          "values",
+          "syncId",
+          "pagination"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DataSyncStatus",
+            "description": "The status of the sync after this page."
+          },
+          "truncates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataSyncTruncate"
+            },
+            "description": "Tables truncated by this page. The consumer should drop everything it\npreviously synced for each table, then apply `values` (which re-sync\nthem from scratch). Logically applies before `values`.\n\nA table is truncated whenever it (re)enters the export from scratch —\nthe first page it is synced (including on a cold start), when it is\nnewly selected, or when it is replaced by a bulk operation such as\n`npx convex import` — and when it leaves the export after being\ndeselected."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DataSyncValue"
+            },
+            "description": "Documents created, updated, or deleted in this page."
+          },
+          "syncId": {
+            "type": "string",
+            "description": "Unique id of the sync, assigned on the first page and stable across\nthe sync's lifetime. Identifies this sync in `/data/list_active_syncs`."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata",
+            "description": "Pagination information. The data sync endpoint is an infinite streaming\nendpoint, so `nextCursor` is always present and `hasMore` is always\n`true` — another page can always be fetched with the cursor. Use\n`status` to pace calls: back off significantly to wait for more writes\nonce it reports `upToDate`."
+          }
+        }
+      },
+      "DataSyncSnapshotting": {
+        "type": "object",
+        "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`. Syncs may return to this state if the table\nselection has changes that requires large data sync.",
         "required": [
           "type"
         ],
@@ -1765,97 +1861,62 @@
             "oneOf": [
               {
                 "type": "string",
-                "description": "The literal string `inProgress`, discriminating \"in progress\" status\nobjects.",
+                "description": "The literal string `snapshotting`, discriminating \"snapshotting\" status\nobjects.",
                 "enum": [
-                  "inProgress"
+                  "snapshotting"
                 ]
               }
             ],
-            "description": "Always `inProgress`."
+            "description": "Always `snapshotting`."
           }
         }
       },
-      "DataSyncResponse": {
+      "DataSyncStale": {
         "type": "object",
-        "description": "One page returned by the data sync API.",
+        "description": "The entries emitted so far represent a consistent snapshot at\na stale `snapshotTs`.",
         "required": [
-          "truncates",
-          "values",
-          "syncId",
-          "status",
-          "pagination"
+          "type",
+          "snapshotTs"
         ],
         "properties": {
-          "pagination": {
-            "$ref": "#/components/schemas/PaginationMetadata",
-            "description": "Pagination information. The data sync endpoint is an infinite streaming\nendpoint, so `nextCursor` is always present. `hasMore` is `true` while\ndata can be fetched immediately. When `hasMore` is `false`, the cursor\nhas caught up; in that case, it is recommended to back off significantly\nto wait for more writes before making another call."
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `stale`, discriminating \"stale\" status objects.",
+                "enum": [
+                  "stale"
+                ]
+              }
+            ],
+            "description": "Always `stale`."
           },
-          "status": {
-            "$ref": "#/components/schemas/DataSyncStatus",
-            "description": "The consistency state of the sync after this page."
-          },
-          "syncId": {
-            "type": "string",
-            "description": "Unique id of the sync, assigned on the first page and stable across\nthe sync's lifetime. Identifies this sync in `/data/list_active_syncs`."
-          },
-          "truncates": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataSyncTruncate"
-            },
-            "description": "Tables truncated by this page. The consumer should drop everything it\npreviously synced for each table, then apply `values` (which re-sync\nthem from scratch). Logically applies before `values`.\n\nTables may be truncated when using e.g. `npx convex import` or other\nbulk operations."
-          },
-          "values": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DataSyncValue"
-            },
-            "description": "Documents created, updated, or deleted in this page."
+          "snapshotTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
           }
         }
       },
       "DataSyncStatus": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/DataSyncSynced"
+            "$ref": "#/components/schemas/DataSyncSnapshotting"
           },
           {
-            "$ref": "#/components/schemas/DataSyncInProgress"
+            "$ref": "#/components/schemas/DataSyncStale"
+          },
+          {
+            "$ref": "#/components/schemas/DataSyncUpToDate"
           }
         ],
         "description": "The consistency state reported alongside a data sync page, discriminated\nby `type`.",
         "discriminator": {
           "propertyName": "type",
           "mapping": {
-            "inProgress": "#/components/schemas/DataSyncInProgress",
-            "synced": "#/components/schemas/DataSyncSynced"
-          }
-        }
-      },
-      "DataSyncSynced": {
-        "type": "object",
-        "description": "The entries emitted so far represent a consistent snapshot at `syncedTs`.\nThe cursor can be persisted and used to continue the sync later (within\nthe document retention window).",
-        "required": [
-          "type",
-          "syncedTs"
-        ],
-        "properties": {
-          "syncedTs": {
-            "type": "integer",
-            "format": "int64",
-            "description": "The database timestamp at which the synced data is consistent."
-          },
-          "type": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "The literal string `synced`, discriminating \"synced\" status objects.",
-                "enum": [
-                  "synced"
-                ]
-              }
-            ],
-            "description": "Always `synced`."
+            "snapshotting": "#/components/schemas/DataSyncSnapshotting",
+            "stale": "#/components/schemas/DataSyncStale",
+            "upToDate": "#/components/schemas/DataSyncUpToDate"
           }
         }
       },
@@ -1877,6 +1938,33 @@
           }
         }
       },
+      "DataSyncUpToDate": {
+        "type": "object",
+        "description": "The sync is up to date and represents a latest consistent snapshot.\nFor a streaming export in this state, it is recommended to backoff for\nsome time, wait for more data, and then continue the streaming sync.",
+        "required": [
+          "type",
+          "snapshotTs"
+        ],
+        "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The literal string `upToDate`, discriminating \"up to date\" status objects.",
+                "enum": [
+                  "upToDate"
+                ]
+              }
+            ],
+            "description": "Always `upToDate`."
+          },
+          "snapshotTs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The database timestamp at which the synced data is consistent."
+          }
+        }
+      },
       "DataSyncValue": {
         "type": "object",
         "description": "A single document-level entry emitted by the data sync API: a Convex\ndocument (or a tombstone, for a deletion) nested under `value`, with\nmetadata fields alongside it.",
@@ -1892,10 +1980,6 @@
             "type": "string",
             "description": "The path of the component this entry is from."
           },
-          "deleted": {
-            "type": "boolean",
-            "description": "Whether the document was deleted (a tombstone)."
-          },
           "table": {
             "type": "string",
             "description": "The name of the table this entry is from."
@@ -1904,6 +1988,10 @@
             "type": "integer",
             "format": "int64",
             "description": "The timestamp at which this revision was written."
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "Whether the document was deleted (a tombstone)."
           },
           "value": {
             "type": "object",
@@ -1921,6 +2009,17 @@
           "ddTags"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
+          },
+          "siteLocation": {
+            "$ref": "#/components/schemas/DatadogSiteLocation",
+            "description": "Location of your Datadog deployment."
+          },
           "ddTags": {
             "type": "array",
             "items": {
@@ -1928,23 +2027,12 @@
             },
             "description": "Optional comma-separated list of tags. These are sent to Datadog in each\nlog event via the `ddtags` field."
           },
-          "id": {
-            "type": "string"
-          },
           "service": {
             "type": [
               "string",
               "null"
             ],
             "description": "Service name used as a special tag in Datadog."
-          },
-          "siteLocation": {
-            "$ref": "#/components/schemas/DatadogSiteLocation",
-            "description": "Location of your Datadog deployment."
-          },
-          "status": {
-            "$ref": "#/components/schemas/LogStreamStatus",
-            "description": "Status of the log stream"
           },
           "topics": {
             "type": [
@@ -1979,6 +2067,10 @@
           "metadata"
         ],
         "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/AuditLogActor",
+            "description": "The identity that performed the action."
+          },
           "action": {
             "type": "string",
             "enum": [
@@ -2022,9 +2114,14 @@
               "create_data_sync"
             ]
           },
-          "actor": {
-            "$ref": "#/components/schemas/AuditLogActor",
-            "description": "The identity that performed the action."
+          "createTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Time the event was created, in milliseconds since epoch."
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Value",
+            "description": "Additional JSON metadata about the audit log event."
           },
           "clientIp": {
             "type": [
@@ -2039,15 +2136,6 @@
               "null"
             ],
             "description": "User agent of the client that performed the action, if known."
-          },
-          "createTime": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Time the event was created, in milliseconds since epoch."
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/Value",
-            "description": "Additional JSON metadata about the audit log event."
           }
         }
       },
@@ -2068,17 +2156,8 @@
               "kind"
             ],
             "properties": {
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType"
-              },
-              "id": {
-                "$ref": "#/components/schemas/DeploymentId"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "cloud"
-                ]
+              "teamId": {
+                "$ref": "#/components/schemas/TeamId"
               },
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId"
@@ -2095,14 +2174,23 @@
                   "null"
                 ]
               },
+              "id": {
+                "$ref": "#/components/schemas/DeploymentId"
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType"
+              },
               "reference": {
                 "type": [
                   "string",
                   "null"
                 ]
               },
-              "teamId": {
-                "$ref": "#/components/schemas/TeamId"
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
               }
             }
           },
@@ -2133,9 +2221,10 @@
       },
       "ExcludedTag": {
         "type": "string",
-        "description": "The literal string `\"excl\"`, excluding the item entirely.",
+        "title": "Excluded",
+        "description": "The literal string `\"excluded\"`, excluding the item entirely.",
         "enum": [
-          "excl"
+          "excluded"
         ]
       },
       "GetCanonicalUrlsResponse": {
@@ -2177,10 +2266,9 @@
       },
       "InclusionDefault": {
         "type": "string",
-        "description": "Whether items not explicitly listed are exported (`\"incl\"`) or not\n(`\"excl\"`).",
         "enum": [
-          "excl",
-          "incl"
+          "excluded",
+          "included"
         ]
       },
       "ListActiveSyncsResponse": {
@@ -2191,15 +2279,15 @@
           "pagination"
         ],
         "properties": {
-          "pagination": {
-            "$ref": "#/components/schemas/PaginationMetadata"
-          },
           "syncs": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ActiveDataSync"
             },
-            "description": "This page of active data syncs, most recently updated first. A sync is\nactive if it fetched a page from `/api/v1/data/sync` within the past 3\ndays."
+            "description": "Page of active data syncs, most recently updated first. A sync is\nactive if it fetched a page from `/api/v1/data/sync` within the past 3\ndays."
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
           }
         }
       },
@@ -2542,19 +2630,19 @@
           "status"
         ],
         "properties": {
-          "host": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "PostHog host URL."
-          },
           "id": {
             "type": "string"
           },
           "status": {
             "$ref": "#/components/schemas/LogStreamStatus",
             "description": "Status of the log stream"
+          },
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL."
           }
         }
       },
@@ -2566,6 +2654,13 @@
           "status"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
+          },
           "host": {
             "type": [
               "string",
@@ -2573,19 +2668,12 @@
             ],
             "description": "PostHog host URL."
           },
-          "id": {
-            "type": "string"
-          },
           "serviceName": {
             "type": [
               "string",
               "null"
             ],
             "description": "OTLP service.name attribute."
-          },
-          "status": {
-            "$ref": "#/components/schemas/LogStreamStatus",
-            "description": "Status of the log stream"
           },
           "topics": {
             "type": [
@@ -2646,28 +2734,29 @@
       },
       "Selection": {
         "type": "object",
-        "description": "Selects the components, tables, and columns to export. Each key is a\ncomponent path (`\"\"` for the root component, which holds your tables\nunless you use components), mapped to the selection for that component;\nthe required `_other` key sets the default for components not listed.",
         "required": [
           "_other"
         ],
         "properties": {
           "_other": {
-            "$ref": "#/components/schemas/InclusionDefault"
+            "$ref": "#/components/schemas/InclusionDefault",
+            "description": "Whether components not explicitly listed are exported"
           }
         },
         "additionalProperties": {
-          "$ref": "#/components/schemas/ComponentSelection"
+          "$ref": "#/components/schemas/ComponentSelection",
+          "description": "Set of components to include/exclude in sync.\n\nMapping from the component path to the inclusion/exclusion.\nUse the empty string to represent the root component."
         },
         "example": {
-          "_other": "excl",
+          "_other": "excluded",
           "": {
-            "_other": "excl",
+            "_other": "excluded",
             "posts": {
-              "_other": "incl"
+              "_other": "included"
             },
             "users": {
-              "_other": "incl",
-              "ssn": "excl"
+              "_other": "included",
+              "ssn": "excluded"
             }
           }
         }
@@ -2705,26 +2794,32 @@
       "TableSelection": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/ExcludedTag",
-            "description": "Exclude this table entirely."
-          },
-          {
             "type": "object",
-            "description": "Export some of this table's columns.",
+            "title": "Included",
             "required": [
               "_other"
             ],
             "properties": {
               "_other": {
-                "$ref": "#/components/schemas/InclusionDefault"
+                "$ref": "#/components/schemas/InclusionDefault",
+                "description": "Whether columns not explicitly listed are exported"
               }
             },
             "additionalProperties": {
-              "$ref": "#/components/schemas/ColumnInclusion"
+              "$ref": "#/components/schemas/ColumnSelection",
+              "description": "Set of columns to include/exclude in sync within the table.\n\nMapping from the column name to the inclusion/exclusion. `_id`\ncannot be excluded."
             }
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExcludedTag",
+                "description": "Exclude this table entirely."
+              }
+            ],
+            "title": "Excluded"
           }
-        ],
-        "description": "What to export from one table: either the literal string `\"excl\"` to\nexclude the table entirely, or an object selecting some of its columns —\neach key is a column (field) name mapped to whether it is exported, and\nthe required `_other` key sets the default for columns not listed. `_id`\ncannot be excluded."
+        ]
       },
       "TeamId": {
         "type": "integer",
@@ -2741,6 +2836,13 @@
             ],
             "description": "Axiom API key for authentication."
           },
+          "datasetName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
+          },
           "attributes": {
             "type": [
               "array",
@@ -2750,13 +2852,6 @@
               "$ref": "#/components/schemas/AxiomAttribute"
             },
             "description": "Optional list of attributes. These are extra fields and values sent to\nAxiom in each log event."
-          },
-          "datasetName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
           },
           "ingestUrl": {
             "type": [
@@ -2799,6 +2894,17 @@
       "UpdateDatadogSinkArgs": {
         "type": "object",
         "properties": {
+          "siteLocation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatadogSiteLocation",
+                "description": "Location of your Datadog deployment."
+              }
+            ]
+          },
           "ddApiKey": {
             "type": [
               "string",
@@ -2822,17 +2928,6 @@
               "null"
             ],
             "description": "Service name used as a special tag in Datadog."
-          },
-          "siteLocation": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DatadogSiteLocation",
-                "description": "Location of your Datadog deployment."
-              }
-            ]
           },
           "topics": {
             "type": [
@@ -3096,6 +3191,13 @@
       "UpdateWebhookSinkArgs": {
         "type": "object",
         "properties": {
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL to send logs to."
+          },
           "format": {
             "oneOf": [
               {
@@ -3116,13 +3218,6 @@
               "$ref": "#/components/schemas/LogTopic"
             },
             "description": "The topics this log stream is subscribed to. Omit to keep the current\nsubscription, or pass `null` to subscribe to all topics (including ones\nadded in the future)."
-          },
-          "url": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "URL to send logs to."
           }
         }
       },
@@ -3136,22 +3231,22 @@
           "enabled"
         ],
         "properties": {
-          "enabled": {
-            "type": "boolean"
+          "metric": {
+            "$ref": "#/components/schemas/UsageLimitMetric"
+          },
+          "window": {
+            "$ref": "#/components/schemas/UsageLimitWindow"
+          },
+          "limitType": {
+            "$ref": "#/components/schemas/UsageLimitType"
           },
           "limit": {
             "type": "integer",
             "format": "int64",
             "minimum": 1
           },
-          "limitType": {
-            "$ref": "#/components/schemas/UsageLimitType"
-          },
-          "metric": {
-            "$ref": "#/components/schemas/UsageLimitMetric"
-          },
-          "window": {
-            "$ref": "#/components/schemas/UsageLimitWindow"
+          "enabled": {
+            "type": "boolean"
           }
         }
       },
@@ -3166,25 +3261,25 @@
           "enabled"
         ],
         "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
           "id": {
             "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1
-          },
-          "limitType": {
-            "$ref": "#/components/schemas/UsageLimitType"
           },
           "metric": {
             "$ref": "#/components/schemas/UsageLimitMetric"
           },
           "window": {
             "$ref": "#/components/schemas/UsageLimitWindow"
+          },
+          "limitType": {
+            "$ref": "#/components/schemas/UsageLimitType"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
           }
         }
       },
@@ -3246,6 +3341,17 @@
           "hmacSecret"
         ],
         "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to send logs to."
+          },
           "format": {
             "$ref": "#/components/schemas/WebhookFormat",
             "description": "Format for the webhook payload. JSONL sends one object per line of\nrequest, JSON sends one array per request."
@@ -3253,13 +3359,6 @@
           "hmacSecret": {
             "type": "string",
             "description": "Use this secret to verify webhook signatures."
-          },
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/LogStreamStatus",
-            "description": "Status of the log stream"
           },
           "topics": {
             "type": [
@@ -3270,10 +3369,6 @@
               "$ref": "#/components/schemas/LogTopic"
             },
             "description": "The topics this log stream is subscribed to. `null` means subscribed to\nall topics, including ones added in the future."
-          },
-          "url": {
-            "type": "string",
-            "description": "URL to send logs to."
           }
         }
       },

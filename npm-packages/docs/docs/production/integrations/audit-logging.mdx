@@ -40,6 +40,9 @@ are currently available:
 - `log.vars.requestId` - the request ID
 - `log.vars.now` - the timestamp of when the function was run or replayed from
   the cache, as milliseconds from the Unix epoch
+- `log.vars.convexActor` - information about the admin, if the function was
+  invoked using admin auth (either directly or while acting as an end user, e.g.
+  from the dashboard), otherwise `null`
 
 <Snippet
   title="convex/getDocument.ts"

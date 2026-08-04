@@ -279,7 +279,7 @@ impl RequireDeploymentOp for Identity {
             let action = deployment_op_action(operation)
                 .map_or_else(|| format!("{operation:?}"), |action| action.to_string());
             anyhow::bail!(ErrorMetadata::forbidden(
-                "Unauthorized",
+                "OperationNotPermitted",
                 format!("You do not have permission to perform this operation ({action})."),
             ));
         }

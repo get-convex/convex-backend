@@ -1,5 +1,12 @@
 import React, { MutableRefObject, useEffect, useState } from "react";
-import { PopperChildrenProps, usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+  Placement,
+} from "@floating-ui/react";
 import {
   Popover as HeadlessPopover,
   PopoverPanel as HeadlessPopoverPanel,
@@ -21,7 +28,7 @@ type PopoverProps = {
   className?: string;
   openButtonClassName?: string;
   button: React.ReactNode | FunctionalChild;
-  placement?: PopperChildrenProps["placement"];
+  placement?: Placement;
   offset?: [number | null | undefined, number | null | undefined];
   onOpen?(): void;
   onClose?(): void;
@@ -47,14 +54,15 @@ export function Popover({
   const [referenceElement, setReferenceElement] =
     useState<HTMLButtonElement | null>(null);
   const [popperElement, setPopperElement] = useState<HTMLElement | null>();
-  const { styles, attributes } = usePopper(referenceElement, popperElement, {
+  const { floatingStyles } = useFloating({
     placement,
-    modifiers: [
-      {
-        name: "offset",
-        options: { offset },
-      },
+    middleware: [
+      offsetMiddleware({ mainAxis: offset[1] ?? 0, crossAxis: offset[0] ?? 0 }),
+      flip(),
+      shift(),
     ],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: referenceElement, floating: popperElement },
   });
 
   useEffect(() => {
@@ -69,8 +77,7 @@ export function Popover({
         const panel = (
           <HeadlessPopoverPanel
             ref={setPopperElement}
-            style={styles.popper}
-            {...attributes.popper}
+            style={floatingStyles}
             focus={focus}
             className={classNames(
               "z-50 bg-background-secondary shadow-md border rounded-lg",

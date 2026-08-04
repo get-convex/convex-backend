@@ -22,7 +22,8 @@ export type TeamSettingsPage =
   | "custom-roles"
   | "sso";
 
-// Icon shown next to each team settings page in the settings sidebar.
+// Shared between the team settings sidebar and the command palette so both
+// surfaces show the same icon for a page.
 export const TEAM_SETTINGS_PAGE_ICONS: Record<
   TeamSettingsPage,
   FC<{ className?: string }>

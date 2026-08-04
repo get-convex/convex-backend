@@ -39,6 +39,7 @@ use common::{
         shutdown_and_join,
         Runtime,
         SpawnHandle,
+        TimeoutError,
         WithTimeout,
     },
     types::DeploymentType,
@@ -86,6 +87,10 @@ use usage_tracking::UsageCounter;
 use crate::sinks::{
     axiom::AxiomSink,
     datadog::DatadogSink,
+    failure::{
+        SinkEgressFailure,
+        SinkFailureReporter,
+    },
     utils::EgressCounter,
     webhook::WebhookSink,
 };
@@ -587,9 +592,25 @@ impl<RT: Runtime> LogManager<RT> {
 
             match timed_startup_result {
                 Err(mut e) => {
-                    let reason = e.user_facing_message();
+                    // An unreachable or rejecting endpoint is the customer's
+                    // configuration to fix, so it is counted rather than
+                    // reported; anything else is ours and keeps full fidelity.
+                    // `SINK_STARTUP_TIMEOUT` fires as a bare `TimeoutError`, so
+                    // a hung endpoint only lands here.
+                    let reason = if let Some(failure) = e.downcast_ref::<SinkEgressFailure>() {
+                        metrics::log_sink_verification_failure(
+                            sink_type.as_str(),
+                            failure.outcome_label(),
+                        );
+                        format!("{e:#}")
+                    } else if e.downcast_ref::<TimeoutError>().is_some() {
+                        metrics::log_sink_verification_failure(sink_type.as_str(), "transient");
+                        "Timed out verifying the log stream endpoint".to_string()
+                    } else {
+                        report_error(&mut e).await;
+                        e.user_facing_message()
+                    };
                     tracing::error!("Moving sink {sink_type:?} to Failed state. Reason: {reason}");
-                    report_error(&mut e).await;
 
                     model
                         .patch_status(sink_id, SinkState::Failed { reason })
@@ -623,6 +644,7 @@ impl<RT: Runtime> LogManager<RT> {
         database
             .commit_with_write_source(tx, "log_sink_worker")
             .await?;
+
         Ok(())
     }
 
@@ -637,6 +659,7 @@ impl<RT: Runtime> LogManager<RT> {
     ) -> anyhow::Result<LogSinkClient> {
         // Only verify credentials for sinks in Pending state (not Restarting)
         let should_verify = matches!(status, SinkState::Pending);
+        let failure_reporter = SinkFailureReporter::new(config.sink_type());
 
         match config {
             SinkConfig::Local(path) => LocalSink::start(runtime.clone(), path.parse()?).await,
@@ -649,6 +672,7 @@ impl<RT: Runtime> LogManager<RT> {
                     topics,
                     metadata,
                     egress_counter.clone(),
+                    failure_reporter,
                     should_verify,
                 )
                 .await
@@ -662,6 +686,7 @@ impl<RT: Runtime> LogManager<RT> {
                     fetch_client,
                     metadata,
                     egress_counter.clone(),
+                    failure_reporter,
                     should_verify,
                 )
                 .await
@@ -675,6 +700,7 @@ impl<RT: Runtime> LogManager<RT> {
                     fetch_client,
                     metadata,
                     egress_counter.clone(),
+                    failure_reporter,
                     should_verify,
                 )
                 .await
@@ -698,6 +724,7 @@ impl<RT: Runtime> LogManager<RT> {
                     fetch_client,
                     metadata,
                     egress_counter.clone(),
+                    failure_reporter,
                     should_verify,
                 )
                 .await
@@ -709,6 +736,7 @@ impl<RT: Runtime> LogManager<RT> {
                     fetch_client,
                     metadata,
                     egress_counter.clone(),
+                    failure_reporter,
                     should_verify,
                 )
                 .await

@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { WorkOS } from "@workos-inc/node";
+import { safeReturnTo } from "lib/returnTo";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -12,7 +13,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     // Get the returnTo parameter from the query string
-    const returnTo = (req.query.returnTo as string) || "/";
+    const returnTo = safeReturnTo(req.query.returnTo, "/");
     const provider = "authkit";
 
     const authorizationUrl = workos.userManagement.getAuthorizationUrl({

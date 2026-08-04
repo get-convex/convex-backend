@@ -314,8 +314,7 @@ export function Table({
                   topBorderAnimation={topBorderAnimation}
                   openContextMenu={openContextMenu}
                   sort={sort}
-                  activeSchema={activeSchema}
-                  tableName={tableName}
+                  localStorageKey={localStorageKey}
                   tableContainerRef={tableContainerRef}
                 />
                 {/* Body */}
@@ -381,6 +380,8 @@ export function Table({
                 onAddDraftFilter={onAddDraftFilter}
                 defaultDocument={defaultDocument}
                 canManageTable={canManageTable}
+                activeSchema={activeSchema}
+                tableName={tableName}
                 resetColumns={() => {
                   setColumnOrder(["*select", ...orderableColumnNames]);
                   setStoredColumnOrder(orderableColumnNames);

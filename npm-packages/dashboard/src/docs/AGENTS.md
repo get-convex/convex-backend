@@ -66,3 +66,26 @@ just generate-docs-screenshots
 
 Then open the changed `.webp` files to visually verify the screenshots look
 correct.
+
+### Regenerating only some screenshots
+
+The command above recaptures every `docs/` story, which is slow. To regenerate
+only the stories you changed, pass a case-insensitive substring of the story
+title as the **first argument** — only stories whose title contains it are
+recaptured:
+
+```sh
+# Recapture only stories whose title contains "UsageLimits"
+just generate-docs-screenshots UsageLimits
+
+# Narrow further with a path-like substring (matches the story title, which is
+# its file path under docs/, e.g. "docs/pages/project/deployment/settings/…")
+just generate-docs-screenshots settings/usagelimits
+```
+
+The substring is matched against the full story title. Use a distinctive part of
+the component or path (e.g. `UsageLimits`, `Data`, `deployment/settings`) so you
+don't accidentally match unrelated stories. When a filter is passed, the other
+screenshots and their manifest entries are left untouched (no stale cleanup
+runs), so it's safe to iterate on one screenshot. Omit the argument to
+regenerate everything before committing.

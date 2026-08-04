@@ -1,9 +1,17 @@
 import { useRouter } from "next/router";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDebounce } from "react-use";
+import flatMap from "lodash/flatMap";
 import { useInitialData } from "hooks/useServerSideData";
+import { useAuthHeader } from "hooks/fetching";
+import type { PaginatedDeploymentsResponse } from "@convex-dev/platform/managementApi";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
-import { useManagementApiMutation, useManagementApiQuery } from "./api";
+import {
+  useManagementApiInfiniteQuery,
+  useManagementApiMutation,
+  useManagementApiQuery,
+} from "./api";
 import { useDeploymentsPageSize } from "hooks/useDeploymentsPageSize";
 
 export function useDeployments(projectId?: number) {
@@ -173,6 +181,7 @@ export function usePaginatedDeployments(
     projectId?: number;
     creator?: number;
     isDefault?: boolean;
+    keepPreviousData?: boolean;
   },
   refreshInterval?: number,
 ) {
@@ -187,6 +196,7 @@ export function usePaginatedDeployments(
     projectId,
     creator,
     isDefault,
+    keepPreviousData,
   } = options;
 
   // Note: the OpenAPI spec uses snake_case names, but the Rust handler has
@@ -222,7 +232,7 @@ export function usePaginatedDeployments(
       team_id: teamId ?? 0,
     },
     queryParams,
-    swrOptions: { refreshInterval },
+    swrOptions: { refreshInterval, keepPreviousData },
   });
 
   if (data === undefined) {
@@ -230,4 +240,108 @@ export function usePaginatedDeployments(
   }
 
   return { ...data, isLoading };
+}
+
+export function useInfiniteDeployments(
+  teamId: number | undefined,
+  searchQuery: string = "",
+  options: {
+    projectId?: number;
+    keepPreviousData?: boolean;
+  } = {},
+) {
+  const authHeader = useAuthHeader();
+  const { pageSize } = useDeploymentsPageSize();
+  const { projectId, keepPreviousData = true } = options;
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Debounce search query (300ms delay)
+  useDebounce(
+    () => {
+      setDebouncedQuery(searchQuery);
+    },
+    300,
+    [searchQuery],
+  );
+
+  const { data, isLoading, size, setSize } = useManagementApiInfiniteQuery(
+    "/teams/{team_id}/list_deployments",
+    (
+      pageIndex: number,
+      previousPageData: PaginatedDeploymentsResponse | null,
+    ): any => {
+      // Stop if we've reached the end (but allow first page)
+      if (
+        pageIndex > 0 &&
+        previousPageData &&
+        !previousPageData.pagination.hasMore
+      ) {
+        return null;
+      }
+
+      return {
+        headers: {
+          Authorization: authHeader,
+          "Convex-Client": "dashboard-0.0.0",
+        },
+        params: {
+          path: {
+            team_id: teamId ?? 0,
+          },
+          // The OpenAPI spec names these snake_case, but the Rust handler is
+          // #[serde(rename_all = "camelCase")], so send camelCase.
+          query: {
+            limit: pageSize,
+            cursor:
+              pageIndex > 0 && previousPageData
+                ? previousPageData.pagination.nextCursor
+                : undefined,
+            ...(projectId !== undefined ? { projectId } : {}),
+            ...(debouncedQuery.trim() ? { q: debouncedQuery.trim() } : {}),
+          },
+        },
+      };
+    },
+    {
+      keepPreviousData,
+    },
+  );
+
+  // Manual reset when the query or scoped project changes
+  const prevKey = useRef(`${debouncedQuery}:${projectId ?? ""}`);
+  useEffect(() => {
+    const key = `${debouncedQuery}:${projectId ?? ""}`;
+    if (prevKey.current !== key) {
+      prevKey.current = key;
+      void setSize(1);
+    }
+  }, [debouncedQuery, projectId, setSize]);
+
+  const deployments = useMemo(
+    () => flatMap(data?.map((page) => page.items)),
+    [data],
+  );
+
+  const hasMore = data?.[data.length - 1]?.pagination.hasMore ?? false;
+
+  // isLoading is only true when the first page is loading
+  // (see https://swr.vercel.app/examples/infinite-loading)
+  const isLoadingMore =
+    isLoading || (size > 0 && data && typeof data[size - 1] === "undefined");
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore) {
+      void setSize((prevSize) => prevSize + 1);
+    }
+  }, [hasMore, isLoadingMore, setSize]);
+
+  return {
+    deployments,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    debouncedQuery,
+    pageSize,
+  };
 }

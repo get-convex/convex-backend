@@ -149,7 +149,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
             for (module_path, module) in downloaded_source_package {
                 // NB: The source package here may contain more modules (e.g. `_deps/*`) that
                 // aren't in `new_definition.functions`.
-                if !functions.contains_key(module_path) {
+                if !module_path.is_deps() && !functions.contains_key(module_path) {
                     // TODO: It's a bit kludgy that we're filling in a default value here rather
                     // than earlier in the push pipeline.
                     tracing::warn!("Module not in functions: {:?}", module_path);

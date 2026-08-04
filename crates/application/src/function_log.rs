@@ -57,10 +57,7 @@ use common::{
         UdfType,
     },
 };
-use http::{
-    Method,
-    StatusCode,
-};
+use http::StatusCode;
 use itertools::Itertools;
 use parking_lot::Mutex;
 use serde_json::{
@@ -90,7 +87,6 @@ use udf_metrics::{
     Timeseries,
     UdfMetricsError,
 };
-use url::Url;
 use usage_tracking::{
     AggregatedFunctionUsageStats,
     CallType,
@@ -453,27 +449,6 @@ impl UdfParams {
             Self::Function { identifier, .. } => identifier.udf_path.clone().strip().to_string(),
             Self::Http { identifier, .. } => identifier.to_string(),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct HttpActionRequest {
-    url: Url,
-    method: Method,
-}
-
-impl HeapSize for HttpActionRequest {
-    fn heap_size(&self) -> usize {
-        self.url.as_str().len()
-    }
-}
-
-impl From<HttpActionRequest> for serde_json::Value {
-    fn from(value: HttpActionRequest) -> Self {
-        json!({
-            "url": value.url.to_string(),
-            "method": value.method.to_string()
-        })
     }
 }
 

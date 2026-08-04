@@ -1,6 +1,6 @@
 import {
   CaretUpIcon,
-  QuestionMarkCircledIcon,
+  CalendarIcon,
   DragHandleDots2Icon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
@@ -18,9 +18,8 @@ import { DataCellProps } from "@common/features/data/components/Table/DataCell/D
 import { columnWidthToString } from "@common/features/data/components/Table/DataRow";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
-import { documentValidatorForTable } from "@common/features/data/components/Table/utils/validators";
 import { Button } from "@ui/Button";
-import { ValidatorTooltip } from "./ValidatorTooltip";
+import { useStoredShowFieldsAsDates } from "@common/features/data/components/Table/utils/useDataColumns";
 
 type ColumnHeaderProps = {
   column: HeaderGroup<GenericDocument>;
@@ -33,8 +32,7 @@ type ColumnHeaderProps = {
   isLastColumn: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
   sort?: "asc" | "desc";
-  activeSchema: any | null;
-  tableName: string;
+  localStorageKey: string;
   tableContainerRef: RefObject<HTMLDivElement>;
 };
 
@@ -49,8 +47,7 @@ export function ColumnHeader({
   isLastColumn,
   openContextMenu,
   sort,
-  activeSchema,
-  tableName,
+  localStorageKey,
   tableContainerRef,
 }: ColumnHeaderProps) {
   const canDragOrDrop = columnIndex !== 0 && !isResizingColumn;
@@ -84,14 +81,6 @@ export function ColumnHeader({
 
   const { densityValues } = useTableDensity();
   const width = columnWidthToString(column.getHeaderProps().style?.width);
-
-  // Get the validator information for the tooltip
-  const documentValidator =
-    activeSchema && documentValidatorForTable(activeSchema, tableName);
-  const fieldSchema =
-    documentValidator?.type === "object"
-      ? documentValidator.value[columnName]
-      : undefined;
 
   const [isHovered, setIsHovered] = useState(false);
 
@@ -133,78 +122,69 @@ export function ColumnHeader({
           }}
         />
       )}
-      <ValidatorTooltip
-        fieldSchema={fieldSchema}
-        columnName={columnName}
-        disableTooltip={!!isResizingColumn || isDragging}
+      <div
+        ref={headerNode}
+        className="flex w-full items-center space-x-2"
+        style={{
+          padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
+          width,
+        }}
       >
-        <div
-          ref={headerNode}
-          className="flex w-full items-center space-x-2"
-          style={{
-            padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
-            width,
-          }}
-        >
-          <div className="flex items-center space-x-2">
-            {columnIndex === 0 ? (
-              // Disable the "Select all" checkbox when filtering
-              allRowsSelected === false &&
-              hasFilters &&
-              !isSelectionExhaustive ? null : (
-                <Checkbox checked={allRowsSelected} onChange={toggleAll} />
-              )
-            ) : column.Header === emptyColumnName ? (
-              <i>empty</i>
-            ) : typeof column.Header === "string" &&
-              identifierNeedsEscape(column.Header) ? (
-              <span
-                className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
-              >
-                {column.render("Header")}
-              </span>
-            ) : (
-              <div>{column.render("Header")}</div>
+        <div className="flex items-center space-x-2">
+          {columnIndex === 0 ? (
+            // Disable the "Select all" checkbox when filtering
+            allRowsSelected === false &&
+            hasFilters &&
+            !isSelectionExhaustive ? null : (
+              <Checkbox checked={allRowsSelected} onChange={toggleAll} />
+            )
+          ) : column.Header === emptyColumnName ? (
+            <i>empty</i>
+          ) : typeof column.Header === "string" &&
+            identifierNeedsEscape(column.Header) ? (
+            <span
+              className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
+            >
+              {column.render("Header")}
+            </span>
+          ) : (
+            <div>{column.render("Header")}</div>
+          )}
+          {column.Header !== "_creationTime" &&
+            (column as unknown as { isDateLike?: boolean }).isDateLike && (
+              <DateDisplayToggle
+                columnName={columnName}
+                isDate={(column as unknown as { isDate: boolean }).isDate}
+                localStorageKey={localStorageKey}
+              />
             )}
-            {column.Header !== "_creationTime" &&
-              (column as unknown as { isDate: boolean }).isDate && (
-                <Tooltip
-                  tip="Displaying numbers as dates. Hover or edit the cell by double-clicking see the unformatted value."
-                  side="top"
-                  align="start"
-                  className="flex items-center"
-                >
-                  <QuestionMarkCircledIcon />
-                </Tooltip>
-              )}
-            {sort && (
-              <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
-                <CaretUpIcon
-                  className={cn(
-                    "transition-all",
-                    sort === "asc" ? "" : "rotate-180",
-                  )}
-                />
-              </Tooltip>
-            )}
-          </div>
-          {canDragOrDrop && isHovered && (
-            <Button
-              {...attributes}
-              {...listeners}
-              className={cn(
-                "absolute right-1.5 animate-fadeInFromLoading cursor-grab items-center bg-background-secondary/50 text-content-secondary backdrop-blur-[2px]",
-                isDragging && "cursor-grabbing",
-              )}
-              aria-label="Drag column"
-              variant="neutral"
-              inline
-              size="xs"
-              icon={<DragHandleDots2Icon />}
-            />
+          {sort && (
+            <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
+              <CaretUpIcon
+                className={cn(
+                  "transition-all",
+                  sort === "asc" ? "" : "rotate-180",
+                )}
+              />
+            </Tooltip>
           )}
         </div>
-      </ValidatorTooltip>
+        {canDragOrDrop && isHovered && (
+          <Button
+            {...attributes}
+            {...listeners}
+            className={cn(
+              "absolute right-1.5 animate-fadeInFromLoading cursor-grab items-center bg-background-secondary/50 text-content-secondary backdrop-blur-[2px]",
+              isDragging && "cursor-grabbing",
+            )}
+            aria-label="Drag column"
+            variant="neutral"
+            inline
+            size="xs"
+            icon={<DragHandleDots2Icon />}
+          />
+        )}
+      </div>
       {!isHovering && !column.disableResizing && columnName !== "*select" && (
         <div
           {...column.getResizerProps()}
@@ -218,5 +198,48 @@ export function ColumnHeader({
         />
       )}
     </div>
+  );
+}
+
+// Lets the user override, per deployment → table → column, whether
+// timestamp-like numbers in this column are displayed as dates. Clicking the
+// icon toggles the choice, which is persisted in local storage (see
+// `useStoredShowFieldsAsDates`).
+function DateDisplayToggle({
+  columnName,
+  isDate,
+  localStorageKey,
+}: {
+  columnName: string;
+  isDate: boolean;
+  localStorageKey: string;
+}) {
+  const [showFieldsAsDates, setShowFieldsAsDates] =
+    useStoredShowFieldsAsDates(localStorageKey);
+
+  return (
+    <Button
+      variant="unstyled"
+      className="flex items-center text-content-secondary hover:text-content-primary"
+      aria-label={
+        isDate ? "Show this field as a number" : "Show this field as a date"
+      }
+      tip="Switch between rendering this field as a number or date."
+      onClick={() =>
+        setShowFieldsAsDates({ ...showFieldsAsDates, [columnName]: !isDate })
+      }
+      icon={
+        isDate ? (
+          <CalendarIcon />
+        ) : (
+          <span
+            aria-hidden
+            className="flex size-[15px] items-center justify-center font-mono text-sm leading-none font-semibold"
+          >
+            #
+          </span>
+        )
+      }
+    />
   );
 }

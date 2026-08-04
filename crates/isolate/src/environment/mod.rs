@@ -94,9 +94,6 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 
     fn user_timeout(&self) -> Duration;
     fn system_timeout(&self) -> Duration;
-    fn is_nested_function(&self) -> bool {
-        false
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -8,15 +8,16 @@ use common::{
     runtime::Runtime,
 };
 use model::usage_limits::types::UsageLimitMetric;
+use usage_limits::{
+    SeedComparison,
+    SeedComparisonResult,
+    SeedRow,
+    SeedStatus,
+    UsageMetricResolution,
+};
 
 use crate::{
     metrics::log_app_metrics_seed_comparison,
-    usage_limits::{
-        SeedComparison,
-        SeedComparisonResult,
-        SeedRow,
-        UsageMetricResolution,
-    },
     Application,
 };
 
@@ -60,23 +61,6 @@ pub struct AppMetricSeedError {
 }
 
 pub type AppMetricSeedResult = Result<Vec<AppMetricSeedRow>, AppMetricSeedError>;
-
-/// How much of a deployment's historical-usage backfill has landed. Owned by
-/// the seeder — it knows its own pass protocol — and surfaced by the usage API
-/// so a consumer of live usage knows whether the numbers reflect the full
-/// window. Delivered alongside each seed pass to [`apply_app_metric_seed`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SeedStatus {
-    /// No usable seed has landed yet: usage covers only traffic since load.
-    Pending,
-    /// Some history has been hydrated, but the backfill isn't finished.
-    Partial,
-    /// The backfill finished and hydrated history.
-    Complete,
-    /// The backfill finished without hydrating any history (e.g. every seed
-    /// query failed).
-    Failed,
-}
 
 impl<RT: Runtime> Application<RT> {
     /// Apply one seed pass: record the seeder's `status` and, when the pass
