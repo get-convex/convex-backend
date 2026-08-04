@@ -414,14 +414,15 @@ export const ConnectedDeploymentContext = createContext<{
   },
 );
 
-const MaybeConnectedDeploymentContext = createContext<MaybeConnectedDeployment>(
-  // use a bad default value to detect being used incorrectly
-  undefined as unknown as {
-    deployment: undefined;
-    loading: false;
-    errorKind: "DoesNotExist";
-  },
-);
+export const MaybeConnectedDeploymentContext =
+  createContext<MaybeConnectedDeployment>(
+    // use a bad default value to detect being used incorrectly
+    undefined as unknown as {
+      deployment: undefined;
+      loading: false;
+      errorKind: "DoesNotExist";
+    },
+  );
 
 export function useMaybeConnectedDeployment():
   | MaybeConnectedDeployment

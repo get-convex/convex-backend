@@ -740,7 +740,9 @@ export const ComponentDropdown: Story = {
 export const MultipleDevDeploymentsSelector: Story = {
   parameters: {
     ...meta.parameters,
-    screenshotSelector: "#select-deployment, [role='menu']",
+    // Clicking the deployment badge opens the command palette's deployment
+    // switcher menu (a cmdk dialog anchored beneath the badge).
+    screenshotSelector: "#select-deployment, [cmdk-root]",
   },
   decorators: [
     (storyFn) => {
@@ -774,20 +776,6 @@ export const MultipleDevDeploymentsSelector: Story = {
             reference: "production",
             region: "aws-us-east-1",
           },
-          {
-            id: 13,
-            name: "steady-hawk-789",
-            deploymentType: "prod" as const,
-            kind: "cloud" as const,
-            isDefault: false,
-            projectId: mockProject.id,
-            creator: 1,
-            createTime: NOW - 100000000,
-            class: "s256",
-            deploymentUrl: "https://steady-hawk-789.convex.cloud",
-            reference: "prod/staging",
-            region: "aws-eu-west-1",
-          },
           // Ari's feature branch deployments
           {
             id: 21,
@@ -803,34 +791,6 @@ export const MultipleDevDeploymentsSelector: Story = {
             reference: "dev/ari/auth-flow",
             region: "aws-us-east-1",
           },
-          {
-            id: 22,
-            name: "calm-tiger-203",
-            deploymentType: "dev" as const,
-            kind: "cloud" as const,
-            isDefault: false,
-            projectId: mockProject.id,
-            creator: 2,
-            createTime: NOW - 60000000,
-            class: "s256",
-            deploymentUrl: "https://calm-tiger-203.convex.cloud",
-            reference: "dev/ari/payment-v2",
-            region: "aws-us-east-1",
-          },
-          {
-            id: 23,
-            name: "swift-eagle-204",
-            deploymentType: "dev" as const,
-            kind: "cloud" as const,
-            isDefault: false,
-            projectId: mockProject.id,
-            creator: 2,
-            createTime: NOW - 48000000,
-            class: "s256",
-            deploymentUrl: "https://swift-eagle-204.convex.cloud",
-            reference: "dev/ari/onboarding",
-            region: "aws-us-east-1",
-          },
         ] satisfies PlatformDeploymentResponse[],
         isLoading: false,
       });
@@ -841,5 +801,9 @@ export const MultipleDevDeploymentsSelector: Story = {
     const selectDeployment =
       await within(canvasElement).findByTestId("select-deployment");
     await userEvent.click(selectDeployment);
+    // The palette renders in a portal outside the canvas; wait until its
+    // deployment list is populated so the screenshot captures the open menu.
+    const body = within(canvasElement.ownerDocument.body);
+    await body.findByText("dev/ari/auth-flow");
   },
 };

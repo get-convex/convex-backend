@@ -74,9 +74,11 @@ import { mockConvexReactClient } from "../../dashboard-common/src/lib/mockConvex
 import udfs from "../../dashboard-common/src/udfs";
 import { ConvexProvider } from "convex/react";
 import { DeploymentDashboardLayout } from "../../dashboard-common/src/layouts/DeploymentDashboardLayout";
+import { CommandPalette } from "../../dashboard/src/elements/CommandPalette";
 import {
   ConnectedDeploymentContext,
   DeploymentInfoContext,
+  MaybeConnectedDeploymentContext,
 } from "../../dashboard-common/src/lib/deploymentContext";
 import { useTableShapes } from "../../dashboard-common/src/lib/deploymentApi";
 
@@ -490,15 +492,39 @@ function DocsShell({
     setAccessToken("storybook-docs-token");
   }, [setAccessToken]);
 
+  // The command palette reads the connected deployment through
+  // useMaybeConnectedDeployment (MaybeConnectedDeploymentContext), not
+  // ConnectedDeploymentContext, so provide both from the same mock.
+  const maybeConnectedDeployment = mockConnectedDeployment && {
+    deployment: mockConnectedDeployment.deployment,
+    deploymentName: mockConnectedDeployment.deployment.deploymentName,
+    loading: false,
+    errorKind: "None" as const,
+  };
+
   const pageContents = (
     <div className="flex h-screen flex-col">
+      {/* Mirror _app.tsx: on deployment pages the palette mounts inside the
+          deployment providers so it can query the connected deployment;
+          elsewhere it mounts at the top level. */}
+      {!deployment && <CommandPalette />}
       <DashboardHeader />
       <div className="flex-1 overflow-auto">
-        {deployment && mockConnectedDeployment && mockClient ? (
+        {deployment &&
+        mockConnectedDeployment &&
+        maybeConnectedDeployment &&
+        mockClient ? (
           <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
-            <ConvexProvider client={mockClient}>
-              <DeploymentLayoutWhenReady>{children}</DeploymentLayoutWhenReady>
-            </ConvexProvider>
+            <MaybeConnectedDeploymentContext.Provider
+              value={maybeConnectedDeployment}
+            >
+              <ConvexProvider client={mockClient}>
+                <CommandPalette />
+                <DeploymentLayoutWhenReady>
+                  {children}
+                </DeploymentLayoutWhenReady>
+              </ConvexProvider>
+            </MaybeConnectedDeploymentContext.Provider>
           </ConnectedDeploymentContext.Provider>
         ) : (
           children

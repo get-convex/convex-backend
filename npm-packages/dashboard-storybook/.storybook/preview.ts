@@ -59,9 +59,6 @@ sb.mock(import("dashboard-common/src/lib/deploymentApi.ts"), {
 sb.mock(import("dashboard-common/src/lib/appMetrics.ts"), {
   spy: true,
 });
-sb.mock(import("dashboard-common/src/lib/deploymentContext.tsx"), {
-  spy: true,
-});
 sb.mock(import("dashboard/src/hooks/useStripe.ts"));
 
 const preview: Preview = {
