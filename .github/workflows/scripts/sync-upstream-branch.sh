@@ -9,15 +9,15 @@
 #   UPSTREAM_REPOSITORY  e.g. get-convex/convex-backend
 #   TARGET_BRANCH        e.g. enhanced
 #   UPSTREAM_BRANCH      e.g. main
-#   GH_TOKEN             token with repo + PR write permissions
-# Optional env:
-#   OPENROUTER_API_KEY   if set, conflicts are first sent to an LLM for
-#                        auto-resolution before falling back to the PR
-#                        path. See scripts/llm-resolve-conflicts.sh.
+#   GH_TOKEN             token that can push and open PRs. Must NOT be the
+#                        default GITHUB_TOKEN: repos with "Allow GitHub
+#                        Actions to create and approve pull requests"
+#                        disabled reject `gh pr create` from it with
+#                        "Resource not accessible by integration", which
+#                        silently disables the only escape hatch this
+#                        script has. Pass the same PAT used for checkout.
 
 set -euo pipefail
-
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Reconcile Cargo.lock against the workspace and amend the current
 # (merge) commit if it changed. Upstream's lockfile (taken via the
@@ -117,13 +117,29 @@ git push origin ${TARGET_BRANCH}
   local existing_pr
   existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
   if [ -n "${existing_pr}" ]; then
-    gh pr comment "${existing_pr}" --body "${body}"
+    gh pr comment "${existing_pr}" --body "${body}" && { exit 1; }
   else
     gh pr create \
       --base "${TARGET_BRANCH}" \
       --head "${sync_branch}" \
       --title "Sync upstream/${UPSTREAM_BRANCH} → ${TARGET_BRANCH} (needs human resolution)" \
-      --body "${body}"
+      --body "${body}" && { exit 1; }
+  fi
+
+  # Reaching here means the hand-off itself failed (bad token, PR creation
+  # disabled for the actor, API outage). That is how this sync once stayed
+  # broken for 17 days: the merge failed, the PR was never created, and the
+  # only signal was a red cron run nobody watches. Escalate to an issue,
+  # which needs no PR permissions, so there is always exactly one artifact
+  # a human can see.
+  echo "PR hand-off failed; escalating to a GitHub issue." >&2
+  local issue_title="Upstream sync into ${TARGET_BRANCH} is stuck"
+  local existing_issue
+  existing_issue="$(gh issue list --state open --search "${issue_title} in:title" --json number,title --jq "[.[] | select(.title == \"${issue_title}\")][0].number" 2>/dev/null || true)"
+  if [ -n "${existing_issue}" ]; then
+    gh issue comment "${existing_issue}" --body "${body}" || true
+  else
+    gh issue create --title "${issue_title}" --body "${body}" || true
   fi
   exit 1
 }
@@ -235,56 +251,13 @@ if [ -z "${conflicted_files}" ]; then
   exit 1
 fi
 
-# Attempt LLM auto-resolution if OPENROUTER_API_KEY is set. The merge
-# is left in progress so the script can write resolutions over the
-# conflicted files; on success we stage + commit + push. On failure
-# we `git merge --abort` and fall through to the PR path.
-if [ -n "${OPENROUTER_API_KEY:-}" ]; then
-  echo "Attempting LLM-based conflict resolution..."
-  # The resolver's per-file syntax gate needs dprint; install it up front so
-  # a missing tool reads as an install problem here, not a resolution failure.
-  ensure_dprint || true
-  # shellcheck disable=SC2086
-  if "${script_dir}/llm-resolve-conflicts.sh" ${conflicted_files}; then
-    git add -- ${conflicted_files}
-    # Belt-and-braces: every conflicted path must now be staged-clean.
-    if git diff --name-only --diff-filter=U | grep -q .; then
-      echo "LLM resolution left unmerged paths; falling back to PR." >&2
-      git merge --abort
-    else
-      llm_model_used="${LLM_MODEL:-anthropic/claude-sonnet-4.6}"
-      file_list="$(printf '%s\n' "${conflicted_files}" | sed 's|^|- |')"
-      git commit --no-edit -m "Merge remote-tracking branch 'upstream/${UPSTREAM_BRANCH}' into ${TARGET_BRANCH}
+git merge --abort
 
-LLM-auto-resolved conflicts via ${llm_model_used}:
-${file_list}
-
-Workflow run: ${run_url}"
-      reconcile_generated_locks
-      if ! validate_merged_tree_full; then
-        git reset --hard "${before}"
-        bail_to_pr "LLM auto-resolution of conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\` produced a tree that failed validation (dprint check / dashboard build / cargo check); it was not pushed. Conflicted files:
-$(printf '%s\n' "${conflicted_files}" | sed 's|^|- `|; s|$|`|')"
-      fi
-      git push origin "HEAD:${TARGET_BRANCH}"
-
-      # Close any stale sync PR — we just merged cleanly.
-      existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
-      if [ -n "${existing_pr}" ]; then
-        gh pr close "${existing_pr}" --comment "Resolved by LLM auto-merge in [run](${run_url})." || true
-      fi
-      exit 0
-    fi
-  else
-    echo "LLM resolution failed; falling back to PR path." >&2
-    git merge --abort
-  fi
-else
-  echo "OPENROUTER_API_KEY not set; skipping LLM resolution."
-  git merge --abort
-fi
-
-# Unresolved conflicts: hand off to a human via the sync PR.
+# Conflicts are handed to a human, always. This used to first try an LLM
+# (OpenRouter) auto-resolution pass; that was removed deliberately. It was
+# expensive per sync, it repeatedly produced trees that failed the validation
+# gates below, and when the provider started returning HTTP 402 it turned
+# every hourly sync into a hard failure. A conflict is now simply a PR.
 bail_to_pr "Sync workflow hit unresolved conflicts merging \`upstream/${UPSTREAM_BRANCH}\` into \`${TARGET_BRANCH}\`.
 
 **Conflicted files:**
