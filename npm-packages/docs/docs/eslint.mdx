@@ -112,6 +112,7 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/require-argument-validators`](#require-argument-validators)<br/>Require argument validators for Convex functions          |     ✅      |      🔧      |
 | [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br/>Require explicit table names in database operations                         |     ✅      |      🔧      |
 | [`@convex-dev/no-filter-in-query`](#no-filter-in-query)<br/>Warn on `.filter()` in database queries (inefficient)                       |     ✅      |              |
+| [`@convex-dev/no-top-of-hour-crons`](#no-top-of-hour-crons)<br/>Warn on cron jobs scheduled exactly on the hour                         |     ✅      |              |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 | [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
 
@@ -302,6 +303,44 @@ warning with:
 
 ```ts
 // eslint-disable-next-line @convex-dev/no-filter-in-query
+```
+
+### no-top-of-hour-crons
+
+Warn when a cron job is scheduled at the exact top of the hour.
+
+The top of the hour is the busiest time on the clock: apps receive the most
+inbound traffic, webhooks, and scheduled work right at `:00`. Pinning a cron
+there means your background work competes with that peak, making it more likely
+to hit your app's limits.
+
+The simplest fix is to omit `minuteUTC`. Convex then picks a minute for you and
+spreads runs across the hour. You can also set a specific off-peak minute if you
+need the job to run at a predictable time.
+
+```ts
+// ❌ Runs at the busiest moment of the hour:
+crons.hourly("cleanup", { minuteUTC: 0 }, internal.tasks.cleanup);
+crons.cron("nightly", "0 3 * * *", internal.tasks.nightly);
+
+// ✅ Let Convex pick and spread the minute:
+crons.hourly("cleanup", internal.tasks.cleanup);
+crons.daily("nightly", { hourUTC: 3 }, internal.tasks.nightly);
+
+// ✅ Or choose a specific off-peak minute:
+crons.hourly("cleanup", { minuteUTC: 37 }, internal.tasks.cleanup);
+```
+
+If the job really must run at the top of the hour, you can silence this warning
+with:
+
+```ts
+// eslint-disable-next-line @convex-dev/no-top-of-hour-crons
+crons.hourly(
+  "send a message at the start of every hour",
+  { minuteUTC: 0 },
+  internal.messages.sendHourlyDigest,
+);
 ```
 
 ### import-wrong-runtime
