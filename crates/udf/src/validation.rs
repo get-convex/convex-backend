@@ -412,6 +412,33 @@ async fn udf_version<RT: Runtime>(
     Ok(Ok(udf_version))
 }
 
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct VisibilityInfo {
+    visibility: Option<Visibility>,
+    component: ComponentId,
+    is_system_module: bool,
+}
+
+impl VisibilityInfo {
+    pub fn check_access(
+        &self,
+        allowed_visibility: AllowedVisibility,
+        identity: &Identity,
+        expected_udf_type: UdfType,
+        path: PublicFunctionPath,
+    ) -> anyhow::Result<Result<(), JsError>> {
+        check_visibility_access(
+            allowed_visibility,
+            &self.visibility,
+            identity,
+            self.component,
+            expected_udf_type,
+            path,
+            self.is_system_module,
+        )
+    }
+}
+
 /// The path and args to a UDF that have already undergone validation.
 ///
 /// This validation includes:
@@ -454,12 +481,11 @@ impl ValidatedPathAndArgs {
             PendingArgsPolicy::Reject,
         )
         .await
-        .map(|r| r.map(|(path_and_args, _)| path_and_args))
+        .map(|r| r.map(|(path_and_args, ..)| path_and_args))
     }
 
     /// Do argument validation and get returns validator without retrieving
     /// the analyze result twice.
-
     #[fastrace::trace]
     pub async fn new_with_returns_validator<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
@@ -468,7 +494,8 @@ impl ValidatedPathAndArgs {
         args: SerializedArgs,
         expected_udf_type: UdfType,
         pending_args_policy: PendingArgsPolicy,
-    ) -> anyhow::Result<Result<(ValidatedPathAndArgs, ReturnsValidator), JsError>> {
+    ) -> anyhow::Result<Result<(ValidatedPathAndArgs, ReturnsValidator, VisibilityInfo), JsError>>
+    {
         if public_path.is_system() {
             let path = match public_path {
                 PublicFunctionPath::RootExport(path) => ResolvedComponentFunctionPath {
@@ -493,14 +520,16 @@ impl ValidatedPathAndArgs {
             };
             // We don't analyze system modules, so we don't validate anything
             // except the identity for them.
-            if let Err(js_error) = check_visibility_access(
+            let visibility_info = VisibilityInfo {
+                visibility: None,
+                component: path.component,
+                is_system_module: true,
+            };
+            if let Err(js_error) = visibility_info.check_access(
                 allowed_visibility,
-                &None,
                 tx.identity(),
-                path.component,
                 expected_udf_type,
                 PublicFunctionPath::ResolvedComponent(path.clone()),
-                true,
             )? {
                 return Ok(Err(js_error));
             }
@@ -512,6 +541,7 @@ impl ValidatedPathAndArgs {
                     reuse_context: false,
                 },
                 ReturnsValidator::Unvalidated,
+                visibility_info,
             )));
         }
 
@@ -598,9 +628,11 @@ impl ValidatedPathAndArgs {
             udf_version,
             analyzed_module.reuse_context,
         )? {
-            Ok(validated_udf_path_and_args) => {
-                Ok(Ok((validated_udf_path_and_args, returns_validator)))
-            },
+            Ok((validated_udf_path_and_args, visibility_info)) => Ok(Ok((
+                validated_udf_path_and_args,
+                returns_validator,
+                visibility_info,
+            ))),
             Err(js_err) => Ok(Err(js_err)),
         }
     }
@@ -615,15 +647,17 @@ impl ValidatedPathAndArgs {
         analyzed_function: AnalyzedFunction,
         version: Version,
         reuse_context: bool,
-    ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
-        if let Err(js_error) = check_visibility_access(
+    ) -> anyhow::Result<Result<(ValidatedPathAndArgs, VisibilityInfo), JsError>> {
+        let visibility_info = VisibilityInfo {
+            visibility: analyzed_function.visibility.clone(),
+            component: path.component,
+            is_system_module: false,
+        };
+        if let Err(js_error) = visibility_info.check_access(
             allowed_visibility,
-            &analyzed_function.visibility,
             tx.identity(),
-            path.component,
             expected_udf_type,
             PublicFunctionPath::ResolvedComponent(path.clone()),
-            false,
         )? {
             return Ok(Err(js_error));
         }
@@ -684,12 +718,15 @@ impl ValidatedPathAndArgs {
             ))));
         }
 
-        Ok(Ok(ValidatedPathAndArgs {
-            path,
-            args,
-            npm_version: Some(version),
-            reuse_context,
-        }))
+        Ok(Ok((
+            ValidatedPathAndArgs {
+                path,
+                args,
+                npm_version: Some(version),
+                reuse_context,
+            },
+            visibility_info,
+        )))
     }
 
     pub fn args_size(&self) -> usize {

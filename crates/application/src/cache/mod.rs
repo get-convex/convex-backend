@@ -17,6 +17,7 @@ use std::{
     },
 };
 
+use anyhow::Context;
 use async_broadcast::{
     broadcast,
     Receiver,
@@ -59,6 +60,7 @@ use keybroker::Identity;
 use lru::LruCache;
 use metrics::{
     get_timer,
+    log_cache_hit_visibility_rejected,
     log_cache_size,
     log_drop_cache_result_too_old,
     log_perform_go,
@@ -88,6 +90,7 @@ use udf::{
     validation::{
         PendingArgsPolicy,
         ValidatedPathAndArgs,
+        VisibilityInfo,
     },
     FunctionOutcome,
     UdfOutcome,
@@ -297,6 +300,7 @@ struct CacheResult {
     outcome: Arc<UdfOutcome>,
     original_ts: Timestamp,
     token: Token,
+    visibility_info: Option<VisibilityInfo>,
 }
 
 impl HeapSize for CacheResult {
@@ -465,7 +469,13 @@ impl<RT: Runtime> CacheManager<RT> {
             };
             let op_type = op.to_string();
             let (result, table_stats) = match self
-                .perform_cache_op(&requested_key, &stored_key, op, usage_tracker.clone())
+                .perform_cache_op(
+                    &requested_key,
+                    &stored_key,
+                    op,
+                    usage_tracker.clone(),
+                    &identity,
+                )
                 .await?
             {
                 Some(r) => r,
@@ -541,6 +551,54 @@ impl<RT: Runtime> CacheManager<RT> {
         }
     }
 
+    fn authorize_cache_hit(
+        &self,
+        requested_key: &RequestedCacheKey,
+        identity: &Identity,
+        result: CacheResult,
+    ) -> anyhow::Result<CacheResult> {
+        // Assumes invariant: only `JsError` results lack visibility info, and those
+        // are not cached, so we fail closed rather than serve a result we cannot
+        // authorize.
+        let visibility_info = result
+            .visibility_info
+            .as_ref()
+            .context("Cached query result is missing visibility info")?;
+        let access = visibility_info.check_access(
+            requested_key.allowed_visibility,
+            identity,
+            UdfType::Query,
+            requested_key.path.clone(),
+        )?;
+        let Err(js_error) = access else {
+            return Ok(result);
+        };
+        tracing::warn!(
+            "Refusing to serve cached result for {} to a caller that may not run it: {js_error}",
+            requested_key
+                .path
+                .clone()
+                .debug_into_component_path()
+                .debug_str(),
+        );
+        log_cache_hit_visibility_rejected(identity.tag());
+        Ok(CacheResult {
+            outcome: Arc::new(UdfOutcome::from_error(
+                js_error,
+                requested_key.path.clone().debug_into_component_path(),
+                requested_key.args.clone(),
+                identity.clone().into(),
+                self.rt.clone(),
+                None,
+            )?),
+            original_ts: result.original_ts,
+            // The caller may not observe the read set of a result they aren't
+            // allowed to read, so give them nothing to subscribe to.
+            token: Token::empty(result.original_ts),
+            visibility_info: None,
+        })
+    }
+
     #[fastrace::trace]
     async fn perform_cache_op(
         &self,
@@ -548,6 +606,7 @@ impl<RT: Runtime> CacheManager<RT> {
         key: &StoredCacheKey,
         op: CacheOp<'_>,
         usage_tracker: FunctionUsageTracker,
+        requester_identity: &Identity,
     ) -> anyhow::Result<Option<(CacheResult, BTreeMap<TableName, TableStats>)>> {
         let pause_client = self.rt.pause_client();
         pause_client.wait("perform_cache_op").await;
@@ -556,7 +615,10 @@ impl<RT: Runtime> CacheManager<RT> {
                 if result.outcome.result.is_err() {
                     panic!("Developer error: Cache contained failed execution for {key:?}")
                 }
-                (result, BTreeMap::new())
+                (
+                    self.authorize_cache_hit(requested_key, requester_identity, result)?,
+                    BTreeMap::new(),
+                )
             },
             CacheOp::Wait {
                 waiting_entry_id,
@@ -586,7 +648,10 @@ impl<RT: Runtime> CacheManager<RT> {
                 if result.outcome.result.is_err() {
                     panic!("Developer error: CacheOp::Go sent failed execution for {key:?}")
                 }
-                (result, BTreeMap::new())
+                (
+                    self.authorize_cache_hit(requested_key, requester_identity, result)?,
+                    BTreeMap::new(),
+                )
             },
             CacheOp::Go {
                 waiting_entry_id: _,
@@ -617,7 +682,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 )
                 .await?;
 
-                let (mut tx, query_outcome) = match validate_result {
+                let (mut tx, query_outcome, visibility_info) = match validate_result {
                     Err(js_err) => {
                         let query_outcome = UdfOutcome::from_error(
                             js_err,
@@ -627,9 +692,9 @@ impl<RT: Runtime> CacheManager<RT> {
                             self.rt.clone(),
                             None,
                         )?;
-                        (tx, query_outcome)
+                        (tx, query_outcome, None)
                     },
-                    Ok((path_and_args, returns_validator)) => {
+                    Ok((path_and_args, returns_validator, visibility_info)) => {
                         let component = path_and_args.path().component;
                         let (mut tx, outcome) = self
                             .function_router
@@ -669,7 +734,7 @@ impl<RT: Runtime> CacheManager<RT> {
                                 query_outcome.result = Err(js_err);
                             }
                         }
-                        (tx, query_outcome)
+                        (tx, query_outcome, Some(visibility_info))
                     },
                 };
                 let ts = tx.begin_timestamp();
@@ -679,6 +744,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     outcome: Arc::new(query_outcome),
                     original_ts: *ts,
                     token,
+                    visibility_info,
                 };
                 if result.outcome.result.is_ok()
                     && requested_key

@@ -1159,7 +1159,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         )
         .await?;
 
-        let (path_and_args, returns_validator) = match validate_result {
+        let (path_and_args, returns_validator, _) = match validate_result {
             Ok(tuple) => tuple,
             Err(js_err) => {
                 let mutation_outcome = ValidatedUdfOutcome::from_error(
@@ -1349,7 +1349,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         // Fetch the returns_validator now to be used at a later ts.
         let (path_and_args, returns_validator) = match validate_result {
-            Ok((path_and_args, returns_validator)) => (path_and_args, returns_validator),
+            // We don't need to store visibility_info for non-queries.
+            Ok((path_and_args, returns_validator, _visibility_info)) => {
+                (path_and_args, returns_validator)
+            },
             Err(js_error) => {
                 return Ok(ActionCompletion {
                     outcome: ValidatedActionOutcome::from_error(
