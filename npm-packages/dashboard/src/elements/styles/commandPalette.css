@@ -59,6 +59,13 @@
   }
 }
 
+[cmdk-item][data-placeholder] {
+  @apply cursor-default;
+  & [aria-busy] {
+    @apply bg-neutral-3/15;
+  }
+}
+
 [cmdk-item]:has([data-secondary-action]) {
   @apply gap-0 p-0;
 

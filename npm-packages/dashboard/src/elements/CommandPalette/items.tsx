@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Button } from "@ui/Button";
 import { KEYCAP_CLASSES, KeyboardShortcut } from "@ui/KeyboardShortcut";
+import { Loading } from "@ui/Loading";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
@@ -231,17 +232,37 @@ export function ActionItem({
   );
 }
 
-// Reports that palette content is loading. Renders nothing: the dialog shows
-// the spinner in the search input while any signal is mounted, instead of a
-// loading row inside the list.
+// Reports that palette content is loading.
 export const PaletteLoadingContext = React.createContext<
   (() => () => void) | null
 >(null);
 
-export function LoadingSignal() {
+export function LoadingSignal({ rows = 5 }: { rows?: number }) {
   const beginLoading = React.useContext(PaletteLoadingContext);
   React.useEffect(() => beginLoading?.(), [beginLoading]);
-  return null;
+  const id = React.useId();
+  return (
+    <>
+      {Array.from({ length: rows }, (_, index) => (
+        <Command.Item
+          key={index}
+          value={`${REMOTE_VALUE_PREFIX}loading:${id}:${index}`}
+          disabled
+          data-placeholder=""
+          aria-label="Loading result"
+        >
+          <Loading
+            fullHeight={false}
+            className="size-4.5 shrink-0 rounded-full"
+          />
+          <span className="flex min-w-0 grow flex-col gap-2.5">
+            <Loading fullHeight={false} className="h-3.5 w-2/3" />
+            <Loading fullHeight={false} className="h-3 w-1/3" />
+          </span>
+        </Command.Item>
+      ))}
+    </>
+  );
 }
 
 // Lets the active drill-in page publish a short status line into the palette

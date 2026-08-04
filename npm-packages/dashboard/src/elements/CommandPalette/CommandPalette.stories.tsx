@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { mocked } from "storybook/test";
+import { mocked, screen, userEvent } from "storybook/test";
 import { useEffect } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Value } from "convex/values";
@@ -225,6 +225,34 @@ export const TeamLevel: Story = {
   beforeEach: () => {
     mocked(useCurrentProject).mockReturnValue(undefined);
     mocked(useCurrentDeployment).mockReturnValue(undefined);
+  },
+};
+
+export const SearchLoading: Story = {
+  parameters: InsideDeployment.parameters,
+  beforeEach: () => {
+    mocked(useCurrentProject).mockReturnValue(mockProject);
+    mocked(useCurrentDeployment).mockReturnValue(devDeployment);
+    const pending = {
+      isLoading: true,
+      isLoadingMore: false,
+      hasMore: false,
+      loadMore: () => {},
+      debouncedQuery: "",
+    };
+    mocked(useInfiniteProjects).mockReturnValue({
+      ...pending,
+      projects: [],
+      pageSize: 20,
+    });
+    mocked(useInfiniteDeployments).mockReturnValue({
+      ...pending,
+      deployments: [],
+      pageSize: 25,
+    });
+  },
+  play: async () => {
+    await userEvent.type(await screen.findByRole("combobox"), "checkout");
   },
 };
 

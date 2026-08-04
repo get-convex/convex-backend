@@ -53,7 +53,7 @@ export function InfiniteScrollSentinel({
       {isLoadingMore && (
         <>
           <Spinner className="size-4" />
-          <LoadingSignal />
+          <LoadingSignal rows={0} />
         </>
       )}
     </div>

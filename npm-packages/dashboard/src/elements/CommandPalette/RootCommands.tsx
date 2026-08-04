@@ -312,13 +312,7 @@ function SwitchProjectItem({
   );
 }
 
-export function AskAIQueryItem({
-  onClose,
-  canShowNoResults,
-}: {
-  onClose: () => void;
-  canShowNoResults: boolean;
-}) {
+export function AskAIQueryItem({ onClose }: { onClose: () => void }) {
   const search = useCommandState((state) => state.search).trim();
   const visibleCount = useCommandState((state) => state.filtered.count);
   const { trackSelected } = usePaletteAnalytics();
@@ -339,7 +333,7 @@ export function AskAIQueryItem({
         <SparklesIcon className="text-content-secondary" />
         <span className="min-w-0 truncate">Ask AI “{search}”</span>
       </Command.Item>
-      {canShowNoResults && visibleCount <= 1 && (
+      {visibleCount <= 1 && (
         <div className="flex flex-col items-center justify-center gap-1 py-6 text-sm whitespace-pre-wrap text-content-tertiary">
           <NoResultsMessage onClose={onClose} />
         </div>

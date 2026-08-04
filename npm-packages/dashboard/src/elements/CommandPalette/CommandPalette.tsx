@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useHotkeys } from "react-hotkeys-hook";
 import { createGlobalState, useClickAway, useWindowSize } from "react-use";
-import { Spinner } from "@ui/Spinner";
 import { cn } from "@ui/cn";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
@@ -284,25 +283,43 @@ function CommandPaletteDialog({
   // across page changes, so returning focus to it keeps the user typing.
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const pushPage = useCallback((newPage: PalettePage) => {
-    setPages((current) => [...current, newPage]);
-    setSearch("");
-    inputRef.current?.focus();
+  // cmdk only ever scrolls the selected row into view, so a list left scrolled
+  // down stays there through whatever replaces its contents.
+  const listRef = useRef<HTMLDivElement>(null);
+  const scrollListToTop = useCallback(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = 0;
+    }
   }, []);
+
+  const pushPage = useCallback(
+    (newPage: PalettePage) => {
+      setPages((current) => [...current, newPage]);
+      setSearch("");
+      scrollListToTop();
+      inputRef.current?.focus();
+    },
+    [scrollListToTop],
+  );
 
   const popPage = useCallback(() => {
     setPages((current) => current.slice(0, -1));
     setSearch("");
+    scrollListToTop();
     inputRef.current?.focus();
-  }, []);
+  }, [scrollListToTop]);
 
   // Jump back to a given depth in the drill-in stack via the breadcrumbs: 0
   // returns to the root, n keeps the first n pages.
-  const goToDepth = useCallback((depth: number) => {
-    setPages((current) => current.slice(0, depth));
-    setSearch("");
-    inputRef.current?.focus();
-  }, []);
+  const goToDepth = useCallback(
+    (depth: number) => {
+      setPages((current) => current.slice(0, depth));
+      setSearch("");
+      scrollListToTop();
+      inputRef.current?.focus();
+    },
+    [scrollListToTop],
+  );
 
   const onNavigate = useCallback(
     (to: NavigationDestination) => {
@@ -397,10 +414,19 @@ function CommandPaletteDialog({
                   autoFocus
                   placeholder={placeholder}
                   value={search}
-                  onValueChange={setSearch}
+                  onValueChange={(value) => {
+                    setSearch(value);
+                    scrollListToTop();
+                  }}
                 />
                 {isSearchPending && (
-                  <Spinner className="absolute top-4.5 right-3 size-4 animate-fadeInFromLoading" />
+                  <div
+                    role="progressbar"
+                    aria-label="Loading results"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 animate-fadeInFromLoading overflow-hidden"
+                  >
+                    <div className="h-full w-1/5 animate-indeterminateBar rounded-full bg-util-accent/70" />
+                  </div>
                 )}
               </div>
               {/* While searching, cmdk re-sorts and reparents every group/item on
@@ -411,6 +437,7 @@ function CommandPaletteDialog({
                   back by px-1) so a pinned bar inside it can span the full
                   width; without this the list's overflow clips the bleed. */}
               <Command.List
+                ref={listRef}
                 className={cn(
                   "-mx-1 scrollbar px-1",
                   !hasPinnedActions && "pb-2",
@@ -442,10 +469,7 @@ function CommandPaletteDialog({
                       pushPage={pushPage}
                       onClose={onClose}
                     />
-                    <AskAIQueryItem
-                      onClose={onClose}
-                      canShowNoResults={!isSearchPending}
-                    />
+                    {!isSearchPending && <AskAIQueryItem onClose={onClose} />}
                   </>
                 )}
                 {drillPage?.type === "teams" && (

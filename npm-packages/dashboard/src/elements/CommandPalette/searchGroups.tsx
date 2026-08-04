@@ -187,38 +187,39 @@ export function DeploymentSearchGroup({
   const cloudDeployments = deployments.filter((d) => d.kind === "cloud");
   const stale = isLoading || debouncedQuery.trim() !== q;
 
+  // This group loads alongside the project one, which already shows placeholder
+  // rows under its own heading. Report the load but stay out of the list so the
+  // wait reads as one block rather than two stacked headings.
+  if (stale) {
+    return <LoadingSignal rows={0} />;
+  }
+
   return (
     <Command.Group
       heading={`${(project ? project.name || project.slug : undefined) ?? team.name ?? team.slug} · Deployments`}
     >
-      {stale ? (
-        <LoadingSignal />
-      ) : (
-        <>
-          {cloudDeployments.map((deployment) => (
-            <DeploymentItem
-              key={deployment.name}
-              deployment={deployment}
-              teamSlug={team.slug}
-              projectSlug={project?.slug}
-              remote
-              onNavigate={onNavigate}
-              onDrill={() =>
-                pushPage({
-                  type: "deployment",
-                  deployment,
-                  projectSlug: project?.slug,
-                })
-              }
-            />
-          ))}
-          <InfiniteScrollSentinel
-            hasMore={hasMore}
-            isLoadingMore={!!isLoadingMore}
-            loadMore={loadMore}
-          />
-        </>
-      )}
+      {cloudDeployments.map((deployment) => (
+        <DeploymentItem
+          key={deployment.name}
+          deployment={deployment}
+          teamSlug={team.slug}
+          projectSlug={project?.slug}
+          remote
+          onNavigate={onNavigate}
+          onDrill={() =>
+            pushPage({
+              type: "deployment",
+              deployment,
+              projectSlug: project?.slug,
+            })
+          }
+        />
+      ))}
+      <InfiniteScrollSentinel
+        hasMore={hasMore}
+        isLoadingMore={!!isLoadingMore}
+        loadMore={loadMore}
+      />
     </Command.Group>
   );
 }
