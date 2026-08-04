@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:types": "tsc --noEmit",
-    "prepare": "tshy",
+    "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },

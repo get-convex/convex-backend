@@ -7,7 +7,6 @@
   "scripts": {
     "build": "rm -rf dist && tsc",
     "clean": "rm -rf dist",
-    "prepare": "npm run build",
     "test": "vitest run --pass-with-no-tests"
   },
   "dependencies": {

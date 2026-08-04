@@ -498,17 +498,14 @@ importers:
     dependencies:
       convex:
         specifier: workspace:*
-        version: file:convex(@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
-    dependenciesMeta:
-      convex:
-        injected: true
+        version: link:../../convex
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.130
       convex-test:
         specifier: ^0.0.41
-        version: 0.0.41(convex@file:convex(@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4))
+        version: 0.0.41(convex@convex)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -17361,7 +17358,6 @@ packages:
 
   convex-test@0.0.41:
     resolution: {integrity: sha512-GPHeYFOi70n7UtW0eCEQFVhzl/+m8PvbWkDCbKpHLybI1MrScf4sVpGeM0cC2qmtxiduxa2nLPbehPalhh9oyQ==}
-    version: 0.0.41
     peerDependencies:
       convex: ^1.16.4
 
@@ -17408,25 +17404,6 @@ packages:
       react:
         optional: true
       react-dom:
-        optional: true
-
-  convex@file:convex:
-    resolution: {directory: convex, type: directory}
-    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
-    hasBin: true
-    peerDependencies:
-      '@auth0/auth0-react': ^2.0.1
-      '@clerk/clerk-react': ^5.61.6
-      '@clerk/react': ^6.4.3
-      react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
-    peerDependenciesMeta:
-      '@auth0/auth0-react':
-        optional: true
-      '@clerk/clerk-react':
-        optional: true
-      '@clerk/react':
-        optional: true
-      react:
         optional: true
 
   cookie-es@1.2.3:
@@ -28595,13 +28572,6 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@auth0/auth0-spa-js': 2.19.1
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-    optional: true
-
   '@auth0/auth0-spa-js@2.19.1':
     dependencies:
       '@auth0/auth0-auth-js': 1.6.0
@@ -31100,14 +31070,6 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
 
-  '@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@clerk/shared': 3.47.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      tslib: 2.8.1
-    optional: true
-
   '@clerk/nextjs@7.2.4(next@15.5.21(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@clerk/backend': 3.2.14(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -31139,14 +31101,6 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
-
-  '@clerk/react@6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@clerk/shared': 4.12.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-      tslib: 2.8.1
-    optional: true
 
   '@clerk/shared@3.47.5(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -31194,18 +31148,6 @@ snapshots:
     optionalDependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-
-  '@clerk/shared@4.12.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@tanstack/query-core': 5.100.11
-      dequal: 2.0.3
-      glob-to-regexp: 0.4.1
-      js-cookie: 3.0.7
-      std-env: 3.10.0
-    optionalDependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-    optional: true
 
   '@clerk/shared@4.8.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -44610,10 +44552,6 @@ snapshots:
     dependencies:
       convex: link:convex
 
-  convex-test@0.0.41(convex@file:convex(@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)):
-    dependencies:
-      convex: file:convex(@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
-
   convex-vue@0.1.5(convex@convex)(vue@3.5.32(typescript@5.9.3)):
     dependencies:
       consola: 3.4.2
@@ -44643,20 +44581,6 @@ snapshots:
       '@clerk/clerk-react': 5.61.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-
-  convex@file:convex(@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4):
-    dependencies:
-      esbuild: 0.27.0
-      prettier: 3.8.1
-      ws: 8.21.0(bufferutil@4.0.9)
-    optionalDependencies:
-      '@auth0/auth0-react': 2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clerk/clerk-react': 5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clerk/react': 6.6.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   cookie-es@1.2.3: {}
 
