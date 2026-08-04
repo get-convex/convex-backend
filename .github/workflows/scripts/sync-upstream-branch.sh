@@ -165,7 +165,11 @@ validate_dashboard_build() {
     just turbo run build --force \
       --filter=dashboard-self-hosted... \
       --filter=dashboard-orchestrator...
-  ) 2>&1 | tail -40 | sed 's/^/  /'
+  ) 2>&1 | sed 's/^/  /'
+  # NB: no `tail` here. turbo interleaves task output and prints its own
+  # summary last, so truncating the tail reliably discards the actual
+  # compiler error and leaves only "Failed: <task>" — which is exactly
+  # useless when a sync fails on a dashboard type error.
 }
 
 # Full-workspace compile gate: `cargo check --workspace --all-targets` catches
