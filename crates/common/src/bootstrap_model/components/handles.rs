@@ -69,7 +69,6 @@ pub struct FunctionHandle {
     /// `function://<id>#<name>`. Only the id matters when resolving the
     /// function; the name is purely advisory. Legacy function handles may lack
     /// the function name.
-    #[allow(dead_code)]
     name: Option<CanonicalizedUdfPath>,
 }
 
@@ -87,8 +86,11 @@ impl From<FunctionHandle> for DeveloperDocumentId {
 
 impl From<FunctionHandle> for String {
     fn from(handle: FunctionHandle) -> Self {
-        // TODO(reece): Encode the function name
-        format!("{}{}", FUNCTION_HANDLE_PREFIX, String::from(handle.id))
+        let id = String::from(handle.id);
+        match handle.name {
+            Some(name) => format!("{FUNCTION_HANDLE_PREFIX}{id}#{}", name.strip()),
+            None => format!("{FUNCTION_HANDLE_PREFIX}{id}"),
+        }
     }
 }
 
