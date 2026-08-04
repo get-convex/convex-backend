@@ -96,10 +96,44 @@ validate_merged_tree() {
 # Push upstream's HEAD to the sync branch and open (or comment on) a PR
 # back into the target branch, then exit 1. $1 is a markdown reason line
 # included at the top of the PR body.
+# Record a sync failure where it is always visible, using no API permissions
+# at all: the workflow run summary plus an ::error:: annotation that surfaces
+# on the run page and in the Actions list. Every other channel this script has
+# tried needed a permission that later turned out to be missing.
+announce_failure() {
+  local reason="$1"
+  echo "::error::Upstream sync into ${TARGET_BRANCH} is stuck and needs a human."
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    {
+      echo "## ❌ Upstream sync into \`${TARGET_BRANCH}\` is stuck"
+      echo
+      echo "${reason}"
+      echo
+      echo "Upstream \`${UPSTREAM_BRANCH}\` has been pushed to \`${sync_branch}\` for resolution."
+      echo
+      echo "To resolve locally:"
+      echo '```'
+      echo "git fetch origin ${TARGET_BRANCH} ${sync_branch}"
+      echo "git checkout ${TARGET_BRANCH}"
+      echo "git merge origin/${sync_branch}"
+      echo "# resolve, then:"
+      echo "git push origin ${TARGET_BRANCH}"
+      echo '```'
+    } >> "${GITHUB_STEP_SUMMARY}"
+  fi
+}
+
 bail_to_pr() {
   local reason="$1"
   git push --force origin \
     "refs/remotes/upstream/${UPSTREAM_BRANCH}:refs/heads/${sync_branch}"
+
+  # Always announce the failure somewhere that needs no permissions, BEFORE
+  # attempting the PR. The run summary cannot be revoked, disabled or expire,
+  # unlike PR/issue creation — which have now failed for three different
+  # reasons (default token, under-scoped PAT, issues disabled on the repo).
+  # This is the artifact that guarantees a stuck sync is never silent.
+  announce_failure "$reason"
 
   local body="${reason}
 
@@ -126,21 +160,10 @@ git push origin ${TARGET_BRANCH}
       --body "${body}" && { exit 1; }
   fi
 
-  # Reaching here means the hand-off itself failed (bad token, PR creation
-  # disabled for the actor, API outage). That is how this sync once stayed
-  # broken for 17 days: the merge failed, the PR was never created, and the
-  # only signal was a red cron run nobody watches. Escalate to an issue,
-  # which needs no PR permissions, so there is always exactly one artifact
-  # a human can see.
-  echo "PR hand-off failed; escalating to a GitHub issue." >&2
-  local issue_title="Upstream sync into ${TARGET_BRANCH} is stuck"
-  local existing_issue
-  existing_issue="$(gh issue list --state open --search "${issue_title} in:title" --json number,title --jq "[.[] | select(.title == \"${issue_title}\")][0].number" 2>/dev/null || true)"
-  if [ -n "${existing_issue}" ]; then
-    gh issue comment "${existing_issue}" --body "${body}" || true
-  else
-    gh issue create --title "${issue_title}" --body "${body}" || true
-  fi
+  # Reaching here means PR creation/commenting failed (under-scoped token, API
+  # outage). The run summary written by announce_failure above already carries
+  # the details, so this is a diagnostic breadcrumb rather than the alarm.
+  echo "::warning::Sync hand-off PR could not be created; see the run summary for details." >&2
   exit 1
 }
 
@@ -172,12 +195,22 @@ validate_dashboard_build() {
   # useless when a sync fails on a dashboard type error.
 }
 
-# Full-workspace compile gate: `cargo check --workspace --all-targets` catches
-# upstream API changes that break fork-only Rust code the merge never touched
-# (e.g. a trait item rename that clean-merges but no longer compiles). Runs
-# after the dashboard gate because build scripts need the Rush install, and
-# first builds the JS bundles the isolate build scripts consume — the same
-# set the Build Convex Backend workflow builds before cargo.
+# Full-workspace compile gate: catches upstream API changes that break fork-only
+# Rust code the merge never touched (e.g. a trait item rename that clean-merges
+# but no longer compiles). Runs after the dashboard gate because build scripts
+# need the JS install, and first builds the JS bundles the isolate build scripts
+# consume — the same set the Build Convex Backend workflow builds before cargo.
+#
+# `--lib --bins --tests` rather than `--all-targets`: the latter also builds
+# benches, and upstream's own benches do not compile under it. crates/database
+# declares `required-features = ["testing"]` on its benches, but at --workspace
+# scope other crates enable `database/testing` via dev-dependencies, so the
+# bench passes its required-features check and is then compiled without the
+# feature actually applied — four E0432/E0599 errors in upstream code the fork
+# never touched. `cargo check -p database --all-targets` passes, which confirms
+# it is a workspace feature-unification artifact rather than fork breakage.
+# Gating on something upstream itself does not satisfy would block every sync
+# forever, so this gate asserts what upstream guarantees plus fork code.
 validate_backend_build() {
   if [ ! -f Cargo.toml ]; then
     return 0
@@ -195,7 +228,7 @@ validate_backend_build() {
         --filter=udf-runtime... --filter=udf-tests...
     ) 2>&1 | tail -20 | sed 's/^/  /' || return 1
   fi
-  cargo check --workspace --all-targets 2>&1 | tail -60 | sed 's/^/  /'
+  cargo check --workspace --lib --bins --tests 2>&1 | tail -60 | sed 's/^/  /'
 }
 
 # Every gate a merged tree must pass before it may be pushed, in increasing
