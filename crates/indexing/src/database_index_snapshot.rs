@@ -17,7 +17,10 @@ use common::{
         },
         IndexConfig,
     },
-    document::PackedDocument,
+    document::{
+        IndexKeyBuffer,
+        PackedDocument,
+    },
     document_index_keys::DatabaseIndexWrite,
     index::IndexKeyBytes,
     interval::{
@@ -574,6 +577,7 @@ impl DatabaseIndexSnapshot {
         cache_miss_results: Vec<(Timestamp, PackedDocument)>,
         interval_read: Interval,
     ) {
+        let mut buffer = IndexKeyBuffer::new();
         for (ts, doc) in cache_miss_results {
             // Populate all index point lookups that can result in the given
             // document.
@@ -588,7 +592,7 @@ impl DatabaseIndexSnapshot {
                 else {
                     continue;
                 };
-                let index_key = doc.index_key_owned(&fields[..]);
+                let index_key = doc.index_key(&fields[..], &mut buffer);
                 self.cache.populate(
                     index.id(),
                     index.metadata.name.is_by_id(),
@@ -770,7 +774,7 @@ impl DatabaseIndexSnapshotCache {
         &mut self,
         index_id: IndexId,
         is_by_id: bool,
-        index_key_bytes: IndexKeyBytes,
+        index_key_bytes: &IndexKeyBytes,
         ts: Timestamp,
         doc: PackedDocument,
     ) -> bool {
@@ -791,7 +795,7 @@ impl DatabaseIndexSnapshotCache {
                 total_size: if is_by_id { Some(0) } else { None },
                 ..Default::default()
             });
-        index_docs.insert(index_key_bytes, ts, doc);
+        index_docs.insert(index_key_bytes.clone(), ts, doc);
         index_docs.interval_set.add(interval);
         true
     }
@@ -880,7 +884,7 @@ impl DatabaseIndexSnapshotCache {
         write: &DatabaseIndexWrite,
     ) -> bool {
         // Remove old entry from cache.
-        if let Some(old_key) = write.update.old.as_ref()
+        if let Some(old_key) = &write.update.old
             && let Some(index_docs) = self.documents.get_mut(&index_id)
             && let Some((_, old_doc)) = index_docs.remove(old_key)
             && is_by_id
@@ -889,15 +893,13 @@ impl DatabaseIndexSnapshotCache {
         }
         // Insert new entry if not a delete, but only for indexes where the
         // key falls within the range the cache is already tracking.
-        if let Some(doc) = write.new_document.clone()
-            && let Some(new_key) = write.update.new.clone()
-            && self
-                .documents
-                .get(&index_id)
-                .is_some_and(|index_docs| index_docs.interval_set.contains(&new_key))
+        if let Some(doc) = &write.new_document
+            && let Some(new_key) = &write.update.new
+            && let Some(index_docs) = self.documents.get(&index_id)
+            && index_docs.interval_set.contains(new_key)
         {
             // If the cache is too big, empty the cache
-            if !self.populate(index_id, is_by_id, new_key, ts, doc) {
+            if !self.populate(index_id, is_by_id, new_key, ts, doc.clone()) {
                 log_index_cache_cleared();
                 *self = Self::new();
                 return false;
