@@ -4,7 +4,9 @@ import type { TeamResponse } from "generatedApi";
 import { useTeams } from "api/teams";
 import { Avatar } from "elements/Avatar";
 import { useCreateTeamModalOpen } from "hooks/useCreateTeamModal";
+import { useRouter } from "next/router";
 import { useCopyAction } from "./copy";
+import { teamSwitchDestination } from "./navigation";
 import {
   ActionItem,
   CurrentBadge,
@@ -30,6 +32,7 @@ export function TeamsCommands({
   const { teams, selectedTeamSlug } = useTeams();
   const { trackSelected } = usePaletteAnalytics();
   const [, setCreateTeamOpen] = useCreateTeamModalOpen();
+  const { pathname } = useRouter();
 
   const currentTeam = teams?.find((t) => t.slug === selectedTeamSlug);
 
@@ -59,7 +62,7 @@ export function TeamsCommands({
                 isCurrent={team.slug === selectedTeamSlug}
                 onSelect={() => {
                   trackSelected("switch-team");
-                  onNavigate(`/t/${team.slug}`);
+                  onNavigate(teamSwitchDestination(team.slug, pathname));
                 }}
               />
             ))}
