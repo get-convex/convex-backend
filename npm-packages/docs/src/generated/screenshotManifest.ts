@@ -237,6 +237,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/Projects#Team Switcher",
+    "light": {
+      "filename": "pages_projects_team_switcher_light.webp",
+      "width": 1344,
+      "height": 1027
+    },
+    "dark": {
+      "filename": "pages_projects_team_switcher_dark.webp",
+      "width": 1344,
+      "height": 1027
+    }
+  },
+  {
     "storyTitle": "docs/pages/TeamAuditLog",
     "light": {
       "filename": "pages_team_audit_log_light.webp",
@@ -455,6 +468,45 @@ export const screenshots = [
       "filename": "pages_project_deployment_data_multiple_dev_deployments_selector_dark.webp",
       "width": 1344,
       "height": 924
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Deployment Switcher",
+    "light": {
+      "filename": "pages_project_deployment_data_deployment_switcher_light.webp",
+      "width": 1344,
+      "height": 1024
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_deployment_switcher_dark.webp",
+      "width": 1344,
+      "height": 1024
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Preview Deployment Switcher",
+    "light": {
+      "filename": "pages_project_deployment_data_preview_deployment_switcher_light.webp",
+      "width": 1344,
+      "height": 1024
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_preview_deployment_switcher_dark.webp",
+      "width": 1344,
+      "height": 1024
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Data#Project Switcher",
+    "light": {
+      "filename": "pages_project_deployment_data_project_switcher_light.webp",
+      "width": 1344,
+      "height": 1027
+    },
+    "dark": {
+      "filename": "pages_project_deployment_data_project_switcher_dark.webp",
+      "width": 1344,
+      "height": 1027
     }
   },
   {
