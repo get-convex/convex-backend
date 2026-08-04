@@ -25,6 +25,7 @@ import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import type { PlatformDeploymentResponse, ProjectDetails } from "generatedApi";
 import type { NavigationTarget } from "./navigation";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
+import { useCopyAction } from "./copy";
 import type { DeploymentPicker } from "./picker";
 import { usePaletteAnalytics } from "./analytics";
 
@@ -372,9 +373,11 @@ export function ProjectItem({
     : lastViewedDeployment
       ? generateHref(lastViewedDeployment)
       : defaultHref;
+  const value = `${REMOTE_VALUE_PREFIX}project:${project.id}`;
+  useCopyAction(value, { label: "slug", getText: () => project.slug });
   return (
     <Command.Item
-      value={`${REMOTE_VALUE_PREFIX}project:${project.id}`}
+      value={value}
       className="animate-fadeInFromLoading"
       onSelect={() => {
         trackSelected("switch-project");
@@ -432,9 +435,16 @@ export function DeploymentItem({
       ? router.asPath.split(/[?#]/)[0].split("/").slice(5).join("/")
       : "";
   const isCurrent = router.query.deploymentName === deployment.name;
+  const value = `${remote ? REMOTE_VALUE_PREFIX : ""}deployment:${deployment.name}`;
+  useCopyAction(
+    value,
+    deployment.kind === "cloud"
+      ? { label: "deployment reference", getText: () => deployment.reference }
+      : { label: "deployment name", getText: () => deployment.name },
+  );
   return (
     <Command.Item
-      value={`${remote ? REMOTE_VALUE_PREFIX : ""}deployment:${deployment.name}`}
+      value={value}
       className="animate-fadeInFromLoading"
       keywords={remote ? undefined : [primary, deployment.name, typeLabel]}
       onSelect={() => {
@@ -475,6 +485,13 @@ export function DeploymentPickerItem({
   const typeLabel = deploymentTypeLabel(deployment.deploymentType);
   const unavailableReason = picker.unavailableReason?.(deployment);
   const isSelected = picker.selectedDeploymentName === deployment.name;
+  const value = `pick-deployment:${deployment.name}`;
+  useCopyAction(
+    value,
+    deployment.kind === "cloud"
+      ? { label: "deployment reference", getText: () => deployment.reference }
+      : null,
+  );
   const body = (
     <>
       <DeploymentRowBody deployment={deployment} />
@@ -489,7 +506,7 @@ export function DeploymentPickerItem({
     <Command.Item
       // Not the `deployment:` value the switcher rows use: that marks a row as
       // browsable, and a picked deployment has no nested view to browse into.
-      value={`pick-deployment:${deployment.name}`}
+      value={value}
       className={cn(
         "animate-fadeInFromLoading",
         unavailableReason && "pointer-events-none",
@@ -533,9 +550,11 @@ export function ProjectPickerItem({
   onSelect: () => void;
 }) {
   const { trackSelected } = usePaletteAnalytics();
+  const value = `${REMOTE_VALUE_PREFIX}project:${project.id}`;
+  useCopyAction(value, { label: "slug", getText: () => project.slug });
   return (
     <Command.Item
-      value={`${REMOTE_VALUE_PREFIX}project:${project.id}`}
+      value={value}
       className="animate-fadeInFromLoading"
       onSelect={() => {
         trackSelected("pick-project");

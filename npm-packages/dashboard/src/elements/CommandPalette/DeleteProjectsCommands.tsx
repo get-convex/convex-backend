@@ -24,6 +24,7 @@ import {
   PaletteConfirmContext,
   PaletteStatusContext,
 } from "./items";
+import { useCopyAction } from "./copy";
 import { InfiniteScrollSentinel } from "./InfiniteScrollSentinel";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
 
@@ -222,9 +223,11 @@ function DeleteProjectItem({
   onToggle: (index: number) => void;
   shiftHeld: React.MutableRefObject<boolean>;
 }) {
+  const value = `${REMOTE_VALUE_PREFIX}delete-project:${project.id}`;
+  useCopyAction(value, { label: "slug", getText: () => project.slug });
   return (
     <Command.Item
-      value={`${REMOTE_VALUE_PREFIX}delete-project:${project.id}`}
+      value={value}
       className="animate-fadeInFromLoading"
       disabled={disabled}
       onMouseDown={(event) => {

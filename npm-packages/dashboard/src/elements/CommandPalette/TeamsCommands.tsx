@@ -1,8 +1,10 @@
 import { Command } from "cmdk";
 import { GearIcon, PlusIcon } from "@radix-ui/react-icons";
+import type { TeamResponse } from "generatedApi";
 import { useTeams } from "api/teams";
 import { Avatar } from "elements/Avatar";
 import { useCreateTeamModalOpen } from "hooks/useCreateTeamModal";
+import { useCopyAction } from "./copy";
 import {
   ActionItem,
   CurrentBadge,
@@ -51,31 +53,15 @@ export function TeamsCommands({
           )}
           <Command.Group heading="Switch Team">
             {teams.map((team) => (
-              <Command.Item
+              <TeamItem
                 key={team.id}
-                value={`team:${team.slug}`}
-                className="animate-fadeInFromLoading"
-                keywords={[team.name, team.slug]}
+                team={team}
+                isCurrent={team.slug === selectedTeamSlug}
                 onSelect={() => {
                   trackSelected("switch-team");
                   onNavigate(`/t/${team.slug}`);
                 }}
-              >
-                <Avatar name={team.name} hashKey={team.id.toString()} />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">
-                    <HighlightedText text={team.name} />
-                  </span>
-                  <span className="truncate text-xs text-content-tertiary">
-                    <HighlightedText text={team.slug} />
-                  </span>
-                </span>
-                {team.slug === selectedTeamSlug && (
-                  <span className="ml-auto text-xs text-content-tertiary">
-                    <CurrentBadge />
-                  </span>
-                )}
-              </Command.Item>
+              />
             ))}
           </Command.Group>
         </>
@@ -93,5 +79,41 @@ export function TeamsCommands({
         />
       </PinnedActions>
     </>
+  );
+}
+
+function TeamItem({
+  team,
+  isCurrent,
+  onSelect,
+}: {
+  team: TeamResponse;
+  isCurrent: boolean;
+  onSelect: () => void;
+}) {
+  const value = `team:${team.slug}`;
+  useCopyAction(value, { label: "slug", getText: () => team.slug });
+  return (
+    <Command.Item
+      value={value}
+      className="animate-fadeInFromLoading"
+      keywords={[team.name, team.slug]}
+      onSelect={onSelect}
+    >
+      <Avatar name={team.name} hashKey={team.id.toString()} />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">
+          <HighlightedText text={team.name} />
+        </span>
+        <span className="truncate text-xs text-content-tertiary">
+          <HighlightedText text={team.slug} />
+        </span>
+      </span>
+      {isCurrent && (
+        <span className="ml-auto text-xs text-content-tertiary">
+          <CurrentBadge />
+        </span>
+      )}
+    </Command.Item>
   );
 }

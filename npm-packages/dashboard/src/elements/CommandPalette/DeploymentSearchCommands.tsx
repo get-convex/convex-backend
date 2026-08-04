@@ -36,6 +36,7 @@ import type { UdfType } from "system-udfs/convex/_system/frontend/common";
 import { matchesSearch, NavigationDestination } from "./navigation";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
 import { HighlightedText } from "./items";
+import { PaletteCopyAction, useCopyAction } from "./copy";
 
 const MAX_RESULTS = 20;
 
@@ -193,30 +194,12 @@ function DeploymentSearchInner({
       {matchingFunctions.length > 0 && (
         <Command.Group heading="Functions">
           {matchingFunctions.map((fn) => (
-            <Command.Item
+            <FunctionResultItem
               key={`${fn.componentId ?? ""}:${fn.identifier}`}
-              value={`${REMOTE_VALUE_PREFIX}function:${fn.componentId ?? ""}:${fn.identifier}`}
-              className="animate-fadeInFromLoading"
-              onSelect={() =>
-                onNavigate({
-                  pathname: `${deploymentsURI}/functions`,
-                  query: {
-                    function: fn.displayName,
-                    // `component` (the component ID) is the param useNents
-                    // and the rest of the page key off of.
-                    ...(fn.componentId ? { component: fn.componentId } : {}),
-                  },
-                })
-              }
-            >
-              <CodeIcon className="text-content-secondary" />
-              <span className="truncate">
-                <HighlightedText text={fn.displayName} />
-              </span>
-              <span className="ml-auto shrink-0 text-xs text-content-tertiary">
-                {udfTypeLabel(fn.udfType)}
-              </span>
-            </Command.Item>
+              fn={fn}
+              deploymentsURI={deploymentsURI}
+              onNavigate={onNavigate}
+            />
           ))}
         </Command.Group>
       )}
@@ -254,6 +237,10 @@ function DocumentPreview({
         title={id}
         titleClassName="font-mono"
         preview={stringifyValue(document)}
+        copy={{
+          label: "document",
+          getText: () => stringifyValue(document, true),
+        }}
         onSelect={() =>
           onOpenDetail({
             type: "document",
@@ -285,6 +272,7 @@ function ResultItem({
   titleClassName,
   preview,
   action,
+  copy,
   onSelect,
 }: {
   value: string;
@@ -295,8 +283,10 @@ function ResultItem({
   preview: React.ReactNode;
   // Right-aligned hint. Omitted for rows that open a detail panel on select.
   action?: string;
+  copy: PaletteCopyAction;
   onSelect: () => void;
 }) {
+  useCopyAction(value, copy);
   return (
     <Command.Item
       value={value}
@@ -319,6 +309,47 @@ function ResultItem({
   );
 }
 
+function FunctionResultItem({
+  fn,
+  deploymentsURI,
+  onNavigate,
+}: {
+  fn: ModuleFunction;
+  deploymentsURI: string;
+  onNavigate: (to: NavigationDestination) => void;
+}) {
+  const value = `${REMOTE_VALUE_PREFIX}function:${fn.componentId ?? ""}:${fn.identifier}`;
+  useCopyAction(value, {
+    label: "function name",
+    getText: () => fn.displayName,
+  });
+  return (
+    <Command.Item
+      value={value}
+      className="animate-fadeInFromLoading"
+      onSelect={() =>
+        onNavigate({
+          pathname: `${deploymentsURI}/functions`,
+          query: {
+            function: fn.displayName,
+            // `component` (the component ID) is the param useNents and the rest
+            // of the page key off of.
+            ...(fn.componentId ? { component: fn.componentId } : {}),
+          },
+        })
+      }
+    >
+      <CodeIcon className="text-content-secondary" />
+      <span className="truncate">
+        <HighlightedText text={fn.displayName} />
+      </span>
+      <span className="ml-auto shrink-0 text-xs text-content-tertiary">
+        {udfTypeLabel(fn.udfType)}
+      </span>
+    </Command.Item>
+  );
+}
+
 function TableResultItem({
   tableName,
   componentId,
@@ -330,9 +361,11 @@ function TableResultItem({
   deploymentsURI: string;
   onNavigate: (to: NavigationDestination) => void;
 }) {
+  const value = `${REMOTE_VALUE_PREFIX}table:${componentId ?? ""}:${tableName}`;
+  useCopyAction(value, { label: "table name", getText: () => tableName });
   return (
     <Command.Item
-      value={`${REMOTE_VALUE_PREFIX}table:${componentId ?? ""}:${tableName}`}
+      value={value}
       className="animate-fadeInFromLoading"
       onSelect={() =>
         onNavigate({
@@ -397,6 +430,7 @@ function StoragePreview({
         title={file._id}
         titleClassName="font-mono"
         preview={`${file.contentType || "Unknown type"} · ${formatBytes(Number(file.size))}`}
+        copy={{ label: "storage ID", getText: () => file._id }}
         onSelect={() =>
           onOpenDetail({
             type: "file",
@@ -455,6 +489,10 @@ function ScheduledFunctionPreview({
             {stringifyValue(job.args)}
           </>
         }
+        copy={{
+          label: "document",
+          getText: () => stringifyValue(job as unknown as Value, true),
+        }}
         onSelect={() =>
           onOpenDetail({
             type: "scheduled",

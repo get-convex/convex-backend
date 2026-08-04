@@ -11,6 +11,7 @@ import {
 import { PuzzlePieceIcon } from "@common/elements/icons";
 import type { Nent } from "@common/lib/useNents";
 import { ActionItem, HighlightedText, LoadingSignal } from "./items";
+import { useCopyAction } from "./copy";
 import { matchesSearch, REMOTE_VALUE_PREFIX } from "./navigation";
 import { usePaletteAnalytics } from "./analytics";
 
@@ -179,6 +180,7 @@ function SwitchToComponentItem({
   isUnmounted: boolean;
   onSelect: () => void;
 }) {
+  useCopyAction(value, { label: "component path", getText: () => path });
   return (
     <Command.Item
       value={value}
@@ -267,6 +269,7 @@ export function ComponentItem({
   onSelect: () => void;
 }) {
   const { trackSelected } = usePaletteAnalytics();
+  useCopyAction(value, { label: "component path", getText: () => label });
   return (
     <Command.Item
       value={value}

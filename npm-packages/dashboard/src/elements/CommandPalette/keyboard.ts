@@ -15,7 +15,15 @@ export type PaletteKeyDownContext = {
   // Cmd/Ctrl+Shift+Enter chord (e.g. bulk-deleting projects). Null when the
   // page has nothing to confirm.
   confirmAction: (() => void) | null;
+  copySelection: () => boolean;
 };
+
+function hasSelectedInputText(event: React.KeyboardEvent): boolean {
+  const target = event.target as HTMLInputElement;
+  return (
+    target.tagName === "INPUT" && target.selectionStart !== target.selectionEnd
+  );
+}
 
 // Handles the palette dialog's keydown. Split out from CommandPaletteDialog so
 // the (fiddly, event-dispatching) key logic can be tested directly.
@@ -28,6 +36,7 @@ export function handlePaletteKeyDown(
     onClose,
     armDrillModifier,
     confirmAction,
+    copySelection,
   }: PaletteKeyDownContext,
 ) {
   if (
@@ -43,6 +52,16 @@ export function handlePaletteKeyDown(
     event.preventDefault();
     event.stopPropagation();
     confirmAction?.();
+  } else if (
+    (event.key === "c" || event.key === "C") &&
+    (event.metaKey || event.ctrlKey) &&
+    !event.shiftKey &&
+    !event.altKey
+  ) {
+    if (!hasSelectedInputText(event) && copySelection()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   } else if (event.key === "Escape") {
     event.preventDefault();
     if (inSubPage) {
