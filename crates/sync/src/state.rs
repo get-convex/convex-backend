@@ -54,6 +54,13 @@ use crate::metrics;
 type ValueDigest = Sha256Digest;
 type ErrorDigest = Sha256Digest;
 
+/// A query the sync worker needs to (re)run.
+#[derive(Clone)]
+pub struct QueryToFetch {
+    pub query: Query,
+    pub has_run_before: bool,
+}
+
 pub struct SyncedQuery {
     query: Query,
 
@@ -369,12 +376,18 @@ impl SyncState {
     }
 
     /// Which queries do not have a token?
-    pub fn need_fetch(&self) -> impl Iterator<Item = Query> + '_ {
+    pub fn need_fetch(&self) -> impl Iterator<Item = QueryToFetch> + '_ {
         self.queries
             .values()
             .filter(|sq| sq.subscription.is_none())
-            .map(|sq| sq.query.clone())
-            .chain(self.in_progress_queries.values().cloned())
+            .map(|sq| QueryToFetch {
+                query: sq.query.clone(),
+                has_run_before: sq.result_hash.is_some(),
+            })
+            .chain(self.in_progress_queries.values().map(|query| QueryToFetch {
+                query: query.clone(),
+                has_run_before: false,
+            }))
     }
 
     pub fn refill_subscription(
