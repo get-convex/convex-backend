@@ -84,7 +84,10 @@ use smallvec::{
 };
 use sync_types::types::SerializedArgs;
 use udf::{
-    validation::ValidatedPathAndArgs,
+    validation::{
+        PendingArgsPolicy,
+        ValidatedPathAndArgs,
+    },
     FunctionOutcome,
     UdfOutcome,
 };
@@ -92,6 +95,7 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
     ConvexValue,
+    PendingValue,
 };
 
 use crate::{
@@ -491,7 +495,8 @@ impl<RT: Runtime> CacheManager<RT> {
             }
 
             // Step 5: Log some stuff and return.
-            let vars = AuditLogVars::from_context(context.clone(), &self.rt)?;
+            let vars =
+                AuditLogVars::from_context(context.clone(), identity.convex_actor_var(), &self.rt)?;
             self.audit_log_client
                 .send_logs(
                     cache_result.outcome.audit_log_lines.resolve_bodies(&vars)?,
@@ -517,7 +522,12 @@ impl<RT: Runtime> CacheManager<RT> {
                 )
                 .await;
             let result = QueryReturn {
-                result: cache_result.outcome.result.clone(),
+                // A top-level query's result never contains unresolved commit
+                // timestamps.
+                result: match cache_result.outcome.result.clone() {
+                    Ok(value) => Ok(value.try_into()?),
+                    Err(e) => Err(e),
+                },
                 log_lines: cache_result.outcome.log_lines.clone(),
                 token: cache_result.token,
                 journal: cache_result.outcome.journal.clone(),
@@ -598,6 +608,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     path.clone(),
                     args.clone(),
                     UdfType::Query,
+                    PendingArgsPolicy::Reject,
                 )
                 .await?;
 
@@ -631,14 +642,17 @@ impl<RT: Runtime> CacheManager<RT> {
                         if let Ok(json_packed_value) = &query_outcome.result
                             && returns_validator.needs_validation()
                         {
-                            let output: ConvexValue = json_packed_value.unpack().map_err(|e| {
-                                e.wrap_error_message(|msg| {
-                                    format!(
-                                        "Function {} return value invalid: {msg}",
-                                        query_outcome.path.debug_str(),
-                                    )
-                                })
-                            })?;
+                            let output: ConvexValue = json_packed_value
+                                .unpack()
+                                .and_then(PendingValue::try_into_concrete)
+                                .map_err(|e| {
+                                    e.wrap_error_message(|msg| {
+                                        format!(
+                                            "Function {} return value invalid: {msg}",
+                                            query_outcome.path.debug_str(),
+                                        )
+                                    })
+                                })?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(

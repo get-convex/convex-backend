@@ -119,6 +119,7 @@ use crate::{
         self,
     },
     timeout::Timeout,
+    ConcurrencyPermit,
 };
 
 pub struct AnalyzeEnvironment {
@@ -256,9 +257,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
 impl AnalyzeEnvironment {
     #[fastrace::trace]
     pub async fn analyze<RT: Runtime>(
-        client_id: String,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
+        permit: ConcurrencyPermit,
         isolate_clean: &mut bool,
         udf_config: UdfConfig,
         modules: Arc<BTreeMap<CanonicalizedModulePath, Arc<V8ModuleSource>>>,
@@ -276,9 +277,8 @@ impl AnalyzeEnvironment {
             environment_variables,
             collected_logs: VecDeque::new(),
         };
-        let client_id = Arc::new(client_id);
         let (handle, state, mut timeout) = isolate
-            .start_request(context_cache, client_id, environment)
+            .start_request(context_cache, permit, environment)
             .await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = context_cache.get_or_create_fresh_context(handle_scope);

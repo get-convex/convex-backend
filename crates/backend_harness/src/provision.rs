@@ -57,6 +57,11 @@ static SELF_HOSTED_DOCKER_COMPOSE: LazyLock<PathBuf> =
 const PROD_PROVISION_HOST: &str = "https://api.convex.dev";
 /// Port usher runs on locally
 const USHER_PORT: u16 = 8002;
+/// Port funrun runs on locally, overriding its default of 40994. Must stay
+/// below the Linux ephemeral range (32768–60999): a port inside it can already
+/// be held by an unrelated outbound connection, so the bind fails with
+/// EADDRINUSE.
+const FUNRUN_PORT: u16 = 8005;
 /// Address of local test backend through usher
 static USHER_INSTANCE_URL: LazyLock<String> =
     LazyLock::new(|| format!("http://carnitas.local.convex.cloud:{USHER_PORT}"));
@@ -373,6 +378,8 @@ fn start_local_funrun(logs: &LogInterleaver, release: bool) -> anyhow::Result<Ch
     logs.spawn_with_prefixed_logs(
         "funrun".into(),
         Command::new(funrun_binary)
+            .arg("--port")
+            .arg(FUNRUN_PORT.to_string())
             .arg("--metrics-addr")
             .arg("0.0.0.0:9101")
             .kill_on_drop(true),
@@ -471,7 +478,7 @@ async fn provision(
             if udf_use_funrun {
                 run_conductor_cmd
                     .arg("--register-service")
-                    .arg("funrun-default=http://0.0.0.0:40994");
+                    .arg(format!("funrun-default=http://0.0.0.0:{FUNRUN_PORT}"));
             }
             let conductor_handle = logs.spawn_with_prefixed_logs(
                 "conductor".into(),

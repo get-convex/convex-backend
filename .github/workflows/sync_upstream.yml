@@ -77,11 +77,9 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
         with:
           path: |
-            npm-packages/common/temp/build-cache
-            npm-packages/common/temp/pnpm-store
-          key:
-            pnpm-cache-${{
-            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+            ~/.local/share/pnpm/store
+            npm-packages/.turbo/cache
+          key: pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
           restore-keys: pnpm-cache-
 
       - name: Install mise tools
@@ -102,8 +100,10 @@ jobs:
 
       - name: Sync enhanced
         env:
-          GH_TOKEN: ${{ github.token }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Must be the PAT, not github.token: this repo has "Allow GitHub
+          # Actions to create and approve pull requests" disabled, so the
+          # default token cannot open the hand-off PR the script falls back to.
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
           TARGET_BRANCH: enhanced
           UPSTREAM_BRANCH: main
         run: ./.github/workflows/scripts/sync-upstream-branch.sh
@@ -156,11 +156,9 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
         with:
           path: |
-            npm-packages/common/temp/build-cache
-            npm-packages/common/temp/pnpm-store
-          key:
-            pnpm-cache-${{
-            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+            ~/.local/share/pnpm/store
+            npm-packages/.turbo/cache
+          key: pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
           restore-keys: pnpm-cache-
 
       - name: Install mise tools
@@ -179,8 +177,9 @@ jobs:
 
       - name: Sync release
         env:
-          GH_TOKEN: ${{ github.token }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # See the note on the enhanced job: the default token cannot open
+          # the hand-off PR.
+          GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_PAT }}
           TARGET_BRANCH: release
           UPSTREAM_BRANCH: release
         run: ./.github/workflows/scripts/sync-upstream-branch.sh

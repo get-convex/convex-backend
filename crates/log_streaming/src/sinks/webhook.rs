@@ -14,9 +14,7 @@ use aws_lc_rs::hmac::{
 use bytes::Bytes;
 use common::{
     backoff::Backoff,
-    errors::report_error,
     http::{
-        categorize_http_response_stream,
         fetch::FetchClient,
         HttpRequest,
         APPLICATION_JSON_CONTENT_TYPE,
@@ -26,13 +24,12 @@ use common::{
         LogEventFormatVersion,
         LogTopic,
     },
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        WithTimeout,
+    },
 };
-use errors::{
-    ErrorMetadata,
-    ErrorMetadataAnyhowExt,
-};
-use hex::ToHex;
+use const_hex::ToHexExt;
 use http::{
     header::CONTENT_TYPE,
     HeaderValue,
@@ -50,11 +47,18 @@ use tokio::sync::mpsc;
 use crate::{
     consts,
     metrics::webhook_sink_network_egress_bytes,
-    sinks::utils::{
-        self,
-        build_event_batches,
-        EgressCounter,
-        SinkFilter,
+    sinks::{
+        failure::{
+            classify_sink_response,
+            SinkEgressFailure,
+            SinkFailureReporter,
+        },
+        utils::{
+            self,
+            build_event_batches,
+            EgressCounter,
+            SinkFilter,
+        },
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -90,6 +94,7 @@ pub struct WebhookSink<RT: Runtime> {
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
     egress_counter: EgressCounter,
+    failure_reporter: SinkFailureReporter,
 }
 
 impl<RT: Runtime> WebhookSink<RT> {
@@ -100,6 +105,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         egress_counter: EgressCounter,
+        failure_reporter: SinkFailureReporter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting WebhookSink");
@@ -117,6 +123,7 @@ impl<RT: Runtime> WebhookSink<RT> {
             ),
             deployment_metadata,
             egress_counter,
+            failure_reporter,
         };
 
         if should_verify {
@@ -160,13 +167,12 @@ impl<RT: Runtime> WebhookSink<RT> {
                     // Process each batch and send to Datadog
                     for batch in batches {
                         let track_egress = utils::batch_has_non_egress_events(&batch);
-                        if let Err(mut e) = self.process_events(batch, track_egress).await {
-                            tracing::error!(
-                                "Error emitting log event batch in WebhookSink: {e:?}."
-                            );
-                            report_error(&mut e).await;
-                        } else {
-                            self.backoff.reset();
+                        match self.process_events(batch, track_egress).await {
+                            Ok(()) => {
+                                self.backoff.reset();
+                                self.failure_reporter.reset();
+                            },
+                            Err(e) => self.failure_reporter.record_failure(e).await,
                         }
                     }
                 },
@@ -205,7 +211,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         );
 
         // Make request in a loop that retries on transient errors
-        let mut last_error = None;
+        let mut last_failure = None;
         let max_attempts = if is_verification {
             consts::WEBHOOK_SINK_VERIFICATION_MAX_ATTEMPTS
         } else {
@@ -213,15 +219,19 @@ impl<RT: Runtime> WebhookSink<RT> {
         };
         for _ in 0..max_attempts {
             let response = self
-                .fetch_client
-                .fetch(
-                    HttpRequest {
-                        url: self.config.url.clone(),
-                        method: http::Method::POST,
-                        headers: headers.clone(),
-                        body: Some(payload.clone()),
-                    }
-                    .into(),
+                .runtime
+                .with_timeout(
+                    "webhook_sink_request",
+                    consts::WEBHOOK_SINK_REQUEST_TIMEOUT,
+                    self.fetch_client.fetch(
+                        HttpRequest {
+                            url: self.config.url.clone(),
+                            method: http::Method::POST,
+                            headers: headers.clone(),
+                            body: Some(payload.clone()),
+                        }
+                        .into(),
+                    ),
                 )
                 .await;
 
@@ -237,55 +247,24 @@ impl<RT: Runtime> WebhookSink<RT> {
                 );
             }
 
-            // Only retry on 5xx requests
-            match response.and_then(categorize_http_response_stream) {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    // Retry on 5xx, uncategorized errors, or any error which is either our or
-                    // webhook's fault. Short-circuit for 4xx errors which are
-                    // the user's fault.
-                    if e.is_deterministic_user_error() {
-                        // Just update the short message
-                        anyhow::bail!(e.map_error_metadata(|e| ErrorMetadata {
-                            code: e.code,
-                            short_msg: "WebhookRequestFailed".into(),
-                            msg: e.msg,
-                            source: None,
-                        }));
-                    } else {
-                        let delay = self.backoff.fail(&mut self.runtime.rng());
-                        tracing::warn!(
-                            "Failed to send in Webhook sink, waiting {delay:?} before retrying: \
-                             {e:#}"
-                        );
-                        // Tag transport failures with ErrorMetadata so the error message
-                        // surfaces in the customer-facing failure reason. Attach it with
-                        // `.context` rather than replacing the error, so the original cause
-                        // chain is preserved and still appears in `{e:#}` logs.
-                        let e = if e.downcast_ref::<ErrorMetadata>().is_none() {
-                            let error_msg = format!("{e}");
-                            e.context(ErrorMetadata::overloaded("WebhookRequestFailed", error_msg))
-                        } else {
-                            e
-                        };
-                        last_error = Some(e);
-                        self.runtime.wait(delay).await;
-                    }
+            match classify_sink_response(response) {
+                Ok(()) => return Ok(()),
+                Err(failure) if failure.is_rejected() => anyhow::bail!(failure),
+                Err(failure) => {
+                    let delay = self.backoff.fail(&mut self.runtime.rng());
+                    tracing::warn!(
+                        "Failed to send in Webhook sink, waiting {delay:?} before retrying: \
+                         {failure}"
+                    );
+                    last_failure = Some(failure);
+                    self.runtime.wait(delay).await;
                 },
             }
         }
 
-        // If we get here, we've exceeded the max number of requests
-        // Return the last error which now has ErrorMetadata
-        if let Some(e) = last_error {
-            return Err(e);
-        }
-        anyhow::bail!(ErrorMetadata::overloaded(
-            "WebhookMaxRetriesExceeded",
-            format!(
-                "Exceeded max number of retry requests to webhook {}.",
-                self.config.url.as_str()
-            )
+        anyhow::bail!(SinkEgressFailure::retries_exhausted(
+            max_attempts,
+            last_failure
         ))
     }
 
@@ -310,13 +289,9 @@ impl<RT: Runtime> WebhookSink<RT> {
         }
         let batch_size = values_to_send.len();
 
-        if let Err(e) = self.send_batch(values_to_send, false, track_egress).await {
-            // We don't report this error to Sentry to prevent misconfigured webhook sinks
-            // from overflowing our Sentry logs.
-            tracing::error!("could not send batch to WebhookSink: {e:#}");
-        } else {
-            crate::metrics::webhook_sink_logs_sent(batch_size);
-        }
+        self.send_batch(values_to_send, false, track_egress).await?;
+        crate::metrics::webhook_sink_logs_sent(batch_size);
+
         Ok(())
     }
 }

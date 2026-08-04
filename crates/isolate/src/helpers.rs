@@ -20,7 +20,10 @@ use humansize::{
     FormatSize,
     BINARY,
 };
-use value::Size;
+use value::{
+    PendingValue,
+    Size,
+};
 
 use crate::strings;
 
@@ -107,6 +110,25 @@ pub fn deserialize_udf_result(
     path: &ResolvedComponentFunctionPath,
     result_str: &str,
 ) -> anyhow::Result<Result<ConvexValue, JsError>> {
+    deserialize_udf_result_inner(path, result_str, ConvexValue::try_from)
+}
+
+/// Like [`deserialize_udf_result`], but additionally accepting the
+/// `{"$commitTs": null}` token. Call this only for functions running inside a
+/// mutation's transaction, where the return value may contain unresolved
+/// commit timestamps.
+pub fn deserialize_udf_result_pending(
+    path: &ResolvedComponentFunctionPath,
+    result_str: &str,
+) -> anyhow::Result<Result<PendingValue, JsError>> {
+    deserialize_udf_result_inner(path, result_str, PendingValue::from_uncommitted_json)
+}
+
+fn deserialize_udf_result_inner<V: Size>(
+    path: &ResolvedComponentFunctionPath,
+    result_str: &str,
+    parse: impl FnOnce(serde_json::Value) -> anyhow::Result<V>,
+) -> anyhow::Result<Result<V, JsError>> {
     // Don't print out result_str in error messages - as it may contain pii
     let result_v: serde_json::Value = serde_json::from_str(result_str).map_err(|e| {
         anyhow::anyhow!(ErrorMetadata::bad_request(
@@ -117,7 +139,7 @@ pub fn deserialize_udf_result(
             ),
         ))
     })?;
-    let result = match ConvexValue::try_from(result_v) {
+    let result = match parse(result_v) {
         Ok(value) => {
             let size = value.size();
             let limit = if path.udf_path.is_system() {
@@ -129,7 +151,7 @@ pub fn deserialize_udf_result(
                 Err(JsError::from_message(format!(
                     "Function {} return value is too large (actual: {}, limit: {})",
                     path.clone().for_logging().debug_str(),
-                    value.size().format_size(BINARY),
+                    size.format_size(BINARY),
                     limit.format_size(BINARY),
                 )))
             } else {

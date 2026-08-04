@@ -177,7 +177,8 @@ export function QuickFrameworksList() {
           label: "Remix",
         },
         {
-          icon: <TanStackLogo height={40} width={40} />,
+          icon: <TanStackLogo height={40} />,
+          invertIcon: true,
           href: "/quickstart/tanstack-start",
           docId: "quickstart/tanstack-start",
           label: "TanStack Start",

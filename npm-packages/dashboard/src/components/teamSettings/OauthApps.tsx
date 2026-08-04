@@ -812,7 +812,7 @@ function OauthAppListItem({
                 Only team admins can see the client secret.
               </HelpTooltip>
             </div>
-            <span className="text-xs leading-6.5">
+            <span className="text-xs/6.5">
               •••••••••••••••••••••••••••••••••
             </span>
           </div>

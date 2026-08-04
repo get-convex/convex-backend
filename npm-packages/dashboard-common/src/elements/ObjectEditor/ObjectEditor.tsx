@@ -19,6 +19,7 @@ import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/v
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import { cn } from "@ui/cn";
+import { useIsMobileDevice } from "@ui/useIsMobileDevice";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   ConvexSchemaValidationError,
@@ -27,6 +28,7 @@ import {
 } from "./ast/types";
 import { walkAst, WalkAstOptions } from "./ast/walkAst";
 import { registerIdCommands, useIdDecorations } from "./useIdDecorations";
+import { PlainObjectEditor } from "./PlainObjectEditor";
 
 export type ObjectEditorProps = {
   defaultValue?: Value;
@@ -57,12 +59,60 @@ export type ObjectEditorProps = {
   size?: "sm" | "md";
   disabled?: boolean;
   fixedOverflowWidgets?: boolean;
+  placeholder?: string;
+  "aria-label"?: string;
 } & WalkAstOptions;
 
 // Special case -- empty documents should be formatted to include space to entry a new field right away.
 const emptyObject = "{\n\n}";
 
 export function ObjectEditor(props: ObjectEditorProps) {
+  const isMobile = useIsMobileDevice();
+  const valueRef = useRef(props.defaultValue);
+  const onChangeRef = useRef(props.onChange);
+  onChangeRef.current = props.onChange;
+  const handleChange = useCallback((v?: Value) => {
+    valueRef.current = v;
+    onChangeRef.current(v);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <PlainObjectEditor
+        defaultValue={valueRef.current}
+        onChange={handleChange}
+        onError={props.onError}
+        onChangeInnerText={props.onChangeInnerText}
+        mode={props.mode}
+        validator={props.validator}
+        allowTopLevelUndefined={
+          "allowTopLevelUndefined" in props
+            ? !!props.allowTopLevelUndefined
+            : undefined
+        }
+        shouldSurfaceValidatorErrors={props.shouldSurfaceValidatorErrors}
+        disabled={props.disabled}
+        autoFocus={props.autoFocus}
+        fullHeight={props.fullHeight}
+        saveAction={props.saveAction}
+        enterSaves={props.enterSaves}
+        placeholder={props.placeholder}
+        className={cn(props.className, props.editorClassname)}
+        aria-label={props["aria-label"]}
+      />
+    );
+  }
+
+  return (
+    <ObjectEditorImpl
+      {...props}
+      defaultValue={valueRef.current}
+      onChange={handleChange}
+    />
+  );
+}
+
+function ObjectEditorImpl(props: ObjectEditorProps) {
   const {
     className,
     editorClassname,
@@ -87,10 +137,12 @@ export function ObjectEditor(props: ObjectEditorProps) {
     size = "md",
     disabled = false,
     fixedOverflowWidgets = true,
+    placeholder,
   } = props;
 
   const indentTopLevel = mode === "addDocuments" || mode === "editDocument";
   const [monaco, setMonaco] = useState<Parameters<BeforeMount>[0]>();
+  const monacoRef = useRef(monaco);
 
   const getDocumentRefs = useIdDecorations(monaco, path, showTableNames);
 
@@ -110,13 +162,18 @@ export function ObjectEditor(props: ObjectEditorProps) {
         .map((e: any) => e.message);
       onError?.(validationErrors);
 
-      if (monaco) {
-        setErrorMarkers(monaco, errors, path, shouldSurfaceValidatorErrors);
+      if (monacoRef.current) {
+        setErrorMarkers(
+          monacoRef.current,
+          errors,
+          path,
+          shouldSurfaceValidatorErrors,
+        );
       }
 
       return validationErrors.length > 0;
     },
-    [monaco, onError, path, shouldSurfaceValidatorErrors],
+    [onError, path, shouldSurfaceValidatorErrors],
   );
 
   // Use state here so we don't recalculate the default value.
@@ -138,8 +195,9 @@ export function ObjectEditor(props: ObjectEditorProps) {
   const [numLines, setNumLines] = useState(
     numLinesFromCode(defaultValueString),
   );
-  const editorLineHeight = size === "sm" ? 13 : 18;
-  const editorHeight = Math.min(Math.max(numLines, 2), 15) * editorLineHeight;
+  const [isEmpty, setIsEmpty] = useState(defaultValueString === "");
+  const editorLineHeightRem = (size === "sm" ? 13 : 18) / 16;
+  const editorHeight = `${Math.min(Math.max(numLines, 2), 15) * editorLineHeightRem}rem`;
 
   const handleChange = useCallback(
     (code?: string) => {
@@ -147,6 +205,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
       onChangeInnerText?.(code ?? "");
 
       setNumLines(code ? numLinesFromCode(code) : 1);
+      setIsEmpty(!code);
       handleCodeChange(
         code,
         mode,
@@ -198,6 +257,18 @@ export function ObjectEditor(props: ObjectEditorProps) {
       {disabled && (
         <div className="absolute z-10 size-full cursor-not-allowed bg-background-tertiary/20" />
       )}
+      {placeholder && isEmpty && !disabled && (
+        <div
+          className="pointer-events-none absolute z-10 font-mono text-content-secondary italic"
+          style={{
+            marginTop: 5,
+            marginLeft: 11,
+            fontSize: size === "sm" ? 12 : undefined,
+          }}
+        >
+          {placeholder}
+        </div>
+      )}
       <Editor
         height="100%"
         width="100%"
@@ -242,7 +313,14 @@ export function ObjectEditor(props: ObjectEditorProps) {
             // The "unused block" diagnostic code.
             diagnosticCodesToIgnore: [7028],
           });
+          monacoRef.current = m;
           setMonaco(m);
+        }}
+        onMount={(editor, m) => {
+          // Run the initial validation now that the editor model exists (it's
+          // created between `beforeMount` and `onMount`), so error decorations
+          // render on first paint even when the default value is invalid.
+          monacoRef.current = m;
           handleCodeChange(
             defaultValueString,
             mode,
@@ -255,8 +333,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
             onChange,
             getDocumentRefs,
           );
-        }}
-        onMount={(editor, m) => {
+
           registerIdCommands({ monaco: m, deploymentsURI, captureMessage });
 
           editor.onKeyDown((e) => {
@@ -415,7 +492,7 @@ function handleCodeChange(
   }
 }
 
-function processCode(
+export function processCode(
   code: string | undefined,
   mode: "editField" | "addDocuments" | "editDocument" | "patchDocuments",
   validator: ValidatorJSON | undefined,

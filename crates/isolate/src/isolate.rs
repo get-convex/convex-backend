@@ -11,7 +11,6 @@ use std::{
 use anyhow::Context as _;
 use common::{
     knobs::{
-        FUNRUN_INITIAL_PERMIT_TIMEOUT,
         ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
     },
@@ -25,7 +24,6 @@ use derive_more::{
     Add,
     AddAssign,
 };
-use errors::ErrorMetadata;
 use fastrace::{
     local::LocalSpan,
     Event,
@@ -39,7 +37,6 @@ use itertools::Itertools as _;
 
 use crate::{
     array_buffer_allocator::ArrayBufferMemoryLimit,
-    concurrency_limiter::ConcurrencyLimiter,
     context_cache::ContextCache,
     environment::IsolateEnvironment,
     helpers::pump_message_loop,
@@ -47,6 +44,8 @@ use crate::{
         create_isolate_timer,
         destroy_isolate_timer,
         log_heap_statistics,
+        rejected_before_execution_error,
+        RejectedBeforeExecutionReason,
     },
     request_scope::RequestState,
     strings,
@@ -54,6 +53,7 @@ use crate::{
         IsolateHandle,
         IsolateTerminationReason,
     },
+    ConcurrencyPermit,
     Timeout,
 };
 
@@ -73,7 +73,6 @@ pub struct Isolate<RT: Runtime> {
     // The heap limit callback takes ownership of this `Box` allocation, which
     // we reclaim after removing the callback.
     heap_ctx_ptr: *mut HeapContext,
-    limiter: ConcurrencyLimiter,
     array_buffer_memory_limit: Arc<ArrayBufferMemoryLimit>,
     max_user_heap_size: usize,
 
@@ -157,12 +156,7 @@ impl IsolateHeapStats {
 }
 
 impl<RT: Runtime> Isolate<RT> {
-    pub fn new(
-        rt: RT,
-        max_user_timeout: Option<Duration>,
-        limiter: ConcurrencyLimiter,
-        max_user_heap_size: usize,
-    ) -> Self {
+    pub fn new(rt: RT, max_user_timeout: Option<Duration>, max_user_heap_size: usize) -> Self {
         let _timer = create_isolate_timer();
         let (array_buffer_memory_limit, array_buffer_allocator) =
             crate::array_buffer_allocator::limited_array_buffer_allocator(
@@ -227,7 +221,6 @@ impl<RT: Runtime> Isolate<RT> {
             handle,
             heap_ctx_ptr,
             max_user_timeout,
-            limiter,
             array_buffer_memory_limit,
             max_user_heap_size,
         }
@@ -313,32 +306,16 @@ impl<RT: Runtime> Isolate<RT> {
     pub async fn start_request<E: IsolateEnvironment<RT>>(
         &mut self,
         context_cache: &mut ContextCache,
-        client_id: Arc<String>,
+        permit: ConcurrencyPermit,
         environment: E,
     ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>, Timeout<RT>)> {
         // Double check that the isolate is clean.
         // It's unexpected to encounter this error, since we are supposed to
         // have already checked after the last request finished, but in practice
         // it does happen - so make this error retryable.
-        self.check_isolate_clean(context_cache).context(
-            ErrorMetadata::rejected_before_execution(
-                "IsolateNotClean",
-                "Selected isolate was not clean",
-            ),
-        )?;
-        // Acquire a concurrency permit without counting it against the timeout.
-        let permit = tokio::select! {
-            biased;
-            permit = self.limiter.acquire(client_id) => permit,
-            // Do not apply a timeout for subfunctions that can't be retried
-            () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
-                    if !environment.is_nested_function() => {
-                anyhow::bail!(ErrorMetadata::rejected_before_execution(
-                    "InitialPermitTimeoutError",
-                    "Couldn't acquire a permit on this funrun",
-                ));
-            }
-        };
+        self.check_isolate_clean(context_cache).with_context(|| {
+            rejected_before_execution_error(RejectedBeforeExecutionReason::IsolateNotClean)
+        })?;
         let context_id = self.handle.push_context(false /* nested */);
         let mut user_timeout = environment.user_timeout();
         if let Some(max_user_timeout) = self.max_user_timeout {

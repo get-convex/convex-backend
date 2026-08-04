@@ -4,7 +4,10 @@
 //! code has finished running, but code inside the transaction can refer to it
 //! with the PendingValue::CommitTs variant.
 
-use std::collections::BTreeMap;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+};
 
 use serde_json::{
     json,
@@ -15,10 +18,13 @@ use crate::{
     array::check_array_len,
     object::check_field_count,
     size::{
+        array_size,
         check_nesting,
         check_system_size,
+        object_size,
         Size,
     },
+    ConvexObject,
     ConvexValue,
     FieldName,
 };
@@ -26,6 +32,11 @@ use crate::{
 /// Wire token for a commit timestamp that is not yet known:
 /// `{"$commitTs": null}`.
 pub const COMMIT_TS_FIELD: &str = "$commitTs";
+
+/// The largest possible commit timestamp. Unresolved commit timestamps take
+/// this value in a value's pre-commit view — for validation and in-memory
+/// index ordering — so they sort after any real commit timestamp.
+pub const MAX_COMMIT_TS: i64 = i64::MAX;
 
 /// A value that may contain commit timestamps that are not yet known.
 ///
@@ -64,12 +75,43 @@ impl From<ConvexValue> for PendingValue {
     }
 }
 
+macro_rules! impl_try_from_via_convex_value {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl TryFrom<$ty> for PendingValue {
+                type Error = anyhow::Error;
+
+                fn try_from(value: $ty) -> anyhow::Result<Self> {
+                    Ok(Self::Concrete(ConvexValue::try_from(value)?))
+                }
+            }
+        )*
+    };
+}
+
+impl_try_from_via_convex_value!(String, &str, i64, f64, bool, Vec<u8>);
+
+impl From<ConvexObject> for PendingValue {
+    fn from(value: ConvexObject) -> Self {
+        Self::Concrete(ConvexValue::Object(value))
+    }
+}
+
 impl PendingValue {
     /// Does this value contain an unresolved commit timestamp?
     pub fn is_pending(&self) -> bool {
         match self {
             Self::Concrete(_) => false,
             Self::CommitTs | Self::Object { .. } | Self::Array { .. } => true,
+        }
+    }
+
+    pub fn is_object(&self) -> bool {
+        match self {
+            PendingValue::Concrete(ConvexValue::Object(_)) | PendingValue::Object { .. } => true,
+            PendingValue::Array { .. } | PendingValue::CommitTs | PendingValue::Concrete(_) => {
+                false
+            },
         }
     }
 
@@ -128,12 +170,7 @@ impl PendingValue {
     pub fn object(fields: BTreeMap<FieldName, PendingValue>) -> anyhow::Result<Self> {
         if fields.values().any(Self::is_pending) {
             check_field_count(fields.len())?;
-            let size = 1
-                + fields
-                    .iter()
-                    .map(|(name, value)| name.len() + 1 + value.size())
-                    .sum::<usize>()
-                + 1;
+            let size = object_size(fields.iter());
             let nesting = 1 + fields.values().map(Self::nesting).max().unwrap_or(0);
             check_system_size(size)?;
             check_nesting(nesting)?;
@@ -160,7 +197,7 @@ impl PendingValue {
     pub fn array(values: Vec<PendingValue>) -> anyhow::Result<Self> {
         if values.iter().any(Self::is_pending) {
             check_array_len(values.len())?;
-            let size = 1 + values.iter().map(Self::size).sum::<usize>() + 1;
+            let size = array_size(&values);
             let nesting = 1 + values.iter().map(Self::nesting).max().unwrap_or(0);
             check_system_size(size)?;
             check_nesting(nesting)?;
@@ -201,26 +238,75 @@ impl PendingValue {
     }
 
     /// Replace each unresolved commit timestamp with `Int64(commit_ts)`.
-    pub fn resolve(&self, commit_ts: i64) -> anyhow::Result<ConvexValue> {
+    /// Concrete values are borrowed without cloning.
+    pub fn resolve(&self, commit_ts: i64) -> anyhow::Result<Cow<'_, ConvexValue>> {
+        match self {
+            Self::Concrete(value) => Ok(Cow::Borrowed(value)),
+            pending => Ok(Cow::Owned(pending.resolve_owned(commit_ts)?)),
+        }
+    }
+
+    /// Owned variant of [`Self::resolve`]: concrete values are returned
+    /// without cloning.
+    pub fn into_resolved(self, commit_ts: i64) -> anyhow::Result<ConvexValue> {
+        let value = match self {
+            Self::Concrete(value) => value,
+            Self::CommitTs => ConvexValue::Int64(commit_ts),
+            Self::Object { fields, .. } => {
+                let fields: BTreeMap<FieldName, ConvexValue> = fields
+                    .into_iter()
+                    .map(|(name, value)| anyhow::Ok((name, value.into_resolved(commit_ts)?)))
+                    .collect::<anyhow::Result<_>>()?;
+                ConvexValue::Object(fields.try_into()?)
+            },
+            Self::Array { values, .. } => {
+                let values = values
+                    .into_iter()
+                    .map(|value| value.into_resolved(commit_ts))
+                    .collect::<anyhow::Result<Vec<_>>>()?;
+                ConvexValue::Array(values.try_into()?)
+            },
+        };
+        Ok(value)
+    }
+
+    fn resolve_owned(&self, commit_ts: i64) -> anyhow::Result<ConvexValue> {
         let value = match self {
             Self::Concrete(value) => value.clone(),
             Self::CommitTs => ConvexValue::Int64(commit_ts),
             Self::Object { fields, .. } => {
                 let fields: BTreeMap<FieldName, ConvexValue> = fields
                     .iter()
-                    .map(|(name, value)| anyhow::Ok((name.clone(), value.resolve(commit_ts)?)))
+                    .map(|(name, value)| {
+                        anyhow::Ok((name.clone(), value.resolve_owned(commit_ts)?))
+                    })
                     .collect::<anyhow::Result<_>>()?;
                 ConvexValue::Object(fields.try_into()?)
             },
             Self::Array { values, .. } => {
                 let values = values
                     .iter()
-                    .map(|value| value.resolve(commit_ts))
+                    .map(|value| value.resolve_owned(commit_ts))
                     .collect::<anyhow::Result<Vec<_>>>()?;
                 ConvexValue::Array(values.try_into()?)
             },
         };
         Ok(value)
+    }
+
+    /// Decompose an object into its fields, e.g. to merge a patch into it.
+    /// Fails if the value is not an object.
+    pub fn into_object_fields(self) -> anyhow::Result<BTreeMap<FieldName, PendingValue>> {
+        match self {
+            Self::Concrete(ConvexValue::Object(object)) => Ok(BTreeMap::from(object)
+                .into_iter()
+                .map(|(name, value)| (name, Self::Concrete(value)))
+                .collect()),
+            Self::Object { fields, .. } => Ok(fields),
+            Self::Concrete(_) | Self::CommitTs | Self::Array { .. } => {
+                anyhow::bail!("Value must be an Object")
+            },
+        }
     }
 
     /// Extract the value if it contains no unresolved commit timestamps.

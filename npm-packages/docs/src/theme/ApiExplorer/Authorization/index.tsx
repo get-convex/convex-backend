@@ -10,7 +10,6 @@ import FormItem from "@theme/ApiExplorer/FormItem";
 import FormSelect from "@theme/ApiExplorer/FormSelect";
 import FormTextInput from "@theme/ApiExplorer/FormTextInput";
 import { useTypedDispatch, useTypedSelector } from "@theme/ApiItem/hooks";
-import { OPENAPI_AUTH } from "@theme/translationIds";
 
 import {
   setAuthData,
@@ -37,7 +36,7 @@ function Authorization() {
       <FormItem>
         <FormSelect
           label={translate({
-            id: OPENAPI_AUTH.SECURITY_SCHEME,
+            id: "theme.openapi.auth.securityScheme",
             message: "Security Scheme",
           })}
           options={optionKeys}
@@ -53,11 +52,11 @@ function Authorization() {
             <FormItem key={a.key + "-bearer"}>
               <FormTextInput
                 label={translate({
-                  id: OPENAPI_AUTH.BEARER_TOKEN,
+                  id: "theme.openapi.auth.bearerToken",
                   message: "Bearer Token",
                 })}
                 placeholder={translate({
-                  id: OPENAPI_AUTH.BEARER_TOKEN,
+                  id: "theme.openapi.auth.bearerToken",
                   message: "Bearer Token",
                 })}
                 password
@@ -82,11 +81,11 @@ function Authorization() {
             <FormItem key={a.key + "-oauth2"}>
               <FormTextInput
                 label={translate({
-                  id: OPENAPI_AUTH.BEARER_TOKEN,
+                  id: "theme.openapi.auth.bearerToken",
                   message: "Bearer Token",
                 })}
                 placeholder={translate({
-                  id: OPENAPI_AUTH.BEARER_TOKEN,
+                  id: "theme.openapi.auth.bearerToken",
                   message: "Bearer Token",
                 })}
                 password
@@ -112,11 +111,11 @@ function Authorization() {
               <FormItem>
                 <FormTextInput
                   label={translate({
-                    id: OPENAPI_AUTH.USERNAME,
+                    id: "theme.openapi.auth.username",
                     message: "Username",
                   })}
                   placeholder={translate({
-                    id: OPENAPI_AUTH.USERNAME,
+                    id: "theme.openapi.auth.username",
                     message: "Username",
                   })}
                   value={data[a.key].username ?? ""}
@@ -135,11 +134,11 @@ function Authorization() {
               <FormItem>
                 <FormTextInput
                   label={translate({
-                    id: OPENAPI_AUTH.PASSWORD,
+                    id: "theme.openapi.auth.password",
                     message: "Password",
                   })}
                   placeholder={translate({
-                    id: OPENAPI_AUTH.PASSWORD,
+                    id: "theme.openapi.auth.password",
                     message: "Password",
                   })}
                   password

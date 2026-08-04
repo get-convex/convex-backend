@@ -31,7 +31,10 @@ class TextDecoder {
   #encoding: string;
   #fatal: boolean;
   #ignoreBOM: boolean;
-  #rid: string | null;
+  // Opaque handle to the Rust-side decoder state, created lazily on the first
+  // streaming decode. The Rust state is garbage collected together with this
+  // object.
+  #decoder: object | null;
   constructor(label = "utf-8", options: TextDecoderOptions = {}) {
     const { label: encoding, error } = performOp(
       "textEncoder/normalizeLabel",
@@ -44,7 +47,7 @@ class TextDecoder {
     this.#encoding = encoding;
     this.#fatal = options.fatal || false;
     this.#ignoreBOM = options.ignoreBOM || false;
-    this.#rid = null;
+    this.#decoder = null;
   }
   get encoding() {
     return this.#encoding;
@@ -69,7 +72,7 @@ class TextDecoder {
     }
 
     try {
-      if (!stream && this.#rid === null) {
+      if (!stream && this.#decoder === null) {
         const { text } = performOp("textEncoder/decodeSingle", {
           bytes: copyBuffer(buffer),
           encoding: this.encoding,
@@ -79,28 +82,25 @@ class TextDecoder {
         return text;
       }
 
-      if (this.#rid === null) {
-        const { result } = performOp(
+      if (this.#decoder === null) {
+        this.#decoder = performOp(
           "textEncoder/newDecoder",
           this.#encoding,
           this.#fatal,
           this.#ignoreBOM,
         );
-
-        this.#rid = result;
       }
 
       const { text } = performOp(
         "textEncoder/decode",
         copyBuffer(buffer),
-        this.#rid,
+        this.#decoder,
         stream,
       );
       return text;
     } finally {
-      if (!stream && this.#rid !== null) {
-        performOp("textEncoder/cleanup", this.#rid);
-        this.#rid = null;
+      if (!stream) {
+        this.#decoder = null;
       }
     }
   }

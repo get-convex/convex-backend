@@ -39,7 +39,6 @@ use common::{
     },
     fastrace_helpers::EncodedSpan,
     knobs::{
-        ALLOW_FUNCTION_CONTEXT_REUSE,
         APPLICATION_FUNCTION_RUNNER_ACTION_SEMAPHORE_TIMEOUT,
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_MUTATIONS,
@@ -47,7 +46,6 @@ use common::{
         APPLICATION_MAX_CONCURRENT_QUERIES,
         APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
         DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
-        ISOLATE_MAX_HEAP_FOR_ANALYZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
@@ -172,6 +170,7 @@ use udf::{
     environment::system_env_vars,
     validation::{
         validate_schedule_args,
+        PendingArgsPolicy,
         ValidatedActionOutcome,
         ValidatedPathAndArgs,
         ValidatedUdfOutcome,
@@ -787,7 +786,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             _ => anyhow::bail!("Received non-query outcome for query"),
         };
 
-        let vars = AuditLogVars::from_context(context.clone(), &self.runtime)?;
+        let vars = AuditLogVars::from_context(
+            context.clone(),
+            tx.identity().convex_actor_var(),
+            &self.runtime,
+        )?;
         self.audit_log_client
             .send_logs(
                 outcome.audit_log_lines.resolve_bodies(&vars)?,
@@ -797,7 +800,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let stats = tx.take_stats();
 
-        let result = outcome.result.clone();
+        // A top-level query's result never contains unresolved commit
+        // timestamps.
+        let result = match outcome.result.clone() {
+            Ok(value) => Ok(value.try_into()?),
+            Err(e) => Err(e),
+        };
         let log_lines = outcome.log_lines.clone();
         self.function_log
             .log_query(
@@ -981,7 +989,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .await
             {
                 Ok(ts) => Ok(MutationReturn {
-                    value,
+                    // The commit timestamp is known now, so unresolved commit
+                    // timestamps in the return value resolve to it, matching
+                    // the committer's resolution of the transaction's writes.
+                    value: value.resolve_commit_ts(i64::from(ts))?,
                     log_lines,
                     ts,
                 }),
@@ -1142,6 +1153,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             path.clone(),
             arguments.clone(),
             UdfType::Mutation,
+            PendingArgsPolicy::Reject,
         )
         .await?;
 
@@ -1176,7 +1188,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
 
-        let vars = AuditLogVars::from_context(context, &self.runtime)?;
+        let vars =
+            AuditLogVars::from_context(context, tx.identity().convex_actor_var(), &self.runtime)?;
         self.audit_log_client
             .send_logs(
                 mutation_outcome.audit_log_lines.resolve_bodies(&vars)?,
@@ -1328,6 +1341,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             path.clone(),
             arguments.clone(),
             UdfType::Action,
+            PendingArgsPolicy::Reject,
         )
         .await?;
 
@@ -1687,7 +1701,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             udf_config,
             isolate_modules,
             environment_variables.clone(),
-            *ISOLATE_MAX_HEAP_FOR_ANALYZE,
         );
 
         let node_future = async {
@@ -1771,17 +1784,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
 
         self.validate_cron_jobs(&result)??;
-
-        if !*ALLOW_FUNCTION_CONTEXT_REUSE {
-            for (path, m) in &mut result {
-                if m.reuse_context {
-                    tracing::warn!(
-                        "Module {path:?} uses experimental_reuseContext, which is not allowed"
-                    );
-                    m.reuse_context = false;
-                }
-            }
-        }
 
         Ok(Ok(result))
     }
@@ -1982,8 +1984,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     identifier
                 );
                 log_mutation_already_committed(age);
+                // Sessions are recorded transactionally in mutations so can use the same commit
+                // ts.
                 Ok(MutationReturn {
-                    value: result,
+                    value: result.resolve_commit_ts(i64::from(ts))?,
                     log_lines,
                     ts,
                 })

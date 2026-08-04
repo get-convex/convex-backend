@@ -13,6 +13,9 @@ export type BusinessGroupBy = GroupBy | "byDeploymentClass";
 // Extended type for business database storage sections (includes byDeploymentClass and byTable)
 export type BusinessDatabaseGroupBy = BusinessGroupBy | "byTable";
 
+// Extended type for the deployments section (includes byStatus: active vs paused)
+export type DeploymentGroupBy = BusinessGroupBy | "byStatus";
+
 // Options for base GroupBy (byType, byProject)
 export const GROUP_BY_OPTIONS: SegmentedControlOption<GroupBy>[] = [
   { label: "Type", value: "byType" },
@@ -33,6 +36,15 @@ export const BUSINESS_GROUP_BY_OPTIONS: SegmentedControlOption<BusinessGroupBy>[
     { label: "Type", value: "byType" },
     { label: "Project", value: "byProject" },
     { label: "Deployment class", value: "byDeploymentClass" },
+  ];
+
+// Options for the deployments section (byType, byProject, byDeploymentClass, byStatus)
+export const DEPLOYMENT_GROUP_BY_OPTIONS: SegmentedControlOption<DeploymentGroupBy>[] =
+  [
+    { label: "Type", value: "byType" },
+    { label: "Project", value: "byProject" },
+    { label: "Deployment class", value: "byDeploymentClass" },
+    { label: "Status", value: "byStatus" },
   ];
 
 // Options for BusinessDatabaseGroupBy (byType, byProject, byDeploymentClass, byTable)

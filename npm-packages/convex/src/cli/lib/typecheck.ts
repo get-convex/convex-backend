@@ -14,6 +14,7 @@ import * as semver from "semver";
 import { formatDuration, spawnAsync } from "./utils/utils.js";
 import { readProjectConfig } from "./config.js";
 import { WatchContext } from "./watch.js";
+import { Filesystem } from "../../bundler/fs.js";
 
 export type TypecheckResult = "cantTypeCheck" | "success" | "typecheckFailed";
 
@@ -139,33 +140,7 @@ async function runTsc(
   tscArgs: string[],
   handleResult: TypecheckResultHandler,
 ): Promise<void> {
-  // Check if the TypeScript compiler is even installed
-  let compilerPath: string | undefined;
-  switch (typescriptCompiler) {
-    case "tsgo": {
-      // @typescript/native-preview@7.0.0-dev.20260626.1 switched to using `bin/tsgo` instead of `bin/tsgo.js`.
-      const tsgoPaths = ["tsgo", "tsgo.js"].map((filename) =>
-        path.join(
-          "node_modules",
-          "@typescript",
-          "native-preview",
-          "bin",
-          filename,
-        ),
-      );
-      compilerPath = tsgoPaths.find((path) => ctx.fs.exists(path));
-      break;
-    }
-    case "tsc": {
-      const tscPath = path.join("node_modules", "typescript", "bin", "tsc");
-      if (ctx.fs.exists(tscPath)) {
-        compilerPath = tscPath;
-      }
-      break;
-    }
-    default:
-      typescriptCompiler satisfies never;
-  }
+  const compilerPath = findTypeScriptCompilerPath(ctx.fs, typescriptCompiler);
   if (!compilerPath) {
     return handleResult("cantTypeCheck", () => {
       logError(
@@ -194,6 +169,37 @@ async function runTsc(
         "Convex works best with TypeScript version 4.8.4 or newer -- npm i --save-dev typescript@latest to update.",
       ),
     );
+  }
+}
+
+export function findTypeScriptCompilerPath(
+  fs: Pick<Filesystem, "exists">,
+  typescriptCompiler: TypescriptCompiler,
+): string | undefined {
+  switch (typescriptCompiler) {
+    case "tsgo": {
+      // @typescript/native-preview@7.0.0-dev.20260626.1 switched to using `bin/tsgo` instead of `bin/tsgo.js`.
+      const tsgoPaths = ["tsgo", "tsgo.js"].map((filename) =>
+        path.join(
+          "node_modules",
+          "@typescript",
+          "native-preview",
+          "bin",
+          filename,
+        ),
+      );
+      return tsgoPaths.find((path) => fs.exists(path));
+    }
+    case "tsc": {
+      const tscPaths = [
+        // TypeScript 7's recommended alias when the TypeScript 6 API is also installed.
+        path.join("node_modules", "@typescript", "native", "bin", "tsc"),
+        path.join("node_modules", "typescript", "bin", "tsc"),
+      ];
+      return tscPaths.find((path) => fs.exists(path));
+    }
+    default:
+      typescriptCompiler satisfies never;
   }
 }
 

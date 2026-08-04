@@ -2,7 +2,7 @@
 //! streaming export [`Selection`] type.
 
 use common::types::streaming_export::selection::{
-    ColumnInclusion,
+    ColumnSelection,
     ComponentSelection,
     ExcludedTag,
     InclusionDefault,
@@ -100,9 +100,9 @@ fn table_selection_from_fivetran(value: FivetranTableSelection) -> TableSelectio
                     (
                         name,
                         if included {
-                            ColumnInclusion::Included
+                            ColumnSelection::Included
                         } else {
-                            ColumnInclusion::Excluded
+                            ColumnSelection::Excluded
                         },
                     )
                 })

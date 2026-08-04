@@ -137,6 +137,7 @@
   --animate-dashLength: dashLength 1.5s ease-in-out infinite;
   --animate-slideUp: slideUp 0.3s ease-out;
   --animate-fadeInBackdrop: fadeIn 0.3s ease-out;
+  --animate-indeterminateBar: indeterminateBar 1.3s ease-in-out infinite;
 
   /* Keyframes */
   @keyframes rotate {
@@ -296,6 +297,15 @@
     }
     100% {
       transform: translateX(-1rem);
+    }
+  }
+
+  @keyframes indeterminateBar {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
     }
   }
 }

@@ -29,6 +29,9 @@ export const Primary: Story = {
         searchStorage: 0,
         dataEgress: 8,
         searchQueries: 0,
+        deploymentCount: 10,
+        pausedDeploymentCount: 2,
+        idleDeploymentCount: 3,
       },
       {
         deploymentClass: "s16",
@@ -44,9 +47,11 @@ export const Primary: Story = {
         searchStorage: 0,
         dataEgress: 2,
         searchQueries: 0,
+        deploymentCount: 2,
+        pausedDeploymentCount: 0,
+        idleDeploymentCount: 1,
       },
     ],
-    deploymentCount: 12,
     entitlements: {
       teamMaxDatabaseBandwidth: 1024 * 1024 * 1024,
       teamMaxDatabaseStorage: 512 * 1024 * 1024, // 512 MB in bytes

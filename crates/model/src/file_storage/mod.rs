@@ -382,7 +382,7 @@ pub async fn get_total_file_storage_size<RT: Runtime>(
             }
         }
         cursor = Some(page.cursor);
-        if let DataSyncStatus::Synced { .. } = page.status {
+        if let DataSyncStatus::Stale { .. } | DataSyncStatus::UpToDate { .. } = page.status {
             break;
         }
     }

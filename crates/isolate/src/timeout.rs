@@ -23,7 +23,9 @@ use futures::{
         self,
         Either,
     },
+    pin_mut,
     Future,
+    FutureExt,
 };
 use parking_lot::Mutex;
 use tokio::select;
@@ -46,15 +48,8 @@ pub const SYSTEM_TIMEOUT_ERROR_MESSAGE: &str =
 pub enum PauseReason {
     DatabaseSyscall { name: String },
     ConcurrencyPermitReacquire,
-    LoadComponentArgs,
-    LoadUdfConfig,
-    LoadEnvironmentVariables,
-    LoadSystemEnvironmentVariables,
-    LoadModuleMetadata,
-    LoadModuleSource,
-    LoadSourcePackage,
-    LoadCanonicalUrls,
-    LoadResources,
+    UdfInitialize,
+    LoadModule,
 }
 
 impl PauseReason {
@@ -62,15 +57,8 @@ impl PauseReason {
         match self {
             Self::DatabaseSyscall { name } => format!("database_syscall({name})"),
             Self::ConcurrencyPermitReacquire => "concurrency_permit_reacquire".to_string(),
-            Self::LoadComponentArgs => "load_component_args".to_string(),
-            Self::LoadUdfConfig => "load_udf_config".to_string(),
-            Self::LoadEnvironmentVariables => "load_environment_variables".to_string(),
-            Self::LoadSystemEnvironmentVariables => "load_system_environment_variables".to_string(),
-            Self::LoadModuleMetadata => "load_module_metadata".to_string(),
-            Self::LoadModuleSource => "load_module_source".to_string(),
-            Self::LoadSourcePackage => "load_source_package".to_string(),
-            Self::LoadCanonicalUrls => "load_canonical_urls".to_string(),
-            Self::LoadResources => "load_resources".to_string(),
+            Self::UdfInitialize => "udf_initialize".to_string(),
+            Self::LoadModule => "load_module".to_string(),
         }
     }
 }
@@ -275,6 +263,10 @@ impl<RT: Runtime> Timeout<RT> {
         self.handle.shutdown();
     }
 
+    pub fn finish_with_permit(mut self) -> anyhow::Result<ConcurrencyPermit> {
+        self.permit.take().context("lost the permit")
+    }
+
     // Similar to releasing the GIL in Python, it's advisable to drop the
     // ConcurrencyPermit when entering async code on the V8 thread. This helper also
     // integrates with our user time tracking to not count async code against the
@@ -334,6 +326,12 @@ impl<RT: Runtime> Timeout<RT> {
         reason: PauseReason,
         f: impl Future<Output = anyhow::Result<T>>,
     ) -> anyhow::Result<T> {
+        pin_mut!(f);
+        // If the future completes without blocking, don't pause.
+        // This is useful if `f` is just reading from caches.
+        if let Some(r) = f.as_mut().now_or_never() {
+            return r;
+        }
         self.with_release_permit_regainable(reason, async move |_| f.await)
             .await
     }

@@ -623,15 +623,17 @@ impl StorageExt for Arc<dyn Storage> {
     ) -> anyhow::Result<Option<StorageGetStream>> {
         let start_byte = match bytes_range.0 {
             std::ops::Bound::Included(bound) => bound,
-            std::ops::Bound::Excluded(bound) => bound + 1,
+            std::ops::Bound::Excluded(bound) => bound.saturating_add(1),
             std::ops::Bound::Unbounded => 0,
         };
         let end_byte_bound = match bytes_range.1 {
-            std::ops::Bound::Included(bound) => bound + 1,
+            std::ops::Bound::Included(bound) => bound.saturating_add(1),
             std::ops::Bound::Excluded(bound) => bound,
             std::ops::Bound::Unbounded => u64::MAX, // this will be corrected later
         };
-        let prefetch_end = (start_byte + DOWNLOAD_CHUNK_SIZE).min(end_byte_bound);
+        let prefetch_end = start_byte
+            .saturating_add(DOWNLOAD_CHUNK_SIZE)
+            .min(end_byte_bound);
         let (first_chunk, total_size) = if start_byte < prefetch_end
             && let Some(f) = self.get_small_range_and_total_size(key, start_byte..prefetch_end)
         {

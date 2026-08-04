@@ -282,21 +282,21 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
             page_range,
             &self.tx.limits,
         )?;
-        for (_, doc, _) in &page {
-            // NOTE: since this is a system read, we don't bother tracking usage;
-            // we only update `system_tx_size` for stats
+        if !page.is_empty() {
             let component_path = self
                 .tx
-                .component_path_for_document_id(doc.id())?
+                .component_path_for_tablet_id(self.tablet_id)?
                 .unwrap_or_default();
-            self.tx.reads.record_read_document(
-                component_path,
-                T::TABLE_NAME.clone(),
-                doc.size(),
-                &self.tx.usage_tracker,
-                &self.tx.virtual_system_mapping,
-                &self.tx.limits,
-            )?;
+            for (_, doc, _) in &page {
+                self.tx.reads.record_read_document(
+                    component_path.clone(),
+                    T::TABLE_NAME.clone(),
+                    doc.size(),
+                    &self.tx.usage_tracker,
+                    &self.tx.virtual_system_mapping,
+                    &self.tx.limits,
+                )?;
+            }
         }
 
         Ok((

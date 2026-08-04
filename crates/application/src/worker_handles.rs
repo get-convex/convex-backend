@@ -7,11 +7,11 @@ use common::runtime::{
 use parking_lot::Mutex;
 use search_index_workers::SearchIndexWorkers;
 use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
+use usage_limits::UsageLimitNotifier;
 
 use crate::{
     scheduled_jobs::ScheduledJobRunner,
     table_summary_worker::TableSummaryClient,
-    usage_limits::UsageLimitNotifier,
 };
 
 #[derive(Clone)]

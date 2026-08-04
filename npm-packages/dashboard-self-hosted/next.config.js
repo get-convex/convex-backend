@@ -73,6 +73,10 @@ const nextConfig = {
     webpackBuildWorker: true,
   },
   webpack(config, { isServer, dev }) {
+    if (!dev && !isServer) {
+      config.cache = false;
+    }
+
     // Use the client static directory in the server bundle and prod mode
     // Fixes `Error occurred prerendering page "/"`
     config.output.webassemblyModuleFilename =

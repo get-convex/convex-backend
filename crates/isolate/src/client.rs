@@ -22,13 +22,14 @@ use ::metrics::{
     IntoLabel,
     Timer,
 };
+use anyhow::Context as _;
 use async_trait::async_trait;
 use common::{
     auth::AuthConfig,
     backoff::Backoff,
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     codel_queue::{
-        new_codel_queue_async,
+        CoDelQueue,
         CoDelQueueReceiver,
         CoDelQueueSender,
         ExpiredInQueue,
@@ -59,6 +60,8 @@ use common::{
         ISOLATE_IDLE_TIMEOUT,
         ISOLATE_MAX_LIFETIME,
         ISOLATE_MAX_USER_HEAP_SIZE,
+        ISOLATE_QUEUE_CONGESTED_TIMEOUT,
+        ISOLATE_QUEUE_IDLE_TIMEOUT,
         ISOLATE_QUEUE_SIZE,
         REUSE_ISOLATES,
         V8_THREADS,
@@ -108,9 +111,9 @@ use futures::{
     stream::{
         self,
         FuturesUnordered,
+        PollNext,
         StreamExt,
     },
-    FutureExt as _,
     TryStreamExt as _,
 };
 use itertools::Either;
@@ -139,7 +142,10 @@ use tokio::sync::{
     mpsc,
     oneshot,
 };
-use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::wrappers::{
+    ReceiverStream,
+    UnboundedReceiverStream,
+};
 use udf::{
     validation::{
         ValidatedHttpPath,
@@ -173,11 +179,14 @@ use crate::{
         log_pool_running_count,
         log_worker_stolen,
         queue_timer,
+        rejected_before_execution_error,
+        RejectedBeforeExecutionReason,
     },
     module_cache::{
         ModuleCache,
         V8ModuleSource,
     },
+    ConcurrencyPermit,
 };
 
 // We gather prometheus stats every 30 seconds, so we should make sure we log
@@ -197,7 +206,7 @@ pub struct IsolateConfig {
     // allows us to set an upper bound to it that we use for tests.
     max_user_timeout: Option<Duration>,
 
-    limiter: ConcurrencyLimiter,
+    pub(crate) limiter: ConcurrencyLimiter,
 }
 
 impl IsolateConfig {
@@ -321,7 +330,6 @@ pub enum RequestType<RT: Runtime> {
         to_analyze: CanonicalizedModulePath,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<Result<AnalyzedModule, JsError>>>,
-        max_user_heap_size: usize,
     },
     EvaluateSchema {
         schema_bundle: ModuleSource,
@@ -409,11 +417,18 @@ where
 
 impl<RT: Runtime> Request<RT> {
     fn expire(self, error: ExpiredInQueue) {
-        let error = anyhow::anyhow!(error).context(ErrorMetadata::rejected_before_execution(
-            "ExpiredInQueue",
-            "Too many concurrent requests in a short period of time. Spread out your requests out \
-             over time or throttle them to avoid errors.",
+        let error = anyhow::anyhow!(error).context(rejected_before_execution_error(
+            RejectedBeforeExecutionReason::ExpiredInQueue,
         ));
+        self.send_error(error);
+    }
+
+    fn reject(self, reason: RejectedBeforeExecutionReason) {
+        let error = rejected_before_execution_error(reason).into();
+        self.send_error(error);
+    }
+
+    fn send_error(self, error: anyhow::Error) {
         match self.inner {
             RequestType::Udf { response, .. } => {
                 let _ = response.send(Err(error));
@@ -442,35 +457,16 @@ impl<RT: Runtime> Request<RT> {
         }
     }
 
-    fn reject(self) {
-        let error =
-            ErrorMetadata::rejected_before_execution("WorkerOverloaded", NO_AVAILABLE_WORKERS)
-                .into();
-        match self.inner {
-            RequestType::Udf { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::Action { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::HttpAction { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::Analyze { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateSchema { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateAuthConfig { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateAppDefinitions { response, .. } => {
-                let _ = response.send(Err(error));
-            },
-            RequestType::EvaluateComponentInitializer { response, .. } => {
-                let _ = response.send(Err(error));
-            },
+    fn is_response_closed(&self) -> bool {
+        match &self.inner {
+            RequestType::Udf { response, .. } => response.is_closed(),
+            RequestType::Action { response, .. } => response.is_closed(),
+            RequestType::HttpAction { response, .. } => response.is_closed(),
+            RequestType::Analyze { response, .. } => response.is_closed(),
+            RequestType::EvaluateSchema { response, .. } => response.is_closed(),
+            RequestType::EvaluateAuthConfig { response, .. } => response.is_closed(),
+            RequestType::EvaluateAppDefinitions { response, .. } => response.is_closed(),
+            RequestType::EvaluateComponentInitializer { response, .. } => response.is_closed(),
         }
     }
 }
@@ -482,6 +478,7 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
             handles: self.handles.clone(),
             scheduler: self.scheduler.clone(),
             sender: self.sender.clone(),
+            internal_sender: self.internal_sender.clone(),
             concurrency_logger: self.concurrency_logger.clone(),
             concurrency_limiter: self.concurrency_limiter.clone(),
             active_workers: self.active_workers.clone(),
@@ -568,6 +565,7 @@ pub struct IsolateClient<RT: Runtime> {
     handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
     scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     sender: CoDelQueueSender<RT, Request<RT>>,
+    internal_sender: mpsc::UnboundedSender<Request<RT>>,
     concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     concurrency_limiter: ConcurrencyLimiter,
     /// Shared with the scheduler. Tracks the total number of in-progress
@@ -599,8 +597,14 @@ impl<RT: Runtime> IsolateClient<RT> {
         // NB: We don't call V8::Dispose or V8::ShutdownPlatform since we just assume a
         // single V8 instance per process and don't need to clean up its
         // resources.
-        let (sender, receiver) =
-            new_codel_queue_async::<_, Request<_>>(rt.clone(), *ISOLATE_QUEUE_SIZE);
+        let (sender, receiver) = CoDelQueue::new(
+            rt.clone(),
+            *ISOLATE_QUEUE_SIZE,
+            *ISOLATE_QUEUE_IDLE_TIMEOUT,
+            *ISOLATE_QUEUE_CONGESTED_TIMEOUT,
+        )
+        .into_sender_and_receiver();
+        let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
         let handles = Arc::new(Mutex::new(Vec::new()));
         let handles_clone = handles.clone();
         let active_workers = Arc::new(AtomicUsize::new(0));
@@ -619,11 +623,12 @@ impl<RT: Runtime> IsolateClient<RT> {
                 max_percent_per_client,
                 _active_workers,
             );
-            scheduler.run(receiver).await
+            scheduler.run(receiver, internal_receiver).await
         });
         Ok(Self {
             rt,
             sender,
+            internal_sender,
             scheduler: Arc::new(Mutex::new(Some(scheduler))),
             concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
             handles,
@@ -803,7 +808,6 @@ impl<RT: Runtime> IsolateClient<RT> {
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         instance_name: String,
-        max_user_heap_size: usize,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         anyhow::ensure!(
             modules
@@ -843,7 +847,6 @@ impl<RT: Runtime> IsolateClient<RT> {
                         response: tx,
                         udf_config: udf_config.clone(),
                         environment_variables: environment_variables.clone(),
-                        max_user_heap_size,
                     };
                     self.send_request(Request::new(
                         instance_name.clone(),
@@ -1133,22 +1136,22 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
         let subquery_path = udf_request.path_and_args.path().clone();
-        let (tx, outcome) = self
-            .execute_udf(
-                udf_request.udf_type,
-                udf_request.path_and_args,
-                udf_request.transaction,
-                udf_request.journal,
-                udf_request.context,
-                environment_data,
-                rng_seed,
-                udf_request.unix_timestamp,
-                reactor_depth,
-                client_id,
-                None,  /* function_started_sender */
-                false, /* subfunctions_in_same_isolate */
-            )
-            .await?;
+        let (tx, rx) = oneshot::channel();
+        let request = RequestType::Udf {
+            request: udf_request,
+            environment_data,
+            response: tx,
+            queue_timer: queue_timer(),
+            rng_seed,
+            reactor_depth,
+            function_started_sender: None,
+            udf_callback: Some(self.clone()),
+        };
+        self.internal_sender
+            .send(Request::new(client_id, request, EncodedSpan::from_parent()))
+            .ok()
+            .context("scheduler shut down")?;
+        let (tx, outcome) = IsolateClient::<RT>::receive_response(rx).await??;
         let outcome = match outcome {
             FunctionOutcome::Query(outcome) | FunctionOutcome::Mutation(outcome) => {
                 NestedUdfOutcome {
@@ -1184,7 +1187,13 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     rt: RT,
     worker: W,
     /// Vec of channels for sending work to individual workers.
-    worker_senders: Vec<mpsc::Sender<(Request<RT>, oneshot::Sender<IdleWorkerInfo>)>>,
+    worker_senders: Vec<
+        mpsc::Sender<(
+            Request<RT>,
+            ConcurrencyPermit,
+            oneshot::Sender<IdleWorkerInfo>,
+        )>,
+    >,
     /// Map from client_id to stack of workers (implemented with a deque). The
     /// most recently used worker for a given client is at the front of the
     /// deque. These workers were previously used by this client, but may
@@ -1287,20 +1296,66 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             });
     }
 
-    pub async fn run(mut self, mut receiver: CoDelQueueReceiver<RT, Request<RT>>) {
+    pub async fn run(
+        mut self,
+        mut receiver: CoDelQueueReceiver<RT, Request<RT>>,
+        internal_receiver: mpsc::UnboundedReceiver<Request<RT>>,
+    ) {
         log_pool_max(self.worker.config().name, self.max_workers);
         let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
+        let mut expired_receiver = receiver.expired_receiver();
+        let limiter = self.worker.config().limiter.clone();
+        let rt = self.rt.clone();
+        let external_request_stream =
+            stream::poll_fn(move |cx| receiver.poll_next_with_expiration(cx)).filter_map(
+                async |(request, expiration)| {
+                    match expiration {
+                        Ok(expiration) => {
+                            let permit = tokio::select! {
+                                biased;
+                                permit = limiter.acquire(
+                                    request.client_id.clone().into(),
+                                    // For newly executing functions, we acquire the
+                                    // permit in "low priority" mode. This means
+                                    // that we prioritize already-executing
+                                    // functions over new ones and avoid piling more
+                                    // work on if we're overloaded.
+                                    false,
+                                ) => permit,
+                                () = rt.wait(
+                                    expiration.saturating_duration_since(rt.monotonic_now()),
+                                ) => {
+                                    request.reject(
+                                        RejectedBeforeExecutionReason::InitialPermitTimeout,
+                                    );
+                                    return None;
+                                }
+                            };
+                            Some((request, permit))
+                        },
+                        Err(expired) => {
+                            request.expire(expired);
+                            None
+                        },
+                    }
+                },
+            );
+        let internal_request_stream =
+            UnboundedReceiverStream::new(internal_receiver).then(async |request| {
+                // Internal requests (for nested UDFs) get priority because they
+                // block workers.
+                let permit = limiter
+                    .acquire(request.client_id.clone().into(), true)
+                    .await;
+                (request, permit)
+            });
+        let mut next_request_stream = pin!(stream::select_with_strategy(
+            internal_request_stream,
+            external_request_stream,
+            |&mut ()| PollNext::Left
+        ));
         loop {
             let all_workers_busy = self.active_workers.load(Ordering::Relaxed) >= self.max_workers;
-            let next_request = if all_workers_busy {
-                Either::Left(
-                    receiver
-                        .recv_next_expiration()
-                        .map(|r| r.map(|(req, expired)| (req, Some(expired)))),
-                )
-            } else {
-                Either::Right(receiver.next())
-            };
             tokio::select! {
                 biased;
                 completed_worker = self.in_progress_workers.next(),
@@ -1315,42 +1370,43 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     };
                     self.handle_completed_worker(completed_worker, info);
                 }
-                request = next_request => {
+                request = expired_receiver.next() => {
                     let Some((request, expired)) = request else {
-                        tracing::warn!("Request sender went away; {} scheduler shutting down", self.worker.config().name);
-                        return
+                        break;
                     };
-                    if let Some(expired) = expired {
-                        request.expire(expired);
+                    request.expire(expired);
+                }
+                request = next_request_stream.next(),
+                if !all_workers_busy => {
+                    let Some((request, permit)) = request else {
+                        break;
+                    };
+                    if request.is_response_closed() {
                         continue;
                     }
-                    let Some(worker_id) = self.get_worker(&request) else {
-                        tracing::error!("unexpected: couldn't find a worker?");
-                        request.reject();
-                        continue;
+                    let worker_id = match self.get_worker(&request) {
+                        Ok(worker_id) => worker_id,
+                        Err(reason) => {
+                            request.reject(reason);
+                            continue;
+                        },
                     };
                     let (done_sender, done_receiver) = oneshot::channel();
                     let st = ActiveWorkerState {
                         client_id: request.client_id.clone(),
                         worker_id,
                     };
-                    self.in_progress_workers.push(future::join(done_receiver, future::ready(st)));
+                    self.in_progress_workers
+                        .push(future::join(done_receiver, future::ready(st)));
                     let entry = self
                         .in_progress_count
                         .entry(request.client_id.clone())
                         .or_default();
                     *entry += 1;
                     self.active_workers.fetch_add(1, Ordering::Relaxed);
-                    log_pool_running_count(
-                        self.worker.config().name,
-                        *entry,
-                        &request.client_id,
-                    );
+                    log_pool_running_count(self.worker.config().name, *entry, &request.client_id);
                     if self.worker_senders[worker_id]
-                        .try_send((
-                            request,
-                            done_sender,
-                        ))
+                        .try_send((request, permit, done_sender))
                         .is_err()
                     {
                         // Available worker should have an empty channel, so if we fail
@@ -1369,17 +1425,23 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 },
             }
         }
+        tracing::warn!(
+            "Request sender went away; {} scheduler shutting down",
+            self.worker.config().name
+        );
     }
 
     /// Find a worker for the given `client_id`.`
-    /// Returns `None` if no worker could be allocated for this client (i.e.
-    /// this client has reached it's capacity with the scheduler).
+    /// Returns an error if no worker can be allocated for this client.
     ///
     /// Note that the returned worker id is removed from the
     /// `self.available_workers` state, so the caller is responsible for using
     /// the worker and returning it back to `self.available_workers` after it is
     /// done.
-    fn get_worker(&mut self, request: &Request<RT>) -> Option<usize> {
+    fn get_worker(
+        &mut self,
+        request: &Request<RT>,
+    ) -> Result<usize, RejectedBeforeExecutionReason> {
         let client_id = request.client_id.as_str();
         // Make sure this client isn't overloading the scheduler.
         let active_worker_count = self
@@ -1393,7 +1455,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 client_id,
                 self.max_active_workers_per_client,
             );
-            return None;
+            return Err(RejectedBeforeExecutionReason::PerClientWorkerOverloaded);
         }
         // Try to find an existing worker for this client.
         if let Some((client_id, mut workers)) = self.available_workers.remove_entry(client_id) {
@@ -1410,7 +1472,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 self.available_workers.insert(client_id, workers);
             }
             if let Some(worker) = worker {
-                return Some(worker.worker_id);
+                return Ok(worker.worker_id);
             }
             // Otherwise all the workers have cached contexts for other modules
             // that we don't want to clobber; try to assign a new worker
@@ -1437,7 +1499,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                 self.worker.config().name,
                 self.worker_senders.len() - 1
             );
-            return Some(self.worker_senders.len() - 1);
+            return Ok(self.worker_senders.len() - 1);
         }
         // No existing worker for this client and we've already started the max number
         // of workers -- just grab the least recently used worker. This worker is least
@@ -1452,8 +1514,10 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     .last_used_ts
             })
         else {
-            // No available workers.
-            return None;
+            // No available workers. This should be unreachable since we don't
+            // pull a request from the queue until there is a free worker.
+            tracing::error!("unexpected: couldn't find a worker?");
+            return Err(RejectedBeforeExecutionReason::WorkerPoolOverloaded);
         };
         let worker = workers
             .pop_back()
@@ -1465,7 +1529,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             let key = key.clone();
             self.available_workers.remove(&key);
         }
-        Some(worker.worker_id)
+        Ok(worker.worker_id)
     }
 
     fn aggregate_heap_stats(&self) -> IsolateHeapStats {
@@ -1503,30 +1567,24 @@ impl SharedIsolateHeapStats {
 pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
     async fn service_requests(
         self,
-        reqs: mpsc::Receiver<(Request<RT>, oneshot::Sender<IdleWorkerInfo>)>,
+        reqs: mpsc::Receiver<(
+            Request<RT>,
+            ConcurrencyPermit,
+            oneshot::Sender<IdleWorkerInfo>,
+        )>,
         heap_stats: SharedIsolateHeapStats,
     ) {
         let IsolateConfig {
-            max_user_timeout,
-            limiter,
-            ..
+            max_user_timeout, ..
         } = self.config();
         let mut reqs = std::pin::pin!(ReceiverStream::new(reqs).peekable());
         let mut ready: Option<oneshot::Sender<_>> = None;
-        let mut isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
         'recreate_isolate: loop {
             let mut last_client_id: Option<String> = None;
             let mut last_request: Option<String> = None;
-            let mut isolate = Isolate::new(
-                self.rt(),
-                *max_user_timeout,
-                limiter.clone(),
-                isolate_heap_size,
-            );
+            let mut isolate =
+                Isolate::new(self.rt(), *max_user_timeout, *ISOLATE_MAX_USER_HEAP_SIZE);
             let mut context_cache = ContextCache::new();
-            // Reset to default heap size for the next isolate, unless
-            // overridden before the next `continue 'recreate_isolate`.
-            isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
             heap_stats.store(isolate.heap_stats());
             loop {
                 context_cache.prepare(isolate.isolate());
@@ -1571,38 +1629,8 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                         } else if reused {
                             tracing::debug!("Reusing isolate for client {}", req.client_id);
                         }
-                        // If this is an analyze request with a higher heap
-                        // requirement, recreate the isolate with the larger heap.
-                        match req.inner {
-                            RequestType::Analyze {
-                                max_user_heap_size: required_heap, ..
-                            } => {
-                                if isolate.max_user_heap_size() < required_heap {
-                                    tracing::debug!(
-                                        "Restarting isolate for analyze: current heap {} < required {}",
-                                        isolate.max_user_heap_size(),
-                                        required_heap,
-                                    );
-                                    metrics::log_recreate_isolate("analyze_heap_upgrade");
-                                    isolate_heap_size = required_heap;
-                                    continue 'recreate_isolate;
-                                }
-                            },
-                            _ => {
-                                // If our last request was allocated more than the default heap size for analyze, recreate the isolate.
-                                if isolate.max_user_heap_size() > *ISOLATE_MAX_USER_HEAP_SIZE {
-                                    tracing::debug!(
-                                        "Restarting isolate after analyze: current heap {}",
-                                        isolate.max_user_heap_size(),
-                                    );
-                                    metrics::log_recreate_isolate("after_analyze_heap_upgrade");
-                                    isolate_heap_size = *ISOLATE_MAX_USER_HEAP_SIZE;
-                                    continue 'recreate_isolate;
-                                }
-                            },
-                        };
                         // Ok, we're ready to accept the request for real.
-                        let Some((req, done)) = reqs.next().await else { return };
+                        let Some((req, permit, done)) = reqs.next().await else { return };
                         // Note that we won't reply to `done` until
                         // `context_cache` has been prepared. This improves
                         // latency in the common case since requests will be
@@ -1618,6 +1646,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                                 &mut isolate,
                                 &mut context_cache,
                                 req,
+                                permit,
                                 heap_stats.clone(),
                             )
                             .in_span(root)
@@ -1637,6 +1666,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
         req: Request<RT>,
+        permit: ConcurrencyPermit,
         heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool);
 
@@ -1654,7 +1684,7 @@ pub(crate) fn should_recreate_isolate<RT: Runtime>(
         return true;
     }
     if let Err(e) = isolate.check_isolate_clean(context_cache) {
-        tracing::info!(
+        tracing::debug!(
             "Restarting Isolate {}: {e:?}, last request: {last_executed:?}",
             e.reason()
         );

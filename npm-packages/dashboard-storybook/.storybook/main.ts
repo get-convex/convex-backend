@@ -1,6 +1,9 @@
 import { StorybookConfig } from "@storybook/nextjs-vite";
+import { createRequire } from "module";
 import path from "path";
 import { UserConfig, mergeConfig } from "vite";
+
+const require = createRequire(import.meta.url);
 
 const config: StorybookConfig = {
   stories: [
@@ -16,6 +19,14 @@ const config: StorybookConfig = {
     "@storybook/addon-vitest",
   ],
   staticDirs: [
+    // Use the Storybook logo as a favicon
+    {
+      from: path.resolve(
+        require.resolve("storybook/package.json"),
+        "../assets/browser/favicon.svg",
+      ),
+      to: "/favicon.svg",
+    },
     path.resolve(import.meta.dirname, "../../dashboard/public"),
     {
       from: path.resolve(

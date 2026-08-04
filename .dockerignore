@@ -21,7 +21,7 @@
 !/scripts/*
 
 # Never use a build cache for the docker image
-/npm-packages/common/config/rush/build-cache.json
+**/.turbo/
 
 # Re-exclude common build/cache directories that might exist under the included directories above.
 # Docker uses the last matching-pattern for any file.

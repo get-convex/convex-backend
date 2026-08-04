@@ -20,7 +20,7 @@ import {
   typedBigBrainClient,
   typedPlatformClient,
 } from "./lib/utils/utils.js";
-import { PlatformProjectDetails } from "@convex-dev/platform/managementApi";
+import { ProjectResponse } from "@convex-dev/platform/managementApi";
 import { getTeamAndProjectFromPreviewAdminKey } from "./lib/deployment.js";
 import { saveSelectedDeployment } from "./deploymentSelect.js";
 import { promptOptions, promptString } from "./lib/utils/prompts.js";
@@ -710,7 +710,7 @@ function parseLocalCreateTarget(
 async function resolveProject(
   ctx: Context,
   deploymentSelection: DeploymentSelection,
-): Promise<PlatformProjectDetails> {
+): Promise<ProjectResponse> {
   switch (deploymentSelection.kind) {
     case "existingDeployment": {
       const { deploymentFields } = deploymentSelection.deploymentToActOn;

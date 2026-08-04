@@ -118,7 +118,7 @@ impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
         }
         buffer.extend_from_slice(&encoded_message);
         buffer.extend_from_slice(tag.as_ref());
-        hex::encode(buffer)
+        const_hex::encode(buffer)
     }
 
     pub fn decrypt_proto<M: Default + Message>(
@@ -126,7 +126,7 @@ impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
         version: u8,
         encoded: &str,
     ) -> anyhow::Result<M> {
-        let mut bytes = hex::decode(encoded)?;
+        let mut bytes = const_hex::decode(encoded)?;
         let mut reader = Cursor::new(&bytes[..]);
         let message_version = reader.read_u8()?;
         if message_version != version {

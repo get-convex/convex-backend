@@ -1,10 +1,21 @@
 import { Modal } from "@ui/Modal";
 import { LocalDevCallout } from "@common/elements/LocalDevCallout";
 import { useProfile } from "api/profile";
+import { useCreateTeamModalOpen } from "hooks/useCreateTeamModal";
 import { CreateTeamForm } from "./CreateTeamForm";
 
-export function CreateTeamModal({ onClose }: { onClose(): void }) {
+// The single Create Team modal, rendered once near the app root and driven
+// entirely by `useCreateTeamModalOpen`. Any surface (header, command palette)
+// opens it by setting that state.
+export function CreateTeamModal() {
+  const [open, setOpen] = useCreateTeamModalOpen();
   const profile = useProfile();
+
+  if (!open) {
+    return null;
+  }
+
+  const onClose = () => setOpen(false);
 
   return (
     <Modal title="Create Team" onClose={onClose}>

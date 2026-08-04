@@ -24,7 +24,7 @@ import {
 import { Cluster } from "@common/features/schema/lib/clustering";
 import { IndexIcon, FieldIcon, INDEX_KIND_LABEL } from "@common/elements/icons";
 
-const SEARCH_HOTKEY = "/";
+const SEARCH_HOTKEY = "?";
 const RESULT_ROW_HEIGHT = 32;
 const MAX_VISIBLE_RESULTS = 8;
 
@@ -270,9 +270,6 @@ export function SchemaSearch({
     setActiveIndex(0);
   }, []);
 
-  // Focus the search box from anywhere. A manual key listener (rather than a
-  // hotkey library) so it fires for whatever physical key produces "/" — e.g.
-  // Shift+7 on a QWERTZ layout, where matching on a bare "/" misses.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (

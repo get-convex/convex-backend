@@ -1,7 +1,10 @@
 import { useRef } from "react";
 import type { InvoiceResponse } from "generatedApi";
 import { BILLING_RESOURCE, Permissioned } from "lib/permissions";
-import { useHasCustomRolePermission } from "./roles";
+import {
+  useHasCustomRolePermission,
+  useIsCurrentMemberTeamAdmin,
+} from "./roles";
 import { useBBMutation, useBBQuery } from "./api";
 
 // Subscription info is readable by all team members; but some details may not be available depending on whether the member has `billing:view`.
@@ -165,12 +168,15 @@ export function useListInvoices(
   hasMore: boolean;
   isRefreshing: boolean;
 }> {
-  const canView = useHasCustomRolePermission(
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
+  const canViewCustom = useHasCustomRolePermission(
     teamId,
     "billing:invoices:view",
     BILLING_RESOURCE,
-    true,
+    false,
   );
+  const canView =
+    canViewCustom === undefined ? undefined : isTeamAdmin || canViewCustom;
   const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/list_invoices",
     pathParams: {

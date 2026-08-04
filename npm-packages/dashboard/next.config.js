@@ -111,7 +111,7 @@ const nextConfig = {
   },
   sentry: {
     // The Webpack plugin attempts to upload sourcemaps on every production build, which requires having a Sentry auth
-    // token. With Rush, all builds are production builds so this is no good. We only want this to happen on a real
+    // token. In this monorepo, all builds are production builds so this is no good. We only want this to happen on a real
     // deployment.
     disableServerWebpackPlugin: !process.env.NETLIFY && !process.env.VERCEL,
     disableClientWebpackPlugin: !process.env.NETLIFY && !process.env.VERCEL,
@@ -129,6 +129,10 @@ const nextConfig = {
   },
   // from https://github.com/vercel/next.js/blob/c110dfd57c754f88cb239dc154a4b7d49e5696a3/examples/with-webassembly/next.config.js
   webpack(config, { isServer, dev }) {
+    if (!dev && !isServer) {
+      config.cache = false;
+    }
+
     config.resolve.symlinks = true; // Ensure Webpack follows symlinks
     // Force Webpack to watch changes in the src directory of local packages
     config.watchOptions = {

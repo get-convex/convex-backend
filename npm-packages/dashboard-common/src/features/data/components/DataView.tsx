@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react";
+import React, { useContext, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
@@ -15,6 +15,7 @@ import {
   DeploymentInfoContext,
   PermissionsContext,
 } from "@common/lib/deploymentContext";
+import { NentSwitcher } from "@common/elements/NentSwitcher";
 import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
@@ -104,6 +105,7 @@ export function DataView({
         {tableMetadata !== undefined && (
           <SidebarDetailLayout
             panelSizeKey={`${deploymentId}/data`}
+            mobileBarContent={<NentSwitcher className="w-40" />}
             sidebarComponent={
               <DataSidebar
                 tableData={tableMetadata}
@@ -148,6 +150,20 @@ export function DataView({
   );
 }
 
+const PAGE_TIMEOUT_MESSAGES = [
+  "Function execution timed out",
+  "Your request timed out performing too many system operations.",
+];
+
+function isPageTimeoutError(error: Error) {
+  return (
+    error.message.startsWith(
+      "[CONVEX Q(_system/frontend/paginatedTableDocuments:default)]",
+    ) &&
+    PAGE_TIMEOUT_MESSAGES.some((message) => error.message.includes(message))
+  );
+}
+
 function HandleTimeout({
   error,
   resetError,
@@ -159,16 +175,17 @@ function HandleTimeout({
   currentPageSize: number;
   setPageSize: (pageSize: number) => void;
 }) {
-  if (
-    error.message.startsWith(
-      "[CONVEX Q(_system/frontend/paginatedTableDocuments:default)]",
-    ) &&
-    error.message.includes("Function execution timed out") &&
-    currentPageSize !== 1
-  ) {
-    setPageSize(Math.floor(Math.max(currentPageSize / 2, 1)));
-    resetError();
-  } else {
+  const canRetryWithSmallerPage =
+    isPageTimeoutError(error) && currentPageSize > 1;
+
+  useEffect(() => {
+    if (canRetryWithSmallerPage) {
+      setPageSize(Math.max(Math.floor(currentPageSize / 2), 1));
+      resetError();
+    }
+  }, [canRetryWithSmallerPage, currentPageSize, setPageSize, resetError]);
+
+  if (!canRetryWithSmallerPage) {
     throw error;
   }
   return null;

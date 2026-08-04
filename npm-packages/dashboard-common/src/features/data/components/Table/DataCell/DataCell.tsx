@@ -4,7 +4,13 @@ import classNames from "classnames";
 import React, { memo, useLayoutEffect, useRef, useState } from "react";
 import { useClickAway } from "react-use";
 import { areEqual } from "react-window";
-import { usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+} from "@floating-ui/react";
 import { ColumnInstance } from "react-table";
 import { DotsVerticalIcon, Link2Icon } from "@radix-ui/react-icons";
 import { Portal } from "@headlessui/react";
@@ -15,7 +21,10 @@ import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEdit
 
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { DataDetail } from "@common/features/data/components/Table/DataCell/DataDetail";
-import { CellEditor } from "@common/features/data/components/Table/DataCell/CellEditor";
+import {
+  CELL_EDITOR_OVERHANG,
+  CellEditor,
+} from "@common/features/data/components/Table/DataCell/CellEditor";
 import { DataCellValue } from "@common/features/data/components/Table/DataCell/DataCellValue";
 
 import type { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
@@ -351,6 +360,7 @@ function DataCellImpl({
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
           allowTopLevelUndefined={allowTopLevelUndefined}
+          inferIsDate={inferIsDate}
           onClose={closeEditor}
           onSave={async (v) => {
             if (v !== undefined) {
@@ -431,6 +441,7 @@ function CellEditorPopper({
   validator,
   shouldSurfaceValidatorErrors,
   allowTopLevelUndefined,
+  inferIsDate,
   onClose,
   onSave,
 }: {
@@ -441,24 +452,25 @@ function CellEditorPopper({
   validator: ReturnType<typeof useValidator>["validator"];
   shouldSurfaceValidatorErrors: boolean | undefined;
   allowTopLevelUndefined: boolean;
+  inferIsDate: boolean;
   onClose: () => void;
   onSave: (value?: Value) => Promise<void>;
 }) {
   const { densityValues } = useTableDensity();
   const [editorPopper, setEditorPopper] = useState<HTMLDivElement | null>(null);
-  const { styles: editorStyles, attributes: editorAttrs } = usePopper(
-    cellRef.current,
-    editorPopper,
-    {
-      placement: "bottom-start",
-      modifiers: [
-        {
-          name: "offset",
-          options: { offset: [0, -densityValues.height] },
-        },
-      ],
-    },
-  );
+  const { floatingStyles: editorStyles } = useFloating({
+    placement: "bottom-start",
+    middleware: [
+      offsetMiddleware({
+        mainAxis: -(densityValues.height + CELL_EDITOR_OVERHANG),
+        alignmentAxis: -CELL_EDITOR_OVERHANG,
+      }),
+      flip(),
+      shift(),
+    ],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: cellRef.current, floating: editorPopper },
+  });
 
   // When you click away from the cell, close the editor if it is open
   useClickAway({ current: editorPopper }, onClose);
@@ -469,10 +481,10 @@ function CellEditorPopper({
       <div
         ref={setEditorPopper}
         style={{
-          ...editorStyles.popper,
-          width,
+          ...editorStyles,
+          width: width && `calc(${width} + ${2 * CELL_EDITOR_OVERHANG}px)`,
         }}
-        className="z-50 -ml-px min-w-[24rem] animate-fadeInFromLoading"
+        className="z-50 min-w-[24rem] animate-fadeInFromLoading"
         data-testid="cell-editor-popper"
         tabIndex={-1}
         onBlur={(e) => {
@@ -486,12 +498,12 @@ function CellEditorPopper({
             onClose();
           }
         }}
-        {...editorAttrs.popper}
       >
         <CellEditor
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
           allowTopLevelUndefined={allowTopLevelUndefined}
+          inferIsDate={inferIsDate}
           onStopEditing={onClose}
           defaultValue={pastedValue}
           value={value}

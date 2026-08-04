@@ -28,7 +28,7 @@ export function Fallback({
     return (
       <div className="h-full grow">
         <div className="flex h-full flex-col items-center justify-center">
-          <Callout variant="error" className="max-w-prose">
+          <Callout variant="error">
             <span>
               Your local deployment is out of date. Please restart it with{" "}
               <code>npx convex dev</code> and upgrade.

@@ -58,11 +58,9 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
         with:
           path: |
-            npm-packages/common/temp/build-cache
-            npm-packages/common/temp/pnpm-store
-          key:
-            pnpm-cache-${{
-            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+            ~/.local/share/pnpm/store
+            npm-packages/.turbo/cache
+          key: pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
           restore-keys: pnpm-cache-
 
       - name: Install mise tools
@@ -76,8 +74,8 @@ jobs:
 
       - name: Build NPM Packages
         run: |
-          just rush install
-          just rush build -t test-project
+          just install-js
+          just turbo run build --filter=test-project...
 
       - name: Try pushing to the deployment
         working-directory: npm-packages/private-demos/test-project

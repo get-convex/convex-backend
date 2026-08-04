@@ -17,6 +17,7 @@ import { TeamMember } from "@convex-dev/platform/managementApi";
 import * as Yup from "yup";
 import { Link } from "@ui/Link";
 import { CustomRolesSelector } from "./CustomRolesSelector";
+import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
 type RoleChoice = "admin" | "developer" | "custom";
 
@@ -127,7 +128,10 @@ export function InviteMemberForm({
     formState.values.role === "custom" && availableCustomRoles.length === 0;
 
   return (
-    <Sheet className="min-w-fit text-sm">
+    <Sheet
+      id={TEAM_SETTINGS_SECTIONS.inviteMember.id}
+      className="min-w-fit text-sm"
+    >
       <h3 className="mb-4">Invite Member</h3>
       <form onSubmit={formState.handleSubmit} aria-label="Invite team member">
         <div className="mb-4 flex w-full grow flex-wrap items-start gap-4 sm:flex-nowrap">

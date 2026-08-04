@@ -26,6 +26,8 @@ import {
   MaybeLaunchDarklyProvider,
 } from "providers/LaunchDarklyProviders";
 import { CommandPalette } from "elements/CommandPalette";
+import { CreateProjectModal } from "hooks/useCreateProjectModal";
+import { CreateTeamModal } from "components/header/CreateTeamModal";
 import { Fallback } from "pages/500";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
@@ -52,6 +54,7 @@ if (typeof window !== "undefined") {
 const UNAUTHED_ROUTES = [
   "/404",
   "/login",
+  "/login-error",
   "/signup",
   /^\/referral\/[A-Z0-9]+$/,
 ];
@@ -98,6 +101,8 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
   const inDeployment = router.pathname.startsWith(
     "/t/[team]/[project]/[deploymentName]",
   );
+  const isSsoLocked =
+    !!ssoLoginRequired && ssoLoginRequired === router.query.team;
 
   const [initialData] = useInitialData();
 
@@ -120,10 +125,16 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
               <Component {...pageProps} />
             ) : (
               <div className="flex h-screen flex-col">
-                <CommandPalette />
+                {/* On deployment pages the palette must live inside the
+                    deployment providers so it can query the connected
+                    deployment (e.g. to switch components); elsewhere it renders
+                    here. Exactly one instance mounts, keyed off the branch
+                    taken below. */}
+                {(isSsoLocked || !inDeployment) && <CommandPalette />}
                 <DashboardHeader />
-                {!!ssoLoginRequired &&
-                ssoLoginRequired === router.query.team ? (
+                <CreateProjectModal />
+                <CreateTeamModal />
+                {isSsoLocked ? (
                   <div className="flex size-full items-center justify-center">
                     <Sheet className="flex max-w-prose flex-col gap-4">
                       <div className="flex items-center gap-2">
@@ -153,6 +164,7 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                 ) : inDeployment ? (
                   <DeploymentInfoProvider>
                     <MaybeDeploymentApiProvider>
+                      <CommandPalette />
                       <CurrentDeploymentDashboardLayout>
                         <ErrorBoundary
                           fallback={Fallback}

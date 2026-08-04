@@ -1,7 +1,7 @@
 # Tool versions for Convex local dev + CI, managed by mise (https://mise.jdx.dev).
 # Node is NOT here -- it stays in .nvmrc (via idiomatic_version_file in [settings]),
 # the shared source of truth for the builder image, copybara, and the OSS repo.
-# Rust (rustup), Python (uv), and pnpm/Rush manage themselves. Pins are exact and
+# Rust (rustup), Python (uv), and pnpm/Turbo manage themselves. Pins are exact and
 # checksum-locked in mise.lock; Renovate proposes bumps.
 
 # mise's own version: read by the bootstrap installer + the release Dockerfiles, and
@@ -61,6 +61,8 @@ lockfile = true
 "brew:openssl@3" = "latest"
 "brew:libsodium" = "latest"
 "brew:snappy" = "latest"
+# GNU diff3 for copybara pull merges (Apple's diff3 silently corrupts them)
+"brew:diffutils" = "latest"
 # rocksdb (+ gflags) can't live here: they need pinning to match the librocksdb-sys
 # bindings, which brew can't do for core formulae. setup_env.py installs them from
 # the get-convex/tap tap instead.

@@ -16,8 +16,10 @@ use sync_types::{
     CanonicalizedUdfPath,
 };
 use value::{
+    array_size,
     ConvexArray,
     ConvexValue,
+    PendingValue,
     Size,
 };
 
@@ -44,15 +46,45 @@ pub fn parse_udf_args(
         })
 }
 
+pub fn parse_pending_udf_args(
+    path: &CanonicalizedUdfPath,
+    args: Vec<JsonValue>,
+) -> Result<Vec<PendingValue>, JsError> {
+    args.into_iter()
+        .map(PendingValue::from_uncommitted_json)
+        .collect::<anyhow::Result<Vec<_>>>()
+        .map_err(|err| {
+            JsError::from_message(format!(
+                "Invalid arguments for {}: {err}",
+                String::from(path.clone()),
+            ))
+        })
+}
+
+pub fn pending_udf_args_size(args: &[PendingValue]) -> usize {
+    array_size(args)
+}
+
 pub fn validate_udf_args_size(
     path: &CanonicalizedUdfPath,
     args: &ConvexArray,
 ) -> Result<(), JsError> {
-    if args.size() > *FUNCTION_MAX_ARGS_SIZE {
+    validate_args_size(path, args.size())
+}
+
+pub fn validate_pending_udf_args_size(
+    path: &CanonicalizedUdfPath,
+    args: &[PendingValue],
+) -> Result<(), JsError> {
+    validate_args_size(path, pending_udf_args_size(args))
+}
+
+fn validate_args_size(path: &CanonicalizedUdfPath, size: usize) -> Result<(), JsError> {
+    if size > *FUNCTION_MAX_ARGS_SIZE {
         return Err(JsError::from_message(format!(
             "Arguments for {} are too large (actual: {}, limit: {})",
             path.clone(),
-            args.size().format_size(BINARY),
+            size.format_size(BINARY),
             (*FUNCTION_MAX_ARGS_SIZE).format_size(BINARY),
         )));
     }

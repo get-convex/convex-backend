@@ -5,11 +5,13 @@ const QUERY_IDS_: {
   functionBreakdown: DatabricksQueryId;
   deploymentsByClassAndRegion: DatabricksQueryId;
   deploymentCountByType: DatabricksQueryId;
+  deploymentCountByStatus: DatabricksQueryId;
 } = {
   summary: "b63fe48d-320c-401a-8682-0a0b36b50e2b",
   functionBreakdown: "90ec3ee0-720f-4e67-94a2-75ecd278b3c6",
   deploymentsByClassAndRegion: "dfc73057-1948-4b99-a3bf-9ae802a395ee",
   deploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
+  deploymentCountByStatus: "4bc3e942-951a-440a-be2a-7c833b77eee1",
 };
 
 const BY_PROJECT_QUERY_IDS_: {
@@ -60,6 +62,10 @@ export type UsageSummaryRow = {
   dataEgress: number;
   searchQueries: number;
   actionComputeUser: number; // GB-hours — corrected non-node compute for business plans
+  // Current deployment count gauge (team-wide; not filtered by project/component).
+  deploymentCount: number;
+  pausedDeploymentCount: number;
+  idleDeploymentCount: number;
 };
 
 export interface AggregatedFunctionMetrics {
@@ -171,6 +177,9 @@ export function useUsageTeamSummary(
         dataEgress,
         searchQueries,
         actionComputeUser,
+        deploymentCount,
+        pausedDeploymentCount,
+        idleDeploymentCount,
       ]) =>
         ({
           deploymentClass,
@@ -186,6 +195,9 @@ export function useUsageTeamSummary(
           dataEgress: Number(dataEgress),
           searchQueries: Number(searchQueries),
           actionComputeUser: Number(actionComputeUser) / 60 / 60,
+          deploymentCount: Number(deploymentCount),
+          pausedDeploymentCount: Number(pausedDeploymentCount),
+          idleDeploymentCount: Number(idleDeploymentCount),
         }) satisfies UsageSummaryRow,
     ),
     error: undefined,
@@ -825,6 +837,40 @@ export function useUsageTeamDeploymentCountByType(
         tag,
         value,
       })),
+    })),
+    error: undefined,
+  };
+}
+
+// Active vs. idle vs. paused deployment counts per day. The three are mutually
+// exclusive: "paused" and "idle" come from the daily gauge, and "active" is the
+// remainder (total - paused - idle).
+export function useUsageTeamDeploymentCountByStatus(
+  teamId: number,
+  period: DateRange | null,
+): { data: DailyPerTagMetrics[] | undefined; error: any } {
+  // This query reads the team-wide deployment count gauge, so it is not broken
+  // down by project or component.
+  const { data, error } = useUsageQuery({
+    queryId: QUERY_IDS_.deploymentCountByStatus,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix: null,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(([_teamId, ds, active, paused, idle]) => ({
+      ds,
+      metrics: [
+        { tag: "active", value: Number(active) },
+        { tag: "idle", value: Number(idle) },
+        { tag: "paused", value: Number(paused) },
+      ],
     })),
     error: undefined,
   };

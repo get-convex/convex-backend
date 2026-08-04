@@ -340,7 +340,7 @@ function HeatmapGrid({
     >
       <div
         ref={scrollRef}
-        className="scrollbar flex flex-col overflow-y-auto pr-1 [scrollbar-gutter:stable]"
+        className="scrollbar flex scrollbar-gutter-stable flex-col overflow-y-auto pr-1"
         style={{ maskImage, WebkitMaskImage: maskImage, maxHeight: "9rem" }}
       >
         <div

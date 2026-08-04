@@ -17,15 +17,19 @@ NODE_VERSION=$(cat /nvmrc | tr -d 'v\n')
 apt-get install -y --no-install-recommends nodejs=${NODE_VERSION}-1nodesource1
 EOF
 
-RUN --mount=type=cache,target=/root/.npm npm install -g @microsoft/rush@5
 WORKDIR /app
+# pnpm/turbo come pinned from scripts/package-lock.json, so release builds
+# always use the exact vetted versions.
+COPY scripts ./scripts
+RUN --mount=type=cache,target=/root/.npm npm ci --prefix scripts
+ENV PATH="/app/scripts/node_modules/.bin:$PATH"
 COPY ./npm-packages ./npm-packages
 # Install dependencies and build
-WORKDIR /app/npm-packages/dashboard-self-hosted
-RUN rush install
+WORKDIR /app/npm-packages
+RUN pnpm install --frozen-lockfile
 ENV NODE_ENV=production
-RUN rush build -t dashboard-self-hosted
-RUN rush-pnpm deploy --legacy --filter=dashboard-self-hosted --prod /tmp/deploy
+RUN turbo run build --filter=dashboard-self-hosted...
+RUN pnpm --filter=dashboard-self-hosted deploy --legacy --prod /tmp/deploy
 
 FROM ubuntu:noble
 

@@ -13,9 +13,16 @@ import { cn } from "@ui/cn";
 import fuzzy from "fuzzy";
 import { Button, ButtonProps } from "@ui/Button";
 import { createPortal } from "react-dom";
-import { usePopper } from "react-popper";
+import {
+  useFloating,
+  autoUpdate,
+  offset as offsetMiddleware,
+  flip,
+  shift,
+} from "@floating-ui/react";
 import { Tooltip } from "./Tooltip";
 import { Spinner } from "./Spinner";
+import { useIsNarrowScreen } from "./useIsNarrowScreen";
 
 const { test } = fuzzy;
 
@@ -99,6 +106,7 @@ export function Combobox<T>({
 
   const [isOpen, setIsOpen] = useState(false);
   const wasOpen = useRef(false);
+  const isNarrow = useIsNarrowScreen();
 
   // Restore focus to the button when the dropdown closes
   useEffect(() => {
@@ -109,21 +117,12 @@ export function Combobox<T>({
     wasOpen.current = isOpen;
   }, [isOpen, referenceElement]);
 
-  const { styles, attributes, update } = usePopper(
-    referenceElement,
-    popperElement,
-    {
-      placement: "bottom-start",
-      modifiers: [
-        {
-          name: "offset",
-          options: {
-            offset: [0, 4], // x, y offset in pixels
-          },
-        },
-      ],
-    },
-  );
+  const { floatingStyles } = useFloating({
+    placement: "bottom-start",
+    middleware: [offsetMiddleware(4), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: { reference: referenceElement, floating: popperElement },
+  });
 
   // Calculate width based on optionsWidth prop
   const getOptionsWidth = () => {
@@ -155,13 +154,12 @@ export function Combobox<T>({
     isEqual(selectedOption, o.value),
   );
 
-  // Update popper position when dropdown opens
+  // Reset the filter when the dropdown opens
   useEffect(() => {
     if (isOpen) {
-      void update?.();
       void onFilterChange?.("");
     }
-  }, [isOpen, update, onFilterChange]);
+  }, [isOpen, onFilterChange]);
 
   return (
     <HeadlessCombobox
@@ -268,19 +266,30 @@ export function Combobox<T>({
               {open &&
                 createPortal(
                   <div
-                    ref={setPopperElement}
-                    style={{
-                      ...styles.popper,
-                      width: getOptionsWidth(),
-                    }}
-                    {...attributes.popper}
-                    className="z-50"
+                    ref={isNarrow ? undefined : setPopperElement}
+                    style={
+                      isNarrow
+                        ? undefined
+                        : { ...floatingStyles, width: getOptionsWidth() }
+                    }
+                    className={
+                      isNarrow ? "fixed inset-0 z-50 flex items-end" : "z-50"
+                    }
                   >
+                    {isNarrow && (
+                      <div
+                        className="absolute inset-0 bg-black/50"
+                        aria-hidden="true"
+                      />
+                    )}
                     <HeadlessComboboxOptions
                       modal={false}
                       static
                       className={cn(
-                        "mt-1 scrollbar max-h-59 overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm",
+                        "scrollbar overflow-auto border bg-background-secondary",
+                        isNarrow
+                          ? "relative max-h-[70dvh] w-full rounded-t-xl pb-2 text-sm shadow-xl"
+                          : "mt-1 max-h-59 rounded-md pb-1 text-xs shadow-sm",
                       )}
                       ref={(el) => {
                         el?.scrollTo?.(0, 0);

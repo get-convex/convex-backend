@@ -2,7 +2,7 @@ import { BackspaceIcon } from "@heroicons/react/24/outline";
 import { GenericDocument } from "convex/server";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
-import React, { useCallback, useReducer, useState } from "react";
+import React, { useCallback, useReducer } from "react";
 import {
   Filter,
   FilterByBuiltin,
@@ -20,6 +20,7 @@ import { Checkbox } from "@ui/Checkbox";
 import { Tooltip } from "@ui/Tooltip";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { cn } from "@ui/cn";
+import { useIsMobileDevice } from "@ui/useIsMobileDevice";
 
 export const operatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]
@@ -112,80 +113,122 @@ export function FilterEditor({
     forceRerender(); // Force a re-render to clear any error state from the monaco editor.
   }, [onError, forceRerender]);
 
+  const isMobile = useIsMobileDevice();
+
+  const enabledCheckbox = (
+    <Tooltip
+      tip={state.enabled ? "Disable Filter" : "Enable Filter"}
+      className="flex w-fit items-center"
+    >
+      <Checkbox
+        checked={state.enabled !== false}
+        onChange={(e) => {
+          dispatch({ enabled: e.currentTarget.checked });
+        }}
+        className={cn("self-center", !isMobile && "mr-2")}
+      />
+    </Tooltip>
+  );
+
+  const fieldSelector = (
+    <Combobox
+      label="Select filter field"
+      disabled={state.enabled === false}
+      size="sm"
+      optionsWidth="fixed"
+      buttonClasses={cn(
+        "min-w-fit truncate",
+        isMobile ? "w-full max-w-full" : "w-fit max-w-28",
+      )}
+      innerButtonClasses={cn("focus:border-r", !isMobile && "rounded-r-none")}
+      searchPlaceholder="Search fields..."
+      options={fields.map((field) => ({ value: field, label: field }))}
+      selectedOption={state.field}
+      setSelectedOption={selectField(
+        state,
+        dispatch,
+        defaultDocument,
+        forceRerender,
+        clearErrors,
+      )}
+      // If we only have two fields, it might be caused by the shapes computation returning
+      // an "any" type. We allow the user to type arbitrary fields name in this case.
+      allowCustomValue={fields.length === ["_id", "_creationTime"].length}
+    />
+  );
+
+  const operatorSelector = (
+    <Combobox
+      label="Select filter operator"
+      searchPlaceholder="Search operators..."
+      disabled={state.enabled === false}
+      size="sm"
+      optionsWidth="fixed"
+      buttonClasses={isMobile ? "w-full" : "w-fit"}
+      innerButtonClasses={
+        isMobile ? "w-full" : "w-fit rounded-r-none rounded-l-none ml-[-1px]"
+      }
+      options={operatorOptions}
+      selectedOption={state.op}
+      setSelectedOption={selectOperator(
+        state,
+        dispatch,
+        defaultDocument,
+        clearErrors,
+      )}
+    />
+  );
+
+  const valueEditor = (
+    <ValueEditor
+      {...{
+        dispatch,
+        state,
+        id,
+        objectEditorKey,
+        onChangeValue,
+        onApplyFilters,
+        onError,
+        autoFocus: autoFocusValueEditor,
+        validator,
+        shouldSurfaceValidatorErrors,
+        isMobile,
+      }}
+    />
+  );
+
+  const deleteButton = (
+    <Button
+      size="xs"
+      variant="neutral"
+      onClick={onDelete}
+      className={cn(!isMobile && "-ml-px rounded-l-none")}
+      aria-label={`Delete filter ${id}`}
+      icon={<BackspaceIcon className="size-4" />}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex w-full flex-col gap-2">
+        <div className="flex items-center gap-2">
+          {enabledCheckbox}
+          <div className="min-w-0 grow">{fieldSelector}</div>
+          {deleteButton}
+        </div>
+        {operatorSelector}
+        {valueEditor}
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-w-0 grow">
-      <Tooltip
-        tip={state.enabled ? "Disable Filter" : "Enable Filter"}
-        className="flex w-fit items-center"
-      >
-        <Checkbox
-          checked={state.enabled !== false}
-          onChange={(e) => {
-            dispatch({ enabled: e.currentTarget.checked });
-          }}
-          className="mr-2 self-center"
-        />
-      </Tooltip>
-      <Combobox
-        label="Select filter field"
-        disabled={state.enabled === false}
-        size="sm"
-        optionsWidth="fixed"
-        buttonClasses="min-w-fit w-fit max-w-[7rem] truncate"
-        innerButtonClasses="rounded-r-none focus:border-r"
-        searchPlaceholder="Search fields..."
-        options={fields.map((field) => ({ value: field, label: field }))}
-        selectedOption={state.field}
-        setSelectedOption={selectField(
-          state,
-          dispatch,
-          defaultDocument,
-          forceRerender,
-          clearErrors,
-        )}
-        // If we only have two fields, it might be caused by the shapes computation returning
-        // an "any" type. We allow the user to type arbitrary fields name in this case.
-        allowCustomValue={fields.length === ["_id", "_creationTime"].length}
-      />
-      <Combobox
-        label="Select filter operator"
-        searchPlaceholder="Search operators..."
-        disabled={state.enabled === false}
-        size="sm"
-        optionsWidth="fixed"
-        buttonClasses="w-fit"
-        innerButtonClasses="w-fit rounded-r-none rounded-l-none ml-[-1px]"
-        options={operatorOptions}
-        selectedOption={state.op}
-        setSelectedOption={selectOperator(
-          state,
-          dispatch,
-          defaultDocument,
-          clearErrors,
-        )}
-      />
-      <ValueEditor
-        {...{
-          dispatch,
-          state,
-          id,
-          objectEditorKey,
-          onChangeValue,
-          onApplyFilters,
-          onError,
-          autoFocus: autoFocusValueEditor,
-          validator,
-          shouldSurfaceValidatorErrors,
-        }}
-      />
-      <Button
-        size="xs"
-        variant="neutral"
-        onClick={onDelete}
-        className="-ml-px rounded-l-none"
-        aria-label={`Delete filter ${id}`}
-        icon={<BackspaceIcon className="size-4" />}
-      />
+      {enabledCheckbox}
+      {fieldSelector}
+      {operatorSelector}
+      {valueEditor}
+      {deleteButton}
     </div>
   );
 }
@@ -201,6 +244,7 @@ function ValueEditor({
   autoFocus,
   validator,
   shouldSurfaceValidatorErrors,
+  isMobile = false,
 }: {
   dispatch: any;
   state: FilterState;
@@ -212,21 +256,31 @@ function ValueEditor({
   autoFocus?: boolean;
   validator?: ValidatorJSON;
   shouldSurfaceValidatorErrors?: boolean;
+  isMobile?: boolean;
 }) {
   const isDatepicker =
     state.field === "_creationTime" && typeof state.value === "number";
 
-  const [innerText, setInnerText] = useState("");
-
   return (
-    <div className="-ml-px min-w-0 grow focus-within:z-20">
+    <div
+      className={cn(
+        "min-w-0 focus-within:z-20",
+        isMobile ? "w-full" : "-ml-px grow",
+      )}
+    >
       {isTypeFilterOp(state.op) ? (
         <Combobox
           searchPlaceholder="Search types..."
           label="Select type value"
           disabled={state.enabled === false}
-          buttonClasses="w-full rounded-l-none rounded-r-none"
-          innerButtonClasses="w-full rounded-r-none rounded-l-none"
+          buttonClasses={cn(
+            "w-full",
+            !isMobile && "rounded-l-none rounded-r-none",
+          )}
+          innerButtonClasses={cn(
+            "w-full",
+            !isMobile && "rounded-l-none rounded-r-none",
+          )}
           size="sm"
           optionsWidth="fixed"
           options={typeOptions}
@@ -247,48 +301,47 @@ function ValueEditor({
             // Change back to Unix timestamp.
             dispatch({ value: date?.getTime() });
           }}
+          className={cn(
+            "w-full rounded-none border bg-background-secondary px-2 py-1 align-top text-xs focus:border-border-selected",
+            state.enabled !== false && "border-x-transparent",
+          )}
         />
       ) : (
-        <>
-          {innerText === "" && state.value === UNDEFINED_PLACEHOLDER && (
-            <div
-              className="pointer-events-none absolute z-50 font-mono text-xs text-content-secondary italic"
-              data-testid="undefined-placeholder"
-              style={{
-                marginTop: "5px",
-                marginLeft: "11px",
-              }}
-            >
-              unset
-            </div>
-          )}
-          <ObjectEditor
-            key={objectEditorKey}
-            className={cn(
-              "min-w-4 rounded-none border focus-within:border focus-within:border-border-selected",
-              state.enabled !== false && "border-x-transparent",
-            )}
-            editorClassname="px-2 py-1 mt-0 rounded-sm bg-background-secondary rounded-l-none rounded-r-none"
-            allowTopLevelUndefined
-            disabled={state.enabled === false}
-            onChangeInnerText={setInnerText}
-            size="sm"
-            disableFolding
-            defaultValue={
-              state.value === UNDEFINED_PLACEHOLDER ? undefined : state.value
-            }
-            onChange={onChangeValue}
-            onError={onError}
-            path={`filter${id}`}
-            autoFocus={autoFocus}
-            disableFind
-            saveAction={onApplyFilters}
-            enterSaves
-            mode="editField"
-            validator={validator}
-            shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
-          />
-        </>
+        <ObjectEditor
+          key={objectEditorKey}
+          className={
+            isMobile
+              ? "h-24 w-full rounded-sm text-sm"
+              : cn(
+                  "min-w-4 rounded-none border focus-within:border focus-within:border-border-selected",
+                  state.enabled !== false && "border-x-transparent",
+                )
+          }
+          editorClassname={
+            isMobile
+              ? undefined
+              : "px-2 py-1 mt-0 rounded-sm bg-background-secondary rounded-l-none rounded-r-none"
+          }
+          size="sm"
+          placeholder="unset"
+          allowTopLevelUndefined
+          disabled={state.enabled === false}
+          disableFolding
+          defaultValue={
+            state.value === UNDEFINED_PLACEHOLDER ? undefined : state.value
+          }
+          onChange={onChangeValue}
+          onError={onError}
+          path={`filter${id}`}
+          autoFocus={autoFocus}
+          disableFind
+          saveAction={onApplyFilters}
+          enterSaves
+          mode="editField"
+          validator={validator}
+          shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
+          aria-label="Filter value"
+        />
       )}
     </div>
   );

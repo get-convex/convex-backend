@@ -11,7 +11,7 @@ description: "Manage deployments"
 
 Manage deployments in your project.
 
-## Usage
+## Syntax
 
 ```sh
 npx convex deployment [options] [command]
@@ -22,6 +22,8 @@ npx convex deployment [options] [command]
 - [`npx convex deployment select`](#select) — Select the deployment to use when running commands
 - [`npx convex deployment create`](#create) — Create a new deployment for a project
 - [`npx convex deployment token`](#token) — Manage access tokens
+- [`npx convex deployment usage`](#usage) — Show current usage for each metric
+- [`npx convex deployment usage-limits`](#usage-limits) — List and configure deployment usage limits
 
 ## `npx convex deployment select` \{#select}
 
@@ -35,7 +37,7 @@ The deployment will be used by all `npx convex` commands, except `npx convex dep
 - Select a deployment in another project in the same team: <CodeWithCopyButton text={"npx convex deployment select some-project:dev/james"} />
 - Select a deployment in a particular team/project: <CodeWithCopyButton text={"npx convex deployment select some-team:some-project:dev/james"} />
 
-### Usage
+### Syntax
 
 ```sh
 npx convex deployment select [options] <deployment>
@@ -59,7 +61,7 @@ Create a new deployment for a project.
 - Create a dev deployment and select it: <CodeWithCopyButton text={"npx convex deployment create dev/my-new-feature --type dev --select"} />
 - Create a prod deployment named “staging”: <CodeWithCopyButton text={"npx convex deployment create staging --type prod"} />
 
-### Usage
+### Syntax
 
 ```sh
 npx convex deployment create [options] [reference]
@@ -118,7 +120,7 @@ When the deployment expires (e.g. "none", "in 7 days", "2026-04-01T00:00:00Z", o
 
 Create and delete access tokens. Currently supports deploy keys.
 
-### Usage
+### Syntax
 
 ```sh
 npx convex deployment token [options] [command]
@@ -133,7 +135,7 @@ Creates a deploy key that, when set as `CONVEX_DEPLOY_KEY`, scopes all commands 
 - Save a new deploy key in a custom env file: <CodeWithCopyButton text={"npx convex deployment token create ci-token --save-env .env.production"} />
 - Create a key for the project's prod: <CodeWithCopyButton text={"npx convex deployment token create ci-token --deployment prod"} />
 
-#### Usage
+#### Syntax
 
 ```sh
 npx convex deployment token create [options] <name>
@@ -189,7 +191,7 @@ The positional `<nameOrToken>` can be the unique name of the deploy key (as pass
 - Delete by value: <CodeWithCopyButton text={"npx convex deployment token delete 'dev:happy-animal-123|ey...'"} />
 - Target prod: <CodeWithCopyButton text={"npx convex deployment token delete ci-token --deployment prod"} />
 
-#### Usage
+#### Syntax
 
 ```sh
 npx convex deployment token delete [options] <nameOrToken>
@@ -225,6 +227,211 @@ Delete a deploy key for a specific deployment. Accepts:
 - `prod` (for your project’s default production deployment)
 - `local` (for your local dev deployment).
 You can also select deployments in other projects with `project-slug:reference` or `team-slug:project-slug:reference`.
+
+</dd>
+</dl>
+
+## `npx convex deployment usage` \{#usage}
+
+Show usage so far in the current day and calendar month for every metric.
+
+- Show current usage: <CodeWithCopyButton text={"npx convex deployment usage"} />
+- Print as JSON: <CodeWithCopyButton text={"npx convex deployment usage --json"} />
+
+### Syntax
+
+```sh
+npx convex deployment usage [options]
+```
+
+### Options
+
+<dl>
+<dt>`--json`</dt>
+<dd>
+
+Output the usage as JSON.
+
+</dd>
+<dt>`--prod`</dt>
+<dd>
+
+Show current usage for this project's default production deployment.
+
+</dd>
+<dt>`--deployment <deployment>`</dt>
+<dd>
+
+Show current usage for a specific deployment. Accepts:
+- a deployment name (e.g. joyful-capybara-123)
+- a deployment reference (e.g. dev/james, staging)
+- `dev` (for your personal dev deployment)
+- `prod` (for your project’s default production deployment)
+- `local` (for your local dev deployment).
+You can also select deployments in other projects with `project-slug:reference` or `team-slug:project-slug:reference`.
+
+</dd>
+</dl>
+
+## `npx convex deployment usage-limits` \{#usage-limits}
+
+List and configure usage limits on your deployment.
+
+A usage limit either warns or pauses your deployment when a metric
+(function calls, database bandwidth, …) crosses a threshold within a
+daily or monthly window. Each limit is identified by its
+(metric, window, type).
+
+- List usage limits: <CodeWithCopyButton text={"npx convex deployment usage-limits list"} />
+- Create or update one: <CodeWithCopyButton text={"npx convex deployment usage-limits set --metric functionCalls --window day --type disable --limit 1000000"} />
+- Delete one: <CodeWithCopyButton text={"npx convex deployment usage-limits remove --metric functionCalls --window day --type disable"} />
+
+### Syntax
+
+```sh
+npx convex deployment usage-limits [options] [command]
+```
+
+### Options
+
+<dl>
+<dt>`--prod`</dt>
+<dd>
+
+List and configure usage limits on this project's default production deployment.
+
+</dd>
+<dt>`--deployment <deployment>`</dt>
+<dd>
+
+List and configure usage limits on a specific deployment. Accepts:
+- a deployment name (e.g. joyful-capybara-123)
+- a deployment reference (e.g. dev/james, staging)
+- `dev` (for your personal dev deployment)
+- `prod` (for your project’s default production deployment)
+- `local` (for your local dev deployment).
+You can also select deployments in other projects with `project-slug:reference` or `team-slug:project-slug:reference`.
+
+</dd>
+</dl>
+
+### `npx convex deployment usage-limits list` \{#usage-limits-list}
+
+List the usage limits configured on your deployment.
+
+- List all usage limits: <CodeWithCopyButton text={"npx convex deployment usage-limits list"} />
+- Print as JSON: <CodeWithCopyButton text={"npx convex deployment usage-limits list --json"} />
+
+#### Syntax
+
+```sh
+npx convex deployment usage-limits list [options]
+```
+
+#### Options
+
+<dl>
+<dt>`--json`</dt>
+<dd>
+
+Output the usage limits as JSON.
+
+</dd>
+</dl>
+
+### `npx convex deployment usage-limits set` \{#usage-limits-set}
+
+Create a usage limit, or update the existing one for the same
+(metric, window, type). At most one limit exists per combination.
+
+- Set the amount (creates or replaces it):
+  - `npx convex deployment usage-limits set --metric functionCalls --window day --type disable --limit 1000000`
+- Deactivate without deleting: add `--inactive` (use `--active` to re-enable).
+- Toggle active state without changing the amount: omit `--limit`.
+
+#### Syntax
+
+```sh
+npx convex deployment usage-limits set [options]
+```
+
+#### Options
+
+<dl>
+<dt>`--metric <metric>`</dt>
+<dd>
+
+The metric to limit.
+
+</dd>
+<dt>`--window <window>`</dt>
+<dd>
+
+The window the limit is measured over.
+
+</dd>
+<dt>`--type <type>`</dt>
+<dd>
+
+`warning` only notifies; `disable` pauses the deployment when exceeded.
+
+</dd>
+<dt>`--limit <limit>`</dt>
+<dd>
+
+The limit amount, in the metric's native units. Required when creating; kept as-is when omitted while updating.
+
+</dd>
+<dt>`--active`</dt>
+<dd>
+
+Enforce the limit (the default for a new limit).
+
+</dd>
+<dt>`--inactive`</dt>
+<dd>
+
+Create or leave the limit unenforced.
+
+</dd>
+</dl>
+
+### `npx convex deployment usage-limits remove` \{#usage-limits-remove}
+
+Delete a usage limit, identified by its (metric, window, type).
+
+- <CodeWithCopyButton text={"npx convex deployment usage-limits remove --metric functionCalls --window day --type warning"} />
+
+#### Syntax
+
+```sh
+npx convex deployment usage-limits remove [options]
+```
+
+#### Aliases
+
+- `rm`
+- `delete`
+
+#### Options
+
+<dl>
+<dt>`--metric <metric>`</dt>
+<dd>
+
+The metric to limit.
+
+</dd>
+<dt>`--window <window>`</dt>
+<dd>
+
+The window the limit is measured over.
+
+</dd>
+<dt>`--type <type>`</dt>
+<dd>
+
+`warning` only notifies; `disable` pauses the deployment when exceeded.
 
 </dd>
 </dl>

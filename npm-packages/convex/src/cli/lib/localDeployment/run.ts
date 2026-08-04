@@ -10,7 +10,7 @@ import { ensureBackendBinaryDownloaded } from "./download.js";
 import path from "path";
 import child_process from "child_process";
 import detect from "detect-port";
-import { SENTRY_DSN } from "../utils/sentry.js";
+import { LOCAL_BACKEND_SENTRY_DSN } from "../utils/sentry.js";
 import { createHash } from "crypto";
 import { LocalDeploymentError } from "./errors.js";
 import { LOCAL_BACKEND_INSTANCE_SECRET } from "./utils.js";
@@ -135,7 +135,7 @@ export async function runLocalBackend(
       stdio: "ignore",
       env: {
         ...process.env,
-        SENTRY_DSN: SENTRY_DSN,
+        SENTRY_DSN: LOCAL_BACKEND_SENTRY_DSN,
       },
     })
     .on("exit", (code) => {

@@ -116,14 +116,6 @@ const nonDefaultProdDeployment = createCloudDeployment({
   reference: "prod/shard-1",
 });
 
-const allDeployments = [
-  prodDeployment,
-  devDeployment,
-  localDevDeployment,
-  previewDeployment,
-  customDeployment,
-];
-
 const meta = {
   component: DeploymentLabel,
   render: (args) => <DeploymentLabel {...args} />,
@@ -140,7 +132,6 @@ type Story = StoryObj<typeof meta>;
 export const Production: Story = {
   args: {
     deployment: prodDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };
@@ -148,7 +139,6 @@ export const Production: Story = {
 export const ProductionWithVanityUrl: Story = {
   args: {
     deployment: prodDeployment,
-    deployments: allDeployments,
     whoseName: null,
     vanityUrl: "api.myapp.com",
   },
@@ -157,7 +147,6 @@ export const ProductionWithVanityUrl: Story = {
 export const DevelopmentCloud: Story = {
   args: {
     deployment: devDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };
@@ -165,7 +154,6 @@ export const DevelopmentCloud: Story = {
 export const DevelopmentCloudTeammate: Story = {
   args: {
     deployment: devDeployment,
-    deployments: allDeployments,
     whoseName: "Jane Doe",
   },
 };
@@ -173,7 +161,6 @@ export const DevelopmentCloudTeammate: Story = {
 export const DevelopmentLocal: Story = {
   args: {
     deployment: localDevDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };
@@ -181,7 +168,6 @@ export const DevelopmentLocal: Story = {
 export const Preview: Story = {
   args: {
     deployment: previewDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };
@@ -189,7 +175,6 @@ export const Preview: Story = {
 export const Custom: Story = {
   args: {
     deployment: customDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };
@@ -197,7 +182,6 @@ export const Custom: Story = {
 export const NonDefaultDev: Story = {
   args: {
     deployment: nonDefaultDevDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };
@@ -205,7 +189,6 @@ export const NonDefaultDev: Story = {
 export const NonDefaultProd: Story = {
   args: {
     deployment: nonDefaultProdDeployment,
-    deployments: allDeployments,
     whoseName: null,
   },
 };

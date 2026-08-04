@@ -62,6 +62,7 @@ use value::{
     ResolvedDocumentId,
     TableNumber,
     TabletId,
+    MAX_COMMIT_TS,
     VALUE_TOO_LARGE_SHORT_MSG,
 };
 
@@ -607,10 +608,6 @@ pub enum PendingDocument {
     },
 }
 
-/// The largest possible commit timestamp: unresolved commit timestamps take
-/// this value in the pre-commit view of a document.
-const MAX_COMMIT_TS: i64 = i64::MAX;
-
 impl From<ResolvedDocument> for PendingDocument {
     fn from(document: ResolvedDocument) -> Self {
         Self::Concrete(document)
@@ -694,8 +691,19 @@ impl PendingDocument {
             } => Ok(Cow::Owned(ResolvedDocument::new(
                 *id,
                 *creation_time,
-                document_object(body.resolve(MAX_COMMIT_TS)?)?,
+                document_object(body.resolve(MAX_COMMIT_TS)?.into_owned())?,
             )?)),
+        }
+    }
+
+    /// The document's body (including its system fields), e.g. to merge a
+    /// patch into it.
+    pub fn into_pending_value(self) -> PendingValue {
+        match self {
+            Self::Concrete(document) => {
+                ConvexValue::Object(document.into_value().into_value()).into()
+            },
+            Self::Pending { body, .. } => body,
         }
     }
 
@@ -738,7 +746,7 @@ impl PendingDocument {
             } => ResolvedDocument::new(
                 id,
                 creation_time,
-                document_object(body.resolve(commit_ts)?)?,
+                document_object(body.into_resolved(commit_ts)?)?,
             ),
         }
     }
