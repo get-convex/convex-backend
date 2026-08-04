@@ -326,6 +326,7 @@ pub async fn make_app(
         Arc::new(InProcessExportProvider),
         deleted_tablet_receiver,
         oidc_http_client,
+        None,
     )
     .await?;
 

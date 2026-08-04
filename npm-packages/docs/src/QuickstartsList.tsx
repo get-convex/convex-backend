@@ -302,12 +302,6 @@ export function RulesHarnessesList() {
     <DocCardList
       items={[
         {
-          icon: <CodexLogo height={40} />,
-          href: "/ai/using-codex",
-          docId: "ai/using-codex",
-          label: "Codex",
-        },
-        {
           icon: <GitHubCopilotLogo height={40} />,
           href: "/ai/using-github-copilot",
           docId: "ai/using-github-copilot",

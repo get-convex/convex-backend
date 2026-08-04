@@ -1,12 +1,12 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, screen, userEvent } from "storybook/test";
-import { useEffect } from "react";
+import { useEffect, type ContextType } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Value } from "convex/values";
 import udfs from "@common/udfs";
 import {
   DeploymentInfoContext,
-  useMaybeConnectedDeployment,
+  MaybeConnectedDeploymentContext,
 } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
@@ -437,7 +437,7 @@ const connectedDeployment = {
   deploymentName: devDeployment.name,
   loading: false,
   errorKind: "None",
-} as ReturnType<typeof useMaybeConnectedDeployment>;
+} as ContextType<typeof MaybeConnectedDeploymentContext>;
 
 // A backdrop listing example IDs to copy into the palette, since the palette
 // looks documents up by their (unguessable) ID.
@@ -475,8 +475,10 @@ function ExampleIdsBackdrop() {
 function DataDeploymentPalette() {
   return (
     <DeploymentInfoContext.Provider value={deploymentInfo}>
-      <ExampleIdsBackdrop />
-      <OpenCommandPalette />
+      <MaybeConnectedDeploymentContext.Provider value={connectedDeployment}>
+        <ExampleIdsBackdrop />
+        <OpenCommandPalette />
+      </MaybeConnectedDeploymentContext.Provider>
     </DeploymentInfoContext.Provider>
   );
 }
@@ -499,7 +501,6 @@ const dataDeploymentRouter = {
 function setupDataDeployment() {
   mocked(useCurrentProject).mockReturnValue(mockProject);
   mocked(useCurrentDeployment).mockReturnValue(devDeployment);
-  mocked(useMaybeConnectedDeployment).mockReturnValue(connectedDeployment);
 }
 
 // Interactive: the palette wired to a mock deployment. Search a table or

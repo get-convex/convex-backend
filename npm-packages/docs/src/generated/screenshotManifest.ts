@@ -72,12 +72,12 @@ export const screenshots = [
     "light": {
       "filename": "components_health_cache_hit_rate_light.webp",
       "width": 832,
-      "height": 564
+      "height": 566
     },
     "dark": {
       "filename": "components_health_cache_hit_rate_dark.webp",
       "width": 832,
-      "height": 564
+      "height": 566
     }
   },
   {
@@ -149,13 +149,13 @@ export const screenshots = [
     "storyTitle": "docs/components/ProjectCard",
     "light": {
       "filename": "components_project_card_light.webp",
-      "width": 1096,
-      "height": 457
+      "width": 1086,
+      "height": 454
     },
     "dark": {
       "filename": "components_project_card_dark.webp",
-      "width": 1096,
-      "height": 457
+      "width": 1086,
+      "height": 447
     }
   },
   {
@@ -358,24 +358,24 @@ export const screenshots = [
     "light": {
       "filename": "pages_project_deployment_data_edit_inline_light.webp",
       "width": 896,
-      "height": 268
+      "height": 284
     },
     "dark": {
       "filename": "pages_project_deployment_data_edit_inline_dark.webp",
       "width": 896,
-      "height": 268
+      "height": 284
     }
   },
   {
     "storyTitle": "docs/pages/project/deployment/Data#Edit Document",
     "light": {
       "filename": "pages_project_deployment_data_edit_document_light.webp",
-      "width": 583,
+      "width": 579,
       "height": 594
     },
     "dark": {
       "filename": "pages_project_deployment_data_edit_document_dark.webp",
-      "width": 583,
+      "width": 579,
       "height": 594
     }
   },
@@ -383,12 +383,12 @@ export const screenshots = [
     "storyTitle": "docs/pages/project/deployment/Data#Context Menu",
     "light": {
       "filename": "pages_project_deployment_data_context_menu_light.webp",
-      "width": 1046,
+      "width": 1034,
       "height": 798
     },
     "dark": {
       "filename": "pages_project_deployment_data_context_menu_dark.webp",
-      "width": 1046,
+      "width": 1034,
       "height": 798
     }
   },
@@ -448,13 +448,13 @@ export const screenshots = [
     "storyTitle": "docs/pages/project/deployment/Data#Multiple Dev Deployments Selector",
     "light": {
       "filename": "pages_project_deployment_data_multiple_dev_deployments_selector_light.webp",
-      "width": 920,
-      "height": 922
+      "width": 1344,
+      "height": 924
     },
     "dark": {
       "filename": "pages_project_deployment_data_multiple_dev_deployments_selector_dark.webp",
-      "width": 920,
-      "height": 922
+      "width": 1344,
+      "height": 924
     }
   },
   {

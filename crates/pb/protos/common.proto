@@ -219,3 +219,12 @@ message ExecuteQueryTimestamp {
     uint64 at = 2;
   }
 }
+
+// The reason why a query is being run.
+message QueryInvocation {
+  oneof invocation {
+    google.protobuf.Empty fresh = 1;
+    google.protobuf.Empty invalidation = 2;
+    google.protobuf.Empty identity_change = 3;
+  }
+}

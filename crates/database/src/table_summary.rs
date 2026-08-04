@@ -237,10 +237,16 @@ impl TableSummary {
 
 impl From<&TableSummary> for JsonValue {
     fn from(summary: &TableSummary) -> Self {
-        json!({
-            "totalSize": JsonInteger::encode(summary.count.total_size as i64),
-            "inferredTypeWithOptionalFields": JsonValue::from(&summary.shape.inferred_type)
-        })
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "totalSize".into(),
+            JsonInteger::encode(summary.count.total_size as i64).into(),
+        );
+        object.insert(
+            "inferredTypeWithOptionalFields".into(),
+            JsonValue::from(&summary.shape.inferred_type),
+        );
+        object.into()
     }
 }
 

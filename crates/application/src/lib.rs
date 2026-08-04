@@ -145,6 +145,7 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
+        QueryInvocation,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -372,6 +373,7 @@ use udf::{
         CONVEX_ORIGIN,
         CONVEX_SITE,
     },
+    ActionCallbacks,
     HttpActionRequest,
     HttpActionResponseStreamer,
     HttpActionResult,
@@ -436,6 +438,7 @@ pub mod deployment_state;
 mod execute_query_timestamp;
 mod exports;
 pub mod function_log;
+pub mod llm_gateway_jwt;
 pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
@@ -721,6 +724,7 @@ impl<RT: Runtime> Application<RT> {
         export_provider: Arc<dyn ExportProvider<RT>>,
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
+        llm_gateway_jwt_minter: Option<Arc<dyn llm_gateway_jwt::LlmGatewayJwtMinter>>,
     ) -> anyhow::Result<Self> {
         // Wrap the usage logger so usage is recorded for enforcement before
         // being forwarded downstream.
@@ -870,6 +874,7 @@ impl<RT: Runtime> Application<RT> {
             audit_log_client.clone(),
             default_system_env_vars.clone(),
             cache,
+            llm_gateway_jwt_minter,
         ));
         function_runner.set_action_callbacks(runner.clone());
 
@@ -1032,6 +1037,10 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn runner(&self) -> Arc<ApplicationFunctionRunner<RT>> {
         self.runner.clone()
+    }
+
+    pub async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String> {
+        self.runner.issue_llm_gateway_jwt().await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {
@@ -1242,10 +1251,20 @@ impl<RT: Runtime> Application<RT> {
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let ts = *self.now_ts_for_reads();
-        self.read_only_udf_at_ts(request_context, path, args, identity, ts, None, caller)
-            .await
+        self.read_only_udf_at_ts(
+            request_context,
+            path,
+            args,
+            identity,
+            ts,
+            None,
+            caller,
+            invocation,
+        )
+        .await
     }
 
     #[fastrace::trace]
@@ -1258,6 +1277,7 @@ impl<RT: Runtime> Application<RT> {
         ts: Timestamp,
         journal: Option<Option<String>>,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let request_id = request_context.request_id.clone();
         let persistence_version = self.database.persistence_version();
@@ -1286,6 +1306,7 @@ impl<RT: Runtime> Application<RT> {
                     ts,
                     journal,
                     caller,
+                    invocation,
                 )
                 .await?
         });
@@ -1576,6 +1597,7 @@ impl<RT: Runtime> Application<RT> {
                     args,
                     identity,
                     caller,
+                    QueryInvocation::Fresh,
                 )
                 .await
                 .map(

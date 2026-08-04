@@ -146,4 +146,11 @@ See [Serializing IDs](/database/document-ids.mdx#serializing-ids).
 Convex requires TypeScript version
 [5.0.3](https://www.npmjs.com/package/typescript/v/5.0.3) or newer.
 
+Both TypeScript 6 and TypeScript 7 are supported, and Convex typechecks with the
+`tsc` binary installed in your project without any extra configuration.
+TypeScript 7.0 does not include a JavaScript API, so if other tools in your
+project need it, follow TypeScript's
+[side-by-side installation](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0)
+instructions. Convex picks up TypeScript 7 in that setup too.
+
 <StackPosts query="types" />

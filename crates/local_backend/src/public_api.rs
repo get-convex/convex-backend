@@ -32,7 +32,10 @@ use common::{
         HttpResponseError,
     },
     knobs::MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
-    types::FunctionCaller,
+    types::{
+        FunctionCaller,
+        QueryInvocation,
+    },
     version::ClientVersion,
     RequestContext,
 };
@@ -424,6 +427,7 @@ pub async fn public_query_get(
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
             journal,
+            Some(QueryInvocation::Fresh),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -480,6 +484,7 @@ pub async fn public_query_post(
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
             journal,
+            Some(QueryInvocation::Fresh),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -556,6 +561,7 @@ pub async fn public_query_at_ts_post(
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::At(ts),
             journal,
+            Some(QueryInvocation::Fresh),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -622,6 +628,7 @@ pub async fn public_query_batch_post(
                 FunctionCaller::HttpApi(client_version.clone()),
                 ExecuteQueryTimestamp::At(*ts),
                 None,
+                Some(QueryInvocation::Fresh),
             )
             .await?;
         let response = match udf_return.result {

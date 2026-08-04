@@ -52,6 +52,7 @@ use common::{
     },
     types::{
         FunctionCaller,
+        QueryInvocation,
         UdfType,
     },
     value::JsonPackedValue,
@@ -86,7 +87,6 @@ use sync_types::{
     AuthenticationToken,
     ClientMessage,
     IdentityVersion,
-    Query,
     QueryId,
     QuerySetModification,
     QuerySetVersion,
@@ -119,6 +119,7 @@ use crate::{
     },
     state::{
         NeedsAuthRevalidation,
+        QueryToFetch,
         SyncState,
     },
     ServerMessage,
@@ -281,6 +282,13 @@ enum QueryResult {
     /// (e.g. search indexes or table summaries) is temporarily unavailable
     TemporarilyUnavailable,
     Refresh,
+}
+
+/// Whether a query in the new query set can reuse its existing subscription or
+/// has to be rerun.
+enum SubscriptionState {
+    Reusable(Arc<dyn SubscriptionTrait>),
+    NeedsRerun(QueryInvocation),
 }
 
 struct TransitionState {
@@ -828,7 +836,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             self.state.take_modifications();
 
         let mut identity_version = current_version.identity;
-        if new_identity_version > identity_version {
+        let identity_changed = new_identity_version > identity_version;
+        if identity_changed {
             // If the identity version has changed, invalidate all existing tokens.
             // TODO(CX-737): Don't invalidate queries that don't examine auth state.
             // TODO(CX-737): Don't invalidate the queries if the User the is the same
@@ -899,6 +908,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     request_metadata.clone(),
                     need_fetch.clone(),
                     identity.clone(),
+                    identity_changed,
                     client_version.clone(),
                     partition_id,
                     subscriptions_client.clone(),
@@ -942,8 +952,9 @@ impl<RT: Runtime> SyncWorker<RT> {
         rt: RT,
         host: ResolvedHostname,
         request_metadata: RequestMetadata,
-        need_fetch: Vec<Query>,
+        need_fetch: Vec<QueryToFetch>,
         identity: Identity,
+        identity_changed: bool,
         client_version: ClientVersion,
         partition_id: u64,
         subscriptions_client: Arc<dyn SubscriptionClient>,
@@ -955,7 +966,11 @@ impl<RT: Runtime> SyncWorker<RT> {
     )> {
         let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
             "update_query",
-            need_fetch.into_iter().map(move |query| {
+            need_fetch.into_iter().map(move |to_fetch| {
+                let QueryToFetch {
+                    query,
+                    has_run_before,
+                } = to_fetch;
                 let api = api.clone();
                 let rt = rt.clone();
                 let host = host.clone();
@@ -966,19 +981,29 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let subscriptions_client = subscriptions_client.clone();
                 async move {
                     LocalSpan::add_property(|| ("udf_path", query.udf_path.to_string()));
-                    let new_subscription = match current_subscription {
+                    let subscription_state = match current_subscription {
                         Some(subscription) => match subscription.extend_validity(new_ts).await? {
-                            SubscriptionValidity::Valid => Some(subscription),
+                            SubscriptionValidity::Valid => {
+                                SubscriptionState::Reusable(subscription)
+                            },
                             SubscriptionValidity::Invalid { invalid_ts } => {
                                 metrics::log_query_invalidated(partition_id, invalid_ts, new_ts);
-                                None
+                                SubscriptionState::NeedsRerun(QueryInvocation::Invalidated)
                             },
                         },
-                        None => None,
+                        None if has_run_before && identity_changed => {
+                            SubscriptionState::NeedsRerun(QueryInvocation::IdentityChange)
+                        },
+                        None if has_run_before => {
+                            SubscriptionState::NeedsRerun(QueryInvocation::Invalidated)
+                        },
+                        None => SubscriptionState::NeedsRerun(QueryInvocation::Fresh),
                     };
-                    let (query_result, subscription) = match new_subscription {
-                        Some(subscription) => (QueryResult::Refresh, Some(subscription)),
-                        None => {
+                    let (query_result, subscription) = match subscription_state {
+                        SubscriptionState::Reusable(subscription) => {
+                            (QueryResult::Refresh, Some(subscription))
+                        },
+                        SubscriptionState::NeedsRerun(invocation) => {
                             // We failed to refresh the subscription or it was invalid to start
                             // with. Rerun the query.
                             let caller = FunctionCaller::SyncWorker(client_version);
@@ -1005,6 +1030,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                             caller.clone(),
                                             ExecuteQueryTimestamp::At(new_ts),
                                             query.journal.clone(),
+                                            Some(invocation),
                                         )
                                         .await
                                     },
@@ -1023,6 +1049,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                             caller.clone(),
                                             ExecuteQueryTimestamp::At(new_ts),
                                             query.journal.clone(),
+                                            Some(invocation),
                                         )
                                         .await
                                     },

@@ -68,9 +68,11 @@ use common::{
     },
     types::{
         AllowedVisibility,
+        DeploymentId,
         FunctionCaller,
         ModuleEnvironment,
         NodeDependency,
+        QueryInvocation,
         Timestamp,
         UdfIdentifier,
         UdfType,
@@ -106,6 +108,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
+    backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     components::handles::FunctionHandlesModel,
     config::{
@@ -226,6 +229,7 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
+    llm_gateway_jwt::LlmGatewayJwtMinter,
     ActionError,
     ActionReturn,
     MutationError,
@@ -670,6 +674,11 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     cache_manager: CacheManager<RT>,
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter<RT>,
+    llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
+    /// A deployment keeps its ID for as long as it stays loaded, and one
+    /// `Application` serves one deployment, so token minting reuses the first
+    /// read instead of opening a transaction per call.
+    deployment_id: tokio::sync::OnceCell<DeploymentId>,
 }
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
@@ -686,6 +695,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         audit_log_client: AuditLogClient,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
+        llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
     ) -> Self {
         let isolate_functions = FunctionRouter::new(
             function_runner,
@@ -725,6 +735,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             cache_manager,
             default_system_env_vars,
             node_action_limiter,
+            llm_gateway_jwt_minter,
+            deployment_id: tokio::sync::OnceCell::new(),
         }
     }
 
@@ -816,6 +828,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller,
                 tx.usage_tracker,
                 context.clone(),
+                QueryInvocation::Fresh,
             )
             .await;
         Ok((result, log_lines))
@@ -1157,7 +1170,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         )
         .await?;
 
-        let (path_and_args, returns_validator) = match validate_result {
+        let (path_and_args, returns_validator, _) = match validate_result {
             Ok(tuple) => tuple,
             Err(js_err) => {
                 let mutation_outcome = ValidatedUdfOutcome::from_error(
@@ -1347,7 +1360,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         // Fetch the returns_validator now to be used at a later ts.
         let (path_and_args, returns_validator) = match validate_result {
-            Ok((path_and_args, returns_validator)) => (path_and_args, returns_validator),
+            // We don't need to store visibility_info for non-queries.
+            Ok((path_and_args, returns_validator, _visibility_info)) => {
+                (path_and_args, returns_validator)
+            },
             Err(js_error) => {
                 return Ok(ActionCompletion {
                     outcome: ValidatedActionOutcome::from_error(
@@ -1888,9 +1904,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<QueryReturn> {
         let result = self
-            .run_query_at_ts_inner(request_context, path, args, identity, ts, journal, caller)
+            .run_query_at_ts_inner(
+                request_context,
+                path,
+                args,
+                identity,
+                ts,
+                journal,
+                caller,
+                invocation,
+            )
             .await;
         match result.as_ref() {
             Ok(udf_outcome) => {
@@ -1921,6 +1947,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<QueryReturn> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
@@ -1939,6 +1966,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 journal,
                 caller.clone(),
                 usage_tracker.clone(),
+                invocation,
             )
             .await;
 
@@ -1957,6 +1985,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         start,
                         caller,
                         context,
+                        invocation,
                     )
                     .await?;
                 Err(e)
@@ -2039,6 +2068,31 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
+    async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String> {
+        let backend_deployment_id = match self.deployment_id.get() {
+            Some(deployment_id) => Some(*deployment_id),
+            None => {
+                let mut tx = self.database.begin_system().await?;
+                let deployment_id = BackendInfoModel::new(&mut tx)
+                    .get()
+                    .await?
+                    .map(|backend_info| backend_info.deployment);
+                if let Some(deployment_id) = deployment_id {
+                    // Backend info can arrive after the first call, so only a real
+                    // ID is worth remembering. Concurrent callers race here and
+                    // read back the same value.
+                    let _ = self.deployment_id.set(deployment_id);
+                }
+                deployment_id
+            },
+        };
+        self.llm_gateway_jwt_minter
+            .as_ref()
+            .context("LLM gateway JWT minting is not configured")?
+            .mint(backend_deployment_id)
+    }
+
+    #[fastrace::trace]
     async fn execute_query(
         &self,
         identity: Identity,
@@ -2059,6 +2113,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     parent_scheduled_job: context.parent_scheduled_job,
                     parent_execution_id: Some(context.execution_id),
                 },
+                QueryInvocation::Fresh,
             )
             .await?
             .result;

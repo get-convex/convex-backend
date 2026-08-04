@@ -321,6 +321,18 @@ export function teamSectionNavigation(teamSlug: string): NavigationTarget[] {
   ];
 }
 
+export function teamSwitchDestination(
+  teamSlug: string,
+  currentPathname: string,
+): string {
+  const teamRoute = "/t/[team]";
+  const suffix = currentPathname.startsWith(`${teamRoute}/settings`)
+    ? currentPathname.slice(teamRoute.length)
+    : "";
+  // A suffix with its own dynamic segment has no value to substitute in.
+  return suffix.includes("[") ? `/t/${teamSlug}` : `/t/${teamSlug}${suffix}`;
+}
+
 // Sections within the profile page.
 export function profileSectionNavigation(): NavigationTarget[] {
   const Icon = PersonIcon;

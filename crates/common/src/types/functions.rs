@@ -28,6 +28,19 @@ use crate::{
     version::ClientVersion,
 };
 
+/// Whether a query call is a fresh invocation or a rerun of a query that has
+/// produced a result before.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum QueryInvocation {
+    /// A fresh invocation: an HTTP request, cron, action, scheduled function,
+    /// dashboard tester, or the first time a client subscribes to a query.
+    Fresh,
+    /// A rerun of a query whose subscription was no longer valid.
+    Invalidated,
+    /// A rerun caused by the client's auth identity changing.
+    IdentityChange,
+}
+
 #[derive(Serialize, Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
 pub enum UdfType {
@@ -440,5 +453,40 @@ impl ModuleEnvironment {
             ModuleEnvironment::Node => "node",
             ModuleEnvironment::Invalid => "unknown",
         }
+    }
+}
+
+impl From<QueryInvocation> for pb::common::QueryInvocation {
+    fn from(invocation: QueryInvocation) -> Self {
+        let invocation = match invocation {
+            QueryInvocation::Fresh => pb::common::query_invocation::Invocation::Fresh(()),
+            QueryInvocation::Invalidated => {
+                pb::common::query_invocation::Invocation::Invalidation(())
+            },
+            QueryInvocation::IdentityChange => {
+                pb::common::query_invocation::Invocation::IdentityChange(())
+            },
+        };
+        Self {
+            invocation: Some(invocation),
+        }
+    }
+}
+
+impl TryFrom<pb::common::QueryInvocation> for QueryInvocation {
+    type Error = anyhow::Error;
+
+    fn try_from(msg: pb::common::QueryInvocation) -> anyhow::Result<Self> {
+        let invocation = match msg.invocation {
+            Some(pb::common::query_invocation::Invocation::Fresh(())) => QueryInvocation::Fresh,
+            Some(pb::common::query_invocation::Invocation::Invalidation(())) => {
+                QueryInvocation::Invalidated
+            },
+            Some(pb::common::query_invocation::Invocation::IdentityChange(())) => {
+                QueryInvocation::IdentityChange
+            },
+            None => anyhow::bail!("Missing `invocation` field"),
+        };
+        Ok(invocation)
     }
 }

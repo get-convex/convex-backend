@@ -613,7 +613,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             pending_args_policy,
         )
         .await?;
-        let (path_and_args, returns_validator) = match path_and_args_result {
+        // We don't need to store visibility_info for non-queries
+        let (path_and_args, returns_validator, _visibility_info) = match path_and_args_result {
             Ok(r) => r,
             Err(e) => {
                 // TODO: Propagate this JsError to user space correctly.

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
-import { webkit } from "playwright";
+import { chromium } from "playwright";
 import sharp from "sharp";
 import pixelmatch from "pixelmatch";
 import chalk from "chalk";
@@ -145,9 +145,9 @@ if (docsStories.length === 0) {
 
 spinner.succeed(`Found ${docsStories.length} stories`);
 
-// 3. Launch Playwright (WebKit)
+// 3. Launch Playwright
 spinner = ora("Launching Playwright...").start();
-const browser = await webkit.launch();
+const browser = await chromium.launch();
 spinner.succeed("Playwright launched");
 
 // Ensure output dir exists
@@ -204,27 +204,52 @@ async function captureScreenshot(
 
   let context: Awaited<ReturnType<typeof browser.newContext>> | null = null;
   try {
+    // Load the story in a page of the given context.
+    const openStoryPage = async (ctx: NonNullable<typeof context>) => {
+      const p = await ctx.newPage();
+      // Neither of these ever settles, which would keep the `networkidle` wait
+      // below from ever firing: Storybook serves its dev-server status as a
+      // long-poll, and NextAuth's session route has no server behind it under
+      // Storybook. Both globs must stay this narrow — `**/api/**` would also
+      // match the dashboard's own `src/api/*.ts` modules that Vite serves.
+      await p.route("**/api/status", (route) => route.abort());
+      await p.route("**/api/auth/**", (route) => route.abort());
+      // Disable CSS animations and cursor blinking to ensure stable screenshots
+      // of components like Monaco editor that otherwise have non-deterministic renders.
+      await p.emulateMedia({ reducedMotion: "reduce" });
+      await p.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
+      // Network idle does not imply the story rendered and its `play` function
+      // ran, so wait for the render to report that it finished.
+      await p.waitForFunction(
+        (storyId: string) =>
+          [...((window as any).__STORYBOOK_PREVIEW__?.storyRenders ?? [])].some(
+            (r: any) => r.id === storyId && r.phase === "finished",
+          ),
+        story.id,
+        { timeout: 60_000 },
+      );
+      await p.evaluate(() => document.fonts.ready);
+
+      // Hide Monaco editor cursors to ensure stable screenshots
+      await p.addStyleTag({
+        content:
+          ".monaco-editor .cursors-layer > .cursor { display: none !important; }",
+      });
+      await p.addStyleTag({
+        content: ".monaco-editor .slider { opacity: 0 !important; }",
+      });
+      return p;
+    };
+
     // Create a fresh browser context for each screenshot to avoid flaky
-    // rendering caused by shared state between stories.
+    // rendering caused by shared state between stories. Assign `context`
+    // right away so the finally block closes it even when the page setup
+    // fails partway through.
     context = await browser.newContext({
       viewport: { width: 1024, height: 700 },
       deviceScaleFactor: DEVICE_SCALE_FACTOR,
     });
-    const page = await context.newPage();
-    // Disable CSS animations and cursor blinking to ensure stable screenshots
-    // of components like Monaco editor that otherwise have non-deterministic renders.
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
-    await page.evaluate(() => document.fonts.ready);
-
-    // Hide Monaco editor cursors to ensure stable screenshots
-    await page.addStyleTag({
-      content:
-        ".monaco-editor .cursors-layer > .cursor { display: none !important; }",
-    });
-    await page.addStyleTag({
-      content: ".monaco-editor .slider { opacity: 0 !important; }",
-    });
+    let page = await openStoryPage(context);
 
     // Read the element-level crop selector and optional viewport override from
     // story parameters. In Storybook 10, the store API is
@@ -251,10 +276,18 @@ async function captureScreenshot(
 
     // A story whose page doesn't fit the default 1024x700 (e.g. a wide table
     // that would otherwise clip) can widen/heighten the capture viewport.
-    // Resize after load, then let layout reflow and fonts settle.
+    // Reload the story in a fresh context at that size instead of resizing the
+    // page: a resize makes width-dependent UI (e.g. the deployment badge)
+    // remount mid-capture, and its entrance animations then race the
+    // screenshot and get frozen at opacity 0.
     if (screenshotViewport) {
-      await page.setViewportSize(screenshotViewport);
-      await page.evaluate(() => document.fonts.ready);
+      await context.close();
+      context = null;
+      context = await browser.newContext({
+        viewport: screenshotViewport,
+        deviceScaleFactor: DEVICE_SCALE_FACTOR,
+      });
+      page = await openStoryPage(context);
     }
 
     const isComponentStory = story.title
