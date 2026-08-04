@@ -51,6 +51,7 @@ use common::{
         FunctionCaller,
         HttpActionRoute,
         ModuleEnvironment,
+        QueryInvocation,
         TableName,
         TableStats,
         UdfIdentifier,
@@ -179,6 +180,9 @@ pub struct FunctionExecution {
     /// Whether this function will be retried (e.g. a mutation that OCCs or hits
     /// write throughput limits)
     pub will_retry: bool,
+
+    // Why this query was executed. Only applicable for queries.
+    pub query_invocation: Option<QueryInvocation>,
 }
 
 impl HeapSize for FunctionExecution {
@@ -618,6 +622,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
+        query_invocation: QueryInvocation,
     ) {
         self._log_query(
             outcome,
@@ -627,6 +632,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::Track(usage_tracking),
             context,
+            query_invocation,
         )
         .await
     }
@@ -640,6 +646,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         start: tokio::time::Instant,
         caller: FunctionCaller,
         context: ExecutionContext,
+        query_invocation: QueryInvocation,
     ) -> anyhow::Result<()> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
@@ -660,6 +667,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::SystemError,
             context,
+            query_invocation,
         )
         .await;
         Ok(())
@@ -675,6 +683,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: TrackUsage,
         context: ExecutionContext,
+        query_invocation: QueryInvocation,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -735,6 +744,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: None,
             occ_info: None,
             will_retry: false,
+            query_invocation: Some(query_invocation),
         };
         self.log_execution(execution, true, true);
     }
@@ -936,6 +946,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: Some(mutation_retry_count),
             occ_info,
             will_retry,
+            query_invocation: None,
         };
         self.log_execution(execution, true, true);
     }
@@ -1033,6 +1044,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: None,
             occ_info: None,
             will_retry: false,
+            query_invocation: None,
         };
         self.log_execution(execution, /* send_console_events */ false, true)
     }
@@ -1194,6 +1206,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: None,
             occ_info: None,
             will_retry: false,
+            query_invocation: None,
         };
         self.log_execution(
             execution,

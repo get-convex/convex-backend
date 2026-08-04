@@ -39,6 +39,7 @@ use common::{
     runtime::UnixTimestamp,
     types::{
         FunctionCaller,
+        QueryInvocation,
         SessionId,
         SessionRequestSeqNumber,
         UdfIdentifier,
@@ -156,6 +157,7 @@ pub async fn internal_query_post(
                 parent_scheduled_job: context.parent_scheduled_job,
                 parent_execution_id: Some(context.execution_id),
             },
+            QueryInvocation::Fresh,
         )
         .await?;
     if req.format.is_some() {

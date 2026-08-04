@@ -71,6 +71,7 @@ use common::{
         FunctionCaller,
         ModuleEnvironment,
         NodeDependency,
+        QueryInvocation,
         Timestamp,
         UdfIdentifier,
         UdfType,
@@ -816,6 +817,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller,
                 tx.usage_tracker,
                 context.clone(),
+                QueryInvocation::Fresh,
             )
             .await;
         Ok((result, log_lines))
@@ -1888,9 +1890,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<QueryReturn> {
         let result = self
-            .run_query_at_ts_inner(request_context, path, args, identity, ts, journal, caller)
+            .run_query_at_ts_inner(
+                request_context,
+                path,
+                args,
+                identity,
+                ts,
+                journal,
+                caller,
+                invocation,
+            )
             .await;
         match result.as_ref() {
             Ok(udf_outcome) => {
@@ -1921,6 +1933,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<QueryReturn> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
@@ -1939,6 +1952,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 journal,
                 caller.clone(),
                 usage_tracker.clone(),
+                invocation,
             )
             .await;
 
@@ -1957,6 +1971,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         start,
                         caller,
                         context,
+                        invocation,
                     )
                     .await?;
                 Err(e)
@@ -2059,6 +2074,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     parent_scheduled_job: context.parent_scheduled_job,
                     parent_execution_id: Some(context.execution_id),
                 },
+                QueryInvocation::Fresh,
             )
             .await?
             .result;

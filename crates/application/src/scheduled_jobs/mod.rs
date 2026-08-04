@@ -63,6 +63,7 @@ use common::{
     },
     types::{
         FunctionCaller,
+        QueryInvocation,
         UdfType,
     },
     RequestId,
@@ -679,6 +680,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                                 self.rt.monotonic_now(),
                                 caller,
                                 context,
+                                QueryInvocation::Fresh,
                             )
                             .await?;
                     },

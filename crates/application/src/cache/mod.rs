@@ -39,6 +39,7 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
+        QueryInvocation,
         TableName,
         TableStats,
         Timestamp,
@@ -342,6 +343,7 @@ impl<RT: Runtime> CacheManager<RT> {
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
         usage_tracker: FunctionUsageTracker,
+        query_invocation: QueryInvocation,
     ) -> anyhow::Result<QueryReturn> {
         let timer = get_timer();
         let result = self
@@ -354,6 +356,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 journal,
                 caller,
                 usage_tracker,
+                query_invocation,
             )
             .await;
         match &result {
@@ -381,6 +384,7 @@ impl<RT: Runtime> CacheManager<RT> {
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
         usage_tracker: FunctionUsageTracker,
+        query_invocation: QueryInvocation,
     ) -> anyhow::Result<(QueryReturn, bool)> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
@@ -519,6 +523,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     caller,
                     usage_tracker,
                     context.clone(),
+                    query_invocation,
                 )
                 .await;
             let result = QueryReturn {

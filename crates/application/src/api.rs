@@ -19,6 +19,7 @@ use common::{
         AllowedVisibility,
         ConvexOrigin,
         FunctionCaller,
+        QueryInvocation,
         RepeatableTimestamp,
     },
     RequestContext,
@@ -105,6 +106,7 @@ pub trait ApplicationApi: Send + Sync {
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
+        invocation: Option<QueryInvocation>,
     ) -> anyhow::Result<RedactedQueryReturn>;
 
     /// Execute an admin query for a particular component. This method is used
@@ -120,6 +122,7 @@ pub trait ApplicationApi: Send + Sync {
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
+        invocation: Option<QueryInvocation>,
     ) -> anyhow::Result<RedactedQueryReturn>;
 
     /// Execute a public mutation on the root app.
@@ -281,6 +284,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
+        invocation: Option<QueryInvocation>,
     ) -> anyhow::Result<RedactedQueryReturn> {
         anyhow::ensure!(
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
@@ -298,6 +302,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ts,
             journal,
             caller,
+            invocation.unwrap_or(QueryInvocation::Fresh),
         )
         .await
     }
@@ -312,6 +317,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
+        invocation: Option<QueryInvocation>,
     ) -> anyhow::Result<RedactedQueryReturn> {
         anyhow::ensure!(
             path.component.is_root() || identity.is_admin() || identity.is_system(),
@@ -329,6 +335,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ts,
             journal,
             caller,
+            invocation.unwrap_or(QueryInvocation::Fresh),
         )
         .await
     }

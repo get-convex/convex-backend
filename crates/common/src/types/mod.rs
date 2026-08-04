@@ -79,6 +79,7 @@ pub use functions::{
     AllowedVisibility,
     FunctionCaller,
     ModuleEnvironment,
+    QueryInvocation,
     UdfIdentifier,
     UdfType,
     UdfTypeJson,

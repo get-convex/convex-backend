@@ -145,6 +145,7 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
+        QueryInvocation,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -1199,10 +1200,20 @@ impl<RT: Runtime> Application<RT> {
         args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let ts = *self.now_ts_for_reads();
-        self.read_only_udf_at_ts(request_context, path, args, identity, ts, None, caller)
-            .await
+        self.read_only_udf_at_ts(
+            request_context,
+            path,
+            args,
+            identity,
+            ts,
+            None,
+            caller,
+            invocation,
+        )
+        .await
     }
 
     #[fastrace::trace]
@@ -1215,6 +1226,7 @@ impl<RT: Runtime> Application<RT> {
         ts: Timestamp,
         journal: Option<Option<String>>,
         caller: FunctionCaller,
+        invocation: QueryInvocation,
     ) -> anyhow::Result<RedactedQueryReturn> {
         let request_id = request_context.request_id.clone();
         let persistence_version = self.database.persistence_version();
@@ -1243,6 +1255,7 @@ impl<RT: Runtime> Application<RT> {
                     ts,
                     journal,
                     caller,
+                    invocation,
                 )
                 .await?
         });
@@ -1533,6 +1546,7 @@ impl<RT: Runtime> Application<RT> {
                     args,
                     identity,
                     caller,
+                    QueryInvocation::Fresh,
                 )
                 .await
                 .map(
