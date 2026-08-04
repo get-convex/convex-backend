@@ -297,13 +297,28 @@ enum DefaultTableNumber {
     SchemaValidationProgress = 37,
     ScheduledJobArgs = 38,
     AuditLogConfig = 39,
-    AdminKeys = 40,
-    PeriodicBackupConfig = 41,
-    UsageLimits = 42,
-    DataSyncProgress = 43,
+    UsageLimits = 40,
+    DataSyncProgress = 41,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 44 - mingu
+    // Next Number - 42 - nipunn
+
+    // ---- Fork-only system tables ----
+    // Deliberately in a reserved high range, far above upstream's sequence
+    // above, so upstream can keep appending table numbers indefinitely without
+    // colliding with ours (a collision is a hard build error: E0081). Keep
+    // upstream's numbering untouched — renumbering an upstream table makes this
+    // fork's on-disk layout diverge from every other Convex deployment.
+    //
+    // Changing a value here only affects tables created from now on;
+    // `Transaction::table_number_for_system_table` consults the default solely
+    // at creation time, so existing deployments keep the numbers they have.
+    //
+    // Must stay within [1, 9487]: TableNumber = 512 + this value, and system
+    // tables must land in [513, 10000).
+    // Next Fork Number - 1002 - mingu
+    AdminKeys = 1000,
+    PeriodicBackupConfig = 1001,
 }
 
 impl From<DefaultTableNumber> for TableNumber {
