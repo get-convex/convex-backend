@@ -150,7 +150,7 @@ export const screenshots = [
     "light": {
       "filename": "components_project_card_light.webp",
       "width": 1086,
-      "height": 453
+      "height": 454
     },
     "dark": {
       "filename": "components_project_card_dark.webp",
@@ -370,12 +370,12 @@ export const screenshots = [
     "storyTitle": "docs/pages/project/deployment/Data#Edit Document",
     "light": {
       "filename": "pages_project_deployment_data_edit_document_light.webp",
-      "width": 583,
+      "width": 579,
       "height": 594
     },
     "dark": {
       "filename": "pages_project_deployment_data_edit_document_dark.webp",
-      "width": 583,
+      "width": 579,
       "height": 594
     }
   },
@@ -383,12 +383,12 @@ export const screenshots = [
     "storyTitle": "docs/pages/project/deployment/Data#Context Menu",
     "light": {
       "filename": "pages_project_deployment_data_context_menu_light.webp",
-      "width": 1046,
+      "width": 1034,
       "height": 798
     },
     "dark": {
       "filename": "pages_project_deployment_data_context_menu_dark.webp",
-      "width": 1046,
+      "width": 1034,
       "height": 798
     }
   },

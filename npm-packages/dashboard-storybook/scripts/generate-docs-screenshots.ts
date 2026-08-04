@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
-import { webkit } from "playwright";
+import { chromium } from "playwright";
 import sharp from "sharp";
 import pixelmatch from "pixelmatch";
 import chalk from "chalk";
@@ -145,9 +145,9 @@ if (docsStories.length === 0) {
 
 spinner.succeed(`Found ${docsStories.length} stories`);
 
-// 3. Launch Playwright (WebKit)
+// 3. Launch Playwright
 spinner = ora("Launching Playwright...").start();
-const browser = await webkit.launch();
+const browser = await chromium.launch();
 spinner.succeed("Playwright launched");
 
 // Ensure output dir exists
