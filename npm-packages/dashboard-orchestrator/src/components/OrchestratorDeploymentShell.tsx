@@ -129,6 +129,9 @@ export function OrchestratorDeploymentShell({
       streamingExportEnabled: true,
     }),
     useTeamUsageState: () => "Default",
+    // The orchestrator control plane has no billing, so there is no plan to
+    // report. Matches dashboard-self-hosted.
+    useTeamPlanType: () => null,
     useCurrentUsageBanner: () => null,
     useCurrentProject: () => ({
       id: project.id,
@@ -212,7 +215,16 @@ export function OrchestratorDeploymentShell({
     // links and break the chrome).
     deploymentBackendOwnsAdminKeys: true,
     workosIntegrationEnabled: false,
-    logStreamTopicFiltersEnabled: true,
+    // `logStreamTopicFiltersEnabled` used to be set here. Upstream removed it
+    // from DeploymentInfo in bb97ce4f8 ("remove launched LaunchDarkly flags")
+    // once the feature shipped, so the behaviour is now unconditional and the
+    // flag no longer exists to set.
+    //
+    // Both gated off until the features ship; the orchestrator has no
+    // LaunchDarkly, so flip these to true at launch. Matches
+    // dashboard-self-hosted.
+    usageLimitsEnabled: false,
+    copyEnvVarNameAndValueEnabled: false,
     connectionStateCheckIntervalMs: 2500,
   };
 

@@ -1,0 +1,64 @@
+# Fork-owned workflow. dashboard-orchestrator is a fork-only package, so no
+# upstream workflow builds it: `build_local_backend.yml` and `precompile.yml`
+# only build `dashboard-self-hosted...`. That gap let an upstream DeploymentInfo
+# change land on `enhanced` with the orchestrator uncompilable — the breakage
+# was only caught later by the sync script's own dashboard gate, which blocks
+# every subsequent sync until someone fixes it.
+#
+# Keeping this in its own file (rather than adding a filter to an upstream
+# workflow) means it carries no merge-conflict surface with upstream.
+
+name: Build Dashboard Orchestrator
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [enhanced]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    name: Build dashboard-orchestrator
+    runs-on: "runs-on=${{ github.run_id }}/runner=xlarge-x64"
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Restore pnpm artifacts
+        uses: runs-on/cache/restore@bd330c5a5f6cbb837823ee25864f3c71a211c2e3 # v5.0.5
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            npm-packages/.turbo/cache
+          key: pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
+          restore-keys: pnpm-cache-
+
+      - name: Install mise tools
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        with:
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: NPM install globals
+        run: npm ci --prefix scripts
+
+      - name: Build dashboard-orchestrator
+        run: |
+          just install-js
+          just turbo run build --filter=dashboard-orchestrator...
