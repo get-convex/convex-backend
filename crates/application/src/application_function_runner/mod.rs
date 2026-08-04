@@ -68,6 +68,7 @@ use common::{
     },
     types::{
         AllowedVisibility,
+        DeploymentId,
         FunctionCaller,
         ModuleEnvironment,
         NodeDependency,
@@ -107,6 +108,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
+    backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     components::handles::FunctionHandlesModel,
     config::{
@@ -227,6 +229,7 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
+    llm_gateway_jwt::LlmGatewayJwtMinter,
     ActionError,
     ActionReturn,
     MutationError,
@@ -671,6 +674,11 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     cache_manager: CacheManager<RT>,
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter<RT>,
+    llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
+    /// A deployment keeps its ID for as long as it stays loaded, and one
+    /// `Application` serves one deployment, so token minting reuses the first
+    /// read instead of opening a transaction per call.
+    deployment_id: tokio::sync::OnceCell<DeploymentId>,
 }
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
@@ -687,6 +695,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         audit_log_client: AuditLogClient,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
+        llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
     ) -> Self {
         let isolate_functions = FunctionRouter::new(
             function_runner,
@@ -726,6 +735,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             cache_manager,
             default_system_env_vars,
             node_action_limiter,
+            llm_gateway_jwt_minter,
+            deployment_id: tokio::sync::OnceCell::new(),
         }
     }
 
@@ -2056,6 +2067,31 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
+    #[fastrace::trace]
+    async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String> {
+        let backend_deployment_id = match self.deployment_id.get() {
+            Some(deployment_id) => Some(*deployment_id),
+            None => {
+                let mut tx = self.database.begin_system().await?;
+                let deployment_id = BackendInfoModel::new(&mut tx)
+                    .get()
+                    .await?
+                    .map(|backend_info| backend_info.deployment);
+                if let Some(deployment_id) = deployment_id {
+                    // Backend info can arrive after the first call, so only a real
+                    // ID is worth remembering. Concurrent callers race here and
+                    // read back the same value.
+                    let _ = self.deployment_id.set(deployment_id);
+                }
+                deployment_id
+            },
+        };
+        self.llm_gateway_jwt_minter
+            .as_ref()
+            .context("LLM gateway JWT minting is not configured")?
+            .mint(backend_deployment_id)
+    }
+
     #[fastrace::trace]
     async fn execute_query(
         &self,

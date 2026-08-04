@@ -24,6 +24,8 @@ use crate::FunctionResult;
 
 #[async_trait]
 pub trait ActionCallbacks: Send + Sync {
+    async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String>;
+
     // Executing UDFs
     async fn execute_query(
         &self,

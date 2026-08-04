@@ -109,6 +109,19 @@ pub struct MutationIdentifierJson {
     pub request_id: SessionRequestSeqNumber,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmGatewayJwtResponse {
+    pub token: String,
+}
+
+pub async fn issue_llm_gateway_jwt(
+    MtState(st): MtState<LocalAppState>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let token = st.application.issue_llm_gateway_jwt().await?;
+    Ok(Json(LlmGatewayJwtResponse { token }))
+}
+
 impl TryFrom<MutationIdentifierJson> for SessionRequestIdentifier {
     type Error = anyhow::Error;
 
