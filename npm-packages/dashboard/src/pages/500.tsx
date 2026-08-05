@@ -18,12 +18,13 @@ export function Fallback({
   error,
 }: {
   eventId: string | null;
-  error: Error;
+  error: unknown;
 }) {
   captureMessage("ErrorBoundary triggered", "info");
+  const message = error instanceof Error ? error.message : String(error);
   if (
-    error.message.includes("Couldn't find system module") ||
-    /Couldn't find ".+" in module/.test(error.message)
+    message.includes("Couldn't find system module") ||
+    /Couldn't find ".+" in module/.test(message)
   ) {
     return (
       <div className="h-full grow">
@@ -44,7 +45,7 @@ export function Fallback({
   // grants propagate. The server formats the error as
   // "You do not have permission to perform this operation ({action})" —
   // pull the action out so the UI can show which permission was missing.
-  const permissionDeniedMatch = error.message.match(
+  const permissionDeniedMatch = message.match(
     /You do not have permission to perform this operation(?:\s*\(([^)]+)\))?/,
   );
   if (permissionDeniedMatch) {

@@ -21,7 +21,7 @@ export const PROVISION_PROD_PAGE_NAME = "production";
 export const PROVISION_DEV_PAGE_NAME = "development";
 
 type FallbackRender = (errorData: {
-  error: Error;
+  error: unknown;
   componentStack: string;
   eventId: string;
   resetError(): void;

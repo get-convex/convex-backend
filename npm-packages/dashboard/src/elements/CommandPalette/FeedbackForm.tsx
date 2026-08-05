@@ -1,4 +1,4 @@
-import { captureMessage, captureUserFeedback } from "@sentry/nextjs";
+import { captureFeedback, captureMessage } from "@sentry/nextjs";
 import { Button } from "@ui/Button";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Sheet } from "@ui/Sheet";
@@ -28,11 +28,11 @@ export function FeedbackForm() {
     isInitialValid: false,
     onSubmit: (values) => {
       const eventId = captureMessage("Command palette feedback", "info");
-      captureUserFeedback({
-        event_id: eventId,
+      void captureFeedback({
+        associatedEventId: eventId,
         name: profile?.name ?? "Unknown",
         email: profile?.email ?? "unknown@convex.dev",
-        comments: values.message,
+        message: values.message,
       });
       setOpen(false);
       formState.resetForm();

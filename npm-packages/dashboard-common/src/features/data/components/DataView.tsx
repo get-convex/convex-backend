@@ -155,8 +155,9 @@ const PAGE_TIMEOUT_MESSAGES = [
   "Your request timed out performing too many system operations.",
 ];
 
-function isPageTimeoutError(error: Error) {
+function isPageTimeoutError(error: unknown) {
   return (
+    error instanceof Error &&
     error.message.startsWith(
       "[CONVEX Q(_system/frontend/paginatedTableDocuments:default)]",
     ) &&
@@ -170,7 +171,7 @@ function HandleTimeout({
   setPageSize,
   currentPageSize,
 }: {
-  error: Error;
+  error: unknown;
   resetError(): void;
   currentPageSize: number;
   setPageSize: (pageSize: number) => void;

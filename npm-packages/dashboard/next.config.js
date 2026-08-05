@@ -109,14 +109,6 @@ const nextConfig = {
       },
     ];
   },
-  sentry: {
-    // The Webpack plugin attempts to upload sourcemaps on every production build, which requires having a Sentry auth
-    // token. In this monorepo, all builds are production builds so this is no good. We only want this to happen on a real
-    // deployment.
-    disableServerWebpackPlugin: !process.env.NETLIFY && !process.env.VERCEL,
-    disableClientWebpackPlugin: !process.env.NETLIFY && !process.env.VERCEL,
-    hideSourceMaps: true,
-  },
   images: {
     domains:
       process.env.VERCEL_ENV === "production"
@@ -199,13 +191,25 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
 });
 
+// Uploading sourcemaps requires a Sentry auth token. In this monorepo all
+// builds are production builds, so restrict it to the only real deployment of
+// this app: Vercel production. Preview builds are excluded.
+const uploadSourceMaps =
+  !!process.env.VERCEL && process.env.VERCEL_ENV === "production";
+
 module.exports = withBundleAnalyzer(
   withSentryConfig(nextConfig, {
-    dryRun: process.env.VERCEL && process.env.VERCEL_ENV !== "production",
-    release: process.env.VERCEL_GIT_COMMIT_SHA,
+    org: "convex-dev",
+    project: "dashboard",
+    release: {
+      name: process.env.VERCEL_GIT_COMMIT_SHA,
+      create: uploadSourceMaps,
+      finalize: uploadSourceMaps,
+    },
+    sourcemaps: {
+      disable: !uploadSourceMaps,
+    },
     silent: true,
-  }),
-  {
     widenClientFileUpload: true,
-  },
+  }),
 );

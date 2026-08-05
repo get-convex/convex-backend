@@ -1,9 +1,8 @@
-// sentry.edge.config.js or sentry.edge.config.ts
+// Sentry initialization for the Node.js runtime, loaded from
+// `instrumentation.ts`'s `register()`.
+// https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-
-import { Integrations } from "@sentry/nextjs";
-const { RequestData } = Integrations;
 
 const SENTRY_DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 const environment =
@@ -14,10 +13,10 @@ const environment =
 Sentry.init({
   dsn: SENTRY_DSN,
   tracesSampleRate: 0.01,
-  tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
+  release: process.env.SENTRY_RELEASE,
   environment,
   integrations: [
-    new RequestData({
+    Sentry.requestDataIntegration({
       include: {
         cookies: false,
       },

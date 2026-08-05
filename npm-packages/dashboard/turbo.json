@@ -17,7 +17,6 @@
         "BIG_BRAIN_URL",
         "WORKOS_LOGIN_URL",
         "ANALYZE",
-        "NETLIFY",
         "VERCEL*",
         "NEXT_PUBLIC_*"
       ]

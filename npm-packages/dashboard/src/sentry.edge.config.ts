@@ -1,11 +1,8 @@
-// This file configures the initialization of Sentry on the server.
-// The config you add here will be used whenever the server handles a request.
+// Sentry initialization for the Edge runtime, loaded from
+// `instrumentation.ts`'s `register()`.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-
-import { Integrations } from "@sentry/nextjs";
-const { RequestData } = Integrations;
 
 const SENTRY_DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 const environment =
@@ -16,10 +13,10 @@ const environment =
 Sentry.init({
   dsn: SENTRY_DSN,
   tracesSampleRate: 0.01,
-  release: process.env.SENTRY_RELEASE,
+  tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
   environment,
   integrations: [
-    new RequestData({
+    Sentry.requestDataIntegration({
       include: {
         cookies: false,
       },

@@ -1,5 +1,5 @@
 // This file configures the initialization of Sentry on the browser.
-// The config you add here will be used whenever a page is visited.
+// Next.js loads it before the app boots, on every page visit.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
@@ -16,11 +16,11 @@ Sentry.init({
   tracesSampleRate: 0.05,
   tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
   environment,
-  integrations: [
-    new Sentry.BrowserTracing({
-      tracingOrigins: ["localhost", /^\//, /.*\.convex.cloud/],
-    }),
-  ],
+  integrations: [Sentry.browserTracingIntegration()],
+  // Which outgoing requests get `sentry-trace`/`baggage` headers. Matched
+  // against the fully resolved URL, plus the pathname for same-origin
+  // requests — hence `/^\//` for our own API routes.
+  tracePropagationTargets: ["localhost", /^\//, /.*\.convex.cloud/],
   release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
   ignoreErrors: [
     "ResizeObserver loop completed with undelivered notifications.",
@@ -28,3 +28,7 @@ Sentry.init({
     /.*AccessTokenInvalid.*/,
   ],
 });
+
+// Only the App Router calls this; exported so the SDK does not warn, and so
+// navigations are instrumented if an `app/` directory is ever added.
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
