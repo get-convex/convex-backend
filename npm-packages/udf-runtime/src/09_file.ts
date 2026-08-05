@@ -78,7 +78,7 @@ class BlobStreamReference {
           );
           bytesRead += value.length;
           if (valueSlice.byteLength > 0) {
-            return controller.enqueue(value);
+            return controller.enqueue(valueSlice);
           }
         }
       },
