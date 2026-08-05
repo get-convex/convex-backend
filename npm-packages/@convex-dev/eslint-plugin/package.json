@@ -14,8 +14,7 @@
     "test": "vitest run && node src/scripts/version-check.mjs",
     "test:types": "tsc --noEmit",
     "test:watch": "vitest",
-    "prepare": "tshy",
-    "prepublishOnly": "node src/scripts/version-check.mjs",
+    "prepublishOnly": "node src/scripts/version-check.mjs && npm run build",
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "dependencies": {

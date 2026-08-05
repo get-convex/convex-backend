@@ -16,7 +16,6 @@
     "build-esm": "tsc",
     "build-cjs": "tsc --module commonjs --outDir dist/cjs --target es2015 && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json",
     "clean": "shx rm -rf dist",
-    "prepare": "npm run build",
     "test": "vitest",
     "test-esm": "node -e 'import(\"./dist/esm/index.js\")'"
   },

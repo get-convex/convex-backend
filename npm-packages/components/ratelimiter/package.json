@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "convex dev --typecheck-components",
     "codegen": "convex codegen --component-dir ./src/component",
-    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
     "prepack": "node node10stubs.mjs",
     "postpack": "node node10stubs.mjs --cleanup"
   },
@@ -37,11 +37,6 @@
   },
   "dependencies": {
     "convex": "workspace:*"
-  },
-  "dependenciesMeta": {
-    "convex": {
-      "injected": true
-    }
   },
   "devDependencies": {
     "@types/node": "^18.17.0",

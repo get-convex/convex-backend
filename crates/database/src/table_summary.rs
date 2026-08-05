@@ -54,10 +54,7 @@ use futures::{
     TryStreamExt,
 };
 use serde::Deserialize;
-use serde_json::{
-    json,
-    Value as JsonValue,
-};
+use serde_json::Value as JsonValue;
 use shape_inference::{
     CountedShape,
     ProdConfig,
@@ -382,13 +379,18 @@ impl TableSummarySnapshot {
 
 impl From<&TableSummarySnapshot> for JsonValue {
     fn from(snapshot: &TableSummarySnapshot) -> Self {
-        json!({
-            "tables": snapshot.tables
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "tables".into(),
+            snapshot
+                .tables
                 .iter()
                 .map(|(k, v)| (k.to_string(), JsonValue::from(v)))
-                .collect::<serde_json::Map<String, JsonValue>>(),
-            "ts": JsonInteger::encode(snapshot.ts.into()),
-        })
+                .collect::<serde_json::Map<String, JsonValue>>()
+                .into(),
+        );
+        object.insert("ts".into(), JsonInteger::encode(snapshot.ts.into()).into());
+        object.into()
     }
 }
 

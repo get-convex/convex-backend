@@ -38,6 +38,32 @@ export const Default: Story = {
 };
 ```
 
+A story whose content doesn't fit the default 1024x700 capture viewport can
+widen or heighten it with `screenshotViewport: { width, height }`.
+
+### Capturing the command palette
+
+The team and project switchers in the header, and the deployment pill on a
+deployment page, all open the command palette. It portals to `document.body`, so
+query it through `screen` rather than the story canvas, and crop to the trigger
+and the anchored menu together:
+
+```ts
+export const TeamSwitcher: Story = {
+  parameters: {
+    screenshotSelector:
+      '[aria-label="Switch team"], .command-palette--anchored',
+    // The menu's list is min(330px, 40vh) tall, so the default viewport height
+    // clips its last row.
+    screenshotViewport: { width: 1024, height: 1000 },
+  },
+  play: async () => {
+    await userEvent.click(await screen.findByLabelText("Switch team"));
+    await screen.findByText("Create Team…");
+  },
+};
+```
+
 ## Interacting before the screenshot
 
 All stories support a `play` function to interact with elements before the

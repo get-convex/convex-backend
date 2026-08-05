@@ -12,8 +12,8 @@
     "build": "node version-check.mjs && zshy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs",
-    "prepare": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "keywords": [],
   "author": "",
