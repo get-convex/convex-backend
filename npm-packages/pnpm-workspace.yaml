@@ -152,6 +152,27 @@ packages:
 
 autoInstallPeers: true
 publishBranch: release
+
+# Fork-only. pnpm 10 refuses to run a dependency's build scripts unless the
+# package is allowlisted here, and `npm-packages/docs` pulls this theme from a
+# git tarball that needs a build step to be usable:
+#
+#   ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED  Failed to prepare git-hosted package
+#   ... needs to execute build scripts but is not in the "onlyBuiltDependencies"
+#   allowlist.
+#
+# Upstream does not need this entry because its CI *writes* a pnpm store cache,
+# so the package arrives already prepared and no build script runs. This fork's
+# workflows use `runs-on/cache/restore` (restore-only) and never populate that
+# cache, so every time the lockfile hash changes the fork cold-installs and
+# trips the block. Without this, `just install-js` fails and takes the backend
+# build, the dashboard builds and the sync gates down with it.
+#
+# The entry is pinned to the dependency's current commit, which is how pnpm
+# identifies it. If upstream bumps that pin this will need updating -- the
+# error message names the exact replacement string.
+onlyBuiltDependencies:
+  - "root@https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/33ca8ab0ecbe76adc157c6c7ade3e53e5c990428"
 minimumReleaseAge: 10080
 # The next security overrides below force a brand-new next version; next pins
 # its @next/swc platform binaries to that exact (equally new) version, which
