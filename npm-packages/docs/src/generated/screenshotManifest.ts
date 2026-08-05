@@ -562,6 +562,32 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/project/deployment/Logs",
+    "light": {
+      "filename": "pages_project_deployment_logs_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_logs_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/Logs#Request Logs",
+    "light": {
+      "filename": "pages_project_deployment_logs_request_logs_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_logs_request_logs_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/project/deployment/Schema",
     "light": {
       "filename": "pages_project_deployment_schema_light.webp",
