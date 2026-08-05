@@ -12,7 +12,7 @@
 #   GH_TOKEN             token that can push and open PRs. Must NOT be the
 #                        default GITHUB_TOKEN: repos with "Allow GitHub
 #                        Actions to create and approve pull requests"
-#                        disabled reject `gh pr create` from it with
+#                        disabled reject PR creation from it with
 #                        "Resource not accessible by integration", which
 #                        silently disables the only escape hatch this
 #                        script has. Pass the same PAT used for checkout.
@@ -145,6 +145,17 @@ announce_failure() {
   fi
 }
 
+# Number of the open sync PR, or empty. REST, for the same reason as the
+# creation call below: `gh pr list` is GraphQL and is refused for fine-grained
+# PATs. Its failure was previously swallowed by `|| true`, so the lookup
+# silently returned "no existing PR" every time.
+find_open_sync_pr() {
+  gh api "repos/${GITHUB_REPOSITORY}/pulls" \
+    -X GET -f state=open -f base="${TARGET_BRANCH}" \
+    -f head="${GITHUB_REPOSITORY%%/*}:${sync_branch}" \
+    --jq '.[0].number // empty' 2>/dev/null || true
+}
+
 bail_to_pr() {
   local reason="$1"
   git push --force origin \
@@ -170,16 +181,23 @@ git push origin ${TARGET_BRANCH}
 
 [Workflow run](${run_url})"
 
+  # REST (`gh api`), never `gh pr create`/`gh pr list`/`gh pr comment`. Those
+  # go through GraphQL, and GitHub refuses the `createPullRequest` mutation for
+  # fine-grained PATs — "Resource not accessible by personal access token" —
+  # even when the token plainly has Pull requests: write and the equivalent
+  # REST endpoint accepts the very same call. This cost a long debugging
+  # detour: the token looked wrong for days when only the transport was.
   local existing_pr
-  existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
+  existing_pr="$(find_open_sync_pr)"
   if [ -n "${existing_pr}" ]; then
-    gh pr comment "${existing_pr}" --body "${body}" && { exit 1; }
+    gh api "repos/${GITHUB_REPOSITORY}/issues/${existing_pr}/comments" \
+      -X POST -f "body=${body}" --silent && { exit 1; }
   else
-    gh pr create \
-      --base "${TARGET_BRANCH}" \
-      --head "${sync_branch}" \
-      --title "Sync upstream/${UPSTREAM_BRANCH} → ${TARGET_BRANCH} (needs human resolution)" \
-      --body "${body}" && { exit 1; }
+    gh api "repos/${GITHUB_REPOSITORY}/pulls" -X POST \
+      -f "base=${TARGET_BRANCH}" \
+      -f "head=${sync_branch}" \
+      -f "title=Sync upstream/${UPSTREAM_BRANCH} → ${TARGET_BRANCH} (needs human resolution)" \
+      -f "body=${body}" --silent && { exit 1; }
   fi
 
   # Reaching here means PR creation/commenting failed (under-scoped token, API
@@ -293,10 +311,15 @@ if git merge --no-edit "upstream/${UPSTREAM_BRANCH}"; then
     git push origin "HEAD:${TARGET_BRANCH}"
   fi
 
-  # If a sync PR was previously opened, close it — we're caught up.
-  existing_pr="$(gh pr list --head "${sync_branch}" --base "${TARGET_BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || true)"
+  # If a sync PR was previously opened, close it — we're caught up. REST, as
+  # above: `gh pr list`/`gh pr close` are GraphQL and refused for fine-grained
+  # PATs.
+  existing_pr="$(find_open_sync_pr)"
   if [ -n "${existing_pr}" ]; then
-    gh pr close "${existing_pr}" --comment "Resolved — sync completed cleanly in [run](${run_url})." || true
+    gh api "repos/${GITHUB_REPOSITORY}/issues/${existing_pr}/comments" \
+      -X POST -f "body=Resolved — sync completed cleanly in [run](${run_url})." --silent || true
+    gh api "repos/${GITHUB_REPOSITORY}/pulls/${existing_pr}" \
+      -X PATCH -f state=closed --silent || true
   fi
   exit 0
 fi
