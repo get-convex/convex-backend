@@ -25,6 +25,15 @@ import { Screenshot } from "@site/src/components/Screenshot";
   - Stories under `pages/project/` render pages inside a project.
   - Stories under `pages/project/deployment/` render pages inside a deployment.
 
+## Timestamps
+
+Capture runs in a browser pinned to the `en-US` locale and the `UTC` timezone,
+so a story only needs to freeze `Date.now()` (in `beforeEach`) for its rendered
+times to be identical on every machine. Write mock timestamps as UTC instants
+(`new Date("2026-04-01T09:41:00Z").getTime()`) and read them back as UTC when
+reviewing a screenshot — the local times you see in `just storybook` are your
+own timezone, not what gets captured.
+
 ## Cropping screenshots
 
 Page stories can be cropped to only show specific element(s) using

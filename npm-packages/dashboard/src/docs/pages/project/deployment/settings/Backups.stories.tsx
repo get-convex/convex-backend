@@ -23,7 +23,10 @@ import { useInfiniteProjects } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { Backups } from "components/deploymentSettings/Backups";
 
-// Fixed "now" so the relative timestamps ("Expires in 6 days") are stable.
+// Fixed "now" so the relative timestamps ("Expires in 6 days") are stable. The
+// absolute times this page also renders (`toLocaleString`, `Intl.DateTimeFormat`
+// and the timezone abbreviation next to the schedule) depend on the browser's
+// locale and timezone, which the screenshot capture pins to en-US/UTC.
 const NOW = new Date("2026-04-01T09:41:00Z").getTime();
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -71,10 +74,11 @@ const mockBackups: BackupResponse[] = Array.from({ length: 7 }, (_, i) => {
 
 const mockPeriodicBackupConfig = {
   sourceDeploymentId: mockDeployment.id,
-  // Daily, at the local-time equivalent of 17:00 UTC.
   cronspec: "0 17 * * *",
   expirationDeltaSecs: 7 * 24 * 60 * 60,
-  nextRun: NOW + 19 * 60 * 1000,
+  // The 17:00 UTC run following `NOW`, so the "next backup" line agrees with
+  // the schedule the selector renders from the cronspec.
+  nextRun: new Date("2026-04-01T17:00:00Z").getTime(),
   includeStorage: false,
 };
 

@@ -20,6 +20,12 @@ const MANIFEST_PATH = path.resolve(
   "../docs/src/generated/screenshotManifest.ts",
 );
 
+// Stories render absolute times via `toLocaleString`/`Intl.DateTimeFormat`, and
+// timezone abbreviations from the browser's resolved timezone, so pin both to
+// keep screenshots identical no matter where they're regenerated.
+const LOCALE = "en-US";
+const TIMEZONE_ID = "UTC";
+
 const CROP_PADDING = 32; // in (real) pixels
 const CROP_PADDING_PAGE = 64; // in (real) pixels, for element crops in page stories
 const DEVICE_SCALE_FACTOR = 2;
@@ -248,6 +254,8 @@ async function captureScreenshot(
     context = await browser.newContext({
       viewport: { width: 1024, height: 700 },
       deviceScaleFactor: DEVICE_SCALE_FACTOR,
+      locale: LOCALE,
+      timezoneId: TIMEZONE_ID,
     });
     let page = await openStoryPage(context);
 
@@ -286,6 +294,8 @@ async function captureScreenshot(
       context = await browser.newContext({
         viewport: screenshotViewport,
         deviceScaleFactor: DEVICE_SCALE_FACTOR,
+        locale: LOCALE,
+        timezoneId: TIMEZONE_ID,
       });
       page = await openStoryPage(context);
     }
