@@ -1,4 +1,13 @@
-import { DeploymentType } from "@convex-dev/platform/managementApi";
+import {
+  DeploymentType,
+  PlatformDeploymentResponse,
+} from "@convex-dev/platform/managementApi";
+
+export function deploymentIdentityLabel(
+  deployment: PlatformDeploymentResponse,
+): string {
+  return deployment.kind === "cloud" ? deployment.reference : deployment.name;
+}
 
 // The capitalized, human-readable name for a deployment type (e.g.
 // "Production"). Lowercase it for mid-sentence use.

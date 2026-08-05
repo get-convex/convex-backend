@@ -88,7 +88,6 @@ function DeploymentLabelWrapper({
   );
 }
 
-// TODO(ENG-10340) Use references here to disambiguate non-default dev/prod deployments
 export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
   const router = useRouter();
 

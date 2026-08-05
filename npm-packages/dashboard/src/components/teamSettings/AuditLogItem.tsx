@@ -885,6 +885,9 @@ function AuditLogItemActor({
 }
 
 function deploymentDisplayName(deployment: PlatformDeploymentResponse) {
+  if (deployment.kind === "cloud") {
+    return `${deployment.reference}`;
+  }
   switch (deployment.deploymentType) {
     case "prod":
       return "a production deployment";
@@ -940,7 +943,7 @@ function DeploymentSettingsLink({
       >
         {deploymentDisplayName(deployment)}
       </Link>
-      <span> of {project.name}</span>
+      <span> in {project.name}</span>
     </>
   );
 }

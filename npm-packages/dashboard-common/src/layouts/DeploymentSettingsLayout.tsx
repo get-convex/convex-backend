@@ -1,4 +1,4 @@
-import React, { ReactNode, useContext, useRef } from "react";
+import React, { ReactNode, useContext } from "react";
 import { HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { useMeasure } from "react-use";
 import {
@@ -9,8 +9,6 @@ import { PageContent } from "@common/elements/PageContent";
 import { Popover } from "@ui/Popover";
 import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useIsOverflowing } from "@common/lib/useIsOverflowing";
-import { Tooltip } from "@ui/Tooltip";
 
 export function DeploymentSettingsLayout({
   page,
@@ -65,9 +63,7 @@ function SettingsMenuHeader({ isMenu = false }: { isMenu?: boolean }) {
   return (
     <h2 className="flex w-full items-center gap-2 border-b bg-background-secondary p-4">
       {isMenu ? <HamburgerMenuIcon className="mt-0.5 min-w-4" /> : null}
-      <span className="truncate">
-        <DeploymentSettingsText />
-      </span>
+      <span className="truncate">Deployment Settings</span>
     </h2>
   );
 }
@@ -84,48 +80,4 @@ function SettingsMenuButton({ open }: { open: boolean }) {
       <SettingsMenuHeader isMenu />
     </Button>
   );
-}
-
-function DeploymentSettingsText() {
-  // TODO(ENG-10340) Include the deployment ref here
-
-  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const ref = useRef<HTMLDivElement>(null);
-  const isOverflowing = useIsOverflowing(ref);
-  if (deployment === undefined) {
-    return <>Deployment Settings</>;
-  }
-  switch (deployment.deploymentType) {
-    case "prod":
-      return <>Production Deployment Settings</>;
-    case "dev":
-      return <>Personal Deployment Settings</>;
-    case "custom":
-      return <>Custom Deployment Settings</>;
-    case "preview":
-      if (deployment.previewIdentifier !== null) {
-        return (
-          <Tooltip
-            tip={
-              isOverflowing ? (
-                <div className="break-all">{deployment.previewIdentifier}</div>
-              ) : undefined
-            }
-          >
-            <div className="flex items-baseline gap-2">
-              <code className="max-w-md truncate" ref={ref}>
-                {deployment.previewIdentifier}
-              </code>{" "}
-              Deployment Settings
-            </div>
-          </Tooltip>
-        );
-      }
-      return <>Preview Deployment Settings</>;
-    default: {
-      deployment.deploymentType satisfies never;
-      throw new Error("Unknown deployment type");
-    }
-  }
 }
