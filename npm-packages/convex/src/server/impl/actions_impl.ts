@@ -4,6 +4,7 @@ import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
 import { FunctionReference } from "../../server/api.js";
 import { getFunctionAddress } from "../components/paths.js";
+import { validateArg } from "./validate.js";
 
 function syscallArgs(
   requestId: string,
@@ -52,4 +53,24 @@ export function setupActionCalls(requestId: string) {
       return jsonToConvex(result);
     },
   };
+}
+
+/**
+ * Get a short-lived credential for calling a Convex-managed service.
+ *
+ * This function can only be called while an action is running. The credential
+ * is scoped to the current deployment and should be sent as a bearer token.
+ *
+ * @param service - The service the credential may access.
+ * @internal
+ */
+export async function getServiceToken(service: "ai"): Promise<string> {
+  validateArg(service, 1, "getServiceToken", "service");
+  if (service !== "ai") {
+    throw new Error(`Unsupported service "${String(service)}"`);
+  }
+  return await performAsyncSyscall("1.0/createServiceToken", {
+    service,
+    version,
+  });
 }

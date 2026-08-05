@@ -111,15 +111,15 @@ pub struct MutationIdentifierJson {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LlmGatewayJwtResponse {
+pub struct CreateServiceTokenResponse {
     pub token: String,
 }
 
-pub async fn issue_llm_gateway_jwt(
+pub async fn create_service_token(
     MtState(st): MtState<LocalAppState>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let token = st.application.issue_llm_gateway_jwt().await?;
-    Ok(Json(LlmGatewayJwtResponse { token }))
+    Ok(Json(CreateServiceTokenResponse { token }))
 }
 
 impl TryFrom<MutationIdentifierJson> for SessionRequestIdentifier {

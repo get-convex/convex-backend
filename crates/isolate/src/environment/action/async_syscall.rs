@@ -66,6 +66,9 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     self.async_syscall_actions_runMutation(args).await?.into()
                 },
                 "1.0/actions/action" => self.async_syscall_actions_runAction(args).await?.into(),
+                "1.0/createServiceToken" => {
+                    self.async_syscall_createServiceToken(args).await?.into()
+                },
                 "1.0/actions/schedule" => self.async_syscall_schedule(args).await?.into(),
                 "1.0/actions/cancel_job" => self.async_syscall_cancel_job(args).await?.into(),
                 "1.0/actions/vectorSearch" => self.async_syscall_vectorSearch(args).await?.into(),
@@ -168,6 +171,26 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .map_err(remove_rejected_before_execution)?
             .result?;
         Ok(value)
+    }
+
+    #[convex_macro::instrument_future]
+    async fn async_syscall_createServiceToken(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
+        #[derive(Deserialize)]
+        enum Service {
+            #[serde(rename = "ai")]
+            Ai,
+        }
+        #[derive(Deserialize)]
+        struct CreateServiceTokenArgs {
+            service: Service,
+        }
+        // Claims are chosen entirely by the backend per service; the caller only
+        // names the service.
+        let CreateServiceTokenArgs {
+            service: Service::Ai,
+        } = with_argument_error("createServiceToken", || Ok(serde_json::from_value(args)?))?;
+        let token = self.action_callbacks.issue_llm_gateway_jwt().await?;
+        Ok(JsonValue::String(token))
     }
 
     #[convex_macro::instrument_future]

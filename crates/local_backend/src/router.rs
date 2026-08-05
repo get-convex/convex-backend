@@ -98,10 +98,10 @@ use crate::{
         audit_log,
         cancel_developer_job,
         create_function_handle,
+        create_service_token,
         internal_action_post,
         internal_mutation_post,
         internal_query_post,
-        issue_llm_gateway_jwt,
         schedule_job,
         storage_delete,
         storage_generate_upload_url,
@@ -451,7 +451,7 @@ where
         .route("/query", post(internal_query_post))
         .route("/mutation", post(internal_mutation_post))
         .route("/action", post(internal_action_post))
-        .route("/llm_gateway_jwt", post(issue_llm_gateway_jwt))
+        .route("/create_service_token", post(create_service_token))
         .route("/schedule_job", post(schedule_job))
         .route("/vector_search", post(vector_search))
         .route("/cancel_job", post(cancel_developer_job))

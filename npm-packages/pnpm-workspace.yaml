@@ -60,6 +60,7 @@ packages:
   - "local-store"
   - "node-executor"
   - "private-demos/actions"
+  - "private-demos/ai-gateway"
   - "private-demos/audit-logging"
   - "private-demos/bundle-size"
   - "private-demos/cjs-typescript"
