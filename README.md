@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fget-convex%2Fconvex-backend.svg)](https://mcptoplist.com/server/glama%2Fget-convex%2Fconvex-backend)
+
 <p align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://static.convex.dev/logo/convex-logo-light.svg" width="600">
