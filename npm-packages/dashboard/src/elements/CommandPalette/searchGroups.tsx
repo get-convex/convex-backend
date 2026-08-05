@@ -155,6 +155,34 @@ export function ProjectSearchGroup({
   );
 }
 
+// The drilled-into "Go to Deployment" page: every cloud deployment in the
+// current team, across projects, searchable server-side.
+export function TeamDeploymentsCommands({
+  search,
+  onNavigate,
+  pushPage,
+}: {
+  search: string;
+  onNavigate: (to: NavigationDestination) => void;
+  pushPage: (page: PalettePage) => void;
+}) {
+  const team = useCurrentTeam();
+
+  if (!team) {
+    return <LoadingSignal />;
+  }
+
+  return (
+    <DeploymentSearchGroup
+      team={team}
+      project={undefined}
+      search={search}
+      onNavigate={onNavigate}
+      pushPage={pushPage}
+    />
+  );
+}
+
 export function DeploymentSearchGroup({
   team,
   project,
@@ -204,6 +232,8 @@ export function DeploymentSearchGroup({
           deployment={deployment}
           teamSlug={team.slug}
           projectSlug={project?.slug}
+          // If we're not filtered to a project, render the project name in the item.
+          showProject={project === undefined}
           remote
           onNavigate={onNavigate}
           onDrill={() =>

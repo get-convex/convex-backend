@@ -10,6 +10,9 @@ export type PalettePage =
   // The deployments of a single project, without the project's own pages —
   // reached from the "Switch Deployment…" command.
   | { type: "deployments"; project: ProjectDetails }
+  // Every deployment in the current team, across projects — reached from the
+  // "Go to Deployment…" command when no project is selected.
+  | { type: "teamDeployments" }
   | {
       type: "deployment";
       deployment: PlatformDeploymentResponse;
@@ -53,6 +56,10 @@ export function palettePlaceholder(
       return `Search in ${page.project.name || page.project.slug}…`;
     case "deployments":
       return `Search for a deployment in ${page.project.name || page.project.slug}…`;
+    case "teamDeployments":
+      return teamName
+        ? `Search for a deployment in ${teamName}…`
+        : "Search for a deployment…";
     case "deployment":
       return `Search in ${pageLabel(page)}…`;
     case "components":
@@ -85,6 +92,8 @@ export function pageLabel(page: PalettePage): string {
       return page.project.name || page.project.slug;
     case "deployments":
       return "Switch Deployment";
+    case "teamDeployments":
+      return "Go to Deployment";
     case "deployment":
       return "reference" in page.deployment
         ? page.deployment.reference

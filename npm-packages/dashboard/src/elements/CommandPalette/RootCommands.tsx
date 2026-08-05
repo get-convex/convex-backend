@@ -191,7 +191,16 @@ export function RootCommands({
             drillIn
           />
           {!project && (
-            <SwitchProjectItem pushPage={pushPage} label="Go to Project…" />
+            <>
+              <SwitchProjectItem pushPage={pushPage} label="Go to Project…" />
+              <ActionItem
+                value="page:team-deployments"
+                onSelect={() => pushPage({ type: "teamDeployments" })}
+                Icon={CaretSortIcon}
+                label="Go to Deployment…"
+                drillIn
+              />
+            </>
           )}
           {[
             ...teamNav,

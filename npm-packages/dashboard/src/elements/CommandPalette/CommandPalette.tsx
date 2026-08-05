@@ -33,7 +33,7 @@ import {
   SearchResultDetailItem,
 } from "./DeploymentSearchCommands";
 import { useDrillStack } from "./useDrillStack";
-import { SwitchProjectCommands } from "./searchGroups";
+import { SwitchProjectCommands, TeamDeploymentsCommands } from "./searchGroups";
 import { ThemeCommands } from "./ThemeCommands";
 import { TeamsCommands } from "./TeamsCommands";
 import { handlePaletteKeyDown } from "./keyboard";
@@ -499,6 +499,13 @@ function CommandPaletteDialog({
                           projectSlug: drillPage.project.slug,
                         })
                       }
+                    />
+                  )}
+                  {drillPage?.type === "teamDeployments" && (
+                    <TeamDeploymentsCommands
+                      search={search}
+                      onNavigate={onNavigate}
+                      pushPage={pushPage}
                     />
                   )}
                   {drillPage?.type === "deployment" && (

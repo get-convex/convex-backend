@@ -410,6 +410,7 @@ export function DeploymentItem({
   onNavigate,
   onDrill,
   remote = false,
+  showProject = false,
 }: {
   deployment: PlatformDeploymentResponse;
   teamSlug: string;
@@ -419,6 +420,7 @@ export function DeploymentItem({
   // Whether this item comes from server-side search (bypasses the client
   // filter) rather than an already-loaded local list.
   remote?: boolean;
+  showProject?: boolean;
 }) {
   const consumeDrillModifier = useConsumeDrillModifier();
   const router = useRouter();
@@ -457,7 +459,10 @@ export function DeploymentItem({
       }}
     >
       <ItemPrimary>
-        <DeploymentRowBody deployment={deployment} />
+        <DeploymentRowBody
+          deployment={deployment}
+          projectName={showProject ? project?.name || project?.slug : undefined}
+        />
         {isCurrent && (
           <span className="ml-auto shrink-0 text-xs text-content-tertiary">
             <CurrentBadge />
@@ -603,8 +608,10 @@ function deploymentRowText(deployment: PlatformDeploymentResponse) {
 // (or port).
 function DeploymentRowBody({
   deployment,
+  projectName,
 }: {
   deployment: PlatformDeploymentResponse;
+  projectName?: string;
 }) {
   const { primary, secondary } = deploymentRowText(deployment);
   return (
@@ -623,6 +630,9 @@ function DeploymentRowBody({
         </span>
         <span className="truncate text-xs text-content-tertiary">
           <HighlightedText text={secondary} />
+          {projectName && (
+            <span className="text-content-tertiary"> · {projectName}</span>
+          )}
         </span>
       </span>
     </>
