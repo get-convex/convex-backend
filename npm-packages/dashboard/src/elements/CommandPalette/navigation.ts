@@ -47,16 +47,12 @@ export type NavigationTarget = {
   keywords?: string[];
 };
 
-export type DeploymentPageFlags = {
-  usageLimitsEnabled: boolean;
-};
-
 // Data-plane pages, matching the deployment sidebar plus the settings
 // subpages. `uriPrefix` is `/t/{team}/{project}/{deploymentName}`.
-export function deploymentNavigation(
-  uriPrefix: string,
-  { usageLimitsEnabled }: DeploymentPageFlags,
-): { pages: NavigationTarget[]; settings: NavigationTarget[] } {
+export function deploymentNavigation(uriPrefix: string): {
+  pages: NavigationTarget[];
+  settings: NavigationTarget[];
+} {
   const pages: NavigationTarget[] = [
     { label: "Health", href: `${uriPrefix}/`, Icon: PulseIcon },
     { label: "Data", href: `${uriPrefix}/data`, Icon: TableIcon },
@@ -92,16 +88,12 @@ export function deploymentNavigation(
       href: `${uriPrefix}/settings/environment-variables`,
       Icon: DEPLOYMENT_SETTINGS_PAGE_ICONS["environment-variables"],
     },
-    ...(usageLimitsEnabled
-      ? [
-          {
-            label: "Usage Limits",
-            parent: "Deployment Settings",
-            href: `${uriPrefix}/settings/usage-limits`,
-            Icon: DEPLOYMENT_SETTINGS_PAGE_ICONS["usage-limits"],
-          },
-        ]
-      : []),
+    {
+      label: "Usage Limits",
+      parent: "Deployment Settings",
+      href: `${uriPrefix}/settings/usage-limits`,
+      Icon: DEPLOYMENT_SETTINGS_PAGE_ICONS["usage-limits"],
+    },
     {
       label: "Authentication",
       parent: "Deployment Settings",

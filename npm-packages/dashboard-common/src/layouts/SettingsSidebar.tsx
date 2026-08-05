@@ -159,7 +159,6 @@ export function SettingsSidebar({
 
 function useAllowedPages() {
   const { nents } = useNents();
-  const { usageLimitsEnabled } = useContext(DeploymentInfoContext);
 
   let pages = DEPLOYMENT_SETTINGS_PAGES;
 
@@ -168,11 +167,6 @@ function useAllowedPages() {
   }
 
   pages = pages.filter((d) => d !== "snapshots");
-
-  // Usage limits is feature-flagged; hide it from the sidebar when off.
-  if (!usageLimitsEnabled) {
-    pages = pages.filter((d) => d !== "usage-limits");
-  }
 
   return pages;
 }

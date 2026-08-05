@@ -2,7 +2,6 @@ import { Command } from "cmdk";
 import React from "react";
 import { useCurrentTeam } from "api/teams";
 import { useProjectById } from "api/projects";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import type { PlatformDeploymentResponse } from "generatedApi";
 import {
   deploymentNavigation,
@@ -21,7 +20,6 @@ export function DeploymentCommands({
 }) {
   const team = useCurrentTeam();
   const { project } = useProjectById(deployment.projectId);
-  const { usageLimits } = useLaunchDarkly();
   const projectSlug = knownProjectSlug ?? project?.slug;
 
   if (!team || !projectSlug) {
@@ -31,9 +29,7 @@ export function DeploymentCommands({
   const uriPrefix = `/t/${team.slug}/${projectSlug}/${deployment.name}`;
   // The deployment context lives in the breadcrumb, so the pages don't repeat
   // it on a second line.
-  const { pages, settings } = deploymentNavigation(uriPrefix, {
-    usageLimitsEnabled: usageLimits,
-  });
+  const { pages, settings } = deploymentNavigation(uriPrefix);
 
   return (
     <>

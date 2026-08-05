@@ -217,12 +217,9 @@ function DeploymentBanners() {
     canViewDataCached ? {} : "skip",
   );
 
-  const {
-    useCurrentTeam,
-    useCurrentUsageBanner,
-    usageLimitsEnabled,
-    deploymentsURI,
-  } = useContext(DeploymentInfoContext);
+  const { useCurrentTeam, useCurrentUsageBanner, deploymentsURI } = useContext(
+    DeploymentInfoContext,
+  );
   const team = useCurrentTeam();
   const teamUsageBanner = useCurrentUsageBanner(team?.id ?? null);
 
@@ -230,8 +227,7 @@ function DeploymentBanners() {
     backendState?.system === "none" &&
     backendState?.user === "paused" &&
     teamUsageBanner !== "Paused";
-  const isUsageLimitDisabled =
-    usageLimitsEnabled && backendState?.usage_limit === "disabled";
+  const isUsageLimitDisabled = backendState?.usage_limit === "disabled";
 
   return (
     <>

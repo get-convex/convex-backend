@@ -5,14 +5,12 @@ export const flagDefaults: {
   commandPaletteDeleteProjects: boolean;
   enableNewDashboardVersionNotification: boolean;
   connectionStateCheckIntervalMs: number;
-  usageLimits: boolean;
   nonDefaultTeamDevsInMainMenu: number;
   copyEnvVarNameAndValue: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
   connectionStateCheckIntervalMs: 2500,
-  usageLimits: false,
   nonDefaultTeamDevsInMainMenu: 10,
   copyEnvVarNameAndValue: false,
 };

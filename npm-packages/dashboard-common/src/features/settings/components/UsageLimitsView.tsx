@@ -1,5 +1,4 @@
-import { useContext, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useContext } from "react";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import {
   DeploymentInfoContext,
@@ -27,21 +26,6 @@ export function UsageLimitsView() {
   const canView = useIsOperationAllowed("ViewUsageLimits");
   const canViewUsage = useIsOperationAllowed("ViewUsage");
   const canWrite = useIsOperationAllowed("WriteUsageLimits");
-
-  // Usage limits is feature-flagged; if it's off, don't render it even when
-  // reached by a direct URL — send the user back to deployment settings.
-  const router = useRouter();
-  const { usageLimitsEnabled, deploymentsURI } = useContext(
-    DeploymentInfoContext,
-  );
-  useEffect(() => {
-    if (!usageLimitsEnabled) {
-      void router.replace(`${deploymentsURI}/settings`);
-    }
-  }, [usageLimitsEnabled, deploymentsURI, router]);
-  if (!usageLimitsEnabled) {
-    return null;
-  }
 
   return (
     <DeploymentSettingsLayout page="usage-limits">

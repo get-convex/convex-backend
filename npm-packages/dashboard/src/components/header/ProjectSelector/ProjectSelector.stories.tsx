@@ -113,10 +113,7 @@ const meta = {
   },
   render: (args) => <ProjectSelectorHarness {...args} />,
   beforeEach: () => {
-    mocked(useLaunchDarkly).mockReturnValue({
-      ...flagDefaults,
-      usageLimits: true,
-    });
+    mocked(useLaunchDarkly).mockReturnValue(flagDefaults);
     mocked(useTeams).mockReturnValue({
       selectedTeamSlug: mockTeam.slug,
       teams: [mockTeam],

@@ -17,7 +17,6 @@ import { ExclamationTriangleIcon, PlusIcon } from "@radix-ui/react-icons";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import { PlatformCreateDeployKeyArgs } from "@convex-dev/platform/managementApi";
 import { usePostHog } from "hooks/usePostHog";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import {
   TokenExpirationSelector,
@@ -43,7 +42,6 @@ export type DeployKeyAction = NonNullable<
 type ActionGroup = {
   label: string;
   actions: { key: DeployKeyAction; description: string }[];
-  flag?: "usageLimits";
 };
 
 export const ACTION_GROUPS: ActionGroup[] = [
@@ -147,7 +145,6 @@ export const ACTION_GROUPS: ActionGroup[] = [
   },
   {
     label: "Usage",
-    flag: "usageLimits",
     actions: [
       {
         key: "deployment:usage:view",
@@ -243,11 +240,6 @@ export function CreateDeployKeyForm({
   const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
   const [error, setError] = useState<string | null>(null);
   const { capture } = usePostHog();
-  const { usageLimits } = useLaunchDarkly();
-  const flags = { usageLimits };
-  const visibleActionGroups = ACTION_GROUPS.filter(
-    (group) => group.flag === undefined || flags[group.flag],
-  );
 
   return (
     <Transition show={open} appear afterLeave={onClose}>
@@ -374,7 +366,7 @@ export function CreateDeployKeyForm({
                                 size="xs"
                                 onClick={() => {
                                   const all = new Set(
-                                    visibleActionGroups.flatMap((g) =>
+                                    ACTION_GROUPS.flatMap((g) =>
                                       g.actions.map((a) => a.key),
                                     ),
                                   );
@@ -394,7 +386,7 @@ export function CreateDeployKeyForm({
                               </Button>
                             </div>
                             <div className="columns-1 gap-x-6 md:columns-2">
-                              {visibleActionGroups.map((group) => (
+                              {ACTION_GROUPS.map((group) => (
                                 <div
                                   key={group.label}
                                   className="mb-3 break-inside-avoid"
