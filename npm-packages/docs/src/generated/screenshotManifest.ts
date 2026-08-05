@@ -640,6 +640,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/project/deployment/schedules/ScheduledFunctions",
+    "light": {
+      "filename": "pages_project_deployment_schedules_scheduled_functions_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_schedules_scheduled_functions_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/project/deployment/settings/EnvironmentVariables",
     "light": {
       "filename": "pages_project_deployment_settings_environment_variables_light.webp",
