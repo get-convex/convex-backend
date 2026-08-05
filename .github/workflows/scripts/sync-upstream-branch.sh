@@ -54,7 +54,29 @@ reconcile_pnpm_lock() {
     echo "just not on PATH; skipping pnpm lockfile reconciliation" >&2
     return 0
   fi
-  just update-js 2>&1 | tail -20 | sed 's/^/  /'
+  # NOT `just update-js`. That runs a bare `pnpm install`, and pnpm defaults
+  # --frozen-lockfile to TRUE whenever CI=true — so in Actions it refuses to
+  # update the lockfile and errors out, which is the exact opposite of this
+  # function's job. --no-frozen-lockfile is required for the regeneration to
+  # happen at all. (`rush update`, which this replaced, had no such default.)
+  (
+    cd npm-packages
+    just pnpm install --no-frozen-lockfile
+  ) 2>&1 | tail -20 | sed 's/^/  /'
+
+  # The whole reason this function exists: `pnpm-lock.yaml` is `merge=theirs`,
+  # so every sync takes upstream's lockfile verbatim and upstream's lockfile
+  # has no importer for fork-only workspace packages. If regeneration silently
+  # failed to re-add them, `pnpm install --frozen-lockfile` in the build gates
+  # (and in every downstream CI job) breaks. Fail loudly here instead.
+  local pkg
+  for pkg in dashboard-orchestrator; do
+    if ! grep -qE "^  ${pkg}:" npm-packages/pnpm-lock.yaml; then
+      echo "pnpm-lock.yaml has no '${pkg}' importer after regeneration" >&2
+      return 1
+    fi
+  done
+
   if ! git diff --quiet -- npm-packages/pnpm-lock.yaml; then
     git add npm-packages/pnpm-lock.yaml
     git commit --amend --no-edit
