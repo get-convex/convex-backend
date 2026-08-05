@@ -75,7 +75,6 @@ use crate::{
         IndexRateLimit,
         IndexSelector,
         IndexWriter,
-        IndexWriterMode,
         TabletBackfillProgress,
     },
     metrics::{
@@ -130,7 +129,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             retention_validator,
             runtime.clone(),
             Some(progress_tx),
-            IndexWriterMode::IndexesOnly,
             IndexRateLimit::Default,
         );
         let mut worker = IndexWorker {

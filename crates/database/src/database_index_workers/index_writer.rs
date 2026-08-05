@@ -23,7 +23,6 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
-        DocumentLogEntry,
         LatestDocument,
         Persistence,
         PersistenceIndexEntry,
@@ -166,15 +165,6 @@ impl IndexSelector {
     }
 }
 
-/// What an `IndexWriter` writes per chunk.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IndexWriterMode {
-    /// Default: write only index entries to the destination.
-    IndexesOnly,
-    /// Also write the document log entries alongside the index entries.
-    IndexesAndDocuments,
-}
-
 #[derive(Clone)]
 pub struct IndexWriter<RT: Runtime> {
     // Persistence target for writing indexes.
@@ -186,7 +176,6 @@ pub struct IndexWriter<RT: Runtime> {
     rate_limiter: Option<Arc<RateLimiter<RT>>>,
     runtime: RT,
     progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
-    mode: IndexWriterMode,
     // Optional sink for the read-vs-write timing measured during backfill, so a
     // caller with extra labels (e.g. a db-cluster migration) can emit a metric.
     read_write_reporter: Option<ReadWriteReporter>,
@@ -208,7 +197,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         runtime: RT,
         progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
-        mode: IndexWriterMode,
         rate_limit: IndexRateLimit,
     ) -> Self {
         let rate_limiter = match rate_limit {
@@ -234,7 +222,6 @@ impl<RT: Runtime> IndexWriter<RT> {
             rate_limiter,
             runtime,
             progress_tx,
-            mode,
             read_write_reporter: None,
         }
     }
@@ -353,7 +340,6 @@ impl<RT: Runtime> IndexWriter<RT> {
                             ts,
                             document: Some(document),
                         },
-                        // include the prev_ts so we can write it later in IndexesAndDocuments mode
                         prev_rev: prev_ts.map(|ts| DocumentRevision { ts, document: None }),
                     })
                     .await;
@@ -445,16 +431,14 @@ impl<RT: Runtime> IndexWriter<RT> {
     }
 
     /// Chunk writes use `ConflictStrategy::Overwrite`, so re-applying a chunk
-    /// after a transient db error is safe for both the index entries and the
-    /// (optional) document log entries.
+    /// after a transient db error is safe.
     async fn write_chunk_with_optional_retry(
         &self,
         persistence: &Arc<dyn Persistence>,
-        documents: &[DocumentLogEntry],
         index_updates: &[PersistenceIndexEntry],
         retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<()> {
-        let write = || persistence.write(documents, index_updates, ConflictStrategy::Overwrite);
+        let write = || persistence.write(&[], index_updates, ConflictStrategy::Overwrite);
         match retry_config {
             None => write().await,
             Some(retry) => {
@@ -510,17 +494,11 @@ impl<RT: Runtime> IndexWriter<RT> {
                     }
                 }
                 let docs_in_chunk = chunk.len() as u64;
-                let documents: Vec<DocumentLogEntry> = match self.mode {
-                    IndexWriterMode::IndexesAndDocuments => {
-                        chunk.into_iter().map(|rp| rp.into_log_entry()).collect()
-                    },
-                    IndexWriterMode::IndexesOnly => Vec::new(),
-                };
-                let num_entries_written = u32::try_from(index_updates.len() + documents.len())?;
+                let num_entries_written = u32::try_from(index_updates.len())?;
                 // N.B: it's possible to end up with no entries if we're
                 // backfilling forward through historical documents that have no
                 // present indexes in `index_registry`.
-                if !index_updates.is_empty() || !documents.is_empty() {
+                if !index_updates.is_empty() {
                     if let (Some(rate_limiter), Some(num_entries_written)) =
                         (&rate_limiter, NonZeroU32::new(num_entries_written))
                     {
@@ -538,7 +516,6 @@ impl<RT: Runtime> IndexWriter<RT> {
                     }
                     self.write_chunk_with_optional_retry(
                         &persistence,
-                        &documents,
                         &index_updates,
                         retry_config,
                     )
