@@ -61,7 +61,6 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::index_backfills::IndexBackfillModel,
     patch_value,
     query::TableFilter,
     reads::TransactionReadSet,
@@ -356,9 +355,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     ) -> anyhow::Result<()> {
         for index in indexes {
             self.enable_index(&index).await?;
-            IndexBackfillModel::new(self.tx)
-                .delete_index_backfill(index.id())
-                .await?;
         }
         Ok(())
     }
