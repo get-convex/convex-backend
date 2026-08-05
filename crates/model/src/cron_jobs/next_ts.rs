@@ -6,6 +6,12 @@ use chrono::{
     Utc,
 };
 use common::knobs::CRON_SPLAY_SECONDS;
+use metrics::{
+    log_counter,
+    log_distribution,
+    register_convex_counter,
+    register_convex_histogram,
+};
 use rand::Rng;
 use saffron::Cron;
 use sync_types::Timestamp;
@@ -14,6 +20,20 @@ use super::types::{
     CronSchedule,
     CronSpec,
 };
+
+// Delays of zero show up here too, since setting CRON_SPLAY_SECONDS to 0 turns
+// splaying off. Only splayable schedules are recorded.
+register_convex_histogram!(
+    CRON_JOB_SPLAY_SECONDS,
+    "Random delay applied to a splayable cron run so jobs sharing a schedule don't all fire at \
+     once"
+);
+
+register_convex_counter!(
+    CRON_JOB_SKIPPED_OCCURRENCES_TOTAL,
+    "Number of cron runs that dropped at least one occurrence because the previous run was still \
+     executing when it came due"
+);
 
 /// The random delays applied to a cron's scheduled runs. The default is no
 /// delay at all, for schedules that don't splay.
@@ -156,13 +176,39 @@ pub fn compute_next_ts(
         previous_delay,
         next_delay,
     } = cron_splay(&cron_spec.cron_schedule, prev_ts, rng);
+    log_distribution(&CRON_JOB_SPLAY_SECONDS, next_delay.as_secs_f64());
     let search_after = now.sub(previous_delay).unwrap_or(now);
+    let occurrence = next_occurrence_after(&cron, search_after)?;
+    if let Some(prev_ts) = prev_ts {
+        let previous_occurrence = prev_ts.sub(previous_delay).unwrap_or(prev_ts);
+        if skipped_an_occurrence(&cron, previous_occurrence, occurrence)? {
+            log_counter(&CRON_JOB_SKIPPED_OCCURRENCES_TOTAL, 1);
+        }
+    }
+    occurrence.add(next_delay)
+}
+
+/// Whether the schedule was due at least once between the previous run and the
+/// run just scheduled. A job that takes longer than the time between its runs
+/// misses those, because only one run of a job executes at a time and the next
+/// run is picked after the last one finishes. The executor counts misses like
+/// these for interval schedules but not for clock schedules, so count them
+/// here.
+fn skipped_an_occurrence(
+    cron: &Cron,
+    previous_occurrence: Timestamp,
+    scheduled: Timestamp,
+) -> anyhow::Result<bool> {
+    Ok(next_occurrence_after(cron, previous_occurrence)? < scheduled)
+}
+
+/// The next time this schedule runs after `ts`.
+fn next_occurrence_after(cron: &Cron, ts: Timestamp) -> anyhow::Result<Timestamp> {
     let occurrence_utc = cron
-        .next_after(Utc.timestamp_nanos(search_after.into()))
+        .next_after(Utc.timestamp_nanos(ts.into()))
         .context("Could not compute next timestamp for cron")?;
-    let occurrence: Timestamp = occurrence_utc
+    occurrence_utc
         .timestamp_nanos_opt()
         .context("Unable to get nanos from UTC")?
-        .try_into()?;
-    occurrence.add(next_delay)
+        .try_into()
 }
