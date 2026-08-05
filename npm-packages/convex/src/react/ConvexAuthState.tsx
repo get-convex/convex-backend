@@ -144,6 +144,19 @@ export function ConvexProviderWithAuth({
     [isLoading, isAuthenticated, isRefreshingWhileAuthenticated],
   );
 
+  // Stabilize the context value's identity so that `useConvexAuth()`
+  // consumers only re-render when the derived auth state actually changes,
+  // not on every render of this provider (e.g. renders caused by parents
+  // above it, which are otherwise invisible from here).
+  const authState = useMemo<ConvexAuthState>(
+    () => ({
+      isLoading: isConvexAuthenticated === null,
+      isAuthenticated,
+      isRefreshing: isRefreshing && isAuthenticated,
+    }),
+    [isConvexAuthenticated, isAuthenticated, isRefreshing],
+  );
+
   return (
     <ConvexAuthContext.Provider value={authState}>
       <ConvexAuthStateFirstEffect
