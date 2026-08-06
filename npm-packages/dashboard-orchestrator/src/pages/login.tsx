@@ -15,7 +15,12 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useSWRConfig } from "swr";
 import { authClient } from "../lib/auth-client";
+import {
+  ORCHESTRATOR_SESSION_KEY,
+  fetchOrchestratorSession,
+} from "../lib/useOrchestratorToken";
 import { ConvexOrb } from "../components/ConvexOrb";
 
 type Mode = "signin" | "signup";
@@ -32,6 +37,7 @@ function safeRedirect(raw: string | string[] | undefined): string {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const redirectTo = safeRedirect(router.query.redirect);
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -102,6 +108,17 @@ export default function LoginPage() {
         if (res.error) throw new Error(res.error.message ?? "sign-up failed");
       }
       remember("email");
+      // While signed out, the session key is cached as `null`, and `_app.tsx`
+      // installs a 30s `dedupingInterval`. Navigating straight to `/` would
+      // let IndexPage read that stale `null` — no refetch happens inside the
+      // dedupe window — conclude the user is signed out, and bounce right
+      // back here. (That's why signing in only "worked" after a manual
+      // refresh, which cleared the in-memory cache.) Write the new session
+      // into the cache and wait for it before routing. `revalidate: false`
+      // because we're supplying the authoritative value ourselves.
+      await mutate(ORCHESTRATOR_SESSION_KEY, fetchOrchestratorSession(), {
+        revalidate: false,
+      });
       void router.replace(redirectTo);
     } catch (err) {
       setError((err as Error).message);

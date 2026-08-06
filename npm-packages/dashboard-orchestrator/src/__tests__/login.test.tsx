@@ -10,10 +10,13 @@ jest.mock("next/router", () => ({
   useRouter: () => mockUseRouter(),
 }));
 
+// The factory must reach `mockSignInEmail` lazily: `jest.mock` is hoisted
+// above the `const` declarations, so capturing the binding directly throws a
+// TDZ ReferenceError when `login.tsx` requires this module.
 jest.mock("../lib/auth-client", () => ({
   authClient: {
     signIn: {
-      email: mockSignInEmail,
+      email: (...args: unknown[]) => mockSignInEmail(...args),
       social: jest.fn(),
     },
     signUp: {

@@ -13,6 +13,7 @@ export default function IndexPage() {
     data: session,
     error: sessionError,
     isLoading,
+    isValidating,
   } = useOrchestratorSession();
   const token = session?.accessToken ?? null;
 
@@ -22,7 +23,11 @@ export default function IndexPage() {
   );
 
   useEffect(() => {
-    if (isLoading) return;
+    // Never route off a session that is still settling. SWR serves the cached
+    // value synchronously on mount (`keepPreviousData`), so a signed-out
+    // `null` left over from before sign-in would otherwise bounce a
+    // just-authenticated user back to /login while the refetch is in flight.
+    if (isLoading || isValidating) return;
     // Not signed in (or BetterAuth session expired) → login.
     if (sessionError || !session) {
       void router.replace("/login");
@@ -36,7 +41,15 @@ export default function IndexPage() {
         void router.replace(`/t/${session.teamSlug}`);
       }
     }
-  }, [isLoading, sessionError, session, teams, teamsError, router]);
+  }, [
+    isLoading,
+    isValidating,
+    sessionError,
+    session,
+    teams,
+    teamsError,
+    router,
+  ]);
 
   return (
     <div className="flex size-full flex-col items-center justify-center gap-4">

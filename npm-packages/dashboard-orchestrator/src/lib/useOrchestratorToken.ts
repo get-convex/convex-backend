@@ -24,6 +24,23 @@ async function fetcher(url: string): Promise<OrchestratorSession | null> {
   return (await res.json()) as OrchestratorSession;
 }
 
+/**
+ * SWR cache key for the plain (no invite code) session lookup. Exported so
+ * sign-in can invalidate the cached signed-out session by key rather than
+ * re-spelling the URL — see `pages/login.tsx`.
+ */
+export const ORCHESTRATOR_SESSION_KEY = "/api/orchestrator/token";
+
+/**
+ * One-shot session fetch, outside of React. Sign-in feeds the result straight
+ * into the SWR cache so the next page reads the new session rather than the
+ * stale signed-out one — a bare `mutate(key)` only marks the entry for
+ * revalidation, which does nothing while no component is subscribed to it.
+ */
+export function fetchOrchestratorSession(): Promise<OrchestratorSession | null> {
+  return fetcher(ORCHESTRATOR_SESSION_KEY);
+}
+
 export function useOrchestratorSession() {
   return useOrchestratorSessionForInvite(undefined);
 }
@@ -35,8 +52,8 @@ export function useOrchestratorSessionForInvite(
     inviteCode === null
       ? null
       : inviteCode
-        ? `/api/orchestrator/token?inviteCode=${encodeURIComponent(inviteCode)}`
-        : "/api/orchestrator/token";
+        ? `${ORCHESTRATOR_SESSION_KEY}?inviteCode=${encodeURIComponent(inviteCode)}`
+        : ORCHESTRATOR_SESSION_KEY;
 
   return useSWR<OrchestratorSession | null>(key, fetcher, {
     revalidateOnFocus: false,
