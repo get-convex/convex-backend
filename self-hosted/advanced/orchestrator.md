@@ -58,8 +58,10 @@ own infrastructure and behave the same way.
 - The public Convex Management API (`/v1/...`).
 - Audit log.
 - Default project-level environment variables.
-- Custom domain registration (records only — certificate provisioning is left to
-  your reverse proxy).
+- Custom domains, end to end: managed entirely in the dashboard, routed via
+  Traefik's file provider, with certificates the orchestrator issues itself over
+  HTTP-01 or DNS-01 (Cloudflare, DigitalOcean, Hetzner) and renews
+  automatically. See [Custom domains](#custom-domains).
 
 **Stubbed** (returns sensible empty / defaults so the dashboard renders without
 errors, but the cloud-only feature is not implemented):
@@ -255,6 +257,67 @@ instead.
 | `BETTER_AUTH_REQUIRE_EMAIL_VERIFICATION` / `BETTER_AUTH_SMTP_URL` / `BETTER_AUTH_SMTP_FROM`                          | `0` / unset / `no-reply@orchestrator`                                              | Optional SMTP for password reset / verification links.                                                                                |
 | `ORCHESTRATOR_IMAGE` / `DASHBOARD_ORCHESTRATOR_IMAGE` / `DASHBOARD_IMAGE`                                            | `ghcr.io/defy-works/convex-{orchestrator,dashboard-orchestrator,dashboard}:latest` | Pin to a specific image tag.                                                                                                          |
 | `RUST_LOG`                                                                                                           | `orchestrator=info,tower_http=warn`                                                | Orchestrator log filter.                                                                                                              |
+| `TRAEFIK_DYNAMIC_DIR`                                                                                                | `/convex/traefik-dynamic`                                                          | Directory the orchestrator renders custom-domain routers into, watched by Traefik's file provider. Unset to disable custom domains.   |
+| `CUSTOM_DOMAIN_CERT_RESOLVER`                                                                                        | `lehttp`                                                                           | ACME resolver for custom-domain certs. Must be HTTP-01 based — see Custom domains below.                                              |
+
+### Custom domains
+
+A deployment is normally reached at `<name>.${ROUTER_HOST}`, covered by the
+wildcard cert. A **custom domain** points a hostname you own at a specific
+deployment instead — managed entirely in the dashboard under **Project Settings
+→ Custom Domains** (also on each deployment's **Settings → Custom Domains**). No
+Traefik restart, no editing files over SSH.
+
+#### Why the orchestrator runs ACME instead of Traefik
+
+Traefik can issue certificates itself, but `certificatesResolvers` is _static_
+configuration: adding a DNS provider or rotating an API token would mean editing
+the compose file and restarting Traefik. That can't be driven from a dashboard.
+
+Traefik's _file_ provider, by contrast, hot-reloads both routers and
+`tls.certificates`. So the orchestrator owns the ACME conversation and writes
+finished certificates into the shared dynamic directory. The result:
+
+- DNS credentials are entered in the dashboard, sealed into Postgres, and used
+  by the next issuance immediately.
+- Custom domains need **zero** static Traefik configuration beyond pointing the
+  file provider at a directory (already in the compose file).
+- Routers for domains added after a backend container was created still work —
+  docker labels are fixed at create time, file-provider routers are not.
+
+#### Choosing a challenge
+
+| Challenge           | Setup                     | Use when                                                               |
+| ------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `http-01` (default) | None                      | The normal case. Port 80 must reach Traefik.                           |
+| `dns-01`            | A DNS provider credential | You want a **wildcard** (`*.example.com`), or port 80 isn't reachable. |
+
+Supported DNS providers: **Cloudflare**, **DigitalOcean**, and **Hetzner**. Add
+a token under **DNS Provider Credentials** on the same page; the form fields are
+advertised by the orchestrator, so a new provider appears in the dashboard
+without a dashboard release. Tokens are encrypted with a key derived from
+`SERVICE_KEY` and are never returned by the API.
+
+#### Adding a domain
+
+1. Create a CNAME from your domain to `${ROUTER_HOST}` (shown in the dashboard
+   as the target host).
+2. For `dns-01` only: save a DNS provider credential.
+3. Add the hostname, pick the challenge, and hit **Add**.
+
+Issuance runs in the background — an order takes tens of seconds, and DNS
+propagation longer. The domain moves `pending` → `issuing` → `active`, or
+`failed` with the reason shown verbatim (bad token, zone not found, DNS not
+pointed here). **Retry** re-runs it. A background sweep also retries domains
+that never got a certificate, so "I added it before the CNAME propagated" heals
+itself.
+
+`active` means the orchestrator completed a real HTTPS request against the
+domain — not merely that issuance was requested.
+
+Certificates renew automatically at 60 days, well inside the 90-day Let's
+Encrypt lifetime. Set `ACME_DIRECTORY_URL` to the Let's Encrypt **staging**
+directory while testing so you don't burn production rate limit.
 
 ## Running the orchestrator
 

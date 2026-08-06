@@ -344,6 +344,11 @@ async fn deployment_internal_flow_against_real_db() {
         enable_sidecars: false,
         postgres_image: "postgres:16-alpine".into(),
         minio_image: "quay.io/minio/minio:latest".into(),
+        traefik_dynamic_dir: None,
+        orchestrator_upstream: "orchestrator:8050".into(),
+        traefik_cert_dir: "/dynamic".into(),
+        acme_contact_email: None,
+        acme_directory_url: None,
     };
 
     // Construct OrchestratorState the public way, then swap in the stub
@@ -651,6 +656,11 @@ async fn test_state(
         enable_sidecars: false,
         postgres_image: "postgres:16-alpine".into(),
         minio_image: "quay.io/minio/minio:latest".into(),
+        traefik_dynamic_dir: None,
+        orchestrator_upstream: "orchestrator:8050".into(),
+        traefik_cert_dir: "/dynamic".into(),
+        acme_contact_email: None,
+        acme_directory_url: None,
     };
 
     OrchestratorState::new(config)

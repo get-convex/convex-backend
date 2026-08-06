@@ -57,6 +57,9 @@ pub fn build_router(state: OrchestratorState) -> Router {
         .nest("/api/internal", internal_router)
         .nest("/api", api_router)
         .nest("/v1", management_router)
+        // Unauthenticated by design: the ACME server is an anonymous client.
+        // Traefik forwards this path here for every custom domain.
+        .merge(routes::acme_challenge::router())
         .route("/version", get(version))
         .route("/health", get(health))
         .fallback(not_found)
@@ -208,6 +211,15 @@ async fn not_found() -> impl IntoResponse {
         crate::routes::dashboard::access_tokens::delete_access_token,
         crate::routes::dashboard::env_vars::list_env_vars,
         crate::routes::dashboard::env_vars::update_env_vars,
+        crate::routes::dashboard::custom_domains::list_custom_domains,
+        crate::routes::dashboard::custom_domains::create_custom_domain,
+        crate::routes::dashboard::custom_domains::delete_custom_domain,
+        crate::routes::dashboard::custom_domains::verify_custom_domain,
+        crate::routes::dashboard::custom_domains::retry_custom_domain,
+        crate::routes::dashboard::custom_domains::list_dns_creds,
+        crate::routes::dashboard::custom_domains::create_dns_cred,
+        crate::routes::dashboard::custom_domains::delete_dns_cred,
+        crate::routes::acme_challenge::serve_challenge,
         crate::routes::dashboard::audit_log::get_audit_log_events,
         crate::routes::dashboard::billing_stub::orb_subscription,
         crate::routes::dashboard::billing_stub::empty_list,

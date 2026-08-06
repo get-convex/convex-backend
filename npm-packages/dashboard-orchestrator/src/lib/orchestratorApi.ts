@@ -434,3 +434,188 @@ export async function restartDeployment(
     },
   );
 }
+
+// ---------- Custom domains ----------
+
+export const customDomainSchema = z.object({
+  id: z.number(),
+  deploymentId: z.number(),
+  domain: z.string(),
+  certState: z.string(),
+  createdAt: z.number(),
+  challengeType: z.string(),
+  dnsCredentialId: z.number().nullable(),
+  lastError: z.string().nullable(),
+});
+
+export const dnsProviderFieldSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  help: z.string(),
+});
+
+/** Provider list is served by the orchestrator so adding one there needs no
+ * dashboard change. */
+export const dnsProviderInfoSchema = z.object({
+  provider: z.string(),
+  fields: z.array(dnsProviderFieldSchema),
+});
+export type DnsProviderInfo = z.infer<typeof dnsProviderInfoSchema>;
+
+export const dnsCredentialSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  provider: z.string(),
+  createdAt: z.number(),
+});
+export type DnsCredential = z.infer<typeof dnsCredentialSchema>;
+
+export const listDnsCredentialsSchema = z.object({
+  credentials: z.array(dnsCredentialSchema),
+  providers: z.array(dnsProviderInfoSchema),
+});
+export type ListDnsCredentialsResponse = z.infer<
+  typeof listDnsCredentialsSchema
+>;
+export type CustomDomain = z.infer<typeof customDomainSchema>;
+
+export const listCustomDomainsSchema = z.object({
+  domains: z.array(customDomainSchema),
+  targetHost: z.string(),
+  routingEnabled: z.boolean(),
+  providers: z.array(dnsProviderInfoSchema),
+});
+export type ListCustomDomainsResponse = z.infer<typeof listCustomDomainsSchema>;
+
+export const verifyCustomDomainSchema = z.object({
+  domain: z.string(),
+  certState: z.string(),
+  error: z.string().nullable(),
+});
+export type VerifyCustomDomainResponse = z.infer<
+  typeof verifyCustomDomainSchema
+>;
+
+export async function listCustomDomains(
+  baseUrl: string,
+  token: string,
+  deploymentId: number,
+): Promise<ListCustomDomainsResponse> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/api/dashboard/deployments/${deploymentId}/custom_domains/list`,
+    { token },
+  );
+  return listCustomDomainsSchema.parse(data);
+}
+
+export async function createCustomDomain(
+  baseUrl: string,
+  token: string,
+  deploymentId: number,
+  domain: string,
+  challengeType: "http-01" | "dns-01" = "http-01",
+  dnsCredentialId?: number | null,
+): Promise<CustomDomain> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/api/dashboard/deployments/${deploymentId}/custom_domains/create`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        domain,
+        challengeType,
+        dnsCredentialId: dnsCredentialId ?? null,
+      }),
+    },
+  );
+  return customDomainSchema.parse(data);
+}
+
+/** Re-runs issuance for a domain whose last attempt failed. */
+export async function retryCustomDomain(
+  baseUrl: string,
+  token: string,
+  deploymentId: number,
+  domain: string,
+): Promise<void> {
+  await request<unknown>(
+    baseUrl,
+    `/api/dashboard/deployments/${deploymentId}/custom_domains/retry`,
+    { method: "POST", token, body: JSON.stringify({ domain }) },
+  );
+}
+
+export async function listDnsCredentials(
+  baseUrl: string,
+  token: string,
+  teamId: number,
+): Promise<ListDnsCredentialsResponse> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/api/dashboard/teams/${teamId}/dns_credentials/list`,
+    { token },
+  );
+  return listDnsCredentialsSchema.parse(data);
+}
+
+export async function createDnsCredential(
+  baseUrl: string,
+  token: string,
+  teamId: number,
+  name: string,
+  provider: string,
+  secrets: Record<string, string>,
+): Promise<DnsCredential> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/api/dashboard/teams/${teamId}/dns_credentials/create`,
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ name, provider, secrets }),
+    },
+  );
+  return dnsCredentialSchema.parse(data);
+}
+
+export async function deleteDnsCredential(
+  baseUrl: string,
+  token: string,
+  teamId: number,
+  credentialId: number,
+): Promise<void> {
+  await request<unknown>(
+    baseUrl,
+    `/api/dashboard/teams/${teamId}/dns_credentials/${credentialId}/delete`,
+    { method: "POST", token },
+  );
+}
+
+export async function deleteCustomDomain(
+  baseUrl: string,
+  token: string,
+  deploymentId: number,
+  domain: string,
+): Promise<void> {
+  await request<unknown>(
+    baseUrl,
+    `/api/dashboard/deployments/${deploymentId}/custom_domains/delete`,
+    { method: "POST", token, body: JSON.stringify({ domain }) },
+  );
+}
+
+export async function verifyCustomDomain(
+  baseUrl: string,
+  token: string,
+  deploymentId: number,
+  domain: string,
+): Promise<VerifyCustomDomainResponse> {
+  const data = await request<unknown>(
+    baseUrl,
+    `/api/dashboard/deployments/${deploymentId}/custom_domains/verify`,
+    { method: "POST", token, body: JSON.stringify({ domain }) },
+  );
+  return verifyCustomDomainSchema.parse(data);
+}

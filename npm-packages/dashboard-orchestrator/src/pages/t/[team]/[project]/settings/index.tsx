@@ -26,6 +26,8 @@ import { tierDefaultsForName } from "../../../../../components/backendSettings/t
 import { useHostCapacity } from "../../../../../hooks/useHostCapacity";
 import { useKnobRegistry } from "../../../../../hooks/useKnobRegistry";
 import { useProjectSettings } from "../../../../../hooks/useProjectSettings";
+import { CustomDomainsCard } from "../../../../../components/CustomDomainsCard";
+import { DnsCredentialsCard } from "../../../../../components/DnsCredentialsCard";
 
 const SECTION_IDS = {
   projectForm: "project-form",
@@ -33,6 +35,7 @@ const SECTION_IDS = {
   projectAdmins: "project-admins",
   backend: "backend",
   envVars: "env-vars",
+  customDomains: "custom-domains",
   deleteProject: "delete-project",
 } as const;
 
@@ -42,6 +45,7 @@ const sections: Array<{ id: string; label: string }> = [
   { id: SECTION_IDS.projectAdmins, label: "Project Admins" },
   { id: SECTION_IDS.backend, label: "Backend" },
   { id: SECTION_IDS.envVars, label: "Environment Variables" },
+  { id: SECTION_IDS.customDomains, label: "Custom Domains" },
   { id: SECTION_IDS.deleteProject, label: "Delete Project" },
 ];
 
@@ -161,6 +165,9 @@ export default function ProjectSettingsPage() {
                 </div>
                 <div id={SECTION_IDS.envVars}>
                   <EnvVarsSection project={project} token={token} url={url} />
+                </div>
+                <div id={SECTION_IDS.customDomains}>
+                  <CustomDomainsSection team={team} project={project} />
                 </div>
                 <div id={SECTION_IDS.deleteProject}>
                   <DeleteProjectSection
@@ -786,6 +793,67 @@ function ProjectAdminsSection({
         )}
       </ul>
     </Sheet>
+  );
+}
+
+// Custom domains attach to a *deployment* (that's what a hostname has to
+// resolve to), but operators think about them per project — so the project
+// settings page renders one card per deployment rather than making them go
+// hunting through each deployment's settings.
+function CustomDomainsSection({
+  team,
+  project,
+}: {
+  team: Team;
+  project: Project;
+}) {
+  const token = useAccessToken();
+  const url = orchestratorUrl();
+  const { data: deployments } = useSWR(
+    token ? ["deployments", project.id, token] : null,
+    () => listDeployments(url, token!, project.id),
+  );
+
+  if (deployments === undefined) {
+    return (
+      <Sheet>
+        <h3>Custom Domains</h3>
+        <p className="mt-2 text-sm text-content-secondary">Loading…</p>
+      </Sheet>
+    );
+  }
+
+  if (deployments.length === 0) {
+    return (
+      <Sheet>
+        <h3>Custom Domains</h3>
+        <p className="mt-2 text-sm text-content-secondary">
+          This project has no deployments yet. Create one before attaching a
+          custom domain.
+        </p>
+      </Sheet>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {deployments.map((d) => (
+        <CustomDomainsCard
+          key={d.id}
+          deploymentId={d.id}
+          deploymentName={d.name}
+          teamId={team.id}
+          heading={
+            deployments.length > 1
+              ? `Custom Domains — ${d.deploymentType ?? d.kind ?? d.name}`
+              : "Custom Domains"
+          }
+        />
+      ))}
+      {/* Credentials are team-scoped and shared by every domain, so they sit
+          below the per-deployment cards rather than inside each one. */}
+      <DnsCredentialsCard teamId={team.id} />
+    </div>
   );
 }
 

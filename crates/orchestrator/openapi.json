@@ -2654,6 +2654,306 @@
         }
       }
     },
+    "/api/dashboard/deployments/{deployment_id}/custom_domains/list": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_custom_domains",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCustomDomains"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/custom_domains/create": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "create_custom_domain",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomDomainArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomDomain"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/custom_domains/delete": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_custom_domain",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomDomainArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/custom_domains/verify": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "verify_custom_domain",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomDomainArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyCustomDomainResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/deployments/{deployment_id}/custom_domains/retry": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "retry_custom_domain",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomDomainArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/dns_credentials/list": {
+      "get": {
+        "tags": ["dashboard"],
+        "operationId": "list_dns_creds",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDnsCredentials"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/dns_credentials/create": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "create_dns_cred",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDnsCredentialArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsCredential"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/dashboard/teams/{team_id}/dns_credentials/{credential_id}/delete": {
+      "post": {
+        "tags": ["dashboard"],
+        "operationId": "delete_dns_cred",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "credential_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/.well-known/acme-challenge/{token}": {
+      "get": {
+        "tags": ["acme"],
+        "operationId": "serve_challenge",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key authorization for an in-flight challenge"
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/dashboard/teams/{team_id}/get_audit_log_events": {
       "get": {
         "tags": ["dashboard"],
@@ -3300,20 +3600,20 @@
         "type": "object",
         "required": ["id", "kind", "name", "creationTime", "keySuffix"],
         "properties": {
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
           "id": {
-            "type": "string"
-          },
-          "keySuffix": {
             "type": "string"
           },
           "kind": {
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "keySuffix": {
             "type": "string"
           }
         }
@@ -3322,14 +3622,12 @@
         "type": "object",
         "required": ["id", "teamId", "action", "metadata", "creationTime"],
         "properties": {
-          "action": {
-            "type": "string"
-          },
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
           "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamId": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -3339,11 +3637,13 @@
             "format": "int64",
             "minimum": 0
           },
+          "action": {
+            "type": "string"
+          },
           "metadata": {},
-          "teamId": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
+          "creationTime": {
+            "type": "number",
+            "format": "double"
           }
         }
       },
@@ -3351,14 +3651,14 @@
         "type": "object",
         "required": ["events"],
         "properties": {
-          "cursor": {
-            "type": ["string", "null"]
-          },
           "events": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AuditLogEvent"
             }
+          },
+          "cursor": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -3367,11 +3667,11 @@
         "description": "Body of `POST /api/claim_preview_deployment`.",
         "required": ["projectSelection", "identifier"],
         "properties": {
-          "identifier": {
-            "type": "string"
-          },
           "projectSelection": {
             "$ref": "#/components/schemas/ProjectSelectionArgs"
+          },
+          "identifier": {
+            "type": "string"
           }
         }
       },
@@ -3380,17 +3680,56 @@
         "description": "Response shape for `POST /api/claim_preview_deployment`.",
         "required": ["deploymentName", "adminKey", "url", "deploymentType"],
         "properties": {
-          "adminKey": {
-            "type": "string"
-          },
           "deploymentName": {
             "type": "string"
           },
-          "deploymentType": {
+          "adminKey": {
             "type": "string"
           },
           "url": {
             "type": "string"
+          },
+          "deploymentType": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateCustomDomainArgs": {
+        "type": "object",
+        "required": ["domain"],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "challengeType": {
+            "type": ["string", "null"],
+            "description": "Defaults to `http-01`, which needs no credentials."
+          },
+          "dnsCredentialId": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          }
+        }
+      },
+      "CreateDnsCredentialArgs": {
+        "type": "object",
+        "required": ["name", "provider", "secrets"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "secrets": {
+            "type": "object",
+            "description": "Provider secrets keyed by the field `key`s advertised in\n[`DnsProviderInfo`]. Sealed before storage and never returned.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3410,12 +3749,12 @@
         "type": "object",
         "required": ["name"],
         "properties": {
+          "name": {
+            "type": "string"
+          },
           "expiresAt": {
             "type": ["number", "null"],
             "format": "double"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },
@@ -3426,15 +3765,15 @@
           "accessToken": {
             "type": "string"
           },
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
           "id": {
             "type": "string"
           },
           "name": {
             "type": "string"
+          },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
           }
         }
       },
@@ -3443,7 +3782,22 @@
         "description": "Body of `POST /api/create_project` (CLI).",
         "required": ["team", "projectName"],
         "properties": {
+          "team": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
           "deploymentType": {
+            "type": ["string", "null"]
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "tier": {
+            "type": ["string", "null"]
+          },
+          "provisioningMode": {
             "type": ["string", "null"]
           },
           "knobOverrides": {
@@ -3454,21 +3808,6 @@
             "propertyNames": {
               "type": "string"
             }
-          },
-          "projectName": {
-            "type": "string"
-          },
-          "provisioningMode": {
-            "type": ["string", "null"]
-          },
-          "region": {
-            "type": ["string", "null"]
-          },
-          "team": {
-            "type": "string"
-          },
-          "tier": {
-            "type": ["string", "null"]
           }
         }
       },
@@ -3477,12 +3816,6 @@
         "description": "Response shape for `POST /api/create_project` (CLI).",
         "required": ["projectId", "projectSlug", "teamSlug"],
         "properties": {
-          "adminKey": {
-            "type": ["string", "null"]
-          },
-          "deploymentName": {
-            "type": ["string", "null"]
-          },
           "projectId": {
             "type": "integer",
             "format": "int64",
@@ -3494,7 +3827,13 @@
           "teamSlug": {
             "type": "string"
           },
+          "deploymentName": {
+            "type": ["string", "null"]
+          },
           "url": {
+            "type": ["string", "null"]
+          },
+          "adminKey": {
             "type": ["string", "null"]
           }
         }
@@ -3517,6 +3856,59 @@
           },
           "slug": {
             "type": ["string", "null"]
+          }
+        }
+      },
+      "CustomDomain": {
+        "type": "object",
+        "required": [
+          "id",
+          "deploymentId",
+          "domain",
+          "certState",
+          "createdAt",
+          "challengeType"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deploymentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "certState": {
+            "type": "string",
+            "description": "`pending` -> `issuing` -> `active`, or `failed`. Only ever set from an\nobserved outcome: `active` means an HTTPS request to the domain\nactually succeeded, not that issuance was requested."
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "challengeType": {
+            "type": "string",
+            "description": "`http-01` (no credentials needed) or `dns-01` (needs a DNS provider\ncredential, and is the only option for wildcards)."
+          },
+          "dnsCredentialId": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "lastError": {
+            "type": ["string", "null"],
+            "description": "Verbatim reason the last issuance failed, if it did."
+          }
+        }
+      },
+      "CustomDomainArgs": {
+        "type": "object",
+        "required": ["domain"],
+        "properties": {
+          "domain": {
+            "type": "string"
           }
         }
       },
@@ -3548,25 +3940,25 @@
           "isDefault"
         ],
         "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
           "adminKey": {
             "$ref": "#/components/schemas/AccessToken"
           },
-          "deploymentName": {
+          "url": {
             "type": "string"
           },
           "deploymentType": {
             "$ref": "#/components/schemas/DeploymentType"
           },
-          "isDefault": {
-            "type": "boolean",
-            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Preview/custom/local are always `false`."
-          },
           "reference": {
             "type": ["string", "null"],
             "description": "The user-facing reference for this deployment (e.g. `preview/pr-42`),\nusable as the `<ref>` in `team:project:<ref>` selectors. `None` for\nlocal deployments, which don't have a Big Brain reference."
           },
-          "url": {
-            "type": "string"
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Preview/custom/local are always `false`."
           }
         }
       },
@@ -3588,10 +3980,10 @@
         "type": "object",
         "required": ["name", "description"],
         "properties": {
-          "description": {
+          "name": {
             "type": "string"
           },
-          "name": {
+          "description": {
             "type": "string"
           }
         }
@@ -3605,10 +3997,10 @@
         "type": "object",
         "required": ["name", "description"],
         "properties": {
-          "description": {
+          "name": {
             "type": "string"
           },
-          "name": {
+          "description": {
             "type": "string"
           }
         }
@@ -3627,17 +4019,12 @@
           "creationTime"
         ],
         "properties": {
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
-          "deploymentClass": {
-            "type": "string"
-          },
-          "deploymentType": {
-            "type": "string"
-          },
           "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "projectId": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -3645,16 +4032,14 @@
           "name": {
             "type": "string"
           },
-          "previewIdentifier": {
-            "type": ["string", "null"]
+          "deploymentType": {
+            "type": "string"
           },
-          "projectId": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
+          "deploymentClass": {
+            "type": "string"
           },
-          "region": {
-            "type": ["string", "null"]
+          "url": {
+            "type": "string"
           },
           "siteUrl": {
             "type": "string"
@@ -3662,8 +4047,15 @@
           "state": {
             "type": "string"
           },
-          "url": {
-            "type": "string"
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -3676,6 +4068,14 @@
           "runningOverrides"
         ],
         "properties": {
+          "effectiveTier": {
+            "type": "string",
+            "description": "Effective tier for the next spawn: `desired_tier` if set, else the\nproject's tier."
+          },
+          "desiredTier": {
+            "type": ["string", "null"],
+            "description": "`Some` when this deployment overrides the project tier; `None` when\nit inherits."
+          },
           "desiredOverrides": {
             "type": "object",
             "description": "Deployment-level overrides only (not merged with project's).",
@@ -3686,13 +4086,9 @@
               "type": "string"
             }
           },
-          "desiredTier": {
-            "type": ["string", "null"],
-            "description": "`Some` when this deployment overrides the project tier; `None` when\nit inherits."
-          },
-          "effectiveTier": {
+          "runningTier": {
             "type": "string",
-            "description": "Effective tier for the next spawn: `desired_tier` if set, else the\nproject's tier."
+            "description": "Tier the currently-running container was spawned with."
           },
           "runningOverrides": {
             "type": "object",
@@ -3703,10 +4099,6 @@
             "propertyNames": {
               "type": "string"
             }
-          },
-          "runningTier": {
-            "type": "string",
-            "description": "Tier the currently-running container was spawned with."
           }
         }
       },
@@ -3718,9 +4110,6 @@
         "type": "object",
         "required": ["deviceName"],
         "properties": {
-          "bootstrapToken": {
-            "type": ["string", "null"]
-          },
           "deviceName": {
             "type": "string"
           },
@@ -3728,6 +4117,9 @@
             "type": ["string", "null"]
           },
           "password": {
+            "type": ["string", "null"]
+          },
+          "bootstrapToken": {
             "type": ["string", "null"]
           }
         }
@@ -3746,21 +4138,72 @@
           }
         }
       },
+      "DnsCredential": {
+        "type": "object",
+        "required": ["id", "name", "provider", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "DnsProviderField": {
+        "type": "object",
+        "required": ["key", "label", "help"],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "help": {
+            "type": "string"
+          }
+        }
+      },
+      "DnsProviderInfo": {
+        "type": "object",
+        "description": "A DNS provider the orchestrator can drive, plus the secret fields its\ncredential form needs. Sent to the dashboard so adding a provider doesn't\nrequire a matching dashboard change.",
+        "required": ["provider", "fields"],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DnsProviderField"
+            }
+          }
+        }
+      },
       "EnvironmentVariable": {
         "type": "object",
         "required": ["name", "value", "deploymentTypes"],
         "properties": {
-          "deploymentTypes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "name": {
             "type": "string"
           },
           "value": {
             "type": "string"
+          },
+          "deploymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3775,12 +4218,12 @@
           "email": {
             "type": "string"
           },
+          "name": {
+            "type": ["string", "null"]
+          },
           "inviteCode": {
             "type": ["string", "null"],
             "description": "Optional team invitation code. Required for a non-allowlisted user to\nmint the temporary session token needed to accept an invite."
-          },
-          "name": {
-            "type": ["string", "null"]
           }
         }
       },
@@ -3796,10 +4239,10 @@
             "format": "int64",
             "minimum": 0
           },
-          "role": {
+          "teamSlug": {
             "type": "string"
           },
-          "teamSlug": {
+          "role": {
             "type": "string"
           }
         }
@@ -3848,18 +4291,9 @@
           "deploymentCount"
         ],
         "properties": {
-          "allocatedCpus": {
-            "type": "number",
-            "format": "float"
-          },
-          "allocatedMemoryMb": {
+          "totalMemoryMb": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
-          },
-          "deploymentCount": {
-            "type": "integer",
-            "format": "int32",
             "minimum": 0
           },
           "totalCpus": {
@@ -3867,9 +4301,18 @@
             "format": "int32",
             "minimum": 0
           },
-          "totalMemoryMb": {
+          "allocatedMemoryMb": {
             "type": "integer",
             "format": "int64",
+            "minimum": 0
+          },
+          "allocatedCpus": {
+            "type": "number",
+            "format": "float"
+          },
+          "deploymentCount": {
+            "type": "integer",
+            "format": "int32",
             "minimum": 0
           }
         }
@@ -3890,23 +4333,23 @@
         "type": "object",
         "required": ["id", "email", "role", "code", "createdAt"],
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
           "code": {
             "type": "string"
           },
           "createdAt": {
             "type": "number",
             "format": "double"
-          },
-          "email": {
-            "type": "string"
-          },
-          "id": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "role": {
-            "type": "string"
           }
         }
       },
@@ -3914,23 +4357,23 @@
         "type": "object",
         "required": ["envVar", "description", "category", "exposure"],
         "properties": {
+          "envVar": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
           "category": {
             "type": "string"
           },
-          "defaultValue": {
-            "type": ["string", "null"]
-          },
-          "description": {
+          "exposure": {
             "type": "string"
           },
           "displayName": {
             "type": ["string", "null"]
           },
-          "envVar": {
-            "type": "string"
-          },
-          "exposure": {
-            "type": "string"
+          "defaultValue": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -3943,6 +4386,33 @@
             "items": {
               "$ref": "#/components/schemas/KnobEntry"
             }
+          }
+        }
+      },
+      "ListCustomDomains": {
+        "type": "object",
+        "required": ["domains", "providers", "targetHost", "routingEnabled"],
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomDomain"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DnsProviderInfo"
+            },
+            "description": "Providers available for dns-01, with their credential form fields."
+          },
+          "targetHost": {
+            "type": "string",
+            "description": "Hostname the operator should CNAME/A-record the custom domain at.\nEmpty when the orchestrator has no public router host configured."
+          },
+          "routingEnabled": {
+            "type": "boolean",
+            "description": "False when the orchestrator has no Traefik dynamic directory wired up,\nin which case adding a domain would record a row that never routes."
           }
         }
       },
@@ -3966,6 +4436,24 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DeploymentRegion"
+            }
+          }
+        }
+      },
+      "ListDnsCredentials": {
+        "type": "object",
+        "required": ["credentials", "providers"],
+        "properties": {
+          "credentials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DnsCredential"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DnsProviderInfo"
             }
           }
         }
@@ -4013,13 +4501,13 @@
         "type": "object",
         "required": ["id", "email"],
         "properties": {
-          "email": {
-            "type": "string"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "email": {
+            "type": "string"
           },
           "name": {
             "type": ["string", "null"]
@@ -4039,14 +4527,14 @@
         "type": "object",
         "required": ["variables"],
         "properties": {
-          "cursor": {
-            "type": ["string", "null"]
-          },
           "variables": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PlatformDefaultEnvVar"
             }
+          },
+          "cursor": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -4054,14 +4542,14 @@
         "type": "object",
         "required": ["deployments"],
         "properties": {
-          "cursor": {
-            "type": ["string", "null"]
-          },
           "deployments": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PlatformDeploymentResponse"
             }
+          },
+          "cursor": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -4069,14 +4557,14 @@
         "type": "object",
         "required": ["tokens"],
         "properties": {
-          "cursor": {
-            "type": ["string", "null"]
-          },
           "tokens": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PlatformDeployKeyResponse"
             }
+          },
+          "cursor": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -4084,15 +4572,25 @@
         "type": "object",
         "required": ["kind"],
         "properties": {
+          "kind": {
+            "type": "string"
+          },
           "deploymentClass": {
             "type": ["string", "null"]
           },
-          "force": {
-            "type": ["boolean", "null"],
-            "description": "Legacy client hint. Host allocation can be overprovisioned, so the\norchestrator no longer requires this to exceed current host capacity."
+          "region": {
+            "type": ["string", "null"]
           },
-          "kind": {
-            "type": "string"
+          "previewIdentifier": {
+            "type": ["string", "null"]
+          },
+          "tier": {
+            "type": ["string", "null"],
+            "description": "Overrides the project's default tier for this deployment only."
+          },
+          "provisioningMode": {
+            "type": ["string", "null"],
+            "description": "Override the project's default infrastructure strategy for this\ndeployment only (`default`, `volume-sqlite`, or `sidecar`)."
           },
           "knobOverrides": {
             "type": ["object", "null"],
@@ -4104,19 +4602,9 @@
               "type": "string"
             }
           },
-          "previewIdentifier": {
-            "type": ["string", "null"]
-          },
-          "provisioningMode": {
-            "type": ["string", "null"],
-            "description": "Override the project's default infrastructure strategy for this\ndeployment only (`default`, `volume-sqlite`, or `sidecar`)."
-          },
-          "region": {
-            "type": ["string", "null"]
-          },
-          "tier": {
-            "type": ["string", "null"],
-            "description": "Overrides the project's default tier for this deployment only."
+          "force": {
+            "type": ["boolean", "null"],
+            "description": "Legacy client hint. Host allocation can be overprovisioned, so the\norchestrator no longer requires this to exceed current host capacity."
           }
         }
       },
@@ -4124,16 +4612,16 @@
         "type": "object",
         "required": ["projectName"],
         "properties": {
-          "deploymentType": {
-            "type": ["string", "null"]
-          },
           "projectName": {
             "type": "string"
           },
-          "region": {
+          "slug": {
             "type": ["string", "null"]
           },
-          "slug": {
+          "deploymentType": {
+            "type": ["string", "null"]
+          },
+          "region": {
             "type": ["string", "null"]
           }
         }
@@ -4142,12 +4630,6 @@
         "type": "object",
         "required": ["projectId", "projectSlug", "teamSlug"],
         "properties": {
-          "adminKey": {
-            "type": ["string", "null"]
-          },
-          "deploymentName": {
-            "type": ["string", "null"]
-          },
           "projectId": {
             "type": "integer",
             "format": "int64",
@@ -4159,7 +4641,13 @@
           "teamSlug": {
             "type": "string"
           },
+          "deploymentName": {
+            "type": ["string", "null"]
+          },
           "url": {
+            "type": ["string", "null"]
+          },
+          "adminKey": {
             "type": ["string", "null"]
           }
         }
@@ -4180,17 +4668,17 @@
         "type": "object",
         "required": ["name", "value", "deploymentTypes"],
         "properties": {
-          "deploymentTypes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "name": {
             "type": "string"
           },
           "value": {
             "type": "string"
+          },
+          "deploymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4198,23 +4686,23 @@
         "type": "object",
         "required": ["id", "name", "creationTime", "keySuffix"],
         "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
           "creationTime": {
             "type": "number",
             "format": "double"
+          },
+          "keySuffix": {
+            "type": "string"
           },
           "expiresAt": {
             "type": ["number", "null"],
             "format": "double",
             "description": "Milliseconds since epoch; `None` for keys that never expire."
-          },
-          "id": {
-            "type": "string"
-          },
-          "keySuffix": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },
@@ -4232,34 +4720,27 @@
           "creationTime"
         ],
         "properties": {
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
-          "deploymentClass": {
-            "type": "string"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
-          },
-          "kind": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "previewIdentifier": {
-            "type": ["string", "null"]
           },
           "projectId": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "region": {
-            "type": ["string", "null"]
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "deploymentClass": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
           },
           "siteUrl": {
             "type": "string"
@@ -4267,12 +4748,19 @@
           "state": {
             "type": "string"
           },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"]
+          },
           "tier": {
             "type": "string",
             "description": "Resource tier (S4/S8/S16/S32/S64/S128/S256 or custom:<memoryMb>:<cpus>)\nsnapshotted on the\ndeployment row at provision time. Surfaced so the dashboard can\ndisplay the tier badge without an extra request to settings."
-          },
-          "url": {
-            "type": "string"
           }
         }
       },
@@ -4292,17 +4780,15 @@
         "type": "object",
         "required": ["id", "teamId", "name", "slug", "isDemo", "creationTime"],
         "properties": {
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "isDemo": {
-            "type": "boolean"
+          "teamId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "name": {
             "type": "string"
@@ -4310,10 +4796,12 @@
           "slug": {
             "type": "string"
           },
-          "teamId": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
+          "isDemo": {
+            "type": "boolean"
+          },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
           }
         }
       },
@@ -4321,13 +4809,13 @@
         "type": "object",
         "required": ["id", "email", "role"],
         "properties": {
-          "email": {
-            "type": "string"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "email": {
+            "type": "string"
           },
           "role": {
             "type": "string"
@@ -4355,13 +4843,10 @@
         "type": "object",
         "required": ["kind"],
         "properties": {
-          "deploymentName": {
-            "type": ["string", "null"]
-          },
           "kind": {
             "type": "string"
           },
-          "memberId": {
+          "teamId": {
             "type": ["integer", "null"],
             "format": "int64",
             "minimum": 0
@@ -4371,7 +4856,10 @@
             "format": "int64",
             "minimum": 0
           },
-          "teamId": {
+          "deploymentName": {
+            "type": ["string", "null"]
+          },
+          "memberId": {
             "type": ["integer", "null"],
             "format": "int64",
             "minimum": 0
@@ -4402,18 +4890,18 @@
         "type": "object",
         "required": ["id", "email", "isVerified", "isPrimary"],
         "properties": {
-          "email": {
-            "type": "string"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "isPrimary": {
-            "type": "boolean"
+          "email": {
+            "type": "string"
           },
           "isVerified": {
+            "type": "boolean"
+          },
+          "isPrimary": {
             "type": "boolean"
           }
         }
@@ -4427,17 +4915,15 @@
         "type": "object",
         "required": ["id", "teamId", "name", "slug", "isDemo", "creationTime"],
         "properties": {
-          "creationTime": {
-            "type": "number",
-            "format": "double"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "isDemo": {
-            "type": "boolean"
+          "teamId": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "name": {
             "type": "string"
@@ -4445,10 +4931,12 @@
           "slug": {
             "type": "string"
           },
-          "teamId": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
+          "isDemo": {
+            "type": "boolean"
+          },
+          "creationTime": {
+            "type": "number",
+            "format": "double"
           }
         }
       },
@@ -4456,11 +4944,11 @@
         "type": "object",
         "required": ["projectId", "memberId"],
         "properties": {
-          "memberId": {
+          "projectId": {
             "type": "integer",
             "format": "int64"
           },
-          "projectId": {
+          "memberId": {
             "type": "integer",
             "format": "int64"
           }
@@ -4497,15 +4985,15 @@
             "description": "If there is no CONVEX_DEPLOYMENT, select a project with team and\nproject.",
             "required": ["teamSlug", "projectSlug", "kind"],
             "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["teamAndProjectSlugs"]
+              "teamSlug": {
+                "type": "string"
               },
               "projectSlug": {
                 "type": "string"
               },
-              "teamSlug": {
-                "type": "string"
+              "kind": {
+                "type": "string",
+                "enum": ["teamAndProjectSlugs"]
               }
             }
           }
@@ -4515,6 +5003,9 @@
         "type": "object",
         "required": ["tier", "knobOverrides"],
         "properties": {
+          "tier": {
+            "type": "string"
+          },
           "knobOverrides": {
             "type": "object",
             "description": "Flat map from env var name to canonical string value. Empty when no\noverrides have been set (the deployment will use tier defaults).",
@@ -4524,9 +5015,6 @@
             "propertyNames": {
               "type": "string"
             }
-          },
-          "tier": {
-            "type": "string"
           }
         }
       },
@@ -4538,14 +5026,14 @@
         "description": "Body of `POST /api/deployment/provision_and_authorize`.",
         "required": ["deploymentType"],
         "properties": {
-          "deploymentType": {
-            "type": "string"
+          "teamSlug": {
+            "type": ["string", "null"]
           },
           "projectSlug": {
             "type": ["string", "null"]
           },
-          "teamSlug": {
-            "type": ["string", "null"]
+          "deploymentType": {
+            "type": "string"
           }
         }
       },
@@ -4561,34 +5049,34 @@
           "adminKey"
         ],
         "properties": {
-          "adminKey": {
-            "type": "string",
-            "description": "Full admin key the operator generated when starting their backend.\nStored hashed; only the last few characters are retained in the clear\n(as `keySuffix`) for UI display."
-          },
           "deploymentName": {
             "type": "string"
-          },
-          "deploymentType": {
-            "type": "string",
-            "description": "`prod`, `dev`, or `preview`."
-          },
-          "previewIdentifier": {
-            "type": ["string", "null"],
-            "description": "Required for `preview` deployments — matches the preview branch / id."
           },
           "projectId": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "region": {
-            "type": ["string", "null"]
+          "deploymentType": {
+            "type": "string",
+            "description": "`prod`, `dev`, or `preview`."
+          },
+          "url": {
+            "type": "string"
           },
           "siteUrl": {
             "type": "string"
           },
-          "url": {
-            "type": "string"
+          "adminKey": {
+            "type": "string",
+            "description": "Full admin key the operator generated when starting their backend.\nStored hashed; only the last few characters are retained in the clear\n(as `keySuffix`) for UI display."
+          },
+          "region": {
+            "type": ["string", "null"]
+          },
+          "previewIdentifier": {
+            "type": ["string", "null"],
+            "description": "Required for `preview` deployments — matches the preview branch / id."
           }
         }
       },
@@ -4636,19 +5124,19 @@
           "cancelAtPeriodEnd"
         ],
         "properties": {
-          "cancelAtPeriodEnd": {
-            "type": "boolean"
-          },
-          "currentPeriodEnd": {
-            "type": "number",
-            "format": "double"
+          "plan": {
+            "$ref": "#/components/schemas/StubBillingPlan"
           },
           "currentPeriodStart": {
             "type": "number",
             "format": "double"
           },
-          "plan": {
-            "$ref": "#/components/schemas/StubBillingPlan"
+          "currentPeriodEnd": {
+            "type": "number",
+            "format": "double"
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
           }
         }
       },
@@ -4659,12 +5147,12 @@
           "code": {
             "type": "string"
           },
-          "maxReferrals": {
+          "referredCount": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "referredCount": {
+          "maxReferrals": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -4675,11 +5163,6 @@
         "type": "object",
         "required": ["currentSpendCents"],
         "properties": {
-          "currentSpendCents": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
           "disableThresholdCents": {
             "type": ["integer", "null"],
             "format": "int64",
@@ -4687,6 +5170,11 @@
           },
           "warningThresholdCents": {
             "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "currentSpendCents": {
+            "type": "integer",
             "format": "int64",
             "minimum": 0
           }
@@ -4708,34 +5196,12 @@
           "plan"
         ],
         "properties": {
-          "allowAuditLog": {
-            "type": "boolean"
-          },
-          "allowCustomDomains": {
-            "type": "boolean"
-          },
-          "allowPeriodicBackups": {
-            "type": "boolean"
-          },
-          "allowStreamingExport": {
-            "type": "boolean"
-          },
-          "maxDeployments": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "maxFunctionCallsPerMonth": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
           "maxProjects": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
-          "maxStorageBytes": {
+          "maxTeams": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -4745,10 +5211,32 @@
             "format": "int64",
             "minimum": 0
           },
-          "maxTeams": {
+          "maxDeployments": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "maxStorageBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxFunctionCallsPerMonth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "allowPeriodicBackups": {
+            "type": "boolean"
+          },
+          "allowAuditLog": {
+            "type": "boolean"
+          },
+          "allowCustomDomains": {
+            "type": "boolean"
+          },
+          "allowStreamingExport": {
+            "type": "boolean"
           },
           "plan": {
             "type": "string"
@@ -4785,11 +5273,11 @@
         "type": "object",
         "required": ["valid"],
         "properties": {
-          "teamName": {
-            "type": ["string", "null"]
-          },
           "valid": {
             "type": "boolean"
+          },
+          "teamName": {
+            "type": ["string", "null"]
           }
         }
       },
@@ -4797,6 +5285,18 @@
         "type": "object",
         "required": ["team", "project", "teamId", "projectId", "isDefault"],
         "properties": {
+          "team": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
           "deploymentId": {
             "oneOf": [
               {
@@ -4807,25 +5307,13 @@
               }
             ]
           },
-          "isDefault": {
-            "type": "boolean",
-            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Always `false` for local deployments."
-          },
-          "project": {
-            "$ref": "#/components/schemas/ProjectSlug"
-          },
-          "projectId": {
-            "$ref": "#/components/schemas/ProjectId"
-          },
           "reference": {
             "type": ["string", "null"],
             "description": "The user-facing reference for this deployment (e.g. `preview/pr-42`),\nusable as the `<ref>` in `team:project:<ref>` selectors. `None` for\nlocal deployments."
           },
-          "team": {
-            "$ref": "#/components/schemas/TeamSlug"
-          },
-          "teamId": {
-            "$ref": "#/components/schemas/TeamId"
+          "isDefault": {
+            "type": "boolean",
+            "description": "Whether this is the default deployment for its project (dev: per\nmember; prod: per project). Always `false` for local deployments."
           }
         }
       },
@@ -4838,13 +5326,13 @@
         "type": "object",
         "required": ["id", "email", "role"],
         "properties": {
-          "email": {
-            "type": "string"
-          },
           "id": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "email": {
+            "type": "string"
           },
           "name": {
             "type": ["string", "null"]
@@ -4858,11 +5346,6 @@
         "type": "object",
         "required": ["id", "name", "slug"],
         "properties": {
-          "creator": {
-            "type": ["integer", "null"],
-            "format": "int64",
-            "minimum": 0
-          },
           "id": {
             "type": "integer",
             "format": "int64",
@@ -4873,6 +5356,11 @@
           },
           "slug": {
             "type": "string"
+          },
+          "creator": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
@@ -4924,6 +5412,10 @@
       "UpdateDeploymentSettingsArgs": {
         "type": "object",
         "properties": {
+          "desiredTier": {
+            "type": ["string", "null"],
+            "description": "Set to a tier name to override the project tier. Set to `null` to\nclear the override and fall back to the project tier. Omit to leave\nunchanged."
+          },
           "desiredOverrides": {
             "type": ["object", "null"],
             "description": "Partial knob-override patch: `Some(value)` sets a key, `None` for a\nkey clears it. Omit the whole field to leave unchanged.",
@@ -4933,10 +5425,6 @@
             "propertyNames": {
               "type": "string"
             }
-          },
-          "desiredTier": {
-            "type": ["string", "null"],
-            "description": "Set to a tier name to override the project tier. Set to `null` to\nclear the override and fall back to the project tier. Omit to leave\nunchanged."
           }
         }
       },
@@ -4978,6 +5466,10 @@
         "type": "object",
         "required": ["projectId", "adminMemberIds"],
         "properties": {
+          "projectId": {
+            "type": "integer",
+            "format": "int64"
+          },
           "adminMemberIds": {
             "type": "array",
             "items": {
@@ -4985,16 +5477,16 @@
               "format": "int64"
             },
             "description": "Replaces the full admin set for the project."
-          },
-          "projectId": {
-            "type": "integer",
-            "format": "int64"
           }
         }
       },
       "UpdateProjectSettingsArgs": {
         "type": "object",
         "properties": {
+          "tier": {
+            "type": ["string", "null"],
+            "description": "Set to switch tier. Omit to leave unchanged."
+          },
           "knobOverrides": {
             "type": ["object", "null"],
             "description": "Replace the override map entirely. Omit to leave unchanged. A value\nof `null` for any individual knob clears that override (so the\neffective value falls back to tier default).",
@@ -5004,10 +5496,6 @@
             "propertyNames": {
               "type": "string"
             }
-          },
-          "tier": {
-            "type": ["string", "null"],
-            "description": "Set to switch tier. Omit to leave unchanged."
           }
         }
       },
@@ -5019,6 +5507,22 @@
           },
           "slug": {
             "type": ["string", "null"]
+          }
+        }
+      },
+      "VerifyCustomDomainResponse": {
+        "type": "object",
+        "required": ["domain", "certState"],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "certState": {
+            "type": "string"
+          },
+          "error": {
+            "type": ["string", "null"],
+            "description": "Why the probe failed, when it did. Surfaced verbatim in the dashboard\nbecause the causes (DNS not pointed here, ACME rate limit) are things\nonly the operator can fix."
           }
         }
       }

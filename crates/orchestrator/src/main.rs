@@ -183,6 +183,39 @@ struct Args {
         default_value = "quay.io/minio/minio:latest"
     )]
     minio_image: String,
+
+    /// Directory watched by Traefik's file provider. Custom-domain routers
+    /// are rendered here; unset disables the custom domains feature.
+    #[arg(long, env = "CONVEX_ORCHESTRATOR_TRAEFIK_DYNAMIC_DIR")]
+    traefik_dynamic_dir: Option<PathBuf>,
+
+    /// Host:port Traefik uses to reach this orchestrator when forwarding
+    /// ACME HTTP-01 challenge requests.
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_UPSTREAM",
+        default_value = "orchestrator:8050"
+    )]
+    orchestrator_upstream: String,
+
+    /// Path the Traefik dynamic directory is mounted at inside the Traefik
+    /// container (this process may see it at a different path).
+    #[arg(
+        long,
+        env = "CONVEX_ORCHESTRATOR_TRAEFIK_CERT_DIR",
+        default_value = "/dynamic"
+    )]
+    traefik_cert_dir: String,
+
+    /// Contact address registered with the ACME server, used only for
+    /// expiry warnings.
+    #[arg(long, env = "CONVEX_ORCHESTRATOR_ACME_CONTACT_EMAIL")]
+    acme_contact_email: Option<String>,
+
+    /// ACME directory URL. Defaults to Let's Encrypt production; point at
+    /// their staging directory to test without burning rate limit.
+    #[arg(long, env = "CONVEX_ORCHESTRATOR_ACME_DIRECTORY_URL")]
+    acme_directory_url: Option<String>,
 }
 
 fn init_tracing() {
@@ -230,11 +263,30 @@ async fn main() -> anyhow::Result<()> {
         enable_sidecars: args.enable_sidecars,
         postgres_image: args.postgres_image,
         minio_image: args.minio_image,
+        traefik_dynamic_dir: args.traefik_dynamic_dir,
+        orchestrator_upstream: args.orchestrator_upstream,
+        traefik_cert_dir: args.traefik_cert_dir,
+        acme_contact_email: args.acme_contact_email,
+        acme_directory_url: args.acme_directory_url,
     };
 
     tracing::info!(?config.data_root, "starting convex-orchestrator");
 
     let state = OrchestratorState::new(config).await?;
+
+    // Reconcile the Traefik custom-domain config from the database on boot.
+    // The dynamic directory may be an empty volume (fresh host) or stale
+    // (domains changed while this process was down), and Traefik only knows
+    // what the file says. A failure here must not stop the orchestrator from
+    // serving — custom domains are not on the critical path.
+    if let Err(e) = orchestrator::custom_domains::sync_traefik_config(&state).await {
+        tracing::error!(error = %e, "failed to write Traefik custom-domain config on startup");
+    }
+
+    // Issues and renews custom-domain certificates in the background, and
+    // retries domains whose first attempt failed (usually DNS that hadn't
+    // propagated yet).
+    orchestrator::acme::renewal::spawn(state.clone());
 
     let app = orchestrator::router::build_router(state.clone());
 

@@ -55,6 +55,24 @@ pub struct OrchestratorConfig {
     pub postgres_image: String,
     /// Docker image for the MinIO sidecar (used when `enable_sidecars`).
     pub minio_image: String,
+    /// Directory watched by Traefik's file provider. When set, the
+    /// orchestrator renders one router/service pair per custom domain into
+    /// `<dir>/custom-domains.yml` so domains added after a backend container
+    /// was created still route (docker labels are fixed at create time).
+    /// `None` disables custom domains entirely.
+    pub traefik_dynamic_dir: Option<PathBuf>,
+    /// Host:port Traefik uses to reach the orchestrator when forwarding ACME
+    /// HTTP-01 challenge requests, e.g. `orchestrator:8050`.
+    pub orchestrator_upstream: String,
+    /// Path the certificate directory is mounted at *inside the Traefik
+    /// container*. May differ from `traefik_dynamic_dir`, which is this
+    /// process's view of the same volume.
+    pub traefik_cert_dir: String,
+    /// Contact address registered with the ACME server (renewal warnings).
+    pub acme_contact_email: Option<String>,
+    /// ACME directory to use. Defaults to Let's Encrypt production; point at
+    /// the staging directory to exercise the flow without burning rate limit.
+    pub acme_directory_url: Option<String>,
 }
 
 impl OrchestratorConfig {
@@ -164,6 +182,11 @@ mod tests {
             enable_sidecars,
             postgres_image: "postgres:16-alpine".into(),
             minio_image: "quay.io/minio/minio:latest".into(),
+            traefik_dynamic_dir: None,
+            orchestrator_upstream: "orchestrator:8050".into(),
+            traefik_cert_dir: "/dynamic".into(),
+            acme_contact_email: None,
+            acme_directory_url: None,
         }
     }
 

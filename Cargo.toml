@@ -123,6 +123,7 @@ jsonschema = "0.33"
 keybroker = { path = "crates/keybroker" }
 levenshtein_automata = "0.2.1"
 libc = "0.2"
+instant-acme = { version = "0.7", default-features = false, features = [ "hyper-rustls", "aws-lc-rs" ] }
 libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
 log_interleaver = { path = "crates/log_interleaver" }
 log_streaming = { path = "crates/log_streaming" }
@@ -182,6 +183,7 @@ rc-zip = { version = "5", features = [ "deflate", "deflate64", "zstd" ] }
 ref-cast = "1.0.20"
 regex = "1"
 reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-alpn", "native-tls-vendored" ] }
+rcgen = { version = "0.13", features = [ "pem" ] }
 reqwest-middleware = "0.4.1"
 roles = { path = "crates/roles" }
 rsa = "0.9.6"

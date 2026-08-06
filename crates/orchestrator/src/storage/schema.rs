@@ -130,6 +130,44 @@ CREATE TABLE IF NOT EXISTS custom_domains (
     created_at BIGINT NOT NULL
 );
 
+-- DNS provider API credentials, used for the ACME DNS-01 challenge.
+-- `secrets` is a sodium-secretbox sealed JSON blob (never returned to the
+-- dashboard) so a database dump doesn't leak the operator's DNS API tokens.
+CREATE TABLE IF NOT EXISTS dns_provider_credentials (
+    id BIGSERIAL PRIMARY KEY,
+    team_id BIGINT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    secrets BYTEA NOT NULL,
+    created_at BIGINT NOT NULL,
+    UNIQUE (team_id, name)
+);
+
+-- One ACME account (and its private key) per directory URL. The key is
+-- sealed like DNS credentials: whoever holds it can issue certificates for
+-- any domain this orchestrator has validated.
+CREATE TABLE IF NOT EXISTS acme_accounts (
+    id BIGSERIAL PRIMARY KEY,
+    directory_url TEXT NOT NULL UNIQUE,
+    account_url TEXT NOT NULL,
+    credentials BYTEA NOT NULL,
+    created_at BIGINT NOT NULL
+);
+
+-- Issued certificates, keyed by domain. Kept in the database rather than
+-- only on disk so the Traefik dynamic directory can be rebuilt from scratch
+-- (new host, wiped volume) without re-running ACME and burning rate limit.
+-- `renew_after` is our own policy (issued_at + 60d), not a claim about the
+-- certificate's notAfter — we don't parse the cert, so recording an expiry
+-- we haven't read would be inventing a fact.
+CREATE TABLE IF NOT EXISTS custom_domain_certs (
+    domain TEXT PRIMARY KEY,
+    cert_pem TEXT NOT NULL,
+    key_pem TEXT NOT NULL,
+    issued_at BIGINT NOT NULL,
+    renew_after BIGINT NOT NULL
+);
+
 -- Per-project admin grants. Layered on top of team_members: a member can
 -- only be a project_admin if they're already on the team. A team admin
 -- has implicit admin rights on every project regardless of this table —

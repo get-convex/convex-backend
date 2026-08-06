@@ -31,9 +31,12 @@ http-body-util = { workspace = true }
 httparse = "1.10"
 hyper = { workspace = true }
 hyper-util = { workspace = true, features = ["server", "http1", "client", "client-legacy"] }
+instant-acme = { workspace = true }
 keybroker = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
+rcgen = { workspace = true }
+reqwest = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 serde = { workspace = true }
@@ -41,6 +44,7 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 sha2 = { workspace = true }
 slugify = { workspace = true }
+sodium_secretbox = { workspace = true }
 strum = { workspace = true }
 sysinfo = "0.33"
 thiserror = { workspace = true }

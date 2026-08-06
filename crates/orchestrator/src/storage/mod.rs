@@ -1,6 +1,7 @@
 //! Postgres-backed storage for the orchestrator.
 
 pub mod access_tokens;
+mod acme;
 mod audit_log;
 mod custom_domains;
 pub mod deployments;
@@ -25,7 +26,16 @@ pub use self::{
         AuditEntry,
         AuditQuery,
     },
-    custom_domains::CustomDomainRecord,
+    acme::{
+        AcmeAccountRecord,
+        DnsCredentialRecord,
+        DnsCredentialSecrets,
+        StoredCertificate,
+    },
+    custom_domains::{
+        CustomDomainRecord,
+        CustomDomainRoute,
+    },
     deployments::{
         DeploymentClass,
         DeploymentRecord,

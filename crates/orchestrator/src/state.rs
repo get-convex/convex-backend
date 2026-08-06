@@ -29,6 +29,12 @@ pub struct OrchestratorState {
     pub config: Arc<OrchestratorConfig>,
     pub provisioner: Arc<dyn Provisioner>,
     pub host_capacity: Arc<crate::host_capacity::HostCapacityReader>,
+    /// Seals DNS provider tokens and the ACME account key before they hit
+    /// Postgres.
+    pub secrets: crate::secrets::SecretSealer,
+    /// In-flight HTTP-01 challenge tokens, served by the orchestrator's
+    /// `/.well-known/acme-challenge/` route.
+    pub challenges: crate::acme::ChallengeStore,
 }
 
 impl OrchestratorState {
@@ -70,11 +76,23 @@ impl OrchestratorState {
             },
         };
 
+        // Sealing key is derived from the service key. Without one configured
+        // we still need *a* key, but fall back to the database URL so a dev
+        // instance works — an operator running without a service key already
+        // has no secrets worth protecting.
+        let sealing_material = config
+            .service_key
+            .clone()
+            .unwrap_or_else(|| config.database_url.clone());
+        let secrets = crate::secrets::SecretSealer::from_service_key(&sealing_material)?;
+
         let state = Self {
             storage,
             config: Arc::new(config),
             provisioner,
             host_capacity: Arc::new(crate::host_capacity::HostCapacityReader::new()),
+            secrets,
+            challenges: crate::acme::ChallengeStore::new(),
         };
 
         state.bootstrap_if_empty().await?;

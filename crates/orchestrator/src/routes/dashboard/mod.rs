@@ -4,6 +4,7 @@ pub(crate) mod access_tokens;
 pub(crate) mod audit_log;
 pub(crate) mod billing_stub;
 pub(crate) mod cloud_backups_stub;
+pub(crate) mod custom_domains;
 pub(crate) mod deployments;
 pub(crate) mod env_vars;
 pub(crate) mod host_capacity;
@@ -29,6 +30,7 @@ pub fn router() -> Router<OrchestratorState> {
         .merge(teams::router())
         .merge(projects::router())
         .merge(deployments::router())
+        .merge(custom_domains::router())
         .merge(access_tokens::router())
         .merge(env_vars::router())
         .merge(audit_log::router())

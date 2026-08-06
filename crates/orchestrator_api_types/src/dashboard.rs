@@ -269,3 +269,108 @@ pub struct DeviceAuthorizeResponse {
     pub access_token: String,
     pub member_id: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomDomain {
+    pub id: i64,
+    pub deployment_id: i64,
+    pub domain: String,
+    /// `pending` -> `issuing` -> `active`, or `failed`. Only ever set from an
+    /// observed outcome: `active` means an HTTPS request to the domain
+    /// actually succeeded, not that issuance was requested.
+    pub cert_state: String,
+    pub created_at: i64,
+    /// `http-01` (no credentials needed) or `dns-01` (needs a DNS provider
+    /// credential, and is the only option for wildcards).
+    pub challenge_type: String,
+    pub dns_credential_id: Option<i64>,
+    /// Verbatim reason the last issuance failed, if it did.
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DnsProviderField {
+    pub key: String,
+    pub label: String,
+    pub help: String,
+}
+
+/// A DNS provider the orchestrator can drive, plus the secret fields its
+/// credential form needs. Sent to the dashboard so adding a provider doesn't
+/// require a matching dashboard change.
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DnsProviderInfo {
+    pub provider: String,
+    pub fields: Vec<DnsProviderField>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DnsCredential {
+    pub id: i64,
+    pub name: String,
+    pub provider: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListDnsCredentials {
+    pub credentials: Vec<DnsCredential>,
+    pub providers: Vec<DnsProviderInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateDnsCredentialArgs {
+    pub name: String,
+    pub provider: String,
+    /// Provider secrets keyed by the field `key`s advertised in
+    /// [`DnsProviderInfo`]. Sealed before storage and never returned.
+    pub secrets: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateCustomDomainArgs {
+    pub domain: String,
+    /// Defaults to `http-01`, which needs no credentials.
+    #[serde(default)]
+    pub challenge_type: Option<String>,
+    #[serde(default)]
+    pub dns_credential_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListCustomDomains {
+    pub domains: Vec<CustomDomain>,
+    /// Providers available for dns-01, with their credential form fields.
+    pub providers: Vec<DnsProviderInfo>,
+    /// Hostname the operator should CNAME/A-record the custom domain at.
+    /// Empty when the orchestrator has no public router host configured.
+    pub target_host: String,
+    /// False when the orchestrator has no Traefik dynamic directory wired up,
+    /// in which case adding a domain would record a row that never routes.
+    pub routing_enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomDomainArgs {
+    pub domain: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct VerifyCustomDomainResponse {
+    pub domain: String,
+    pub cert_state: String,
+    /// Why the probe failed, when it did. Surfaced verbatim in the dashboard
+    /// because the causes (DNS not pointed here, ACME rate limit) are things
+    /// only the operator can fix.
+    pub error: Option<String>,
+}

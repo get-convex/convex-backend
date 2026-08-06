@@ -68,5 +68,20 @@ pub async fn run(pool: &PgPool) -> anyhow::Result<()> {
             "#,
         )
         .await?;
+    // Custom-domain certificate management. Domains created before this
+    // migration used a Traefik-side cert resolver and carry no challenge
+    // preference, so default them to `http-01`: it needs no credentials and
+    // matches the behaviour they already had.
+    conn.client()
+        .batch_execute(
+            r#"
+            ALTER TABLE custom_domains
+              ADD COLUMN IF NOT EXISTS challenge_type TEXT NOT NULL DEFAULT 'http-01',
+              ADD COLUMN IF NOT EXISTS dns_credential_id BIGINT
+                REFERENCES dns_provider_credentials(id) ON DELETE SET NULL,
+              ADD COLUMN IF NOT EXISTS last_error TEXT;
+            "#,
+        )
+        .await?;
     Ok(())
 }

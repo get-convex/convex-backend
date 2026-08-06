@@ -45,6 +45,9 @@ services:
     volumes:
       - orchestrator-data:/convex/data
       - /var/run/docker.sock:/var/run/docker.sock
+      # Custom-domain routers are rendered here and read by Traefik's file
+      # provider. Written by the orchestrator, read-only on the Traefik side.
+      - traefik-dynamic:/convex/traefik-dynamic
     labels:
       - "traefik.enable=true"
       # Orchestrator API on ORCHESTRATOR_HOST. Priority above the
@@ -98,6 +101,24 @@ services:
       - CONVEX_ORCHESTRATOR_DEFAULT_TEAM_NAME=${DEFAULT_TEAM_NAME:-Self-Hosted}
       - CONVEX_ORCHESTRATOR_ADMIN_EMAILS=${ADMIN_EMAILS:-admin@example.com}
       - CONVEX_ORCHESTRATOR_REGISTRATION=${REGISTRATION_MODE:-allowlist}
+      # Custom domains. Routers and certificates for domains added through
+      # the dashboard are rendered into this directory (Traefik's file
+      # provider watches it), because docker labels are fixed when a backend
+      # container is created and can't pick up a domain added later. Unset
+      # the directory to turn the feature off — the dashboard then reports it
+      # as unavailable rather than recording domains that would never route.
+      - CONVEX_ORCHESTRATOR_TRAEFIK_DYNAMIC_DIR=${TRAEFIK_DYNAMIC_DIR:-/convex/traefik-dynamic}
+      # Path the same volume is mounted at inside the Traefik container, used
+      # when writing certFile/keyFile paths Traefik has to resolve.
+      - CONVEX_ORCHESTRATOR_TRAEFIK_CERT_DIR=${TRAEFIK_CERT_DIR:-/dynamic}
+      # How Traefik reaches this service to forward ACME HTTP-01 challenges.
+      - CONVEX_ORCHESTRATOR_UPSTREAM=${CONVEX_ORCHESTRATOR_UPSTREAM:-orchestrator:8050}
+      # Registered with Let's Encrypt for expiry warnings. Falls back to the
+      # same address the wildcard cert uses.
+      - CONVEX_ORCHESTRATOR_ACME_CONTACT_EMAIL=${ACME_CONTACT_EMAIL:-${LETSENCRYPT_EMAIL:-}}
+      # Point at the LE staging directory to exercise issuance without
+      # burning production rate limit.
+      - CONVEX_ORCHESTRATOR_ACME_DIRECTORY_URL=${ACME_DIRECTORY_URL:-}
       - RUST_LOG=${RUST_LOG:-orchestrator=info,tower_http=warn}
     healthcheck:
       test: curl -fsS http://localhost:8050/health || exit 1
@@ -171,6 +192,9 @@ services:
     volumes:
       - traefik-acme:/acme
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Custom-domain routers written by the orchestrator. Read-only here:
+      # the orchestrator owns the file, Traefik only watches it.
+      - traefik-dynamic:/dynamic:ro
     environment:
       # DNS provider creds — pass through whichever ones your provider
       # needs. See https://doc.traefik.io/traefik/https/acme/#providers
@@ -188,6 +212,14 @@ services:
       - "--api.dashboard=false"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      # File provider for custom domains. The orchestrator rewrites
+      # /dynamic/conf/custom-domains.yml whenever a domain is added, removed,
+      # or issued a certificate; Traefik hot-reloads it, so no restart is
+      # needed. Points at `conf/` and not the volume root on purpose: the
+      # provider parses every file in this directory, and the certificate
+      # PEMs live in the sibling `certs/` directory.
+      - "--providers.file.directory=/dynamic/conf"
+      - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
@@ -201,8 +233,15 @@ services:
       # returns SERVFAIL for SOA queries on apex domains, which makes
       # lego walk up to the TLD and fail with "could not find zone".
       - "--certificatesresolvers.le.acme.dnschallenge.resolvers=${DNS_RESOLVERS:-1.1.1.1:53,8.8.8.8:53}"
+      # Second resolver for customer-supplied custom domains. These live in
+      # DNS zones we don't control, so the DNS-01 challenge `le` uses can't
+      # work — HTTP-01 proves control by serving a token over :80 on the
+      # domain itself. The global web->websecure redirect does not interfere:
+      # Traefik answers ACME challenges on an internal router that takes
+      # precedence over the redirection.
 
 volumes:
   pgdata:
   orchestrator-data:
   traefik-acme:
+  traefik-dynamic:
