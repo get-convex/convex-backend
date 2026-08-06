@@ -100,16 +100,6 @@ impl SqlitePersistence {
 
     #[allow(clippy::needless_lifetimes)]
     #[try_stream(ok = T, error = anyhow::Error)]
-    async fn validate_snapshot<T: 'static>(
-        &self,
-        ts: Timestamp,
-        retention_validator: Arc<dyn RetentionValidator>,
-    ) {
-        retention_validator.validate_snapshot(ts).await?;
-    }
-
-    #[allow(clippy::needless_lifetimes)]
-    #[try_stream(ok = T, error = anyhow::Error)]
     async fn validate_document_snapshot<T: 'static>(
         &self,
         ts: Timestamp,
@@ -118,14 +108,20 @@ impl SqlitePersistence {
         retention_validator.validate_document_snapshot(ts).await?;
     }
 
-    fn _index_scan_inner(
+    /// Read one page of an index scan, at most `batch_size` keys, resuming
+    /// after `cursor` (the last key the previous page scanned, in scan
+    /// order). Tombstoned keys are returned as `(key, None)`: they must
+    /// still advance the cursor, but must not be emitted to the caller.
+    fn _index_scan_page(
         &self,
         index_id: IndexId,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         interval: &Interval,
         order: Order,
-    ) -> anyhow::Result<Vec<anyhow::Result<(IndexKeyBytes, LatestDocument)>>> {
+        batch_size: usize,
+        cursor: Option<&IndexKeyBytes>,
+    ) -> anyhow::Result<Vec<(IndexKeyBytes, Option<LatestDocument>)>> {
         let interval = interval.clone();
         let index_id = &index_id.0[..];
         let read_timestamp: u64 = read_timestamp.into();
@@ -150,22 +146,42 @@ impl SqlitePersistence {
             None => "".to_owned(),
         };
 
+        let cursor_bytes = cursor.map(|key| &key.0[..]);
+        let cursor_bound = match cursor_bytes {
+            Some(ref t) => {
+                params.push(t);
+                match order {
+                    Order::Asc => format!(" AND key > ${}", params.len()),
+                    Order::Desc => format!(" AND key < ${}", params.len()),
+                }
+            },
+            None => "".to_owned(),
+        };
+
         let order = match order {
             Order::Asc => "ASC",
             Order::Desc => "DESC",
         };
+        // The inner subquery is bounded by `LIMIT`: `GROUP BY` over a prefix
+        // of the `(index_id, key, ts)` primary key streams groups in key
+        // order, so SQLite stops scanning after `batch_size` keys instead of
+        // materializing the entire interval. `B.deleted` is selected (not
+        // filtered in the join) so that tombstoned keys count toward the
+        // page: otherwise a page full of tombstones would be
+        // indistinguishable from the end of the interval.
         let query = format!(
             r#"
-SELECT B.key, B.ts, B.document_id, C.table_id, C.json_value, C.prev_ts
+SELECT B.key, B.ts, B.document_id, C.table_id, C.json_value, C.prev_ts, B.deleted
 FROM (
     SELECT index_id, key, MAX(ts) as max_ts
     FROM indexes
-    WHERE index_id = $1 AND ts <= $2{lower}{upper}
+    WHERE index_id = $1 AND ts <= $2{lower}{upper}{cursor_bound}
     GROUP BY index_id, key
+    ORDER BY key {order}
+    LIMIT {batch_size}
 ) A
 JOIN indexes B
-ON B.deleted is FALSE
-AND A.index_id = B.index_id
+ON A.index_id = B.index_id
 AND A.key = B.key
 AND A.max_ts = B.ts
 LEFT JOIN documents C
@@ -181,22 +197,30 @@ ORDER BY B.key {order}
         let row_iter = stmt.query_map(&params[..], |row| {
             let key = IndexKeyBytes(row.get::<_, Vec<u8>>(0)?);
             let ts = Timestamp::try_from(row.get::<_, u64>(1)?).expect("timestamp out of bounds");
-            let document_id = row.get::<_, Vec<u8>>(2)?;
+            let document_id: Option<Vec<u8>> = row.get(2)?;
             let table: Option<Vec<u8>> = row.get(3)?;
             let json_value: Option<String> = row.get(4)?;
             let prev_ts: Option<Timestamp> = row
                 .get::<_, Option<u64>>(5)?
                 .map(|ts| Timestamp::try_from(ts).expect("prev_ts out of bounds"));
+            let deleted = row.get::<_, u32>(6)? != 0;
 
-            Ok((key, ts, document_id, table, json_value, prev_ts))
+            Ok((key, ts, document_id, table, json_value, prev_ts, deleted))
         })?;
-        let mut triples = vec![];
+        let mut page = vec![];
         for row in row_iter {
-            let (key, ts, document_id, table, json_value, prev_ts) = row?;
+            let (key, ts, document_id, table, json_value, prev_ts, deleted) = row?;
+            if deleted {
+                page.push((key, None));
+                continue;
+            }
             let table = table.ok_or_else(|| {
                 anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
             })?;
             let table = TabletId(table.try_into()?);
+            let document_id = document_id.ok_or_else(|| {
+                anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
+            })?;
             let _document_id = InternalDocumentId::new(table, InternalId::try_from(document_id)?);
             let json_value = json_value.ok_or_else(|| {
                 anyhow::anyhow!("Index reference to deleted document {:?} {:?}", key, ts)
@@ -204,16 +228,59 @@ ORDER BY B.key {order}
             let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
             let value: ConvexValue = json_value.try_into()?;
             let document = ResolvedDocument::from_database(tablet_id, value)?;
-            triples.push(Ok((
+            page.push((
                 key,
-                LatestDocument {
+                Some(LatestDocument {
                     ts,
                     value: document,
                     prev_ts,
-                },
-            )));
+                }),
+            ));
         }
-        Ok(triples)
+        Ok(page)
+    }
+
+    /// Stream an index scan one page at a time. The snapshot is validated
+    /// against retention after each page is read and before any of its rows
+    /// are yielded, mirroring the Postgres reader: pages are read at
+    /// different times, and each read is only valid if the snapshot is still
+    /// within retention.
+    #[try_stream(ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
+    async fn _index_scan_paginated(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        read_timestamp: Timestamp,
+        interval: Interval,
+        order: Order,
+        batch_size: usize,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) {
+        let mut cursor: Option<IndexKeyBytes> = None;
+        loop {
+            let page = self._index_scan_page(
+                index_id,
+                tablet_id,
+                read_timestamp,
+                &interval,
+                order,
+                batch_size,
+                cursor.as_ref(),
+            )?;
+            let page_len = page.len();
+            retention_validator
+                .validate_snapshot(read_timestamp)
+                .await?;
+            for (key, doc) in page {
+                cursor = Some(key.clone());
+                if let Some(doc) = doc {
+                    yield (key, doc);
+                }
+            }
+            if page_len < batch_size {
+                break;
+            }
+        }
     }
 
     fn _get_persistence_global(
@@ -563,16 +630,23 @@ impl PersistenceReader for SqlitePersistence {
         read_timestamp: Timestamp,
         interval: &Interval,
         order: Order,
-        _size_hint: usize,
+        size_hint: usize,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
-        let triples = self._index_scan_inner(index_id, tablet_id, read_timestamp, interval, order);
-        // index_scan isn't async so we have to validate snapshot as part of the stream.
-        let validate = self.validate_snapshot(read_timestamp, retention_validator);
-        match triples {
-            Ok(s) => (validate.chain(stream::iter(s))).boxed(),
-            Err(e) => stream::once(async { Err(e) }).boxed(),
-        }
+        // Mirror the Postgres reader: use the caller's size_hint to bound how
+        // much of the interval each query materializes, so a small take()
+        // over a large table no longer loads the entire range into memory.
+        let batch_size = size_hint.clamp(1, 5000);
+        self._index_scan_paginated(
+            index_id,
+            tablet_id,
+            read_timestamp,
+            interval.clone(),
+            order,
+            batch_size,
+            retention_validator,
+        )
+        .boxed()
     }
 
     async fn get_persistence_global(
@@ -725,3 +799,298 @@ WHERE
     ts = $3
 ORDER BY ts ASC, table_id ASC, id ASC
 "#;
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use common::{
+        document::{
+            CreationTime,
+            ResolvedDocument,
+        },
+        index::IndexKeyBytes,
+        interval::{
+            BinaryKey,
+            End,
+            Interval,
+            StartIncluded,
+        },
+        obj,
+        persistence::{
+            ConflictStrategy,
+            DocumentLogEntry,
+            LatestDocument,
+            NoopRetentionValidator,
+            Persistence,
+            PersistenceIndexEntry,
+            PersistenceReader,
+        },
+        query::Order,
+        types::{
+            IndexId,
+            Timestamp,
+        },
+        value::{
+            DeveloperDocumentId,
+            InternalDocumentId,
+            InternalId,
+            ResolvedDocumentId,
+            TableNumber,
+            TabletId,
+        },
+    };
+    use futures::TryStreamExt;
+
+    use super::SqlitePersistence;
+
+    /// One indexed key and its history: `(ts, Some(v))` is a live write of
+    /// value `v`, `(ts, None)` is a tombstone.
+    struct KeySpec {
+        key: Vec<u8>,
+        doc_n: u8,
+        versions: Vec<(u64, Option<i64>)>,
+    }
+
+    struct Fixture {
+        persistence: SqlitePersistence,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        table_number: TableNumber,
+        // Kept alive so the database file outlives the test body.
+        _dir: tempfile::TempDir,
+    }
+
+    fn internal_id(n: u8) -> InternalId {
+        InternalId::from([n; 16])
+    }
+
+    fn make_doc(
+        tablet_id: TabletId,
+        table_number: TableNumber,
+        doc_n: u8,
+        v: i64,
+    ) -> anyhow::Result<ResolvedDocument> {
+        let id = ResolvedDocumentId::new(
+            tablet_id,
+            DeveloperDocumentId::new(table_number, internal_id(doc_n)),
+        );
+        ResolvedDocument::new(id, CreationTime::try_from(1234.5)?, obj!("v" => v)?)
+    }
+
+    async fn make_fixture(specs: &[KeySpec]) -> anyhow::Result<Fixture> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("test.sqlite3");
+        let persistence = SqlitePersistence::new(path.to_str().unwrap())?;
+        let index_id = IndexId(internal_id(255));
+        let tablet_id = TabletId(internal_id(254));
+        let table_number = TableNumber::try_from(1)?;
+
+        let mut documents = vec![];
+        let mut indexes = vec![];
+        for spec in specs {
+            let doc_id = InternalDocumentId::new(tablet_id, internal_id(spec.doc_n));
+            for &(ts, v) in &spec.versions {
+                let ts = Timestamp::try_from(ts)?;
+                let value = v
+                    .map(|v| make_doc(tablet_id, table_number, spec.doc_n, v))
+                    .transpose()?;
+                documents.push(DocumentLogEntry {
+                    ts,
+                    id: doc_id,
+                    value,
+                    prev_ts: None,
+                });
+                indexes.push(PersistenceIndexEntry {
+                    ts,
+                    index_id,
+                    key: IndexKeyBytes(spec.key.clone()),
+                    value: v.map(|_| doc_id),
+                });
+            }
+        }
+        persistence
+            .write(&documents, &indexes, ConflictStrategy::Error)
+            .await?;
+        Ok(Fixture {
+            persistence,
+            index_id,
+            tablet_id,
+            table_number,
+            _dir: dir,
+        })
+    }
+
+    fn make_interval(start: Vec<u8>, end: Option<Vec<u8>>) -> Interval {
+        Interval {
+            start: StartIncluded(BinaryKey::from(start)),
+            end: match end {
+                Some(end) => End::Excluded(BinaryKey::from(end)),
+                None => End::Unbounded,
+            },
+        }
+    }
+
+    /// The reference implementation: latest visible version per key at
+    /// `read_ts`, tombstones dropped, interval applied, in scan order.
+    fn expected_scan(
+        fixture: &Fixture,
+        specs: &[KeySpec],
+        read_ts: u64,
+        interval: &Interval,
+        order: Order,
+    ) -> anyhow::Result<Vec<(IndexKeyBytes, LatestDocument)>> {
+        let mut rows = vec![];
+        for spec in specs {
+            if !interval.contains(&spec.key) {
+                continue;
+            }
+            let visible = spec
+                .versions
+                .iter()
+                .filter(|(ts, _)| *ts <= read_ts)
+                .max_by_key(|(ts, _)| *ts);
+            let Some(&(ts, Some(v))) = visible else {
+                continue;
+            };
+            rows.push((
+                IndexKeyBytes(spec.key.clone()),
+                LatestDocument {
+                    ts: Timestamp::try_from(ts)?,
+                    value: make_doc(fixture.tablet_id, fixture.table_number, spec.doc_n, v)?,
+                    prev_ts: None,
+                },
+            ));
+        }
+        rows.sort_by(|(a, _), (b, _)| a.cmp(b));
+        if order == Order::Desc {
+            rows.reverse();
+        }
+        Ok(rows)
+    }
+
+    async fn run_scan(
+        fixture: &Fixture,
+        read_ts: u64,
+        interval: &Interval,
+        order: Order,
+        size_hint: usize,
+    ) -> anyhow::Result<Vec<(IndexKeyBytes, LatestDocument)>> {
+        fixture
+            .persistence
+            .index_scan(
+                fixture.index_id,
+                fixture.tablet_id,
+                Timestamp::try_from(read_ts)?,
+                interval,
+                order,
+                size_hint,
+                Arc::new(NoopRetentionValidator),
+            )
+            .try_collect()
+            .await
+    }
+
+    /// 25 keys with updates, tombstones on page boundaries, and writes past
+    /// the read snapshot, scanned under every pagination regime: the
+    /// paginated scan must be indistinguishable from the one-shot scan it
+    /// replaced.
+    #[tokio::test]
+    async fn paginated_scan_matches_reference() -> anyhow::Result<()> {
+        let specs: Vec<KeySpec> = (0u8..25)
+            .map(|k| {
+                let mut versions = vec![(10, Some(1))];
+                if k % 3 == 0 {
+                    versions.push((20, Some(2)));
+                }
+                if k % 5 == 0 {
+                    versions.push((30, None));
+                }
+                if k % 2 == 0 {
+                    versions.push((40, Some(3)));
+                }
+                KeySpec {
+                    key: vec![k],
+                    doc_n: k,
+                    versions,
+                }
+            })
+            .collect();
+        let fixture = make_fixture(&specs).await?;
+
+        let intervals = [
+            make_interval(vec![], None),
+            make_interval(vec![3], Some(vec![20])),
+        ];
+        // At ts 35 the tombstones (ts 30) are the latest visible versions;
+        // at ts 45 the ts-40 writes resurrect the even keys among them.
+        for read_ts in [35, 45] {
+            for interval in &intervals {
+                for order in [Order::Asc, Order::Desc] {
+                    let expected = expected_scan(&fixture, &specs, read_ts, interval, order)?;
+                    for size_hint in [1, 2, 3, 10_000] {
+                        let got = run_scan(&fixture, read_ts, interval, order, size_hint).await?;
+                        assert_eq!(
+                            got, expected,
+                            "scan mismatch at read_ts={read_ts} order={order:?} \
+                             size_hint={size_hint}"
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Ten consecutive tombstoned keys form entire pages with no live rows.
+    /// A scan that terminates on "page yielded fewer live rows than
+    /// requested" would stop in the middle of the interval and silently drop
+    /// every key after the tombstone run.
+    #[tokio::test]
+    async fn page_of_tombstones_does_not_terminate_scan() -> anyhow::Result<()> {
+        let specs: Vec<KeySpec> = (0u8..30)
+            .map(|k| {
+                let mut versions = vec![(10, Some(1))];
+                if (10..20).contains(&k) {
+                    versions.push((20, None));
+                }
+                KeySpec {
+                    key: vec![k],
+                    doc_n: k,
+                    versions,
+                }
+            })
+            .collect();
+        let fixture = make_fixture(&specs).await?;
+
+        let interval = make_interval(vec![], None);
+        for order in [Order::Asc, Order::Desc] {
+            let expected = expected_scan(&fixture, &specs, 25, &interval, order)?;
+            assert_eq!(expected.len(), 20);
+            let got = run_scan(&fixture, 25, &interval, order, 5).await?;
+            assert_eq!(got, expected, "tombstone run must not end the scan early");
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn empty_table_and_empty_range() -> anyhow::Result<()> {
+        let empty = make_fixture(&[]).await?;
+        let all = make_interval(vec![], None);
+        assert!(run_scan(&empty, 100, &all, Order::Asc, 3).await?.is_empty());
+
+        let specs: Vec<KeySpec> = (0u8..5)
+            .map(|k| KeySpec {
+                key: vec![k],
+                doc_n: k,
+                versions: vec![(10, Some(1))],
+            })
+            .collect();
+        let fixture = make_fixture(&specs).await?;
+        let out_of_range = make_interval(vec![200], Some(vec![201]));
+        assert!(run_scan(&fixture, 100, &out_of_range, Order::Asc, 3)
+            .await?
+            .is_empty());
+        Ok(())
+    }
+}
