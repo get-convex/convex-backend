@@ -920,7 +920,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage.modules_storage.clone(),
         );
         let migration_worker = Arc::new(Mutex::new(Some(
-            runtime.spawn("migration_worker", migration_worker.go()),
+            runtime.spawn("migration_worker", Box::pin(migration_worker.go())),
         )));
 
         let usage_gauges_tracking_worker = UsageGaugesTrackingWorker::start(
