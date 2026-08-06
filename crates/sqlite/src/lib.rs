@@ -43,7 +43,6 @@ use common::{
     },
     query::Order,
     runtime::CoopStreamExt as _,
-    try_anyhow,
     types::{
         IndexId,
         PersistenceVersion,
@@ -55,10 +54,7 @@ use common::{
         TabletId,
     },
 };
-use futures::{
-    stream,
-    StreamExt,
-};
+use futures::StreamExt;
 use futures_async_stream::try_stream;
 use parking_lot::Mutex;
 use rusqlite::{
@@ -98,14 +94,99 @@ impl SqlitePersistence {
         })
     }
 
-    #[allow(clippy::needless_lifetimes)]
-    #[try_stream(ok = T, error = anyhow::Error)]
-    async fn validate_document_snapshot<T: 'static>(
+    /// Read one page of the documents log, at most `page_size` rows, resuming
+    /// strictly after `cursor` — the `(ts, table_id, id)` primary key of the
+    /// last row the previous page read, in scan order.
+    fn _load_documents_page(
         &self,
-        ts: Timestamp,
+        range: TimestampRange,
+        order: Order,
+        page_size: usize,
+        cursor: Option<&(u64, Vec<u8>, Vec<u8>)>,
+    ) -> anyhow::Result<Vec<DocumentLogEntry>> {
+        let mut params: Vec<&dyn ToSql> = vec![];
+        let cursor_bound = match cursor {
+            Some((ts, table_id, id)) => {
+                params.push(ts);
+                params.push(table_id);
+                params.push(id);
+                match order {
+                    Order::Asc => {
+                        " AND (ts > $1 OR (ts = $1 AND (table_id > $2 OR (table_id = $2 AND id > \
+                         $3))))"
+                    },
+                    Order::Desc => {
+                        " AND (ts < $1 OR (ts = $1 AND (table_id < $2 OR (table_id = $2 AND id < \
+                         $3))))"
+                    },
+                }
+            },
+            None => "",
+        };
+        let order_str = match order {
+            Order::Asc => "ASC",
+            Order::Desc => "DESC",
+        };
+        let query = format!(
+            r#"
+SELECT id, ts, table_id, json_value, deleted, prev_ts
+FROM documents
+WHERE ts >= {min} AND ts < {max}{cursor_bound}
+ORDER BY ts {order_str}, table_id {order_str}, id {order_str}
+LIMIT {page_size}
+"#,
+            min = range.min_timestamp_inclusive(),
+            max = range.max_timestamp_exclusive(),
+        );
+        let connection = &self.inner.lock().connection;
+        let mut stmt = connection.prepare(&query)?;
+        let mut page = vec![];
+        for row in stmt.query_map(&params[..], load_document_row)? {
+            let (document_id, ts, document, prev_ts) = row_to_document(row)?;
+            page.push(DocumentLogEntry {
+                ts,
+                id: document_id,
+                value: document,
+                prev_ts,
+            });
+        }
+        Ok(page)
+    }
+
+    /// Stream the documents log one page at a time. As in the Postgres
+    /// reader, the snapshot is validated against retention after each page is
+    /// read and before any of its rows are yielded: pages are read at
+    /// different times, and each read is only valid while the range's minimum
+    /// timestamp is still within retention. Unlike `_index_scan_paginated`,
+    /// nothing is filtered out — deletes are part of the log — so a short
+    /// page always means the range is exhausted.
+    #[try_stream(ok = DocumentLogEntry, error = anyhow::Error)]
+    async fn _load_documents_paginated(
+        &self,
+        range: TimestampRange,
+        order: Order,
+        page_size: usize,
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
-        retention_validator.validate_document_snapshot(ts).await?;
+        let mut cursor: Option<(u64, Vec<u8>, Vec<u8>)> = None;
+        loop {
+            let page = self._load_documents_page(range, order, page_size, cursor.as_ref())?;
+            let page_len = page.len();
+            retention_validator
+                .validate_document_snapshot(range.min_timestamp_inclusive())
+                .await?;
+            for entry in page {
+                cursor = Some((
+                    u64::from(entry.ts),
+                    entry.id.table().0[..].to_vec(),
+                    entry.id.internal_id()[..].to_vec(),
+                ));
+                yield entry;
+            }
+            if page_len < page_size {
+                break;
+            }
+        }
     }
 
     /// Read one page of an index scan, at most `batch_size` keys, resuming
@@ -516,34 +597,16 @@ impl PersistenceReader for SqlitePersistence {
         &self,
         range: TimestampRange,
         order: Order,
-        _page_size: u32,
+        page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        let triples = try_anyhow!({
-            let connection = &self.inner.lock().connection;
-            let load_docs_query = load_docs(range, order);
-            let mut stmt = connection.prepare(load_docs_query.as_str())?;
-
-            let mut entries = vec![];
-            for row in stmt.query_map([], load_document_row)? {
-                let (document_id, ts, document, prev_ts) = row_to_document(row)?;
-                entries.push(Ok(DocumentLogEntry {
-                    ts,
-                    id: document_id,
-                    value: document,
-                    prev_ts,
-                }));
-            }
-            entries
-        });
-        // load_documents isn't async so we have to validate snapshot as part of the
-        // stream.
-        let validate =
-            self.validate_document_snapshot(range.min_timestamp_inclusive(), retention_validator);
-        match triples {
-            Ok(s) => validate.chain(stream::iter(s).cooperative()).boxed(),
-            Err(e) => stream::once(async { Err(e) }).boxed(),
-        }
+        // Mirror the Postgres reader: one bounded query per page instead of
+        // materializing the entire log range into memory. `page_size` comes
+        // from the caller; guard against 0, which would never terminate.
+        let page_size = page_size.max(1) as usize;
+        self._load_documents_paginated(range, order, page_size, retention_validator)
+            .cooperative()
+            .boxed()
     }
 
     async fn previous_revisions(
@@ -729,24 +792,6 @@ fn row_to_document(
     Ok((document_id, prev_ts, document, prev_prev_ts))
 }
 
-fn load_docs(range: TimestampRange, order: Order) -> String {
-    let order_str = match order {
-        Order::Asc => " ORDER BY ts ASC, table_id ASC, id ASC ",
-        Order::Desc => " ORDER BY ts DESC, table_id DESC, id DESC ",
-    };
-    format!(
-        r#"
-SELECT id, ts, table_id, json_value, deleted, prev_ts
-FROM documents
-WHERE ts >= {} AND ts < {}
-{}
-"#,
-        range.min_timestamp_inclusive(),
-        range.max_timestamp_exclusive(),
-        order_str,
-    )
-}
-
 fn load_document_row(
     row: &Row<'_>,
 ) -> rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool, Option<u64>)> {
@@ -825,6 +870,7 @@ mod tests {
             Persistence,
             PersistenceIndexEntry,
             PersistenceReader,
+            TimestampRange,
         },
         query::Order,
         types::{
@@ -1089,6 +1135,197 @@ mod tests {
         let fixture = make_fixture(&specs).await?;
         let out_of_range = make_interval(vec![200], Some(vec![201]));
         assert!(run_scan(&fixture, 100, &out_of_range, Order::Asc, 3)
+            .await?
+            .is_empty());
+        Ok(())
+    }
+
+    /// One row of the documents log for the `load_documents` tests:
+    /// `value: None` is a delete entry, which the log emits as-is.
+    struct LogEntrySpec {
+        ts: u64,
+        tablet_n: u8,
+        doc_n: u8,
+        value: Option<i64>,
+    }
+
+    async fn make_log_fixture(
+        specs: &[LogEntrySpec],
+    ) -> anyhow::Result<(SqlitePersistence, tempfile::TempDir)> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("test.sqlite3");
+        let persistence = SqlitePersistence::new(path.to_str().unwrap())?;
+        let documents = specs
+            .iter()
+            .map(log_entry)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        persistence
+            .write(&documents, &[], ConflictStrategy::Error)
+            .await?;
+        Ok((persistence, dir))
+    }
+
+    fn log_entry(spec: &LogEntrySpec) -> anyhow::Result<DocumentLogEntry> {
+        let tablet_id = TabletId(internal_id(spec.tablet_n));
+        let table_number = TableNumber::try_from(1)?;
+        let value = spec
+            .value
+            .map(|v| make_doc(tablet_id, table_number, spec.doc_n, v))
+            .transpose()?;
+        Ok(DocumentLogEntry {
+            ts: Timestamp::try_from(spec.ts)?,
+            id: InternalDocumentId::new(tablet_id, internal_id(spec.doc_n)),
+            value,
+            prev_ts: None,
+        })
+    }
+
+    /// The reference implementation: every log row in the timestamp range,
+    /// deletes included, in `(ts, table_id, id)` scan order.
+    fn expected_log(
+        specs: &[LogEntrySpec],
+        range: &TimestampRange,
+        order: Order,
+    ) -> anyhow::Result<Vec<DocumentLogEntry>> {
+        let mut rows = vec![];
+        for spec in specs {
+            let ts = Timestamp::try_from(spec.ts)?;
+            if ts < range.min_timestamp_inclusive() || ts >= range.max_timestamp_exclusive() {
+                continue;
+            }
+            let entry = log_entry(spec)?;
+            let key = (
+                spec.ts,
+                entry.id.table().0[..].to_vec(),
+                entry.id.internal_id()[..].to_vec(),
+            );
+            rows.push((key, entry));
+        }
+        rows.sort_by(|(a, _), (b, _)| a.cmp(b));
+        if order == Order::Desc {
+            rows.reverse();
+        }
+        Ok(rows.into_iter().map(|(_, entry)| entry).collect())
+    }
+
+    async fn run_load(
+        persistence: &SqlitePersistence,
+        range: TimestampRange,
+        order: Order,
+        page_size: u32,
+    ) -> anyhow::Result<Vec<DocumentLogEntry>> {
+        persistence
+            .load_documents(range, order, page_size, Arc::new(NoopRetentionValidator))
+            .try_collect()
+            .await
+    }
+
+    /// Two tablets writing interleaved updates and deletes, with several rows
+    /// sharing the same timestamp: the compound cursor's `(table_id, id)`
+    /// tiebreak is what keeps pagination correct when a page boundary lands
+    /// in the middle of a same-`ts` run.
+    #[tokio::test]
+    async fn paginated_load_matches_reference() -> anyhow::Result<()> {
+        let mut specs = vec![];
+        for tablet_n in [1u8, 2] {
+            for doc_n in 0u8..6 {
+                specs.push(LogEntrySpec {
+                    ts: 10,
+                    tablet_n,
+                    doc_n,
+                    value: Some(1),
+                });
+                if doc_n % 2 == 0 {
+                    specs.push(LogEntrySpec {
+                        ts: 20,
+                        tablet_n,
+                        doc_n,
+                        value: Some(2),
+                    });
+                }
+                if doc_n % 3 == 0 {
+                    specs.push(LogEntrySpec {
+                        ts: 30,
+                        tablet_n,
+                        doc_n,
+                        value: None,
+                    });
+                }
+                if doc_n % 2 == 1 {
+                    specs.push(LogEntrySpec {
+                        ts: 40,
+                        tablet_n,
+                        doc_n,
+                        value: Some(3),
+                    });
+                }
+            }
+        }
+        let (persistence, _dir) = make_log_fixture(&specs).await?;
+
+        let ranges = [
+            TimestampRange::all(),
+            TimestampRange::new(Timestamp::try_from(15u64)?..Timestamp::try_from(35u64)?),
+        ];
+        for range in &ranges {
+            for order in [Order::Asc, Order::Desc] {
+                let expected = expected_log(&specs, range, order)?;
+                for page_size in [1, 2, 3, 10_000] {
+                    let got = run_load(&persistence, *range, order, page_size).await?;
+                    assert_eq!(
+                        got, expected,
+                        "load mismatch at range={range:?} order={order:?} page_size={page_size}"
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Ten documents written at one single timestamp: every page boundary
+    /// falls inside the same-`ts` run, so only the `(table_id, id)` tiebreak
+    /// of the cursor separates the pages.
+    #[tokio::test]
+    async fn same_ts_run_spans_pages() -> anyhow::Result<()> {
+        let specs: Vec<LogEntrySpec> = (0u8..10)
+            .map(|doc_n| LogEntrySpec {
+                ts: 17,
+                tablet_n: 1,
+                doc_n,
+                value: Some(i64::from(doc_n)),
+            })
+            .collect();
+        let (persistence, _dir) = make_log_fixture(&specs).await?;
+
+        let range = TimestampRange::all();
+        for order in [Order::Asc, Order::Desc] {
+            let expected = expected_log(&specs, &range, order)?;
+            assert_eq!(expected.len(), 10);
+            let got = run_load(&persistence, range, order, 3).await?;
+            assert_eq!(got, expected, "same-ts run must paginate by (table_id, id)");
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn load_empty_and_out_of_range() -> anyhow::Result<()> {
+        let (empty, _dir) = make_log_fixture(&[]).await?;
+        assert!(run_load(&empty, TimestampRange::all(), Order::Asc, 2)
+            .await?
+            .is_empty());
+
+        let specs: Vec<LogEntrySpec> = (0u8..5)
+            .map(|doc_n| LogEntrySpec {
+                ts: 10,
+                tablet_n: 1,
+                doc_n,
+                value: Some(1),
+            })
+            .collect();
+        let (persistence, _dir) = make_log_fixture(&specs).await?;
+        let out_of_range =
+            TimestampRange::new(Timestamp::try_from(100u64)?..Timestamp::try_from(200u64)?);
+        assert!(run_load(&persistence, out_of_range, Order::Asc, 2)
             .await?
             .is_empty());
         Ok(())
