@@ -29,7 +29,6 @@ use common::{
         ResolvedDocument,
     },
     errors::{
-        is_transient_db_error,
         recapture_stacktrace,
         report_error,
     },
@@ -46,7 +45,6 @@ use common::{
         TRANSACTION_WARN_READ_SET_INTERVALS,
     },
     persistence::{
-        ConflictStrategy,
         DocumentLogEntry,
         Persistence,
         PersistenceGlobalKey,
@@ -137,6 +135,10 @@ use crate::{
         self,
     },
     transaction::FinalTransaction,
+    write_batcher::{
+        WriteBatcher,
+        WriteBatcherConfig,
+    },
     write_log::{
         index_keys_from_full_documents,
         LogWriter,
@@ -196,6 +198,9 @@ pub struct Committer<RT: Runtime> {
 
     persistence_writes: FuturesOrdered<BoxFuture<'static, anyhow::Result<PersistenceWrite>>>,
 
+    write_batcher: WriteBatcher,
+    _write_batcher_handle: AbortOnDropHandle<anyhow::Result<()>>,
+
     retention_validator: Arc<dyn RetentionValidator>,
     virtual_system_mapping: VirtualSystemMapping,
 
@@ -220,6 +225,11 @@ impl<RT: Runtime> Committer<RT> {
         let conflict_checker = PendingWrites::new();
         let (tx, rx) = mpsc::channel(*COMMITTER_QUEUE_SIZE);
         let snapshot_reader = snapshot_manager.reader();
+        let (write_batcher, write_batcher_handle) = WriteBatcher::start(
+            runtime.clone(),
+            persistence.clone(),
+            WriteBatcherConfig::from_knobs(),
+        );
         let committer = Self {
             pending_writes: conflict_checker,
             log,
@@ -228,6 +238,8 @@ impl<RT: Runtime> Committer<RT> {
             runtime: runtime.clone(),
             last_assigned_ts: Timestamp::MIN,
             persistence_writes: FuturesOrdered::new(),
+            write_batcher,
+            _write_batcher_handle: write_batcher_handle,
             retention_validator: retention_validator.clone(),
             virtual_system_mapping,
             user_documents_size_gauge: user_documents_size_subgauge(),
@@ -853,38 +865,16 @@ impl<RT: Runtime> Committer<RT> {
         Ok(None)
     }
 
-    /// Commit the transaction to persistence (without the lock held).
-    /// This is the commit point of a transaction. If this succeeds, the
-    /// transaction must be published and made visible. If we are unsure whether
-    /// the write went through, we crash the process and recover from whatever
-    /// has been written to persistence.
-    async fn write_to_persistence(
-        persistence: Arc<dyn Persistence>,
-        index_writes: Arc<Vec<PersistenceIndexEntry>>,
-        document_writes: Arc<Vec<DocumentLogEntry>>,
-        write_source: WriteSource,
-    ) -> anyhow::Result<()> {
-        let timer = metrics::commit_persistence_write_timer();
-        persistence
-            .write(
-                document_writes.as_slice(),
-                &index_writes,
-                ConflictStrategy::Error,
-            )
-            .await
-            .with_context(|| format!("Commit ({write_source:?}) failed to write to persistence"))?;
-
-        timer.finish();
-        Ok(())
-    }
-
     /// Records usage, converts the validated writes into persistence entries,
-    /// and writes them to persistence, retrying on transient errors. Returns
-    /// the total size of the persistence entries in bytes and the index key
-    /// writes for the write log.
+    /// and submits them to the write batcher, which writes them to persistence
+    /// as part of a batch, retrying on transient errors.
+    ///
+    /// The batcher acking the write is the commit point of a transaction: if
+    /// this succeeds, the transaction must be published and made visible. If we
+    /// are unsure whether the write went through, we crash the process and
+    /// recover from whatever has been written to persistence.
     async fn track_and_write_to_persistence(
-        rt: RT,
-        persistence: Arc<dyn Persistence>,
+        write_batcher: WriteBatcher,
         usage_tracking: FunctionUsageTracker,
         commit_ts: Timestamp,
         index_writes: Vec<DatabaseIndexUpdate>,
@@ -908,56 +898,32 @@ impl<RT: Runtime> Committer<RT> {
         let index_key_writes = index_keys_from_full_documents(&ordered_updates, &index_registry);
 
         let mut write_bytes: u64 = 0;
-        let document_writes = Arc::new(
-            document_writes
-                .into_iter()
-                .map(|write| {
-                    let entry = DocumentLogEntry {
-                        ts: write.commit_ts,
-                        id: write.id,
-                        value: write.write,
-                        prev_ts: write.prev_ts,
-                    };
-                    write_bytes += entry.size();
-                    entry
-                })
-                .collect_vec(),
-        );
-        let index_writes = Arc::new(
-            index_writes
-                .into_iter()
-                .map(|update| {
-                    let entry = PersistenceIndexEntry::from_index_update(commit_ts, &update);
-                    write_bytes += entry.size();
-                    entry
-                })
-                .collect_vec(),
-        );
-        let mut backoff = Backoff::new(
-            *INITIAL_PERSISTENCE_WRITES_BACKOFF,
-            *MAX_PERSISTENCE_WRITES_BACKOFF,
-        );
-        loop {
-            if let Err(mut e) = Self::write_to_persistence(
-                persistence.clone(),
-                index_writes.clone(),
-                document_writes.clone(),
-                write_source.clone(),
-            )
+        let document_writes = document_writes
+            .into_iter()
+            .map(|write| {
+                let entry = DocumentLogEntry {
+                    ts: write.commit_ts,
+                    id: write.id,
+                    value: write.write,
+                    prev_ts: write.prev_ts,
+                };
+                write_bytes += entry.size();
+                entry
+            })
+            .collect_vec();
+        let index_writes = index_writes
+            .into_iter()
+            .map(|update| {
+                let entry = PersistenceIndexEntry::from_index_update(commit_ts, &update);
+                write_bytes += entry.size();
+                entry
+            })
+            .collect_vec();
+        write_batcher
+            .write(document_writes, index_writes, write_bytes)
             .await
-            {
-                if is_transient_db_error(&e) {
-                    let delay = backoff.fail(&mut rt.rng());
-                    tracing::error!("Failed to write to persistence because database timed out");
-                    report_error(&mut e).await;
-                    rt.wait(delay).await;
-                } else {
-                    return Err(e);
-                }
-            } else {
-                return Ok((write_bytes, index_key_writes));
-            }
-        }
+            .with_context(|| format!("Commit ({write_source:?}) failed to write to persistence"))?;
+        Ok((write_bytes, index_key_writes))
     }
 
     /// After writing the new rows to persistence, mark the commit as complete
@@ -1055,7 +1021,7 @@ impl<RT: Runtime> Committer<RT> {
             },
         };
 
-        let persistence = self.persistence.clone();
+        let write_batcher = self.write_batcher.clone();
         let outer_span = root_span_with_parents(
             "Committer::persistence_writes_future",
             parent_trace
@@ -1063,7 +1029,6 @@ impl<RT: Runtime> Committer<RT> {
                 .chain(SpanContext::from_span(root_span)),
         );
         let pause_client = self.runtime.pause_client();
-        let rt = self.runtime.clone();
         let virtual_system_mapping = self.virtual_system_mapping.clone();
         let commit_ts = pending_write.must_commit_ts();
         Some(
@@ -1074,8 +1039,7 @@ impl<RT: Runtime> Committer<RT> {
                 let handle = AbortOnDropHandle::new(tokio_spawn(
                     name,
                     Self::track_and_write_to_persistence(
-                        rt,
-                        persistence,
+                        write_batcher,
                         usage_tracking,
                         commit_ts,
                         index_writes,

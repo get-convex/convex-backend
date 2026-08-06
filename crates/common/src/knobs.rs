@@ -361,6 +361,30 @@ pub static TRANSACTION_MAX_USER_WRITE_SIZE_BYTES: LazyLock<usize> = LazyLock::ne
     env_config("TRANSACTION_MAX_USER_WRITE_SIZE_BYTES", 1 << 24) // 16 MiB
 });
 
+/// Soft cap on document rows the committer combines into one batched
+/// persistence write.
+pub static COMMITTER_MAX_WRITE_BATCH_DOCUMENTS: LazyLock<usize> =
+    LazyLock::new(|| env_config("COMMITTER_MAX_WRITE_BATCH_DOCUMENTS", 64));
+
+/// Soft cap on the serialized bytes of one batched persistence write.
+pub static COMMITTER_MAX_WRITE_BATCH_BYTES: LazyLock<u64> = LazyLock::new(|| {
+    env_config("COMMITTER_MAX_WRITE_BATCH_BYTES", 1 << 16) // 64 KiB
+});
+
+/// How long the committer holds a partially-filled write batch open for commits
+/// that are still arriving, once batching engages.
+pub static COMMITTER_MAX_COMMIT_DELAY: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("COMMITTER_MAX_COMMIT_DELAY_MS", 1)));
+
+/// How many batched persistence writes the committer keeps in flight at once.
+pub static COMMITTER_MAX_CONCURRENT_WRITE_BATCHES: LazyLock<usize> =
+    LazyLock::new(|| env_config::<usize>("COMMITTER_MAX_CONCURRENT_WRITE_BATCHES", 16).max(1));
+
+/// How many persistence writes must be in flight, counting the one about to
+/// start, before the committer combines commits into batches.
+pub static COMMITTER_BATCH_WRITE_THRESHOLD: LazyLock<usize> =
+    LazyLock::new(|| env_config("COMMITTER_BATCH_WRITE_THRESHOLD", 8));
+
 /// SnapshotManager maintains a bounded time range of versions,
 /// determined by `MAX_TRANSACTION_WINDOW`, allowing the `Database` layer to
 /// begin a transaction in any timestamp within that range.
@@ -911,10 +935,12 @@ pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
 pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("COMMITTER_QUEUE_SIZE", 128));
 
-/// Maximum number of commits that may be between starting their persistence
-/// write and publishing (i.e. in the committer's `persistence_writes`
+/// Maximum number of commits that may be between submitting their rows to the
+/// write batcher and publishing (i.e. in the committer's `persistence_writes`
 /// pipeline). At this cap, the committer pauses admitting messages, so backlog
 /// accumulates in the bounded committer queue instead of inside the database.
+/// This bounds commits in flight, not concurrent `Persistence::write` calls:
+/// those are batched, and `COMMITTER_MAX_CONCURRENT_WRITE_BATCHES` caps them.
 pub static COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES: LazyLock<usize> =
     LazyLock::new(|| env_config("COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES", 256));
 

@@ -319,11 +319,30 @@ pub fn commit_prepare_writes_timer() -> StatusTimer {
 
 register_convex_histogram!(
     DATABASE_COMMIT_PERSISTENCE_WRITE_SECONDS,
-    "Time to commit a persistence write",
+    "Time to write one batch of commits to persistence. Sampled once per batch, so a batch \
+     carrying several commits contributes a single observation",
     &STATUS_LABEL
 );
 pub fn commit_persistence_write_timer() -> StatusTimer {
     StatusTimer::new(&DATABASE_COMMIT_PERSISTENCE_WRITE_SECONDS)
+}
+
+register_convex_histogram!(
+    DATABASE_WRITE_BATCH_COMMITS,
+    "Number of commits combined into one batched persistence write"
+);
+register_convex_histogram!(
+    DATABASE_WRITE_BATCH_DOCUMENTS,
+    "Number of document rows in one batched persistence write"
+);
+register_convex_histogram!(
+    DATABASE_WRITE_BATCH_BYTES,
+    "Serialized size of one batched persistence write"
+);
+pub fn log_write_batch(num_commits: usize, num_documents: usize, size_bytes: u64) {
+    log_distribution(&DATABASE_WRITE_BATCH_COMMITS, num_commits as f64);
+    log_distribution(&DATABASE_WRITE_BATCH_DOCUMENTS, num_documents as f64);
+    log_distribution(&DATABASE_WRITE_BATCH_BYTES, size_bytes as f64);
 }
 
 register_convex_histogram!(
