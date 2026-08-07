@@ -31,6 +31,7 @@ use common::{
     virtual_system_mapping::AssociatedVirtualTable,
 };
 use database::{
+    query::TableFilter,
     unauthorized_error,
     ResolvedQuery,
     SystemMetadataModel,
@@ -342,6 +343,11 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         id: ResolvedDocumentId,
         state: ScheduledJobState,
     ) -> anyhow::Result<()> {
+        anyhow::ensure!(self
+            .tx
+            .table_mapping()
+            .namespace(self.namespace)
+            .tablet_matches_name(id.tablet_id, &SCHEDULED_JOBS_TABLE));
         match state {
             ScheduledJobState::InProgress { .. } | ScheduledJobState::Pending => {
                 anyhow::bail!("invalid state for completing a scheduled job")
@@ -502,6 +508,11 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         &mut self,
         job_id: ResolvedDocumentId,
     ) -> anyhow::Result<Option<ScheduledJobState>> {
+        anyhow::ensure!(self
+            .tx
+            .table_mapping()
+            .namespace(self.namespace)
+            .tablet_matches_name(job_id.tablet_id, &SCHEDULED_JOBS_TABLE));
         let state = self
             .tx
             .get(job_id)
@@ -511,6 +522,13 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             .map(|job| job.state.clone());
         Ok(state)
     }
+}
+
+fn invalid_scheduled_function_id() -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "InvalidArgument",
+        "Invalid scheduled function ID. The ID must be an ID on the '_scheduled_functions' table.",
+    )
 }
 
 /// Same as SchedulerModel but works with the respective virtual table instead
@@ -541,6 +559,18 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
     }
 
     pub async fn cancel(&mut self, virtual_id: DeveloperDocumentId) -> anyhow::Result<()> {
+        let table_name = self
+            .tx
+            .resolve_idv6(
+                virtual_id,
+                self.namespace,
+                TableFilter::ExcludePrivateSystemTables,
+            )
+            .context(invalid_scheduled_function_id())?;
+        anyhow::ensure!(
+            table_name == SCHEDULED_JOBS_VIRTUAL_TABLE,
+            invalid_scheduled_function_id()
+        );
         let table_mapping = self.tx.table_mapping().clone();
         let system_id = self
             .tx
