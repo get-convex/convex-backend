@@ -94,11 +94,13 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         handle: FunctionHandle,
     ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
         let id = DeveloperDocumentId::from(handle);
-        let resolved_id = self.tx.resolve_developer_id(&id, TableNamespace::Global)?;
-        let Some(document) = self.tx.get(resolved_id).await? else {
+        let Some(metadata) = self
+            .tx
+            .get_system::<FunctionHandlesTable>(TableNamespace::Global, id)
+            .await?
+        else {
             anyhow::bail!(function_handle_not_found());
         };
-        let metadata = ParseDocument::<FunctionHandleMetadata>::parse(document)?.into_value();
         if metadata.deleted_ts.is_some() {
             anyhow::bail!(function_handle_not_found());
         }
@@ -106,7 +108,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             BootstrapComponentsModel::new(self.tx).must_component_path(metadata.component)?;
         Ok(CanonicalizedComponentFunctionPath {
             component: component_path,
-            udf_path: metadata.path,
+            udf_path: metadata.path.clone(),
         })
     }
 
@@ -134,23 +136,16 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             Some(s) => ConvexValue::String(s.try_into()?),
             None => ConvexValue::Null,
         };
-        let index_range = IndexRange {
-            index_name: BY_COMPONENT_PATH_INDEX.name(),
-            range: vec![
-                IndexRangeExpression::Eq(COMPONENT_FIELD.clone(), serialized_component.into()),
-                IndexRangeExpression::Eq(
-                    PATH_FIELD.clone(),
-                    ConvexValue::String(String::from(path.clone()).try_into()?).into(),
-                ),
-            ],
-            order: Order::Asc,
-        };
-        let query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        let Some(document) = query_stream.expect_at_most_one(self.tx).await? else {
+        let Some(document) = self
+            .tx
+            .query_system(TableNamespace::Global, &BY_COMPONENT_PATH_INDEX)?
+            .eq(&[&serialized_component])?
+            .eq(&[path.to_string().as_str()])?
+            .unique()
+            .await?
+        else {
             anyhow::bail!(function_handle_not_found())
         };
-        let document: ParsedDocument<FunctionHandleMetadata> = document.parse()?;
         if document.deleted_ts.is_some() {
             anyhow::bail!(function_handle_not_found())
         }
