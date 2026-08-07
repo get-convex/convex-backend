@@ -216,7 +216,6 @@ pub struct LeaderRetentionManager<RT: Runtime> {
     rt: RT,
     bounds_reader: Reader<SnapshotBounds>,
     checkpoint_reader: Reader<Checkpoint>,
-    #[allow(unused)]
     document_checkpoint_reader: Reader<Checkpoint>,
 }
 
@@ -370,6 +369,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
             LeaderRetentionWorkers::go_advance_min_snapshot(
                 self.bounds_writer,
                 self.retention_manager.checkpoint_reader.clone(),
+                self.retention_manager.document_checkpoint_reader.clone(),
                 rt.clone(),
                 self.persistence.clone(),
                 send_min_index_snapshot,
@@ -489,6 +489,7 @@ impl LeaderRetentionWorkers {
     async fn candidate_min_snapshot_ts(
         snapshot_reader: &Reader<SnapshotManager>,
         checkpoint_reader: &Reader<Checkpoint>,
+        document_checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
     ) -> anyhow::Result<RepeatableTimestamp> {
         let delay = match retention_type {
@@ -512,6 +513,19 @@ impl LeaderRetentionWorkers {
                 None => RepeatableTimestamp::MIN,
             };
             candidate = cmp::min(candidate, index_confirmed_deleted);
+
+            // Also ensure the document boundary doesn't advance past the
+            // document retention worker's confirmed deleted cursor. Without
+            // this, lowering DOCUMENT_RETENTION_DELAY temporarily can jump the
+            // boundary far ahead, and raising it back won't undo that -- leaving
+            // other system components unable to read at timestamps the worker
+            // hasn't cleaned up yet.
+            let document_confirmed_deleted =
+                match document_checkpoint_reader.lock().checkpoint {
+                    Some(val) => val,
+                    None => RepeatableTimestamp::MIN,
+                };
+            candidate = cmp::min(candidate, document_confirmed_deleted);
         }
 
         Ok(candidate)
@@ -522,12 +536,18 @@ impl LeaderRetentionWorkers {
         persistence: &dyn Persistence,
         snapshot_reader: &Reader<SnapshotManager>,
         checkpoint_reader: &Reader<Checkpoint>,
+        document_checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Option<RepeatableTimestamp>> {
         let candidate =
-            Self::candidate_min_snapshot_ts(snapshot_reader, checkpoint_reader, retention_type)
-                .await?;
+            Self::candidate_min_snapshot_ts(
+                snapshot_reader,
+                checkpoint_reader,
+                document_checkpoint_reader,
+                retention_type,
+            )
+            .await?;
         let min_snapshot_ts = match retention_type {
             RetentionType::Document => bounds_writer.read().min_document_snapshot_ts,
             RetentionType::Index => bounds_writer.read().min_index_snapshot_ts,
@@ -604,6 +624,7 @@ impl LeaderRetentionWorkers {
     async fn go_advance_min_snapshot<RT: Runtime>(
         mut bounds_writer: Writer<SnapshotBounds>,
         checkpoint_reader: Reader<Checkpoint>,
+        document_checkpoint_reader: Reader<Checkpoint>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
         min_snapshot_sender: Sender<RepeatableTimestamp>,
@@ -620,6 +641,7 @@ impl LeaderRetentionWorkers {
                     persistence.as_ref(),
                     &snapshot_reader,
                     &checkpoint_reader,
+                    &document_checkpoint_reader,
                     RetentionType::Index,
                     shutdown.clone(),
                 )
@@ -631,6 +653,7 @@ impl LeaderRetentionWorkers {
                     persistence.as_ref(),
                     &snapshot_reader,
                     &checkpoint_reader,
+                    &document_checkpoint_reader,
                     RetentionType::Document,
                     shutdown.clone(),
                 )
