@@ -13,7 +13,7 @@
 //! shuttle calls it hundreds of times with different scheduling decisions.
 
 use std::{
-    collections::BTreeMap,
+    iter,
     sync::Arc,
 };
 
@@ -47,7 +47,6 @@ use common::{
         Timestamp,
     },
 };
-use imbl::Vector;
 use shuttle::{
     scheduler::RandomScheduler,
     Config,
@@ -55,7 +54,6 @@ use shuttle::{
 };
 use value::{
     assert_obj,
-    heap_size::WithHeapSize,
     ResolvedDocumentId,
 };
 
@@ -144,15 +142,12 @@ impl Ctx {
         };
         self.write_log
             .add_write(self.index_name.clone(), ts, write.clone());
-        let mut v = Vector::new();
-        v.push_back(write);
-        let writes_by_index = BTreeMap::from([(self.index_name.clone(), WithHeapSize::from(v))]);
         let index_id = self.index_id;
         let index_name = self.index_name.clone();
-        self.handle
-            .apply_writes(&writes_by_index, &|n: &TabletIndexName| {
-                (*n == index_name).then_some(index_id)
-            });
+        self.handle.apply_writes(
+            [(&self.index_name, iter::once(&write))],
+            &|n: &TabletIndexName| (*n == index_name).then_some(index_id),
+        );
     }
 
     /// Drive moka's size-based eviction to completion.
@@ -179,18 +174,15 @@ impl Ctx {
             ts,
             write.clone(),
         );
-        let mut v = Vector::new();
-        v.push_back(write);
-        let writes_by_index = BTreeMap::from([(
-            TabletIndexName::by_id(self.index_doc_id.tablet_id),
-            WithHeapSize::from(v),
-        )]);
         let index_id = self.index_id;
         let index_name = self.index_name.clone();
-        self.handle
-            .apply_writes(&writes_by_index, &|n: &TabletIndexName| {
-                (*n == index_name).then_some(index_id)
-            });
+        self.handle.apply_writes(
+            [(
+                &TabletIndexName::by_id(self.index_doc_id.tablet_id),
+                iter::once(&write),
+            )],
+            &|n: &TabletIndexName| (*n == index_name).then_some(index_id),
+        );
     }
 }
 

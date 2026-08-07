@@ -1,5 +1,6 @@
 //! Common code, types and libraries for interacting with the system.
 #![feature(coroutines)]
+#![feature(exclusive_wrapper)]
 #![feature(try_blocks_heterogeneous)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
@@ -23,6 +24,7 @@ pub mod components;
 pub mod deleted_bitset;
 pub mod document;
 pub mod document_index_keys;
+pub mod erased_slot;
 pub mod errors;
 pub mod execution_context;
 pub mod ext;

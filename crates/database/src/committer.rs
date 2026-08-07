@@ -141,9 +141,9 @@ use crate::{
     },
     write_log::{
         index_keys_from_full_documents,
+        IndexKeyWrites,
         LogWriter,
         OrderedDocumentWrites,
-        OrderedIndexKeyWrites,
         PackedDocumentUpdate,
         PendingWriteHandle,
         PendingWrites,
@@ -163,7 +163,7 @@ enum PersistenceWrite {
         parent_trace: Option<SpanContext>,
         commit_id: usize,
         write_bytes: u64,
-        index_key_writes: OrderedIndexKeyWrites,
+        index_key_writes: IndexKeyWrites,
     },
     MaxRepeatableTimestamp {
         new_max_repeatable: Timestamp,
@@ -723,12 +723,8 @@ impl<RT: Runtime> Committer<RT> {
         // can know this timestamp is repeatable.
         let mut snapshot_manager = self.snapshot_manager.write();
         if snapshot_manager.bump_persisted_max_repeatable_ts(new_max_repeatable)? {
-            self.log.append(
-                new_max_repeatable,
-                &OrderedIndexKeyWrites::empty(),
-                "publish_max_repeatable_ts".into(),
-                || {},
-            );
+            self.log
+                .append(new_max_repeatable, IndexKeyWrites::empty(), || {});
         }
         Ok(())
     }
@@ -885,7 +881,7 @@ impl<RT: Runtime> Committer<RT> {
         component_registry: ComponentRegistry,
         virtual_system_mapping: VirtualSystemMapping,
         write_source: WriteSource,
-    ) -> anyhow::Result<(u64, OrderedIndexKeyWrites)> {
+    ) -> anyhow::Result<(u64, IndexKeyWrites)> {
         Self::track_commit(
             usage_tracking,
             &index_writes,
@@ -895,7 +891,12 @@ impl<RT: Runtime> Committer<RT> {
             &virtual_system_mapping,
         );
 
-        let index_key_writes = index_keys_from_full_documents(&ordered_updates, &index_registry);
+        let index_key_writes = index_keys_from_full_documents(
+            commit_ts,
+            &ordered_updates,
+            &write_source,
+            &index_registry,
+        );
 
         let mut write_bytes: u64 = 0;
         let document_writes = document_writes
@@ -933,13 +934,12 @@ impl<RT: Runtime> Committer<RT> {
         &mut self,
         pending_write: PendingWriteHandle,
         write_bytes: u64,
-        writes: OrderedIndexKeyWrites,
+        writes: IndexKeyWrites,
     ) {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
-        let (ordered_updates, write_source, new_snapshot) =
-            self.pending_writes.pop_first(pending_write);
+        let (ordered_updates, _, new_snapshot) = self.pending_writes.pop_first(pending_write);
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
@@ -949,16 +949,20 @@ impl<RT: Runtime> Committer<RT> {
 
         let timer = metrics::write_log_append_timer();
         let index_registry = &new_snapshot.index_registry;
+        let database_writes = writes.database.clone();
         let apply_writes_callback = || {
-            self.index_cache_handle
-                .apply_writes(&writes.database, &|index_name| {
+            self.index_cache_handle.apply_writes(
+                database_writes.iter().map(|(index_name, writes_in_index)| {
+                    (index_name, writes_in_index.index_updates.iter())
+                }),
+                &|index_name| {
                     index_registry
                         .get_enabled(index_name)
                         .map(|index| index.id())
-                })
+                },
+            )
         };
-        self.log
-            .append(commit_ts, &writes, write_source, apply_writes_callback);
+        self.log.append(commit_ts, writes, apply_writes_callback);
         drop(timer);
 
         if let Some(table_counts) = new_snapshot.table_counts.as_ref() {

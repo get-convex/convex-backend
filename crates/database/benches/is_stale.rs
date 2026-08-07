@@ -101,11 +101,10 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
         let document_keys =
             DocumentIndexKeys::with_standard_index_for_test(id, index_name.clone(), index_key);
 
-        log_writer.append(
+        log_writer.append_document(
             Timestamp::must((1001 + i) as i32),
-            &document_keys.into(),
+            document_keys,
             WriteSource::system("bench"),
-            || {},
         );
     }
 
@@ -236,11 +235,10 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
             filter_values,
         );
 
-        log_writer.append(
+        log_writer.append_document(
             Timestamp::must((1001 + i) as i32),
-            &document_keys.into(),
+            document_keys,
             WriteSource::system("bench"),
-            || {},
         );
     }
 

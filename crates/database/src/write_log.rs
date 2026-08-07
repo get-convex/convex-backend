@@ -1,11 +1,20 @@
 use std::{
-    cmp::Reverse,
+    borrow::Borrow,
+    cmp::{
+        Ordering,
+        Reverse,
+    },
     collections::{
         BTreeMap,
         BinaryHeap,
         VecDeque,
     },
-    ops::Bound,
+    iter,
+    mem,
+    ops::{
+        Bound,
+        Deref,
+    },
     sync::Arc,
 };
 
@@ -20,6 +29,7 @@ use common::{
         IndexKeyUpdate,
         TextIndexWrite,
     },
+    erased_slot::ErasedSlot,
     knobs::{
         WRITE_LOG_MAX_RETENTION_SECS,
         WRITE_LOG_MIN_RETENTION_SECS,
@@ -41,9 +51,8 @@ use errors::{
 };
 use futures::Future;
 use imbl::{
-    ordmap::Entry,
     OrdMap,
-    Vector,
+    OrdSet,
 };
 use indexing::{
     database_index_snapshot::TimestampedIndexCache,
@@ -55,18 +64,15 @@ use search::query::tokenize;
 use tokio::sync::oneshot;
 use value::{
     heap_size::{
+        ElementsHeapSize,
         HeapSize,
-        WithHeapSize,
     },
     TabletId,
 };
 
 use crate::{
     database::ConflictingReadWithWriteSource,
-    metrics::{
-        self,
-        write_log_iter_writes_timer,
-    },
+    metrics,
     reads::ReadSet,
     Snapshot,
     Token,
@@ -115,33 +121,32 @@ pub enum IndexKind {
     Text,
 }
 
-/// The per-commit index-key writes, split by index kind so each map holds a
+/// The per-commit index-key writes, split by index kind so each Vec holds a
 /// homogeneous update type.
-pub struct OrderedIndexKeyWrites {
-    pub database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>>,
-    pub text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>>,
+#[derive(Default)]
+pub struct IndexKeyWrites {
+    pub database: Vec<(TabletIndexName, Arc<WriteInIndex<DatabaseIndexWrite>>)>,
+    pub text: Vec<(TabletIndexName, Arc<WriteInIndex<TextIndexWrite>>)>,
 }
 
-impl OrderedIndexKeyWrites {
+impl IndexKeyWrites {
     pub fn empty() -> Self {
-        Self {
-            database: BTreeMap::new(),
-            text: BTreeMap::new(),
-        }
+        Self::default()
     }
 }
 
-/// Converts [OrderedDocumentWrites] (the log used in `PendingWrites` that
-/// contains full documents) to [OrderedIndexKeyWrites] (the log used
-/// in `WriteLog` that contains index keys too).
+/// Converts [PackedDocumentUpdate]s (the log used in `PendingWrites` that
+/// contains full documents) to [IndexKeyWrites] (the log used in `WriteLog`
+/// that contains index keys too).
 pub fn index_keys_from_full_documents(
+    ts: Timestamp,
     ordered_writes: &[PackedDocumentUpdate],
+    write_source: &WriteSource,
     index_registry: &IndexRegistry,
-) -> OrderedIndexKeyWrites {
+) -> IndexKeyWrites {
     let _timer = metrics::pending_writes_to_write_log_timer();
-    let mut database: BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>> =
-        BTreeMap::new();
-    let mut text: BTreeMap<TabletIndexName, WithHeapSize<Vector<TextIndexWrite>>> = BTreeMap::new();
+    let mut database: BTreeMap<TabletIndexName, Vec<DatabaseIndexWrite>> = BTreeMap::new();
+    let mut text: BTreeMap<TabletIndexName, Vec<TextIndexWrite>> = BTreeMap::new();
     for update in ordered_writes {
         for (index_name, index_update) in index_registry
             .document_index_keys(
@@ -158,24 +163,46 @@ pub fn index_keys_from_full_documents(
                     database
                         .entry(index_name)
                         .or_default()
-                        .push_back(DatabaseIndexWrite {
+                        .push(DatabaseIndexWrite {
                             document_id: index_update.document_id,
                             update: u,
                             new_document: index_update.new_document,
                         });
                 },
                 IndexKeyUpdate::Text(u) => {
-                    text.entry(index_name)
-                        .or_default()
-                        .push_back(TextIndexWrite {
-                            document_id: index_update.document_id,
-                            update: u,
-                        });
+                    text.entry(index_name).or_default().push(TextIndexWrite {
+                        document_id: index_update.document_id,
+                        update: u,
+                    });
                 },
             }
         }
     }
-    OrderedIndexKeyWrites { database, text }
+
+    IndexKeyWrites {
+        database: make_writes(ts, write_source, database),
+        text: make_writes(ts, write_source, text),
+    }
+}
+
+fn make_writes<K, T>(
+    ts: Timestamp,
+    write_source: &WriteSource,
+    writes: BTreeMap<K, Vec<T>>,
+) -> Vec<(K, Arc<WriteInIndex<T>>)> {
+    writes
+        .into_iter()
+        .map(|(index, index_updates)| {
+            (
+                index,
+                Arc::new(WriteInIndex {
+                    ts,
+                    index_updates,
+                    write_source: write_source.clone(),
+                }),
+            )
+        })
+        .collect()
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -252,6 +279,7 @@ impl HeapSize for WriteSource {
 
 struct WriteLogManager {
     log: WriteLog,
+    size: usize,
     /// Keeps track of the minimum timestamps in each index's log, used for fast
     /// purging. Each entry records which map (`IndexKind`) the index belongs to
     /// so we can remove from the right map.
@@ -265,6 +293,7 @@ impl WriteLogManager {
         let waiters = VecDeque::new();
         Self {
             log,
+            size: 0,
             min_ts_to_index: BinaryHeap::new(),
             waiters,
         }
@@ -288,28 +317,26 @@ impl WriteLogManager {
         }
     }
 
-    fn append(&mut self, ts: Timestamp, writes: &OrderedIndexKeyWrites, write_source: WriteSource) {
+    fn append(&mut self, ts: Timestamp, writes: IndexKeyWrites) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
-        for (index, updates) in &writes.database {
+        for (index, updates) in writes.database {
+            assert_eq!(updates.ts, ts);
             self.log.by_database_index.append(
                 index,
-                ts,
-                updates.clone(),
-                write_source.clone(),
+                ArcWriteInIndex(updates),
                 IndexKind::Database,
-                &mut self.log.size,
+                &mut self.size,
                 &mut self.min_ts_to_index,
             );
         }
-        for (index, updates) in &writes.text {
+        for (index, updates) in writes.text {
+            assert_eq!(updates.ts, ts);
             self.log.by_text_index.append(
                 index,
-                ts,
-                updates.clone(),
-                write_source.clone(),
+                ArcWriteInIndex(updates),
                 IndexKind::Text,
-                &mut self.log.size,
+                &mut self.size,
                 &mut self.min_ts_to_index,
             );
         }
@@ -347,7 +374,7 @@ impl WriteLogManager {
             .sub(*WRITE_LOG_MAX_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
         loop {
-            let limit_ts = if self.log.size >= *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
+            let limit_ts = if self.size >= *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
                 hard_limit_ts
             } else {
                 soft_limit_ts
@@ -367,7 +394,7 @@ impl WriteLogManager {
                         index,
                         ts,
                         IndexKind::Database,
-                        &mut self.log.size,
+                        &mut self.size,
                         &mut self.min_ts_to_index,
                     );
                 },
@@ -376,7 +403,7 @@ impl WriteLogManager {
                         index,
                         ts,
                         IndexKind::Text,
-                        &mut self.log.size,
+                        &mut self.size,
                         &mut self.min_ts_to_index,
                     );
                 },
@@ -385,40 +412,91 @@ impl WriteLogManager {
     }
 }
 
+/// All of the updates at `ts` within a single index.
+pub struct WriteInIndex<T> {
+    pub ts: Timestamp,
+    pub index_updates: Vec<T>,
+    pub write_source: WriteSource,
+}
+/// A `WriteInIndex` that can be stored in an OrdSet.
+/// Note that Eq/Ord compare timestamp only.
+pub(crate) struct ArcWriteInIndex<T>(Arc<WriteInIndex<T>>);
+
+impl<T> Clone for ArcWriteInIndex<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> Deref for ArcWriteInIndex<T> {
+    type Target = WriteInIndex<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T: HeapSize> ArcWriteInIndex<T> {
+    fn heap_size(&self) -> usize {
+        mem::size_of_val(&*self.0)
+            + self.0.index_updates.capacity() * mem::size_of::<T>()
+            + self.0.index_updates.elements_heap_size()
+            + self.0.write_source.heap_size()
+    }
+}
+
+impl<T> PartialEq for ArcWriteInIndex<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.ts == other.0.ts
+    }
+}
+impl<T> Eq for ArcWriteInIndex<T> {}
+impl<T> PartialOrd for ArcWriteInIndex<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl<T> Ord for ArcWriteInIndex<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.ts.cmp(&other.0.ts)
+    }
+}
+impl<T> Borrow<Timestamp> for ArcWriteInIndex<T> {
+    fn borrow(&self) -> &Timestamp {
+        &self.0.ts
+    }
+}
+
 /// A typed map from index name to timestamped update vectors.
 /// Shared structure for both database and search index maps in the write log.
-#[derive(Clone)]
-struct WritesByIndex<T: Clone>(
-    OrdMap<TabletIndexName, OrdMap<Timestamp, (WithHeapSize<Vector<T>>, WriteSource)>>,
-);
+struct WritesByIndex<T>(OrdMap<TabletIndexName, OrdSet<ArcWriteInIndex<T>>>);
 
-impl<T: Clone + HeapSize> WritesByIndex<T> {
+impl<T> Clone for WritesByIndex<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T: HeapSize> WritesByIndex<T> {
     fn new() -> Self {
         Self(OrdMap::new())
     }
 
     fn append(
         &mut self,
-        index: &TabletIndexName,
-        ts: Timestamp,
-        updates: WithHeapSize<Vector<T>>,
-        write_source: WriteSource,
+        index: TabletIndexName,
+        update: ArcWriteInIndex<T>,
         kind: IndexKind,
         by_index_size: &mut usize,
         min_ts_to_index: &mut BinaryHeap<Reverse<(Timestamp, TabletIndexName, IndexKind)>>,
     ) {
-        *by_index_size += updates.heap_size();
-        match self.0.entry(index.clone()) {
-            Entry::Occupied(mut e) => {
-                e.get_mut().insert(ts, (updates, write_source));
-            },
-            Entry::Vacant(e) => {
-                let mut inner = OrdMap::new();
-                inner.insert(ts, (updates, write_source));
-                e.insert(inner);
-                min_ts_to_index.push(Reverse((ts, index.clone(), kind)));
-            },
-        };
+        *by_index_size += update.heap_size();
+        if let Some(e) = self.0.get_mut(&index) {
+            e.insert(update);
+        } else {
+            let ts = update.ts;
+            self.0.insert(index.clone(), OrdSet::unit(update));
+            min_ts_to_index.push(Reverse((ts, index, kind)));
+        }
     }
 
     /// Remove the entry at `ts` for `index`. If the index has remaining
@@ -434,39 +512,19 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
         let Some(inner) = self.0.get_mut(&index) else {
             return;
         };
-        if let Some((updates, _)) = inner.remove(&ts) {
-            *by_index_size = by_index_size.saturating_sub(updates.heap_size());
+        if let Some(update) = inner.remove(&ts) {
+            *by_index_size = by_index_size.saturating_sub(update.heap_size());
         }
-        if let Some((new_min_ts, _)) = inner.get_min() {
-            let new_min_ts = *new_min_ts;
+        if let Some(update) = inner.get_min() {
+            let new_min_ts = update.0.ts;
             min_ts_to_index.push(Reverse((new_min_ts, index, kind)));
         } else {
             self.0.remove(&index);
         }
     }
 
-    fn iter(
-        &self,
-    ) -> impl Iterator<
-        Item = (
-            &TabletIndexName,
-            &OrdMap<Timestamp, (WithHeapSize<Vector<T>>, WriteSource)>,
-        ),
-    > {
+    fn iter(&self) -> impl Iterator<Item = (&TabletIndexName, &OrdSet<ArcWriteInIndex<T>>)> {
         self.0.iter()
-    }
-
-    fn iter_since(
-        &self,
-        index: &TabletIndexName,
-        ts: Timestamp,
-    ) -> Option<impl Iterator<Item = (&Timestamp, &(WithHeapSize<Vector<T>>, WriteSource))> + '_>
-    {
-        Some(
-            self.0
-                .get(index)?
-                .range((Bound::Excluded(ts), Bound::Unbounded)),
-        )
     }
 }
 
@@ -477,7 +535,6 @@ impl<T: Clone + HeapSize> WritesByIndex<T> {
 struct WriteLog {
     by_database_index: WritesByIndex<DatabaseIndexWrite>,
     by_text_index: WritesByIndex<TextIndexWrite>,
-    size: usize,
     max_ts: Timestamp,
     purged_ts: Timestamp,
 }
@@ -487,7 +544,6 @@ impl WriteLog {
         Self {
             by_database_index: WritesByIndex::new(),
             by_text_index: WritesByIndex::new(),
-            size: 0,
             max_ts: initial_timestamp,
             purged_ts: initial_timestamp,
         }
@@ -646,27 +702,13 @@ impl LogReader {
     where
         F: for<'a> FnMut(
             &'a TabletIndexName,
-            Box<
-                dyn Iterator<
-                        Item = (
-                            &'a Timestamp,
-                            &'a (WithHeapSize<Vector<DatabaseIndexWrite>>, WriteSource),
-                        ),
-                    > + 'a,
-            >,
+            Box<dyn Iterator<Item = &'a WriteInIndex<DatabaseIndexWrite>> + 'a>,
             &'a mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
             &'a mut usize,
         ),
         G: for<'a> FnMut(
             &'a TabletIndexName,
-            Box<
-                dyn Iterator<
-                        Item = (
-                            &'a Timestamp,
-                            &'a (WithHeapSize<Vector<TextIndexWrite>>, WriteSource),
-                        ),
-                    > + 'a,
-            >,
+            Box<dyn Iterator<Item = &'a WriteInIndex<TextIndexWrite>> + 'a>,
             &'a mut BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)>,
             &'a mut usize,
         ),
@@ -685,7 +727,7 @@ impl LogReader {
             for (index_name, updates) in snapshot.by_database_index.iter() {
                 f(
                     index_name,
-                    Box::new(updates.range(from..=to)),
+                    Box::new(updates.range(from..=to).map(|u| &*u.0)),
                     to_notify,
                     num_index_updates,
                 );
@@ -693,7 +735,7 @@ impl LogReader {
             for (index_name, updates) in snapshot.by_text_index.iter() {
                 g(
                     index_name,
-                    Box::new(updates.range(from..=to)),
+                    Box::new(updates.range(from..=to).map(|u| &*u.0)),
                     to_notify,
                     num_index_updates,
                 );
@@ -745,9 +787,10 @@ impl LogReader {
                     let is_by_id = index.metadata.name.is_by_id();
                     let index_id = index.id();
 
-                    for (ts, (ts_writes, _)) in writes.range(from..=*end_ts) {
-                        for write in ts_writes.iter() {
-                            if !cache.apply_write(*ts, index_id, is_by_id, write) {
+                    for update in writes.range(from..=*end_ts) {
+                        let ts = update.0.ts;
+                        for write in &update.0.index_updates {
+                            if !cache.apply_write(ts, index_id, is_by_id, write) {
                                 break 'outer;
                             }
                         }
@@ -761,28 +804,24 @@ impl LogReader {
 }
 
 impl WriteLogIndexReader for LogReader {
-    fn iter_writes_after(
+    fn iter_writes_after<'a>(
         &self,
         index_name: &TabletIndexName,
         ts: Timestamp,
-    ) -> anyhow::Result<
-        Option<
-            Box<dyn Iterator<Item = (Timestamp, WithHeapSize<Vector<DatabaseIndexWrite>>)> + '_>,
-        >,
-    > {
-        let timer = write_log_iter_writes_timer();
+        storage: &'a mut ErasedSlot,
+    ) -> anyhow::Result<Box<dyn Iterator<Item = &'a DatabaseIndexWrite> + 'a>> {
         let snapshot = self.inner.lock().log.clone();
         if ts < snapshot.purged_ts {
             anyhow::bail!("Timestamp is out of retention window");
         }
-        let Some(writes_by_ts) = snapshot.by_database_index.iter_since(index_name, ts) else {
-            return Ok(None);
+        let Some(index) = storage.insert(snapshot.by_database_index.0).get(index_name) else {
+            return Ok(Box::new(iter::empty()));
         };
-        let results: Vec<_> = writes_by_ts
-            .map(|(&ts, (writes, _source))| (ts, writes.clone()))
-            .collect();
-        timer.finish();
-        Ok(Some(Box::new(results.into_iter())))
+        Ok(Box::new(
+            index
+                .range((Bound::Excluded(ts), Bound::Unbounded))
+                .flat_map(|write| write.index_updates.iter()),
+        ))
     }
 }
 
@@ -802,11 +841,10 @@ impl LogWriter {
     pub fn append(
         &mut self,
         ts: Timestamp,
-        writes: &OrderedIndexKeyWrites,
-        write_source: WriteSource,
+        writes: IndexKeyWrites,
         apply_writes_callback: impl FnOnce(),
     ) {
-        block_in_place(|| self.inner.lock().append(ts, writes, write_source));
+        block_in_place(|| self.inner.lock().append(ts, writes));
         apply_writes_callback();
     }
 

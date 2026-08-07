@@ -30,7 +30,7 @@ use common::{
 use errors::ErrorMetadata;
 use imbl::{
     OrdMap,
-    Vector,
+    OrdSet,
 };
 use search::QueryReads as SearchQueryReads;
 use usage_tracking::FunctionUsageTracker;
@@ -53,6 +53,7 @@ use crate::{
     execution_size::TransactionLimits,
     stack_traces::StackTrace,
     write_log::{
+        ArcWriteInIndex,
         PackedDocumentUpdate,
         WriteSource,
     },
@@ -226,16 +227,10 @@ impl ReadSet {
     /// range `[from, to]` conflict with this read set. More efficient than
     /// `writes_overlap_docs` because it looks up only indexes that were read.
     #[fastrace::trace]
-    pub fn writes_overlap_by_index(
+    pub(crate) fn writes_overlap_by_index(
         &self,
-        by_database_index: &OrdMap<
-            TabletIndexName,
-            OrdMap<Timestamp, (WithHeapSize<Vector<DatabaseIndexWrite>>, WriteSource)>,
-        >,
-        by_search_index: &OrdMap<
-            TabletIndexName,
-            OrdMap<Timestamp, (WithHeapSize<Vector<TextIndexWrite>>, WriteSource)>,
-        >,
+        by_database_index: &OrdMap<TabletIndexName, OrdSet<ArcWriteInIndex<DatabaseIndexWrite>>>,
+        by_search_index: &OrdMap<TabletIndexName, OrdSet<ArcWriteInIndex<TextIndexWrite>>>,
         from: Timestamp,
         to: Timestamp,
     ) -> Option<ConflictingReadWithWriteSource> {
@@ -252,8 +247,8 @@ impl ReadSet {
             let Some(updates) = by_database_index.get(index) else {
                 continue;
             };
-            for (ts, (doc_updates, write_source)) in updates.range(from..=to) {
-                for update in doc_updates.iter() {
+            for write in updates.range(from..=to) {
+                for update in &write.index_updates {
                     for index_key in update.update.iter() {
                         if intervals.contains(index_key) {
                             let stack_traces = stack_traces.as_ref().map(|st| {
@@ -273,8 +268,8 @@ impl ReadSet {
                                     id: update.document_id,
                                     stack_traces,
                                 },
-                                write_source: write_source.clone(),
-                                write_ts: *ts,
+                                write_source: write.write_source.clone(),
+                                write_ts: write.ts,
                             });
                         }
                     }
@@ -286,8 +281,8 @@ impl ReadSet {
             let Some(updates) = by_search_index.get(index) else {
                 continue;
             };
-            for (ts, (doc_updates, write_source)) in updates.range(from..=to) {
-                for update in doc_updates.iter() {
+            for write in updates.range(from..=to) {
+                for update in &write.index_updates {
                     for value in update.update.iter() {
                         if search_reads.overlaps_search_index_key_value(value) {
                             return Some(ConflictingReadWithWriteSource {
@@ -296,8 +291,8 @@ impl ReadSet {
                                     id: update.document_id,
                                     stack_traces: None,
                                 },
-                                write_source: write_source.clone(),
-                                write_ts: *ts,
+                                write_source: write.write_source.clone(),
+                                write_ts: write.ts,
                             });
                         }
                     }

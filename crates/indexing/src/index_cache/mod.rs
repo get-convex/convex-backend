@@ -1,7 +1,6 @@
 use std::{
     collections::{
         hash_map::Entry,
-        BTreeMap,
         HashMap as StdHashMap,
         HashSet,
     },
@@ -17,6 +16,7 @@ use std::{
 
 use common::{
     document_index_keys::DatabaseIndexWrite,
+    erased_slot::ErasedSlot,
     interval::Interval,
     query::{
         CursorPosition,
@@ -32,10 +32,7 @@ use common::{
 };
 #[cfg(not(feature = "shuttle-testing"))]
 use dashmap::DashMap;
-use imbl::{
-    OrdSet,
-    Vector,
-};
+use imbl::OrdSet;
 use interval_map::IntervalMap;
 use metrics::StaticMetricLabel;
 use moka::{
@@ -52,10 +49,7 @@ use shuttle_dashmap::DashMap;
 #[cfg(feature = "shuttle-testing")]
 use shuttle_parking_lot::Mutex;
 use value::{
-    heap_size::{
-        HeapSize,
-        WithHeapSize,
-    },
+    heap_size::HeapSize,
     TabletId,
 };
 
@@ -81,15 +75,12 @@ pub struct DeploymentId(u32);
 
 pub trait WriteLogIndexReader: Send + Sync {
     /// Iterate over writes to an index after the given timestamp.
-    fn iter_writes_after(
+    fn iter_writes_after<'a>(
         &self,
         index_name: &TabletIndexName,
         ts: Timestamp,
-    ) -> anyhow::Result<
-        Option<
-            Box<dyn Iterator<Item = (Timestamp, WithHeapSize<Vector<DatabaseIndexWrite>>)> + '_>,
-        >,
-    >;
+        storage: &'a mut ErasedSlot,
+    ) -> anyhow::Result<Box<dyn Iterator<Item = &'a DatabaseIndexWrite> + 'a>>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -530,10 +521,15 @@ impl IndexCacheHandle {
             .or_insert_with(IndexIntervals::new)
             .insert(interval.clone(), order, max_size);
 
-        let (Ok(writes), Ok(index_table_writes)) = (
-            self.write_log_reader.iter_writes_after(&index.name(), *ts),
+        let (mut s0, mut s1) = (ErasedSlot::new(), ErasedSlot::new());
+        let (Ok(mut writes), Ok(index_table_writes)) = (
             self.write_log_reader
-                .iter_writes_after(&TabletIndexName::by_id(self.index_tablet), *ts),
+                .iter_writes_after(&index.name(), *ts, &mut s0),
+            self.write_log_reader.iter_writes_after(
+                &TabletIndexName::by_id(self.index_tablet),
+                *ts,
+                &mut s1,
+            ),
         ) else {
             // Remove the cache entry. The eviction listener will remove from
             // index_to_intervals
@@ -541,39 +537,24 @@ impl IndexCacheHandle {
             timer.add_label(StaticMetricLabel::new("result", "out_of_retention"));
             return;
         };
-        if let Some(mut writes) = writes {
-            let conflicts =
-                |(_ts, writes): (Timestamp, WithHeapSize<Vector<DatabaseIndexWrite>>)| {
-                    for key in writes.iter().flat_map(|i| i.update.iter()) {
-                        if interval.contains(key) {
-                            return true;
-                        }
-                    }
-                    false
-                };
-            if writes.any(conflicts) {
-                tracing::debug!(
-                    deployment_id = ?deployment_id,
-                    "IndexCache::populate rejected by write"
-                );
+        if writes.any(|i| i.update.iter().any(|key| interval.contains(key))) {
+            tracing::debug!(
+                deployment_id = ?deployment_id,
+                "IndexCache::populate rejected by write"
+            );
+            timer.add_label(StaticMetricLabel::new("result", "invalid"));
+            // Remove the cache entry. The eviction listener will remove from
+            // index_to_intervals
+            self.shared_cache.cache.remove(key);
+            return;
+        }
+        for write in index_table_writes {
+            if write.document_id.internal_id() == index_id.0 {
                 timer.add_label(StaticMetricLabel::new("result", "invalid"));
                 // Remove the cache entry. The eviction listener will remove from
                 // index_to_intervals
                 self.shared_cache.cache.remove(key);
                 return;
-            }
-        }
-        if let Some(index_table_writes) = index_table_writes {
-            for (_ts, writes) in index_table_writes {
-                for write in writes {
-                    if write.document_id.internal_id() == index_id.0 {
-                        timer.add_label(StaticMetricLabel::new("result", "invalid"));
-                        // Remove the cache entry. The eviction listener will remove from
-                        // index_to_intervals
-                        self.shared_cache.cache.remove(key);
-                        return;
-                    }
-                }
             }
         }
 
@@ -627,11 +608,13 @@ impl IndexCacheHandle {
     /// Apply index updates and new document value to the cache, invalidating
     /// cache entries with overlapping intervals and tracking writes
     /// in the write buffer.
-    pub fn apply_writes(
+    pub fn apply_writes<'a, W>(
         &self,
-        writes_by_index: &BTreeMap<TabletIndexName, WithHeapSize<Vector<DatabaseIndexWrite>>>,
+        writes_by_index: impl IntoIterator<Item = (&'a TabletIndexName, W)>,
         index_name_to_id: &dyn Fn(&TabletIndexName) -> Option<IndexId>,
-    ) {
+    ) where
+        W: Clone + Iterator<Item = &'a DatabaseIndexWrite>,
+    {
         let _timer = cache_apply_writes_timer();
         let deployment_id = self.deployment_id;
         for (index_name, writes) in writes_by_index {
@@ -639,7 +622,7 @@ impl IndexCacheHandle {
             // can't be queried again. Doesn't really matter if it is added, removed, or
             // updated. If it's added, future populates will populate it.
             if &TabletIndexName::by_id(self.index_tablet) == index_name {
-                for write in writes {
+                for write in writes.clone() {
                     self.remove_index(&IndexId(write.document_id.internal_id()))
                 }
             }
