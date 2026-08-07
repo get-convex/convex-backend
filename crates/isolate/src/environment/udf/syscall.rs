@@ -39,10 +39,13 @@ use super::{
     async_syscall::AsyncSyscallProvider,
     DatabaseUdfEnvironment,
 };
-use crate::environment::helpers::{
-    parse_version,
-    with_argument_error,
-    ArgName,
+use crate::{
+    environment::helpers::{
+        parse_version,
+        with_argument_error,
+        ArgName,
+    },
+    metrics::log_normalize_id_old_format,
 };
 
 pub trait SyscallProvider<RT: Runtime> {
@@ -173,6 +176,7 @@ fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
             {
                 Some(id_v6)
             } else if let Ok(internal_id) = InternalId::from_developer_str(&id_string) {
+                log_normalize_id_old_format(if id_string.len() > 22 { "v4" } else { "v5" });
                 let id_v6 = DeveloperDocumentId::new(table_number, internal_id);
                 Some(id_v6)
             } else {
