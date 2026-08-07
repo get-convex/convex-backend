@@ -14,6 +14,10 @@ just convex-usher run openai:listModels '{}'
 just convex-usher run node/fetch:listModels '{}'
 just convex-usher run node/openai:listModels '{}'
 just convex-usher run node/anthropic:listModels '{}'
+just convex-usher run openai:chatCompletion \
+  '{"prompt":"Reply with one short sentence."}'
+just convex-usher run node/openai:chatCompletion \
+  '{"prompt":"Reply with one short sentence."}'
 ```
 
 - Pass `gatewayUrl` to target another gateway.

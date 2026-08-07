@@ -10,6 +10,7 @@
 
 import type * as fetch from "../fetch.js";
 import type * as integrations_anthropic from "../integrations/anthropic.js";
+import type * as integrations_chatCompletionAction from "../integrations/chatCompletionAction.js";
 import type * as integrations_fetch from "../integrations/fetch.js";
 import type * as integrations_listModelsAction from "../integrations/listModelsAction.js";
 import type * as integrations_modelList from "../integrations/modelList.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   fetch: typeof fetch;
   "integrations/anthropic": typeof integrations_anthropic;
+  "integrations/chatCompletionAction": typeof integrations_chatCompletionAction;
   "integrations/fetch": typeof integrations_fetch;
   "integrations/listModelsAction": typeof integrations_listModelsAction;
   "integrations/modelList": typeof integrations_modelList;

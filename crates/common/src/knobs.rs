@@ -200,6 +200,10 @@ pub static V8_ACTION_USER_TIMEOUT: LazyLock<Duration> =
 pub static NODE_ACTION_USER_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("NODE_ACTION_USER_TIMEOUT_SECS", 600)));
 
+/// Upper bound for user action execution across the V8 and Node runtimes.
+pub static MAX_ACTION_USER_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| max(*V8_ACTION_USER_TIMEOUT, *NODE_ACTION_USER_TIMEOUT));
+
 /// Ideally, we should have no timeout here but we are relying on defense in
 /// depth in case somehow the upstream get stuck. Use very high timeout here.
 ///

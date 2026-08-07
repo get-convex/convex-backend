@@ -6,12 +6,32 @@ import {
   summarizeModels,
 } from "./modelList";
 
-export async function listModels(
-  gatewayUrl = LOCAL_GATEWAY_URL,
-): Promise<ModelListSummary> {
-  const openai = new OpenAI({
+function createOpenAIClient(gatewayUrl: string): OpenAI {
+  return new OpenAI({
     baseURL: `${gatewayUrl}/v1`,
     apiKey: () => getServiceToken("ai"),
   });
-  return summarizeModels(await openai.models.list());
+}
+
+export async function listModels(
+  gatewayUrl = LOCAL_GATEWAY_URL,
+): Promise<ModelListSummary> {
+  return summarizeModels(await createOpenAIClient(gatewayUrl).models.list());
+}
+
+export async function chatCompletion(
+  prompt: string,
+  gatewayUrl = LOCAL_GATEWAY_URL,
+): Promise<string> {
+  const completion = await createOpenAIClient(
+    gatewayUrl,
+  ).chat.completions.create({
+    model: "openai/gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+  });
+  const text = completion.choices[0]?.message.content;
+  if (!text) {
+    throw new Error("The AI response did not contain text.");
+  }
+  return text;
 }
