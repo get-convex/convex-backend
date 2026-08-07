@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeMap,
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
 };
 
 use anyhow::Context;
@@ -443,17 +446,22 @@ pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT
     // Value is (job, query) where job is the job to run and query will get
     // the next job to run in that namespace.
     let mut queries = BTreeMap::new();
-    let cron_from_doc =
-        async |namespace: TableNamespace, doc: ResolvedDocument, tx: &mut Transaction<RT>| {
-            let next_run: ParsedDocument<CronNextRun> = doc.parse()?;
-            let cron_job_id = tx.resolve_developer_id(&next_run.cron_job_id, namespace)?;
-            let job: ParsedDocument<CronJobMetadata> = tx
-                .get(cron_job_id)
-                .await?
-                .context("No cron job found")?
-                .parse()?;
-            Ok::<_, anyhow::Error>(CronJob::new(job, namespace.into(), next_run.into_value()))
-        };
+    async fn cron_from_doc<RT: Runtime>(
+        namespace: TableNamespace,
+        doc: ResolvedDocument,
+        tx: &mut Transaction<RT>,
+    ) -> anyhow::Result<CronJob> {
+        let next_run: ParsedDocument<CronNextRun> = doc.parse()?;
+        let job = tx
+            .get_system::<CronJobsTable>(namespace, next_run.cron_job_id)
+            .await?
+            .context("No cron job found")?;
+        Ok(CronJob::new(
+            Arc::unwrap_or_clone(job),
+            namespace.into(),
+            next_run.into_value(),
+        ))
+    }
 
     // Initialize streaming query for each namespace
     for namespace in namespaces {
