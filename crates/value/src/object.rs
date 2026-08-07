@@ -36,14 +36,37 @@ pub const MAX_OBJECT_FIELDS: usize = 1024;
 /// To mutate an object, convert it to a `BTreeMap` using `into()`, mutate the
 /// map, and then use `Object::try_from` to convert it back to an object. This
 /// ensures that we check the object invariants after the modifications.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[repr(C)]
 pub struct ConvexObject {
-    // Precomputed 1 + (len(field1) + 1) + size(v1) + ... + (len(fieldN) + 1) + size(vN) + 1
-    size: u32,
+    // Enables niche optimization for ConvexValue, allowing `size_of::<ConvexValue>() ==
+    // size_of::<ConvexObject>()`
+    _niche: Niche,
+
     // Precomputed 1 + max(nesting(v1), ..., nesting(vN))
     nesting: u8,
+    // Precomputed 1 + (len(field1) + 1) + size(v1) + ... + (len(fieldN) + 1) + size(vN) + 1
+    size: u32,
 
     fields: BTreeMap<FieldName, ConvexValue>,
+}
+
+impl fmt::Debug for ConvexObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConvexObject")
+            .field("nesting", &self.nesting)
+            .field("size", &self.size)
+            .field("fields", &self.fields)
+            .finish()
+    }
+}
+
+// A u8 with only one valid value. The value 7 is chosen to line up with the
+// discriminant of the `Object` variant of `ConvexValue`
+#[derive(Copy, Clone)]
+#[repr(u8)]
+enum Niche {
+    Niche = 7,
 }
 
 impl PartialEq for ConvexObject {
@@ -87,6 +110,7 @@ impl TryFrom<BTreeMap<FieldName, ConvexValue>> for ConvexObject {
             assert!(MAX_NESTING <= u8::MAX as usize);
         }
         Ok(Self {
+            _niche: Niche::Niche,
             size: size as u32,
             nesting: nesting as u8,
             fields,
@@ -98,6 +122,7 @@ impl ConvexObject {
     /// Create an empty object.
     pub fn empty() -> Self {
         Self {
+            _niche: Niche::Niche,
             size: 1 + 1,
             nesting: 1,
             fields: BTreeMap::default(),

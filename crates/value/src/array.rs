@@ -1,4 +1,5 @@
 use std::{
+    self,
     fmt,
     hash::{
         Hash,
@@ -26,7 +27,7 @@ use crate::{
 
 const MAX_ARRAY_LEN: usize = 8192;
 
-/// Wrapper on `Vec<Value>` that enforces size limits.
+/// Wrapper on `Vec<ConvexValue>` that enforces size limits.
 #[derive(Clone)]
 pub struct ConvexArray {
     // Precomputed `1 + size(v1) + ... + size(vN) + 1`
@@ -34,7 +35,7 @@ pub struct ConvexArray {
     // Precomputed `1 + max(nesting(v1), ..., nesting(vN))`.
     nesting: u8,
 
-    items: Vec<ConvexValue>,
+    items: Box<[ConvexValue]>,
 }
 
 impl ConvexArray {
@@ -42,7 +43,7 @@ impl ConvexArray {
         Self {
             size: 2,
             nesting: 1,
-            items: vec![],
+            items: Box::new([]),
         }
     }
 
@@ -98,14 +99,14 @@ impl TryFrom<Vec<ConvexValue>> for ConvexArray {
         Ok(Self {
             size: size as u32,
             nesting: nesting as u8,
-            items,
+            items: items.into_boxed_slice(),
         })
     }
 }
 
 impl From<ConvexArray> for Vec<ConvexValue> {
     fn from(array: ConvexArray) -> Self {
-        array.items
+        array.items.into_vec()
     }
 }
 
