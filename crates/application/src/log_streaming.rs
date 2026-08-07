@@ -1,8 +1,5 @@
 use common::{
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
+    document::ParsedDocument,
     execution_context::RequestMetadata,
     runtime::Runtime,
 };
@@ -30,7 +27,6 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
-    TableNamespace,
 };
 
 use crate::Application;
@@ -62,7 +58,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         request_metadata: RequestMetadata,
         config: SinkConfig,
-    ) -> anyhow::Result<ResolvedDocumentId> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let sink_type = config.sink_type().as_str().to_string();
         let id = self
             .execute_with_audit_log_events_and_occ_retries(
@@ -74,7 +70,7 @@ impl<RT: Runtime> Application<RT> {
                     let sink_type = sink_type.clone();
                     async move {
                         let id = LogSinksModel::new(tx).add_or_update(config).await?;
-                        let id_str = DeveloperDocumentId::from(id).encode();
+                        let id_str = id.encode();
                         Ok((
                             id,
                             vec![DeploymentAuditLogEvent::CreateIntegration {
@@ -114,9 +110,8 @@ impl<RT: Runtime> Application<RT> {
                 let sink_type = sink_type.clone();
                 let id_str = id.clone();
                 async move {
-                    let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
                     let mut model = LogSinksModel::new(tx);
-                    model.patch_config(id, config).await?;
+                    model.patch_config(developer_id, config).await?;
                     Ok((
                         (),
                         vec![DeploymentAuditLogEvent::UpdateIntegration {
@@ -147,9 +142,8 @@ impl<RT: Runtime> Application<RT> {
             "reset_log_sink_to_pending",
             |tx| {
                 async move {
-                    let id = tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
                     LogSinksModel::new(tx)
-                        .patch_status(id, SinkState::Pending)
+                        .patch_status(developer_id, SinkState::Pending)
                         .await
                 }
                 .boxed()
@@ -170,35 +164,22 @@ impl<RT: Runtime> Application<RT> {
         Ok(sink)
     }
 
-    pub async fn get_log_sink_by_id(&self, id: &String) -> anyhow::Result<Option<LogSinkWithId>> {
+    pub async fn must_get_log_sink_by_id(&self, id: &str) -> anyhow::Result<LogSinkWithId> {
         let mut tx = self.begin(Identity::system()).await?;
 
-        let id = tx.resolve_developer_id(
-            &DeveloperDocumentId::decode(id).map_err(|_| {
-                anyhow::anyhow!(ErrorMetadata::bad_request(
-                    "InvalidLogStreamId",
-                    "The log stream id is invalid"
-                ))
-            })?,
-            TableNamespace::Global,
-        )?;
+        let id = DeveloperDocumentId::decode(id).map_err(|_| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidLogStreamId",
+                "The log stream id is invalid"
+            ))
+        })?;
 
-        let Some(doc) = tx.get(id).await? else {
-            return Ok(None);
-        };
-
-        let row: ParsedDocument<LogSinksRow> = doc.parse()?;
-
-        // Check if the stream is tombstoned (deleted)
-        if row.status == SinkState::Tombstoned {
-            return Ok(None);
-        }
-
-        Ok(Some(LogSinkWithId {
+        let row = LogSinksModel::new(&mut tx).must_get(id).await?;
+        Ok(LogSinkWithId {
             id: row.id(),
             config: row.config.clone(),
             status: row.status.clone(),
-        }))
+        })
     }
 
     pub async fn list_log_sinks(&self) -> anyhow::Result<Vec<LogSinkWithId>> {
@@ -239,27 +220,12 @@ impl<RT: Runtime> Application<RT> {
             |tx| {
                 let id = id.clone();
                 async move {
-                    let resolved_id =
-                        tx.resolve_developer_id(&developer_id, TableNamespace::Global)?;
-                    let row: ParsedDocument<LogSinksRow> = tx
-                        .get(resolved_id)
-                        .await?
-                        .ok_or_else(|| {
-                            ErrorMetadata::bad_request(
-                                "LogStreamDoesntExist",
-                                "No log stream with the given id exists for this deployment.",
-                            )
-                        })?
-                        .parse()?;
-                    if row.status == SinkState::Tombstoned {
-                        return Err(ErrorMetadata::bad_request(
-                            "LogStreamDoesntExist",
-                            "No log stream with the given id exists for this deployment.",
-                        )
-                        .into());
-                    }
-                    let sink_type = row.into_value().config.sink_type().as_str().to_string();
-                    LogSinksModel::new(tx).mark_for_removal(resolved_id).await?;
+                    let row: ParsedDocument<LogSinksRow> =
+                        LogSinksModel::new(tx).must_get(developer_id).await?;
+                    let sink_type = row.config.sink_type().as_str().to_string();
+                    LogSinksModel::new(tx)
+                        .mark_for_removal(developer_id)
+                        .await?;
                     Ok((
                         (),
                         vec![DeploymentAuditLogEvent::DeleteIntegration {

@@ -568,7 +568,7 @@ impl<RT: Runtime> LogManager<RT> {
             tracing::info!("Starting log sink {}", row.config);
 
             let sink_type = row.config.sink_type();
-            let sink_id = row.id();
+            let sink_id = row.developer_id();
             let mut sink_config = row.config.clone();
             // Ignore the `custom_audit` topic if the deployment isn't entitled.
             if !custom_audit_allowed && let Some(Some(topics)) = sink_config.topics_mut() {
@@ -637,7 +637,9 @@ impl<RT: Runtime> LogManager<RT> {
                  status and restarting: {}",
                 row.config
             );
-            model.patch_status(row.id(), SinkState::Restarting).await?;
+            model
+                .patch_status(row.developer_id(), SinkState::Restarting)
+                .await?;
         }
 
         // Commit

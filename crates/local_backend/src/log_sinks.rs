@@ -656,17 +656,10 @@ pub async fn rotate_webhook_secret(
         .ensure_log_streaming_allowed(identity.clone())
         .await?;
 
-    let Some(LogSinkWithId {
+    let LogSinkWithId {
         config: sink_config,
         ..
-    }) = st.application.get_log_sink_by_id(&id).await?
-    else {
-        return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-            "LogStreamDoesntExist",
-            "No log stream with the given id exists for this deployment",
-        ))
-        .into());
-    };
+    } = st.application.must_get_log_sink_by_id(&id).await?;
 
     match sink_config {
         SinkConfig::Webhook(existing_webhook_sink) => {
@@ -921,13 +914,7 @@ pub async fn get_log_stream(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::ViewIntegrations)?;
 
-    let Some(log_sink_with_id) = st.application.get_log_sink_by_id(&id).await? else {
-        return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-            "LogStreamDoesntExist",
-            "No log stream with the given id exists for this deployment",
-        ))
-        .into());
-    };
+    let log_sink_with_id = st.application.must_get_log_sink_by_id(&id).await?;
 
     let config = log_sink_to_log_stream_config(log_sink_with_id).ok_or_else(|| {
         anyhow::anyhow!(ErrorMetadata::bad_request(
@@ -1092,17 +1079,10 @@ pub async fn update_log_stream(
         .ensure_log_streaming_allowed(identity.clone())
         .await?;
 
-    let Some(LogSinkWithId {
+    let LogSinkWithId {
         config: sink_config,
         ..
-    }) = st.application.get_log_sink_by_id(&id).await?
-    else {
-        return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-            "LogStreamDoesntExist",
-            "No log stream with the given id exists for this deployment",
-        ))
-        .into());
-    };
+    } = st.application.must_get_log_sink_by_id(&id).await?;
 
     match sink_config {
         SinkConfig::Datadog(existing_config) => {
