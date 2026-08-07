@@ -70,7 +70,9 @@ async fn messages_to_confirm_replace<RT: Runtime>(
     snapshot_import: ParsedDocument<SnapshotImport>,
 ) -> anyhow::Result<(Vec<String>, bool, Vec<ImportTableCheckpoint>)> {
     let mode = snapshot_import.mode;
-    let (_, import) = executor.parse_import(snapshot_import.id()).await?;
+    let (_, import) = executor
+        .parse_import(snapshot_import.developer_id())
+        .await?;
     // Find all tables being written to.
     let mut count_by_table: BTreeMap<(ComponentPath, TableName), u64> = BTreeMap::new();
     let mut tables_missing_id_field: BTreeSet<(ComponentPath, TableName)> = BTreeSet::new();

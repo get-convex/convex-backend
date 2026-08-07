@@ -45,11 +45,10 @@ use usage_tracking::{
     StorageUsageTracker,
 };
 use value::{
-    id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
     val,
     ConvexObject,
-    ResolvedDocumentId,
+    DeveloperDocumentId,
     TableMapping,
     TabletIdAndTableNumber,
 };
@@ -72,7 +71,7 @@ pub async fn import_storage_table<RT: Runtime>(
     mut documents: impl Stream<Item = anyhow::Result<JsonValue>> + Unpin,
     storage_files: Vec<(DeveloperDocumentId, ImportStorageFileStream)>,
     usage: &FunctionUsageTracker,
-    import_id: Option<ResolvedDocumentId>,
+    import_id: Option<DeveloperDocumentId>,
     num_to_skip: u64,
     requestor: ImportRequestor,
     table_mapping_for_schema: &TableMapping,

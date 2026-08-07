@@ -146,7 +146,6 @@ use value::{
     ConvexObject,
     ConvexValue,
     IdentifierFieldName,
-    ResolvedDocumentId,
     Size,
     TableMapping,
     TableNamespace,
@@ -222,7 +221,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
     ) -> anyhow::Result<()> {
         anyhow::ensure!(snapshot_import.state == ImportState::Uploaded);
         tracing::info!("Marking snapshot import as WaitingForConfirmation");
-        let import_id = snapshot_import.id();
+        let import_id = snapshot_import.developer_id();
         match info_message_for_import(self, snapshot_import).await {
             Ok((info_message, require_manual_confirmation, new_checkpoints)) => {
                 self.database
@@ -287,7 +286,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             snapshot_import.state,
             ImportState::InProgress { .. }
         ));
-        let import_id = snapshot_import.id();
+        let import_id = snapshot_import.developer_id();
         match self.attempt_perform_import(snapshot_import).await {
             Ok((ts, num_rows_written)) => {
                 self.database
@@ -366,7 +365,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         snapshot_import: ParsedDocument<SnapshotImport>,
     ) -> anyhow::Result<(Timestamp, u64)> {
         self.fail_if_too_old(&snapshot_import)?;
-        let (initial_schemas, import) = self.parse_import(snapshot_import.id()).await?;
+        let (initial_schemas, import) = self.parse_import(snapshot_import.developer_id()).await?;
 
         let usage = FunctionUsageTracker::new();
 
@@ -378,7 +377,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             snapshot_import.mode,
             import,
             usage.clone(),
-            Some(snapshot_import.id()),
+            Some(snapshot_import.developer_id()),
             snapshot_import.requestor.clone(),
         )
         .await?;
@@ -420,7 +419,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             AuditLogInfo::SnapshotImport {
                 import_format: snapshot_import.format,
             },
-            Some(id),
+            Some(id.developer_id),
             snapshot_import.requestor.clone(),
             usage.clone(),
         )
@@ -448,7 +447,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
 
     async fn parse_import(
         &self,
-        import_id: ResolvedDocumentId,
+        import_id: DeveloperDocumentId,
     ) -> anyhow::Result<(SchemasForImport, ParsedImport)> {
         let SnapshotImport {
             object_key,
@@ -533,7 +532,7 @@ pub async fn start_stored_import<RT: Runtime>(
             },
         )
         .await?;
-    Ok(id.into())
+    Ok(id)
 }
 
 pub async fn perform_import<RT: Runtime>(
@@ -550,7 +549,6 @@ pub async fn perform_import<RT: Runtime>(
             "snapshot_import_perform",
             |tx| {
                 async {
-                    let import_id = tx.resolve_developer_id(&import_id, TableNamespace::Global)?;
                     let mut import_model = SnapshotImportModel::new(tx);
                     import_model.confirm_import(import_id).await?;
                     Ok(())
@@ -576,7 +574,6 @@ pub async fn cancel_import<RT: Runtime>(
             "snapshot_import_cancel",
             |tx| {
                 async {
-                    let import_id = tx.resolve_developer_id(&import_id, TableNamespace::Global)?;
                     let mut import_model = SnapshotImportModel::new(tx);
                     import_model.cancel_import(import_id).await?;
                     Ok(())
@@ -595,7 +592,6 @@ async fn wait_for_import_worker<RT: Runtime>(
 ) -> anyhow::Result<ParsedDocument<SnapshotImport>> {
     let snapshot_import = loop {
         let mut tx = application.begin(identity.clone()).await?;
-        let import_id = tx.resolve_developer_id(&import_id, TableNamespace::Global)?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         let snapshot_import =
             import_model
@@ -766,7 +762,7 @@ async fn import_objects<RT: Runtime>(
     mode: ImportMode,
     import: ParsedImport,
     usage: FunctionUsageTracker,
-    import_id: Option<ResolvedDocumentId>,
+    import_id: Option<DeveloperDocumentId>,
     requestor: ImportRequestor,
 ) -> anyhow::Result<(TableMapping, u64)> {
     let mut generated_schemas: BTreeMap<_, _> = import
@@ -1035,7 +1031,7 @@ async fn finalize_import<RT: Runtime>(
     mode: ImportMode,
     imported_tables: TableMapping,
     audit_log_info: AuditLogInfo,
-    import_id: Option<ResolvedDocumentId>,
+    import_id: Option<DeveloperDocumentId>,
     requestor: ImportRequestor,
     usage: FunctionUsageTracker,
 ) -> anyhow::Result<(Timestamp, u64)> {
@@ -1053,8 +1049,11 @@ async fn finalize_import<RT: Runtime>(
                 if let Some(import_id) = import_id {
                     // Only finalize the import if it's in progress.
                     let mut snapshot_import_model = SnapshotImportModel::new(tx);
-                    let snapshot_import_state =
-                        snapshot_import_model.must_get_state(import_id).await?;
+                    let snapshot_import_state = snapshot_import_model
+                        .must_get(import_id)
+                        .await?
+                        .into_value()
+                        .state;
                     match snapshot_import_state {
                         ImportState::InProgress { .. } => {},
                         // This can happen if the import was canceled or somehow retried after
@@ -1369,7 +1368,7 @@ async fn import_single_table<RT: Runtime>(
     table_id: TabletIdAndTableNumber,
     num_to_skip: u64,
     usage: FunctionUsageTracker,
-    import_id: Option<ResolvedDocumentId>,
+    import_id: Option<DeveloperDocumentId>,
     requestor: ImportRequestor,
 ) -> anyhow::Result<u64> {
     if let Some(import_id) = import_id {
@@ -1553,7 +1552,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     component_id: ComponentId,
     table_name: &TableName,
     table_number: Option<TableNumber>,
-    import_id: Option<ResolvedDocumentId>,
+    import_id: Option<DeveloperDocumentId>,
 ) -> anyhow::Result<(TabletIdAndTableNumber, u64)> {
     anyhow::ensure!(
         table_name == &FILE_STORAGE_TABLE || !table_name.is_system(),
@@ -1663,7 +1662,7 @@ async fn create_empty_table<RT: Runtime>(
     component_id: ComponentId,
     table_name: &TableName,
     table_number: Option<TableNumber>,
-    import_id: Option<ResolvedDocumentId>,
+    import_id: Option<DeveloperDocumentId>,
     display_table_name: &TableName,
     component_path: &ComponentPath,
 ) -> anyhow::Result<TabletIdAndTableNumber> {
