@@ -227,8 +227,10 @@ export type {
   DataModelFromSchemaDefinition,
   SystemDataModel,
   SystemTableNames,
+  DocValidator,
+  SystemFieldValidators,
 } from "./schema.js";
-export { defineTable, defineSchema } from "./schema.js";
+export { defineTable, defineSchema, docValidator } from "./schema.js";
 
 export type {
   VectorSearch,

@@ -1,7 +1,7 @@
 import { mutation } from "./_generated/server.js";
 import { query } from "./_generated/server.js";
 import { Doc } from "./_generated/dataModel.js";
-import { messageValidator } from "./schema.js";
+import schema, { messageValidator } from "./schema.js";
 import { v } from "convex/values";
 
 export const list = query({
@@ -23,21 +23,16 @@ export const update = mutation({
     .omit("author")
     .partial()
     .extend({
-      id: v.id("messages"),
+      id: schema.id("messages"),
     }),
   handler: async (ctx, args) => {
     await ctx.db.patch("messages", args.id, args);
   },
 });
 
-const messageDoc = messageValidator.extend({
-  _id: v.id("messages"),
-  _creationTime: v.number(),
-});
-
 export const get = query({
-  args: { id: v.id("messages") },
-  returns: v.nullable(messageDoc),
+  args: { id: schema.id("messages") },
+  returns: v.nullable(schema.doc("messages")),
   handler: async (ctx, { id }) => {
     return await ctx.db.get("messages", id);
   },

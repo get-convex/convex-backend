@@ -460,16 +460,11 @@ example of using validators.
 ```ts
 import schema from "./schema";
 
-const messageDoc = schema.tables.messages.validator.extend({
-  _id: v.id("messages),
-  _creationTime: v.number(),
-});
-
 export const getLatestMessage = query({
   args: {},
-  returns: v.nullable(messageDoc),
+  returns: v.nullable(schema.doc("messages")),
   handler: async (ctx) => {
-    return await ctx.db.query("messages").order("desc).first();
+    return await ctx.db.query("messages").order("desc").first();
   },
 });
 ```

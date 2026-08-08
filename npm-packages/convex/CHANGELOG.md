@@ -1,7 +1,15 @@
 # Changelog
 
+## Unreleased
+- `schema.doc(tableName)` returns the validator for whole documents of a table:
+  the table's own validator with the `_id` and `_creationTime` system fields
+  added (to each member, for tables defined with a union).
+  `schema.id(tableName)` is `v.id(tableName)` restricted to the table names in
+  the schema. `docValidator(tableName, tableDefinition)` from `convex/server`
+  does the same as `schema.doc` when you only have a table definition.
+
 ## 1.43.0
-- Added new `npx convex deployment usage` and 
+- Added new `npx convex deployment usage` and
   `npx convex deployment usage-limits` CLI commands to
   view a deployment’s current resource usage, and
   view or edit deployment usage limits.
@@ -16,7 +24,7 @@
   replaced with a Int64 value at commit time that is guaranteed
   to strictly follow commit order, unlike the `_creationTime` system field.
   This low-level primitive is helpful for advanced use cases such as implementing
-  efficient FIFO queues. 
+  efficient FIFO queues.
 - Added a new `v.commitTs()` validator that accepts either the
   upcoming commit timestamp placeholder, or a Int64 commit timestamp.
 - The Convex CLI is now able to find the right TypeScript compiler
