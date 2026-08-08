@@ -16,7 +16,10 @@ import {
 } from "./lib/mcp/requestContext.js";
 import { mcpTool, convexTools, ConvexTool } from "./lib/mcp/tools/index.js";
 import { Mutex } from "./lib/utils/mutex.js";
-import { initializeBigBrainAuth } from "./lib/deploymentSelection.js";
+import {
+  getDeploymentSelection,
+  initializeBigBrainAuth,
+} from "./lib/deploymentSelection.js";
 
 const allToolNames = convexTools.map((t) => t.name).sort();
 
@@ -115,14 +118,26 @@ function makeServer(options: McpOptions) {
       const ctx = new RequestContext(options);
       await initializeBigBrainAuth(ctx, options);
       try {
-        const authorized = await checkAuthorization(ctx, false);
-        if (!authorized) {
-          await ctx.crash({
-            exitCode: 1,
-            errorType: "fatal",
-            printedMessage:
-              "Not Authorized: Run `npx convex dev` to login to your Convex project.",
-          });
+        // Deployments reached directly via `--url`/`--admin-key` or the
+        // `CONVEX_SELF_HOSTED_URL`/`CONVEX_SELF_HOSTED_ADMIN_KEY` env vars are
+        // authenticated by their admin key alone; they have no Convex Cloud
+        // account to check authorization against, so only require the Big
+        // Brain authorization check for deployment selections that actually
+        // depend on it.
+        const deploymentSelection = await getDeploymentSelection(ctx, options);
+        const needsBigBrainAuthorization =
+          deploymentSelection.kind !== "existingDeployment" ||
+          deploymentSelection.deploymentToActOn.source === "deployKey";
+        if (needsBigBrainAuthorization) {
+          const authorized = await checkAuthorization(ctx, false);
+          if (!authorized) {
+            await ctx.crash({
+              exitCode: 1,
+              errorType: "fatal",
+              printedMessage:
+                "Not Authorized: Run `npx convex dev` to login to your Convex project.",
+            });
+          }
         }
         if (!request.params.arguments) {
           await ctx.crash({
