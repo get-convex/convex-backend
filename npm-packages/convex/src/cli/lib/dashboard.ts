@@ -62,3 +62,22 @@ export function projectDashboardUrl(team: string, project: string) {
 export function teamDashboardUrl(team: string) {
   return `${DASHBOARD_HOST}/t/${team}`;
 }
+
+/**
+ * Derive the self-hosted dashboard URL from the backend deployment URL.
+ * The self-hosted dashboard runs on port 6791 by default (same host as the
+ * backend which is typically on port 3210).
+ */
+export function selfHostedDashboardUrl(
+  deploymentUrl: string,
+  page: string,
+): string {
+  try {
+    const url = new URL(deploymentUrl);
+    url.port = "6791";
+    return `${url.origin}${page}`;
+  } catch {
+    // If URL parsing fails, fall back to a reasonable guess
+    return `http://localhost:6791${page}`;
+  }
+}
