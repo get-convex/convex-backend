@@ -91,9 +91,25 @@ const unusedTimerId = () => {
   }
 };
 
+// Implementation of https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask
+// V8 drains its native microtask queue at the isolate's explicit checkpoints,
+// the same way Promise reaction jobs run, so unlike the timers above this
+// needs no syscall and is deterministic in every environment. Dispatching via
+// a resolved Promise means an exception thrown by the callback surfaces as an
+// unhandled rejection rather than a reported exception; both fail the UDF.
+const queueMicrotask = (callback: (...args: any[]) => void) => {
+  if (typeof callback !== "function") {
+    throw new TypeError(
+      "The callback provided as parameter 1 is not a function",
+    );
+  }
+  void Promise.resolve().then(() => callback());
+};
+
 export const setupTimers = (global) => {
   global.setTimeout = setTimeout;
   global.setInterval = setInterval;
   global.clearTimeout = clearTimeout;
   global.clearInterval = clearInterval;
+  global.queueMicrotask = queueMicrotask;
 };
