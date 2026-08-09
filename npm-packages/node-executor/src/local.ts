@@ -8,6 +8,7 @@ import express, { Request, Response } from "express";
 
 const DEFAULT_PORT = 3002;
 const PARENT_CHECK_INTERVAL_MS = 1_000;
+const PARENT_DEATH_FORCE_EXIT_TIMEOUT_MS = 1_000;
 
 export async function startServer(
   listenTarget: number | { path: string },
@@ -64,7 +65,15 @@ export async function startServer(
     const parentCheck = setInterval(() => {
       if (process.ppid !== parentPid) {
         clearInterval(parentCheck);
-        server.close(() => process.exit(0));
+        const forceExit = setTimeout(
+          () => process.exit(0),
+          PARENT_DEATH_FORCE_EXIT_TIMEOUT_MS,
+        );
+        forceExit.unref();
+        server.close(() => {
+          clearTimeout(forceExit);
+          process.exit(0);
+        });
       }
     }, PARENT_CHECK_INTERVAL_MS);
     parentCheck.unref();
