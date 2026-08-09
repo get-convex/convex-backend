@@ -7,11 +7,13 @@ import http from "node:http";
 import express, { Request, Response } from "express";
 
 const DEFAULT_PORT = 3002;
+const PARENT_CHECK_INTERVAL_MS = 1_000;
 
-async function startServer(
+export async function startServer(
   listenTarget: number | { path: string },
   debug: boolean,
   tempdir: string,
+  parentPid?: number,
 ) {
   setDebugLogging(debug);
   const app = express();
@@ -58,6 +60,15 @@ async function startServer(
   });
 
   const server = http.createServer(app);
+  if (parentPid !== undefined) {
+    const parentCheck = setInterval(() => {
+      if (process.ppid !== parentPid) {
+        clearInterval(parentCheck);
+        server.close(() => process.exit(0));
+      }
+    }, PARENT_CHECK_INTERVAL_MS);
+    parentCheck.unref();
+  }
   server.listen(listenTarget, () => {
     const addr = server.address();
     const addrStr =
@@ -90,12 +101,21 @@ program
     "temporary directory to use for downloading code and dependencies",
     "",
   )
+  .option(
+    "--parent-pid <pid>",
+    "exit when this parent process no longer owns the executor",
+  )
   .action(async (options) => {
     const listenTarget =
       options.ipcPath !== undefined
         ? { path: options.ipcPath }
         : parseInt(options.port, 10);
-    await startServer(listenTarget, options.debug, options.tempdir);
+    await startServer(
+      listenTarget,
+      options.debug,
+      options.tempdir,
+      options.parentPid === undefined ? undefined : parseInt(options.parentPid, 10),
+    );
   });
 
 program.parseAsync(process.argv);
