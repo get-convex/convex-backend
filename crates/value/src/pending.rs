@@ -59,13 +59,13 @@ pub enum PendingValue {
     /// that building nested values doesn't recompute them at every level.
     Object {
         fields: BTreeMap<FieldName, PendingValue>,
-        size: usize,
-        nesting: usize,
+        size: u32,
+        nesting: u8,
     },
     Array {
         values: Vec<PendingValue>,
-        size: usize,
-        nesting: usize,
+        size: u32,
+        nesting: u8,
     },
 }
 
@@ -176,8 +176,8 @@ impl PendingValue {
             check_nesting(nesting)?;
             return Ok(Self::Object {
                 fields,
-                size,
-                nesting,
+                size: size as u32,
+                nesting: nesting as u8,
             });
         }
         let concrete: BTreeMap<FieldName, ConvexValue> = fields
@@ -203,8 +203,8 @@ impl PendingValue {
             check_nesting(nesting)?;
             return Ok(Self::Array {
                 values,
-                size,
-                nesting,
+                size: size as u32,
+                nesting: nesting as u8,
             });
         }
         let concrete: Vec<ConvexValue> = values
@@ -326,7 +326,7 @@ impl Size for PendingValue {
         match self {
             Self::Concrete(value) => value.size(),
             Self::CommitTs => 1 + 8,
-            Self::Object { size, .. } | Self::Array { size, .. } => *size,
+            Self::Object { size, .. } | Self::Array { size, .. } => *size as usize,
         }
     }
 
@@ -334,7 +334,7 @@ impl Size for PendingValue {
         match self {
             Self::Concrete(value) => value.nesting(),
             Self::CommitTs => 0,
-            Self::Object { nesting, .. } | Self::Array { nesting, .. } => *nesting,
+            Self::Object { nesting, .. } | Self::Array { nesting, .. } => *nesting as usize,
         }
     }
 }
