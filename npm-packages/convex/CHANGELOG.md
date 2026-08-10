@@ -488,6 +488,8 @@
   confirmation before deleting large indexes. This change is helpful for
   avoiding situations where an index is accidentally deleted and backfilling it
   takes a long time.
+- You can use `v.nullable` as a convenient alias for `v.union(v.null(), ...)`
+  when defining validators.
 
 ## 1.29.1
 
