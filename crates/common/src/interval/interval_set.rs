@@ -195,6 +195,10 @@ impl IntervalSet {
                         }
                     }
                 }
+                if merged_interval == Interval::all() {
+                    *self = IntervalSet::All;
+                    return;
+                }
                 cursor
                     .insert_after(merged_interval.start, merged_interval.end)
                     .expect("invariant broken?");
