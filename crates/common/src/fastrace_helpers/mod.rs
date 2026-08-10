@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::BTreeMap,
     future::Future,
     hash::{
@@ -254,23 +253,6 @@ pub fn initialize_root_from_parent(span_name: &str, encoded_parent: EncodedSpan)
         return Span::root(span_name.to_string(), ctx);
     }
     Span::noop()
-}
-
-/// Creates a span linked to all of `parents`, or a noop span if the iterator is
-/// empty. The first parent is the primary parent.
-pub fn root_span_with_parents(
-    span_name: impl Into<Cow<'static, str>>,
-    parents: impl IntoIterator<Item = SpanContext>,
-) -> Span {
-    let mut parents = parents.into_iter();
-    let Some(first_parent) = parents.next() else {
-        return Span::noop();
-    };
-    let span = Span::root(span_name, first_parent);
-    for other_parent in parents {
-        span.add_link(other_parent);
-    }
-    span
 }
 
 pub trait FutureExt: Sized {

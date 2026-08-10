@@ -32,7 +32,10 @@ use common::{
         recapture_stacktrace,
         report_error,
     },
-    fastrace_helpers::root_span_with_parents,
+    fastrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     knobs::{
         COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES,
         COMMITTER_QUEUE_SIZE,
@@ -160,7 +163,7 @@ enum PersistenceWrite {
         pending_write: PendingWriteHandle,
         commit_timer: StatusTimer,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
-        parent_trace: Option<SpanContext>,
+        parent_trace: EncodedSpan,
         commit_id: usize,
         write_bytes: u64,
         index_key_writes: IndexKeyWrites,
@@ -332,12 +335,15 @@ impl<RT: Runtime> Committer<RT> {
                             index_key_writes,
                             ..
                         } => {
-                            let publish_commit_span = root_span_with_parents(
+                            let publish_commit_span = initialize_root_from_parent(
                                 "Committer::publish_commit",
-                                parent_trace.into_iter().chain(
-                                    committer_span.as_ref().and_then(SpanContext::from_span),
-                                ),
+                                parent_trace,
                             );
+                            if let Some(root) = &committer_span
+                                && let Some(ctx) = SpanContext::from_span(root)
+                            {
+                                publish_commit_span.add_link(ctx);
+                            }
                             let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
                             self.publish_commit(pending_write, write_bytes, index_key_writes);
@@ -404,14 +410,9 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         }) => {
-                            let committer_span_ref = committer_span.get_or_insert_with(|| {
-                                span_commit_id = Some(commit_id);
-                                Span::root("commit", SpanContext::random())
-                            });
-                            let start_commit_span = root_span_with_parents(
+                            let start_commit_span = initialize_root_from_parent(
                                 "handle_commit_message",
-                                parent_trace.into_iter()
-                                    .chain(SpanContext::from_span(committer_span_ref)),
+                                parent_trace.clone(),
                             )
                             .with_property(|| {
                                 (
@@ -419,6 +420,13 @@ impl<RT: Runtime> Committer<RT> {
                                     format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0),
                                 )
                             });
+                            let committer_span_ref = committer_span.get_or_insert_with(|| {
+                                span_commit_id = Some(commit_id);
+                                Span::root("commit", SpanContext::random())
+                            });
+                            if let Some(ctx) = SpanContext::from_span(committer_span_ref) {
+                                start_commit_span.add_link(ctx);
+                            }
                             let _guard = start_commit_span.set_local_parent();
                             drop(queue_timer);
                             if let Some(persistence_write_future) = self.start_commit(
@@ -987,7 +995,7 @@ impl<RT: Runtime> Committer<RT> {
         transaction: FinalTransaction,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
-        parent_trace: Option<SpanContext>,
+        parent_trace: EncodedSpan,
         commit_id: usize,
         root_span: &Span,
     ) -> Option<BoxFuture<'static, anyhow::Result<PersistenceWrite>>> {
@@ -1025,13 +1033,14 @@ impl<RT: Runtime> Committer<RT> {
             },
         };
 
+        // necessary because this value is moved
+        let parent_trace_copy = parent_trace.clone();
         let write_batcher = self.write_batcher.clone();
-        let outer_span = root_span_with_parents(
-            "Committer::persistence_writes_future",
-            parent_trace
-                .into_iter()
-                .chain(SpanContext::from_span(root_span)),
-        );
+        let outer_span =
+            initialize_root_from_parent("Committer::persistence_writes_future", parent_trace);
+        if let Some(ctx) = SpanContext::from_span(root_span) {
+            outer_span.add_link(ctx);
+        }
         let pause_client = self.runtime.pause_client();
         let virtual_system_mapping = self.virtual_system_mapping.clone();
         let commit_ts = pending_write.must_commit_ts();
@@ -1063,7 +1072,7 @@ impl<RT: Runtime> Committer<RT> {
                     pending_write,
                     commit_timer,
                     result,
-                    parent_trace,
+                    parent_trace: parent_trace_copy,
                     commit_id,
                     write_bytes,
                     index_key_writes,
@@ -1314,7 +1323,7 @@ impl CommitterClient {
             transaction,
             result: tx,
             write_source,
-            parent_trace: SpanContext::current_local_parent(),
+            parent_trace: EncodedSpan::from_parent(),
         };
 
         // Waits until the committer has space to send a message, with a timeout.
@@ -1407,7 +1416,7 @@ enum CommitterMessage {
         transaction: FinalTransaction,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
-        parent_trace: Option<SpanContext>,
+        parent_trace: EncodedSpan,
     },
     LoadIndexesIntoMemory {
         tables: BTreeSet<TableName>,
