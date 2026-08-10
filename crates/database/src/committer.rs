@@ -863,7 +863,7 @@ impl<RT: Runtime> Committer<RT> {
         if let Some(conflicting_read) = self.log.is_stale(reads, reads_ts, commit_ts)? {
             return Ok(Some(conflicting_read));
         }
-        if let Some(conflicting_read) = self.pending_writes.is_stale(reads, reads_ts, commit_ts)? {
+        if let Some(conflicting_read) = self.pending_writes.is_stale(reads)? {
             return Ok(Some(conflicting_read));
         }
         Ok(None)

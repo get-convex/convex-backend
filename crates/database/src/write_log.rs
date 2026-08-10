@@ -912,8 +912,6 @@ impl PendingWrites {
 
     pub fn iter(
         &self,
-        from: Timestamp,
-        to: Timestamp,
     ) -> impl Iterator<
         Item = (
             &Timestamp,
@@ -922,17 +920,15 @@ impl PendingWrites {
         ),
     > {
         self.by_ts
-            .range(from..=to)
+            .iter()
             .map(|(ts, (w, source, _snapshot))| (ts, w.iter(), source))
     }
 
     pub fn is_stale(
         &self,
         reads: &ReadSet,
-        reads_ts: Timestamp,
-        ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        Ok(reads.writes_overlap_docs(self.iter(reads_ts.succ()?, ts)))
+        Ok(reads.writes_overlap_docs(self.iter()))
     }
 
     pub fn pop_first(
