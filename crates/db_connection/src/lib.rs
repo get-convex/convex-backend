@@ -66,9 +66,7 @@ pub fn persistence_seed<RT: Runtime>(
             db_spec: db_spec.to_owned(),
         }),
         DbDriverTag::Postgres(version)
-        | DbDriverTag::PostgresMultitenant(version)
         | DbDriverTag::MySql(version)
-        | DbDriverTag::MySqlAwsIam(version)
         | DbDriverTag::MySqlMultitenant(version) => {
             let args = persistence_args_from_cluster_url(
                 deployment_name,
