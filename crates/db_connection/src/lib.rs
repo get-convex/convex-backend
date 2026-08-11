@@ -21,7 +21,6 @@ use common::{
 use mysql::{
     ConvexMySqlPool,
     MySqlOptions,
-    MySqlPersistence,
     MySqlReaderOptions,
 };
 use postgres::{
@@ -165,9 +164,8 @@ pub async fn connect_persistence<RT: Runtime>(
             db_name,
             options,
         } => {
-            let persistence = Arc::new(
-                MySqlPersistence::new(pool, db_name.clone(), options, shutdown_signal).await?,
-            );
+            let persistence =
+                mysql::connect_persistence(pool, db_name.clone(), options, shutdown_signal).await?;
             tracing::info!("Connected to MySQL database: {}", db_name);
             Ok(persistence)
         },
@@ -223,9 +221,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                 multitenant: options.multitenant,
                 instance_name: options.instance_name,
             };
-            Ok(Arc::new(MySqlPersistence::new_reader(
-                pool, db_name, options,
-            )))
+            mysql::connect_persistence_reader(pool, db_name, options)
         },
     }
 }
@@ -249,7 +245,7 @@ pub async fn set_read_only<RT: Runtime>(
             db_name,
             options,
         } => {
-            MySqlPersistence::set_read_only(pool, db_name, options, read_only).await?;
+            mysql::set_persistence_read_only(pool, db_name, options, read_only).await?;
             Ok(())
         },
         _ => anyhow::bail!("unsupported persistence type: {db:?}"),

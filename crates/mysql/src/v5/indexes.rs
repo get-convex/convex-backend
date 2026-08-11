@@ -14,15 +14,23 @@ use common::{
     sha256::Sha256,
 };
 
-use crate::{
-    chunks::smart_chunks,
-    connection::MySqlTransaction,
+pub(crate) use super::sql::{
+    index_point_query,
+    index_query,
+    to_sql_bounds,
+    SqlKey,
+};
+use super::{
     internal_doc_id_param,
     internal_id_param,
     parse_row,
     sql,
-    MySqlPersistence,
-    MySqlReader,
+    Persistence,
+    Reader,
+};
+use crate::{
+    chunks::smart_chunks,
+    connection::MySqlTransaction,
 };
 
 /// Writes one chunk of index entries: a single insert into the `indexes` table.
@@ -54,13 +62,13 @@ pub(crate) async fn write_index_chunk(
 
 /// Loads a chunk of index entries for retention.
 pub(crate) async fn load_index_chunk<RT: Runtime>(
-    p: &MySqlPersistence<RT>,
+    p: &Persistence<RT>,
     cursor: Option<IndexEntry>,
     chunk_size: usize,
 ) -> anyhow::Result<Vec<IndexEntry>> {
     let mut client = p.read_pool.acquire("load_index_chunk", &p.db_name).await?;
     let stmt = sql::load_indexes_page(p.multitenant);
-    let mut params = MySqlReader::<RT>::_index_cursor_params(cursor.as_ref());
+    let mut params = Reader::<RT>::_index_cursor_params(cursor.as_ref());
     if p.multitenant {
         params.push(p.instance_name.to_string().into());
     }
@@ -72,7 +80,7 @@ pub(crate) async fn load_index_chunk<RT: Runtime>(
 
 /// Deletes the given expired index entries.
 pub(crate) async fn delete_index_entries<RT: Runtime>(
-    p: &MySqlPersistence<RT>,
+    p: &Persistence<RT>,
     mut expired_entries: Vec<IndexEntry>,
 ) -> anyhow::Result<usize> {
     let multitenant = p.multitenant;
@@ -103,7 +111,7 @@ pub(crate) async fn delete_index_entries<RT: Runtime>(
                     chunk.len() * (sql::DELETE_INDEX_COLUMN_COUNT + (multitenant as usize)),
                 );
                 for index_entry in chunk.iter() {
-                    MySqlReader::<RT>::_index_delete_params(&mut params, index_entry);
+                    Reader::<RT>::_index_delete_params(&mut params, index_entry);
                     if multitenant {
                         params.push(instance_name.clone());
                     }
