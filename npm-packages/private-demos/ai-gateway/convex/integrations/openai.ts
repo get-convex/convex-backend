@@ -9,7 +9,7 @@ import {
 function createOpenAIClient(gatewayUrl: string): OpenAI {
   return new OpenAI({
     baseURL: `${gatewayUrl}/v1`,
-    apiKey: () => getServiceToken("ai"),
+    apiKey: () => getServiceToken("ai-gateway"),
   });
 }
 

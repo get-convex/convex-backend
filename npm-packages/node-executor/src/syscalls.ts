@@ -167,7 +167,7 @@ const storageGetSchema = z.object({
 });
 
 const createServiceTokenSchema = z.object({
-  service: z.literal("ai"),
+  service: z.literal("ai-gateway"),
   version: z.string(),
 });
 

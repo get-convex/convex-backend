@@ -64,9 +64,9 @@ export function setupActionCalls(requestId: string) {
  * @param service - The service the credential may access.
  * @internal
  */
-export async function getServiceToken(service: "ai"): Promise<string> {
+export async function getServiceToken(service: "ai-gateway"): Promise<string> {
   validateArg(service, 1, "getServiceToken", "service");
-  if (service !== "ai") {
+  if (service !== "ai-gateway") {
     throw new Error(`Unsupported service "${String(service)}"`);
   }
   return await performAsyncSyscall("1.0/createServiceToken", {

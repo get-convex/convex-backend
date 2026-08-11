@@ -14,7 +14,7 @@ export async function listModels(
   const anthropic = new Anthropic({
     baseURL: gatewayUrl,
     apiKey: null,
-    authToken: await getServiceToken("ai"),
+    authToken: await getServiceToken("ai-gateway"),
   });
   const models = await anthropic.models.list();
   return summarizeModels({

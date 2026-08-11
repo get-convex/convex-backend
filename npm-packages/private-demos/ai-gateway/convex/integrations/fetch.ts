@@ -9,7 +9,7 @@ import {
 export async function listModels(
   gatewayUrl = LOCAL_GATEWAY_URL,
 ): Promise<ModelListSummary> {
-  const token = await getServiceToken("ai");
+  const token = await getServiceToken("ai-gateway");
   const response = await fetch(`${gatewayUrl}/v1/models`, {
     headers: {
       Authorization: `Bearer ${token}`,

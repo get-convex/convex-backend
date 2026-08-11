@@ -175,19 +175,10 @@ impl<RT: Runtime> TaskExecutor<RT> {
 
     #[convex_macro::instrument_future]
     async fn async_syscall_createServiceToken(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
-        #[derive(Deserialize)]
-        enum Service {
-            #[serde(rename = "ai")]
-            Ai,
-        }
-        #[derive(Deserialize)]
-        struct CreateServiceTokenArgs {
-            service: Service,
-        }
         // Claims are chosen entirely by the backend per service; the caller only
         // names the service.
         let CreateServiceTokenArgs {
-            service: Service::Ai,
+            service: Service::AiGateway,
         } = with_argument_error("createServiceToken", || Ok(serde_json::from_value(args)?))?;
         let token = self.action_callbacks.issue_llm_gateway_jwt().await?;
         Ok(JsonValue::String(token))
@@ -544,6 +535,18 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .await?;
         Ok(serde_json::to_value(String::from(handle))?)
     }
+}
+
+/// The service a `1.0/createServiceToken` syscall names.
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+enum Service {
+    #[serde(rename = "ai-gateway")]
+    AiGateway,
+}
+
+#[derive(Deserialize)]
+struct CreateServiceTokenArgs {
+    service: Service,
 }
 
 pub fn parse_name_or_reference(
