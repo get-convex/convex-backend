@@ -251,7 +251,7 @@ impl Writes {
         Self::record_reads_for_write(bootstrap_tables, reads, document_id.tablet_id)?;
 
         let value_size = match &new_document {
-            Some(document) => document.to_document_with_max_commit_ts()?.size(),
+            Some(document) => document.size_and_nesting().0,
             None => 0,
         };
 
