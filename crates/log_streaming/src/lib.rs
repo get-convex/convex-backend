@@ -101,7 +101,7 @@ use crate::sinks::{
 #[derive(Clone)]
 pub struct LogManagerClient {
     handle: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    event_sender: mpsc::Sender<LogEvent>,
+    event_sender: mpsc::Sender<Arc<LogEvent>>,
     active_sinks_count: Arc<AtomicUsize>,
     entitlement_enabled: Arc<AtomicBool>,
 }
@@ -112,7 +112,7 @@ impl LogManagerClient {
         let mut num_left = logs.len();
         let total = logs.len();
         for log in logs.into_iter() {
-            match self.event_sender.try_send(log) {
+            match self.event_sender.try_send(Arc::new(log)) {
                 Err(mpsc::error::TrySendError::Full(_)) => {
                     dropped += 1;
                 },
@@ -229,10 +229,10 @@ pub struct LogManager<RT: Runtime> {
     database: Database<RT>,
     fetch_client: Arc<dyn FetchClient>,
     sinks: Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
-    event_receiver: mpsc::Receiver<LogEvent>,
+    event_receiver: mpsc::Receiver<Arc<LogEvent>>,
     /// Cloned sender for feeding log events back into the pipeline (e.g.,
     /// LogStreamEgress events emitted by sinks).
-    event_sender: mpsc::Sender<LogEvent>,
+    event_sender: mpsc::Sender<Arc<LogEvent>>,
     instance_name: String,
     deployment_region: Option<String>,
     /// How many sinks are active right now?
@@ -358,41 +358,32 @@ impl<RT: Runtime> LogManager<RT> {
     /// This can just as easily be moved to sinks if required.
     async fn log_event_listener(
         runtime: &RT,
-        rx: &mut mpsc::Receiver<LogEvent>,
+        rx: &mut mpsc::Receiver<Arc<LogEvent>>,
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
     ) -> anyhow::Result<!> {
         loop {
-            // Wait aggregation interval
-            // TODO: look into mpsc implementations that allow us to check if the channel is
-            // full so we don't need to sleep wastefully here.
-            runtime
-                .wait(Duration::from_millis(
-                    *knobs::LOG_MANAGER_AGGREGATION_INTERVAL_MILLIS,
-                ))
-                .await;
-
-            // Drain the receive buffer up until the max buffer size or until buffer is
-            // empty
+            // Accumulate events as they arrive until the batch is full or the
+            // aggregation interval passes, whichever comes first.
+            let mut deadline = runtime.wait(Duration::from_millis(
+                *knobs::LOG_MANAGER_AGGREGATION_INTERVAL_MILLIS,
+            ));
+            let max_batch_size = *knobs::LOG_MANAGER_EVENT_RECV_BUFFER_SIZE;
             let mut drained_events = vec![];
-            let mut disconnected = false;
-
-            let curr_buffer_size = *knobs::LOG_MANAGER_EVENT_RECV_BUFFER_SIZE;
-            while drained_events.len() < curr_buffer_size {
-                match rx.try_recv() {
-                    Err(mpsc::error::TryRecvError::Empty) => break,
-                    Err(mpsc::error::TryRecvError::Disconnected) => {
-                        disconnected = true;
-                        break;
+            while drained_events.len() < max_batch_size {
+                let limit = max_batch_size - drained_events.len();
+                let recv = rx.recv_many(&mut drained_events, limit).fuse();
+                pin_mut!(recv);
+                select_biased! {
+                    num_received = recv => {
+                        if num_received == 0 {
+                            anyhow::bail!("log manager receive channel closed");
+                        }
                     },
-                    Ok(event) => {
-                        drained_events.push(Arc::new(event));
-                    },
+                    _ = deadline => break,
                 }
             }
 
-            if disconnected {
-                anyhow::bail!("log manager receive channel closed");
-            } else if !drained_events.is_empty() {
+            if !drained_events.is_empty() {
                 // Route events to sinks
                 metrics::log_manager_logs_received(drained_events.len());
                 Self::route_event_batch(drained_events, sinks)?;
@@ -750,7 +741,7 @@ impl<RT: Runtime> LogManager<RT> {
     /// `LogStreamEgress` event, and reports billing usage.
     async fn egress_emission_worker(
         runtime: &RT,
-        event_sender: &mpsc::Sender<LogEvent>,
+        event_sender: &mpsc::Sender<Arc<LogEvent>>,
         egress_counter: &EgressCounter,
         usage_counter: &UsageCounter,
     ) -> anyhow::Result<!> {
@@ -759,10 +750,10 @@ impl<RT: Runtime> LogManager<RT> {
             let egress_bytes = egress_counter.swap(0, Ordering::Relaxed);
             if egress_bytes > 0 {
                 // Emit log stream event
-                let _ = event_sender.try_send(LogEvent {
+                let _ = event_sender.try_send(Arc::new(LogEvent {
                     timestamp: runtime.unix_timestamp(),
                     event: StructuredLogEvent::LogStreamEgress { egress_bytes },
-                });
+                }));
 
                 // Report billing usage
                 let usage_tracker = usage_tracking::FunctionUsageTracker::new();
