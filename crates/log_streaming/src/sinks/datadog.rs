@@ -19,6 +19,7 @@ use common::{
         LogEvent,
         LogEventFormatVersion,
         LogTopic,
+        StructuredLogEvent,
     },
     runtime::Runtime,
 };
@@ -31,7 +32,10 @@ use reqwest::header::{
     HeaderValue,
 };
 use serde::Serialize;
-use serde_json::Value as JsonValue;
+use serde_json::{
+    value::RawValue,
+    Value as JsonValue,
+};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -45,7 +49,7 @@ use crate::{
         },
         utils::{
             self,
-            build_event_batches,
+            build_sized_batches,
             EgressCounter,
             SinkFilter,
         },
@@ -102,6 +106,15 @@ impl<'a> DatadogLogEvent<'a> {
             convex: deployment_metadata,
         })
     }
+}
+
+/// A log event serialized to its JSON object bytes, ready to be packed into a
+/// batch payload.
+struct SerializedEvent {
+    json: Box<RawValue>,
+    /// Whether the underlying event is a `LogStreamEgress` event, which is
+    /// excluded from egress billing.
+    is_egress: bool,
 }
 
 pub(crate) struct DatadogSink<RT: Runtime> {
@@ -177,20 +190,15 @@ impl<RT: Runtime> DatadogSink<RT> {
                     return;
                 },
                 Some(ev) => {
-                    // Split events into batches
-                    let batches =
-                        build_event_batches(ev, consts::DD_SINK_MAX_LOGS_PER_BATCH, &self.filter);
-
-                    // Process each batch and send to Datadog
-                    for batch in batches {
-                        let track_egress = utils::batch_has_non_egress_events(&batch);
-                        match self.process_events(batch, track_egress).await {
-                            Ok(()) => {
-                                self.backoff.reset();
-                                self.failure_reporter.reset();
-                            },
-                            Err(e) => self.failure_reporter.record_failure(e).await,
-                        }
+                    let events: Vec<_> = ev
+                        .into_iter()
+                        .filter(|event| self.filter.allows(event))
+                        .collect();
+                    if events.is_empty() {
+                        continue;
+                    }
+                    if let Err(e) = self.process_events(events).await {
+                        self.failure_reporter.record_failure(e).await;
                     }
                 },
             }
@@ -201,28 +209,26 @@ impl<RT: Runtime> DatadogSink<RT> {
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
         let verification_event = LogEvent::default_for_verification(&self.runtime)?;
         let deployment_metadata = self.deployment_metadata.lock().clone();
-        let payload = DatadogLogEvent::new(
+        let event = DatadogLogEvent::new(
             verification_event,
             &self.metadata,
             self.log_event_format,
             &deployment_metadata,
         )?;
-        self.send_batch(vec![payload], true, false).await?;
+        let event_bytes = serde_json::value::to_raw_value(&event)?;
+        self.send_batch(vec![&event_bytes], true, false).await?;
 
         Ok(())
     }
 
     async fn send_batch(
         &mut self,
-        batch: Vec<DatadogLogEvent<'_>>,
+        events: Vec<&RawValue>,
         is_verification: bool,
         track_egress: bool,
     ) -> anyhow::Result<()> {
-        let mut batch_json: Vec<JsonValue> = vec![];
-        for ev in batch {
-            batch_json.push(serde_json::to_value(ev)?);
-        }
-        let payload = JsonValue::Array(batch_json);
+        let payload = Bytes::from(serde_json::to_vec(&events)?);
+        drop(events);
         let header_map = HeaderMap::from_iter([
             (
                 HeaderName::from_bytes(DD_API_KEY_HEADER.as_bytes())?,
@@ -230,7 +236,6 @@ impl<RT: Runtime> DatadogSink<RT> {
             ),
             (CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE),
         ]);
-        let payload = Bytes::from(serde_json::to_vec(&payload)?);
 
         // Make request in a loop that retries on transient errors
         let mut last_failure = None;
@@ -281,38 +286,62 @@ impl<RT: Runtime> DatadogSink<RT> {
         ))
     }
 
-    async fn process_events(
-        &mut self,
-        events: Vec<Arc<LogEvent>>,
-        track_egress: bool,
-    ) -> anyhow::Result<()> {
+    /// Serialize a drain's worth of events, pack them into batches within the
+    /// entry and byte budgets, and send each batch. Send failures are recorded
+    /// per batch so one failed batch doesn't drop the rest of the drain; the
+    /// returned error covers only serialization failures.
+    async fn process_events(&mut self, events: Vec<Arc<LogEvent>>) -> anyhow::Result<()> {
         let log_event_format_version = match self.log_event_format {
             LogEventFormatVersion::V1 => "1",
             LogEventFormatVersion::V2 => "2",
         };
         crate::metrics::datadog_sink_logs_received(events.len(), log_event_format_version);
 
-        let mut values_to_send = vec![];
+        let mut serialized_events = vec![];
         let deployment_metadata = self.deployment_metadata.lock().clone();
         for event in events {
-            match DatadogLogEvent::new(
+            let is_egress = matches!(event.event, StructuredLogEvent::LogStreamEgress { .. });
+            let dd_event = DatadogLogEvent::new(
                 event.deref().clone(),
                 &self.metadata,
                 self.log_event_format,
                 &deployment_metadata,
-            ) {
+            )
+            .and_then(|v| serde_json::value::to_raw_value(&v).map_err(From::from));
+            match dd_event {
                 Err(e) => tracing::warn!("failed to convert log to JSON: {:?}", e),
-                Ok(v) => values_to_send.push(v),
+                Ok(json) => serialized_events.push(SerializedEvent { json, is_egress }),
             }
         }
 
-        if values_to_send.is_empty() {
-            anyhow::bail!("skipping an entire batch due to logs that failed to be serialized");
+        if serialized_events.is_empty() {
+            anyhow::bail!("skipping an entire drain due to logs that failed to be serialized");
         }
-        let batch_size = values_to_send.len();
 
-        self.send_batch(values_to_send, false, track_egress).await?;
-        crate::metrics::datadog_sink_logs_sent(batch_size, log_event_format_version);
+        let batches = build_sized_batches(
+            &serialized_events,
+            |ev| ev.json.get().len(),
+            consts::DD_SINK_MAX_LOGS_PER_BATCH,
+            consts::DD_SINK_MAX_BATCH_BYTES,
+        );
+        for batch in batches {
+            let track_egress = batch.iter().any(|ev| !ev.is_egress);
+            match self
+                .send_batch(
+                    batch.iter().map(|batch| &*batch.json).collect(),
+                    false,
+                    track_egress,
+                )
+                .await
+            {
+                Ok(()) => {
+                    crate::metrics::datadog_sink_logs_sent(batch.len(), log_event_format_version);
+                    self.backoff.reset();
+                    self.failure_reporter.reset();
+                },
+                Err(e) => self.failure_reporter.record_failure(e).await,
+            }
+        }
 
         Ok(())
     }

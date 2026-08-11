@@ -89,6 +89,43 @@ pub fn build_event_batches(
         .collect()
 }
 
+/// Greedily pack `items` into batches of at most `max_entries` items whose
+/// serialized JSON array payload stays within `max_bytes`. `size` returns an
+/// item's serialized size; the byte accounting adds the array overhead (two
+/// brackets per batch, a comma separator between elements) so `max_bytes`
+/// bounds the assembled payload. An item that alone exceeds `max_bytes` is
+/// placed in its own batch, since a single item can't be split.
+pub fn build_sized_batches<T>(
+    items: &[T],
+    size: impl Fn(&T) -> usize,
+    max_entries: usize,
+    max_bytes: usize,
+) -> Vec<&[T]> {
+    let mut batches: Vec<&[T]> = vec![];
+    let mut batch = 0..0;
+    // Start each batch at two bytes for the enclosing brackets.
+    let mut batch_bytes = 2;
+    for (i, item) in items.iter().enumerate() {
+        let item_bytes = size(item);
+        if !batch.is_empty()
+            && (batch.len() >= max_entries || batch_bytes + 1 + item_bytes > max_bytes)
+        {
+            batches.push(&items[batch.clone()]);
+            batch.start = batch.end;
+            batch_bytes = 2;
+        }
+        if !batch.is_empty() {
+            batch_bytes += 1;
+        }
+        batch_bytes += item_bytes;
+        batch.end = i + 1;
+    }
+    if !batch.is_empty() {
+        batches.push(&items[batch]);
+    }
+    batches
+}
+
 pub fn batch_has_non_egress_events(events: &[Arc<LogEvent>]) -> bool {
     events
         .iter()
