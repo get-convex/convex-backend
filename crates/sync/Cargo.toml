@@ -43,8 +43,10 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 application = { workspace = true, features = ["testing"] }
+async-trait = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true, features = ["testing"] }
+database = { workspace = true }
 errors = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }

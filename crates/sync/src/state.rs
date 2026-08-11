@@ -513,6 +513,11 @@ impl SyncState {
     pub fn num_queries(&self) -> usize {
         self.queries.len() + self.in_progress_queries.len()
     }
+
+    pub fn has_client_work_pending(&self) -> bool {
+        self.received_client_version.query_set > self.current_version.query_set
+            || self.received_client_version.identity > self.current_version.identity
+    }
 }
 
 fn hash_result(

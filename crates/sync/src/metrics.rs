@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use metrics::{
     log_counter_with_labels,
+    log_distribution,
     log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
@@ -172,6 +173,41 @@ pub fn log_query_set_size(partition_id: u64, num_queries: usize) {
             "partition_id",
             partition_id.to_string(),
         )],
+    );
+}
+
+register_convex_histogram!(
+    SYNC_SUBSCRIPTION_RECONNECT_AFFECTED_QUERY_SET_TOTAL,
+    "Size of query sets affected by recoverable subscription stream failures",
+);
+pub fn log_subscription_reconnect_affected_query_set_size(query_count: usize) {
+    log_distribution(
+        &SYNC_SUBSCRIPTION_RECONNECT_AFFECTED_QUERY_SET_TOTAL,
+        query_count as f64,
+    );
+}
+
+register_convex_histogram!(
+    SYNC_SUBSCRIPTION_RECONNECT_WAIT_SECONDS,
+    "Time a browser connection remains open before reconnecting after a subscription failure",
+);
+pub fn log_subscription_reconnect_wait(wait: Duration) {
+    log_distribution(
+        &SYNC_SUBSCRIPTION_RECONNECT_WAIT_SECONDS,
+        wait.as_secs_f64(),
+    );
+}
+
+register_convex_counter!(
+    SYNC_SUBSCRIPTION_RECONNECT_DELAY_TOTAL,
+    "Delayed subscription reconnect outcomes",
+    &["outcome"],
+);
+pub fn log_subscription_reconnect_delay(outcome: &'static str) {
+    log_counter_with_labels(
+        &SYNC_SUBSCRIPTION_RECONNECT_DELAY_TOTAL,
+        1,
+        vec![StaticMetricLabel::new("outcome", outcome)],
     );
 }
 

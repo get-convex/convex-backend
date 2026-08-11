@@ -9923,10 +9923,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application",
+ "async-trait",
  "cmd_util",
  "common",
  "convex_macro",
  "convex_sync_types",
+ "database",
  "errors",
  "fastrace",
  "futures",

@@ -560,6 +560,26 @@ pub trait SubscriptionClient: Send + Sync {
     async fn subscribe(&self, token: Token) -> anyhow::Result<Arc<dyn SubscriptionTrait>>;
 }
 
+/// A remote subscription stream stopped for a condition that a new sync session
+/// can retry.
+#[derive(Clone, Copy, Debug, thiserror::Error)]
+#[error("subscription stream became unavailable")]
+pub struct RecoverableSubscriptionStreamFailure;
+
+pub fn mark_recoverable_subscription_stream_failure(mut error: anyhow::Error) -> anyhow::Error {
+    if error
+        .downcast_ref::<RecoverableSubscriptionStreamFailure>()
+        .is_none()
+    {
+        error = error.context(RecoverableSubscriptionStreamFailure);
+    }
+    error
+}
+
+pub fn is_recoverable_subscription_stream_failure(error: &anyhow::Error) -> bool {
+    error.is::<RecoverableSubscriptionStreamFailure>()
+}
+
 struct ApplicationSubscriptionClient<RT: Runtime> {
     database: Database<RT>,
 }

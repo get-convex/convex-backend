@@ -79,6 +79,7 @@ use search::{
     SegmentTermMetadataFetcher,
 };
 use serde::Serialize;
+pub use sync::subscription_reconnect::SubscriptionReconnectRateLimiter;
 
 pub mod admin;
 mod app_metrics;
@@ -142,6 +143,7 @@ impl LocalAppState {
 pub struct RouterState {
     pub api: Arc<dyn ApplicationApi>,
     pub runtime: ProdRuntime,
+    pub subscription_reconnect_rate_limiter: Option<Arc<SubscriptionReconnectRateLimiter>>,
 }
 
 #[derive(Serialize)]

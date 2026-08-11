@@ -410,6 +410,7 @@ pub fn router(st: LocalAppState) -> Router {
         .with_state(RouterState {
             api: Arc::new(st.application.clone()),
             runtime: st.application.runtime(),
+            subscription_reconnect_rate_limiter: None,
         });
 
     let version = SERVER_VERSION_STR.to_string();
