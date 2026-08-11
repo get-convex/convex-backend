@@ -8,6 +8,10 @@
   `schema.id(tableName)` is `v.id(tableName)` restricted to the table names in
   the schema. `docValidator(tableName, tableDefinition)` from `convex/server`
   does the same as `schema.doc` when you only have a table definition.
+- The server-provided environment variables `CONVEX_SITE_URL` and
+  `CONVEX_CLOUD_URL` are now available on `env` by default in
+  `_generated/server.d.ts`, along with other environment variables specified in
+  `convex/convex.config.ts`.
 
 ## 1.43.0
 
