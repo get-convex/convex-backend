@@ -37,6 +37,7 @@ use itertools::Itertools as _;
 
 use crate::{
     array_buffer_allocator::ArrayBufferMemoryLimit,
+    client::SharedIsolateHeapStats,
     context_cache::ContextCache,
     environment::IsolateEnvironment,
     helpers::pump_message_loop,
@@ -340,6 +341,10 @@ impl<RT: Runtime> Isolate<RT> {
 
     pub fn created(&self) -> &tokio::time::Instant {
         &self.created
+    }
+
+    pub fn set_heap_stats_handle(&mut self, heap_stats: SharedIsolateHeapStats) {
+        self.handle.set_heap_stats_handle(heap_stats);
     }
 }
 

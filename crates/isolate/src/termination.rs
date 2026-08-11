@@ -17,6 +17,7 @@ use parking_lot::Mutex;
 use thiserror::Error;
 
 use crate::{
+    client::SharedIsolateHeapStats,
     isolate::IsolateNotClean,
     metrics::log_isolate_out_of_memory,
     timeout::SYSTEM_TIMEOUT_ERROR_MESSAGE,
@@ -69,7 +70,7 @@ impl From<IsolateTerminationReason> for TerminationReason {
     }
 }
 
-pub struct IsolateHandleInner {
+struct IsolateHandleInner {
     // Reason is set to Some when the isolate is terminated.
     // If the isolate is terminated, it should be dropped and a new isolate
     // should be created. Recovering after terminating an isolate is sometimes
@@ -78,6 +79,7 @@ pub struct IsolateHandleInner {
     next_context_id: u64,
     context_stack: Vec<u64>,
     request_stream_bytes: Option<usize>,
+    heap_stats: Option<SharedIsolateHeapStats>,
 }
 
 #[derive(Clone)]
@@ -95,8 +97,13 @@ impl IsolateHandle {
                 next_context_id: 0,
                 context_stack: vec![],
                 request_stream_bytes: None,
+                heap_stats: None,
             })),
         }
+    }
+
+    pub fn set_heap_stats_handle(&self, heap_stats: SharedIsolateHeapStats) {
+        self.inner.lock().heap_stats = Some(heap_stats);
     }
 
     pub fn update_request_stream_bytes(&self, request_stream_bytes: usize) {
@@ -170,7 +177,6 @@ impl IsolateHandle {
 
     pub fn take_termination_error(
         &self,
-        heap_stats: Option<IsolateHeapStats>,
         // The isolate environment and function path (if applicable)
         source: &str,
     ) -> anyhow::Result<Result<(), JsError>> {
@@ -208,6 +214,7 @@ impl IsolateHandle {
                     )),
                     IsolateTerminationReason::OutOfMemory => {
                         log_isolate_out_of_memory();
+                        let heap_stats = inner.heap_stats.as_ref().map(|stats| stats.get());
                         // We report this error here because otherwise it is only surfaced to users
                         // since it is a JsError. Reporting to sentry
                         // enables us to see what instance the request came from.
@@ -274,6 +281,12 @@ impl IsolateHandle {
             return Ok(Err(error));
         }
         Ok(Ok(()))
+    }
+
+    pub(crate) fn record_heap_stats(&self, heap_stats: IsolateHeapStats) {
+        if let Some(ref stats) = self.inner.lock().heap_stats {
+            stats.store(heap_stats);
+        }
     }
 }
 

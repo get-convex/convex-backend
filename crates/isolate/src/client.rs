@@ -1584,6 +1584,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
             let mut last_request: Option<String> = None;
             let mut isolate =
                 Isolate::new(self.rt(), *max_user_timeout, *ISOLATE_MAX_USER_HEAP_SIZE);
+            isolate.set_heap_stats_handle(heap_stats.clone());
             let mut context_cache = ContextCache::new();
             heap_stats.store(isolate.heap_stats());
             loop {
@@ -1647,7 +1648,6 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                                 &mut context_cache,
                                 req,
                                 permit,
-                                heap_stats.clone(),
                             )
                             .in_span(root)
                             .await;
@@ -1667,7 +1667,6 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         context_cache: &mut ContextCache,
         req: Request<RT>,
         permit: ConcurrencyPermit,
-        heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool);
 
     fn config(&self) -> &IsolateConfig;

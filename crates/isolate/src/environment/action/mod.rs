@@ -144,7 +144,6 @@ use crate::{
     client::{
         ActionRequestParams,
         EnvironmentData,
-        SharedIsolateHeapStats,
     },
     context_cache::ContextCache,
     environment::{
@@ -167,10 +166,7 @@ use crate::{
         HttpRequestV8,
         HttpResponseV8,
     },
-    isolate::{
-        Isolate,
-        IsolateHeapStats,
-    },
+    isolate::Isolate,
     metrics::{
         self,
         log_isolate_request_cancelled,
@@ -237,7 +233,6 @@ pub struct ActionEnvironment<RT: Runtime> {
     task_responses: mpsc::UnboundedReceiver<TaskResponse>,
     phase: ActionPhase<RT>,
     syscall_trace: Arc<Mutex<SyscallTrace>>,
-    heap_stats: SharedIsolateHeapStats,
 }
 
 impl<RT: Runtime> Drop for ActionEnvironment<RT> {
@@ -268,7 +263,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         http_response_streamer: Option<HttpActionResponseStreamer>,
-        heap_stats: SharedIsolateHeapStats,
         context: ExecutionContext,
     ) -> Self {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
@@ -319,7 +313,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 convex_origin_override,
             ),
             syscall_trace,
-            heap_stats,
         }
     }
 
@@ -344,7 +337,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         anyhow::ensure!(component_function_path.component == self.phase.component());
         let udf_path = &component_function_path.udf_path;
 
-        let heap_stats = self.heap_stats.clone();
         let (handle, state, mut timeout) =
             isolate.start_request(context_cache, permit, self).await?;
         if let Some(tx) = function_started {
@@ -367,8 +359,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )
         .await;
         // Override the returned result if we hit a termination error.
-        let termination_error = handle
-            .take_termination_error(Some(heap_stats.get()), &format!("http action: {udf_path}"));
+        let termination_error = handle.take_termination_error(&format!("http action: {udf_path}"));
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -675,7 +666,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         function_started: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<ActionOutcome> {
         let start_unix_timestamp = self.rt.unix_timestamp();
-        let heap_stats = self.heap_stats.clone();
 
         let (handle, state, mut timeout) =
             isolate.start_request(context_cache, permit, self).await?;
@@ -701,13 +691,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_context.checkpoint();
         *isolate_clean = true;
 
-        match handle.take_termination_error(
-            Some(heap_stats.get()),
-            &format!(
-                "{:?}",
-                request_params.path_and_args.path().clone().for_logging()
-            ),
-        ) {
+        match handle.take_termination_error(&format!(
+            "{:?}",
+            request_params.path_and_args.path().clone().for_logging()
+        )) {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
                 result = Ok(Err(e));
@@ -1037,7 +1024,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // queue.
             scope.perform_microtask_checkpoint();
             pump_message_loop(scope);
-            scope.record_heap_stats()?;
+            scope.record_heap_stats(&handle)?;
             let request_stream_state = scope.state()?.request_stream_state.as_ref();
             if let Some(request_stream_state) = request_stream_state {
                 handle.update_request_stream_bytes(request_stream_state.bytes_read());
@@ -1434,10 +1421,8 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         self.start_task(TaskRequestEnum::AsyncOp(request), resolver)
     }
 
-    fn record_heap_stats(&self, mut isolate_stats: IsolateHeapStats) {
-        // Add the memory allocated by the environment itself.
-        isolate_stats.environment_heap_size = self.syscall_trace.lock().heap_size();
-        self.heap_stats.store(isolate_stats);
+    fn environment_heap_size(&self) -> usize {
+        self.syscall_trace.lock().heap_size()
     }
 
     fn user_timeout(&self) -> std::time::Duration {

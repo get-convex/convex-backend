@@ -309,7 +309,7 @@ impl AnalyzeEnvironment {
         drop(timeout);
 
         // Suppress the original error if the isolate was forcibly terminated.
-        if let Err(e) = handle.take_termination_error(None, "analyze")? {
+        if let Err(e) = handle.take_termination_error("analyze")? {
             return Ok(Err(e));
         }
 

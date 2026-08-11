@@ -168,7 +168,6 @@ use super::ModuleCodeCacheResult;
 use crate::{
     client::{
         EnvironmentData,
-        SharedIsolateHeapStats,
         UdfCallback,
         UdfRequest,
     },
@@ -187,10 +186,7 @@ use crate::{
         deserialize_udf_result_pending,
         pump_message_loop,
     },
-    isolate::{
-        Isolate,
-        IsolateHeapStats,
-    },
+    isolate::Isolate,
     metrics::{
         self,
         log_isolate_request_cancelled,
@@ -235,8 +231,6 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     pending_syscalls: WithHeapSize<VecDeque<PendingSyscall>>,
 
     syscall_trace: SyscallTrace,
-
-    heap_stats: SharedIsolateHeapStats,
 
     context: ExecutionContext,
 
@@ -346,11 +340,8 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         ))
     }
 
-    fn record_heap_stats(&self, mut isolate_stats: IsolateHeapStats) {
-        // Add the memory allocated by the environment itself.
-        isolate_stats.environment_heap_size =
-            self.pending_syscalls.heap_size() + self.syscall_trace.heap_size();
-        self.heap_stats.store(isolate_stats);
+    fn environment_heap_size(&self) -> usize {
+        self.pending_syscalls.heap_size() + self.syscall_trace.heap_size()
     }
 
     fn user_timeout(&self) -> std::time::Duration {
@@ -375,7 +366,6 @@ struct RunUdf<'a, 'b, RT: Runtime> {
     context_cache: &'a mut ContextCache,
     isolate_handle: &'a IsolateHandle,
     executor: &'a UdfRecursiveExecutor<RT>,
-    heap_stats: &'a SharedIsolateHeapStats,
 }
 
 impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
@@ -390,7 +380,6 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
         let (nested_provider, args) = DatabaseUdfEnvironment::new(
             self.rt.clone(),
             environment_data,
-            self.heap_stats.clone(),
             udf_request,
             reactor_depth,
             client_id,
@@ -460,7 +449,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             module_loader,
             deployment,
         }: EnvironmentData<RT>,
-        heap_stats: SharedIsolateHeapStats,
         UdfRequest {
             path_and_args,
             udf_type,
@@ -502,7 +490,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
                 pending_syscalls: WithHeapSize::default(),
                 syscall_trace: SyscallTrace::new(),
-                heap_stats,
                 context,
 
                 reactor_depth,
@@ -537,7 +524,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         let (handle, state, mut timeout) =
             isolate.start_request(context_cache, permit, self).await?;
-        let heap_stats = state.environment.heap_stats.clone();
         let path_for_logging = format!("{:?}", state.environment.path.clone().for_logging());
         if let Some(tx) = function_started {
             // At this point we have acquired a permit and aren't going to
@@ -564,7 +550,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // the transaction may be missing if we hit a system error during a
         // cross-component call), so be sure to error out here before using the
         // environment.
-        match handle.take_termination_error(Some(heap_stats.get()), &path_for_logging) {
+        match handle.take_termination_error(&path_for_logging) {
             Ok(Ok(())) => (),
             Ok(Err(e)) => result = Ok(Err(e)),
             Err(e) => result = Err(e),
@@ -829,14 +815,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<Result<PendingValue, JsError>> {
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
-        let (rt, udf_type, path, heap_stats, reactor_depth) = {
+        let (rt, udf_type, path, reactor_depth) = {
             let state = scope.state()?;
             let environment = &state.environment;
             (
                 environment.rt.clone(),
                 environment.udf_type,
                 environment.path.clone(),
-                environment.heap_stats.clone(),
                 environment.reactor_depth,
             )
         };
@@ -956,7 +941,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // queue.
             scope.perform_microtask_checkpoint();
             pump_message_loop(&scope);
-            scope.record_heap_stats()?;
+            scope.record_heap_stats(handle)?;
             handle.check_terminated()?;
 
             // Check for rejected promises still unhandled, if so terminate.
@@ -1038,7 +1023,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                                 context_cache,
                                 isolate_handle: handle,
                                 executor,
-                                heap_stats: &heap_stats,
                             };
                             let udf_callback = if let Some(callback) = &udf_callback {
                                 Either::Left(callback)

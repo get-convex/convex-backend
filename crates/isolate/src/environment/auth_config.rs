@@ -245,7 +245,7 @@ impl AuthConfigEnvironment {
         drop(isolate_context);
         drop(timeout);
 
-        handle.take_termination_error(None, "auth")??;
+        handle.take_termination_error("auth")??;
         result
     }
 

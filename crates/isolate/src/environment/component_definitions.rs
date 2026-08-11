@@ -305,7 +305,7 @@ impl AppDefinitionEvaluator {
 
         isolate_context.checkpoint();
         drop(isolate_context);
-        handle.take_termination_error(None, "evaluate_definition")??;
+        handle.take_termination_error("evaluate_definition")??;
 
         Ok((result, timeout.finish_with_permit()?))
     }
@@ -471,7 +471,7 @@ impl ComponentInitializerEvaluator {
 
         isolate_context.checkpoint();
         drop(isolate_context);
-        handle.take_termination_error(None, "evaluate")??;
+        handle.take_termination_error("evaluate")??;
 
         Ok(result)
     }

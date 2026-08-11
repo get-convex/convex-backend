@@ -225,7 +225,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         Ok(f(state))
     }
 
-    pub fn record_heap_stats(&mut self) -> anyhow::Result<()> {
+    pub fn heap_stats(&mut self) -> anyhow::Result<IsolateHeapStats> {
         let stats = self.get_heap_statistics();
         let array_buffer_size = self
             .get_slot::<Arc<ArrayBufferMemoryLimit>>()
@@ -233,12 +233,16 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
             .used();
         self.with_state_mut(|state| {
             let streams_heap_size = state.streams.heap_size() + state.stream_listeners.heap_size();
-            state.environment.record_heap_stats(IsolateHeapStats::new(
-                stats,
-                streams_heap_size,
-                array_buffer_size,
-            ));
+            let mut stats = IsolateHeapStats::new(stats, streams_heap_size, array_buffer_size);
+            stats.environment_heap_size = state.environment.environment_heap_size();
+            stats
         })
+    }
+
+    pub fn record_heap_stats(&mut self, handle: &IsolateHandle) -> anyhow::Result<()> {
+        let heap_stats = self.heap_stats()?;
+        handle.record_heap_stats(heap_stats);
+        Ok(())
     }
 
     pub fn module_map(&mut self) -> &ModuleMap {

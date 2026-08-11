@@ -34,7 +34,6 @@ use value::NamespacedTableMapping;
 
 pub use self::async_op::AsyncOpRequest;
 use crate::{
-    isolate::IsolateHeapStats,
     module_cache::V8ModuleSource,
     timeout::Timeout,
 };
@@ -90,7 +89,10 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         resolver: v8::Global<v8::PromiseResolver>,
     ) -> anyhow::Result<()>;
 
-    fn record_heap_stats(&self, _heap_size: IsolateHeapStats) {}
+    // The memory allocated by the environment itself.
+    fn environment_heap_size(&self) -> usize {
+        0
+    }
 
     fn user_timeout(&self) -> Duration;
     fn system_timeout(&self) -> Duration;

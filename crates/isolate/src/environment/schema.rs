@@ -231,7 +231,7 @@ impl SchemaEnvironment {
         drop(isolate_context);
         drop(timeout);
 
-        handle.take_termination_error(None, "schema")??;
+        handle.take_termination_error("schema")??;
         result
     }
 

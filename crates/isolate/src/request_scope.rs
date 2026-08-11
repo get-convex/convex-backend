@@ -80,9 +80,8 @@ use crate::{
 /// the entirety of a request, where executing code may enter into potentially
 /// nested [`ExecutionScope`]s.
 pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
-    // NB: The default type parameter to `HandleScope` indicates that it has a `Context`, so
-    // this scope is attached to our request's context. The `v8::HandleScope<()>`, on
-    // the other hand, does not have a currently executing context.
+    // NB: The default type parameter to `PinScope` indicates that it has a `Context`, so
+    // this scope is attached to our request's context.
     pub(crate) scope: &'a mut v8::PinScope<'s, 'i>,
     pub(crate) handle: IsolateHandle,
     pub(crate) _pd: PhantomData<(RT, E)>,

@@ -17,7 +17,6 @@ use crate::{
         IsolateWorker,
         Request,
         RequestType,
-        SharedIsolateHeapStats,
         PAUSE_REQUEST,
     },
     context_cache::ContextCache,
@@ -63,7 +62,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
             parent_trace: _,
         }: Request<RT>,
         permit: ConcurrencyPermit,
-        heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool) {
         // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
         let mut isolate_clean = false;
@@ -86,7 +84,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let (environment, args) = DatabaseUdfEnvironment::new(
                     self.rt.clone(),
                     environment_data,
-                    heap_stats.clone(),
                     request,
                     reactor_depth,
                     client_id.clone(),
@@ -148,7 +145,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     fetch_client,
                     log_line_sender,
                     None,
-                    heap_stats.clone(),
                     request.context,
                 );
                 let r = environment
@@ -228,7 +224,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     fetch_client,
                     log_line_sender,
                     Some(http_response_streamer),
-                    heap_stats.clone(),
                     request.context,
                 );
                 let r = environment
@@ -353,7 +348,6 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         context_cache: &mut ContextCache,
         request: Request<RT>,
         permit: ConcurrencyPermit,
-        heap_stats: SharedIsolateHeapStats,
     ) -> (String, bool) {
         let pause_client = self.rt.pause_client();
         pause_client.wait(PAUSE_REQUEST).await;
@@ -366,7 +360,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         // Also add the tag to tracing so it shows up in DataDog logs.
         let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
         let result = self
-            .handle_request_inner(isolate, context_cache, request, permit, heap_stats)
+            .handle_request_inner(isolate, context_cache, request, permit)
             .instrument(span)
             .await;
         sentry::configure_scope(|scope| scope.remove_tag("client_id"));
