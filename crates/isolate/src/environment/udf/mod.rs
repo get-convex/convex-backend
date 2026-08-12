@@ -56,7 +56,10 @@ use crate::{
         ContextCache,
         ContextReadSet,
     },
-    environment::udf::astral_future::RecursiveExecutor,
+    environment::udf::{
+        astral_future::RecursiveExecutor,
+        async_syscall::run_async_syscall_batch,
+    },
     module_cache::V8ModuleSource,
     module_map::ModuleMap,
     termination::{
@@ -177,7 +180,6 @@ use crate::{
             resolve_promise,
             MAX_LOG_LINES,
         },
-        udf::async_syscall::DatabaseSyscallsV1,
         AsyncOpRequest,
         IsolateEnvironment,
     },
@@ -1035,7 +1037,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                                     log_isolate_request_cancelled();
                                     anyhow::bail!("Cancelled");
                                 },
-                                results = DatabaseSyscallsV1::run_async_syscall_batch(
+                                results = run_async_syscall_batch(
                                     &mut state.environment, batch, udf_callback,
                                 ) => Ok(results),
                             }

@@ -35,10 +35,7 @@ use value::{
     TabletIdAndTableNumber,
 };
 
-use super::{
-    async_syscall::AsyncSyscallProvider,
-    DatabaseUdfEnvironment,
-};
+use super::DatabaseUdfEnvironment;
 use crate::{
     environment::helpers::{
         parse_version,
@@ -96,7 +93,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32> {
         let table_filter = SyscallProvider::<RT>::table_filter(self);
-        let component = self.component()?;
+        let component = self.phase.component()?;
         let tx = self.phase.tx()?;
         // TODO: Are all invalid query pipelines developer errors? These could be bugs
         // in convex/server.
