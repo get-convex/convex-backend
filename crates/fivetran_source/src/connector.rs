@@ -21,7 +21,6 @@ use fivetran_common::{
 use futures::{
     stream::BoxStream,
     StreamExt,
-    TryStreamExt,
 };
 use tonic::{
     Request,
@@ -44,6 +43,7 @@ use crate::{
     sync::{
         sync,
         State,
+        UpdateMessage,
     },
 };
 
@@ -159,16 +159,26 @@ impl SourceConnector for ConvexConnector {
 
         let source = ConvexApi { config };
 
-        let selection = selection_from_fivetran(inner.selection)
-            .map_err(|error| Status::internal(error.to_string()))?;
+        let selection = match selection_from_fivetran(inner.selection) {
+            Ok(selection) => selection,
+            Err(error) => {
+                return error_to_task(error);
+            },
+        };
 
         let sync = sync(source, state, selection);
-        Ok(Response::new(
-            sync.map_ok(FivetranUpdateResponse::from)
-                .map_err(|error| Status::internal(error.to_string()))
-                .boxed(),
-        ))
+        Ok(Response::new(sync_stream_to_update_stream(sync)))
     }
+}
+
+/// Converts the sync stream into the gRPC response stream, reporting errors as
+/// `Task` operations instead of gRPC errors so that Fivetran surfaces their
+/// message to the customer on the dashboard instead of a generic sync failure.
+fn sync_stream_to_update_stream(
+    sync: BoxStream<'static, anyhow::Result<UpdateMessage>>,
+) -> <ConvexConnector as SourceConnector>::UpdateStream {
+    sync.map(|result| Ok(result.map_or_else(task_response, FivetranUpdateResponse::from)))
+        .boxed()
 }
 
 fn deserialize_state_json(state_json: &str) -> anyhow::Result<Option<State>> {
@@ -214,17 +224,19 @@ Please note that this update to the Convex connector changes the way Convex comp
     Ok(state)
 }
 
+fn task_response(error: anyhow::Error) -> FivetranUpdateResponse {
+    log(&format!("returning error to Fivetran as a task: {error:#}"));
+    FivetranUpdateResponse {
+        operation: Some(update_response::Operation::Task(Task {
+            message: error.to_string(),
+        })),
+    }
+}
+
 fn error_to_task(
     error: anyhow::Error,
 ) -> ConnectorResult<<ConvexConnector as SourceConnector>::UpdateStream> {
     Ok(Response::new(
-        futures::stream::once(async move {
-            Ok(FivetranUpdateResponse {
-                operation: Some(update_response::Operation::Task(Task {
-                    message: error.to_string(),
-                })),
-            })
-        })
-        .boxed(),
+        futures::stream::once(async move { Ok(task_response(error)) }).boxed(),
     ))
 }

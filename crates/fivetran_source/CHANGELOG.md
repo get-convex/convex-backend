@@ -1,3 +1,8 @@
+# 2.0.2
+
+- Report sync errors to Fivetran as tasks instead of gRPC errors, so that error
+  messages are shown to customers on the Fivetran dashboard.
+
 # 2.0.1
 
 - Improve error messages for failed API calls.
