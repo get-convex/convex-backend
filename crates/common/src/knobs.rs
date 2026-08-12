@@ -389,6 +389,14 @@ pub static COMMITTER_MAX_CONCURRENT_WRITE_BATCHES: LazyLock<usize> =
 pub static COMMITTER_BATCH_WRITE_THRESHOLD: LazyLock<usize> =
     LazyLock::new(|| env_config("COMMITTER_BATCH_WRITE_THRESHOLD", 8));
 
+/// How many pre-validation batches the committer keeps in flight at once.
+pub static COMMITTER_MAX_CONCURRENT_PRE_VALIDATIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config::<usize>("COMMITTER_MAX_CONCURRENT_PRE_VALIDATIONS", 32).max(1));
+
+/// Most commits conflict-checked together in one pre-validation batch.
+pub static COMMITTER_MAX_PRE_VALIDATE_BATCH_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config::<usize>("COMMITTER_MAX_PRE_VALIDATE_BATCH_SIZE", 1).max(1));
+
 /// SnapshotManager maintains a bounded time range of versions,
 /// determined by `MAX_TRANSACTION_WINDOW`, allowing the `Database` layer to
 /// begin a transaction in any timestamp within that range.
@@ -939,14 +947,11 @@ pub static MAX_ISOLATE_WORKERS: LazyLock<usize> =
 pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("COMMITTER_QUEUE_SIZE", 128));
 
-/// Maximum number of commits that may be between submitting their rows to the
-/// write batcher and publishing (i.e. in the committer's `persistence_writes`
-/// pipeline). At this cap, the committer pauses admitting messages, so backlog
-/// accumulates in the bounded committer queue instead of inside the database.
-/// This bounds commits in flight, not concurrent `Persistence::write` calls:
-/// those are batched, and `COMMITTER_MAX_CONCURRENT_WRITE_BATCHES` caps them.
-pub static COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES: LazyLock<usize> =
-    LazyLock::new(|| env_config("COMMITTER_MAX_CONCURRENT_PERSISTENCE_WRITES", 256));
+/// Maximum number of commits that are concurrently being processed by the
+/// committer. This includes prevalidation, on-thread validation, writing to the
+/// database, and publishing the commit.
+pub static COMMITTER_MAX_CONCURRENT_COMMITS: LazyLock<usize> =
+    LazyLock::new(|| env_config("COMMITTER_MAX_CONCURRENT_COMMITS", 512));
 
 /// 0 -> default (number of cores)
 pub static V8_THREADS: LazyLock<u32> = LazyLock::new(|| env_config("V8_THREADS", 0));

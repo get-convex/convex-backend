@@ -857,6 +857,28 @@ impl LogWriter {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| snapshot.is_stale(reads, reads_ts, ts))
     }
+
+    pub fn snapshot(&self) -> WriteLogSnapshot {
+        WriteLogSnapshot(self.inner.lock().log.clone())
+    }
+}
+
+/// A point-in-time view of the write log that can be moved to another thread.
+pub struct WriteLogSnapshot(WriteLog);
+
+impl WriteLogSnapshot {
+    pub fn max_ts(&self) -> Timestamp {
+        self.0.max_ts()
+    }
+
+    pub fn is_stale(
+        &self,
+        reads: &ReadSet,
+        reads_ts: Timestamp,
+        ts: Timestamp,
+    ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
+        self.0.is_stale(reads, reads_ts, ts)
+    }
 }
 
 /// Pending writes are used by the committer to detect conflicts between a new

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ::search::metrics::{
     SearchType,
     SEARCH_TYPE_LABEL,
@@ -53,11 +55,52 @@ pub fn user_documents_size_subgauge() -> Subgauge {
 }
 
 register_convex_int_gauge!(
-    COMMITTER_CONCURRENT_PERSISTENCE_WRITES,
-    "Number of commits between starting their persistence write and publishing"
+    COMMITTER_CONCURRENT_COMMITS,
+    "Number of commits the committer has admitted but not yet published: awaiting pre-validation, \
+     pre-validating, or writing to persistence. This is the quantity compared against \
+     COMMITTER_MAX_CONCURRENT_COMMITS to pause admission. An in-flight max_repeatable_ts bump \
+     also counts as one"
 );
-pub fn concurrent_persistence_writes_subgauge() -> Subgauge {
-    Subgauge::new(COMMITTER_CONCURRENT_PERSISTENCE_WRITES.clone())
+pub fn concurrent_commits_subgauge() -> Subgauge {
+    Subgauge::new(COMMITTER_CONCURRENT_COMMITS.clone())
+}
+
+register_convex_int_gauge!(
+    COMMITTER_AWAITING_PRE_VALIDATION_COMMITS,
+    "Number of admitted commits waiting for a free pre-validation lane"
+);
+pub fn awaiting_pre_validation_commits_subgauge() -> Subgauge {
+    Subgauge::new(COMMITTER_AWAITING_PRE_VALIDATION_COMMITS.clone())
+}
+
+register_convex_int_gauge!(
+    COMMITTER_PRE_VALIDATING_COMMITS,
+    "Number of commits in in-flight pre-validation batches"
+);
+pub fn pre_validating_commits_subgauge() -> Subgauge {
+    Subgauge::new(COMMITTER_PRE_VALIDATING_COMMITS.clone())
+}
+
+register_convex_histogram!(
+    DATABASE_COMMIT_ADMISSION_PAUSE_SECONDS,
+    "How long the committer went without accepting new messages because commits in flight were at \
+     COMMITTER_MAX_CONCURRENT_COMMITS. One observation per contiguous pause"
+);
+pub fn log_commit_admission_pause(pause: Duration) {
+    log_distribution(
+        &DATABASE_COMMIT_ADMISSION_PAUSE_SECONDS,
+        pause.as_secs_f64(),
+    );
+}
+
+register_convex_histogram!(
+    DATABASE_COMMIT_VALIDATION_WINDOW_SECONDS,
+    "Width of the (validated_through, commit_ts] range the committer conflict-checks on its own \
+     thread. Pre-validation exists to keep this narrow, so the full (begin_ts, commit_ts] width \
+     shows up here whenever pre-validation could not narrow the range"
+);
+pub fn log_commit_validation_window(window_seconds: f64) {
+    log_distribution(&DATABASE_COMMIT_VALIDATION_WINDOW_SECONDS, window_seconds);
 }
 
 register_convex_histogram!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");
@@ -276,7 +319,11 @@ pub fn commit_client_timer(identity: &Identity) -> Timer<VMHistogramVec> {
     timer
 }
 
-register_convex_histogram!(DATABASE_COMMIT_QUEUE_SECONDS, "Time a commit is queued");
+register_convex_histogram!(
+    DATABASE_COMMIT_QUEUE_SECONDS,
+    "Time from enqueueing a commit to it reaching the committer thread: the committer queue wait, \
+     plus the wait for a pre-validation lane and the off-thread conflict check itself"
+);
 pub fn commit_queue_timer() -> Timer<VMHistogram> {
     Timer::new(&DATABASE_COMMIT_QUEUE_SECONDS)
 }
@@ -306,6 +353,23 @@ register_convex_histogram!(
 );
 pub fn commit_is_stale_timer() -> StatusTimer {
     StatusTimer::new(&DATABASE_COMMIT_IS_STALE_SECONDS)
+}
+
+register_convex_histogram!(
+    DATABASE_COMMIT_PRE_VALIDATE_SECONDS,
+    "Time spent conflict-checking a batch of staged commits against the write log, off the \
+     committer thread"
+);
+pub fn commit_pre_validate_timer() -> Timer<VMHistogram> {
+    Timer::new(&DATABASE_COMMIT_PRE_VALIDATE_SECONDS)
+}
+
+register_convex_histogram!(
+    DATABASE_COMMIT_PRE_VALIDATE_BATCH_TOTAL,
+    "Number of commits pre-validated together in one batch"
+);
+pub fn log_commit_pre_validate_batch_size(size: usize) {
+    log_distribution(&DATABASE_COMMIT_PRE_VALIDATE_BATCH_TOTAL, size as f64);
 }
 
 register_convex_histogram!(
