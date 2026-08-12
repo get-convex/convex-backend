@@ -1340,6 +1340,10 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("TICKETMASTER_CLUSTER_NAME", String::from("ticketmaster")));
 
+/// Timeout applied to each individual probe request the prober makes.
+pub static PROBER_PROBE_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("PROBER_PROBE_TIMEOUT", 30)));
+
 /// The maximum number of CPU cores that can be used simultaneously by the
 /// isolates. Zero means no limit.
 pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
