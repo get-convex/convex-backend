@@ -47,7 +47,8 @@
       "./package.json": "./package.json"
     },
     "exclude": [
-      "src/**/*.test.ts"
+      "src/**/*.test.ts",
+      "src/test/fixtures/**"
     ],
     "selfLink": false
   },
