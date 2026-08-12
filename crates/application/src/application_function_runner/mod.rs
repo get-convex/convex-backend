@@ -2083,7 +2083,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
-    async fn issue_llm_gateway_jwt(&self, caller: AttributedCaller) -> anyhow::Result<String> {
+    async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String> {
         self.mint_llm_gateway_jwt(AttributionClaims::from(caller))
     }
 

@@ -194,7 +194,10 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 udf_path: self.udf_path.clone(),
             },
         };
-        let token = self.action_callbacks.issue_llm_gateway_jwt(caller).await?;
+        let token = self
+            .action_callbacks
+            .create_ai_gateway_token(caller)
+            .await?;
         Ok(JsonValue::String(token))
     }
 

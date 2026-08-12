@@ -105,8 +105,6 @@ impl FromStr for UdfType {
             "Query" | "query" => Ok(Self::Query),
             "Mutation" | "mutation" => Ok(Self::Mutation),
             "Action" | "action" => Ok(Self::Action),
-            // `http_action` is what `to_lowercase_string` emits, so accepting
-            // it makes the two directions inverses.
             "HttpEndpoint" | "httpEndpoint" | "HttpAction" | "httpAction" | "http_action" => {
                 Ok(Self::HttpAction)
             },
