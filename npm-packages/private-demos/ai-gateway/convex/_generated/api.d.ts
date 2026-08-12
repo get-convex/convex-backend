@@ -15,6 +15,7 @@ import type * as integrations_fetch from "../integrations/fetch.js";
 import type * as integrations_listModelsAction from "../integrations/listModelsAction.js";
 import type * as integrations_modelList from "../integrations/modelList.js";
 import type * as integrations_openai from "../integrations/openai.js";
+import type * as node_aiSdkProvider from "../node/aiSdkProvider.js";
 import type * as node_anthropic from "../node/anthropic.js";
 import type * as node_fetch from "../node/fetch.js";
 import type * as node_openai from "../node/openai.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/listModelsAction": typeof integrations_listModelsAction;
   "integrations/modelList": typeof integrations_modelList;
   "integrations/openai": typeof integrations_openai;
+  "node/aiSdkProvider": typeof node_aiSdkProvider;
   "node/anthropic": typeof node_anthropic;
   "node/fetch": typeof node_fetch;
   "node/openai": typeof node_openai;

@@ -46,7 +46,10 @@ use keybroker::{
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
-use tokio::sync::mpsc;
+use tokio::sync::{
+    mpsc,
+    OnceCell,
+};
 use udf::{
     ActionCallbacks,
     SyscallTrace,
@@ -95,6 +98,9 @@ pub struct TaskExecutor<RT: Runtime> {
     pub convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
     pub http_action_route: Arc<OnceLock<HttpActionRoute>>,
     pub deployment: DeploymentMetadata,
+    /// Shared across clones so concurrent `getServiceToken` calls in one action
+    /// mint once. `OnceCell` retries after a failed mint.
+    pub ai_gateway_token: Arc<OnceCell<String>>,
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {

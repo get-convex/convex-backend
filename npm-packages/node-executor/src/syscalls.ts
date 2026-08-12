@@ -234,6 +234,11 @@ export class SyscallsImpl {
   // unrelated invocation that reuses this process.
   abortController: AbortController;
 
+  // Per-action: this instance is created once per invocation. Concurrent first
+  // calls share the in-flight promise; a rejected mint is dropped so a later
+  // call retries.
+  aiGatewayTokenPromise?: Promise<string>;
+
   constructor(
     udfPath: UdfPath,
     lambdaExecuteId: string,
@@ -758,15 +763,22 @@ export class SyscallsImpl {
       operationName,
       false,
     );
-    const { token } = await this.actionCallback({
+    const pending = (this.aiGatewayTokenPromise ??= this.actionCallback({
       version: args.version,
       body: {},
       path: "/api/actions/create_service_token",
       operationName,
       responseValidator: createServiceTokenReturn,
       retryTransient: true,
-    });
-    return token;
+    }).then(({ token }) => token));
+    try {
+      return await pending;
+    } catch (e) {
+      if (this.aiGatewayTokenPromise === pending) {
+        this.aiGatewayTokenPromise = undefined;
+      }
+      throw e;
+    }
   }
 
   async syscallVectorSearch(rawArgs: string): Promise<JSONValue> {

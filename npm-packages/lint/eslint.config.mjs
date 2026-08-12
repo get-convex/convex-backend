@@ -178,6 +178,7 @@ const config = [
   // Set-up typescript-eslint rules that need a project configuration
   ...[
     "@convex-dev/eslint-plugin",
+    "@convex-dev/ai-sdk-provider",
     "tests/js-integration-tests",
     "udf-runtime",
     "scenario-runner/convex",

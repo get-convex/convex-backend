@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.5",
+    "@convex-dev/ai-sdk-provider": "workspace:*",
+    "ai": "7.0.34",
     "convex": "workspace:*",
     "openai": "^6.0.0"
   },

@@ -294,6 +294,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             convex_origin_override: convex_origin_override.clone(),
             http_action_route: http_action_route.clone(),
             deployment,
+            ai_gateway_token: Arc::new(tokio::sync::OnceCell::new()),
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));

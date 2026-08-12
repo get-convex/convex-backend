@@ -60,6 +60,8 @@ export function setupActionCalls(requestId: string) {
  *
  * This function can only be called while an action is running. The credential
  * is scoped to the current deployment and should be sent as a bearer token.
+ * Repeated calls in the same action reuse one token; a failed mint is not
+ * cached, so a later call retries.
  *
  * @param service - The service the credential may access.
  * @internal

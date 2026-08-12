@@ -1,4 +1,5 @@
 packages:
+  - "@convex-dev/ai-sdk-provider"
   - "@convex-dev/codemod"
   - "@convex-dev/codemod/test/explicit-ids/custom-convex-folder"
   - "@convex-dev/codemod/test/explicit-ids/sample-convex-project"

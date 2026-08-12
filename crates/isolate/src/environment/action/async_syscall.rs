@@ -194,11 +194,14 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 udf_path: self.udf_path.clone(),
             },
         };
+        let action_callbacks = self.action_callbacks.clone();
         let token = self
-            .action_callbacks
-            .create_ai_gateway_token(caller)
+            .ai_gateway_token
+            .get_or_try_init(
+                || async move { action_callbacks.create_ai_gateway_token(caller).await },
+            )
             .await?;
-        Ok(JsonValue::String(token))
+        Ok(JsonValue::String(token.clone()))
     }
 
     #[convex_macro::instrument_future]

@@ -1,7 +1,8 @@
 # AI gateway
 
-This internal demo exercises `getAccessToken("ai")` against the local AI gateway
-from regular and Node actions.
+This internal demo exercises `getServiceToken("ai-gateway")` against the local
+AI gateway from regular and Node actions, plus the published-style
+`@convex-dev/ai-sdk-provider` path that targets `ai-gateway.convex.dev`.
 
 Start Funrun, Conductor, Usher, and the LLM gateway as described in
 [`ops/services/llm-gateway/release.md`](../../../ops/services/llm-gateway/release.md).
@@ -20,7 +21,16 @@ just convex-usher run node/openai:chatCompletion \
   '{"prompt":"Reply with one short sentence."}'
 ```
 
-- Pass `gatewayUrl` to target another gateway.
+Against a reachable `ai-gateway.convex.dev` (or hosts override), run the AI SDK
+provider example:
+
+```shell
+just convex-usher run node/aiSdkProvider:chatCompletion \
+  '{"prompt":"Reply with one short sentence."}'
+```
+
+- Pass `gatewayUrl` to target another gateway on the OpenAI / fetch / Anthropic
+  examples. The AI SDK provider hard-codes `https://ai-gateway.convex.dev/v1`.
 
 - The OpenAI SDK accepts the Convex token through its asynchronous `apiKey`
   provider and sends it as a bearer token.
