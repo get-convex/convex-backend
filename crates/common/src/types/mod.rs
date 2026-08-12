@@ -16,6 +16,7 @@ pub use value::{
 
 mod actions;
 mod admin_key;
+mod attribution;
 mod backend_info;
 mod backend_state;
 mod deployments;
@@ -47,6 +48,10 @@ pub use admin_key::{
     AdminKey,
     AdminKeyParts,
     SystemKey,
+};
+pub use attribution::{
+    AttributedCaller,
+    AttributionClaims,
 };
 pub use backend_info::{
     BackendInfo,

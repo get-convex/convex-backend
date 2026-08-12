@@ -11,7 +11,10 @@ mod task_order;
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
-    sync::Arc,
+    sync::{
+        Arc,
+        OnceLock,
+    },
     time::Duration,
 };
 
@@ -233,6 +236,7 @@ pub struct ActionEnvironment<RT: Runtime> {
     task_responses: mpsc::UnboundedReceiver<TaskResponse>,
     phase: ActionPhase<RT>,
     syscall_trace: Arc<Mutex<SyscallTrace>>,
+    http_action_route: Arc<OnceLock<HttpActionRoute>>,
 }
 
 impl<RT: Runtime> Drop for ActionEnvironment<RT> {
@@ -269,6 +273,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let (task_retval_sender, task_responses) = mpsc::unbounded_channel();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let convex_origin_override = Arc::new(Mutex::new(None));
+        let http_action_route = Arc::new(OnceLock::new());
         let task_executor = TaskExecutor {
             rt: rt.clone(),
             identity: identity.clone(),
@@ -287,6 +292,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             udf_path,
             component_path,
             convex_origin_override: convex_origin_override.clone(),
+            http_action_route: http_action_route.clone(),
             deployment,
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
@@ -313,6 +319,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 convex_origin_override,
             ),
             syscall_trace,
+            http_action_route,
+        }
+    }
+
+    /// Called only after a lookup succeeds. An unmatched route's path is the
+    /// raw request path, which no token or usage record should keep.
+    fn set_http_action_route(&self, route: HttpActionRoute) {
+        if self.http_action_route.set(route).is_err() {
+            tracing::warn!("HTTP action route was already set for this request");
         }
     }
 
@@ -473,6 +488,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             },
             Some(route) => route,
         };
+        scope
+            .state_mut()?
+            .environment
+            .set_http_action_route(route.clone());
 
         let run_str = strings::runRequest.create(&scope)?.into();
         let v8_function: v8::Local<v8::Function> = router

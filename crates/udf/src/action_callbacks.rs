@@ -8,6 +8,7 @@ use common::{
     },
     execution_context::ExecutionContext,
     runtime::UnixTimestamp,
+    types::AttributedCaller,
 };
 use keybroker::Identity;
 use model::file_storage::{
@@ -24,7 +25,10 @@ use crate::FunctionResult;
 
 #[async_trait]
 pub trait ActionCallbacks: Send + Sync {
-    async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String>;
+    /// Mints an AI gateway token for the calling function. The caller stays
+    /// typed until Conductor builds the claims it signs. Node actions call
+    /// `Application::mint_llm_gateway_jwt` over HTTP instead.
+    async fn issue_llm_gateway_jwt(&self, caller: AttributedCaller) -> anyhow::Result<String>;
 
     // Executing UDFs
     async fn execute_query(

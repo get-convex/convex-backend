@@ -133,6 +133,7 @@ use common::{
         env_var_total_size,
         env_var_total_size_limit_met,
         AllowedVisibility,
+        AttributionClaims,
         ConvexOrigin,
         ConvexSite,
         DeploymentMetadata,
@@ -369,7 +370,6 @@ use udf::{
         CONVEX_ORIGIN,
         CONVEX_SITE,
     },
-    ActionCallbacks,
     HttpActionRequest,
     HttpActionResponseStreamer,
     HttpActionResult,
@@ -867,6 +867,7 @@ impl<RT: Runtime> Application<RT> {
             default_system_env_vars.clone(),
             cache,
             llm_gateway_jwt_minter,
+            deployment.clone(),
         ));
         function_runner.set_action_callbacks(runner.clone());
 
@@ -996,8 +997,8 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String> {
-        self.runner.issue_llm_gateway_jwt().await
+    pub fn mint_llm_gateway_jwt(&self, claims: AttributionClaims) -> anyhow::Result<String> {
+        self.runner.mint_llm_gateway_jwt(claims)
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {

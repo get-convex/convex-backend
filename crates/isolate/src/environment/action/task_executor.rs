@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeMap,
-    sync::Arc,
+    sync::{
+        Arc,
+        OnceLock,
+    },
     time::Duration,
 };
 
@@ -24,6 +27,7 @@ use common::{
     types::{
         ConvexOrigin,
         DeploymentMetadata,
+        HttpActionRoute,
     },
 };
 use errors::ErrorMetadata;
@@ -89,6 +93,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub udf_path: CanonicalizedUdfPath,
     pub component_path: ComponentPath,
     pub convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
+    pub http_action_route: Arc<OnceLock<HttpActionRoute>>,
     pub deployment: DeploymentMetadata,
 }
 

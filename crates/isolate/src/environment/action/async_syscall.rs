@@ -12,6 +12,7 @@ use common::{
         UnixTimestamp,
     },
     try_anyhow,
+    types::AttributedCaller,
 };
 use errors::{
     ErrorMetadata,
@@ -180,7 +181,20 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let CreateServiceTokenArgs {
             service: Service::AiGateway,
         } = with_argument_error("createServiceToken", || Ok(serde_json::from_value(args)?))?;
-        let token = self.action_callbacks.issue_llm_gateway_jwt().await?;
+        // Every value here comes from the executor's own state, so a function
+        // cannot misattribute its spend by lying about who it is.
+        let component_path = self.component_path.clone();
+        let caller = match self.http_action_route.get() {
+            Some(route) => AttributedCaller::HttpAction {
+                component_path,
+                route: route.clone(),
+            },
+            None => AttributedCaller::Action {
+                component_path,
+                udf_path: self.udf_path.clone(),
+            },
+        };
+        let token = self.action_callbacks.issue_llm_gateway_jwt(caller).await?;
         Ok(JsonValue::String(token))
     }
 

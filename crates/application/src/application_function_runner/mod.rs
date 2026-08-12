@@ -68,7 +68,9 @@ use common::{
     },
     types::{
         AllowedVisibility,
-        DeploymentId,
+        AttributedCaller,
+        AttributionClaims,
+        DeploymentMetadata,
         FunctionCaller,
         ModuleEnvironment,
         NodeDependency,
@@ -108,7 +110,6 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
-    backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     components::handles::FunctionHandlesModel,
     config::{
@@ -675,10 +676,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter<RT>,
     llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
-    /// A deployment keeps its ID for as long as it stays loaded, and one
-    /// `Application` serves one deployment, so token minting reuses the first
-    /// read instead of opening a transaction per call.
-    deployment_id: tokio::sync::OnceCell<DeploymentId>,
+    deployment: DeploymentMetadata,
 }
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
@@ -696,6 +694,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
         llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
+        deployment: DeploymentMetadata,
     ) -> Self {
         let isolate_functions = FunctionRouter::new(
             function_runner,
@@ -736,8 +735,24 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             default_system_env_vars,
             node_action_limiter,
             llm_gateway_jwt_minter,
-            deployment_id: tokio::sync::OnceCell::new(),
+            deployment,
         }
+    }
+
+    /// Called with a typed caller via [`ActionCallbacks`], or with flat
+    /// claims from Conductor's gRPC handler.
+    pub fn mint_llm_gateway_jwt(&self, attribution: AttributionClaims) -> anyhow::Result<String> {
+        let Some(minter) = self.llm_gateway_jwt_minter.as_ref() else {
+            // `bad_request` shows this message to the developer; a bare
+            // anyhow error would show a generic internal error instead.
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "AiGatewayUnavailable",
+                "`getServiceToken(\"ai-gateway\")` isn't available on this deployment because the \
+                 AI gateway is a Convex Cloud service. Deploy to Convex Cloud, or call your model \
+                 provider directly with your own API key."
+            ));
+        };
+        minter.mint(&self.deployment, attribution)
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
@@ -2068,28 +2083,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
-    async fn issue_llm_gateway_jwt(&self) -> anyhow::Result<String> {
-        let backend_deployment_id = match self.deployment_id.get() {
-            Some(deployment_id) => Some(*deployment_id),
-            None => {
-                let mut tx = self.database.begin_system().await?;
-                let deployment_id = BackendInfoModel::new(&mut tx)
-                    .get()
-                    .await?
-                    .map(|backend_info| backend_info.deployment);
-                if let Some(deployment_id) = deployment_id {
-                    // Backend info can arrive after the first call, so only a real
-                    // ID is worth remembering. Concurrent callers race here and
-                    // read back the same value.
-                    let _ = self.deployment_id.set(deployment_id);
-                }
-                deployment_id
-            },
-        };
-        self.llm_gateway_jwt_minter
-            .as_ref()
-            .context("LLM gateway JWT minting is not configured")?
-            .mint(backend_deployment_id)
+    async fn issue_llm_gateway_jwt(&self, caller: AttributedCaller) -> anyhow::Result<String> {
+        self.mint_llm_gateway_jwt(AttributionClaims::from(caller))
     }
 
     #[fastrace::trace]

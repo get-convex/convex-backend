@@ -41,7 +41,9 @@ pub enum QueryInvocation {
     IdentityChange,
 }
 
-#[derive(Serialize, Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(
+    Serialize, Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, strum::VariantArray,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum UdfType {
     Query,
@@ -103,7 +105,11 @@ impl FromStr for UdfType {
             "Query" | "query" => Ok(Self::Query),
             "Mutation" | "mutation" => Ok(Self::Mutation),
             "Action" | "action" => Ok(Self::Action),
-            "HttpEndpoint" | "httpEndpoint" | "HttpAction" | "httpAction" => Ok(Self::HttpAction),
+            // `http_action` is what `to_lowercase_string` emits, so accepting
+            // it makes the two directions inverses.
+            "HttpEndpoint" | "httpEndpoint" | "HttpAction" | "httpAction" | "http_action" => {
+                Ok(Self::HttpAction)
+            },
             _ => anyhow::bail!("Expected UdfType, got {:?}", s),
         }
     }

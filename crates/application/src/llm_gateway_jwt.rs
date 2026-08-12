@@ -1,8 +1,15 @@
-use common::types::DeploymentId;
+use common::types::{
+    AttributionClaims,
+    DeploymentMetadata,
+};
 
 /// Mints short-lived JWTs accepted by the LLM gateway.
 pub trait LlmGatewayJwtMinter: Send + Sync {
-    /// `backend_deployment_id` must come from trusted backend metadata rather
-    /// than function input.
-    fn mint(&self, backend_deployment_id: Option<DeploymentId>) -> anyhow::Result<String>;
+    /// `deployment` and `attribution` must both come from trusted backend
+    /// metadata or execution state rather than function input.
+    fn mint(
+        &self,
+        deployment: &DeploymentMetadata,
+        attribution: AttributionClaims,
+    ) -> anyhow::Result<String>;
 }
