@@ -443,22 +443,32 @@ impl Persistence for SqlitePersistence {
     }
 }
 
-#[async_trait]
-impl PersistenceReader for SqlitePersistence {
-    fn load_documents(
+impl SqlitePersistence {
+    /// Read the document log in `range`, restricted to `tablet_id` if given.
+    ///
+    /// Rows are collected eagerly, so restricting in SQL keeps the untargeted
+    /// ones out of memory entirely.
+    fn stream_document_log(
         &self,
+        tablet_id: Option<TabletId>,
         range: TimestampRange,
         order: Order,
-        _page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        let triples = try_anyhow!({
+        let entries = try_anyhow!({
             let connection = &self.inner.lock().connection;
-            let load_docs_query = load_docs(range, order);
+            let load_docs_query = load_docs(range, order, tablet_id.is_some());
             let mut stmt = connection.prepare(load_docs_query.as_str())?;
 
+            let tablet_id_bytes = tablet_id.map(|tablet_id| tablet_id.0);
+            let tablet_id_slice = tablet_id_bytes.as_ref().map(|tablet_id| &tablet_id[..]);
+            let params: Vec<&dyn ToSql> = match tablet_id_slice {
+                Some(ref tablet_id) => vec![tablet_id],
+                None => vec![],
+            };
+
             let mut entries = vec![];
-            for row in stmt.query_map([], load_document_row)? {
+            for row in stmt.query_map(params.as_slice(), load_document_row)? {
                 let (document_id, ts, document, prev_ts) = row_to_document(row)?;
                 entries.push(Ok(DocumentLogEntry {
                     ts,
@@ -469,14 +479,38 @@ impl PersistenceReader for SqlitePersistence {
             }
             entries
         });
-        // load_documents isn't async so we have to validate snapshot as part of the
+        // The caller isn't async so we have to validate snapshot as part of the
         // stream.
         let validate =
             self.validate_document_snapshot(range.min_timestamp_inclusive(), retention_validator);
-        match triples {
+        match entries {
             Ok(s) => validate.chain(stream::iter(s).cooperative()).boxed(),
             Err(e) => stream::once(async { Err(e) }).boxed(),
         }
+    }
+}
+
+#[async_trait]
+impl PersistenceReader for SqlitePersistence {
+    fn load_documents(
+        &self,
+        range: TimestampRange,
+        order: Order,
+        _page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentStream<'_> {
+        self.stream_document_log(None, range, order, retention_validator)
+    }
+
+    fn load_documents_from_table(
+        &self,
+        tablet_id: TabletId,
+        range: TimestampRange,
+        order: Order,
+        _page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentStream<'_> {
+        self.stream_document_log(Some(tablet_id), range, order, retention_validator)
     }
 
     async fn previous_revisions(
@@ -655,7 +689,7 @@ fn row_to_document(
     Ok((document_id, prev_ts, document, prev_prev_ts))
 }
 
-fn load_docs(range: TimestampRange, order: Order) -> String {
+fn load_docs(range: TimestampRange, order: Order, tablet_filter: bool) -> String {
     let order_str = match order {
         Order::Asc => " ORDER BY ts ASC, table_id ASC, id ASC ",
         Order::Desc => " ORDER BY ts DESC, table_id DESC, id DESC ",
@@ -666,9 +700,15 @@ SELECT id, ts, table_id, json_value, deleted, prev_ts
 FROM documents
 WHERE ts >= {} AND ts < {}
 {}
+{}
 "#,
         range.min_timestamp_inclusive(),
         range.max_timestamp_exclusive(),
+        if tablet_filter {
+            "AND table_id = $1"
+        } else {
+            ""
+        },
         order_str,
     )
 }

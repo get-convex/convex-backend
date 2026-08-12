@@ -15,7 +15,6 @@ use std::{
 use async_trait::async_trait;
 use enum_iterator::Sequence;
 use futures::{
-    future,
     stream::BoxStream,
     try_join,
     StreamExt,
@@ -425,10 +424,6 @@ pub trait PersistenceReader: Send + Sync + 'static {
     ///
     /// page_size is how many documents to fetch with a single query. It doesn't
     /// affect load_documents results, just efficiency of the internal queries.
-    ///
-    /// NOTE: The filter is implemented entirely in memory. We can potentially
-    /// add indexes to the documents table to allow for an efficient database
-    /// version of this query, but have not yet done so.
     fn load_documents_from_table(
         &self,
         tablet_id: TabletId,
@@ -436,11 +431,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         order: Order,
         page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> DocumentStream<'_> {
-        self.load_documents(range, order, page_size, retention_validator)
-            .try_filter(move |doc| future::ready(doc.id.table() == tablet_id))
-            .boxed()
-    }
+    ) -> DocumentStream<'_>;
 
     /// Loads revision pairs from the document log in the given timestamp range.
     ///

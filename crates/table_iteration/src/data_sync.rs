@@ -406,8 +406,9 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             .await;
 
         // The latest repeatable timestamp bounds reads and is used by the
-        // freshness heuristic. It increases monotonically, so any `synced_ts`
-        // produced by a prior page is `<= latest`.
+        // freshness heuristic. It increases monotonically, once the committer bumps
+        // that timestamp a few seconds after each commit. Any `synced_ts`
+        // produced by a prior page is guaranteed to be `<= latest`.
         let latest = new_static_repeatable_recent(self.persistence.as_ref()).await?;
 
         // Cold start, or reconcile an existing cursor against `target_tables`.
@@ -602,8 +603,22 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         if let Some(start) = cursor.synced_ts.succ_opt()
             && start <= *latest
         {
-            let stream = repeatable_persistence
-                .load_documents(TimestampRange::new(start..=*latest), Order::Asc);
+            let range = TimestampRange::new(start..=*latest);
+            let single_table = if target_tables.len() == 1 {
+                target_tables.first_key_value().map(|(tablet, _)| tablet)
+            } else {
+                None
+            };
+            let stream = match single_table {
+                Some(&tablet) => {
+                    cover!(coverage::TS_SINGLE_TABLE_FILTER);
+                    repeatable_persistence.load_documents_from_table(tablet, range, Order::Asc)
+                },
+                None => {
+                    cover!(coverage::TS_MULTI_TABLE_SCAN);
+                    repeatable_persistence.load_documents(range, Order::Asc)
+                },
+            };
             pin_mut!(stream);
 
             let mut rows_read = 0usize;
