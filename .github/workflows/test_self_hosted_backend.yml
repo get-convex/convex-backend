@@ -48,8 +48,7 @@ jobs:
           path: |
             ~/.local/share/pnpm/store
             npm-packages/.turbo/cache
-          key:
-            pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
+          key: pnpm-cache-${{ hashFiles('npm-packages/pnpm-lock.yaml') }}-3
           restore-keys: pnpm-cache-
 
       - name: Install mise tools
