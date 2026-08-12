@@ -1,4 +1,5 @@
 import { DatabricksQueryId, DateRange, useUsageQuery } from "api/usage";
+import { DeploymentType } from "generatedApi";
 
 const QUERY_IDS_: {
   summary: DatabricksQueryId;
@@ -8,7 +9,7 @@ const QUERY_IDS_: {
   deploymentCountByStatus: DatabricksQueryId;
 } = {
   summary: "b63fe48d-320c-401a-8682-0a0b36b50e2b",
-  functionBreakdown: "90ec3ee0-720f-4e67-94a2-75ecd278b3c6",
+  functionBreakdown: "76c86baa-418e-4d7f-ac21-46f397030595",
   deploymentsByClassAndRegion: "dfc73057-1948-4b99-a3bf-9ae802a395ee",
   deploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
   deploymentCountByStatus: "4bc3e942-951a-440a-be2a-7c833b77eee1",
@@ -68,6 +69,10 @@ export type UsageSummaryRow = {
   idleDeploymentCount: number;
 };
 
+// Function name of the row the breakdown query emits per project to carry the
+// functions that fall outside the top-N it returns, so project totals stay exact.
+export const REST_OF_FUNCTIONS = "_rest";
+
 export interface AggregatedFunctionMetrics {
   function: string;
   projectId: number;
@@ -80,7 +85,8 @@ export interface AggregatedFunctionMetrics {
   actionComputeConvexTime: number; // GB-hours
   actionComputeNodeTime: number; // GB-hours
   dataEgress: number; // bytes
-  deploymentName?: string;
+  // Null on the `_rest` row, which spans every deployment type.
+  deploymentType: DeploymentType | null;
   componentPath: string;
 }
 
@@ -237,7 +243,7 @@ export function useUsageTeamMetricsByFunction(
         actionComputeConvexTime,
         actionComputeNodeTime,
         dataEgress,
-        deploymentName,
+        deploymentType,
         componentPath,
       ]) => ({
         function: functionName,
@@ -251,7 +257,8 @@ export function useUsageTeamMetricsByFunction(
         actionComputeConvexTime: Number(actionComputeConvexTime) / 60 / 60,
         actionComputeNodeTime: Number(actionComputeNodeTime) / 60 / 60,
         dataEgress: Number(dataEgress),
-        deploymentName,
+        // SQL NULL arrives as "" (see useUsageQuery).
+        deploymentType: (deploymentType || null) as DeploymentType | null,
         componentPath,
       }),
     ),

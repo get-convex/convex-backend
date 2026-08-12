@@ -101,6 +101,10 @@ import {
 // rendered as empty bars, never with real (nonexistent) values.
 const DEPLOYMENT_STATUS_DATA_START = "2026-07-23";
 
+// Matches the `LIMIT` on the function breakdown Databricks query, which returns
+// only the highest-usage projects to keep its result under the 25MB inline cap.
+const MAX_PROJECTS_IN_BREAKDOWN = 250;
+
 const FUNCTION_BREAKDOWN_TABS_ = [
   FunctionBreakdownMetricCalls,
   FunctionBreakdownMetricDatabaseIO,
@@ -823,6 +827,13 @@ function FunctionBreakdownSection({
     FUNCTION_BREAKDOWN_TABS_[0];
   const usageByProject = useUsageByProject(metricsByFunction, metric);
 
+  // Counted over every returned row, not `usageByProject`, which drops projects
+  // with no usage of the currently selected metric.
+  const isProjectListTruncated =
+    metricsByFunction !== undefined &&
+    new Set(metricsByFunction.map((row) => row.projectId)).size >=
+      MAX_PROJECTS_IN_BREAKDOWN;
+
   const {
     visibleItems: visibleProjects,
     totalPages,
@@ -868,13 +879,23 @@ function FunctionBreakdownSection({
             />
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex justify-end">
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+          {(totalPages > 1 || isProjectListTruncated) && (
+            <div className="flex items-center justify-between gap-4">
+              {isProjectListTruncated ? (
+                <p className="text-xs text-content-secondary">
+                  Showing the {MAX_PROJECTS_IN_BREAKDOWN} highest-usage
+                  projects. Select a project above to see its full breakdown.
+                </p>
+              ) : (
+                <div />
+              )}
+              {totalPages > 1 && (
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </div>
           )}
         </div>

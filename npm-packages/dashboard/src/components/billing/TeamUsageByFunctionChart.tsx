@@ -1,6 +1,7 @@
 import {
   ChevronDownIcon,
   DesktopIcon,
+  DotsHorizontalIcon,
   DownloadIcon,
   FileIcon,
   PaperPlaneIcon,
@@ -9,7 +10,10 @@ import {
 import classNames from "classnames";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
+import {
+  AggregatedFunctionMetrics,
+  REST_OF_FUNCTIONS,
+} from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
 import { ReactNode, useMemo, useState } from "react";
@@ -28,23 +32,26 @@ import { cn } from "@ui/cn";
 const ITEMS_SHOWN_INITIALLY = 6;
 const ITEMS_SHOW_MORE_INCREMENT = 20;
 
-type SystemRowKind =
+// Rows labelled by what they represent rather than by a function path.
+type SpecialRowKind =
   | "dashboard"
   | "cloudBackup"
   | "logStreaming"
   | "streamingExport"
-  | "fileServing";
+  | "fileServing"
+  | "restOfFunctions";
 
-function getSystemRowKind(fn: string): SystemRowKind | null {
+function getSpecialRowKind(fn: string): SpecialRowKind | null {
   if (fn.startsWith("_system/")) return "dashboard";
   if (fn === "_system_job/cloud_backup") return "cloudBackup";
   if (fn === "_system_job/log_stream_payload") return "logStreaming";
   if (fn === "_system_job/streaming_export") return "streamingExport";
   if (fn === "_system_job/get_range") return "fileServing";
+  if (fn === REST_OF_FUNCTIONS) return "restOfFunctions";
   return null;
 }
 
-function renderSystemRowLabel(kind: SystemRowKind): ReactNode {
+function renderSpecialRowLabel(kind: SpecialRowKind): ReactNode {
   switch (kind) {
     case "dashboard":
       return (
@@ -81,6 +88,13 @@ function renderSystemRowLabel(kind: SystemRowKind): ReactNode {
           File Serving
         </span>
       );
+    case "restOfFunctions":
+      return (
+        <span className="flex items-center gap-1.5">
+          <DotsHorizontalIcon />
+          All other functions
+        </span>
+      );
   }
 }
 
@@ -91,7 +105,7 @@ type DeploymentTypeRow = {
   value: number;
   values: number[];
   deploymentType: DeploymentType | null;
-  systemKind: SystemRowKind | null;
+  specialKind: SpecialRowKind | null;
   href: string | null;
 };
 
@@ -271,12 +285,12 @@ function ChartRow({
     | undefined;
 }) {
   const path = row.function;
-  const { componentPath, systemKind } = row;
+  const { componentPath, specialKind } = row;
   const { module, functionName } = useMemo(() => {
     const separator = ".js:";
     const separatorPosition = path.indexOf(separator);
 
-    if (systemKind !== null) {
+    if (specialKind !== null) {
       return { module: "", functionName: "default" };
     }
 
@@ -289,7 +303,7 @@ function ChartRow({
       module: path.substring(0, separatorPosition),
       functionName: path.substring(separatorPosition + separator.length),
     };
-  }, [path, systemKind]);
+  }, [path, specialKind]);
 
   const { values } = row;
   const nonZeroValues = values
@@ -317,8 +331,8 @@ function ChartRow({
 
         <div className="absolute top-0 left-0 flex size-full items-center text-sm">
           <div className="truncate px-4">
-            {systemKind !== null ? (
-              renderSystemRowLabel(systemKind)
+            {specialKind !== null ? (
+              renderSpecialRowLabel(specialKind)
             ) : (
               <div className="flex items-center gap-1.5">
                 {componentPath && componentPath !== rootComponentPath && (
@@ -395,23 +409,28 @@ function ChartRow({
       <div>This row aggregates all preview deployments of your team.</div>
     ) : null;
 
-  const systemFunctionTip =
-    systemKind === "dashboard" ? (
+  const specialFunctionTip =
+    specialKind === "dashboard" ? (
       <div>
         Usage incurred by using the Convex dashboard, such as viewing the data
         or logs page for your deployment.
+      </div>
+    ) : specialKind === "restOfFunctions" ? (
+      <div>
+        Usage from this project’s lower-usage functions, which aren’t broken out
+        individually. Spans all deployment types.
       </div>
     ) : null;
   const tip =
     valueTip !== null ||
     deploymentTypeTip !== null ||
-    systemFunctionTip !== null ? (
+    specialFunctionTip !== null ? (
       <div className="flex flex-col items-center gap-2">
         {valueTip !== null ? (
           <div className="flex flex-col items-end">{valueTip}</div>
         ) : null}
         {deploymentTypeTip}
-        {systemFunctionTip}
+        {specialFunctionTip}
       </div>
     ) : undefined;
 
@@ -460,25 +479,24 @@ function useOrderedAndGroupedRows(
   deployments: PlatformDeploymentResponse[],
   team: TeamResponse,
 ): DeploymentTypeRow[] {
-  const fallbackDeploymentType: DeploymentType = "preview";
   return useMemo(() => {
+    // A project can have several production deployments; link to the default
+    // one. `isDefault` only exists on cloud deployments, which is also the only
+    // kind this team-wide usage data can come from.
+    const prodDeploymentName = deployments.find(
+      (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+    )?.name;
     const byFunctionAndDeploymentType = rows.reduce(
       (accumulator, row) => {
-        let deploymentType;
         const { componentPath } = row;
         let key;
-        let deployment = null;
-        const systemKind = getSystemRowKind(row.function);
-        const name = systemKind === "dashboard" ? "" : row.function;
+        const specialKind = getSpecialRowKind(row.function);
+        const name = specialKind === "dashboard" ? "" : row.function;
+        // Without a project, rows from every deployment type are shown together.
+        const deploymentType = project ? row.deploymentType : null;
         if (project) {
-          deployment = deployments.find((d) => d.name === row.deploymentName);
-          deploymentType = deployment
-            ? deployment.deploymentType
-            : fallbackDeploymentType;
-
           key = `${componentPath} ${name} ${deploymentType}`;
         } else {
-          deploymentType = null;
           key = `${componentPath} ${name}`;
         }
 
@@ -498,15 +516,16 @@ function useOrderedAndGroupedRows(
             value: total,
             values,
             deploymentType,
-            systemKind,
+            specialKind,
 
             // We don’t link to development environments because they might belong to
             // someone else in the team. This might be improved later.
             href:
-              project && deploymentType === "prod" && systemKind === null
-                ? `/t/${team.slug}/${project.slug}/${
-                    deployment!.name
-                  }/functions?function=${encodeURIComponent(
+              project &&
+              deploymentType === "prod" &&
+              specialKind === null &&
+              prodDeploymentName
+                ? `/t/${team.slug}/${project.slug}/${prodDeploymentName}/functions?function=${encodeURIComponent(
                     name.replace(".js", ""),
                   )}`
                 : null,
@@ -518,8 +537,15 @@ function useOrderedAndGroupedRows(
       {} as Record<string, DeploymentTypeRow>,
     );
 
-    return Object.values(byFunctionAndDeploymentType).sort(
-      (a, b) => b.value - a.value,
-    );
-  }, [rows, metric, deployments, project, team, fallbackDeploymentType]);
+    // The roll-up sits last however large it is, so it reads as the tail of the
+    // list rather than as the project's biggest function.
+    return Object.values(byFunctionAndDeploymentType).sort((a, b) => {
+      const aIsRest = a.specialKind === "restOfFunctions";
+      const bIsRest = b.specialKind === "restOfFunctions";
+      if (aIsRest !== bIsRest) {
+        return aIsRest ? 1 : -1;
+      }
+      return b.value - a.value;
+    });
+  }, [rows, metric, deployments, project, team]);
 }
