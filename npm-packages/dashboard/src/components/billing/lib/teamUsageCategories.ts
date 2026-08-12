@@ -6,6 +6,7 @@ export const DATABASE_STORAGE_CATEGORIES = {
   index: {
     name: "Indexes",
     color: "fill-chart-line-2",
+    tip: "Each index you define is billed as a copy of the table's documents.",
   },
 };
 

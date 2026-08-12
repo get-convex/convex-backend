@@ -140,7 +140,10 @@ to load them in batches via separate queries / mutations.
 
 Indexes like `by_foo` and `by_foo_and_bar` are usually redundant (you only need
 `by_foo_and_bar`). Reducing the number of indexes saves on database storage and
-reduces the overhead of writing to the table.
+reduces the overhead of writing to the table. Each index counts as another copy
+of the table's documents toward
+[database storage](/production/state/limits.mdx#database), so a table with three
+indexes uses about 4× its document size.
 
 <Snippet
   title="convex/teams.ts"

@@ -76,7 +76,8 @@ const businessSections: Section[] = [
   {
     metric: "databaseStorage",
     format: formatBytes,
-    detail: "The total size of all documents stored in your projects",
+    detail:
+      "The total size of all documents and indexes stored in your projects",
     title: "Database Storage",
   },
   {
@@ -140,7 +141,8 @@ const selfServeSections: Section[] = [
     metric: "databaseStorage",
     entitlement: "teamMaxDatabaseStorage",
     format: formatBytes,
-    detail: "The total size of all documents stored in your projects",
+    detail:
+      "The total size of all documents and indexes stored in your projects",
     title: "Database Storage",
   },
   {
