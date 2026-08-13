@@ -386,6 +386,9 @@ export default defineSchema({
     name: v.union(v.string(), v.null()),
     args: v.union(v.array(v.any()), v.null()),
     state: v.optional(v.union(v.literal("active"), v.literal("unmounted"))),
+    // Absolute path this component's HTTP routes are served under: the app's
+    // `httpPrefix` for the root, the mount path in the parent for children.
+    httpPrefix: v.optional(v.union(v.string(), v.null())),
   }),
   _modules: defineTable({
     path: v.string(),

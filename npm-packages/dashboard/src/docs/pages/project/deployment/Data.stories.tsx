@@ -625,6 +625,7 @@ const mockComponents = [
     path: "rateLimiter",
     args: {},
     state: "active" as const,
+    httpPrefix: null,
   },
   {
     id: "k17componentsaaaaaaaaaaaaaaaa2222" as GenericId<"_components">,
@@ -632,6 +633,7 @@ const mockComponents = [
     path: "migrations",
     args: {},
     state: "active" as const,
+    httpPrefix: null,
   },
 ];
 
