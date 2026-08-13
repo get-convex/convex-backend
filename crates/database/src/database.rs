@@ -1010,6 +1010,7 @@ impl<RT: Runtime> Database<RT> {
         index_cache_handle: IndexCacheHandleBuilder,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
+        deployment_name: String,
     ) -> anyhow::Result<Self> {
         let _load_database_timer = metrics::load_database_timer();
 
@@ -1080,6 +1081,7 @@ impl<RT: Runtime> Database<RT> {
             shutdown,
             virtual_system_mapping.clone(),
             index_cache_handle.clone(),
+            deployment_name,
         );
         let table_mapping_snapshot_cache =
             AsyncLru::new(runtime.clone(), 20, 2, 200, "table_mapping_snapshot");

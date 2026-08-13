@@ -35,10 +35,7 @@ use common::{
         recapture_stacktrace,
         report_error,
     },
-    fastrace_helpers::{
-        initialize_root_from_parent,
-        EncodedSpan,
-    },
+    fastrace_helpers::get_sampled_span,
     knobs::{
         COMMITTER_MAX_CONCURRENT_COMMITS,
         COMMITTER_MAX_CONCURRENT_PRE_VALIDATIONS,
@@ -172,7 +169,7 @@ enum PersistenceWrite {
         pending_write: PendingWriteHandle,
         commit_timer: StatusTimer,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
-        parent_trace: EncodedSpan,
+        parent_trace: Option<SpanContext>,
         commit_id: usize,
         write_bytes: u64,
         index_key_writes: IndexKeyWrites,
@@ -208,7 +205,7 @@ struct CommitRequest {
     transaction: FinalTransaction,
     result: oneshot::Sender<anyhow::Result<Timestamp>>,
     write_source: WriteSource,
-    parent_trace: EncodedSpan,
+    parent_trace: Option<SpanContext>,
 }
 
 /// What the off-thread conflict check decided about a commit request.
@@ -274,6 +271,7 @@ pub struct Committer<RT: Runtime> {
     snapshot_manager: Writer<SnapshotManager>,
     persistence: Arc<dyn Persistence>,
     runtime: RT,
+    deployment_name: String,
 
     last_assigned_ts: Timestamp,
 
@@ -303,6 +301,7 @@ impl<RT: Runtime> Committer<RT> {
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
         index_cache_handle: IndexCacheHandle,
+        deployment_name: String,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new();
@@ -331,6 +330,7 @@ impl<RT: Runtime> Committer<RT> {
                 metrics::awaiting_pre_validation_commits_subgauge(),
             pre_validating_commits_gauge: metrics::pre_validating_commits_subgauge(),
             index_cache_handle,
+            deployment_name,
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -424,7 +424,7 @@ impl<RT: Runtime> Committer<RT> {
                 _ = bump_fut.fuse() => {
                     let committer_span = committer_span.get_or_insert_with(|| {
                         span_commit_id = Some(commit_id);
-                        Span::root("bump_max_repeatable", SpanContext::random())
+                        get_sampled_span(&self.deployment_name, "bump_max_repeatable", &mut self.runtime.rng())
                     });
                     // Advance the repeatable read timestamp so non-leaders can
                     // establish a recent repeatable snapshot.
@@ -448,15 +448,11 @@ impl<RT: Runtime> Committer<RT> {
                             index_key_writes,
                             ..
                         } => {
-                            let publish_commit_span = initialize_root_from_parent(
+                            let publish_commit_span = make_committer_span(
                                 "Committer::publish_commit",
+                                committer_span.as_ref(),
                                 parent_trace,
                             );
-                            if let Some(root) = &committer_span
-                                && let Some(ctx) = SpanContext::from_span(root)
-                            {
-                                publish_commit_span.add_link(ctx);
-                            }
                             let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
                             self.publish_commit(pending_write, write_bytes, index_key_writes);
@@ -481,7 +477,7 @@ impl<RT: Runtime> Committer<RT> {
                                     Span::enter_with_parent("publish_max_repeatable_ts", root)
                                 })
                                 .unwrap_or_else(Span::noop);
-                            span.set_local_parent();
+                            let _guard = span.set_local_parent();
                             self.publish_max_repeatable_ts(new_max_repeatable)?;
                             let base_period = *MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY;
                             next_bump_wait = Some(
@@ -497,15 +493,8 @@ impl<RT: Runtime> Committer<RT> {
                     if let Some(id) = span_commit_id
                         && id == pending_commit_id
                         && let Some(span) = committer_span.take()
-                    {
-                        if span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
-                            tracing::debug!(
-                                "Not sending span to honeycomb because it is below the threshold"
-                            );
-                            span.cancel();
-                        } else {
-                            tracing::debug!("Sending trace to honeycomb");
-                        }
+                        && span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
+                        span.cancel();
                     }
                 },
                 batch = pre_validations.select_next_some() => {
@@ -536,23 +525,20 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         } = request;
-                        let start_commit_span = initialize_root_from_parent(
+                        let committer_span_ref = committer_span.get_or_insert_with(|| {
+                            span_commit_id = Some(commit_id);
+                            get_sampled_span(&self.deployment_name, "commit", &mut self.runtime.rng())
+                        });
+                        let start_commit_span = make_committer_span(
                             "handle_commit_message",
-                            parent_trace.clone(),
-                        )
-                        .with_property(|| {
+                            Some(committer_span_ref),
+                            parent_trace,
+                        ).with_property(|| {
                             (
                                 "time_in_queue_ms",
                                 format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0),
                             )
                         });
-                        let committer_span_ref = committer_span.get_or_insert_with(|| {
-                            span_commit_id = Some(commit_id);
-                            Span::root("commit", SpanContext::random())
-                        });
-                        if let Some(ctx) = SpanContext::from_span(committer_span_ref) {
-                            start_commit_span.add_link(ctx);
-                        }
                         let _guard = start_commit_span.set_local_parent();
                         drop(queue_timer);
                         if let Some(persistence_write_future) = self.start_commit(
@@ -572,6 +558,8 @@ impl<RT: Runtime> Committer<RT> {
                             // and it didn't get incremented, so it's not a write to persistence
                             // and we should not trace it.
                             // We also need to reset the span_commit_id and committer_span.
+                            drop(_guard);
+                            drop(start_commit_span);
                             committer_span_ref.cancel();
                             committer_span = None;
                             span_commit_id = None;
@@ -1179,7 +1167,7 @@ impl<RT: Runtime> Committer<RT> {
         transaction: FinalTransaction,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
-        parent_trace: EncodedSpan,
+        parent_trace: Option<SpanContext>,
         commit_id: usize,
         root_span: &Span,
         validated_through: Timestamp,
@@ -1216,13 +1204,12 @@ impl<RT: Runtime> Committer<RT> {
         };
 
         // necessary because this value is moved
-        let parent_trace_copy = parent_trace.clone();
         let write_batcher = self.write_batcher.clone();
-        let outer_span =
-            initialize_root_from_parent("Committer::persistence_writes_future", parent_trace);
-        if let Some(ctx) = SpanContext::from_span(root_span) {
-            outer_span.add_link(ctx);
-        }
+        let outer_span = make_committer_span(
+            "Committer::persistence_writes_future",
+            Some(root_span),
+            parent_trace,
+        );
         let pause_client = self.runtime.pause_client();
         let virtual_system_mapping = self.virtual_system_mapping.clone();
         let commit_ts = pending_write.must_commit_ts();
@@ -1254,7 +1241,7 @@ impl<RT: Runtime> Committer<RT> {
                     pending_write,
                     commit_timer,
                     result,
-                    parent_trace: parent_trace_copy,
+                    parent_trace,
                     commit_id,
                     write_bytes,
                     index_key_writes,
@@ -1417,6 +1404,33 @@ impl<RT: Runtime> Committer<RT> {
     }
 }
 
+/// `root_span` is the cross-commit span maintained by the committer, while
+/// `parent_trace` points to the span used by the commit client
+fn make_committer_span(
+    span_name: &'static str,
+    root_span: Option<&Span>,
+    parent_trace: Option<SpanContext>,
+) -> Span {
+    if let Some(parent) = parent_trace {
+        let span = Span::root(span_name, parent);
+        if let Some(root_span) = root_span
+            && let Some(ctx) = SpanContext::from_span(root_span)
+        {
+            // this link may go nowhere if root_span is cancelled, but that's
+            // harmless
+            span.add_link(ctx);
+        }
+        span
+    } else if let Some(root_span) = root_span {
+        // `root_span` is tail-sampled, so it's important to use
+        // `enter_with_parent` (not `Span::root`) to ensure that all the spans
+        // are submitted or cancelled together
+        Span::enter_with_parent(span_name, root_span)
+    } else {
+        Span::noop()
+    }
+}
+
 struct ValidatedDocumentWrite {
     commit_ts: Timestamp,
     id: InternalDocumentId,
@@ -1515,7 +1529,7 @@ impl CommitterClient {
             transaction,
             result: tx,
             write_source,
-            parent_trace: EncodedSpan::from_parent(),
+            parent_trace: SpanContext::current_local_parent(),
         };
 
         // Waits until the committer has space to send a message, with a timeout.
@@ -1608,7 +1622,7 @@ enum CommitterMessage {
         transaction: FinalTransaction,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
-        parent_trace: EncodedSpan,
+        parent_trace: Option<SpanContext>,
     },
     LoadIndexesIntoMemory {
         tables: BTreeSet<TableName>,
