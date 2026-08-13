@@ -28,6 +28,7 @@ const BY_PROJECT_QUERY_IDS_: {
   fileStorageByProject: DatabricksQueryId;
   searchStorageByProject: DatabricksQueryId;
   dataEgressByProject: DatabricksQueryId;
+  auditLogBandwidthByProject: DatabricksQueryId;
   searchQueriesByProject: DatabricksQueryId;
   deploymentCountByProject: DatabricksQueryId;
 } = {
@@ -43,6 +44,7 @@ const BY_PROJECT_QUERY_IDS_: {
   fileStorageByProject: "72add9df-4ef2-47fe-9942-194dfbb72088",
   searchStorageByProject: "87f2b0b2-024c-4c2a-bf81-8a3c0cab1b82",
   dataEgressByProject: "67ce838f-b2d0-4cda-9a2e-580c6d134466",
+  auditLogBandwidthByProject: "158b5d9c-a1d5-469d-a7ca-b610cb59c978",
   searchQueriesByProject: "48ae8bb1-ec17-41db-9e35-7c774296c5ac",
   deploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
 };
@@ -63,6 +65,7 @@ export type UsageSummaryRow = {
   dataEgress: number;
   searchQueries: number;
   actionComputeUser: number; // GB-hours — corrected non-node compute for business plans
+  auditLogBandwidth: number;
   // Current deployment count gauge (team-wide; not filtered by project/component).
   deploymentCount: number;
   pausedDeploymentCount: number;
@@ -186,6 +189,7 @@ export function useUsageTeamSummary(
         deploymentCount,
         pausedDeploymentCount,
         idleDeploymentCount,
+        auditLogBandwidth,
       ]) =>
         ({
           deploymentClass,
@@ -204,6 +208,7 @@ export function useUsageTeamSummary(
           deploymentCount: Number(deploymentCount),
           pausedDeploymentCount: Number(pausedDeploymentCount),
           idleDeploymentCount: Number(idleDeploymentCount),
+          auditLogBandwidth: Number(auditLogBandwidth),
         }) satisfies UsageSummaryRow,
     ),
     error: undefined,
@@ -683,6 +688,34 @@ export function useDataEgressPerDayByProject(
         ],
       }),
     ),
+    error: undefined,
+  };
+}
+
+export function useAuditLogBandwidthPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_.auditLogBandwidthByProject,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(([_teamId, projectId, ds, auditLogEgress]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
+      value: Number(auditLogEgress),
+    })),
     error: undefined,
   };
 }

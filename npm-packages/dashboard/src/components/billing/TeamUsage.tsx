@@ -83,6 +83,7 @@ import {
   useFileStoragePerDayByProject,
   useSearchStoragePerDayByProject,
   useDataEgressPerDayByProject,
+  useAuditLogBandwidthPerDayByProject,
   useSearchQueriesPerDayByProject,
   useDeploymentsByClassAndRegion,
   useComputePerDayByProjectSelfServe,
@@ -124,7 +125,8 @@ export type UsageSectionId =
   | "databaseIO"
   | "searchStorage"
   | "searchQueries"
-  | "dataEgress";
+  | "dataEgress"
+  | "auditLogBandwidth";
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
   const canViewUsage = useHasCustomRolePermission(
@@ -170,6 +172,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     searchStorage: "Search Storage",
     searchQueries: "Search Queries",
     dataEgress: "Data Egress",
+    auditLogBandwidth: "Audit Log Bandwidth",
   };
 
   const summaryHref = (() => {
@@ -404,6 +407,15 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
 
                 {section === "dataEgress" && (
                   <DataEgressUsage
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                  />
+                )}
+
+                {section === "auditLogBandwidth" && (
+                  <AuditLogBandwidthUsage
                     team={team}
                     dateRange={dateRange}
                     projectId={projectId}
@@ -1604,6 +1616,41 @@ function FileStorageUsage({
             setSelectedDate={setSelectedDate}
             quantityType="storage"
             isGauge
+          />
+        )}
+      </div>
+    </TeamUsageSection>
+  );
+}
+
+function AuditLogBandwidthUsage({
+  team,
+  dateRange,
+  projectId,
+  componentPrefix,
+}: DetailSectionProps) {
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  const { data, error } = useAuditLogBandwidthPerDayByProject(
+    team.id,
+    dateRange,
+    projectId,
+    componentPrefix,
+  );
+
+  return (
+    <TeamUsageSection header={<h3 className="py-2">Audit Log Bandwidth</h3>}>
+      <div className="px-4">
+        {error ? (
+          <UsageDataError entity="Audit log bandwidth" />
+        ) : data === undefined ? (
+          <ChartLoading />
+        ) : (
+          <UsageByProjectChart
+            rows={data}
+            team={team}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            quantityType="storage"
           />
         )}
       </div>

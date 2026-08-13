@@ -27,6 +27,7 @@ const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   searchStorage: "searchStorage",
   searchQueries: "searchQueries",
   dataEgress: "dataEgress",
+  auditLogBandwidth: "auditLogBandwidth",
   deploymentCount: "deployments",
 };
 
@@ -39,6 +40,7 @@ const SELF_SERVE_METRIC_TO_SECTION: Record<string, string> = {
   searchStorage: "searchStorage",
   searchQueries: "searchQueries",
   dataEgress: "dataEgress",
+  auditLogBandwidth: "auditLogBandwidth",
   deploymentCount: "deployments",
 };
 
@@ -112,6 +114,13 @@ const businessSections: Section[] = [
     title: "Data Egress",
   },
   {
+    metric: "auditLogBandwidth",
+    format: formatBytes,
+    detail:
+      "The amount of audit log data egressed to your configured S3 bucket.",
+    title: "Audit Log Bandwidth",
+  },
+  {
     metric: "deploymentCount",
     format: formatNumberCompact,
     detail: "The number of deployments across all projects",
@@ -166,6 +175,13 @@ const selfServeSections: Section[] = [
     detail:
       "The amount of data egressed by file serving, fetch calls in actions, log streams, and streaming export.",
     title: "Data Egress",
+  },
+  {
+    metric: "auditLogBandwidth",
+    format: formatBytes,
+    detail:
+      "The amount of audit log data egressed to your configured S3 bucket.",
+    title: "Audit Log Bandwidth",
   },
   {
     metric: "searchStorage",
@@ -248,6 +264,13 @@ export function BusinessPlanSummary({
 
   // Aggregate across deployment classes and regions
   const aggregated = summary ? aggregateRows(summary) : undefined;
+
+  // Only show the audit log egress section for teams that can configure custom audit logs.
+  const visibleSections = activeSections.filter(
+    (section) =>
+      section.metric !== "auditLogBandwidth" ||
+      entitlements?.customAuditLogsInLogStreamsConfigEnabled === true,
+  );
 
   // Apply the team-wide deployment count to the aggregate.
   if (aggregated && deploymentCount !== undefined) {
@@ -356,7 +379,7 @@ export function BusinessPlanSummary({
           ) : !aggregated ? (
             <PlanSummaryLoading />
           ) : (
-            activeSections.map((section, index) => {
+            visibleSections.map((section, index) => {
               const sectionId = sectionToRoute[section.metric];
               const { section: _s, tab: _t, ...restQuery } = router.query;
               const linkQuery = sectionId

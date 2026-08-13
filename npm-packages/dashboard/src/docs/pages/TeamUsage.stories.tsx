@@ -62,6 +62,7 @@ const meta = {
           fileStorage: 10_737_418_240,
           searchStorage: 107_374_182,
           dataEgress: 5_368_709_120,
+          auditLogBandwidth: 268_435_456,
           searchQueries: 500,
           actionComputeUser: 30,
           deploymentCount: 3,
