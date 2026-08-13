@@ -1449,6 +1449,18 @@ pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new
     }
 });
 
+/// The kinesis firehose name for AI gateway usage rows, which carry
+/// `message: "ai_usage"`. Leave it empty and the gateway emits nothing. That is
+/// the default everywhere until we have a stream to point it at.
+pub static LLM_GATEWAY_USAGE_FIREHOSE: LazyLock<Option<String>> = LazyLock::new(|| {
+    let result = env_config("LLM_GATEWAY_USAGE_FIREHOSE", "".to_string());
+    if !result.is_empty() {
+        Some(result)
+    } else {
+        None
+    }
+});
+
 /// If usage tracking worker takes longer than this, trace details to logs.
 pub static USAGE_TRACKING_WORKER_SLOW_TRACE_THRESHOLD: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
