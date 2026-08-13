@@ -828,8 +828,7 @@
     "/data/sync": {
       "post": {
         "tags": [
-          "Data Sync",
-          "beta"
+          "Data Sync"
         ],
         "summary": "Data sync",
         "description": "Paginated streamable export of some or all of a deployment's data.\n\nCall this endpoint repeatedly, passing the opaque `pagination.nextCursor`\nfrom each response back in the next request as `cursor`. Omit `cursor` on\nthe first call.\n\nTo do a one time data sync, keep fetching pages until reaching an `upToDate`\npage. For a continuous streaming export, continue fetching pages\nperiodically. It's recommended to sleep between `upToDate` pages to reduce\noverhead.\n\nThe caller must have the `deployment:data:view` permission.",
@@ -875,8 +874,7 @@
     "/data/list_active_syncs": {
       "get": {
         "tags": [
-          "Data Sync",
-          "beta"
+          "Data Sync"
         ],
         "summary": "List active data syncs",
         "description": "Returns the progress of active data sync (/v1/data/sync).\n\nA data sync is considered active for 3 days after the most recent API call.\nfrom `/data/sync` within the past 3 days.",
