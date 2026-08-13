@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.44.0 (unreleased)
 
 - `schema.doc(tableName)` returns the validator for whole documents of a table:
   the table's own validator with the `_id` and `_creationTime` system fields
@@ -12,6 +12,10 @@
   `CONVEX_CLOUD_URL` are now available on `env` by default in
   `_generated/server.d.ts`, along with other environment variables specified in
   `convex/convex.config.ts`.
+- Fixed a bug where the context value provided by `ConvexProviderWithAuth` was
+  not referentially stable.
+- Fixed a bug where `npx convex login status` would report misleading results
+  when the user is logged in but does not have access to the current project.
 
 ## 1.43.0
 
