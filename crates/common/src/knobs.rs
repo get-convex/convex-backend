@@ -1449,11 +1449,14 @@ pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new
     }
 });
 
-/// The kinesis firehose name for AI gateway usage rows, which carry
-/// `message: "ai_usage"`. Leave it empty and the gateway emits nothing. That is
-/// the default everywhere until we have a stream to point it at.
+/// Firehose stream for AI gateway usage rows, landing at
+/// `s3://cvx-data-lake-prod/ai_usage/`. Its own stream, not the backend usage
+/// one, so AI ingest lag can't stall usage metering. Empty turns emit off.
 pub static LLM_GATEWAY_USAGE_FIREHOSE: LazyLock<Option<String>> = LazyLock::new(|| {
-    let result = env_config("LLM_GATEWAY_USAGE_FIREHOSE", "".to_string());
+    let result = env_config(
+        "LLM_GATEWAY_USAGE_FIREHOSE",
+        prod_override("", "cvx-firehose-ai_usage-prod").to_string(),
+    );
     if !result.is_empty() {
         Some(result)
     } else {
