@@ -27,7 +27,7 @@ use crate::FunctionResult;
 pub trait ActionCallbacks: Send + Sync {
     /// Mints an AI gateway token for the calling function. The caller stays
     /// typed until Conductor builds the claims it signs. Node actions call
-    /// `Application::mint_llm_gateway_jwt` over HTTP instead.
+    /// `Application::mint_ai_gateway_jwt` over HTTP instead.
     async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String>;
 
     // Executing UDFs

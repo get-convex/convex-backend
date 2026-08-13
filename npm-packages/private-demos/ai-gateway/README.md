@@ -4,7 +4,7 @@ This internal demo exercises `getServiceToken("ai-gateway")` against the local
 AI gateway from regular and Node actions, plus the published-style
 `@convex-dev/ai-sdk-provider` path that targets `ai-gateway.convex.dev`.
 
-Start Funrun, Conductor, Usher, and the LLM gateway as described in
+Start Funrun, Conductor, Usher, and the AI gateway as described in
 [`ops/services/llm-gateway/release.md`](../../../ops/services/llm-gateway/release.md).
 Then deploy and run the examples:
 

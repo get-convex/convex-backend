@@ -215,6 +215,7 @@ use self::metrics::{
     UdfExecutorResult,
 };
 use crate::{
+    ai_gateway_jwt::AiGatewayJwtMinter,
     application_function_runner::metrics::{
         function_run_timer,
         function_total_timer,
@@ -231,7 +232,6 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
-    llm_gateway_jwt::LlmGatewayJwtMinter,
     ActionError,
     ActionReturn,
     MutationError,
@@ -676,7 +676,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     cache_manager: CacheManager<RT>,
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter<RT>,
-    llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
+    ai_gateway_jwt_minter: Option<Arc<dyn AiGatewayJwtMinter>>,
     deployment: DeploymentMetadata,
 }
 
@@ -694,7 +694,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         audit_log_client: AuditLogClient,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
-        llm_gateway_jwt_minter: Option<Arc<dyn LlmGatewayJwtMinter>>,
+        ai_gateway_jwt_minter: Option<Arc<dyn AiGatewayJwtMinter>>,
         deployment: DeploymentMetadata,
     ) -> Self {
         let isolate_functions = FunctionRouter::new(
@@ -735,14 +735,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             cache_manager,
             default_system_env_vars,
             node_action_limiter,
-            llm_gateway_jwt_minter,
+            ai_gateway_jwt_minter,
             deployment,
         }
     }
 
     /// Called with a typed caller via [`ActionCallbacks`], or with flat
     /// claims from Conductor's gRPC handler.
-    pub async fn mint_llm_gateway_jwt(
+    pub async fn mint_ai_gateway_jwt(
         &self,
         attribution: AttributionClaims,
     ) -> anyhow::Result<String> {
@@ -759,7 +759,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                  enable it, or contact support@convex.dev if you believe this is an error."
             ));
         }
-        let Some(minter) = self.llm_gateway_jwt_minter.as_ref() else {
+        let Some(minter) = self.ai_gateway_jwt_minter.as_ref() else {
             // `bad_request` shows this message to the developer; a bare
             // anyhow error would show a generic internal error instead.
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -2101,7 +2101,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String> {
-        self.mint_llm_gateway_jwt(AttributionClaims::from(caller))
+        self.mint_ai_gateway_jwt(AttributionClaims::from(caller))
             .await
     }
 

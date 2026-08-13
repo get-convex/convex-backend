@@ -420,6 +420,7 @@ use crate::{
     },
 };
 
+pub mod ai_gateway_jwt;
 pub mod airbyte_import;
 pub mod api;
 pub mod app_metric_seed;
@@ -432,7 +433,6 @@ pub mod deployment_state;
 mod execute_query_timestamp;
 mod exports;
 pub mod function_log;
-pub mod llm_gateway_jwt;
 pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
@@ -716,7 +716,7 @@ impl<RT: Runtime> Application<RT> {
         export_provider: Arc<dyn ExportProvider<RT>>,
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
         oidc_http_client: CachedHttpClient,
-        llm_gateway_jwt_minter: Option<Arc<dyn llm_gateway_jwt::LlmGatewayJwtMinter>>,
+        ai_gateway_jwt_minter: Option<Arc<dyn ai_gateway_jwt::AiGatewayJwtMinter>>,
     ) -> anyhow::Result<Self> {
         // Wrap the usage logger so usage is recorded for enforcement before
         // being forwarded downstream.
@@ -866,7 +866,7 @@ impl<RT: Runtime> Application<RT> {
             audit_log_client.clone(),
             default_system_env_vars.clone(),
             cache,
-            llm_gateway_jwt_minter,
+            ai_gateway_jwt_minter,
             deployment.clone(),
         ));
         function_runner.set_action_callbacks(runner.clone());
@@ -997,8 +997,8 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub async fn mint_llm_gateway_jwt(&self, claims: AttributionClaims) -> anyhow::Result<String> {
-        self.runner.mint_llm_gateway_jwt(claims).await
+    pub async fn mint_ai_gateway_jwt(&self, claims: AttributionClaims) -> anyhow::Result<String> {
+        self.runner.mint_ai_gateway_jwt(claims).await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {

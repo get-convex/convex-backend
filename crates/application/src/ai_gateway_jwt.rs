@@ -3,8 +3,8 @@ use common::types::{
     DeploymentMetadata,
 };
 
-/// Mints short-lived JWTs accepted by the LLM gateway.
-pub trait LlmGatewayJwtMinter: Send + Sync {
+/// Mints short-lived JWTs accepted by the AI gateway.
+pub trait AiGatewayJwtMinter: Send + Sync {
     /// `deployment` and `attribution` must both come from trusted backend
     /// metadata or execution state rather than function input.
     fn mint(
