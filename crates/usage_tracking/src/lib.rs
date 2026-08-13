@@ -870,6 +870,24 @@ impl FunctionUsageTracker {
             .or_default() += egress_rows;
     }
 
+    pub fn track_database_ingress_rows(
+        &self,
+        component_path: ComponentPath,
+        table_name: &TableName,
+        ingress_rows: u64,
+        skip_logging: bool,
+    ) {
+        if skip_logging {
+            return;
+        }
+
+        let mut state = self.state.lock();
+        *state
+            .database_ingress_rows
+            .entry((component_path, table_name.to_string()))
+            .or_default() += ingress_rows;
+    }
+
     // Tracks the vector ingress surcharge for documents
     // that have one or more vectors in a vector index.
     //
@@ -1091,6 +1109,7 @@ pub struct FunctionUsageStats {
     /// Egress for virtual tables, keyed by virtual table name
     pub virtual_table_egress: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub database_egress_rows: BTreeMap<(ComponentPath, TableNameString), u64>,
+    pub database_ingress_rows: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub vector_ingress: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub vector_ingress_v2: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub vector_egress: BTreeMap<(ComponentPath, TableNameString), u64>,
@@ -1114,6 +1133,7 @@ impl FunctionUsageStats {
             database_io_read_bytes: self.database_egress_v2.values().sum(),
             database_io_write_bytes: self.database_ingress_v2.values().sum(),
             database_read_documents: self.database_egress_rows.values().sum(),
+            database_write_documents: self.database_ingress_rows.values().sum(),
             storage_read_bytes: self.storage_egress.values().sum(),
             storage_write_bytes: self.storage_ingress.values().sum(),
             vector_index_read_bytes: self.vector_egress.values().sum(),
@@ -1148,6 +1168,7 @@ impl FunctionUsageStats {
             virtual_table_ingress,
             virtual_table_egress,
             database_egress_rows,
+            database_ingress_rows,
             vector_ingress,
             vector_ingress_v2,
             vector_egress,
@@ -1188,6 +1209,9 @@ impl FunctionUsageStats {
         }
         for (key, egress_rows) in database_egress_rows {
             *self.database_egress_rows.entry(key.clone()).or_default() += egress_rows;
+        }
+        for (key, ingress_rows) in database_ingress_rows {
+            *self.database_ingress_rows.entry(key.clone()).or_default() += ingress_rows;
         }
         for (key, ingress) in vector_ingress {
             *self.vector_ingress.entry(key.clone()).or_default() += ingress;
@@ -1391,6 +1415,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             database_egress: to_by_tag_count(stats.database_egress.into_iter()),
             database_egress_v2: to_by_tag_count(stats.database_egress_v2.into_iter()),
             database_egress_rows: to_by_tag_count(stats.database_egress_rows.into_iter()),
+            database_ingress_rows: to_by_tag_count(stats.database_ingress_rows.into_iter()),
             vector_ingress: to_by_tag_count(stats.vector_ingress.into_iter()),
             vector_egress: to_by_tag_count(stats.vector_egress.into_iter()),
             text_ingress: to_by_tag_count(stats.text_ingress.into_iter()),
@@ -1419,6 +1444,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let database_egress = from_by_tag_count(stats.database_egress)?.collect();
         let database_egress_v2 = from_by_tag_count(stats.database_egress_v2)?.collect();
         let database_egress_rows = from_by_tag_count(stats.database_egress_rows)?.collect();
+        let database_ingress_rows = from_by_tag_count(stats.database_ingress_rows)?.collect();
         let vector_ingress = from_by_tag_count(stats.vector_ingress)?.collect();
         let vector_egress = from_by_tag_count(stats.vector_egress)?.collect();
         let text_ingress = from_by_tag_count(stats.text_ingress)?.collect();
@@ -1437,6 +1463,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             database_ingress,
             database_ingress_v2,
             database_egress_rows,
+            database_ingress_rows,
             database_egress,
             database_egress_v2,
             virtual_table_ingress,
@@ -1463,6 +1490,7 @@ pub struct AggregatedFunctionUsageStats {
     pub database_io_read_bytes: u64,
     pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
+    pub database_write_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,

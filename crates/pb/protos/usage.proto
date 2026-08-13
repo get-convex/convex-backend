@@ -16,6 +16,7 @@ message FunctionUsageStats {
   repeated CounterWithTag vector_ingress_v2 = 14;
   repeated CounterWithTag vector_egress = 7;
   repeated CounterWithTag database_egress_rows = 10;
+  repeated CounterWithTag database_ingress_rows = 22;
   repeated CounterWithTag text_ingress = 12;
   reserved 13;
   repeated TextQueryUsage text_query_usage = 17;

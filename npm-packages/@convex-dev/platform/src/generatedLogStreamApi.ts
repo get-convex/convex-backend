@@ -76,6 +76,8 @@ export interface components {
                 /** Format: int64 */
                 database_read_documents: number;
                 /** Format: int64 */
+                database_write_documents: number;
+                /** Format: int64 */
                 file_storage_read_bytes: number;
                 /** Format: int64 */
                 file_storage_write_bytes: number;
@@ -97,6 +99,10 @@ export interface components {
                 action_memory_used_mb?: number | null;
                 /** Format: int64 */
                 audit_log_egress_bytes: number;
+                /** Format: int64 */
+                function_args_bytes?: number | null;
+                /** Format: int64 */
+                function_returns_bytes?: number | null;
             };
         };
         LogStreamEvent: (components["schemas"]["ConsoleLogEvent"] & {

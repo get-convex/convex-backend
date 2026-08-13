@@ -67,6 +67,7 @@ pub struct AggregatedFunctionUsageStats {
     pub database_io_read_bytes: u64,
     pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
+    pub database_write_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
@@ -77,6 +78,7 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_write_query_bytes: u64,
     pub network_egress_bytes: u64,
     pub memory_used_mb: u64,
+    pub args_bytes: Option<u64>,
     pub return_bytes: Option<u64>,
     pub audit_log_egress_bytes: u64,
 }
@@ -113,6 +115,7 @@ pub struct UsageStatsJson {
     pub database_io_read_bytes: u64,
     pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
+    pub database_write_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
@@ -584,6 +587,7 @@ impl LogEvent {
                         database_io_read_bytes: u64,
                         database_io_write_bytes: u64,
                         database_read_documents: u64,
+                        database_write_documents: u64,
                         file_storage_read_bytes: u64,
                         file_storage_write_bytes: u64,
                         vector_storage_read_bytes: u64,
@@ -596,6 +600,8 @@ impl LogEvent {
                         memory_used_mb: u64,
                         action_memory_used_mb: Option<u64>,
                         audit_log_egress_bytes: u64,
+                        function_args_bytes: Option<u64>,
+                        function_returns_bytes: Option<u64>,
                     }
                     let action_memory_used_mb = if source.udf_type == UdfType::Action
                         || source.udf_type == UdfType::HttpAction
@@ -622,6 +628,7 @@ impl LogEvent {
                             database_io_read_bytes: usage_stats.database_io_read_bytes,
                             database_io_write_bytes: usage_stats.database_io_write_bytes,
                             database_read_documents: usage_stats.database_read_documents,
+                            database_write_documents: usage_stats.database_write_documents,
                             file_storage_read_bytes: usage_stats.storage_read_bytes,
                             file_storage_write_bytes: usage_stats.storage_write_bytes,
                             vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
@@ -635,6 +642,8 @@ impl LogEvent {
                             memory_used_mb: usage_stats.memory_used_mb,
                             action_memory_used_mb,
                             audit_log_egress_bytes: usage_stats.audit_log_egress_bytes,
+                            function_args_bytes: usage_stats.args_bytes,
+                            function_returns_bytes: usage_stats.return_bytes,
                         }
                     })
                 },

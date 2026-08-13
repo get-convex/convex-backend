@@ -275,6 +275,8 @@ Schema:
     the Database I/O used by the function
   - `database_read_documents`: number, the number of documents read by the
     function
+  - `database_write_documents`: number, the number of documents inserted,
+    updated, or deleted by the function
   - `text_search_query_bytes`: number
   - `text_search_write_query_bytes`: number, these two fields together track
     text search query usage
@@ -296,6 +298,10 @@ Schema:
   - `action_memory_used_mb`: optional number (actions and HTTP actions only),
     the memory used in MiB. This combined with `execution_time_ms` makes up
     Action compute.
+  - `function_args_bytes`: optional number, the size of the arguments the
+    function was called with. Absent for HTTP actions.
+  - `function_returns_bytes`: optional number, the size of the value the
+    function returned. Absent for HTTP actions and for failed executions.
 
 Example event for a query:
 
@@ -316,13 +322,16 @@ Example event for a query:
       "database_io_read_bytes": 1077,
       "database_io_write_bytes": 0,
       "database_read_documents": 3,
+      "database_write_documents": 0,
       "file_storage_read_bytes": 0,
       "text_search_query_bytes": 0,
       "text_search_write_query_bytes": 0,
       "vector_search_query_bytes": 0,
       "vector_search_write_query_bytes": 0,
       "network_egress_bytes": 0,
-      "audit_log_egress_bytes": 0
+      "audit_log_egress_bytes": 0,
+      "function_args_bytes": 12,
+      "function_returns_bytes": 843
     }
   }
 }

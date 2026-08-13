@@ -1317,62 +1317,72 @@ impl<RT: Runtime> Committer<RT> {
         }
         for validated_write in document_writes {
             let ValidatedDocumentWrite {
+                id,
                 write: document,
                 vector_index_write_size,
                 text_index_write_size,
                 ..
             } = validated_write;
+            let tablet_id = id.table();
+            let Ok(table_namespace) = table_mapping.tablet_namespace(tablet_id) else {
+                continue;
+            };
+            let component_id = ComponentId::from(table_namespace);
+            let component_path = component_registry
+                .get_component_path(component_id, &mut TransactionReadSet::new())
+                // It's possible that the component gets deleted in this transaction. In that case, miscount the usage as root.
+                .unwrap_or(ComponentPath::root());
+            let Ok(table_name) = table_mapping.tablet_name(tablet_id) else {
+                continue;
+            };
+            // Deletions are counted as document writes even though they contribute no
+            // ingress bytes.
+            usage_tracker.track_database_ingress_rows(
+                component_path.clone(),
+                &table_name,
+                1,
+                table_name.is_system(),
+            );
             if let Some(document) = document {
                 let document_write_size = document.size();
-                let tablet_id = document.id().tablet_id;
-                let Ok(table_namespace) = table_mapping.tablet_namespace(tablet_id) else {
-                    continue;
-                };
-                let component_id = ComponentId::from(table_namespace);
-                let component_path = component_registry
-                    .get_component_path(component_id, &mut TransactionReadSet::new())
-                    // It's possible that the component gets deleted in this transaction. In that case, miscount the usage as root.
-                    .unwrap_or(ComponentPath::root());
-                if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
-                    // Database bandwidth for document writes
-                    usage_tracker.track_database_ingress(
-                        component_path.clone().clone(),
-                        &table_name,
+                // Database bandwidth for document writes
+                usage_tracker.track_database_ingress(
+                    component_path.clone(),
+                    &table_name,
+                    document_write_size as u64,
+                    table_name.is_system(),
+                );
+                usage_tracker.track_database_ingress_v2(
+                    component_path.clone(),
+                    &table_name,
+                    document_write_size as u64,
+                    table_name.is_system(),
+                );
+                if let Some(virtual_table_name) =
+                    virtual_system_mapping.associated_virtual_table_name(&table_name)
+                {
+                    usage_tracker.track_virtual_table_ingress(
+                        component_path.clone(),
+                        virtual_table_name,
                         document_write_size as u64,
-                        table_name.is_system(),
                     );
-                    usage_tracker.track_database_ingress_v2(
+                }
+                if vector_index_write_size.0 > 0 {
+                    usage_tracker.track_vector_ingress(
                         component_path.clone(),
                         &table_name,
                         document_write_size as u64,
+                        vector_index_write_size.0,
                         table_name.is_system(),
                     );
-                    if let Some(virtual_table_name) =
-                        virtual_system_mapping.associated_virtual_table_name(&table_name)
-                    {
-                        usage_tracker.track_virtual_table_ingress(
-                            component_path.clone(),
-                            virtual_table_name,
-                            document_write_size as u64,
-                        );
-                    }
-                    if vector_index_write_size.0 > 0 {
-                        usage_tracker.track_vector_ingress(
-                            component_path.clone(),
-                            &table_name,
-                            document_write_size as u64,
-                            vector_index_write_size.0,
-                            table_name.is_system(),
-                        );
-                    }
-                    if text_index_write_size.0 > 0 {
-                        usage_tracker.track_text_ingress(
-                            component_path.clone(),
-                            &table_name,
-                            text_index_write_size.0,
-                            table_name.is_system(),
-                        );
-                    }
+                }
+                if text_index_write_size.0 > 0 {
+                    usage_tracker.track_text_ingress(
+                        component_path.clone(),
+                        &table_name,
+                        text_index_write_size.0,
+                        table_name.is_system(),
+                    );
                 }
             }
         }

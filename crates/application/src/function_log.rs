@@ -153,6 +153,8 @@ pub struct FunctionExecution {
     /// Usage statistics for this instance
     pub usage_stats: AggregatedFunctionUsageStats,
     pub memory_used_mb: u64,
+    /// Size of the serialized arguments in bytes, excluding HTTP actions.
+    pub args_bytes: Option<u64>,
     /// Size of the returned value in bytes if the function execution was
     /// successful, excluding HTTP actions.
     pub return_bytes: Option<u64>,
@@ -290,6 +292,7 @@ impl FunctionExecution {
                     database_io_read_bytes: self.usage_stats.database_io_read_bytes,
                     database_io_write_bytes: self.usage_stats.database_io_write_bytes,
                     database_read_documents: self.usage_stats.database_read_documents,
+                    database_write_documents: self.usage_stats.database_write_documents,
                     storage_read_bytes: self.usage_stats.storage_read_bytes,
                     storage_write_bytes: self.usage_stats.storage_write_bytes,
                     vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,
@@ -300,6 +303,7 @@ impl FunctionExecution {
                     vector_index_write_query_bytes: self.usage_stats.vector_index_write_query_bytes,
                     network_egress_bytes: self.usage_stats.network_egress_bytes,
                     memory_used_mb: self.memory_used_mb,
+                    args_bytes: self.args_bytes,
                     return_bytes: self.return_bytes,
                     audit_log_egress_bytes: self.usage_stats.audit_log_egress_bytes,
                 },
@@ -714,6 +718,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if outcome.path.is_system() {
             return;
         }
+        let args_bytes = Some(outcome.arguments.heap_size() as u64);
         let return_bytes = outcome.result.as_ref().ok().map(|v| v.heap_size() as u64);
         let execution = FunctionExecution {
             params: UdfParams::Function {
@@ -737,6 +742,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             syscall_trace: outcome.syscall_trace.clone(),
             usage_stats: aggregated,
             memory_used_mb: outcome.memory_in_mb,
+            args_bytes,
             return_bytes,
             udf_server_version: outcome.udf_server_version.clone(),
             identity: outcome.identity.clone(),
@@ -919,6 +925,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if outcome.path.udf_path.is_system() {
             return;
         }
+        let args_bytes = Some(outcome.arguments.heap_size() as u64);
         let return_bytes = outcome.result.as_ref().ok().map(|v| v.heap_size() as u64);
         let execution = FunctionExecution {
             params: UdfParams::Function {
@@ -939,6 +946,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
             memory_used_mb: outcome.memory_in_mb,
+            args_bytes,
             return_bytes,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
@@ -1017,6 +1025,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if outcome.path.udf_path.is_system() {
             return;
         }
+        let args_bytes = Some(outcome.arguments.heap_size() as u64);
         let return_bytes = outcome.result.as_ref().ok().map(|v| v.heap_size() as u64);
         let execution = FunctionExecution {
             params: UdfParams::Function {
@@ -1037,6 +1046,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
             memory_used_mb: completion.memory_in_mb,
+            args_bytes,
             return_bytes,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
@@ -1198,6 +1208,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             environment: ModuleEnvironment::Isolate,
             usage_stats: aggregated,
             memory_used_mb: outcome.memory_in_mb(),
+            args_bytes: None,
             return_bytes: None,
             syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
