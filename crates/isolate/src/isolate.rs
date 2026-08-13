@@ -39,7 +39,7 @@ use crate::{
     array_buffer_allocator::ArrayBufferMemoryLimit,
     client::SharedIsolateHeapStats,
     context_cache::ContextCache,
-    environment::IsolateEnvironment,
+    environment::V8IsolateEnvironment,
     helpers::pump_message_loop,
     metrics::{
         create_isolate_timer,
@@ -304,7 +304,7 @@ impl<RT: Runtime> Isolate<RT> {
         Ok(())
     }
 
-    pub async fn start_request<E: IsolateEnvironment<RT>>(
+    pub async fn start_request<E: V8IsolateEnvironment<RT>>(
         &mut self,
         context_cache: &mut ContextCache,
         permit: ConcurrencyPermit,

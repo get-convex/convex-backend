@@ -56,6 +56,10 @@ use crate::{
 /// Both ops and syscalls can return errors tagged with `DeveloperError` to
 /// signal a user-visible error that will be turned into a JavaScript exception.
 pub trait IsolateEnvironment<RT: Runtime>: 'static {
+    /// Handle the environment uses to complete an async syscall or op that it
+    /// started.
+    type AsyncResolver;
+
     #[allow(async_fn_in_trait)]
     async fn lookup_source(
         &mut self,
@@ -68,7 +72,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         &mut self,
         name: String,
         args: JsonValue,
-        resolver: v8::Global<v8::PromiseResolver>,
+        resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()>;
 
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()>;
@@ -86,7 +90,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
     fn start_async_op(
         &mut self,
         request: AsyncOpRequest,
-        resolver: v8::Global<v8::PromiseResolver>,
+        resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()>;
 
     // The memory allocated by the environment itself.
@@ -96,6 +100,20 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 
     fn user_timeout(&self) -> Duration;
     fn system_timeout(&self) -> Duration;
+}
+
+/// An [`IsolateEnvironment`] that can run inside V8, i.e. one whose async
+/// resolver is a real promise resolver. Everything in this crate that touches a
+/// `v8::Scope` requires this, while the environments themselves only need
+/// [`IsolateEnvironment`].
+pub trait V8IsolateEnvironment<RT: Runtime>:
+    IsolateEnvironment<RT, AsyncResolver = v8::Global<v8::PromiseResolver>>
+{
+}
+
+impl<RT: Runtime, E> V8IsolateEnvironment<RT> for E where
+    E: IsolateEnvironment<RT, AsyncResolver = v8::Global<v8::PromiseResolver>>
+{
 }
 
 #[derive(Debug, thiserror::Error)]

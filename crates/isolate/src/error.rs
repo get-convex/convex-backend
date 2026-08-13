@@ -15,7 +15,7 @@ use sourcemap::SourceMap;
 use value::ConvexValue;
 
 use crate::{
-    environment::IsolateEnvironment,
+    environment::V8IsolateEnvironment,
     execution_scope::ExecutionScope,
     helpers::{
         deserialize_udf_custom_error,
@@ -28,7 +28,7 @@ use crate::{
     metrics,
 };
 
-impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, '_, RT, E> {
+impl<RT: Runtime, E: V8IsolateEnvironment<RT>> ExecutionScope<'_, '_, '_, RT, E> {
     pub fn format_traceback(&mut self, exception: v8::Local<v8::Value>) -> anyhow::Result<JsError> {
         // Check if we hit a system error or timeout and can't run any JavaScript now.
         // Abort with a system error here, and we'll (in the best case) pull out

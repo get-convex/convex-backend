@@ -1346,6 +1346,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
 

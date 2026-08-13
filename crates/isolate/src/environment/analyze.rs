@@ -138,6 +138,8 @@ pub struct AnalyzeEnvironment {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // These logs are only shown to the pusher on error.
         let log_message = messages.join(" ");

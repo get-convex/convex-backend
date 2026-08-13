@@ -47,8 +47,8 @@ use crate::{
     bundled_js::system_udf_file,
     context_local_state::GetContextSlot,
     environment::{
-        IsolateEnvironment,
         ModuleCodeCacheResult,
+        V8IsolateEnvironment,
     },
     helpers::{
         self,
@@ -149,13 +149,13 @@ impl PendingDynamicImports {
 /// Most functionality for executing JS and manipulating objects executes within
 /// a [`v8::HandleScope`]. The [`ExecutionScope`] wrapper is a convenience
 /// struct that represents executing code within a [`RequestScope`].
-pub struct ExecutionScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
+pub struct ExecutionScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> {
     v8_scope: &'a mut v8::PinScope<'s, 'i>,
     v8_context: v8::Local<'s, v8::Context>,
     _pd: PhantomData<(RT, E)>,
 }
 
-impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Deref
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> Deref
     for ExecutionScope<'a, 's, 'i, RT, E>
 {
     type Target = v8::PinScope<'s, 'i>;
@@ -165,7 +165,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Deref
     }
 }
 
-impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> DerefMut
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> DerefMut
     for ExecutionScope<'a, 's, 'i, RT, E>
 {
     fn deref_mut(&mut self) -> &mut v8::PinScope<'s, 'i> {
@@ -173,7 +173,9 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> DerefMut
     }
 }
 
-impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 's, 'i, RT, E> {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
+    ExecutionScope<'a, 's, 'i, RT, E>
+{
     pub fn new(v8_scope: &'a mut v8::PinScope<'s, 'i>) -> Self {
         let v8_context = v8_scope.get_current_context();
         Self {

@@ -80,6 +80,8 @@ pub struct SchemaEnvironment {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access at schema evaluation time: {}",

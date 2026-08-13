@@ -75,6 +75,8 @@ pub struct AuthConfigEnvironment {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access when evaluating auth config file: {}",

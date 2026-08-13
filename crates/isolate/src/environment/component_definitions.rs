@@ -491,6 +491,8 @@ struct DefinitionEnvironment {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access when evaluating app definition: {}",

@@ -250,6 +250,8 @@ fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         self.emit_log_line(LogLine::new_developer_log_line(
             level,

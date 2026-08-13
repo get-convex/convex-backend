@@ -112,7 +112,7 @@ use crate::{
     environment::{
         crypto_rng::CryptoRng,
         AsyncOpRequest,
-        IsolateEnvironment,
+        V8IsolateEnvironment,
     },
     execution_scope::ExecutionScope,
     helpers::to_rust_string,
@@ -165,7 +165,7 @@ pub trait OpProvider<'b> {
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
 }
 
-impl<'a, 's: 'a, 'i, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'i>
+impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
     for ExecutionScope<'a, 's, 'i, RT, E>
 {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {

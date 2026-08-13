@@ -42,8 +42,8 @@ use crate::{
         ToV8 as _,
     },
     environment::{
-        IsolateEnvironment,
         UncatchableDeveloperError,
+        V8IsolateEnvironment,
     },
     execution_scope::{
         ExecutionScope,
@@ -79,7 +79,7 @@ use crate::{
 /// that's set up with our `RequestState` and `ModuleMap`. This scope lasts for
 /// the entirety of a request, where executing code may enter into potentially
 /// nested [`ExecutionScope`]s.
-pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
+pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> {
     // NB: The default type parameter to `PinScope` indicates that it has a `Context`, so
     // this scope is attached to our request's context.
     pub(crate) scope: &'a mut v8::PinScope<'s, 'i>,
@@ -90,7 +90,7 @@ pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<R
 /// Custom per-request state. All environments have a timeout.
 /// Note the IsolateHandle and ModuleMap are stored on separate slots, so
 /// they can be fetched without needing the environment type E.
-pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
+pub struct RequestState<RT: Runtime, E: V8IsolateEnvironment<RT>> {
     pub rt: RT,
     pub environment: E,
     pub context_id: ContextId,
@@ -102,7 +102,7 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     pub console_timers: WithHeapSize<BTreeMap<String, UnixTimestamp>>,
 }
 
-impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
+impl<RT: Runtime, E: V8IsolateEnvironment<RT>> RequestState<RT, E> {
     pub fn new(rt: RT, environment: E, context_id: ContextId) -> Self {
         RequestState {
             rt,
@@ -166,7 +166,7 @@ impl HeapSize for StreamListener {
     }
 }
 
-impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
+impl<RT: Runtime, E: V8IsolateEnvironment<RT>> RequestState<RT, E> {
     pub fn create_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
         let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.streams.insert(uuid, Ok(ReadableStream::default()));
@@ -189,7 +189,7 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
     }
 }
 
-impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 's, 'i, RT, E> {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<'a, 's, 'i, RT, E> {
     pub fn with_existing_context(
         scope: &'a mut v8::PinScope<'s, 'i>,
         handle: IsolateHandle,
@@ -556,7 +556,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
     }
 }
 
-impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Drop
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> Drop
     for RequestScope<'a, 's, 'i, RT, E>
 {
     fn drop(&mut self) {

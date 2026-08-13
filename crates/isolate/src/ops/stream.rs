@@ -17,7 +17,7 @@ use super::OpProvider;
 use crate::{
     environment::{
         helpers::resolve_promise,
-        IsolateEnvironment,
+        V8IsolateEnvironment,
     },
     execution_scope::ExecutionScope,
     request_scope::StreamListener,
@@ -47,7 +47,9 @@ pub fn op_stream_extend<'b, P: OpProvider<'b>>(
     provider.extend_stream(id, bytes.map(|b| b.into_vec().into()), new_done)
 }
 
-impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 's, 'i, RT, E> {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
+    ExecutionScope<'a, 's, 'i, RT, E>
+{
     pub fn error_stream(&mut self, id: uuid::Uuid, error: anyhow::Error) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         state.streams.insert(id, Err(error));
