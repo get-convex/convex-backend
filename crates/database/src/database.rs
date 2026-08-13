@@ -554,14 +554,14 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     }
 
     /// A streaming-export iterator over this snapshot's persistence. Note the
-    /// iterator picks its own recent snapshot rather than reading at this
-    /// snapshot's timestamp. See [`DataSyncIterator`] and
-    /// [`Database::data_sync_iterator`].
+    /// iterator reads at a snapshot at least as recent as this one. See
+    /// [`DataSyncIterator`] and [`Database::data_sync_iterator`].
     pub fn data_sync_iterator(&self) -> anyhow::Result<DataSyncIterator<RT>> {
         DataSyncIterator::new(
             self.runtime.clone(),
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
+            self.timestamp(),
             *DATA_SYNC_PAGE_SIZE_LIMIT,
             *DATA_SYNC_PAGE_BYTES_LIMIT,
             *DATA_SYNC_MAX_ROWS_READ,
@@ -1299,12 +1299,19 @@ impl<RT: Runtime> Database<RT> {
     }
 
     /// A streaming-export iterator that syncs many tables with bounded reads
-    /// and a small, resumable cursor. See [`DataSyncIterator`].
-    pub fn data_sync_iterator(&self) -> anyhow::Result<DataSyncIterator<RT>> {
+    /// and a small, resumable cursor. Each page reads at a snapshot at least as
+    /// recent as `min_ts`, so pass [`Self::now_ts_for_reads`] or the begin
+    /// timestamp of a transaction the caller already has open. See
+    /// [`DataSyncIterator`].
+    pub fn data_sync_iterator(
+        &self,
+        min_ts: RepeatableTimestamp,
+    ) -> anyhow::Result<DataSyncIterator<RT>> {
         DataSyncIterator::new(
             self.runtime.clone(),
             self.reader.clone(),
             self.retention_validator(),
+            min_ts,
             *DATA_SYNC_PAGE_SIZE_LIMIT,
             *DATA_SYNC_PAGE_BYTES_LIMIT,
             *DATA_SYNC_MAX_ROWS_READ,

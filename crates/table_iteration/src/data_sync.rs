@@ -98,6 +98,7 @@
 //! ```
 
 use std::{
+    cmp,
     collections::{
         BTreeMap,
         BTreeSet,
@@ -321,6 +322,7 @@ pub struct DataSyncIterator<RT: Runtime> {
     runtime: RT,
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
+    min_ts: RepeatableTimestamp,
     page_size_limit: usize,
     page_bytes_limit: usize,
     max_rows_read: usize,
@@ -328,6 +330,11 @@ pub struct DataSyncIterator<RT: Runtime> {
 }
 
 impl<RT: Runtime> DataSyncIterator<RT> {
+    /// `min_ts` is a floor on the snapshot each page reads at (see
+    /// [`Self::latest_ts`]); pass a fresh timestamp like
+    /// `Database::now_ts_for_reads` or a transaction's begin timestamp so the
+    /// sync doesn't lag behind the committer's persisted repeatable timestamp.
+    ///
     /// `page_size_limit` bounds entries emitted per page and `page_bytes_limit`
     /// bounds their total byte size (both soft: a single transaction is never
     /// split, so it may push a page over). `max_rows_read` bounds rows read
@@ -338,6 +345,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         runtime: RT,
         persistence: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
+        min_ts: RepeatableTimestamp,
         page_size_limit: usize,
         page_bytes_limit: usize,
         max_rows_read: usize,
@@ -354,6 +362,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             runtime,
             persistence,
             retention_validator,
+            min_ts,
             page_size_limit,
             page_bytes_limit,
             max_rows_read,
@@ -394,6 +403,25 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         self.next_page_inner(cursor, target_tables, true).await
     }
 
+    /// The timestamp each page reads at: the max of `min_ts` and the
+    /// committer's persisted repeatable timestamp, which lags live writes by a
+    /// few seconds. It bounds reads and feeds the freshness heuristic.
+    ///
+    /// The max satisfies every constraint the iterator needs:
+    ///
+    /// 1. Repeatable, since the max of two repeatable timestamps is repeatable.
+    /// 2. Weakly monotonically increasing across pages, since `min_ts` is fixed
+    ///    and the persisted repeatable timestamp only increases — so any
+    ///    `synced_ts` produced by a prior page stays `<=` it.
+    /// 3. Within retention, since the persisted repeatable timestamp is and the
+    ///    max is at least as recent.
+    async fn latest_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
+        Ok(cmp::max(
+            self.min_ts,
+            new_static_repeatable_recent(self.persistence.as_ref()).await?,
+        ))
+    }
+
     async fn next_page_inner(
         &self,
         cursor: Option<DataSyncCursor>,
@@ -405,11 +433,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             .wait("data_sync_before_page")
             .await;
 
-        // The latest repeatable timestamp bounds reads and is used by the
-        // freshness heuristic. It increases monotonically, once the committer bumps
-        // that timestamp a few seconds after each commit. Any `synced_ts`
-        // produced by a prior page is guaranteed to be `<= latest`.
-        let latest = new_static_repeatable_recent(self.persistence.as_ref()).await?;
+        let latest = self.latest_ts().await?;
 
         // Cold start, or reconcile an existing cursor against `target_tables`.
         let mut cursor = match cursor {

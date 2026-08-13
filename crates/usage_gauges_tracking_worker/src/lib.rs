@@ -350,7 +350,7 @@ pub struct AggregatedStorageUsage {
 
 /// Gauge metrics read from `snapshot`. Every gauge except file storage is read
 /// at `snapshot`'s timestamp; the file storage total uses the
-/// `DataSyncIterator`, which picks its own recent snapshot (see
+/// `DataSyncIterator`, which picks its own snapshot, at least as recent (see
 /// [`get_total_file_storage_size`]).
 #[fastrace::trace]
 pub async fn get_gauge_metrics<RT: Runtime>(

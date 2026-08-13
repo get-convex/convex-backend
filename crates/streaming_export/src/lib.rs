@@ -397,7 +397,7 @@ pub async fn data_sync<RT: Runtime>(
     // Resolve the filter to concrete tablets at a recent, consistent snapshot.
     // Tablet ids are stable, so this mapping is valid for the iterator's own
     // (possibly slightly newer) `latest` timestamp.
-    let (table_mapping, component_paths, by_id_indexes, table_counts) = {
+    let (begin_ts, table_mapping, component_paths, by_id_indexes, table_counts) = {
         let mut tx = database.begin(identity).await?;
         let table_mapping = tx.table_mapping().clone();
         let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
@@ -405,7 +405,13 @@ pub async fn data_sync<RT: Runtime>(
         // Incrementally-maintained per-table document counts, used only for
         // progress reporting. `None` while table summaries are bootstrapping.
         let table_counts = database.snapshot(tx.begin_timestamp())?.table_counts;
-        (table_mapping, component_paths, by_id_indexes, table_counts)
+        (
+            tx.begin_timestamp(),
+            table_mapping,
+            component_paths,
+            by_id_indexes,
+            table_counts,
+        )
     };
     let resolve_name = |tablet_id: TabletId| -> anyhow::Result<(ComponentPath, TableName)> {
         let table_name = table_mapping.tablet_name(tablet_id)?;
@@ -449,7 +455,7 @@ pub async fn data_sync<RT: Runtime>(
         });
 
     let mut entries = Vec::new();
-    let iterator = database.data_sync_iterator()?;
+    let iterator = database.data_sync_iterator(begin_ts)?;
     let page = iterator
         .next_page(cursor.map(|c| c.inner), &target_tables)
         .await?;

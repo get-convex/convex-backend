@@ -348,9 +348,7 @@ async fn file_storage_target_tables<RT: Runtime>(
 /// Total size of all `_file_storage` documents across the deployment.
 ///
 /// Computed with the `DataSyncIterator`, which picks its own consistent
-/// snapshot (`Synced { ts }`) at the *end* of the sync rather than reading at
-/// `snapshot`'s timestamp — `snapshot` only supplies the set of tablets to
-/// iterate.
+/// snapshot (`Synced { ts }`) at the *end* of the sync.
 #[fastrace::trace]
 pub async fn get_total_file_storage_size<RT: Runtime>(
     identity: &Identity,
