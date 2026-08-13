@@ -997,8 +997,8 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub fn mint_llm_gateway_jwt(&self, claims: AttributionClaims) -> anyhow::Result<String> {
-        self.runner.mint_llm_gateway_jwt(claims)
+    pub async fn mint_llm_gateway_jwt(&self, claims: AttributionClaims) -> anyhow::Result<String> {
+        self.runner.mint_llm_gateway_jwt(claims).await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {

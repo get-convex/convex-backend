@@ -110,6 +110,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
+    backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     components::handles::FunctionHandlesModel,
     config::{
@@ -741,7 +742,23 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     /// Called with a typed caller via [`ActionCallbacks`], or with flat
     /// claims from Conductor's gRPC handler.
-    pub fn mint_llm_gateway_jwt(&self, attribution: AttributionClaims) -> anyhow::Result<String> {
+    pub async fn mint_llm_gateway_jwt(
+        &self,
+        attribution: AttributionClaims,
+    ) -> anyhow::Result<String> {
+        let mut tx = self.database.begin_system().await?;
+        let ai_gateway_disabled = BackendInfoModel::new(&mut tx)
+            .get()
+            .await?
+            .and_then(|backend_info| backend_info.ai_gateway_disabled)
+            .unwrap_or(false);
+        if ai_gateway_disabled {
+            anyhow::bail!(ErrorMetadata::forbidden(
+                "AiGatewayDisabled",
+                "The Convex AI gateway is not enabled for your team. Upgrade to a paid plan to \
+                 enable it, or contact support@convex.dev if you believe this is an error."
+            ));
+        }
         let Some(minter) = self.llm_gateway_jwt_minter.as_ref() else {
             // `bad_request` shows this message to the developer; a bare
             // anyhow error would show a generic internal error instead.
@@ -2085,6 +2102,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
     async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String> {
         self.mint_llm_gateway_jwt(AttributionClaims::from(caller))
+            .await
     }
 
     #[fastrace::trace]

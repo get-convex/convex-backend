@@ -135,7 +135,7 @@ pub async fn create_service_token(
         },
         None => AttributionClaims::unknown(),
     };
-    let token = st.application.mint_llm_gateway_jwt(attribution)?;
+    let token = st.application.mint_llm_gateway_jwt(attribution).await?;
     Ok(Json(CreateServiceTokenResponse { token }))
 }
 

@@ -31,6 +31,7 @@ pub struct BackendInfo {
     pub audit_log_retention_days: Option<i64>,
     pub send_logs_to_client: Option<bool>,
     pub custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
+    pub ai_gateway_disabled: Option<bool>,
 }
 
 impl BackendInfo {
@@ -51,6 +52,7 @@ impl BackendInfo {
             audit_log_retention_days,
             send_logs_to_client,
             custom_audit_logs_in_log_streams_config_enabled,
+            ai_gateway_disabled,
         } = other;
         if self.team_id != *team_id {
             return Some("backend_info.team_id");
@@ -91,6 +93,8 @@ impl BackendInfo {
         }
         // TODO(reece): enable when all conductors have this field
         let _ = custom_audit_logs_in_log_streams_config_enabled;
+        // TODO(andy): enable once all conductors have this field.
+        let _ = ai_gateway_disabled;
         None
     }
 }

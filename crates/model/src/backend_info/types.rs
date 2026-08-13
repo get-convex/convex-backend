@@ -30,6 +30,7 @@ pub struct BackendInfoPersisted {
     pub audit_log_retention_days: i64,
     pub send_logs_to_client: Option<bool>,
     pub custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
+    pub ai_gateway_disabled: Option<bool>,
 }
 
 impl From<BackendInfoPersisted> for BackendInfo {
@@ -49,6 +50,7 @@ impl From<BackendInfoPersisted> for BackendInfo {
             send_logs_to_client: bi.send_logs_to_client,
             custom_audit_logs_in_log_streams_config_enabled: bi
                 .custom_audit_logs_in_log_streams_config_enabled,
+            ai_gateway_disabled: bi.ai_gateway_disabled,
         }
     }
 }
@@ -72,6 +74,7 @@ impl From<BackendInfo> for BackendInfoPersisted {
             send_logs_to_client: bi.send_logs_to_client,
             custom_audit_logs_in_log_streams_config_enabled: bi
                 .custom_audit_logs_in_log_streams_config_enabled,
+            ai_gateway_disabled: bi.ai_gateway_disabled,
         }
     }
 }
@@ -99,6 +102,8 @@ pub struct SerializedBackendInfo {
     send_logs_to_client: Option<bool>,
     #[serde(default)]
     custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
+    #[serde(default)]
+    ai_gateway_disabled: Option<bool>,
 }
 
 impl From<BackendInfoPersisted> for SerializedBackendInfo {
@@ -123,6 +128,7 @@ impl From<BackendInfoPersisted> for SerializedBackendInfo {
             send_logs_to_client: b.send_logs_to_client,
             custom_audit_logs_in_log_streams_config_enabled: b
                 .custom_audit_logs_in_log_streams_config_enabled,
+            ai_gateway_disabled: b.ai_gateway_disabled,
         }
     }
 }
@@ -147,6 +153,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
         let send_logs_to_client = o.send_logs_to_client;
         let custom_audit_logs_in_log_streams_config_enabled =
             o.custom_audit_logs_in_log_streams_config_enabled;
+        let ai_gateway_disabled = o.ai_gateway_disabled;
 
         Ok(Self {
             team,
@@ -162,6 +169,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
             audit_log_retention_days,
             send_logs_to_client,
             custom_audit_logs_in_log_streams_config_enabled,
+            ai_gateway_disabled,
         })
     }
 }
