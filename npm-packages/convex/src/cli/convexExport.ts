@@ -46,7 +46,7 @@ export const convexExport = new Command("export")
       deploymentNotice,
       snapshotExportDashboardLink: deploymentDashboardUrlPage(
         deployment.deploymentFields?.deploymentName ?? null,
-        "/settings/snapshot-export",
+        "/settings/snapshots",
       ),
     });
   });
