@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.44.0 (unreleased)
+## 1.44.0
 
 - `schema.doc(tableName)` returns the validator for whole documents of a table:
   the table's own validator with the `_id` and `_creationTime` system fields
