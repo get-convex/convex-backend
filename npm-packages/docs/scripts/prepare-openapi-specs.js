@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Prepares the platform OpenAPI specs for the docs build, writing the results
-// to `.openapi-filtered/`. Two tag-driven transforms:
+// to `.openapi-filtered/`. Three tag-driven transforms:
 //   - `alpha`: the operation is dropped entirely, so it never appears in docs.
 //   - `beta`: the operation is kept but a Beta admonition is prepended to its
 //     description so it renders with a visible beta marker.
-// Both control tags are stripped from the output so they don't leak into the
+//   - `pro`: a Pro plan admonition is prepended to the description.
+// All control tags are stripped from the output so they don't leak into the
 // rendered tag groups.
 const fs = require("fs");
 const path = require("path");
@@ -21,11 +22,19 @@ const HTTP_METHODS = [
 ];
 const ALPHA_TAG = "alpha";
 const BETA_TAG = "beta";
-const CONTROL_TAGS = [ALPHA_TAG, BETA_TAG];
+const PRO_TAG = "pro";
+const CONTROL_TAGS = [ALPHA_TAG, BETA_TAG, PRO_TAG];
 
 const BETA_NOTICE =
   ":::info[Beta]\n\n" +
   "This endpoint is in beta. Its behavior and response shape may change.\n\n" +
+  ":::";
+
+const PRO_NOTICE =
+  ":::info[Requires a Convex Pro plan]\n\n" +
+  "On Convex Cloud, this endpoint requires a Convex Pro plan. " +
+  "[Learn more](https://convex.dev/pricing) about our plans or " +
+  "[upgrade](https://dashboard.convex.dev/team/settings/billing).\n\n" +
   ":::";
 
 const SOURCES = [
@@ -52,10 +61,14 @@ for (const relPath of SOURCES) {
         delete pathItem[method];
         continue;
       }
-      if (op.tags.includes(BETA_TAG)) {
-        op.description = op.description
-          ? `${BETA_NOTICE}\n\n${op.description}`
-          : BETA_NOTICE;
+      const notices = [
+        op.tags.includes(BETA_TAG) ? BETA_NOTICE : null,
+        op.tags.includes(PRO_TAG) ? PRO_NOTICE : null,
+      ].filter(Boolean);
+      if (notices.length > 0) {
+        op.description = [...notices, op.description]
+          .filter(Boolean)
+          .join("\n\n");
       }
       // Strip control tags so they don't render as their own tag groups.
       op.tags = op.tags.filter((t) => !CONTROL_TAGS.includes(t));
