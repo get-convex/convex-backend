@@ -29,6 +29,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
+use storage::Storage;
 use sync_types::CanonicalizedModulePath;
 use value::{
     sha256::{
@@ -53,15 +54,13 @@ use self::{
     },
 };
 use crate::{
-    config::{
-        module_loader::ModuleLoader,
-        types::{
-            ModuleConfig,
-            ModuleDiff,
-        },
+    config::types::{
+        ModuleConfig,
+        ModuleDiff,
     },
     source_packages::{
         types::SourcePackageId,
+        upload_download::download_package,
         SourcePackageModel,
     },
     SystemIndex,
@@ -210,32 +209,35 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn get_application_modules(
         &mut self,
         component: ComponentId,
-        module_loader: &dyn ModuleLoader<RT>,
+        modules_storage: &Arc<dyn Storage>,
     ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, ModuleConfig>> {
+        let metadata = self.get_application_metadata(component).await?;
+        if metadata.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+
+        // Every active module is present in the latest source package, so one
+        // download serves all of them.
+        let source_package = SourcePackageModel::new(self.tx, component.into())
+            .get_latest()
+            .await?
+            .context("No source package for existing modules")?;
+        let mut package = download_package(modules_storage.clone(), &source_package).await?;
+
         let mut modules = BTreeMap::new();
-        for metadata in self.get_all_metadata(component).await? {
+        for metadata in metadata {
             let path = metadata.path.clone();
-            if !path.is_system() {
-                let environment = metadata.environment;
-                let full_source = module_loader
-                    .get_module(
-                        self.tx,
-                        CanonicalizedComponentModulePath {
-                            component,
-                            module_path: metadata.path.clone(),
-                        },
-                    )
-                    .await?
-                    .context("Module source does not exist")?;
-                let module_config = ModuleConfig {
-                    path: path.clone().into(),
-                    source: full_source.source.clone(),
-                    source_map: full_source.source_map.clone(),
-                    environment,
-                };
-                if modules.insert(path.clone(), module_config).is_some() {
-                    panic!("Duplicate application module at {path:?}");
-                }
+            let source = package
+                .remove(&path)
+                .context("Module source does not exist")?;
+            let module_config = ModuleConfig {
+                path: path.clone().into(),
+                source: source.source,
+                source_map: source.source_map,
+                environment: metadata.environment,
+            };
+            if modules.insert(path.clone(), module_config).is_some() {
+                panic!("Duplicate application module at {path:?}");
             }
         }
         Ok(modules)

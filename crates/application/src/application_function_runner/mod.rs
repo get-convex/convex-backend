@@ -113,10 +113,7 @@ use model::{
     backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     components::handles::FunctionHandlesModel,
-    config::{
-        module_loader::ModuleLoader,
-        types::ModuleConfig,
-    },
+    config::types::ModuleConfig,
     environment_variables::{
         types::{
             EnvVarName,
@@ -232,6 +229,7 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
+    source_map_cache::SourceMapCache,
     ActionError,
     ActionReturn,
     MutationError,
@@ -666,8 +664,8 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     // Used for analyze, schema, etc.
     node_actions: NodeActions<RT>,
 
-    pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
-    modules_storage: Arc<dyn Storage>,
+    source_map_cache: SourceMapCache<RT>,
+    pub(crate) modules_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
 
     function_log: FunctionExecutionLog<RT>,
@@ -689,7 +687,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         node_actions: NodeActions<RT>,
         file_storage: TransactionalFileStorage<RT>,
         modules_storage: Arc<dyn Storage>,
-        module_cache: Arc<dyn ModuleLoader<RT>>,
+        source_map_cache: SourceMapCache<RT>,
         function_log: FunctionExecutionLog<RT>,
         audit_log_client: AuditLogClient,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -727,7 +725,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             key_broker,
             isolate_functions,
             node_actions,
-            module_cache,
+            source_map_cache,
             modules_storage,
             file_storage,
             function_log,
@@ -1488,12 +1486,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .await?
                     .context("no source package?")?;
                 let source_maps_callback = async {
-                    let module_version = self
-                        .module_cache
-                        .get_module_with_metadata(&module, &source_package)
-                        .await?;
                     let mut source_maps = BTreeMap::new();
-                    if let Some(source_map) = module_version.source_map.clone() {
+                    if let Some(source_map) = self
+                        .source_map_cache
+                        .get_source_map(
+                            &self.deployment.name,
+                            &self.modules_storage,
+                            &module,
+                            &source_package,
+                        )
+                        .await?
+                    {
                         source_maps.insert(path.udf_path.module().clone(), source_map);
                     }
                     Ok(source_maps)

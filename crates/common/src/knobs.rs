@@ -1246,14 +1246,19 @@ pub static DATABASE_USE_PREPARED_STATEMENTS: LazyLock<bool> =
 pub static ARCHIVE_FETCH_TIMEOUT_SECONDS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("ARCHIVE_FETCH_TIMEOUT_SECONDS", 150)));
 
-/// The total number of modules across all versions that will be held in memory
-/// at once.
-pub static MODULE_CACHE_MAX_SIZE_BYTES: LazyLock<u64> =
-    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 100_000_000));
+/// The total size of source maps, across all deployments and module versions,
+/// that will be held in memory at once.
+pub static SOURCE_MAP_CACHE_MAX_SIZE_BYTES: LazyLock<u64> =
+    LazyLock::new(|| env_config("SOURCE_MAP_CACHE_MAX_SIZE_BYTES", 100_000_000));
 
-/// The maximum number of concurrent module fetches we'll allow.
-pub static MODULE_CACHE_MAX_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("MODULE_CACHE_MAX_CONCURRENCY", 10));
+/// The maximum number of concurrent source package fetches we'll allow when
+/// filling the source map cache.
+pub static SOURCE_MAP_CACHE_MAX_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("SOURCE_MAP_CACHE_MAX_CONCURRENCY", 200));
+
+/// The maximum number of queued source map cache requests.
+pub static SOURCE_MAP_CACHE_QUEUE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("SOURCE_MAP_CACHE_QUEUE_SIZE", 400));
 
 /// The maximum size of the in memory index cache in Funrun in bytes.
 pub static FUNRUN_INDEX_CACHE_SIZE: LazyLock<u64> =

@@ -200,7 +200,7 @@ pub async fn get_config(
     let mut tx = st.application.begin(identity).await?;
     let component = ComponentId::Root; // This endpoint is only used pre-components.
     let (config, modules, udf_config) = ConfigModel::new(&mut tx, component)
-        .get_with_module_source(st.application.modules_cache())
+        .get_with_module_source(st.application.modules_storage())
         .await?;
     let config = ConvexObject::try_from(config)?.to_internal_json();
 

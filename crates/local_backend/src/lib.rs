@@ -21,6 +21,7 @@ use application::{
     log_visibility::RedactLogsToClient,
     Application,
     QueryCache,
+    SourceMapCache,
 };
 use common::{
     self,
@@ -275,6 +276,7 @@ pub async fn make_app(
         deleted_tablet_receiver,
         oidc_http_client,
         None,
+        SourceMapCache::new(runtime.clone()),
     )
     .await?;
 
