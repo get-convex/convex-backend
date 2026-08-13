@@ -36,6 +36,7 @@ use common::{
         self,
         FunctionConcurrencyStats,
         FunctionEventSource,
+        FunctionRunReason,
         LogEvent,
         LogSender,
         SchedulerInfo,
@@ -183,7 +184,7 @@ pub struct FunctionExecution {
     /// write throughput limits)
     pub will_retry: bool,
 
-    // Why this query was executed. Only applicable for queries.
+    // Whether this was a fresh call or a rerun. Only applicable for queries.
     pub query_invocation: Option<QueryInvocation>,
 }
 
@@ -286,6 +287,7 @@ impl FunctionExecution {
                     }),
                     _ => None,
                 },
+                run_reason: FunctionRunReason::new(&self.caller, self.query_invocation),
                 usage_stats: log_streaming::AggregatedFunctionUsageStats {
                     database_read_bytes: self.usage_stats.database_read_bytes,
                     database_write_bytes: self.usage_stats.database_write_bytes,

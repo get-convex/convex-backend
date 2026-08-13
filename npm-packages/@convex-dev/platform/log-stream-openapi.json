@@ -138,6 +138,7 @@
           "function",
           "execution_time_ms",
           "status",
+          "run_reason",
           "usage"
         ],
         "properties": {
@@ -273,6 +274,22 @@
                   }
                 }
               }
+            ]
+          },
+          "run_reason": {
+            "type": "string",
+            "description": "Why a function was executed.",
+            "enum": [
+              "initialSubscription",
+              "dataChange",
+              "identityChange",
+              "webSocket",
+              "httpApi",
+              "httpEndpoint",
+              "cron",
+              "scheduler",
+              "action",
+              "tester"
             ]
           },
           "usage": {

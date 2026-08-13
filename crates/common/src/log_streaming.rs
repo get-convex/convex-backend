@@ -30,12 +30,73 @@ use crate::{
         UnixTimestamp,
     },
     types::{
+        FunctionCaller,
         ModuleEnvironment,
+        QueryInvocation,
         UdfType,
         UdfTypeJson,
     },
     RequestMetadata,
 };
+
+/// Why a function was executed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum FunctionRunReason {
+    /// First execution of a query a client subscribed to.
+    InitialSubscription,
+    /// The query's subscription was no longer valid, so the query re-ran.
+    DataChange,
+    /// The client's auth identity changed, which reruns every query in the
+    /// client's query set.
+    IdentityChange,
+    /// A mutation or action invoked by a client over the WebSocket sync
+    /// protocol.
+    WebSocket,
+    /// Invoked via the HTTP API (e.g. `ConvexHttpClient`).
+    HttpApi,
+    /// An HTTP action serving an incoming request to a route in `http.ts`.
+    HttpEndpoint,
+    /// Invoked from a cron job.
+    Cron,
+    /// Invoked from a scheduled function.
+    Scheduler,
+    /// Invoked from an action via `ctx.runQuery`, `ctx.runMutation`, or
+    /// `ctx.runAction`.
+    Action,
+    /// Invoked by the dashboard function tester.
+    Tester,
+}
+
+impl FunctionRunReason {
+    /// `query_invocation` is `Some` exactly for queries, and distinguishes a
+    /// first run from a rerun of an existing subscription.
+    pub fn new(caller: &FunctionCaller, query_invocation: Option<QueryInvocation>) -> Self {
+        let caller_reason = match caller {
+            FunctionCaller::SyncWorker(_) => Self::WebSocket,
+            FunctionCaller::HttpApi(_) => Self::HttpApi,
+            FunctionCaller::HttpEndpoint => Self::HttpEndpoint,
+            FunctionCaller::Tester(_) => Self::Tester,
+            FunctionCaller::Cron => Self::Cron,
+            FunctionCaller::Scheduler { .. } => Self::Scheduler,
+            FunctionCaller::Action { .. } => Self::Action,
+        };
+        match query_invocation {
+            None => caller_reason,
+            Some(QueryInvocation::Invalidated) => Self::DataChange,
+            Some(QueryInvocation::IdentityChange) => Self::IdentityChange,
+            // Every caller other than a sync worker runs a query once rather
+            // than holding a subscription to it.
+            Some(QueryInvocation::Fresh) => {
+                if caller_reason == Self::WebSocket {
+                    Self::InitialSubscription
+                } else {
+                    caller_reason
+                }
+            },
+        }
+    }
+}
 
 /// Public worker for the LogManager.
 #[async_trait]
@@ -169,6 +230,7 @@ pub enum StructuredLogEvent {
         occ_info: Option<OccInfo>,
         will_retry: bool,
         scheduler_info: Option<SchedulerInfo>,
+        run_reason: FunctionRunReason,
     },
     /// Topic for exceptions. These happen when a UDF raises an exception from
     /// JS
@@ -406,6 +468,7 @@ impl LogEvent {
                     occ_info: _,
                     will_retry: _,
                     scheduler_info: _,
+                    run_reason: _,
                 } => {
                     let (reason, status) = match error {
                         Some(err) => (Some(err.to_string()), "failure"),
@@ -574,6 +637,7 @@ impl LogEvent {
                     occ_info,
                     will_retry,
                     scheduler_info,
+                    run_reason,
                 } => {
                     let function_source = source.to_json_map();
                     let (status, error_message) = match error {
@@ -622,6 +686,7 @@ impl LogEvent {
                         "occ_info": occ_info,
                         "will_retry": will_retry,
                         "scheduler_info": scheduler_info,
+                        "run_reason": run_reason,
                         "usage": Usage {
                             database_read_bytes: usage_stats.database_read_bytes,
                             database_write_bytes: usage_stats.database_write_bytes,

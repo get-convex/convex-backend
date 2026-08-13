@@ -64,6 +64,11 @@ export interface components {
             scheduler_info?: null | {
                 job_id: string;
             };
+            /**
+             * @description Why a function was executed.
+             * @enum {string}
+             */
+            run_reason: "initialSubscription" | "dataChange" | "identityChange" | "webSocket" | "httpApi" | "httpEndpoint" | "cron" | "scheduler" | "action" | "tester";
             usage: {
                 /** Format: int64 */
                 database_read_bytes: number;
