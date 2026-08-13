@@ -94,6 +94,14 @@ code bundled for node actions will be in the `node` directory.
 Large node dependencies can be eliminated from the bundle by marking them as
 [external packages](/functions/bundling.mdx#external-packages).
 
+<Admonition type="tip" title="Upgrade to optimize your bundle">
+
+Starting from version 1.31.5, the `convex` NPM package includes optimizations to
+the sourcemaps in your bundle, which can substantially reduce bundle size.
+Upgrade to the latest version of the `convex` package for these improvements.
+
+</Admonition>
+
 ### Dynamic dependencies
 
 Some libraries rely on dynamic imports (via `import`/`require` calls) to avoid
