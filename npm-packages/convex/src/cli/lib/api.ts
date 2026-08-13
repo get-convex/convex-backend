@@ -215,11 +215,17 @@ async function hasAccessToProject(
   selector: { projectSlug: string; teamSlug: string },
 ): Promise<boolean> {
   try {
-    await bigBrainAPIMaybeThrows({
-      ctx,
-      path: `teams/${selector.teamSlug}/projects/${selector.projectSlug}/deployments`,
-      method: "GET",
-    });
+    await typedPlatformClient(ctx, { throw: true }).GET(
+      "/teams/{team_id_or_slug}/projects/{project_slug}",
+      {
+        params: {
+          path: {
+            team_id_or_slug: selector.teamSlug,
+            project_slug: selector.projectSlug,
+          },
+        },
+      },
+    );
     return true;
   } catch (err) {
     if (
