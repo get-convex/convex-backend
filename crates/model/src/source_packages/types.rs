@@ -3,7 +3,10 @@ use std::{
     str::FromStr,
 };
 
-use common::types::ObjectKey;
+use common::{
+    knobs::MAX_ZIPPED_PACKAGES_SIZE,
+    types::ObjectKey,
+};
 use errors::ErrorMetadata;
 use humansize::{
     FormatSize,
@@ -150,12 +153,11 @@ impl std::fmt::Display for PackageSize {
     }
 }
 
-const MAX_ZIPPED_PACKAGES_SIZE: usize = 45_000_000; // 45 MB - Lambda gives us 50 MB so we have 5 MB wiggle room
 const MAX_UNZIPPED_PACKAGES_SIZE: usize = 230_000_000; // 230 MB - Lambda gives us 250 MB
 
 impl PackageSize {
     pub fn verify_size(&self) -> anyhow::Result<()> {
-        if self.zipped_size_bytes >= MAX_ZIPPED_PACKAGES_SIZE {
+        if self.zipped_size_bytes >= *MAX_ZIPPED_PACKAGES_SIZE {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "ModulesTooLarge",
                 format!(

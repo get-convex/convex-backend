@@ -1632,6 +1632,13 @@ pub static MAX_ECHO_BYTES: LazyLock<usize> =
 pub static MAX_USER_MODULES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_USER_MODULES", 4096));
 
+/// The limit, in bytes, on the zipped size of a deployment's source packages
+/// (user modules plus external node dependencies).
+///
+/// Conductor will build a zip of this size in memory during code push.
+pub static MAX_ZIPPED_PACKAGES_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_ZIPPED_PACKAGES_SIZE", 45_000_000));
+
 /// Percentage of request traces that should sampled.
 ///
 /// Sampling config is a JSON object with the following format:
