@@ -113,7 +113,7 @@ use value::{
     TableNamespace,
 };
 
-use super::DatabaseUdfEnvironment;
+use super::DatabaseUdfSyscallProvider;
 use crate::{
     client::{
         EnvironmentData,
@@ -339,7 +339,7 @@ pub enum ManagedQuery<RT: Runtime> {
 
 pub type QueryId = u32;
 
-impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
+impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
     fn is_system(&self) -> bool {
         self.path.udf_path.is_system()
     }
@@ -647,11 +647,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 }
 
-/// Runs a batch of syscalls, each of which can succeed or fail
-/// independently. The returned vec is the same length as the batch.
 #[fastrace::trace]
 pub(super) async fn run_async_syscall_batch<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     batch: AsyncSyscallBatch,
     udf_callback: impl UdfCallback<RT>,
 ) -> Vec<anyhow::Result<String>> {
@@ -727,7 +725,9 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
 
 /// Returns the remaining headroom for this transaction before hitting
 /// limits.
-fn tx_metrics<RT: Runtime>(provider: &mut DatabaseUdfEnvironment<RT>) -> anyhow::Result<JsonValue> {
+fn tx_metrics<RT: Runtime>(
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
+) -> anyhow::Result<JsonValue> {
     let tx = provider.phase.tx()?;
     let s = tx.execution_size();
     let limits = tx.transaction_limits();
@@ -751,7 +751,7 @@ fn tx_metrics<RT: Runtime>(provider: &mut DatabaseUdfEnvironment<RT>) -> anyhow:
 
 /// Returns metadata about the currently executing function.
 fn function_metadata<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
 ) -> anyhow::Result<JsonValue> {
     let udf_path = &provider.path.udf_path;
     let component_path = &provider.path.component_path;
@@ -763,7 +763,7 @@ fn function_metadata<RT: Runtime>(
 
 /// Returns metadata about the deployment this function is running on.
 fn deployment_metadata<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
 ) -> anyhow::Result<JsonValue> {
     let deployment = &provider.deployment;
     Ok(json!({
@@ -775,7 +775,7 @@ fn deployment_metadata<RT: Runtime>(
 
 /// Returns metadata about the originating HTTP request.
 fn request_metadata<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
 ) -> anyhow::Result<JsonValue> {
     anyhow::ensure!(
         provider.udf_type == UdfType::Mutation,
@@ -812,7 +812,7 @@ fn request_metadata<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn count<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -842,7 +842,7 @@ async fn count<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn get_user_identity<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     _args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     provider.phase.observe_identity()?;
@@ -861,7 +861,7 @@ async fn get_user_identity<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn storage_generate_upload_url<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     _args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     let post_url = provider.file_storage_generate_upload_url().await?;
@@ -870,7 +870,7 @@ async fn storage_generate_upload_url<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn storage_get_url_batch<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     batch_args: Vec<JsonValue>,
 ) -> Vec<anyhow::Result<JsonValue>> {
     #[derive(Deserialize)]
@@ -907,7 +907,7 @@ async fn storage_get_url_batch<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn storage_delete<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -928,7 +928,7 @@ async fn storage_delete<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn storage_get_metadata<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -971,7 +971,7 @@ async fn storage_get_metadata<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn schedule<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1039,7 +1039,7 @@ async fn schedule<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn cancel_job<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1070,7 +1070,7 @@ async fn cancel_job<RT: Runtime>(
 }
 
 async fn audit_log<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1084,7 +1084,7 @@ async fn audit_log<RT: Runtime>(
 }
 
 async fn write_deployment_audit_log<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     if !provider.is_system() {
@@ -1138,7 +1138,7 @@ async fn write_deployment_audit_log<RT: Runtime>(
 #[fastrace::trace]
 #[convex_macro::instrument_future]
 async fn insert<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1172,7 +1172,7 @@ async fn insert<RT: Runtime>(
 #[fastrace::trace]
 #[convex_macro::instrument_future]
 async fn shallow_merge<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1211,7 +1211,7 @@ async fn shallow_merge<RT: Runtime>(
 #[fastrace::trace]
 #[convex_macro::instrument_future]
 async fn replace<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1252,7 +1252,7 @@ async fn replace<RT: Runtime>(
 #[fastrace::trace]
 #[convex_macro::instrument_future]
 async fn query_batch<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     batch_args: Vec<AsyncRead>,
 ) -> Vec<anyhow::Result<JsonValue>> {
     #[derive(Deserialize)]
@@ -1431,7 +1431,7 @@ async fn query_batch<RT: Runtime>(
 #[fastrace::trace]
 #[convex_macro::instrument_future]
 async fn remove<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1465,7 +1465,7 @@ async fn remove<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn run_udf<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
     udf_callback: impl UdfCallback<RT>,
 ) -> anyhow::Result<JsonValue> {
@@ -1554,7 +1554,7 @@ async fn run_udf<RT: Runtime>(
 }
 
 async fn create_function_handle<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]
@@ -1717,7 +1717,7 @@ async fn read_page_from_query<RT: Runtime>(
 #[fastrace::trace]
 #[convex_macro::instrument_future]
 async fn query_page<RT: Runtime>(
-    provider: &mut DatabaseUdfEnvironment<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     #[derive(Deserialize)]

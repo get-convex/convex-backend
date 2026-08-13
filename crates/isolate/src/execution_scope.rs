@@ -48,6 +48,7 @@ use crate::{
     context_local_state::GetContextSlot,
     environment::{
         ModuleCodeCacheResult,
+        SyscallProvider,
         V8IsolateEnvironment,
     },
     helpers::{
@@ -539,6 +540,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
         let state = self.state_mut()?;
         let result = state
             .environment
+            .syscall_provider()
             .lookup_source(module_path, timeout)
             .await?
             .ok_or_else(|| ModuleNotFoundError::new(module_path))?;
@@ -678,7 +680,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
         })?;
 
         let state = self.state_mut()?;
-        let result = state.environment.syscall(&op_name[..], args_v)?;
+        let result = state
+            .environment
+            .syscall_provider()
+            .syscall(&op_name[..], args_v)?;
 
         let value_s = serde_json::to_string(&result)?;
         let value_v8 = v8::String::new(self, &value_s[..])

@@ -42,6 +42,7 @@ use crate::{
         ToV8 as _,
     },
     environment::{
+        SyscallProvider,
         UncatchableDeveloperError,
         V8IsolateEnvironment,
     },
@@ -168,7 +169,9 @@ impl HeapSize for StreamListener {
 
 impl<RT: Runtime, E: V8IsolateEnvironment<RT>> RequestState<RT, E> {
     pub fn create_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
-        let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
+        let uuid =
+            uuid::Builder::from_random_bytes(self.environment.syscall_provider().rng()?.random())
+                .into_uuid();
         self.streams.insert(uuid, Ok(ReadableStream::default()));
         Ok(uuid)
     }

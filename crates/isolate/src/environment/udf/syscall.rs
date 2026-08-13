@@ -35,7 +35,7 @@ use value::{
     TabletIdAndTableNumber,
 };
 
-use super::DatabaseUdfEnvironment;
+use super::DatabaseUdfSyscallProvider;
 use crate::{
     environment::helpers::{
         parse_version,
@@ -58,7 +58,7 @@ pub trait SyscallProvider<RT: Runtime> {
     fn require_operation(&mut self, op: DeploymentOp) -> anyhow::Result<()>;
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
+impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
     fn table_filter(&self) -> TableFilter {
         if self.path.udf_path.is_system() {
             TableFilter::IncludePrivateSystemTables

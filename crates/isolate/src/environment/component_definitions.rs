@@ -66,6 +66,7 @@ use value::{
 use super::{
     AsyncOpRequest,
     IsolateEnvironment,
+    SyscallProvider,
 };
 use crate::{
     context_cache::ContextCache,
@@ -490,9 +491,7 @@ struct DefinitionEnvironment {
     environment_variables: Option<BTreeMap<EnvVarName, EnvVarValue>>,
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
-    type AsyncResolver = v8::Global<v8::PromiseResolver>;
-
+impl<RT: Runtime> SyscallProvider<RT> for DefinitionEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access when evaluating app definition: {}",
@@ -611,12 +610,21 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             format!("Syscall {name} unsupported when evaluating app definition")
         ))
     }
+}
+
+impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+    type SyscallProvider = Self;
+
+    fn syscall_provider(&mut self) -> &mut Self::SyscallProvider {
+        self
+    }
 
     fn start_async_syscall(
         &mut self,
         name: String,
         _args: JsonValue,
-        _resolver: v8::Global<v8::PromiseResolver>,
+        _resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         anyhow::bail!(ErrorMetadata::bad_request(
             format!("No{}DuringAppDefinition", syscall_name_for_error(&name)),
@@ -630,7 +638,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
     fn start_async_op(
         &mut self,
         request: AsyncOpRequest,
-        _resolver: v8::Global<v8::PromiseResolver>,
+        _resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         anyhow::bail!(ErrorMetadata::bad_request(
             format!("No{}DuringAppDefinition", request.name_for_error()),

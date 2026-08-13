@@ -59,6 +59,7 @@ use crate::{
         },
         AsyncOpRequest,
         IsolateEnvironment,
+        SyscallProvider,
     },
     helpers,
     isolate::{
@@ -79,9 +80,7 @@ pub struct SchemaEnvironment {
     unix_timestamp: UnixTimestamp,
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
-    type AsyncResolver = v8::Global<v8::PromiseResolver>;
-
+impl<RT: Runtime> SyscallProvider<RT> for SchemaEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access at schema evaluation time: {}",
@@ -156,12 +155,21 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
             format!("Syscall {name} unsupported when evaluating schema")
         ));
     }
+}
+
+impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+    type SyscallProvider = Self;
+
+    fn syscall_provider(&mut self) -> &mut Self::SyscallProvider {
+        self
+    }
 
     fn start_async_syscall(
         &mut self,
         name: String,
         _args: JsonValue,
-        _resolver: v8::Global<v8::PromiseResolver>,
+        _resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         anyhow::bail!(ErrorMetadata::bad_request(
             format!("No{}InSchema", syscall_name_for_error(&name)),
@@ -175,7 +183,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
     fn start_async_op(
         &mut self,
         request: AsyncOpRequest,
-        _resolver: v8::Global<v8::PromiseResolver>,
+        _resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         anyhow::bail!(ErrorMetadata::bad_request(
             format!("No{}InSchema", request.name_for_error()),

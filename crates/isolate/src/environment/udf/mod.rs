@@ -78,6 +78,7 @@ pub mod syscall;
 use std::{
     cmp::Ordering,
     collections::VecDeque,
+    marker::PhantomData,
     sync::Arc,
     time::Duration,
 };
@@ -182,6 +183,7 @@ use crate::{
         },
         AsyncOpRequest,
         IsolateEnvironment,
+        SyscallProvider,
     },
     helpers::{
         self,
@@ -206,7 +208,7 @@ use crate::{
     },
 };
 
-pub struct DatabaseUdfEnvironment<RT: Runtime> {
+pub struct DatabaseUdfSyscallProvider<RT: Runtime> {
     rt: RT,
 
     udf_type: UdfType,
@@ -230,13 +232,17 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     /// Journal to write decisions made during this UDF computation.
     next_journal: QueryJournal,
 
-    pending_syscalls: WithHeapSize<VecDeque<PendingSyscall>>,
-
     syscall_trace: SyscallTrace,
 
     context: ExecutionContext,
 
     reactor_depth: usize,
+}
+
+pub struct DatabaseUdfEnvironment<RT: Runtime, S = DatabaseUdfSyscallProvider<RT>> {
+    syscall_provider: S,
+    pending_syscalls: WithHeapSize<VecDeque<PendingSyscall>>,
+    _phantom: PhantomData<RT>,
 }
 
 fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
@@ -249,9 +255,7 @@ fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
     )
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
-    type AsyncResolver = v8::Global<v8::PromiseResolver>;
-
+impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         self.emit_log_line(LogLine::new_developer_log_line(
             level,
@@ -318,12 +322,23 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
         syscall_impl(self, name, args)
     }
+}
+
+impl<RT: Runtime, S: DatabaseUdfInnerProvider<RT>> IsolateEnvironment<RT>
+    for DatabaseUdfEnvironment<RT, S>
+{
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+    type SyscallProvider = S;
+
+    fn syscall_provider(&mut self) -> &mut Self::SyscallProvider {
+        &mut self.syscall_provider
+    }
 
     fn start_async_syscall(
         &mut self,
         name: String,
         args: JsonValue,
-        resolver: v8::Global<v8::PromiseResolver>,
+        resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         self.pending_syscalls.push_back(PendingSyscall {
             name,
@@ -336,7 +351,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     fn start_async_op(
         &mut self,
         request: AsyncOpRequest,
-        _resolver: v8::Global<v8::PromiseResolver>,
+        _resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         anyhow::bail!(not_allowed_in_udf(
             request.name_for_error(),
@@ -345,7 +360,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn environment_heap_size(&self) -> usize {
-        self.pending_syscalls.heap_size() + self.syscall_trace.heap_size()
+        self.pending_syscalls.heap_size() + self.syscall_provider.heap_size()
     }
 
     fn user_timeout(&self) -> std::time::Duration {
@@ -354,6 +369,126 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 
     fn system_timeout(&self) -> std::time::Duration {
         *DATABASE_UDF_SYSTEM_TIMEOUT
+    }
+}
+
+impl<RT: Runtime> HeapSize for DatabaseUdfSyscallProvider<RT> {
+    fn heap_size(&self) -> usize {
+        self.syscall_trace.heap_size()
+    }
+}
+
+impl<RT: Runtime> DatabaseUdfInnerProvider<RT> for DatabaseUdfSyscallProvider<RT> {
+    async fn run_async_syscall_batch(
+        &mut self,
+        batch: AsyncSyscallBatch,
+        udf_callback: impl UdfCallback<RT>,
+    ) -> Vec<anyhow::Result<String>> {
+        run_async_syscall_batch(self, batch, udf_callback).await
+    }
+
+    fn rt(&self) -> &RT {
+        &self.rt
+    }
+
+    fn path(&self) -> &ResolvedComponentFunctionPath {
+        &self.path
+    }
+
+    fn udf_type(&self) -> UdfType {
+        self.udf_type
+    }
+
+    fn reactor_depth(&self) -> usize {
+        self.reactor_depth
+    }
+
+    async fn initialize(&mut self, timeout: &mut Timeout<RT>) -> anyhow::Result<()> {
+        self.phase.initialize(timeout).await
+    }
+
+    fn begin_execution(
+        &mut self,
+        rng_seed: [u8; 32],
+        execution_unix_timestamp: UnixTimestamp,
+    ) -> anyhow::Result<()> {
+        self.phase
+            .begin_execution(rng_seed, execution_unix_timestamp)
+    }
+
+    fn into_outcome(
+        self,
+        args: DatabaseUdfArgs,
+        result: Result<PendingValue, JsError>,
+        execution_time: FunctionExecutionTime,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
+        let user_execution_time = execution_time.elapsed;
+
+        let success_result_value = result.as_ref().ok();
+        let parsed_args =
+            parse_pending_udf_args(&self.path.udf_path, args.udf_args.clone().into_args()?)?;
+        let mut log_lines = self.log_lines;
+        add_warnings_to_log_lines(
+            &self.path.clone().for_logging(),
+            &parsed_args,
+            execution_time,
+            self.phase.execution_size()?,
+            self.phase.biggest_document_writes()?,
+            success_result_value,
+            |warning| {
+                // Note: accessing the current time here is still deterministic since
+                // we don't externalize the time to the function.
+                log_lines.push(warning.into_log_line(self.rt.unix_timestamp()));
+            },
+        )?;
+        let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
+            .try_into()
+            .unwrap();
+        // TODO: Add num_writes and write_bandwidth to UdfOutcome,
+        // and use them in log_mutation.
+        let outcome = UdfOutcome {
+            path: self.path.for_logging(),
+            arguments: args.udf_args,
+            identity: args.identity,
+            observed_identity: self.phase.observed_identity(),
+            rng_seed: args.rng_seed,
+            observed_rng: self.phase.observed_rng(),
+            unix_timestamp: args.unix_timestamp,
+            observed_time: self.phase.observed_time(),
+            log_lines,
+            audit_log_lines: self.audit_log_lines,
+            journal: self.next_journal,
+            result: match result {
+                Ok(v) => Ok(JsonPackedValue::pack(v)),
+                Err(e) => Err(e),
+            },
+            syscall_trace: self.syscall_trace,
+            udf_server_version: args.udf_server_version,
+            memory_in_mb,
+            user_execution_time: Some(user_execution_time),
+        };
+        let outcome = match self.udf_type {
+            UdfType::Query => FunctionOutcome::Query(outcome),
+            UdfType::Mutation => FunctionOutcome::Mutation(outcome),
+            _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
+        };
+        Ok((self.phase.into_transaction()?, outcome))
+    }
+
+    fn snoop_reads(&mut self) -> anyhow::Result<()> {
+        self.phase.snoop_reads()
+    }
+
+    async fn finish_snoop(
+        &mut self,
+        should_capture: bool,
+    ) -> anyhow::Result<Option<ContextReadSet>> {
+        let read_set = self.phase.finish_snoop()?;
+        Ok(if should_capture {
+            capture_context_read_set(read_set, self.phase.tx_mut()?).await?
+        } else {
+            None
+        })
     }
 }
 
@@ -421,16 +556,19 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
         // safety: this future must not be leaked
         let (nested_provider, result) = self.executor.spawn(unsafe { body.project() }).await??;
         let outcome = NestedUdfOutcome {
-            observed_identity: nested_provider.phase.observed_identity(),
-            observed_rng: nested_provider.phase.observed_rng(),
-            observed_time: nested_provider.phase.observed_time(),
-            audit_log_lines: nested_provider.audit_log_lines,
-            log_lines: nested_provider.log_lines,
-            journal: nested_provider.next_journal,
+            observed_identity: nested_provider.syscall_provider.phase.observed_identity(),
+            observed_rng: nested_provider.syscall_provider.phase.observed_rng(),
+            observed_time: nested_provider.syscall_provider.phase.observed_time(),
+            audit_log_lines: nested_provider.syscall_provider.audit_log_lines,
+            log_lines: nested_provider.syscall_provider.log_lines,
+            journal: nested_provider.syscall_provider.next_journal,
             result: result?,
-            syscall_trace: nested_provider.syscall_trace,
+            syscall_trace: nested_provider.syscall_provider.syscall_trace,
         };
-        Ok((nested_provider.phase.into_transaction()?, outcome))
+        Ok((
+            nested_provider.syscall_provider.phase.into_transaction()?,
+            outcome,
+        ))
     }
 }
 
@@ -441,6 +579,48 @@ pub struct DatabaseUdfArgs {
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
     reuse_context: bool,
+}
+
+#[allow(async_fn_in_trait)]
+pub trait DatabaseUdfInnerProvider<RT: Runtime>:
+    SyscallProvider<RT> + ValidateContext + HeapSize + 'static
+{
+    /// Runs a batch of syscalls, each of which can succeed or fail
+    /// independently. The returned vec is the same length as the batch.
+    async fn run_async_syscall_batch(
+        &mut self,
+        batch: AsyncSyscallBatch,
+        udf_callback: impl UdfCallback<RT>,
+    ) -> Vec<anyhow::Result<String>>;
+
+    fn rt(&self) -> &RT;
+    fn path(&self) -> &ResolvedComponentFunctionPath;
+    fn udf_type(&self) -> UdfType;
+    fn reactor_depth(&self) -> usize;
+    async fn initialize(&mut self, timeout: &mut Timeout<RT>) -> anyhow::Result<()>;
+    fn begin_execution(
+        &mut self,
+        rng_seed: [u8; 32],
+        execution_unix_timestamp: UnixTimestamp,
+    ) -> anyhow::Result<()>;
+    fn into_outcome(
+        self,
+        args: DatabaseUdfArgs,
+        result: Result<PendingValue, JsError>,
+        execution_time: FunctionExecutionTime,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)>;
+
+    fn snoop_reads(&mut self) -> anyhow::Result<()>;
+    /// If `should_capture` is false, always returns None
+    async fn finish_snoop(
+        &mut self,
+        should_capture: bool,
+    ) -> anyhow::Result<Option<ContextReadSet>>;
+}
+
+#[allow(async_fn_in_trait)]
+pub trait ValidateContext {
+    async fn validate_reused_context(&mut self, read_set: &ContextReadSet) -> anyhow::Result<bool>;
 }
 
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
@@ -471,34 +651,37 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let identity = transaction.inert_identity();
         (
             Self {
-                rt: rt.clone(),
-                udf_type,
-                path,
+                syscall_provider: DatabaseUdfSyscallProvider {
+                    rt: rt.clone(),
+                    udf_type,
+                    path,
 
-                phase: UdfPhase::new(
-                    transaction,
-                    rt,
-                    module_loader.clone(),
-                    default_system_env_vars,
-                    component,
-                ),
-                file_storage,
+                    phase: UdfPhase::new(
+                        transaction,
+                        rt,
+                        module_loader.clone(),
+                        default_system_env_vars,
+                        component,
+                    ),
+                    file_storage,
 
-                query_manager: QueryManager::new(),
+                    query_manager: QueryManager::new(),
 
-                key_broker,
-                log_lines: vec![].into(),
-                audit_log_lines: vec![].into(),
-                prev_journal: journal,
-                next_journal: QueryJournal::new(),
+                    key_broker,
+                    log_lines: vec![].into(),
+                    audit_log_lines: vec![].into(),
+                    prev_journal: journal,
+                    next_journal: QueryJournal::new(),
 
+                    syscall_trace: SyscallTrace::new(),
+                    context,
+
+                    reactor_depth,
+                    deployment,
+                    client_id,
+                },
                 pending_syscalls: WithHeapSize::default(),
-                syscall_trace: SyscallTrace::new(),
-                context,
-
-                reactor_depth,
-                deployment,
-                client_id,
+                _phantom: PhantomData,
             },
             DatabaseUdfArgs {
                 unix_timestamp,
@@ -510,7 +693,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             },
         )
     }
+}
 
+impl<RT, S> DatabaseUdfEnvironment<RT, S>
+where
+    RT: Runtime,
+    S: DatabaseUdfInnerProvider<RT>,
+{
     /// Runs a top-level query or mutation.
     #[fastrace::trace]
     pub async fn run(
@@ -526,9 +715,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let executor = UdfRecursiveExecutor::new();
 
+        let path_for_logging = format!("{:?}", self.syscall_provider.path().clone().for_logging());
         let (handle, state, mut timeout) =
             isolate.start_request(context_cache, permit, self).await?;
-        let path_for_logging = format!("{:?}", state.environment.path.clone().for_logging());
         if let Some(tx) = function_started {
             // At this point we have acquired a permit and aren't going to
             // reject the function for capacity reasons.
@@ -561,58 +750,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }
         let result = result?;
 
-        let execution_time = timeout.into_function_execution_time(this.udf_type);
-        let user_execution_time = execution_time.elapsed;
-
-        let success_result_value = result.as_ref().ok();
-        let parsed_args =
-            parse_pending_udf_args(&this.path.udf_path, args.udf_args.clone().into_args()?)?;
-        let mut log_lines = this.log_lines;
-        Self::add_warnings_to_log_lines(
-            &this.path.clone().for_logging(),
-            &parsed_args,
-            execution_time,
-            this.phase.execution_size()?,
-            this.phase.biggest_document_writes()?,
-            success_result_value,
-            |warning| {
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                log_lines.push(warning.into_log_line(this.rt.unix_timestamp()));
-            },
-        )?;
-        let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
-            .try_into()
-            .unwrap();
-        // TODO: Add num_writes and write_bandwidth to UdfOutcome,
-        // and use them in log_mutation.
-        let outcome = UdfOutcome {
-            path: this.path.for_logging(),
-            arguments: args.udf_args,
-            identity: args.identity,
-            observed_identity: this.phase.observed_identity(),
-            rng_seed: args.rng_seed,
-            observed_rng: this.phase.observed_rng(),
-            unix_timestamp: args.unix_timestamp,
-            observed_time: this.phase.observed_time(),
-            log_lines,
-            audit_log_lines: this.audit_log_lines,
-            journal: this.next_journal,
-            result: match result {
-                Ok(v) => Ok(JsonPackedValue::pack(v)),
-                Err(e) => Err(e),
-            },
-            syscall_trace: this.syscall_trace,
-            udf_server_version: args.udf_server_version,
-            memory_in_mb,
-            user_execution_time: Some(user_execution_time),
-        };
-        let outcome = match this.udf_type {
-            UdfType::Query => FunctionOutcome::Query(outcome),
-            UdfType::Mutation => FunctionOutcome::Mutation(outcome),
-            _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
-        };
-        Ok((this.phase.into_transaction()?, outcome))
+        let execution_time = timeout.into_function_execution_time(this.syscall_provider.udf_type());
+        this.syscall_provider
+            .into_outcome(args, result, execution_time)
     }
 
     /// Runs a query or mutation, possibly nested via `runQuery`/`runMutation`.
@@ -669,7 +809,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     RequestScope::<RT, Self>::enter(v8_scope)
                         .state_mut()?
                         .environment
-                        .phase
+                        .syscall_provider
                         .snoop_reads()?;
                 }
                 let initialize_result = Self::initialize_context(
@@ -681,14 +821,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 .await;
                 if snoop {
                     let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
-                    let read_set = scope.state_mut()?.environment.phase.finish_snoop()?;
-                    if let Ok(Ok(_)) = initialize_result {
-                        context_read_set = Self::capture_context_read_set(
-                            read_set,
-                            scope.state_mut()?.environment.phase.tx_mut()?,
-                        )
+                    context_read_set = scope
+                        .state_mut()?
+                        .environment
+                        .syscall_provider
+                        .finish_snoop(matches!(initialize_result, Ok(Ok(_))))
                         .await?;
-                    }
                 }
                 initialize_result
             };
@@ -739,8 +877,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             let context = v8_scope.get_current_context();
             context_cache.save_context(
                 CanonicalizedComponentModulePath {
-                    component: this.path.component,
-                    module_path: this.path.udf_path.module().clone(),
+                    component: this.syscall_provider.path().component,
+                    module_path: this.syscall_provider.path().udf_path.module().clone(),
                 },
                 v8::Global::new(v8_scope, context),
                 module_map,
@@ -764,13 +902,17 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // JS.
         {
             let state = scope.state_mut()?;
-            state.environment.phase.initialize(timeout).await?;
+            state
+                .environment
+                .syscall_provider
+                .initialize(timeout)
+                .await?;
         }
 
         let (udf_type, udf_path) = {
             let state = scope.state()?;
-            let environment = &state.environment;
-            (environment.udf_type, environment.path.udf_path.clone())
+            let environment = &state.environment.syscall_provider;
+            (environment.udf_type(), environment.path().udf_path.clone())
         };
 
         if reusable_context {
@@ -821,12 +963,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         let (rt, udf_type, path, reactor_depth) = {
             let state = scope.state()?;
-            let environment = &state.environment;
+            let environment = &state.environment.syscall_provider;
             (
-                environment.rt.clone(),
-                environment.udf_type,
-                environment.path.clone(),
-                environment.reactor_depth,
+                environment.rt().clone(),
+                environment.udf_type(),
+                environment.path().clone(),
+                environment.reactor_depth(),
             )
         };
         let udf_path = &path.udf_path;
@@ -921,7 +1063,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             let state = scope.state_mut()?;
             state
                 .environment
-                .phase
+                .syscall_provider
                 .begin_execution(args.rng_seed, args.unix_timestamp)?;
         }
         let global = scope.get_current_context().global(&scope);
@@ -1039,9 +1181,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                                     log_isolate_request_cancelled();
                                     anyhow::bail!("Cancelled");
                                 },
-                                results = run_async_syscall_batch(
-                                    &mut state.environment, batch, udf_callback,
-                                ) => Ok(results),
+                                results = state.environment.syscall_provider
+                                    .run_async_syscall_batch(batch, udf_callback)
+                                => Ok(results),
                             }
                         },
                     )
@@ -1106,6 +1248,30 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok(result)
     }
 
+    async fn take_and_validate_reused_context(
+        &mut self,
+        context_cache: &mut ContextCache,
+    ) -> anyhow::Result<Option<(v8::Global<v8::Context>, ModuleMap, ContextReadSet)>> {
+        let module_path = CanonicalizedComponentModulePath {
+            component: self.syscall_provider.path().component,
+            module_path: self.syscall_provider.path().udf_path.module().clone(),
+        };
+        let Some((context, module_map, read_set)) = context_cache.take_reused_context(&module_path)
+        else {
+            return Ok(None);
+        };
+        if !self
+            .syscall_provider
+            .validate_reused_context(&read_set)
+            .await?
+        {
+            return Ok(None);
+        }
+        Ok(Some((context, module_map, read_set)))
+    }
+}
+
+impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
     pub fn emit_audit_log_line(&mut self, audit_log_line: AuditLogLine) -> anyhow::Result<()> {
         let max_heap = *AUDIT_LOG_MAX_HEAP_SIZE_BYTES;
         anyhow::ensure!(
@@ -1172,186 +1338,177 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 .push(LogLine::SubFunction { path, log_lines });
         }
     }
+}
 
-    // Called when a function finishes
-    pub fn add_warnings_to_log_lines(
-        path: &CanonicalizedComponentFunctionPath,
-        arguments: &[PendingValue],
-        execution_time: FunctionExecutionTime,
-        execution_size: FunctionExecutionSize,
-        biggest_writes: Option<BiggestDocumentWrites>,
-        result: Option<&PendingValue>,
-        mut trace_system_warning: impl FnMut(SystemWarning),
-    ) -> anyhow::Result<()> {
-        let udf_path = path.udf_path.clone();
-        let system_udf_path = if udf_path.is_system() {
-            Some(udf_path)
-        } else {
-            None
-        };
-        if let Some(warning) = approaching_limit_warning(
-            pending_udf_args_size(arguments),
-            *FUNCTION_MAX_ARGS_SIZE,
-            "TooLargeFunctionArguments",
-            || "Large size of the function arguments".to_string(),
-            None,
-            Some(" bytes"),
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.read_size.total_document_count,
-            *TRANSACTION_MAX_READ_SIZE_ROWS,
-            "TooManyDocumentsRead",
-            || "Many documents read in a single function execution".to_string(),
-            Some(OVER_LIMIT_HELP),
-            None,
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.num_intervals,
-            *TRANSACTION_MAX_READ_SET_INTERVALS,
-            "TooManyReads",
-            || "Many reads in a single function execution".to_string(),
-            Some(OVER_LIMIT_HELP),
-            None,
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.read_size.total_document_size,
-            *TRANSACTION_MAX_READ_SIZE_BYTES,
-            "TooManyBytesRead",
-            || "Many bytes read in a single function execution".to_string(),
-            Some(OVER_LIMIT_HELP),
-            Some(" bytes"),
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.write_size.num_writes,
-            *TRANSACTION_MAX_NUM_USER_WRITES,
-            "TooManyWrites",
-            || "Many writes in a single function execution".to_string(),
-            None,
-            None,
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.write_size.size,
-            *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
-            "TooManyBytesWritten",
-            || "Many bytes written in a single function execution".to_string(),
-            None,
-            Some(" bytes"),
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.scheduled_size.num_writes,
-            *TRANSACTION_MAX_NUM_SCHEDULED,
-            "TooManyFunctionsScheduled",
-            || "Many functions scheduled by this mutation".to_string(),
-            None,
-            None,
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = approaching_limit_warning(
-            execution_size.scheduled_size.size,
-            *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
-            "ScheduledFunctionsArgumentsTooLarge",
-            || {
-                "Large total size of the arguments of scheduled functions from this mutation"
-                    .to_string()
-            },
-            None,
-            Some(" bytes"),
-            system_udf_path.as_ref(),
-        ) {
-            trace_system_warning(warning);
-        }
-        if let Some(warning) = scheduled_arg_size_warning(
-            execution_size.scheduled_size.max_args_size,
-            &system_udf_path,
-        ) {
-            trace_system_warning(warning);
-        }
-
-        if let Some(biggest_writes) = biggest_writes {
-            let (max_size_document_id, max_size) = biggest_writes.max_size;
-            if let Some(warning) = approaching_limit_warning(
-                max_size,
-                MAX_USER_SIZE,
-                VALUE_TOO_LARGE_SHORT_MSG,
-                || format!("Large document written with ID \"{max_size_document_id}\""),
-                None,
-                Some(" bytes"),
-                system_udf_path.as_ref(),
-            ) {
-                trace_system_warning(warning);
-            }
-            let (max_nesting_document_id, max_nesting) = biggest_writes.max_nesting;
-            if let Some(warning) = approaching_limit_warning(
-                max_nesting,
-                MAX_DOCUMENT_NESTING,
-                "TooNested",
-                || format!("Deeply nested document written with ID \"{max_nesting_document_id}\""),
-                None,
-                Some(" levels"),
-                system_udf_path.as_ref(),
-            ) {
-                trace_system_warning(warning);
-            }
-        }
-
-        if let Some(result) = result
-            && let Some(warning) = approaching_limit_warning(
-                result.size(),
-                *FUNCTION_MAX_RESULT_SIZE,
-                "TooLargeFunctionResult",
-                || "Large size of the function return value".to_string(),
-                None,
-                Some(" bytes"),
-                system_udf_path.as_ref(),
-            )
-        {
-            trace_system_warning(warning);
-        };
-        if let Some(warning) = approaching_duration_limit_warning(
-            execution_time.elapsed,
-            execution_time.limit,
-            "UserTimeout",
-            "Function execution took a long time",
-            system_udf_path.as_ref(),
-        )? {
-            trace_system_warning(warning);
-        }
-        Ok(())
+// Called when a function finishes
+pub fn add_warnings_to_log_lines(
+    path: &CanonicalizedComponentFunctionPath,
+    arguments: &[PendingValue],
+    execution_time: FunctionExecutionTime,
+    execution_size: FunctionExecutionSize,
+    biggest_writes: Option<BiggestDocumentWrites>,
+    result: Option<&PendingValue>,
+    mut trace_system_warning: impl FnMut(SystemWarning),
+) -> anyhow::Result<()> {
+    let udf_path = path.udf_path.clone();
+    let system_udf_path = if udf_path.is_system() {
+        Some(udf_path)
+    } else {
+        None
+    };
+    if let Some(warning) = approaching_limit_warning(
+        pending_udf_args_size(arguments),
+        *FUNCTION_MAX_ARGS_SIZE,
+        "TooLargeFunctionArguments",
+        || "Large size of the function arguments".to_string(),
+        None,
+        Some(" bytes"),
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.read_size.total_document_count,
+        *TRANSACTION_MAX_READ_SIZE_ROWS,
+        "TooManyDocumentsRead",
+        || "Many documents read in a single function execution".to_string(),
+        Some(OVER_LIMIT_HELP),
+        None,
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.num_intervals,
+        *TRANSACTION_MAX_READ_SET_INTERVALS,
+        "TooManyReads",
+        || "Many reads in a single function execution".to_string(),
+        Some(OVER_LIMIT_HELP),
+        None,
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.read_size.total_document_size,
+        *TRANSACTION_MAX_READ_SIZE_BYTES,
+        "TooManyBytesRead",
+        || "Many bytes read in a single function execution".to_string(),
+        Some(OVER_LIMIT_HELP),
+        Some(" bytes"),
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.write_size.num_writes,
+        *TRANSACTION_MAX_NUM_USER_WRITES,
+        "TooManyWrites",
+        || "Many writes in a single function execution".to_string(),
+        None,
+        None,
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.write_size.size,
+        *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
+        "TooManyBytesWritten",
+        || "Many bytes written in a single function execution".to_string(),
+        None,
+        Some(" bytes"),
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.scheduled_size.num_writes,
+        *TRANSACTION_MAX_NUM_SCHEDULED,
+        "TooManyFunctionsScheduled",
+        || "Many functions scheduled by this mutation".to_string(),
+        None,
+        None,
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.scheduled_size.size,
+        *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
+        "ScheduledFunctionsArgumentsTooLarge",
+        || {
+            "Large total size of the arguments of scheduled functions from this mutation"
+                .to_string()
+        },
+        None,
+        Some(" bytes"),
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = scheduled_arg_size_warning(
+        execution_size.scheduled_size.max_args_size,
+        &system_udf_path,
+    ) {
+        trace_system_warning(warning);
     }
 
+    if let Some(biggest_writes) = biggest_writes {
+        let (max_size_document_id, max_size) = biggest_writes.max_size;
+        if let Some(warning) = approaching_limit_warning(
+            max_size,
+            MAX_USER_SIZE,
+            VALUE_TOO_LARGE_SHORT_MSG,
+            || format!("Large document written with ID \"{max_size_document_id}\""),
+            None,
+            Some(" bytes"),
+            system_udf_path.as_ref(),
+        ) {
+            trace_system_warning(warning);
+        }
+        let (max_nesting_document_id, max_nesting) = biggest_writes.max_nesting;
+        if let Some(warning) = approaching_limit_warning(
+            max_nesting,
+            MAX_DOCUMENT_NESTING,
+            "TooNested",
+            || format!("Deeply nested document written with ID \"{max_nesting_document_id}\""),
+            None,
+            Some(" levels"),
+            system_udf_path.as_ref(),
+        ) {
+            trace_system_warning(warning);
+        }
+    }
+
+    if let Some(result) = result
+        && let Some(warning) = approaching_limit_warning(
+            result.size(),
+            *FUNCTION_MAX_RESULT_SIZE,
+            "TooLargeFunctionResult",
+            || "Large size of the function return value".to_string(),
+            None,
+            Some(" bytes"),
+            system_udf_path.as_ref(),
+        )
+    {
+        trace_system_warning(warning);
+    };
+    if let Some(warning) = approaching_duration_limit_warning(
+        execution_time.elapsed,
+        execution_time.limit,
+        "UserTimeout",
+        "Function execution took a long time",
+        system_udf_path.as_ref(),
+    )? {
+        trace_system_warning(warning);
+    }
+    Ok(())
+}
+
+impl<RT: Runtime> ValidateContext for DatabaseUdfSyscallProvider<RT> {
     #[fastrace::trace]
-    async fn take_and_validate_reused_context(
-        &mut self,
-        context_cache: &mut ContextCache,
-    ) -> anyhow::Result<Option<(v8::Global<v8::Context>, ModuleMap, ContextReadSet)>> {
-        let module_path = CanonicalizedComponentModulePath {
-            component: self.path.component,
-            module_path: self.path.udf_path.module().clone(),
-        };
-        let Some((context, module_map, read_set)) = context_cache.take_reused_context(&module_path)
-        else {
-            return Ok(None);
-        };
+    async fn validate_reused_context(&mut self, read_set: &ContextReadSet) -> anyhow::Result<bool> {
         let mut reusable = scopeguard::guard(false, |reusable| {
             LocalSpan::add_property(|| ("reuse_success", reusable.as_label()));
         });
@@ -1359,7 +1516,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         for (namespace, tablet_index_name, table_name, intervals, hash) in &read_set.range_hashes {
             let tablet = *tablet_index_name.table();
             if !tx.table_mapping().tablet_id_exists(tablet) {
-                return Ok(None);
+                return Ok(false);
             }
             let (new_namespace, _, new_table_name) =
                 tx.table_mapping().get_table_metadata(tablet)?;
@@ -1369,54 +1526,54 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 .hash_index_interval_no_deps(tablet_index_name, table_name, intervals)
                 .await?
             else {
-                return Ok(None);
+                return Ok(false);
             };
             if new_hash != *hash {
-                return Ok(None);
+                return Ok(false);
             }
         }
         *reusable = true;
         // All hashes match, so make sure to merge the saved read set into `tx`
         tx.apply_reads(read_set.read_set.clone());
-        Ok(Some((context, module_map, read_set)))
+        Ok(true)
     }
+}
 
-    #[fastrace::trace]
-    async fn capture_context_read_set(
-        read_set: TransactionReadSet,
-        tx: &mut Transaction<RT>,
-    ) -> anyhow::Result<Option<ContextReadSet>> {
+#[fastrace::trace]
+async fn capture_context_read_set<RT: Runtime>(
+    read_set: TransactionReadSet,
+    tx: &mut Transaction<RT>,
+) -> anyhow::Result<Option<ContextReadSet>> {
+    anyhow::ensure!(
+        read_set.read_set().iter_search().count() == 0,
+        "searches can't be done during init"
+    );
+    let mut range_hashes = vec![];
+    for (tablet_index_name, reads) in read_set.read_set().iter_indexed() {
+        let &(namespace, _table_number, ref table_name) = tx
+            .table_mapping()
+            .get_table_metadata(*tablet_index_name.table())?;
         anyhow::ensure!(
-            read_set.read_set().iter_search().count() == 0,
-            "searches can't be done during init"
+            table_name.is_system(),
+            "context init read non-system table {table_name}?"
         );
-        let mut range_hashes = vec![];
-        for (tablet_index_name, reads) in read_set.read_set().iter_indexed() {
-            let &(namespace, _table_number, ref table_name) = tx
-                .table_mapping()
-                .get_table_metadata(*tablet_index_name.table())?;
-            anyhow::ensure!(
-                table_name.is_system(),
-                "context init read non-system table {table_name}?"
-            );
-            let table_name = table_name.clone();
-            let Some(hash) = tx
-                .hash_index_interval_no_deps(tablet_index_name, &table_name, &reads.intervals)
-                .await?
-            else {
-                return Ok(None);
-            };
-            range_hashes.push((
-                namespace,
-                tablet_index_name.clone(),
-                table_name,
-                reads.intervals.clone(),
-                hash,
-            ));
-        }
-        Ok(Some(ContextReadSet {
-            read_set,
-            range_hashes,
-        }))
+        let table_name = table_name.clone();
+        let Some(hash) = tx
+            .hash_index_interval_no_deps(tablet_index_name, &table_name, &reads.intervals)
+            .await?
+        else {
+            return Ok(None);
+        };
+        range_hashes.push((
+            namespace,
+            tablet_index_name.clone(),
+            table_name,
+            reads.intervals.clone(),
+            hash,
+        ));
     }
+    Ok(Some(ContextReadSet {
+        read_set,
+        range_hashes,
+    }))
 }

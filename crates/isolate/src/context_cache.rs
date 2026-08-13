@@ -57,7 +57,7 @@ struct CachedContextsInner {
     saved_database_udf_context: Option<CanonicalizedComponentModulePath>,
 }
 
-pub(crate) struct ContextReadSet {
+pub struct ContextReadSet {
     pub read_set: TransactionReadSet,
     pub range_hashes: Vec<(
         TableNamespace,

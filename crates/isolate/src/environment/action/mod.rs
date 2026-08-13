@@ -158,6 +158,7 @@ use crate::{
         },
         AsyncOpRequest,
         IsolateEnvironment,
+        SyscallProvider,
     },
     execution_scope::ExecutionScope,
     helpers::{
@@ -1345,9 +1346,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     }
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
-    type AsyncResolver = v8::Global<v8::PromiseResolver>;
-
+impl<RT: Runtime> SyscallProvider<RT> for ActionEnvironment<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
 
@@ -1425,12 +1424,21 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
         self.syscall_impl(name, args)
     }
+}
+
+impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
+    type AsyncResolver = v8::Global<v8::PromiseResolver>;
+    type SyscallProvider = Self;
+
+    fn syscall_provider(&mut self) -> &mut Self::SyscallProvider {
+        self
+    }
 
     fn start_async_syscall(
         &mut self,
         name: String,
         args: JsonValue,
-        resolver: v8::Global<v8::PromiseResolver>,
+        resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         self.start_task(TaskRequestEnum::AsyncSyscall { name, args }, resolver)
     }
@@ -1438,7 +1446,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
     fn start_async_op(
         &mut self,
         request: AsyncOpRequest,
-        resolver: v8::Global<v8::PromiseResolver>,
+        resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
         self.start_task(TaskRequestEnum::AsyncOp(request), resolver)
     }

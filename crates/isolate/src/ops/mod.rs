@@ -112,6 +112,7 @@ use crate::{
     environment::{
         crypto_rng::CryptoRng,
         AsyncOpRequest,
+        SyscallProvider,
         V8IsolateEnvironment,
     },
     execution_scope::ExecutionScope,
@@ -170,12 +171,12 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
 {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         let state = self.state_mut()?;
-        state.environment.rng()
+        state.environment.syscall_provider().rng()
     }
 
     fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng> {
         let state = self.state_mut()?;
-        state.environment.crypto_rng()
+        state.environment.syscall_provider().crypto_rng()
     }
 
     fn lookup_source_map(
@@ -191,7 +192,10 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
 
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         let state = self.state_mut()?;
-        state.environment.trace(level, messages)?;
+        state
+            .environment
+            .syscall_provider()
+            .trace(level, messages)?;
         Ok(())
     }
 
@@ -204,7 +208,7 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         let state = self.state_mut()?;
-        state.environment.unix_timestamp()
+        state.environment.syscall_provider().unix_timestamp()
     }
 
     fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
@@ -214,12 +218,15 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
 
     fn performance_now(&mut self) -> anyhow::Result<Duration> {
         let state = self.state_mut()?;
-        state.environment.performance_now()
+        state.environment.syscall_provider().performance_now()
     }
 
     fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp> {
         let state = self.state_mut()?;
-        state.environment.performance_time_origin()
+        state
+            .environment
+            .syscall_provider()
+            .performance_time_origin()
     }
 
     fn start_async_op(
@@ -288,12 +295,18 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
         let state = self.state_mut()?;
-        state.environment.get_environment_variable(name)
+        state
+            .environment
+            .syscall_provider()
+            .get_environment_variable(name)
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         let state = self.state_mut()?;
-        state.environment.get_all_table_mappings()
+        state
+            .environment
+            .syscall_provider()
+            .get_all_table_mappings()
     }
 }
 
