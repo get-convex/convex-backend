@@ -46,6 +46,7 @@
     "node": ">=22"
   },
   "devDependencies": {
+    "@types/node": "^18.17.0",
     "ai": "7.0.34",
     "convex": "workspace:*",
     "tshy": "^3.0.0",

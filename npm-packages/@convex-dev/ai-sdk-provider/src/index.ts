@@ -3,22 +3,12 @@ import { getServiceToken } from "convex/server";
 
 type ChatModel = ReturnType<ReturnType<typeof createOpenAICompatible>>;
 
-const provider = createOpenAICompatible({
-  name: "convexGateway",
-  baseURL: "https://ai-gateway.convex.dev/v1",
-  fetch: async (input, init) => {
-    if (typeof getServiceToken !== "function") {
-      throw new Error(
-        "@convex-dev/ai-sdk-provider requires convex >= 1.43 with getServiceToken support",
-      );
-    }
-    const token = await getServiceToken("ai-gateway");
-    const headers = new Headers(init?.headers);
-    // Deployment JWT is the only accepted credential for the hosted gateway.
-    headers.set("Authorization", `Bearer ${token}`);
-    return await globalThis.fetch(input, { ...init, headers });
-  },
-});
+/**
+ * A deployment can set `CONVEX_AI_GATEWAY_HOST` to reach a different gateway,
+ * which is how internal apps use staging. Conductor signs every environment's
+ * tokens with the same key, so a token minted here is accepted there.
+ */
+const productionGatewayHost = "https://ai-gateway.convex.dev";
 
 /**
  * Chat model for the hosted Convex AI gateway.
@@ -26,5 +16,21 @@ const provider = createOpenAICompatible({
  * more than once in the same action is fine.
  */
 export function convexGateway(modelId: string): ChatModel {
+  const provider = createOpenAICompatible({
+    name: "convexGateway",
+    baseURL: `${process.env.CONVEX_AI_GATEWAY_HOST || productionGatewayHost}/v1`,
+    fetch: async (input, init) => {
+      if (typeof getServiceToken !== "function") {
+        throw new Error(
+          "@convex-dev/ai-sdk-provider requires convex >= 1.43 with getServiceToken support",
+        );
+      }
+      const token = await getServiceToken("ai-gateway");
+      const headers = new Headers(init?.headers);
+      // Deployment JWT is the only accepted credential for the hosted gateway.
+      headers.set("Authorization", `Bearer ${token}`);
+      return await globalThis.fetch(input, { ...init, headers });
+    },
+  });
   return provider(modelId);
 }
