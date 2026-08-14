@@ -512,13 +512,11 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
         self,
         client_id: String,
         udf_request: UdfRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         rng_seed: [u8; 32],
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
         let (nested_provider, args) = DatabaseUdfEnvironment::new(
             self.rt.clone(),
-            environment_data,
             udf_request,
             reactor_depth,
             client_id,
@@ -626,13 +624,6 @@ pub trait ValidateContext {
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     pub fn new(
         rt: RT,
-        EnvironmentData {
-            key_broker,
-            default_system_env_vars,
-            file_storage,
-            module_loader,
-            deployment,
-        }: EnvironmentData<RT>,
         UdfRequest {
             path_and_args,
             udf_type,
@@ -640,11 +631,19 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             unix_timestamp,
             journal,
             context,
+            environment_data,
         }: UdfRequest<RT>,
         reactor_depth: usize,
         client_id: String,
         rng_seed: [u8; 32],
     ) -> (Self, DatabaseUdfArgs) {
+        let EnvironmentData {
+            key_broker,
+            default_system_env_vars,
+            file_storage,
+            module_loader,
+            deployment,
+        } = environment_data;
         let reuse_context = path_and_args.reuse_context();
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let component = path.component;

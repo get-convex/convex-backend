@@ -7,6 +7,7 @@ use std::{
         Arc,
         Weak,
     },
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -22,7 +23,10 @@ use common::{
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
-    knobs::SUBFUNCTIONS_IN_SAME_ISOLATE,
+    knobs::{
+        FUNRUN_ISOLATE_ACTIVE_THREADS,
+        SUBFUNCTIONS_IN_SAME_ISOLATE,
+    },
     log_lines::LogLine,
     persistence::{
         PersistenceReader,
@@ -30,6 +34,7 @@ use common::{
     },
     runtime::{
         Runtime,
+        SpawnHandle,
         UnixTimestamp,
     },
     schemas::DatabaseSchema,
@@ -51,6 +56,11 @@ use futures::{
     select_biased,
     FutureExt,
     StreamExt,
+};
+use isolate::{
+    isolate_worker::FunctionRunnerIsolateWorker,
+    ConcurrencyLimiter,
+    IsolateConfig,
 };
 use keybroker::{
     FunctionRunnerKeyBroker,
@@ -112,7 +122,12 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
     // and ApplicationFunctionRunner.
     action_callbacks: Arc<RwLock<Option<Weak<dyn ActionCallbacks>>>>,
     fetch_client: Arc<dyn FetchClient>,
+    _concurrency_logger: Box<dyn SpawnHandle>,
 }
+
+// We gather prometheus stats every 30 seconds, so we should make sure we log
+// active permits more frequently than that.
+const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
 
 impl<RT: Runtime> InProcessFunctionRunner<RT> {
     pub fn new(
@@ -125,9 +140,20 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
         database: Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
     ) -> anyhow::Result<Self> {
-        // InProcessFunrun is single tenant and thus can use the full capacity.
+        // InProcessFunctionRunner is single tenant and thus can use the full capacity.
         let max_percent_per_client = 100;
-        let server = FunctionRunnerCore::new(rt, storage, max_percent_per_client)?;
+        let concurrency_limiter = if *FUNRUN_ISOLATE_ACTIVE_THREADS > 0 {
+            ConcurrencyLimiter::new(*FUNRUN_ISOLATE_ACTIVE_THREADS)
+        } else {
+            ConcurrencyLimiter::unlimited()
+        };
+        let concurrency_logger = rt.spawn(
+            "concurrency_logger",
+            concurrency_limiter.go_log(rt.clone(), ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY),
+        );
+        let isolate_config = IsolateConfig::new("funrun", concurrency_limiter);
+        let isolate_worker = FunctionRunnerIsolateWorker::new(rt.clone(), isolate_config);
+        let server = FunctionRunnerCore::new(rt, storage, max_percent_per_client, isolate_worker)?;
         Ok(Self {
             server,
             persistence_reader,
@@ -137,6 +163,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
             database,
             action_callbacks: Arc::new(RwLock::new(None)),
             fetch_client,
+            _concurrency_logger: concurrency_logger,
         })
     }
 

@@ -55,7 +55,6 @@ use common::{
     },
     knobs::{
         ANALYZE_CONCURRENCY,
-        FUNRUN_ISOLATE_ACTIVE_THREADS,
         HEAP_WORKER_REPORT_INTERVAL_SECONDS,
         ISOLATE_IDLE_TIMEOUT,
         ISOLATE_MAX_LIFETIME,
@@ -146,6 +145,7 @@ use tokio_stream::wrappers::{
     ReceiverStream,
     UnboundedReceiverStream,
 };
+use tracing::Instrument as _;
 use udf::{
     validation::{
         ValidatedHttpPath,
@@ -171,7 +171,6 @@ use crate::{
         Isolate,
         IsolateHeapStats,
     },
-    isolate_worker::FunctionRunnerIsolateWorker,
     metrics::{
         self,
         log_aggregated_heap_stats,
@@ -188,10 +187,6 @@ use crate::{
     },
     ConcurrencyPermit,
 };
-
-// We gather prometheus stats every 30 seconds, so we should make sure we log
-// active permits more frequently than that.
-const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
 
 pub const PAUSE_RECREATE_CLIENT: &str = "recreate_client";
 pub const PAUSE_REQUEST: &str = "pause_request";
@@ -227,6 +222,7 @@ pub struct UdfRequest<RT: Runtime> {
     pub unix_timestamp: UnixTimestamp,
     pub journal: QueryJournal,
     pub context: ExecutionContext,
+    pub environment_data: EnvironmentData<RT>,
 }
 
 pub struct HttpActionRequest<RT: Runtime> {
@@ -236,6 +232,7 @@ pub struct HttpActionRequest<RT: Runtime> {
     pub transaction: Transaction<RT>,
     pub identity: Identity,
     pub context: ExecutionContext,
+    pub environment_data: EnvironmentData<RT>,
 }
 
 pub struct ActionRequest<RT: Runtime> {
@@ -243,6 +240,7 @@ pub struct ActionRequest<RT: Runtime> {
     pub transaction: Transaction<RT>,
     pub identity: Identity,
     pub context: ExecutionContext,
+    pub environment_data: EnvironmentData<RT>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -295,7 +293,6 @@ impl<RT: Runtime> Request<RT> {
 pub enum RequestType<RT: Runtime> {
     Udf {
         request: UdfRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         response: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
         queue_timer: Timer<VMHistogram>,
         rng_seed: [u8; 32],
@@ -305,7 +302,6 @@ pub enum RequestType<RT: Runtime> {
     },
     Action {
         request: ActionRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         response: oneshot::Sender<anyhow::Result<ActionOutcome>>,
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
@@ -315,7 +311,6 @@ pub enum RequestType<RT: Runtime> {
     },
     HttpAction {
         request: HttpActionRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         response: oneshot::Sender<anyhow::Result<HttpActionOutcome>>,
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
@@ -371,7 +366,6 @@ pub trait UdfCallback<RT: Runtime> {
         self,
         client_id: String,
         udf_request: UdfRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         rng_seed: [u8; 32],
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)>;
@@ -386,30 +380,17 @@ where
         self,
         client_id: String,
         udf_request: UdfRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         rng_seed: [u8; 32],
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
         match self {
             Either::Left(l) => {
-                l.execute_nested_udf(
-                    client_id,
-                    udf_request,
-                    environment_data,
-                    rng_seed,
-                    reactor_depth,
-                )
-                .await
+                l.execute_nested_udf(client_id, udf_request, rng_seed, reactor_depth)
+                    .await
             },
             Either::Right(r) => {
-                r.execute_nested_udf(
-                    client_id,
-                    udf_request,
-                    environment_data,
-                    rng_seed,
-                    reactor_depth,
-                )
-                .await
+                r.execute_nested_udf(client_id, udf_request, rng_seed, reactor_depth)
+                    .await
             },
         }
     }
@@ -479,8 +460,6 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
             scheduler: self.scheduler.clone(),
             sender: self.sender.clone(),
             internal_sender: self.internal_sender.clone(),
-            concurrency_logger: self.concurrency_logger.clone(),
-            concurrency_limiter: self.concurrency_limiter.clone(),
             active_workers: self.active_workers.clone(),
             max_workers: self.max_workers,
         }
@@ -566,8 +545,6 @@ pub struct IsolateClient<RT: Runtime> {
     scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     sender: CoDelQueueSender<RT, Request<RT>>,
     internal_sender: mpsc::UnboundedSender<Request<RT>>,
-    concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    concurrency_limiter: ConcurrencyLimiter,
     /// Shared with the scheduler. Tracks the total number of in-progress
     /// workers across all clients.
     active_workers: Arc<AtomicUsize>,
@@ -575,24 +552,12 @@ pub struct IsolateClient<RT: Runtime> {
 }
 
 impl<RT: Runtime> IsolateClient<RT> {
-    pub fn new(
+    pub fn new<W: IsolateWorker<RT>>(
         rt: RT,
         max_percent_per_client: usize,
         max_isolate_workers: usize,
-        isolate_config: Option<IsolateConfig>,
+        isolate_worker: W,
     ) -> anyhow::Result<Self> {
-        let concurrency_limiter = if *FUNRUN_ISOLATE_ACTIVE_THREADS > 0 {
-            ConcurrencyLimiter::new(*FUNRUN_ISOLATE_ACTIVE_THREADS)
-        } else {
-            ConcurrencyLimiter::unlimited()
-        };
-        let concurrency_logger = rt.spawn(
-            "concurrency_logger",
-            concurrency_limiter.go_log(rt.clone(), ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY),
-        );
-        let isolate_config =
-            isolate_config.unwrap_or(IsolateConfig::new("funrun", concurrency_limiter.clone()));
-
         initialize_v8();
         // NB: We don't call V8::Dispose or V8::ShutdownPlatform since we just assume a
         // single V8 instance per process and don't need to clean up its
@@ -614,7 +579,6 @@ impl<RT: Runtime> IsolateClient<RT> {
             // The scheduler thread pops a worker from available_workers and
             // pops a request from the CoDelQueueReceiver. Then it sends the request
             // to the worker.
-            let isolate_worker = FunctionRunnerIsolateWorker::new(rt_clone.clone(), isolate_config);
             let scheduler = SharedIsolateScheduler::new(
                 rt_clone,
                 isolate_worker,
@@ -630,16 +594,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             sender,
             internal_sender,
             scheduler: Arc::new(Mutex::new(Some(scheduler))),
-            concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
             handles,
-            concurrency_limiter,
             active_workers,
             max_workers: max_isolate_workers,
         })
-    }
-
-    pub fn concurrency_limiter(&self) -> &ConcurrencyLimiter {
-        &self.concurrency_limiter
     }
 
     /// Returns the total number of isolate workers currently servicing a
@@ -687,8 +645,8 @@ impl<RT: Runtime> IsolateClient<RT> {
                 unix_timestamp,
                 journal,
                 context,
+                environment_data,
             },
-            environment_data,
             response: tx,
             queue_timer: queue_timer(),
             rng_seed,
@@ -730,13 +688,13 @@ impl<RT: Runtime> IsolateClient<RT> {
                 identity: transaction.identity().clone(),
                 transaction,
                 context,
+                environment_data,
             },
             response: tx,
             queue_timer: queue_timer(),
             action_callbacks,
             fetch_client,
             log_line_sender,
-            environment_data,
             function_started_sender,
         };
         self.send_request(Request::new(
@@ -779,8 +737,8 @@ impl<RT: Runtime> IsolateClient<RT> {
                 identity,
                 transaction,
                 context,
+                environment_data,
             },
-            environment_data,
             response: tx,
             queue_timer: queue_timer(),
             action_callbacks,
@@ -1105,9 +1063,6 @@ impl<RT: Runtime> IsolateClient<RT> {
         if let Some(mut scheduler) = self.scheduler.lock().take() {
             scheduler.shutdown();
         }
-        if let Some(mut concurrency_logger) = self.concurrency_logger.lock().take() {
-            concurrency_logger.shutdown();
-        }
 
         Ok(())
     }
@@ -1131,7 +1086,6 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
         self,
         client_id: String,
         udf_request: UdfRequest<RT>,
-        environment_data: EnvironmentData<RT>,
         rng_seed: [u8; 32],
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
@@ -1139,7 +1093,6 @@ impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
         let (tx, rx) = oneshot::channel();
         let request = RequestType::Udf {
             request: udf_request,
-            environment_data,
             response: tx,
             queue_timer: queue_timer(),
             rng_seed,
@@ -1582,8 +1535,11 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         'recreate_isolate: loop {
             let mut last_client_id: Option<String> = None;
             let mut last_request: Option<String> = None;
-            let mut isolate =
-                Isolate::new(self.rt(), *max_user_timeout, *ISOLATE_MAX_USER_HEAP_SIZE);
+            let mut isolate = Isolate::new(
+                self.rt().clone(),
+                *max_user_timeout,
+                *ISOLATE_MAX_USER_HEAP_SIZE,
+            );
             isolate.set_heap_stats_handle(heap_stats.clone());
             let mut context_cache = ContextCache::new();
             heap_stats.store(isolate.heap_stats());
@@ -1661,16 +1617,42 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         }
     }
 
+    #[fastrace::trace]
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,
         context_cache: &mut ContextCache,
-        req: Request<RT>,
+        request: Request<RT>,
+        permit: ConcurrencyPermit,
+    ) -> (String, bool) {
+        let pause_client = self.rt().pause_client();
+        pause_client.wait(PAUSE_REQUEST).await;
+        let client_id = &request.client_id;
+        // Set the scope to be tagged with the client_id just for the duration of
+        // handling the request. It would be nice to get sentry::with_scope to work, but
+        // it uses a synchronous callback and we need `report_error` in the future to
+        // have the client_id tag.
+        sentry::configure_scope(|scope| scope.set_tag("client_id", client_id));
+        // Also add the tag to tracing so it shows up in DataDog logs.
+        let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
+        let result = self
+            .handle_request_inner(isolate, context_cache, request, permit)
+            .instrument(span)
+            .await;
+        sentry::configure_scope(|scope| scope.remove_tag("client_id"));
+        result
+    }
+
+    async fn handle_request_inner(
+        &self,
+        isolate: &mut Isolate<RT>,
+        context_cache: &mut ContextCache,
+        request: Request<RT>,
         permit: ConcurrencyPermit,
     ) -> (String, bool);
 
     fn config(&self) -> &IsolateConfig;
-    fn rt(&self) -> RT;
+    fn rt(&self) -> &RT;
 }
 
 pub(crate) fn should_recreate_isolate<RT: Runtime>(
