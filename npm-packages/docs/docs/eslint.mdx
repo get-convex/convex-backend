@@ -113,6 +113,7 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br/>Require explicit table names in database operations                         |     ✅      |      🔧      |
 | [`@convex-dev/no-filter-in-query`](#no-filter-in-query)<br/>Warn on `.filter()` in database queries (inefficient)                       |     ✅      |              |
 | [`@convex-dev/no-top-of-hour-crons`](#no-top-of-hour-crons)<br/>Warn on cron jobs scheduled exactly on the hour                         |     ✅      |              |
+| [`@convex-dev/no-schema-import-cycle`](#no-schema-import-cycle)<br/>Prevent using the schema in a file that the schema imports          |     ✅      |              |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 | [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
 
@@ -342,6 +343,42 @@ crons.hourly(
   internal.messages.sendHourlyDigest,
 );
 ```
+
+### no-schema-import-cycle
+
+Prevent using the schema value in a file that `schema.ts` imports.
+
+`schema.doc()`, `schema.id()` and `schema.tables` read the schema object, so
+they only work once `schema.ts` has finished evaluating. If `schema.ts` imports
+the file that uses them, that file runs first and the schema is still
+`undefined`, so the push fails with
+`TypeError: Cannot read properties of undefined (reading 'id')`.
+
+```ts
+// convex/schema.ts
+import { userFields } from "./validators"; // <-- runs validators.ts first
+
+export default defineSchema({
+  users: defineTable(userFields),
+});
+```
+
+```ts
+// convex/validators.ts
+import schema from "./schema";
+
+export const userFields = { name: v.string() };
+
+// ❌ `schema` is undefined here, because schema.ts is still evaluating:
+export const userId = schema.id("users");
+
+// ✅ Use v.id() in files the schema imports:
+export const userId = v.id("users");
+```
+
+Files the schema doesn't import — the usual home for queries and mutations — can
+use `schema.doc()` and `schema.id()` freely. References inside a function body
+are also fine, since they run after both modules have loaded.
 
 ### import-wrong-runtime
 
