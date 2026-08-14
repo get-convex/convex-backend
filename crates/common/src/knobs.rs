@@ -387,7 +387,7 @@ pub static COMMITTER_MAX_CONCURRENT_WRITE_BATCHES: LazyLock<usize> =
 /// How many persistence writes must be in flight, counting the one about to
 /// start, before the committer combines commits into batches.
 pub static COMMITTER_BATCH_WRITE_THRESHOLD: LazyLock<usize> =
-    LazyLock::new(|| env_config("COMMITTER_BATCH_WRITE_THRESHOLD", 8));
+    LazyLock::new(|| env_config("COMMITTER_BATCH_WRITE_THRESHOLD", 3));
 
 /// How many pre-validation batches the committer keeps in flight at once.
 pub static COMMITTER_MAX_CONCURRENT_PRE_VALIDATIONS: LazyLock<usize> =
