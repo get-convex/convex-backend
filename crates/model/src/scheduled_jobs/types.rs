@@ -30,14 +30,14 @@ pub struct ScheduledJob {
 
     pub state: ScheduledJobState,
 
-    // next_ts is the timestamp when the job was scheduled, and should only be set on pending and
-    // in-progress states. completed_ts is the timestamp when the job was completed, and should
-    // only be set on success, failed, and canceled states. This allows us to use an index to find
-    // jobs that still need to be processed and jobs that can be garbage collected without doing
-    // multiple queries on different states and merging the results. original_scheduled_ts is the
-    // timestamp when the job was scheduled, but does not get mutated as the job transitions
-    // between states.
-    pub next_ts: Option<Timestamp>,
+    // scheduled_ts is the timestamp when the job was scheduled to execute at, and should only be
+    // set on pending and in-progress states. completed_ts is the timestamp when the job was
+    // completed, and should only be set on success, failed, and canceled states. This allows
+    // us to use an index to find jobs that still need to be processed and jobs that can be
+    // garbage collected without doing multiple queries on different states and merging the
+    // results. original_scheduled_ts is the timestamp when the job was scheduled, but does not
+    // get mutated as the job transitions between states.
+    pub scheduled_ts: Option<Timestamp>,
     pub completed_ts: Option<Timestamp>,
     pub original_scheduled_ts: Timestamp,
 
@@ -58,7 +58,7 @@ impl MatchesScheduledJobMetadata for ScheduledJob {
     fn matches_metadata(&self, metadata: &ScheduledJobMetadata) -> bool {
         self.path == metadata.path
             && self.state == metadata.state
-            && self.next_ts == metadata.next_ts
+            && self.scheduled_ts == metadata.scheduled_ts
             && self.completed_ts == metadata.completed_ts
             && self.original_scheduled_ts == metadata.original_scheduled_ts
             && self.attempts == metadata.attempts
@@ -83,14 +83,14 @@ pub struct ScheduledJobMetadata {
 
     pub state: ScheduledJobState,
 
-    // next_ts is the timestamp when the job was scheduled, and should only be set on pending and
-    // in-progress states. completed_ts is the timestamp when the job was completed, and should
-    // only be set on success, failed, and canceled states. This allows us to use an index to find
-    // jobs that still need to be processed and jobs that can be garbage collected without doing
-    // multiple queries on different states and merging the results. original_scheduled_ts is the
-    // timestamp when the job was scheduled, but does not get mutated as the job transitions
-    // between states.
-    pub next_ts: Option<Timestamp>,
+    // scheduled_ts is the timestamp when the job was scheduled to execute at, and should only be
+    // set on pending and in-progress states. completed_ts is the timestamp when the job was
+    // completed, and should only be set on success, failed, and canceled states. This allows
+    // us to use an index to find jobs that still need to be processed and jobs that can be
+    // garbage collected without doing multiple queries on different states and merging the
+    // results. original_scheduled_ts is the timestamp when the job was scheduled, but does not
+    // get mutated as the job transitions between states.
+    pub scheduled_ts: Option<Timestamp>,
     pub completed_ts: Option<Timestamp>,
     pub original_scheduled_ts: Timestamp,
 
@@ -113,7 +113,7 @@ impl ScheduledJobMetadata {
         path: CanonicalizedComponentFunctionPath,
         args_id: DeveloperDocumentId,
         state: ScheduledJobState,
-        next_ts: Option<Timestamp>,
+        scheduled_ts: Option<Timestamp>,
         completed_ts: Option<Timestamp>,
         original_scheduled_ts: Timestamp,
         attempts: ScheduledJobAttempts,
@@ -123,7 +123,7 @@ impl ScheduledJobMetadata {
             udf_args_bytes: None,
             args_id: Some(args_id),
             state,
-            next_ts,
+            scheduled_ts,
             completed_ts,
             original_scheduled_ts,
             attempts,
@@ -147,6 +147,7 @@ pub struct SerializedScheduledJob {
     udf_args: Option<ByteBuf>,
     args_id: Option<String>,
     state: SerializedScheduledJobState,
+    // TODO(ayush): same deal as NEXT_TS_FIELD in mod.rs, should be scheduledTs.
     next_ts: Option<i64>,
     completed_ts: Option<i64>,
     original_scheduled_ts: Option<i64>,
@@ -163,7 +164,7 @@ impl TryFrom<ScheduledJobMetadata> for SerializedScheduledJob {
             udf_args: job.udf_args_bytes,
             args_id: job.args_id.map(|id| id.to_string()),
             state: job.state.try_into()?,
-            next_ts: job.next_ts.map(|ts| ts.into()),
+            next_ts: job.scheduled_ts.map(|ts| ts.into()),
             completed_ts: job.completed_ts.map(|ts| ts.into()),
             original_scheduled_ts: Some(job.original_scheduled_ts.into()),
             attempts: Some(job.attempts),
@@ -184,17 +185,19 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJobMetadata {
         let udf_args_bytes = value.udf_args;
         let args_id = value.args_id.map(|id| id.parse()).transpose()?;
         let state = value.state.try_into()?;
-        let next_ts = value.next_ts.map(|ts| ts.try_into()).transpose()?;
+        let scheduled_ts = value.next_ts.map(|ts| ts.try_into()).transpose()?;
         let completed_ts = value.completed_ts.map(|ts| ts.try_into()).transpose()?;
         let original_scheduled_ts = match value.original_scheduled_ts {
             Some(ts) => ts.try_into()?,
             // We added original_scheduled_ts later, and thus there are some historical pending jobs
-            // that don't have it set. In that case, fallback to next_ts, which is the original
+            // that don't have it set. In that case, fallback to scheduled_ts, which is the original
             // schedule time.
-            None => match next_ts {
-                Some(next_ts) => next_ts,
+            None => match scheduled_ts {
+                Some(scheduled_ts) => scheduled_ts,
                 None => {
-                    anyhow::bail!("Could not use next_ts as a fallback for original_scheduled_ts")
+                    anyhow::bail!(
+                        "Could not use scheduled_ts as a fallback for original_scheduled_ts"
+                    )
                 },
             },
         };
@@ -207,7 +210,7 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJobMetadata {
             udf_args_bytes,
             args_id,
             state,
-            next_ts,
+            scheduled_ts,
             completed_ts,
             original_scheduled_ts,
             attempts: value.attempts.unwrap_or_default(),
