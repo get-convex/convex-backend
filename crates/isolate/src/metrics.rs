@@ -38,6 +38,7 @@ use prometheus::VMHistogram;
 
 use crate::{
     client::NO_AVAILABLE_WORKERS,
+    module_map::ModulesRegistered,
     IsolateHeapStats,
 };
 
@@ -228,6 +229,43 @@ pub fn eval_user_module_timer(udf_type: UdfType, is_dynamic: bool) -> StatusTime
     t.add_label(udf_type.metric_label());
     t.add_label(StaticMetricLabel::new("is_dynamic", is_dynamic.as_label()));
     t
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_MODULES_REGISTERED_TOTAL,
+    "Number of modules registered while loading user modules for a request",
+    &["udf_type", "is_dynamic"],
+);
+register_convex_histogram!(
+    UDF_ISOLATE_MODULES_REGISTERED_SOURCE_BYTES,
+    "Source bytes of the modules registered while loading user modules for a request",
+    &["udf_type", "is_dynamic"],
+);
+/// Counts only the modules this request had to register: a context reused from
+/// the context cache already has its import closure in the `ModuleMap` and
+/// registers nothing.
+pub fn log_modules_registered(
+    udf_type: UdfType,
+    is_dynamic: bool,
+    ModulesRegistered {
+        module_count,
+        source_size,
+    }: ModulesRegistered,
+) {
+    let labels = vec![
+        udf_type.metric_label(),
+        StaticMetricLabel::new("is_dynamic", is_dynamic.as_label()),
+    ];
+    log_distribution_with_labels(
+        &UDF_ISOLATE_MODULES_REGISTERED_TOTAL,
+        module_count as f64,
+        labels.clone(),
+    );
+    log_distribution_with_labels(
+        &UDF_ISOLATE_MODULES_REGISTERED_SOURCE_BYTES,
+        source_size as f64,
+        labels,
+    );
 }
 
 register_convex_histogram!(

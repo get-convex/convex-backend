@@ -305,6 +305,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
         timeout: &mut Timeout<RT>,
     ) -> anyhow::Result<Result<v8::Local<'s, v8::Module>, JsError>> {
         let timer = metrics::eval_user_module_timer(udf_type, is_dynamic);
+        let registered_before = self.module_map().registered();
         let module = match self.eval_module(name, timeout).await {
             Ok(id) => id,
             Err(e) => {
@@ -326,6 +327,8 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
             },
         };
         timer.finish();
+        let registered = self.module_map().registered() - registered_before;
+        metrics::log_modules_registered(udf_type, is_dynamic, registered);
         Ok(Ok(module))
     }
 
