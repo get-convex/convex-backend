@@ -746,17 +746,15 @@ impl PersistenceSnapshot {
         order: Order,
         size_hint: usize,
     ) -> IndexStream<'_> {
-        self.reader
-            .index_scan(
-                index_id,
-                tablet_id,
-                *self.at,
-                interval,
-                order,
-                size_hint,
-                self.retention_validator.clone(),
-            )
-            .boxed()
+        self.reader.index_scan(
+            index_id,
+            tablet_id,
+            *self.at,
+            interval,
+            order,
+            size_hint,
+            self.retention_validator.clone(),
+        )
     }
 
     /// Same as [`Persistence::index_get`] but with fixed timestamp.
