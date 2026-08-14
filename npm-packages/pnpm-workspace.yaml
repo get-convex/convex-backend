@@ -175,7 +175,7 @@ overrides:
   "@babel/plugin-transform-modules-systemjs@>=7.0.0 <7.29.4": ^7.29.4
   "@babel/runtime-corejs3@7.26.0": ^7.26.10
   "@babel/runtime@7.26.0": ^7.26.10
-  "@hono/node-server@>=1.0.0 <1.19.13": ^1.19.13
+  "@hono/node-server@>=1.0.0 <1.19.15": ^1.19.15
   "@opentelemetry/core@>=2.0.0 <2.8.0": ^2.8.0
   "@isaacs/brace-expansion@<=5.0.0": ^5.0.1
   "@nuxt/nitro-server@>=4.0.0 <4.4.6": ^4.4.6
@@ -241,7 +241,7 @@ overrides:
   "minimatch@>=10.0.0 <10.2.3": ^10.2.3
   "minimatch@>=9.0.0 <9.0.6": ^9.0.6
   "morgan@>=1.0.0 <1.11.0": ^1.11.0
-  "nanoid@>=3.0.0 <3.3.17": ^3.3.17
+  "nanoid@>=3.0.0 <3.3.18": ^3.3.18
   "next@>=15.0.0 <15.5.21": ^15.5.21
   "next@>=16.0.0 <16.2.11": ^16.2.11
   "nitropack@>=2.0.0 <2.13.4": 2.13.4
