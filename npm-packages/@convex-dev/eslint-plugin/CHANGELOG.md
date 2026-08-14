@@ -1,5 +1,11 @@
 # Changelog
 
+### 4.0.0
+
+- Add a new rule `@convex-dev/no-schema-import-cycle` (enabled by default as an
+  error) that detects cases where `schema.ts` imports files that themselves
+  depend on the schema.
+
 ### 3.0.0
 
 - Add a new rule `@convex-dev/no-top-of-hour-crons` (enabled by default as a
