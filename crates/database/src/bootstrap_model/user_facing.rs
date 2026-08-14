@@ -206,7 +206,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         &mut self,
         id: DeveloperDocumentId,
         value: PatchValue,
-    ) -> anyhow::Result<DeveloperDocument> {
+    ) -> anyhow::Result<PendingDocument> {
         if self.tx.is_system(self.namespace, id.table())
             && !(self.tx.identity.is_admin() || self.tx.identity.is_system())
         {
@@ -217,9 +217,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.patch_inner(id_, value).await?;
-
-        let developer_document = new_document.to_developer();
-        Ok(developer_document)
+        Ok(new_document)
     }
 
     /// Replace the document with the given value.
@@ -229,7 +227,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         &mut self,
         id: DeveloperDocumentId,
         value: impl Into<PendingValue> + Send,
-    ) -> anyhow::Result<DeveloperDocument> {
+    ) -> anyhow::Result<PendingDocument> {
         if self.tx.is_system(self.namespace, id.table())
             && !(self.tx.identity.is_admin() || self.tx.identity.is_system())
         {
@@ -239,9 +237,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
-
-        let developer_document = new_document.to_developer();
-        Ok(developer_document)
+        Ok(new_document)
     }
 
     /// Delete the document at the given path -- called from user facing APIs

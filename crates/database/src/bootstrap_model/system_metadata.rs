@@ -162,7 +162,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         &mut self,
         id: ResolvedDocumentId,
         value: PatchValue,
-    ) -> anyhow::Result<ResolvedDocument> {
+    ) -> anyhow::Result<PendingDocument> {
         anyhow::ensure!(self.tx.table_mapping().is_system_tablet(id.tablet_id));
 
         self.tx.patch_inner(id, value).await
@@ -187,7 +187,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
         anyhow::ensure!(self.tx.table_mapping().is_system_tablet(id.tablet_id));
-        self.tx.replace_inner(id, value).await
+        self.tx.replace_inner(id, value).await?.into_resolved()
     }
 
     /// Delete the document at the given path.

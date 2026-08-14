@@ -577,7 +577,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
         value: PatchValue,
-    ) -> anyhow::Result<ResolvedDocument> {
+    ) -> anyhow::Result<PendingDocument> {
         task::consume_budget().await;
 
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
@@ -597,15 +597,15 @@ impl<RT: Runtime> Transaction<RT> {
         let new_body = value.apply(old_pending.clone().into_pending_value())?;
         let new_document = PendingDocument::new(id, old_document.creation_time(), new_body)?;
         if new_document == old_pending {
-            return Ok(old_document);
+            return Ok(old_pending);
         }
         let new_document_view = new_document.to_document_with_max_commit_ts()?.into_owned();
         SchemaModel::new(self, namespace)
             .enforce(&new_document_view)
             .await?;
 
-        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document))?;
-        Ok(new_document_view)
+        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document.clone()))?;
+        Ok(new_document)
     }
 
     /// The current revision of a document as a [`PendingDocument`]: the staged
@@ -635,7 +635,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
         value: impl Into<PendingValue> + Send,
-    ) -> anyhow::Result<ResolvedDocument> {
+    ) -> anyhow::Result<PendingDocument> {
         task::consume_budget().await;
 
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
@@ -651,15 +651,15 @@ impl<RT: Runtime> Transaction<RT> {
         // Replace document.
         let new_document = PendingDocument::new(id, old_document.creation_time(), value.into())?;
         if new_document == self.old_pending_document(&old_document, old_ts)? {
-            return Ok(old_document);
+            return Ok(new_document);
         }
         let new_document_view = new_document.to_document_with_max_commit_ts()?.into_owned();
         SchemaModel::new(self, namespace)
             .enforce(&new_document_view)
             .await?;
 
-        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document))?;
-        Ok(new_document_view)
+        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document.clone()))?;
+        Ok(new_document)
     }
 
     #[convex_macro::instrument_future]

@@ -75,7 +75,7 @@ impl<'a, RT: Runtime> TestFacingModel<'a, RT> {
         id: ResolvedDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
-        self.tx.replace_inner(id, value).await
+        self.tx.replace_inner(id, value).await?.into_resolved()
     }
 
     /// Insert a new document and immediately read it. Prefer using `insert`

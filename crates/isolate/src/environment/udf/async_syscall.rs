@@ -1205,7 +1205,7 @@ async fn shallow_merge<RT: Runtime>(
     let document = UserFacingModel::new(tx, component.into())
         .patch(id, value)
         .await?;
-    developer_document_to_json(tx, component.into(), &document, WriteTimestamp::Pending)
+    Ok(document.to_uncommitted_internal_json())
 }
 
 #[fastrace::trace]
@@ -1246,7 +1246,7 @@ async fn replace<RT: Runtime>(
     let document = UserFacingModel::new(tx, component.into())
         .replace(id, value)
         .await?;
-    developer_document_to_json(tx, component.into(), &document, WriteTimestamp::Pending)
+    Ok(document.to_uncommitted_internal_json())
 }
 
 #[fastrace::trace]
