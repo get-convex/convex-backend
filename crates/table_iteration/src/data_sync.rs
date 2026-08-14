@@ -134,7 +134,6 @@ use common::{
 use errors::ErrorMetadata;
 use futures::{
     pin_mut,
-    StreamExt,
     TryStreamExt,
 };
 use value::{
@@ -527,24 +526,20 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             index_key: current_id
                 .map(|id| CursorPosition::After(IndexKey::new(vec![], id).to_bytes())),
         };
-        let stream = snapshot.index_scan(
+        let mut stream = snapshot.index_scan(
             by_id,
             current_table,
             &scan_cursor.interval(),
             Order::Asc,
             self.page_size_limit,
         );
-        let page: Vec<_> = stream.take(self.page_size_limit).try_collect().await?;
-        let count_limited = page.len() >= self.page_size_limit;
-        if page.is_empty() {
-            cover!(coverage::BY_ID_EMPTY_PAGE);
-        }
+        let mut count_limited = false;
 
-        let mut entries = Vec::with_capacity(page.len());
+        let mut entries = Vec::with_capacity(self.page_size_limit);
         let mut new_current_id = current_id;
         let mut page_bytes = 0usize;
         let mut bytes_limited = false;
-        for (_key, latest_doc) in page {
+        while let Some((_key, latest_doc)) = stream.try_next().await? {
             let value = latest_doc.value;
             page_bytes += value.size();
             let id = value.id_with_table_id();
@@ -567,6 +562,14 @@ impl<RT: Runtime> DataSyncIterator<RT> {
                 bytes_limited = true;
                 break;
             }
+            if entries.len() >= self.page_size_limit {
+                count_limited = true;
+                break;
+            }
+        }
+
+        if entries.is_empty() {
+            cover!(coverage::BY_ID_EMPTY_PAGE);
         }
 
         cursor.num_docs_synced = cursor.num_docs_synced.saturating_add(entries.len() as u64);
