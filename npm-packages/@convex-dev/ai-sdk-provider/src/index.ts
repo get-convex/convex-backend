@@ -4,9 +4,8 @@ import { getServiceToken } from "convex/server";
 type ChatModel = ReturnType<ReturnType<typeof createOpenAICompatible>>;
 
 /**
- * A deployment can set `CONVEX_AI_GATEWAY_HOST` to reach a different gateway,
- * which is how internal apps use staging. Conductor signs every environment's
- * tokens with the same key, so a token minted here is accepted there.
+ * A deployment can set `CONVEX_INTERNAL_AI_GATEWAY_HOST` to reach a different
+ * gateway, which is how internal apps use staging.
  */
 const productionGatewayHost = "https://ai-gateway.convex.dev";
 
@@ -18,7 +17,7 @@ const productionGatewayHost = "https://ai-gateway.convex.dev";
 export function convexGateway(modelId: string): ChatModel {
   const provider = createOpenAICompatible({
     name: "convexGateway",
-    baseURL: `${process.env.CONVEX_AI_GATEWAY_HOST || productionGatewayHost}/v1`,
+    baseURL: `${process.env.CONVEX_INTERNAL_AI_GATEWAY_HOST || productionGatewayHost}/v1`,
     fetch: async (input, init) => {
       if (typeof getServiceToken !== "function") {
         throw new Error(

@@ -26,14 +26,4 @@ export const chat = action({
 in an action and reuses it for later calls, so `convexGateway(...)` is fine to
 call more than once. The provider takes no API key.
 
-It talks to `https://ai-gateway.convex.dev` unless the deployment sets a
-`CONVEX_AI_GATEWAY_HOST` environment variable:
-
-```
-CONVEX_AI_GATEWAY_HOST=https://staging.ai-gateway.convex.dev
-```
-
-That is how internal apps reach the staging gateway. Tokens carry no environment
-of their own, so the same deployment JWT works against either.
-
 Requires Convex 1.43 or later, AI SDK 7, and Node.js 22 or later.
