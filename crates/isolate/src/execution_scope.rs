@@ -66,7 +66,7 @@ use crate::{
         ModuleMap,
     },
     request_scope::RequestState,
-    termination::IsolateHandle,
+    termination::ExecutionHandle,
     IsolateHeapStats,
     Timeout,
 };
@@ -186,10 +186,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
         }
     }
 
-    pub fn handle(&self) -> &IsolateHandle {
+    pub fn handle(&self) -> &ExecutionHandle {
         self.v8_scope
             .get_slot()
-            .expect("IsolateHandle disappeared?")
+            .expect("ExecutionHandle disappeared?")
     }
 
     pub fn state(&mut self) -> anyhow::Result<&RequestState<RT, E>> {
@@ -242,7 +242,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
         })
     }
 
-    pub fn record_heap_stats(&mut self, handle: &IsolateHandle) -> anyhow::Result<()> {
+    pub fn record_heap_stats(&mut self, handle: &ExecutionHandle) -> anyhow::Result<()> {
         let heap_stats = self.heap_stats()?;
         handle.record_heap_stats(heap_stats);
         Ok(())

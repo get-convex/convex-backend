@@ -32,9 +32,11 @@ use tokio::select;
 
 use crate::{
     concurrency_limiter::SuspendedPermit,
+    environment::IsolateEnvironment,
     metrics,
     termination::{
-        IsolateHandle,
+        ContextId,
+        ExecutionHandle,
         IsolateTerminationReason,
         TerminationReason,
     },
@@ -64,7 +66,7 @@ impl PauseReason {
 }
 
 /// A `Timeout` is an asynchronous background job that terminates an
-/// `IsolateHandle` after some time has passed. The holder of a `Timeout` can
+/// `ExecutionHandle` after some time has passed. The holder of a `Timeout` can
 /// temporarily pause the termination countdown with [`Timeout::pause`] and then
 /// resume time tracking by dropping the returned guard.
 ///
@@ -177,7 +179,7 @@ impl<RT: Runtime> Drop for Timeout<RT> {
 impl<RT: Runtime> Timeout<RT> {
     pub fn new(
         rt: RT,
-        handle: IsolateHandle,
+        handle: ExecutionHandle,
         timeout: Option<Duration>,
         max_time_paused: Option<Duration>,
         permit: ConcurrencyPermit,
@@ -337,7 +339,7 @@ impl<RT: Runtime> Timeout<RT> {
     }
 
     async fn go(
-        handle: IsolateHandle,
+        handle: ExecutionHandle,
         inner: Arc<Mutex<TimeoutInner<RT>>>,
         done_tx: async_broadcast::Sender<()>,
     ) {
@@ -365,6 +367,49 @@ impl<RT: Runtime> Timeout<RT> {
         metrics::log_user_function_execution_time(udf_type, elapsed);
         FunctionExecutionTime { elapsed, limit }
     }
+}
+
+/// Starts a request on `handle`, arming a `Timeout` against the environment's
+/// user and system timeouts. `max_user_timeout` is an upper bound set by tests.
+///
+/// The caller is responsible for popping the returned `ContextId`.
+pub fn start_request_on_handle<RT: Runtime, E: IsolateEnvironment<RT>>(
+    rt: RT,
+    handle: &ExecutionHandle,
+    permit: ConcurrencyPermit,
+    environment: &E,
+    max_user_timeout: Option<Duration>,
+) -> (ContextId, Timeout<RT>) {
+    let context_id = handle.push_context(false /* nested */);
+    let mut user_timeout = environment.user_timeout();
+    if let Some(max_user_timeout) = max_user_timeout {
+        user_timeout = user_timeout.min(max_user_timeout);
+    }
+    let timeout = Timeout::new(
+        rt,
+        handle.clone(),
+        Some(user_timeout),
+        Some(environment.system_timeout()),
+        permit,
+    );
+    (context_id, timeout)
+}
+
+/// Starts a request on a fresh handle for an engine with no V8 isolate behind
+/// it. The timeout can only record its reason, so the engine must poll
+/// [`ExecutionHandle::check_terminated`] between steps to notice it.
+/// TODO(runtime): Replace this when we have an impl that uses epoch
+/// interruption in wasm
+pub fn start_cooperative_request<RT: Runtime, E: IsolateEnvironment<RT>>(
+    rt: RT,
+    permit: ConcurrencyPermit,
+    environment: &E,
+    max_user_timeout: Option<Duration>,
+) -> (ExecutionHandle, ContextId, Timeout<RT>) {
+    let handle = ExecutionHandle::cooperative();
+    let (context_id, timeout) =
+        start_request_on_handle(rt, &handle, permit, environment, max_user_timeout);
+    (handle, context_id, timeout)
 }
 
 pub struct FunctionExecutionTime {

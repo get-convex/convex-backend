@@ -185,7 +185,7 @@ use crate::{
     strings,
     termination::{
         ContextTerminationReason,
-        IsolateHandle,
+        ExecutionHandle,
         IsolateTerminationReason,
     },
     timeout::{
@@ -994,7 +994,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     async fn run_inner<'a, 's, 'i, T, S>(
         scope: &mut ExecutionScope<'a, 's, 'i, RT, Self>,
         timeout: &mut Timeout<RT>,
-        handle: IsolateHandle,
+        handle: ExecutionHandle,
         udf_type: UdfType,
         v8_function: v8::Local<'_, v8::Function>,
         v8_args: &[v8::Local<'_, v8::Value>],

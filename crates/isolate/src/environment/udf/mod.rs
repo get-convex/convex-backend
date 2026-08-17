@@ -200,7 +200,7 @@ use crate::{
         RequestState,
     },
     strings,
-    termination::IsolateHandle,
+    termination::ExecutionHandle,
     timeout::{
         FunctionExecutionTime,
         PauseGuard,
@@ -503,7 +503,7 @@ struct RunUdf<'a, 'b, RT: Runtime> {
     v8_scope: &'a mut v8::Isolate,
     paused_timeout: &'a mut PauseGuard<'b, RT>,
     context_cache: &'a mut ContextCache,
-    isolate_handle: &'a IsolateHandle,
+    execution_handle: &'a ExecutionHandle,
     executor: &'a UdfRecursiveExecutor<RT>,
 }
 
@@ -528,7 +528,7 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
         // N.B.: `run_nested` calls the corresponding `pop_context`.
         // This may not happen in case of a system error, but in that case we
         // are going to throw away the entire context stack anyway.
-        let context_id = self.isolate_handle.push_context(true /* nested */);
+        let context_id = self.execution_handle.push_context(true /* nested */);
         let request_state = RequestState::new(self.rt.clone(), nested_provider, context_id);
         // N.B.: we don't use this value here; only the top-level `run_nested` matters.
         let mut isolate_clean = false;
@@ -540,7 +540,7 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
             &args,
             self.v8_scope,
             self.context_cache,
-            self.isolate_handle.clone(),
+            self.execution_handle.clone(),
             request_state,
             &mut *unpause_guard,
             &mut isolate_clean,
@@ -760,7 +760,7 @@ where
         args: &DatabaseUdfArgs,
         isolate: &mut v8::Isolate,
         context_cache: &mut ContextCache,
-        isolate_handle: IsolateHandle,
+        execution_handle: ExecutionHandle,
         mut request_state: RequestState<RT, Self>,
         timeout: &mut Timeout<RT>,
         isolate_clean: &mut bool,
@@ -780,7 +780,7 @@ where
             (
                 RequestScope::with_existing_context(
                     &mut context_scope,
-                    isolate_handle.clone(),
+                    execution_handle.clone(),
                     request_state,
                     false,
                     module_map,
@@ -793,7 +793,7 @@ where
             (
                 RequestScope::new(
                     &mut context_scope,
-                    isolate_handle.clone(),
+                    execution_handle.clone(),
                     request_state,
                     false,
                 )?,
@@ -833,7 +833,7 @@ where
                 Ok(Ok(module)) => {
                     Self::run_inner(
                         executor,
-                        &isolate_handle,
+                        &execution_handle,
                         &mut *v8_scope,
                         context_cache,
                         timeout,
@@ -858,7 +858,7 @@ where
         let request_state = isolate_context.take_state().context("Lost RequestState?")?;
         let this = request_state.environment;
         // Override the returned result if we hit a termination error.
-        match isolate_handle.pop_context(request_state.context_id)? {
+        match execution_handle.pop_context(request_state.context_id)? {
             Ok(()) => (),
             Err(e) => result = Ok(Err(e)),
         }
@@ -949,7 +949,7 @@ where
     #[fastrace::trace]
     async fn run_inner(
         executor: &UdfRecursiveExecutor<RT>,
-        handle: &IsolateHandle,
+        handle: &ExecutionHandle,
         v8_scope: &mut v8::PinScope<'_, '_>,
         context_cache: &mut ContextCache,
         timeout: &mut Timeout<RT>,
@@ -1166,7 +1166,7 @@ where
                                 v8_scope: scope,
                                 paused_timeout,
                                 context_cache,
-                                isolate_handle: handle,
+                                execution_handle: handle,
                                 executor,
                             };
                             let udf_callback = if let Some(callback) = &udf_callback {

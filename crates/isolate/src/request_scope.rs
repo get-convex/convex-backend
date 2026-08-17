@@ -71,7 +71,7 @@ use crate::{
     termination::{
         ContextId,
         ContextTerminationReason,
-        IsolateHandle,
+        ExecutionHandle,
         IsolateTerminationReason,
     },
 };
@@ -84,12 +84,12 @@ pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment
     // NB: The default type parameter to `PinScope` indicates that it has a `Context`, so
     // this scope is attached to our request's context.
     pub(crate) scope: &'a mut v8::PinScope<'s, 'i>,
-    pub(crate) handle: IsolateHandle,
+    pub(crate) handle: ExecutionHandle,
     pub(crate) _pd: PhantomData<(RT, E)>,
 }
 
 /// Custom per-request state. All environments have a timeout.
-/// Note the IsolateHandle and ModuleMap are stored on separate slots, so
+/// Note the ExecutionHandle and ModuleMap are stored on separate slots, so
 /// they can be fetched without needing the environment type E.
 pub struct RequestState<RT: Runtime, E: V8IsolateEnvironment<RT>> {
     pub rt: RT,
@@ -195,7 +195,7 @@ impl<RT: Runtime, E: V8IsolateEnvironment<RT>> RequestState<RT, E> {
 impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<'a, 's, 'i, RT, E> {
     pub fn with_existing_context(
         scope: &'a mut v8::PinScope<'s, 'i>,
-        handle: IsolateHandle,
+        handle: ExecutionHandle,
         state: RequestState<RT, E>,
         allow_dynamic_imports: bool,
         module_map: ModuleMap,
@@ -226,7 +226,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
     #[fastrace::trace]
     pub fn new(
         scope: &'a mut v8::PinScope<'s, 'i>,
-        handle: IsolateHandle,
+        handle: ExecutionHandle,
         state: RequestState<RT, E>,
         allow_dynamic_imports: bool,
     ) -> anyhow::Result<Self> {
@@ -285,7 +285,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         Ok(isolate_context)
     }
 
-    pub fn handle(&self) -> IsolateHandle {
+    pub fn handle(&self) -> ExecutionHandle {
         self.handle.clone()
     }
 

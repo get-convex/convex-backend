@@ -70,7 +70,44 @@ impl From<IsolateTerminationReason> for TerminationReason {
     }
 }
 
-struct IsolateHandleInner {
+/// How a [`Timeout`](crate::timeout::Timeout) stops the engine it is guarding
+/// once the deadline passes.
+///
+/// The timeout fires on a background task, so for V8 stopping execution means
+/// interrupting the isolate from another thread. Engines that offer no
+/// asynchronous interruption supply [`NoInterrupt`] and instead poll
+/// [`ExecutionHandle::check_terminated`] between steps, which bounds how long a
+/// guest keeps running past its deadline by the length of one step.
+///
+/// TODO(runtime): wasmtime impl that uses epoch interruption
+/// (`Engine::increment_epoch()`)
+pub trait Interrupt: Send + Sync + 'static {
+    fn interrupt(&self);
+    fn cancel_interrupt(&self);
+}
+
+pub struct V8Interrupt(pub v8::IsolateHandle);
+
+impl Interrupt for V8Interrupt {
+    fn interrupt(&self) {
+        self.0.terminate_execution();
+    }
+
+    fn cancel_interrupt(&self) {
+        self.0.cancel_terminate_execution();
+    }
+}
+
+/// Interrupt implementation for engines that are only stopped cooperatively.
+pub struct NoInterrupt;
+
+impl Interrupt for NoInterrupt {
+    fn interrupt(&self) {}
+
+    fn cancel_interrupt(&self) {}
+}
+
+struct ExecutionHandleInner {
     // Reason is set to Some when the isolate is terminated.
     // If the isolate is terminated, it should be dropped and a new isolate
     // should be created. Recovering after terminating an isolate is sometimes
@@ -83,16 +120,26 @@ struct IsolateHandleInner {
 }
 
 #[derive(Clone)]
-pub struct IsolateHandle {
-    v8_handle: v8::IsolateHandle,
-    inner: Arc<Mutex<IsolateHandleInner>>,
+pub struct ExecutionHandle {
+    interrupt: Arc<dyn Interrupt>,
+    inner: Arc<Mutex<ExecutionHandleInner>>,
 }
 
-impl IsolateHandle {
+impl ExecutionHandle {
     pub fn new(v8_handle: v8::IsolateHandle) -> Self {
+        Self::with_interrupt(Arc::new(V8Interrupt(v8_handle)))
+    }
+
+    /// Creates a handle for an engine that stops itself by polling
+    /// [`Self::check_terminated`] rather than being interrupted.
+    pub fn cooperative() -> Self {
+        Self::with_interrupt(Arc::new(NoInterrupt))
+    }
+
+    fn with_interrupt(interrupt: Arc<dyn Interrupt>) -> Self {
         Self {
-            v8_handle,
-            inner: Arc::new(Mutex::new(IsolateHandleInner {
+            interrupt,
+            inner: Arc::new(Mutex::new(ExecutionHandleInner {
                 reason: None,
                 next_context_id: 0,
                 context_stack: vec![],
@@ -123,7 +170,7 @@ impl IsolateHandle {
         let mut inner = self.inner.lock();
         // N.B.: call terminate_execution under the lock to synchronize with
         // cancel_terminate_execution in `pop_context`
-        self.v8_handle.terminate_execution();
+        self.interrupt.interrupt();
         if let Some(existing_reason) = &inner.reason {
             report_error_sync(&mut anyhow::anyhow!(
                 "termination after already terminated: {reason:?}"
@@ -244,7 +291,7 @@ impl IsolateHandle {
             Some(TerminationReason::Context(reason)) => {
                 let error = Self::take_context_termination_error(reason);
                 inner.reason = None;
-                self.v8_handle.cancel_terminate_execution();
+                self.interrupt.cancel_interrupt();
                 Ok(Err(error))
             },
         }
@@ -277,7 +324,7 @@ impl IsolateHandle {
         if let Some(TerminationReason::Context(reason)) = &inner.reason {
             let error = Self::take_context_termination_error(reason);
             inner.reason = None;
-            self.v8_handle.cancel_terminate_execution();
+            self.interrupt.cancel_interrupt();
             return Ok(Err(error));
         }
         Ok(Ok(()))

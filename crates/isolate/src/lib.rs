@@ -60,5 +60,12 @@ pub use self::{
         log_source_map_token_lookup_failed,
     },
     request_scope::RequestScope,
-    timeout::Timeout,
+    termination::{
+        ContextId,
+        ExecutionHandle,
+    },
+    timeout::{
+        start_cooperative_request,
+        Timeout,
+    },
 };
