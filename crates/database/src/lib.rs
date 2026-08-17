@@ -79,6 +79,7 @@ pub use schema_registry::SchemaRegistry;
 pub use search_index_bootstrap::FINISHED_BOOTSTRAP_UPDATES;
 pub use table_iteration::{
     data_sync::{
+        DataSyncCursor,
         DataSyncIterator,
         DataSyncStatus,
     },

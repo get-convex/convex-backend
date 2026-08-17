@@ -13,6 +13,8 @@ use common::{
         ParseDocument,
         ParsedDocument,
     },
+    errors::report_error,
+    knobs::FILE_STORAGE_SIZE_MIN_DOCUMENTS_TO_RESUME,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -33,6 +35,8 @@ use database::{
         TableFilter,
     },
     unauthorized_error,
+    DataSyncCursor,
+    DataSyncIterator,
     DataSyncStatus,
     DatabaseSnapshot,
     IndexModel,
@@ -345,48 +349,136 @@ async fn file_storage_target_tables<RT: Runtime>(
         .try_collect()
 }
 
-/// Total size of all `_file_storage` documents across the deployment.
-///
-/// Computed with the `DataSyncIterator`, which picks its own consistent
-/// snapshot (`Synced { ts }`) at the *end* of the sync.
-#[fastrace::trace]
-pub async fn get_total_file_storage_size<RT: Runtime>(
-    identity: &Identity,
-    snapshot: &DatabaseSnapshot<RT>,
-) -> anyhow::Result<u64> {
-    let target_tables = file_storage_target_tables(identity, snapshot).await?;
+/// The deployment's total `_file_storage` document size, maintained
+/// incrementally across calls to [`Self::total_size`]. The first call syncs
+/// every `_file_storage` document; later ones resume from the retained cursor
+/// and read only the document log written since, unless the storage tables are
+/// small enough ([`FILE_STORAGE_SIZE_MIN_DOCUMENTS_TO_RESUME`]) that syncing
+/// them again is cheaper.
+pub struct FileStorageSizeTracker<RT: Runtime> {
+    iterator: DataSyncIterator<RT>,
+    synced: Option<SyncedTotals>,
+    min_documents_to_resume: i64,
+}
 
-    // Drive the data sync iterator to a consistent snapshot, keeping a running
-    // total via deltas. It may emit a document more than once (a `ts` page
-    // re-emits a captured document at a newer revision), so we add each
-    // revision's size and subtract its predecessor's — supplied only when the
-    // iterator previously emitted that predecessor. Memory stays constant rather
-    // than materializing a per-document size map.
-    let iterator = snapshot.data_sync_iterator()?;
-    let mut total_size: i64 = 0;
-    let mut cursor = None;
-    loop {
+/// A completed sync: the totals cover every document captured by `cursor`,
+/// which is at a consistent snapshot.
+struct SyncedTotals {
+    cursor: DataSyncCursor,
+    /// Accumulated based on deltas to the table, hence signed.
+    size: i64,
+    /// Documents in the synced tables, accumulated the same way.
+    num_documents: i64,
+}
+
+impl<RT: Runtime> FileStorageSizeTracker<RT> {
+    pub fn new(iterator: DataSyncIterator<RT>) -> Self {
+        Self {
+            iterator,
+            synced: None,
+            min_documents_to_resume: *FILE_STORAGE_SIZE_MIN_DOCUMENTS_TO_RESUME,
+        }
+    }
+
+    /// Total size of all `_file_storage` documents across the deployment, at
+    /// the consistent snapshot the iterator picks at the end of the sync.
+    /// `snapshot` supplies the set of `_file_storage` tablets to sync, not the
+    /// timestamp read at.
+    #[fastrace::trace]
+    pub async fn total_size(
+        &mut self,
+        identity: &Identity,
+        snapshot: &DatabaseSnapshot<RT>,
+    ) -> anyhow::Result<u64> {
+        let target_tables = file_storage_target_tables(identity, snapshot).await?;
+        // Only resume when every table counted in the totals is still a target:
+        // a dropped table's documents are baked into them, and the iterator
+        // will never emit them again for us to subtract back out. Added tables
+        // are fine — the iterator walks them in the `by_id` dimension and we
+        // add their documents.
+        let resumable = self.synced.take().filter(|synced| {
+            synced.num_documents >= self.min_documents_to_resume
+                && synced
+                    .cursor
+                    .synced_tables()
+                    .iter()
+                    .all(|tablet| target_tables.contains_key(tablet))
+        });
+        let synced = match resumable {
+            None => sync_totals(&self.iterator, None, &target_tables).await?,
+            Some(resumable) => {
+                match sync_totals(&self.iterator, Some(resumable), &target_tables).await {
+                    Ok(synced) => synced,
+                    Err(e) => {
+                        // A retained cursor has its own failure modes, notably
+                        // `synced_ts` falling out of document retention. Start
+                        // over rather than failing every subsequent call too.
+                        report_error(&mut e.context("Resuming file storage size sync failed"))
+                            .await;
+                        sync_totals(&self.iterator, None, &target_tables).await?
+                    },
+                }
+            },
+        };
+        // A negative size is not possible. `self.synced` stays empty, so the
+        // next call starts over.
+        let size = u64::try_from(synced.size).map_err(|_| {
+            anyhow::anyhow!(
+                "DataSyncIterator returned negative file storage total {}",
+                synced.size
+            )
+        })?;
+        self.synced = Some(synced);
+        Ok(size)
+    }
+
+}
+
+/// Drive the iterator until it is caught up, accumulating deltas: add each
+/// emitted revision and subtract its predecessor, which the iterator supplies
+/// for every re-emitted document. Memory stays constant rather than
+/// materializing a per-document size map.
+async fn sync_totals<RT: Runtime>(
+    iterator: &DataSyncIterator<RT>,
+    resume: Option<SyncedTotals>,
+    target_tables: &BTreeMap<TabletId, IndexId>,
+) -> anyhow::Result<SyncedTotals> {
+    let (mut cursor, mut size, mut num_documents) = match resume {
+        Some(SyncedTotals {
+            cursor,
+            size,
+            num_documents,
+        }) => (Some(cursor), size, num_documents),
+        None => (None, 0, 0),
+    };
+    let cursor = loop {
         let page = iterator
-            .next_page_with_prev_revs(cursor, &target_tables)
+            .next_page_with_prev_revs(cursor, target_tables)
             .await?;
         for entry in page.entries {
             if let Some(value) = entry.log_entry.value {
                 let storage_entry: ParsedDocument<FileStorageEntry> = value.parse()?;
-                total_size += storage_entry.size;
+                size += storage_entry.size;
+                num_documents += 1;
             }
             if let Some(prev_rev) = entry.prev_rev {
                 let prev_entry: ParsedDocument<FileStorageEntry> = prev_rev.parse()?;
-                total_size -= prev_entry.size;
+                size -= prev_entry.size;
+                num_documents -= 1;
             }
         }
-        cursor = Some(page.cursor);
-        if let DataSyncStatus::Stale { .. } | DataSyncStatus::UpToDate { .. } = page.status {
-            break;
+        match page.status {
+            DataSyncStatus::UpToDate { .. } => break page.cursor,
+            // `Stale` is a consistent snapshot too, but one a page limit cut
+            // short of the latest commit — keep paging so the totals don't
+            // fall further behind on every call.
+            DataSyncStatus::Stale { .. } | DataSyncStatus::Snapshotting { .. } => {},
         }
-    }
-
-    // A negative running total is only possible via a `DataSyncIterator` bug.
-    u64::try_from(total_size).map_err(|_| {
-        anyhow::anyhow!("DataSyncIterator returned negative file storage total {total_size}")
+        cursor = Some(page.cursor);
+    };
+    Ok(SyncedTotals {
+        cursor,
+        size,
+        num_documents,
     })
 }

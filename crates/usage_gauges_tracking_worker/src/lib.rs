@@ -55,7 +55,7 @@ use keybroker::Identity;
 use model::{
     backend_state::BackendStateModel,
     exports::ExportsModel,
-    file_storage::get_total_file_storage_size,
+    file_storage::FileStorageSizeTracker,
     virtual_system_mapping,
 };
 use parking_lot::Mutex;
@@ -82,6 +82,9 @@ struct UsageGaugesTrackingWorkerInner<RT: Runtime> {
     usage_logger: Arc<dyn UsageEventLogger>,
     log_sender: Arc<dyn LogSender>,
     instance_name: String,
+    /// Retained across runs so each run only syncs `_file_storage` changes
+    /// since the previous one.
+    file_storage_size: FileStorageSizeTracker<RT>,
 }
 
 impl UsageGaugesTrackingWorker {
@@ -91,7 +94,9 @@ impl UsageGaugesTrackingWorker {
         usage_logger: Arc<dyn UsageEventLogger>,
         log_sender: Arc<dyn LogSender>,
         instance_name: String,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
+        let file_storage_size =
+            FileStorageSizeTracker::new(database.data_sync_iterator(database.now_ts_for_reads())?);
         let mut worker = UsageGaugesTrackingWorkerInner {
             runtime: runtime.clone(),
             database,
@@ -99,6 +104,7 @@ impl UsageGaugesTrackingWorker {
             usage_logger,
             log_sender,
             instance_name: instance_name.clone(),
+            file_storage_size,
         };
         let worker_handle = Arc::new(Mutex::new(Some(runtime.spawn(
             "usage_gauges_tracking_worker",
@@ -115,9 +121,9 @@ impl UsageGaugesTrackingWorker {
                 }
             },
         ))));
-        Self {
+        Ok(Self {
             worker: worker_handle,
-        }
+        })
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
@@ -158,6 +164,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
         let gauge_metrics = get_gauge_metrics(
             &Identity::system(),
             &self.database.latest_database_snapshot()?,
+            &mut self.file_storage_size,
         )
         .await?;
 
@@ -349,20 +356,22 @@ pub struct AggregatedStorageUsage {
 }
 
 /// Gauge metrics read from `snapshot`. Every gauge except file storage is read
-/// at `snapshot`'s timestamp; the file storage total uses the
-/// `DataSyncIterator`, which picks its own snapshot, at least as recent (see
-/// [`get_total_file_storage_size`]).
+/// at `snapshot`'s timestamp; the file storage total is at the snapshot
+/// [`FileStorageSizeTracker`]'s iterator picks. Pass the same
+/// `file_storage_size` across calls so each one syncs only the `_file_storage`
+/// changes since the last.
 #[fastrace::trace]
 pub async fn get_gauge_metrics<RT: Runtime>(
     identity: &Identity,
     snapshot: &DatabaseSnapshot<RT>,
+    file_storage_size: &mut FileStorageSizeTracker<RT>,
 ) -> anyhow::Result<GaugeMetrics> {
     let document_and_index_storage = snapshot.get_document_and_index_storage(identity)?;
     let vector_index_storage = snapshot.get_vector_index_storage(identity)?;
     let text_index_storage = snapshot.get_text_index_storage(identity)?;
     let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, snapshot).await?;
     let document_counts = snapshot.get_document_counts(identity)?;
-    let storage_total_size = get_total_file_storage_size(identity, snapshot).await?;
+    let storage_total_size = file_storage_size.total_size(identity, snapshot).await?;
     let backend_state = fetch_backend_state(identity, snapshot).await?;
 
     Ok(GaugeMetrics {

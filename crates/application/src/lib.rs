@@ -932,7 +932,7 @@ impl<RT: Runtime> Application<RT> {
             usage_event_logger.clone(),
             Arc::new(log_manager_client.clone()),
             deployment_name.clone(),
-        );
+        )?;
 
         let workers = WorkerHandles {
             usage_gauges_tracking_worker,
