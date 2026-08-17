@@ -635,7 +635,12 @@ async fn _list_snapshot(
                     .map_err(anyhow::Error::new)?,
             })
         })
-        .transpose()?;
+        .transpose()
+        .context(ErrorMetadata::bad_request(
+            "InvalidListSnapshotCursor",
+            "Invalid value for the `cursor` argument of list_snapshot. Use a `cursor` returned by \
+             a previous list_snapshot call, and treat it as an opaque value.",
+        ))?;
 
     let selection = Selection::from(selection);
     let selection = StreamingExportSelection::try_from(selection)?;
