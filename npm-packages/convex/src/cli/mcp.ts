@@ -1,14 +1,9 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolRequest, Server } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { actionDescription } from "./lib/command.js";
 import { checkAuthorization } from "./lib/login.js";
-import {
-  CallToolRequest,
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
 import {
   McpOptions,
   RequestContext,
@@ -77,7 +72,7 @@ mcp
     }
   });
 
-function makeServer(options: McpOptions) {
+export function makeServer(options: McpOptions) {
   const disabledToolNames = new Set<string>();
   for (const toolName of options.disableTools?.split(",") ?? []) {
     const name = toolName.trim();
@@ -109,72 +104,69 @@ function makeServer(options: McpOptions) {
       },
     },
   );
-  server.setRequestHandler(
-    CallToolRequestSchema,
-    async (request: CallToolRequest) => {
-      const ctx = new RequestContext(options);
-      await initializeBigBrainAuth(ctx, options);
-      try {
-        const authorized = await checkAuthorization(ctx, false);
-        if (!authorized) {
-          await ctx.crash({
-            exitCode: 1,
-            errorType: "fatal",
-            printedMessage:
-              "Not Authorized: Run `npx convex dev` to login to your Convex project.",
-          });
-        }
-        if (!request.params.arguments) {
-          await ctx.crash({
-            exitCode: 1,
-            errorType: "fatal",
-            printedMessage: "No arguments provided",
-          });
-        }
-        const convexTool = enabledToolsByName[request.params.name];
-        if (!convexTool) {
-          await ctx.crash({
-            exitCode: 1,
-            errorType: "fatal",
-            printedMessage: `Tool ${request.params.name} not found`,
-          });
-        }
-        const input = convexTool.inputSchema.parse(request.params.arguments);
-
-        // Serialize tool handlers since they're mutating the current working directory.
-        const result = await mutex.runExclusive(async () => {
-          return await convexTool.handler(ctx, input);
+  server.setRequestHandler("tools/call", async (request: CallToolRequest) => {
+    const ctx = new RequestContext(options);
+    await initializeBigBrainAuth(ctx, options);
+    try {
+      const authorized = await checkAuthorization(ctx, false);
+      if (!authorized) {
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "Not Authorized: Run `npx convex dev` to login to your Convex project.",
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result),
-            },
-          ],
-        };
-      } catch (error: any) {
-        let message: string;
-        if (error instanceof RequestCrash) {
-          message = error.printedMessage;
-        } else if (error instanceof Error) {
-          message = error.message;
-        } else {
-          message = String(error);
-        }
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ error: message }),
-            },
-          ],
-          isError: true,
-        };
       }
-    },
-  );
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+      if (!request.params.arguments) {
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: "No arguments provided",
+        });
+      }
+      const convexTool = enabledToolsByName[request.params.name];
+      if (!convexTool) {
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Tool ${request.params.name} not found`,
+        });
+      }
+      const input = convexTool.inputSchema.parse(request.params.arguments);
+
+      // Serialize tool handlers since they're mutating the current working directory.
+      const result = await mutex.runExclusive(async () => {
+        return await convexTool.handler(ctx, input);
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error: any) {
+      let message: string;
+      if (error instanceof RequestCrash) {
+        message = error.printedMessage;
+      } else if (error instanceof Error) {
+        message = error.message;
+      } else {
+        message = String(error);
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ error: message }),
+          },
+        ],
+        isError: true,
+      };
+    }
+  });
+  server.setRequestHandler("tools/list", async () => {
     return {
       tools: Object.values(enabledToolsByName).map(mcpTool),
     };

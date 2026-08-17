@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.44.0
 
 - `schema.doc(tableName)` returns the validator for whole documents of a table:

@@ -8,9 +8,8 @@ import { setGlobalDispatcher, EnvHttpProxyAgent } from "undici";
 import { logVerbose } from "../bundler/log.js";
 import { buildProgram } from "./program.js";
 
-const HARD_MINIMUM_NODE_MAJOR_VERSION = 16;
-const HARD_MINIMUM_NODE_MINOR_VERSION = 15;
-const SOFT_MINIMUM_NODE_MAJOR_VERSION = 20;
+const HARD_MINIMUM_NODE_MAJOR_VERSION = 20;
+const HARD_MINIMUM_NODE_MINOR_VERSION = 0;
 
 // console.error before it started being red by default in Node.js v20
 function logToStderr(...args: unknown[]) {
@@ -70,38 +69,6 @@ async function main() {
       ),
     );
     process.exit(1);
-  }
-
-  if (majorVersion < SOFT_MINIMUM_NODE_MAJOR_VERSION) {
-    logToStderr(
-      chalkStderr.yellow(
-        `Warning: Your Node version ${nodeVersion} is below the recommended minimum of Node v${SOFT_MINIMUM_NODE_MAJOR_VERSION}.x. Convex may work but could behave unexpectedly.`,
-      ),
-    );
-    logToStderr(
-      chalkStderr.gray(
-        `We recommend upgrading Node to v${SOFT_MINIMUM_NODE_MAJOR_VERSION} or newer.`,
-      ),
-    );
-    logToStderr(
-      chalkStderr.gray(
-        `You can use ${chalkStderr.bold(
-          "nvm",
-        )} (https://github.com/nvm-sh/nvm#installing-and-updating) to manage different versions of Node.`,
-      ),
-    );
-    logToStderr(
-      chalkStderr.gray(
-        "After installing `nvm`, install the latest version of Node with " +
-          chalkStderr.bold("`nvm install node`."),
-      ),
-    );
-    logToStderr(
-      chalkStderr.gray(
-        "Then, activate the installed version in your terminal with " +
-          chalkStderr.bold("`nvm use`."),
-      ),
-    );
   }
 
   const program = buildProgram();
