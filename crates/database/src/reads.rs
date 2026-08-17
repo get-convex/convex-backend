@@ -1,6 +1,8 @@
 //! Read set tracking for an active transaction
 use std::{
+    any::Any,
     collections::BTreeMap,
+    mem,
     sync::LazyLock,
 };
 
@@ -363,7 +365,7 @@ impl TransactionReadSet {
         &mut self,
         index_name: TabletIndexName,
         fields: IndexedFields,
-        intervals: impl IntoIterator<Item = Interval>,
+        mut intervals: impl IntoIterator<Item = Interval> + 'static,
     ) -> (usize, usize) {
         self.read_set.indexed.mutate_entry_or_insert_with(
             index_name.clone(),
@@ -385,11 +387,24 @@ impl TransactionReadSet {
                 );
 
                 let range_num_intervals_before = range_set.len();
-                for interval in intervals {
+                if range_set.is_empty()
+                    && let Some(intervals) =
+                        (&mut intervals as &mut dyn Any).downcast_mut::<IntervalSet>()
+                {
+                    // optimization: reuse the existing IntervalSet
+                    *range_set = mem::take(intervals);
                     if let Some(stack_traces) = stack_traces.as_mut() {
-                        stack_traces.push((interval.clone(), StackTrace::new()));
+                        for interval in range_set.iter() {
+                            stack_traces.push((interval, StackTrace::new()));
+                        }
                     }
-                    range_set.add(interval);
+                } else {
+                    for interval in intervals {
+                        if let Some(stack_traces) = stack_traces.as_mut() {
+                            stack_traces.push((interval.clone(), StackTrace::new()));
+                        }
+                        range_set.add(interval);
+                    }
                 }
                 let range_num_intervals_after = range_set.len();
 
