@@ -421,7 +421,7 @@ impl TransactionReadSet {
     ) {
         let (index_reads, search_reads) = reads.consume();
         for (index_name, index_reads) in index_reads {
-            self._record_indexed(index_name, index_reads.fields, index_reads.intervals.iter());
+            self._record_indexed(index_name, index_reads.fields, index_reads.intervals);
         }
         for (index_name, search_reads) in search_reads {
             self.record_search(index_name, search_reads);
