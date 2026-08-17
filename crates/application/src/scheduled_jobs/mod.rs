@@ -395,17 +395,15 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             if self.running_job_ids.contains(&job_id) {
                 continue;
             }
-            let scheduled_ts = job
-                .scheduled_ts
-                .context("Could not get scheduled_ts to run scheduled job at")?;
+            let next_ts = job
+                .next_ts
+                .context("Could not get next_ts to run scheduled job at")?;
             // If we can't execute the job return the job's target timestamp. If we're
             // caught up, we can sleep until the timestamp. If we're behind and
             // at our concurrency limit, we can use the timestamp to log how far
             // behind we get.
-            if scheduled_ts > now
-                || self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM
-            {
-                return Ok(Some(scheduled_ts));
+            if next_ts > now || self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+                return Ok(Some(next_ts));
             }
 
             let context = self.context.clone();
@@ -462,8 +460,8 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             )],
             order: Order::Asc,
         });
-        // Key is (scheduled_ts, namespace), where scheduled_ts is for sorting and
-        // namespace is for deduping.
+        // Key is (next_ts, namespace), where next_ts is for sorting and namespace
+        // is for deduping.
         // Value is (job, query) where job is the job to run and query will get
         // the next job to run in that namespace.
         let mut queries = BTreeMap::new();
@@ -472,29 +470,28 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             if let Some(doc) = query.next(tx, None).await? {
                 let job_metadata: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
                 let job_metadata_id = job_metadata.id();
-                let scheduled_ts = job_metadata.scheduled_ts.ok_or_else(|| {
+                let next_ts = job_metadata.next_ts.ok_or_else(|| {
                     anyhow::anyhow!(
-                        "Could not get scheduled_ts to run scheduled job {}",
+                        "Could not get next_ts to run scheduled job {}",
                         job_metadata.id()
                     )
                 })?;
                 queries.insert(
-                    (scheduled_ts, namespace),
+                    (next_ts, namespace),
                     ((job_metadata_id, job_metadata.into_value()), query),
                 );
             }
         }
-        while let Some(((_min_scheduled_ts, namespace), (min_job, mut query))) = queries.pop_first()
-        {
+        while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
             yield min_job;
             if let Some(doc) = query.next(tx, None).await? {
                 let job_metadata: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
                 let job_metadata_id = job_metadata.id();
-                let scheduled_ts = job_metadata.scheduled_ts.with_context(|| {
-                    format!("Could not get scheduled_ts to run scheduled job {job_metadata_id}",)
+                let next_ts = job_metadata.next_ts.with_context(|| {
+                    format!("Could not get next_ts to run scheduled job {job_metadata_id}",)
                 })?;
                 queries.insert(
-                    (scheduled_ts, namespace),
+                    (next_ts, namespace),
                     ((job_metadata_id, job_metadata.into_value()), query),
                 );
             }
@@ -552,7 +549,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         attempts.system_errors += 1;
         let delay = backoff.fail(&mut self.rt.rng());
         tracing::error!("System error executing job {job_id}, sleeping {delay:?}");
-        job.scheduled_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
+        job.next_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
         SchedulerModel::new(&mut tx, namespace)
             .replace(job_id, job)
             .await?;

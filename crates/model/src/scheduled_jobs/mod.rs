@@ -208,7 +208,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 path: metadata.path,
                 udf_args_bytes: args.into_value().args,
                 state: metadata.state,
-                scheduled_ts: metadata.scheduled_ts,
+                next_ts: metadata.next_ts,
                 completed_ts: metadata.completed_ts,
                 original_scheduled_ts: metadata.original_scheduled_ts,
                 attempts: metadata.attempts,
@@ -221,7 +221,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 path: metadata.path,
                 udf_args_bytes: args,
                 state: metadata.state,
-                scheduled_ts: metadata.scheduled_ts,
+                next_ts: metadata.next_ts,
                 completed_ts: metadata.completed_ts,
                 original_scheduled_ts: metadata.original_scheduled_ts,
                 attempts: metadata.attempts,
@@ -260,7 +260,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             path.clone(),
             args_id.developer_id,
             ScheduledJobState::Pending,
-            // Don't set scheduled_ts in the past to avoid scheduler incorrectly logging
+            // Don't set next_ts in the past to avoid scheduler incorrectly logging
             // it is falling behind. We should keep `original_scheduled_ts` intact
             // since this is exposed to the developer via the virtual table.
             Some(original_scheduled_ts.max(now)),
@@ -377,9 +377,9 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
         let mut job: ScheduledJobMetadata = job.into_value();
         job.state = state;
-        // Remove scheduled_ts and set completed_ts so the scheduler knows that the
+        // Remove next_ts and set completed_ts so the scheduler knows that the
         // job has already been processed
-        job.scheduled_ts = None;
+        job.next_ts = None;
         job.completed_ts = Some(*self.tx.begin_timestamp());
         SystemMetadataModel::new(self.tx, self.namespace)
             .replace(id, job.try_into()?)
