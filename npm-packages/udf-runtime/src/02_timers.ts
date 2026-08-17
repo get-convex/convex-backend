@@ -91,9 +91,17 @@ const unusedTimerId = () => {
   }
 };
 
+const queueMicrotask = (callback: (...args: any[]) => void) => {
+  if (typeof callback !== "function") {
+    throw new TypeError("expected a function");
+  }
+  void Promise.resolve().then(() => callback());
+};
+
 export const setupTimers = (global) => {
   global.setTimeout = setTimeout;
   global.setInterval = setInterval;
   global.clearTimeout = clearTimeout;
   global.clearInterval = clearInterval;
+  global.queueMicrotask = queueMicrotask;
 };
