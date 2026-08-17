@@ -16,7 +16,6 @@ use std::{
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use errors::ErrorMetadata;
 use futures::{
     future::BoxFuture,
     Stream,
@@ -41,6 +40,14 @@ use crate::http::{
 pub trait FetchClient: Send + Sync {
     async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream>;
 }
+
+/// The request's `AbortSignal` fired before the fetch (or the read of its
+/// response body) completed. Layers closer to JS translate this into a
+/// `DOMException` named `AbortError`, which is what the fetch spec requires and
+/// what SDKs check for.
+#[derive(Debug, thiserror::Error)]
+#[error("The signal has been aborted")]
+pub struct FetchAborted;
 
 pub struct ProxiedFetchClient {
     http_client:
@@ -128,8 +135,7 @@ impl FetchClient for ProxiedFetchClient {
                 response?
             },
             _ = &mut request.signal => {
-                // TODO: This should turn into a DOMException with name "AbortError"
-                anyhow::bail!(ErrorMetadata::bad_request("RequestAborted", "AbortError"));
+                anyhow::bail!(FetchAborted);
             },
         };
         if raw_response.status() == StatusCode::PROXY_AUTHENTICATION_REQUIRED {
@@ -184,8 +190,7 @@ async fn cancelable_body_stream<E: Into<anyhow::Error>>(
                     item.transpose().map_err(Into::<anyhow::Error>::into)
                 },
                 _ = &mut signal => {
-                    // TODO: This should turn into a DOMException with name "AbortError"
-                    Err(anyhow::anyhow!(ErrorMetadata::bad_request("RequestAborted", "AbortError")))
+                    Err(anyhow::anyhow!(FetchAborted))
                 },
             }
         };
