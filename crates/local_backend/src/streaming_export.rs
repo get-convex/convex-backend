@@ -52,6 +52,8 @@ use common::{
             ActiveDataSyncStatus,
             ActiveDataSyncUpToDate,
             DataSyncArgs,
+            DataSyncCursorFromDeltasArgs,
+            DataSyncCursorFromDeltasResponse,
             DataSyncResponse,
             DataSyncSnapshotting,
             DataSyncStale,
@@ -406,6 +408,53 @@ pub async fn list_active_syncs(
     }))
 }
 
+/// Converts a legacy `document_deltas` cursor into a `/api/v1/data/sync`
+/// cursor, so an integration can move to the data sync API without re-reading
+/// the data it already has. Everything with a revision `<=` the given cursor is
+/// treated as already synced for the selected tables.
+///
+/// Deliberately unversioned and absent from the OpenAPI spec: this is a
+/// migration affordance for the Fivetran and Airbyte source connectors, not
+/// part of the public data sync API.
+#[fastrace::trace]
+pub async fn data_sync_cursor_from_deltas(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    ExtractClientVersion(client_version): ExtractClientVersion,
+    Json(DataSyncCursorFromDeltasArgs { cursor, selection }): Json<DataSyncCursorFromDeltasArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    st.application
+        .ensure_streaming_export_enabled(identity.clone())
+        .await?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
+
+    let cursor = Timestamp::try_from(cursor).map_err(|e| {
+        e.context(ErrorMetadata::bad_request(
+            "InvalidDataSyncCursor",
+            "The document_deltas cursor is not a valid timestamp",
+        ))
+    })?;
+    let selection = StreamingExportSelection::try_from(selection).map_err(|e| {
+        let msg = format!("Invalid selection: {e:#}");
+        e.context(ErrorMetadata::bad_request("InvalidDataSyncSelection", msg))
+    })?;
+
+    let sync_cursor = st
+        .application
+        .data_sync_cursor_from_deltas(
+            identity,
+            cursor,
+            selection,
+            DataSyncClient::from(client_version.client()),
+        )
+        .await
+        .map_err(cursor_expired_error)?;
+
+    Ok(Json(DataSyncCursorFromDeltasResponse {
+        cursor: sync_cursor.encrypt(st.application.key_broker().data_sync_encryptor())?,
+    }))
+}
+
 /// Platform (OpenAPI-documented) routes for streaming export.
 pub fn platform_router<S>() -> utoipa_axum::router::OpenApiRouter<S>
 where
@@ -415,6 +464,22 @@ where
     utoipa_axum::router::OpenApiRouter::new()
         .routes(utoipa_axum::routes!(data_sync))
         .routes(utoipa_axum::routes!(list_active_syncs))
+}
+
+/// A cursor pointing at a snapshot that has aged out of the deployment's data
+/// retention window (see the endpoint docs: call at least once every 3 days)
+/// can't be resumed. Surface a 400 telling the caller to restart the sync from
+/// scratch; other errors pass through.
+fn cursor_expired_error(e: anyhow::Error) -> anyhow::Error {
+    if e.is_out_of_retention() {
+        e.context(ErrorMetadata::bad_request(
+            "DataSyncCursorExpired",
+            "The cursor is outside the deployment's data retention window and can no longer be \
+             resumed. Restart the sync from scratch by calling /data/sync without a cursor.",
+        ))
+    } else {
+        e
+    }
 }
 
 async fn _data_sync(
@@ -461,22 +526,7 @@ async fn _data_sync(
         .application
         .data_sync(identity, cursor, selection, sync_client, request_metadata)
         .await
-        .map_err(|e| {
-            // The cursor points at a snapshot that has aged out of the
-            // deployment's data retention window (see the endpoint docs: call at
-            // least once every 3 days). It can't be resumed, so surface a 400
-            // telling the caller to restart the sync from scratch.
-            if e.is_out_of_retention() {
-                e.context(ErrorMetadata::bad_request(
-                    "DataSyncCursorExpired",
-                    "The data sync cursor is outside the deployment's data retention window and \
-                     can no longer be resumed. Restart the sync from scratch by calling this \
-                     endpoint again without a cursor.",
-                ))
-            } else {
-                e
-            }
-        })?;
+        .map_err(cursor_expired_error)?;
 
     let truncates = truncates
         .into_iter()

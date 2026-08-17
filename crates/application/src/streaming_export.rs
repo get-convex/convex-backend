@@ -97,6 +97,29 @@ impl<RT: Runtime> Application<RT> {
         Ok(result)
     }
 
+    /// Mint a data sync cursor equivalent to a legacy `document_deltas` cursor,
+    /// letting a consumer switch protocols without re-reading its data.
+    #[fastrace::trace]
+    pub async fn data_sync_cursor_from_deltas(
+        &self,
+        identity: Identity,
+        cursor: Timestamp,
+        selection: StreamingExportSelection,
+        sync_client: DataSyncClient,
+    ) -> anyhow::Result<SyncCursor> {
+        streaming_export::data_sync_cursor_from_deltas(
+            &self.database,
+            identity,
+            cursor,
+            StreamingExportFilter {
+                selection,
+                ..Default::default()
+            },
+            sync_client,
+        )
+        .await
+    }
+
     /// One page of the progress rows of active data syncs — those that
     /// fetched a page within the active window — most recently updated first.
     /// The returned cursor, if any, fetches the next page.

@@ -298,6 +298,29 @@ pub struct DataSyncUpToDate {
     pub snapshot_ts: i64,
 }
 
+/// Arguments to the legacy-cursor conversion API
+/// (`/api/data_sync_cursor_from_deltas`). Deliberately undocumented and outside
+/// the platform OpenAPI spec: it exists so integrations built on
+/// `document_deltas` can move to `/api/v1/data/sync` without a full resync.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataSyncCursorFromDeltasArgs {
+    /// The exclusive timestamp cursor last returned by `document_deltas`.
+    pub cursor: i64,
+
+    /// The selection the caller was passing to `document_deltas`. Tables
+    /// outside it are synced from scratch by the resulting data sync.
+    #[serde(default)]
+    pub selection: Selection,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataSyncCursorFromDeltasResponse {
+    /// Opaque cursor to pass to `/api/v1/data/sync` as `cursor`.
+    pub cursor: String,
+}
+
 /// Response of the active-syncs listing API
 /// (`/api/v1/data/list_active_syncs`).
 #[allow(dead_code)]

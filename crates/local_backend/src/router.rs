@@ -137,6 +137,7 @@ use crate::{
         storage_upload,
     },
     streaming_export::{
+        data_sync_cursor_from_deltas,
         document_deltas_get,
         document_deltas_post,
         get_table_column_names,
@@ -602,6 +603,10 @@ where
             get(test_streaming_export_connection),
         )
         .route("/get_table_column_names", get(get_table_column_names))
+        .route(
+            "/data_sync_cursor_from_deltas",
+            post(data_sync_cursor_from_deltas),
+        )
 }
 
 pub fn cors() -> CorsLayer {

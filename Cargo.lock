@@ -9814,6 +9814,7 @@ dependencies = [
  "anyhow",
  "common",
  "database",
+ "errors",
  "fastrace",
  "keybroker",
  "pb_data_sync",
