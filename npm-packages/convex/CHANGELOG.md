@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Local deployments now upgrade to a new backend version in place, instead of
+  going through a snapshot export and import. Upgrades no longer depend on the
+  size of your local data, and no longer prompt about transferring it.
+
 ## 1.44.0
 
 - `schema.doc(tableName)` returns the validator for whole documents of a table:
