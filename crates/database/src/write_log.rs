@@ -45,10 +45,7 @@ use common::{
     },
     value::ResolvedDocumentId,
 };
-use errors::{
-    ErrorMetadata,
-    ErrorMetadataAnyhowExt,
-};
+use errors::ErrorMetadata;
 use futures::Future;
 use imbl::{
     OrdMap,
@@ -539,6 +536,24 @@ struct WriteLog {
     purged_ts: Timestamp,
 }
 
+pub struct OutOfRetentionError {
+    reads_ts: Timestamp,
+    purged_ts: Timestamp,
+}
+
+impl From<OutOfRetentionError> for anyhow::Error {
+    #[track_caller]
+    fn from(e: OutOfRetentionError) -> Self {
+        anyhow::anyhow!(
+            "Timestamp {reads_ts} is outside of write log retention window (minimum timestamp \
+             {purged_ts})",
+            reads_ts = e.reads_ts,
+            purged_ts = e.purged_ts
+        )
+        .context(ErrorMetadata::out_of_retention())
+    }
+}
+
 impl WriteLog {
     fn new(initial_timestamp: Timestamp) -> Self {
         Self {
@@ -558,48 +573,39 @@ impl WriteLog {
         reads: &ReadSet,
         reads_ts: Timestamp,
         ts: Timestamp,
-    ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        let from = reads_ts.succ()?;
-        anyhow::ensure!(
-            from > self.purged_ts,
-            anyhow::anyhow!(
-                "Timestamp {reads_ts} is outside of write log retention window (minimum timestamp \
-                 {})",
-                self.purged_ts
-            )
-            .context(ErrorMetadata::out_of_retention())
-        );
-        Ok(reads.writes_overlap_by_index(
-            &self.by_database_index.0,
-            &self.by_text_index.0,
-            from,
-            ts,
-        ))
+    ) -> Result<Option<ConflictingReadWithWriteSource>, OutOfRetentionError> {
+        if reads_ts < self.purged_ts {
+            Err(OutOfRetentionError {
+                reads_ts,
+                purged_ts: self.purged_ts,
+            })
+        } else {
+            Ok(reads.writes_overlap_by_index(
+                &self.by_database_index.0,
+                &self.by_text_index.0,
+                reads_ts,
+                ts,
+            ))
+        }
     }
 
     /// Returns Err(write_ts) if the token could not be refreshed, where
     /// write_ts is the timestamp of a conflicting write (if known)
-    fn refresh_token(
-        &self,
-        mut token: Token,
-        ts: Timestamp,
-    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
+    fn refresh_token(&self, mut token: Token, ts: Timestamp) -> Result<Token, Option<Timestamp>> {
         metrics::log_read_set_age(ts.secs_since_f64(token.ts()).max(0.0));
-        let result = match self.is_stale(token.reads(), token.ts(), ts) {
+        match self.is_stale(token.reads(), token.ts(), ts) {
             Ok(Some(conflict)) => Err(Some(conflict.write_ts)),
-            Err(e) if e.is_out_of_retention() => {
+            Err(OutOfRetentionError { .. }) => {
                 metrics::log_reads_refresh_miss();
                 Err(None)
             },
-            Err(e) => return Err(e),
             Ok(None) => {
                 if token.ts() < ts {
                     token.advance_ts(ts);
                 }
                 Ok(token)
             },
-        };
-        Ok(result)
+        }
     }
 }
 
@@ -656,13 +662,10 @@ impl LogReader {
             ts <= max_ts,
             "Can't refresh token to newer timestamp {ts} than max ts {max_ts}"
         );
-        snapshot.refresh_token(token, ts)
+        Ok(snapshot.refresh_token(token, ts))
     }
 
-    pub fn refresh_reads_until_max_ts(
-        &self,
-        token: Token,
-    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
+    pub fn refresh_reads_until_max_ts(&self, token: Token) -> Result<Token, Option<Timestamp>> {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
             let max_ts = snapshot.max_ts();
@@ -855,7 +858,7 @@ impl LogWriter {
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
         let snapshot = { self.inner.lock().log.clone() };
-        block_in_place(|| snapshot.is_stale(reads, reads_ts, ts))
+        Ok(block_in_place(|| snapshot.is_stale(reads, reads_ts, ts))?)
     }
 
     pub fn snapshot(&self) -> WriteLogSnapshot {
@@ -877,7 +880,7 @@ impl WriteLogSnapshot {
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        self.0.is_stale(reads, reads_ts, ts)
+        Ok(self.0.is_stale(reads, reads_ts, ts)?)
     }
 }
 

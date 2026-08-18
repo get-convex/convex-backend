@@ -3,6 +3,7 @@ use std::{
     any::Any,
     collections::BTreeMap,
     mem,
+    ops::Bound,
     sync::LazyLock,
 };
 
@@ -226,7 +227,7 @@ impl ReadSet {
     }
 
     /// Check whether any writes in the given index maps in the timestamp
-    /// range `[from, to]` conflict with this read set. More efficient than
+    /// range `(from, to]` conflict with this read set. More efficient than
     /// `writes_overlap_docs` because it looks up only indexes that were read.
     #[fastrace::trace]
     pub(crate) fn writes_overlap_by_index(
@@ -249,7 +250,7 @@ impl ReadSet {
             let Some(updates) = by_database_index.get(index) else {
                 continue;
             };
-            for write in updates.range(from..=to) {
+            for write in updates.range((Bound::Excluded(from), Bound::Included(to))) {
                 for update in &write.index_updates {
                     for index_key in update.update.iter() {
                         if intervals.contains(index_key) {
@@ -283,7 +284,7 @@ impl ReadSet {
             let Some(updates) = by_search_index.get(index) else {
                 continue;
             };
-            for write in updates.range(from..=to) {
+            for write in updates.range((Bound::Excluded(from), Bound::Included(to))) {
                 for update in &write.index_updates {
                     for value in update.update.iter() {
                         if search_reads.overlaps_search_index_key_value(value) {

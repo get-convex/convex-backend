@@ -142,7 +142,7 @@ pub struct SubscriptionsClient {
 
 impl SubscriptionsClient {
     pub fn subscribe(&self, token: Token, is_system: bool) -> anyhow::Result<Subscription> {
-        let token = match self.log.refresh_reads_until_max_ts(token)? {
+        let token = match self.log.refresh_reads_until_max_ts(token) {
             Ok(t) => t,
             Err(invalid_ts) => return Ok(Subscription::invalid(invalid_ts)),
         };
