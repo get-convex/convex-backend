@@ -18,7 +18,7 @@ pub mod client;
 mod concurrency_limiter;
 pub mod context_cache;
 mod context_local_state;
-mod convert_v8;
+pub mod convert_v8;
 pub mod environment;
 pub mod error;
 mod execution_scope;
@@ -34,7 +34,7 @@ mod ops;
 mod request_scope;
 pub mod strings;
 mod termination;
-mod timeout;
+pub mod timeout;
 mod udf_runtime;
 
 pub use self::{

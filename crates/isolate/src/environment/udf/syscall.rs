@@ -45,7 +45,7 @@ use crate::{
     metrics::log_normalize_id_old_format,
 };
 
-pub trait SyscallProvider<RT: Runtime> {
+pub trait SyscallProviderInternal<RT: Runtime> {
     fn table_filter(&self) -> TableFilter;
 
     fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>>;
@@ -58,7 +58,7 @@ pub trait SyscallProvider<RT: Runtime> {
     fn require_operation(&mut self, op: DeploymentOp) -> anyhow::Result<()>;
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
+impl<RT: Runtime> SyscallProviderInternal<RT> for DatabaseUdfSyscallProvider<RT> {
     fn table_filter(&self) -> TableFilter {
         if self.path.udf_path.is_system() {
             TableFilter::IncludePrivateSystemTables
@@ -92,7 +92,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
     }
 
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32> {
-        let table_filter = SyscallProvider::<RT>::table_filter(self);
+        let table_filter = SyscallProviderInternal::<RT>::table_filter(self);
         let component = self.phase.component()?;
         let tx = self.phase.tx()?;
         // TODO: Are all invalid query pipelines developer errors? These could be bugs
@@ -114,7 +114,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
     }
 }
 
-pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
+pub fn syscall_impl<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     name: &str,
     args: JsonValue,
@@ -139,7 +139,7 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
     }
 }
 
-fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
+fn syscall_normalize_id<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
@@ -188,7 +188,7 @@ fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
     }
 }
 
-fn syscall_component_argument<RT: Runtime, P: SyscallProvider<RT>>(
+fn syscall_component_argument<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
@@ -207,7 +207,7 @@ fn syscall_component_argument<RT: Runtime, P: SyscallProvider<RT>>(
     Ok(result)
 }
 
-fn syscall_query_stream<RT: Runtime, P: SyscallProvider<RT>>(
+fn syscall_query_stream<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
@@ -234,7 +234,7 @@ fn syscall_query_stream<RT: Runtime, P: SyscallProvider<RT>>(
     Ok(serde_json::to_value(QueryStreamResult { query_id })?)
 }
 
-fn syscall_query_cleanup<RT: Runtime, P: SyscallProvider<RT>>(
+fn syscall_query_cleanup<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
@@ -251,7 +251,7 @@ fn syscall_query_cleanup<RT: Runtime, P: SyscallProvider<RT>>(
     Ok(serde_json::to_value(cleaned_up)?)
 }
 
-fn syscall_require_operation<RT: Runtime, P: SyscallProvider<RT>>(
+fn syscall_require_operation<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {

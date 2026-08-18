@@ -412,6 +412,7 @@ pub fn start_cooperative_request<RT: Runtime, E: JsEnvironment<RT>>(
     (handle, context_id, timeout)
 }
 
+#[derive(Debug)]
 pub struct FunctionExecutionTime {
     pub elapsed: Duration,
     pub limit: Duration,

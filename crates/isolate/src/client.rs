@@ -1655,7 +1655,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
     fn rt(&self) -> &RT;
 }
 
-pub(crate) fn should_recreate_isolate<RT: Runtime>(
+pub fn should_recreate_isolate<RT: Runtime>(
     isolate: &mut Isolate<RT>,
     context_cache: &mut ContextCache,
     last_executed: &str,

@@ -240,9 +240,9 @@ pub struct DatabaseUdfSyscallProvider<RT: Runtime> {
 }
 
 pub struct DatabaseUdfEnvironment<RT: Runtime, S = DatabaseUdfSyscallProvider<RT>> {
-    syscall_provider: S,
-    pending_syscalls: WithHeapSize<VecDeque<PendingSyscall>>,
-    _phantom: PhantomData<RT>,
+    pub syscall_provider: S,
+    pub pending_syscalls: WithHeapSize<VecDeque<PendingSyscall>>,
+    pub _phantom: PhantomData<RT>,
 }
 
 fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
@@ -379,6 +379,8 @@ impl<RT: Runtime> HeapSize for DatabaseUdfSyscallProvider<RT> {
 }
 
 impl<RT: Runtime> DatabaseUdfInnerProvider<RT> for DatabaseUdfSyscallProvider<RT> {
+    type Outcome = (Transaction<RT>, FunctionOutcome);
+
     async fn run_async_syscall_batch(
         &mut self,
         batch: AsyncSyscallBatch,
@@ -570,6 +572,7 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
     }
 }
 
+#[derive(Clone)]
 pub struct DatabaseUdfArgs {
     unix_timestamp: UnixTimestamp,
     rng_seed: [u8; 32],
@@ -583,6 +586,8 @@ pub struct DatabaseUdfArgs {
 pub trait DatabaseUdfInnerProvider<RT: Runtime>:
     SyscallProvider<RT> + ValidateContext + HeapSize + 'static
 {
+    type Outcome;
+
     /// Runs a batch of syscalls, each of which can succeed or fail
     /// independently. The returned vec is the same length as the batch.
     async fn run_async_syscall_batch(
@@ -606,7 +611,7 @@ pub trait DatabaseUdfInnerProvider<RT: Runtime>:
         args: DatabaseUdfArgs,
         result: Result<PendingValue, JsError>,
         execution_time: FunctionExecutionTime,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)>;
+    ) -> anyhow::Result<Self::Outcome>;
 
     fn snoop_reads(&mut self) -> anyhow::Result<()>;
     /// If `should_capture` is false, always returns None
@@ -711,7 +716,7 @@ where
         args: DatabaseUdfArgs,
         function_started: Option<oneshot::Sender<()>>,
         udf_callback: Option<IsolateClient<RT>>,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
+    ) -> anyhow::Result<S::Outcome> {
         let executor = UdfRecursiveExecutor::new();
 
         let path_for_logging = format!("{:?}", self.syscall_provider.path().clone().for_logging());

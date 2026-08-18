@@ -57,7 +57,7 @@ impl<T: Serialize> ToV8 for T {
 #[derive(Copy, Clone, Debug, IntoStaticStr)]
 #[allow(dead_code)]
 #[allow(clippy::enum_variant_names)]
-pub(crate) enum DOMExceptionName {
+pub enum DOMExceptionName {
     IndexSizeError,
     HierarchyRequestError,
     WrongDocumentError,
@@ -93,14 +93,14 @@ pub(crate) enum DOMExceptionName {
     OptOutError,
 }
 
-#[derive(Debug)]
-pub(crate) enum JsException {
+#[derive(Debug, Clone)]
+pub enum JsException {
     DOMException(DOMException),
     TypeError(TypeError),
 }
 
-#[derive(Debug)]
-pub(crate) struct DOMException {
+#[derive(Debug, Clone)]
+pub struct DOMException {
     pub message: Cow<'static, str>,
     pub name: DOMExceptionName,
 }
@@ -141,8 +141,8 @@ impl ToV8 for DOMException {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct TypeError {
+#[derive(Debug, Clone)]
+pub struct TypeError {
     pub message: Cow<'static, str>,
 }
 

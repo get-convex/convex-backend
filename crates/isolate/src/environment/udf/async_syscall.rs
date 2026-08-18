@@ -223,14 +223,14 @@ pub fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow
 /// together, disjoint from reads, as long as the affected IDs are disjoint.
 /// For now, we only allow batches of `db.get`s and `db.query`s.
 /// TODO(lee) implement other kinds of batches.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AsyncSyscallBatch {
     Reads(Vec<AsyncRead>),
     StorageGetUrls(Vec<JsonValue>),
     Unbatched { name: String, args: JsonValue },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AsyncRead {
     Get(JsonValue),
     QueryStreamNext(JsonValue),
