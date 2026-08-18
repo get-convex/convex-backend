@@ -222,9 +222,7 @@ function cronDatum(cronJob: CronJobWithRuns) {
     udfPath: cronSpec.udfPath,
     udfArgs:
       cronSpec.udfArgs &&
-      (JSON.parse(
-        Buffer.from(cronSpec.udfArgs).toString("utf8"),
-      ) as JSONValue[]),
+      (JSON.parse(new TextDecoder().decode(cronSpec.udfArgs)) as JSONValue[]),
   };
 }
 type CronDatum = ReturnType<typeof cronDatum>;
