@@ -5,9 +5,9 @@
 //! opaque cursor.
 //!
 //! This is the forward-looking replacement for the `list_snapshot` /
-//! `document_deltas` APIs (still on [`Database`]). It lives in its own crate,
-//! driving [`Database`] through its public API, so other call sites (e.g. the
-//! search flusher, backups) can depend on it directly.
+//! `document_deltas` APIs (still on `Database`). It lives in its own crate and
+//! reads through a [`DatabaseSnapshot`] rather than a live `Database`, so call
+//! sites without one (e.g. offline tools, backups) can depend on it directly.
 //!
 //! See <https://app.notion.com/p/convex-dev/Robust-Streaming-Export-API-36db57ff32ab80c68d97e01c578518d4>
 
@@ -33,7 +33,7 @@ use common::{
 use database::{
     streaming_export_selection::StreamingExportDocument,
     unauthorized_error,
-    Database,
+    DatabaseSnapshot,
     Snapshot,
     StreamingExportFilter,
 };
@@ -416,12 +416,8 @@ fn resolve_name(
 
 /// Mint a fresh sync id for a cold start, tagged with the integration that
 /// issued it so `/data/list_active_syncs` can tell syncs apart.
-fn new_sync_id<RT: Runtime>(database: &Database<RT>, sync_client: DataSyncClient) -> String {
-    format!(
-        "{}{}",
-        sync_client.sync_id_prefix(),
-        database.runtime().new_uuid_v4()
-    )
+fn new_sync_id<RT: Runtime>(runtime: &RT, sync_client: DataSyncClient) -> String {
+    format!("{}{}", sync_client.sync_id_prefix(), runtime.new_uuid_v4())
 }
 
 /// Produce the next page of a streaming export ("data sync").
@@ -435,7 +431,7 @@ fn new_sync_id<RT: Runtime>(database: &Database<RT>, sync_client: DataSyncClient
 /// on that page.
 #[fastrace::trace]
 pub async fn data_sync<RT: Runtime>(
-    database: &Database<RT>,
+    db_snapshot: &DatabaseSnapshot<RT>,
     identity: Identity,
     cursor: Option<SyncCursor>,
     filter: StreamingExportFilter,
@@ -449,17 +445,13 @@ pub async fn data_sync<RT: Runtime>(
         unauthorized_error("data_sync")
     );
 
-    // Resolve the filter against a recent, consistent snapshot. Tablet ids are
-    // stable, so the mapping stays valid for the iterator's own (possibly
+    // Resolve the filter against `db_snapshot`'s consistent snapshot. Tablet ids
+    // are stable, so the mapping stays valid for the iterator's own (possibly
     // slightly newer) read snapshot.
-    let (begin_ts, snapshot) = {
-        let tx = database.begin(identity).await?;
-        let begin_ts = tx.begin_timestamp();
-        (begin_ts, database.snapshot(begin_ts)?)
-    };
+    let snapshot = &db_snapshot.snapshot;
     let component_paths = snapshot.component_ids_to_paths();
-    let target_tables = ResolvedStreamingExportFilter::new(&snapshot, &filter)?.target_tables;
-    let resolve_name = |tablet_id: TabletId| resolve_name(&snapshot, &component_paths, tablet_id);
+    let target_tables = ResolvedStreamingExportFilter::new(snapshot, &filter)?.target_tables;
+    let resolve_name = |tablet_id: TabletId| resolve_name(snapshot, &component_paths, tablet_id);
 
     // The tablets the cursor was tracking (synced plus in-progress) before this
     // page, with the names they resolved to when captured. Compared against the
@@ -473,10 +465,10 @@ pub async fn data_sync<RT: Runtime>(
     let sync_id = cursor
         .as_ref()
         .map(|c| c.sync_id.clone())
-        .unwrap_or_else(|| new_sync_id(database, sync_client));
+        .unwrap_or_else(|| new_sync_id(db_snapshot.runtime(), sync_client));
 
     let mut entries = Vec::new();
-    let iterator = database.data_sync_iterator(begin_ts)?;
+    let iterator = db_snapshot.data_sync_iterator()?;
     let page = iterator
         .next_page(cursor.map(|c| c.inner), &target_tables)
         .await?;
@@ -600,7 +592,7 @@ pub async fn data_sync<RT: Runtime>(
 /// Convert a legacy `document_deltas` cursor to a [`SyncCursor`]
 #[fastrace::trace]
 pub async fn data_sync_cursor_from_deltas<RT: Runtime>(
-    database: &Database<RT>,
+    db_snapshot: &DatabaseSnapshot<RT>,
     identity: Identity,
     ts: Timestamp,
     filter: StreamingExportFilter,
@@ -611,9 +603,8 @@ pub async fn data_sync_cursor_from_deltas<RT: Runtime>(
         unauthorized_error("data_sync_cursor_from_deltas")
     );
 
-    let latest = database.now_ts_for_reads();
     anyhow::ensure!(
-        ts <= *latest,
+        ts <= *db_snapshot.timestamp(),
         ErrorMetadata::bad_request(
             "InvalidDataSyncCursor",
             "document_deltas cursor is ahead of the deployment's latest timestamp",
@@ -622,20 +613,20 @@ pub async fn data_sync_cursor_from_deltas<RT: Runtime>(
     // The first `data_sync` page walks the document log forward from `ts`, so
     // `ts` must still be within document retention. Fail here rather than on the
     // first page so the caller learns the cursor is unusable before it starts.
-    database
-        .retention_validator()
+    db_snapshot
+        .retention_validator
         .validate_document_snapshot(ts)
         .await?;
 
-    let snapshot = database.snapshot(latest)?;
+    let snapshot = &db_snapshot.snapshot;
     let component_paths = snapshot.component_ids_to_paths();
-    let target_tables = ResolvedStreamingExportFilter::new(&snapshot, &filter)?.target_tables;
+    let target_tables = ResolvedStreamingExportFilter::new(snapshot, &filter)?.target_tables;
     let names = target_tables
         .keys()
         .map(|tablet_id| {
             Ok((
                 *tablet_id,
-                resolve_name(&snapshot, &component_paths, *tablet_id)?,
+                resolve_name(snapshot, &component_paths, *tablet_id)?,
             ))
         })
         .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
@@ -650,6 +641,6 @@ pub async fn data_sync_cursor_from_deltas<RT: Runtime>(
             0,
         ),
         names,
-        sync_id: new_sync_id(database, sync_client),
+        sync_id: new_sync_id(db_snapshot.runtime(), sync_client),
     })
 }

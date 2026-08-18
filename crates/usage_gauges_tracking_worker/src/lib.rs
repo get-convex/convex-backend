@@ -96,7 +96,7 @@ impl UsageGaugesTrackingWorker {
         instance_name: String,
     ) -> anyhow::Result<Self> {
         let file_storage_size =
-            FileStorageSizeTracker::new(database.data_sync_iterator(database.now_ts_for_reads())?);
+            FileStorageSizeTracker::new(database.latest_database_snapshot()?.data_sync_iterator()?);
         let mut worker = UsageGaugesTrackingWorkerInner {
             runtime: runtime.clone(),
             database,

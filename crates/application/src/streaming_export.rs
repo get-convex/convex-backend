@@ -82,7 +82,7 @@ impl<RT: Runtime> Application<RT> {
         request_metadata: RequestMetadata,
     ) -> anyhow::Result<SyncResult> {
         let result = streaming_export::data_sync(
-            &self.database,
+            &self.database.latest_database_snapshot()?,
             identity.clone(),
             cursor,
             StreamingExportFilter {
@@ -108,7 +108,7 @@ impl<RT: Runtime> Application<RT> {
         sync_client: DataSyncClient,
     ) -> anyhow::Result<SyncCursor> {
         streaming_export::data_sync_cursor_from_deltas(
-            &self.database,
+            &self.database.latest_database_snapshot()?,
             identity,
             cursor,
             StreamingExportFilter {
