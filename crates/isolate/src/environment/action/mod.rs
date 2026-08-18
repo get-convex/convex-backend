@@ -157,7 +157,7 @@ use crate::{
             MAX_LOG_LINES,
         },
         AsyncOpRequest,
-        IsolateEnvironment,
+        JsEnvironment,
         SyscallProvider,
     },
     execution_scope::ExecutionScope,
@@ -1426,7 +1426,7 @@ impl<RT: Runtime> SyscallProvider<RT> for ActionEnvironment<RT> {
     }
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
+impl<RT: Runtime> JsEnvironment<RT> for ActionEnvironment<RT> {
     type AsyncResolver = v8::Global<v8::PromiseResolver>;
     type SyscallProvider = Self;
 

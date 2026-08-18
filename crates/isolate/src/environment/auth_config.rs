@@ -54,7 +54,7 @@ use crate::{
             syscall_name_for_error,
         },
         AsyncOpRequest,
-        IsolateEnvironment,
+        JsEnvironment,
         SyscallProvider,
     },
     helpers,
@@ -174,7 +174,7 @@ impl<RT: Runtime> SyscallProvider<RT> for AuthConfigEnvironment {
     }
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
+impl<RT: Runtime> JsEnvironment<RT> for AuthConfigEnvironment {
     type AsyncResolver = v8::Global<v8::PromiseResolver>;
     type SyscallProvider = Self;
 

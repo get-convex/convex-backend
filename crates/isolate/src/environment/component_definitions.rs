@@ -65,7 +65,7 @@ use value::{
 
 use super::{
     AsyncOpRequest,
-    IsolateEnvironment,
+    JsEnvironment,
     SyscallProvider,
 };
 use crate::{
@@ -612,7 +612,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DefinitionEnvironment {
     }
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
+impl<RT: Runtime> JsEnvironment<RT> for DefinitionEnvironment {
     type AsyncResolver = v8::Global<v8::PromiseResolver>;
     type SyscallProvider = Self;
 

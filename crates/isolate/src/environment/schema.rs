@@ -58,7 +58,7 @@ use crate::{
             syscall_name_for_error,
         },
         AsyncOpRequest,
-        IsolateEnvironment,
+        JsEnvironment,
         SyscallProvider,
     },
     helpers,
@@ -157,7 +157,7 @@ impl<RT: Runtime> SyscallProvider<RT> for SchemaEnvironment {
     }
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
+impl<RT: Runtime> JsEnvironment<RT> for SchemaEnvironment {
     type AsyncResolver = v8::Global<v8::PromiseResolver>;
     type SyscallProvider = Self;
 

@@ -182,7 +182,7 @@ use crate::{
             MAX_LOG_LINES,
         },
         AsyncOpRequest,
-        IsolateEnvironment,
+        JsEnvironment,
         SyscallProvider,
     },
     helpers::{
@@ -324,7 +324,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
     }
 }
 
-impl<RT: Runtime, S: DatabaseUdfInnerProvider<RT>> IsolateEnvironment<RT>
+impl<RT: Runtime, S: DatabaseUdfInnerProvider<RT>> JsEnvironment<RT>
     for DatabaseUdfEnvironment<RT, S>
 {
     type AsyncResolver = v8::Global<v8::PromiseResolver>;

@@ -32,7 +32,7 @@ use tokio::select;
 
 use crate::{
     concurrency_limiter::SuspendedPermit,
-    environment::IsolateEnvironment,
+    environment::JsEnvironment,
     metrics,
     termination::{
         ContextId,
@@ -373,7 +373,7 @@ impl<RT: Runtime> Timeout<RT> {
 /// user and system timeouts. `max_user_timeout` is an upper bound set by tests.
 ///
 /// The caller is responsible for popping the returned `ContextId`.
-pub fn start_request_on_handle<RT: Runtime, E: IsolateEnvironment<RT>>(
+pub fn start_request_on_handle<RT: Runtime, E: JsEnvironment<RT>>(
     rt: RT,
     handle: &ExecutionHandle,
     permit: ConcurrencyPermit,
@@ -400,7 +400,7 @@ pub fn start_request_on_handle<RT: Runtime, E: IsolateEnvironment<RT>>(
 /// [`ExecutionHandle::check_terminated`] between steps to notice it.
 /// TODO(runtime): Replace this when we have an impl that uses epoch
 /// interruption in wasm
-pub fn start_cooperative_request<RT: Runtime, E: IsolateEnvironment<RT>>(
+pub fn start_cooperative_request<RT: Runtime, E: JsEnvironment<RT>>(
     rt: RT,
     permit: ConcurrencyPermit,
     environment: &E,

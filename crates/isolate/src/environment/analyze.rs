@@ -100,7 +100,7 @@ use crate::{
             },
         },
         AsyncOpRequest,
-        IsolateEnvironment,
+        JsEnvironment,
         SyscallProvider,
     },
     execution_scope::ExecutionScope,
@@ -216,7 +216,7 @@ impl<RT: Runtime> SyscallProvider<RT> for AnalyzeEnvironment {
     }
 }
 
-impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
+impl<RT: Runtime> JsEnvironment<RT> for AnalyzeEnvironment {
     type AsyncResolver = v8::Global<v8::PromiseResolver>;
     type SyscallProvider = Self;
 
