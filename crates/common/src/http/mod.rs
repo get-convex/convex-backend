@@ -1176,6 +1176,7 @@ fn is_high_volume_path(path: &str) -> bool {
         || path == "/api/stream_function_logs"
         || path == "/api/app_metrics/stream_function_logs"
         || path == "/"
+        || path == "/health"
 }
 
 /// Emit an HTTP access log line. Used by both the normal completion path
