@@ -5,6 +5,7 @@ use std::{
         Debug,
         Display,
     },
+    num::NonZeroU32,
     str::FromStr,
 };
 
@@ -351,6 +352,34 @@ pub struct IndexId(pub InternalId);
 impl IndexId {
     pub fn size(&self) -> usize {
         self.0.size()
+    }
+}
+
+/// The compact identifier used by a persistence implementation to store an
+/// index's rows.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct PersistenceIndexId(NonZeroU32);
+
+impl PersistenceIndexId {
+    pub const FIRST: Self = Self(NonZeroU32::MIN);
+
+    pub const fn new(value: u32) -> Option<Self> {
+        match NonZeroU32::new(value) {
+            Some(value) => Some(Self(value)),
+            None => None,
+        }
+    }
+
+    pub const fn value(self) -> u32 {
+        self.0.get()
+    }
+}
+
+impl TryFrom<u32> for PersistenceIndexId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u32) -> anyhow::Result<Self> {
+        Self::new(value).context("persistence index IDs must be nonzero")
     }
 }
 

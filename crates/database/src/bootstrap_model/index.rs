@@ -369,10 +369,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             IndexConfig::Database {
                 spec,
                 on_disk_state,
+                persistence_index_id,
             } => match on_disk_state {
                 DatabaseIndexState::Enabled => IndexConfig::Database {
                     spec,
                     on_disk_state: DatabaseIndexState::Backfilled { staged: true },
+                    persistence_index_id,
                 },
                 _ => {
                     anyhow::bail!("Index is not enabled, so it cannot be disabled");
@@ -434,6 +436,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                         *self.tx.begin_timestamp(),
                         index_name.clone(),
                         index_schema.fields.clone(),
+                        None,
                     ),
                 );
                 anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
@@ -446,6 +449,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                         *self.tx.begin_timestamp(),
                         index_name.clone(),
                         index_schema.fields.clone(),
+                        None,
                     ),
                 );
                 anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
@@ -657,7 +661,20 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         namespace: TableNamespace,
         schema: &DatabaseSchema,
     ) -> anyhow::Result<IndexDiff> {
-        let diff: IndexDiff = self.get_index_diff(namespace, &schema.tables).await?;
+        let mut diff: IndexDiff = self.get_index_diff(namespace, &schema.tables).await?;
+
+        // Diffing is used by read-only schema operations, so allocate only for
+        // database indexes that this prepare operation will insert.
+        for index in &mut diff.added {
+            if let IndexConfig::Database {
+                persistence_index_id,
+                ..
+            } = &mut index.config
+                && persistence_index_id.is_none()
+            {
+                *persistence_index_id = self.tx.allocate_persistence_index_id().await;
+            }
+        }
 
         // If an index is currently pending and we're mutating it, we need to drop the
         // currently pending index immediately so that we avoid having multiple pending
@@ -1093,7 +1110,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 IndexConfig::Database {
                     spec: DatabaseIndexSpec { fields },
                     ..
-                } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
+                } => IndexMetadata::new_backfilling(
+                    *self.tx.begin_timestamp(),
+                    index_name,
+                    fields,
+                    self.tx.allocate_persistence_index_id().await,
+                ),
                 IndexConfig::Text {
                     spec:
                         TextIndexSpec {

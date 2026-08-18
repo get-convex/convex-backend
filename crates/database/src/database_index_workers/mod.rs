@@ -562,6 +562,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             IndexConfig::Database {
                 on_disk_state,
                 spec,
+                persistence_index_id: _,
             } => {
                 let DatabaseIndexState::Backfilling(state) = on_disk_state else {
                     anyhow::bail!(

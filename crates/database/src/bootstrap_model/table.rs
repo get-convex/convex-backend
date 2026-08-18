@@ -483,15 +483,15 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             TableState::Active,
         )
         .await?;
-        let mut index_model = IndexModel::new(self.tx);
         for index in S::indexes() {
             let index_metadata = IndexMetadata::new_enabled(
                 index
                     .name
                     .map_table(&|_| anyhow::Ok(S::TABLE_NAME.clone()))?,
                 index.fields,
+                self.tx.allocate_persistence_index_id().await,
             );
-            index_model
+            IndexModel::new(self.tx)
                 .add_system_index(namespace, index_metadata)
                 .await?;
         }
@@ -561,6 +561,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_id(tablet_id),
                 IndexedFields::by_id(),
+                self.tx.allocate_persistence_index_id().await,
             );
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
@@ -568,6 +569,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_creation_time(tablet_id),
                 IndexedFields::creation_time(),
+                self.tx.allocate_persistence_index_id().await,
             );
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)

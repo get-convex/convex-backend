@@ -476,7 +476,11 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         .await?;
     if is_new {
         for index in table.indexes() {
-            let index_metadata = IndexMetadata::new_enabled(index.name, index.fields);
+            let index_metadata = IndexMetadata::new_enabled(
+                index.name,
+                index.fields,
+                tx.allocate_persistence_index_id().await,
+            );
             IndexModel::new(tx)
                 .add_system_index(namespace, index_metadata)
                 .await?;
@@ -496,6 +500,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                 let IndexConfig::Database {
                     spec,
                     on_disk_state: _,
+                    persistence_index_id: _,
                 } = &index.config
                 else {
                     // This isn't a strict requirement; it's just not implemented or needed.
@@ -535,6 +540,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                         *tx.begin_timestamp(),
                         index.name.clone(),
                         index.fields.clone(),
+                        tx.allocate_persistence_index_id().await,
                     );
                     IndexModel::new(tx)
                         .add_system_index(namespace, index_metadata)

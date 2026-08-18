@@ -1526,6 +1526,7 @@ impl<RT: Runtime> Database<RT> {
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
+                None,
             );
             let document =
                 ResolvedDocument::new(index_id, creation_time.increment()?, metadata.try_into()?)?;
@@ -1538,6 +1539,7 @@ impl<RT: Runtime> Database<RT> {
                 let metadata = IndexMetadata::new_enabled(
                     GenericIndexName::by_creation_time(table_id.tablet_id),
                     IndexedFields::creation_time(),
+                    None,
                 );
                 let document = ResolvedDocument::new(
                     index_id,
@@ -1559,7 +1561,7 @@ impl<RT: Runtime> Database<RT> {
                     .name_to_tablet(),
             )?;
             let document_id = id_generator.generate_resolved(index_table_id);
-            let index_metadata = IndexMetadata::new_enabled(name, fields);
+            let index_metadata = IndexMetadata::new_enabled(name, fields, None);
             let document = ResolvedDocument::new(
                 document_id,
                 creation_time.increment()?,

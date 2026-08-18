@@ -44,6 +44,7 @@ use crate::{
         GenericIndexName,
         IndexDescriptor,
         IndexTableIdentifier,
+        PersistenceIndexId,
     },
 };
 
@@ -65,8 +66,15 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         index_created_lower_bound: Timestamp,
         name: GenericIndexName<T>,
         fields: IndexedFields,
+        persistence_index_id: Option<PersistenceIndexId>,
     ) -> Self {
-        Self::_new_backfilling(index_created_lower_bound, name, fields, false)
+        Self::_new_backfilling(
+            index_created_lower_bound,
+            name,
+            fields,
+            false,
+            persistence_index_id,
+        )
     }
 
     fn _new_backfilling(
@@ -74,6 +82,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         name: GenericIndexName<T>,
         fields: IndexedFields,
         staged: bool,
+        persistence_index_id: Option<PersistenceIndexId>,
     ) -> Self {
         Self {
             name,
@@ -84,6 +93,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                     retention_started: false,
                     staged,
                 }),
+                persistence_index_id,
             },
         }
     }
@@ -92,8 +102,15 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         index_created_lower_bound: Timestamp,
         name: GenericIndexName<T>,
         fields: IndexedFields,
+        persistence_index_id: Option<PersistenceIndexId>,
     ) -> Self {
-        Self::_new_backfilling(index_created_lower_bound, name, fields, true)
+        Self::_new_backfilling(
+            index_created_lower_bound,
+            name,
+            fields,
+            true,
+            persistence_index_id,
+        )
     }
 
     pub fn new_backfilling_text_index(
@@ -178,12 +195,17 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         }
     }
 
-    pub fn new_enabled(name: GenericIndexName<T>, fields: IndexedFields) -> Self {
+    pub fn new_enabled(
+        name: GenericIndexName<T>,
+        fields: IndexedFields,
+        persistence_index_id: Option<PersistenceIndexId>,
+    ) -> Self {
         Self {
             name,
             config: IndexConfig::Database {
                 spec: DatabaseIndexSpec { fields },
                 on_disk_state: DatabaseIndexState::Enabled,
+                persistence_index_id,
             },
         }
     }

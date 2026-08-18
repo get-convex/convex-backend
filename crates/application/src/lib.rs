@@ -57,6 +57,7 @@ use common::{
         index::{
             database_index::IndexedFields,
             index_validation_error,
+            IndexConfig,
             IndexMetadata,
         },
         schema::{
@@ -2953,29 +2954,31 @@ impl<RT: Runtime> Application<RT> {
         let namespace = TableNamespace::by_component_TODO();
         for (index_name, index_fields) in indexes.into_iter() {
             let index_fields = self._validate_user_defined_index_fields(index_fields)?;
-            let index_metadata =
-                IndexMetadata::new_backfilling(*tx.begin_timestamp(), index_name, index_fields);
-            let mut model = IndexModel::new(&mut tx);
-            if let Some(existing_index_metadata) = model
-                .pending_index_metadata(namespace, &index_metadata.name)?
-                .or(model.enabled_index_metadata(namespace, &index_metadata.name)?)
-            {
-                if !index_metadata
-                    .config
-                    .same_spec(&existing_index_metadata.config)
+            let existing_index_metadata = {
+                let mut model = IndexModel::new(&mut tx);
+                model
+                    .pending_index_metadata(namespace, &index_name)?
+                    .or(model.enabled_index_metadata(namespace, &index_name)?)
+            };
+            if let Some(existing_index_metadata) = existing_index_metadata {
+                if let IndexConfig::Database { spec, .. } = &existing_index_metadata.config
+                    && spec.fields == index_fields
                 {
-                    IndexModel::new(&mut tx)
-                        .drop_index(existing_index_metadata.id())
-                        .await?;
-                    IndexModel::new(&mut tx)
-                        .add_system_index(namespace, index_metadata)
-                        .await?;
+                    continue;
                 }
-            } else {
                 IndexModel::new(&mut tx)
-                    .add_system_index(namespace, index_metadata)
+                    .drop_index(existing_index_metadata.id())
                     .await?;
             }
+            let index_metadata = IndexMetadata::new_backfilling(
+                *tx.begin_timestamp(),
+                index_name,
+                index_fields,
+                tx.allocate_persistence_index_id().await,
+            );
+            IndexModel::new(&mut tx)
+                .add_system_index(namespace, index_metadata)
+                .await?;
         }
         self.commit(tx, "add_system_indexes").await?;
         Ok(())

@@ -176,6 +176,7 @@ impl IndexRegistry {
                     if let IndexConfig::Database {
                         spec: DatabaseIndexSpec { fields },
                         on_disk_state: _,
+                        persistence_index_id: _,
                     } = &index.metadata.config
                     {
                         yield (index, document.index_key_bytes(&fields[..]));

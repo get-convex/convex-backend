@@ -1624,6 +1624,7 @@ impl LeaderRetentionWorkers {
         let IndexConfig::Database {
             spec,
             on_disk_state,
+            persistence_index_id: _,
         } = index.config
         else {
             return Ok(());

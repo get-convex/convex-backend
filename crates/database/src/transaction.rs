@@ -58,6 +58,7 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
+        PersistenceIndexId,
         RepeatableTimestamp,
         StableIndexName,
         TableName,
@@ -261,6 +262,17 @@ impl<RT: Runtime> Transaction<RT> {
 
     pub fn virtual_system_mapping(&self) -> &VirtualSystemMapping {
         &self.virtual_system_mapping
+    }
+
+    pub async fn allocate_persistence_index_ids(
+        &self,
+        _count: usize,
+    ) -> Option<Vec<PersistenceIndexId>> {
+        None
+    }
+
+    pub async fn allocate_persistence_index_id(&self) -> Option<PersistenceIndexId> {
+        None
     }
 
     /// Checks both virtual tables and tables to get the table number to name
@@ -924,6 +936,7 @@ impl<RT: Runtime> Transaction<RT> {
             let by_id_index = IndexMetadata::new_enabled(
                 GenericIndexName::by_id(tablet_id),
                 IndexedFields::by_id(),
+                self.allocate_persistence_index_id().await,
             );
             SystemMetadataModel::new_global(self)
                 .insert(&INDEX_TABLE, by_id_index.try_into()?)
@@ -931,6 +944,7 @@ impl<RT: Runtime> Transaction<RT> {
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_creation_time(tablet_id),
                 IndexedFields::creation_time(),
+                self.allocate_persistence_index_id().await,
             );
             SystemMetadataModel::new_global(self)
                 .insert(&INDEX_TABLE, metadata.try_into()?)

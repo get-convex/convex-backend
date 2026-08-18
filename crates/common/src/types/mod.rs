@@ -98,6 +98,7 @@ pub use index::{
     IndexId,
     IndexName,
     IndexTableIdentifier,
+    PersistenceIndexId,
     StableIndexName,
     TabletIndexName,
     INDEX_BY_CREATION_TIME_DESCRIPTOR,

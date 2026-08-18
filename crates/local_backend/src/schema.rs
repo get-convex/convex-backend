@@ -101,6 +101,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
             IndexConfig::Database {
                 spec: DatabaseIndexSpec { fields },
                 on_disk_state,
+                persistence_index_id: _,
             } => {
                 let backfill_state = match on_disk_state {
                     DatabaseIndexState::Backfilling(_) => "in_progress".to_string(),
