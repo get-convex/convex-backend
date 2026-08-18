@@ -16,7 +16,7 @@ import {
   scheduleLiteral,
 } from "@common/features/schedules/lib/cronHelpers";
 import { stringifyValue } from "@common/lib/stringifyValue";
-import { prettier } from "@common/lib/format";
+import { formatExpression } from "@common/lib/format";
 import { Tooltip } from "@ui/Tooltip";
 import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { displayName } from "@common/lib/functions/generateFileTree";
@@ -173,6 +173,14 @@ function Args({ value }: CellProps<CronDatum, JSONValue[]>) {
     return <div className="h-6 w-24" />;
   }
 
+  const args = value.map((arg) => jsonToConvex(arg));
+  // Cron jobs almost always take a single argument object; show it unwrapped.
+  const code = formatExpression(
+    args.length === 1
+      ? stringifyValue(args[0])
+      : `[${args.map((arg) => stringifyValue(arg)).join(",")}]`,
+  );
+
   return (
     <>
       <Button
@@ -190,14 +198,7 @@ function Args({ value }: CellProps<CronDatum, JSONValue[]>) {
           header="Cron job arguments"
           content={
             <div className="h-full rounded-sm p-4">
-              <ReadonlyCode
-                path="scheduling"
-                code={`${prettier(`
-                [${value
-                  .map((arg) => stringifyValue(jsonToConvex(arg)))
-                  .join(",")}]`).slice(0, -1)}
-                `}
-              />
+              <ReadonlyCode path="scheduling" code={code} />
             </div>
           }
         />

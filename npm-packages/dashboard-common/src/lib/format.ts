@@ -43,6 +43,16 @@ export const prettier = (stmt: string, printWidth: number = 60) => {
   }
 };
 
+// Pretty-prints a JS expression. It’s wrapped in parentheses so that prettier
+// parses object literals as expressions instead of blocks; prettier keeps the
+// parentheses for some expression types, so they’re stripped afterwards.
+export function formatExpression(expression: string, printWidth?: number) {
+  const formatted = prettier(`(${expression})`, printWidth).replace(/;$/, "");
+  return formatted.startsWith("(") && formatted.endsWith(")")
+    ? formatted.slice(1, -1)
+    : formatted;
+}
+
 export function displaySchemaFromShape({
   shape,
   filterSystemFields = false,
