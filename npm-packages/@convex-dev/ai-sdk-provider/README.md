@@ -26,4 +26,4 @@ export const chat = action({
 in an action and reuses it for later calls, so `convexGateway(...)` is fine to
 call more than once. The provider takes no API key.
 
-Requires Convex 1.43 or later, AI SDK 7, and Node.js 22 or later.
+Requires Convex 1.44 or later, AI SDK 7, and Node.js 22 or later.

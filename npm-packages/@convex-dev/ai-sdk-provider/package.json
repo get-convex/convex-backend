@@ -40,7 +40,7 @@
   },
   "peerDependencies": {
     "ai": "^7.0.0",
-    "convex": "^1.43.0"
+    "convex": "^1.44.0"
   },
   "engines": {
     "node": ">=22"

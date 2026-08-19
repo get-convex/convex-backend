@@ -21,7 +21,7 @@ export function convexGateway(modelId: string): ChatModel {
     fetch: async (input, init) => {
       if (typeof getServiceToken !== "function") {
         throw new Error(
-          "@convex-dev/ai-sdk-provider requires convex >= 1.43 with getServiceToken support",
+          "@convex-dev/ai-sdk-provider requires convex >= 1.44 with getServiceToken support",
         );
       }
       const token = await getServiceToken("ai-gateway");
