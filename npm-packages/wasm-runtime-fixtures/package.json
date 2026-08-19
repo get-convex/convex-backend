@@ -1,0 +1,18 @@
+{
+  "name": "wasm-runtime-fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/bundle-fixtures.mjs",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "convex": "workspace:*",
+    "convex-test": "^0.0.41",
+    "esbuild": "0.27.0",
+    "lodash-es": "~4.18.0",
+    "markdown-it": "^14.1.0",
+    "zod": "^3.24.0"
+  }
+}

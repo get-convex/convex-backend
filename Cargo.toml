@@ -116,6 +116,7 @@ interval_map = { path = "crates/interval_map" }
 isolate = { path = "crates/isolate" }
 itertools = "0.14"
 jemalloc_pprof = "0.9"
+js_build = { path = "crates/js_build" }
 json_trait = { path = "crates/json_trait" }
 jsonschema = "0.33"
 keybroker = { path = "crates/keybroker" }
@@ -226,6 +227,7 @@ thiserror = "2"
 thousands = "0.2.0"
 tikv-jemalloc-sys = { version = "0.7", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
 tikv-jemallocator = { version = "0.7", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
+tiny_http = "0.12"
 tld = "2.36.0"
 tokio = { version = "1.53.1", features = [ "full" ] }
 tokio-metrics = { version = "0.4.0" }
@@ -264,6 +266,9 @@ value = { path = "crates/value" }
 vector = { path = "crates/vector" }
 vergen = { version = "8.1.0" }
 walkdir = "2"
+wasmtime = "34"
+wasmtime-wasi = "34"
+wizer = "10"
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
 
 [profile.release]

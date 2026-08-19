@@ -8,15 +8,18 @@ use std::{
         self,
         File,
     },
-    io::{
-        self,
-        Write,
-    },
+    io::Write,
     path::Path,
     process::Command,
 };
 
 use anyhow::Context;
+use js_build::{
+    js_prebuilt,
+    pnpm_install,
+    rerun_if_changed,
+    turbo_build,
+};
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sha2::{
@@ -69,31 +72,6 @@ const COMPONENTS: &[&str] = &[
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
 
-/// The pinned JS tools in scripts/node_modules, as paths relative to
-/// PACKAGES_DIR.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum JsTool {
-    Pnpm,
-    Turbo,
-}
-
-impl JsTool {
-    #[cfg(not(target_os = "windows"))]
-    fn path(self) -> &'static str {
-        match self {
-            JsTool::Pnpm => "../scripts/node_modules/.bin/pnpm",
-            JsTool::Turbo => "../scripts/node_modules/.bin/turbo",
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    fn path(self) -> &'static str {
-        match self {
-            JsTool::Pnpm => "../../scripts/node_modules/.bin/pnpm.cmd",
-            JsTool::Turbo => "../../scripts/node_modules/.bin/turbo.cmd",
-        }
-    }
-}
 #[cfg(not(target_os = "windows"))]
 const NPM: &str = "npm";
 #[cfg(target_os = "windows")]
@@ -106,18 +84,6 @@ struct Bundle {
     path: String,
     source: String,
     source_map: Option<String>,
-}
-
-// Cargo silently drops paths that don't exist and then reruns the build script
-// on every invocation. This fallback isn't great, since it'll silently degrade
-// build times, so check that the path actually exists with this helper.
-fn rerun_if_changed(path: &str) -> anyhow::Result<()> {
-    anyhow::ensure!(
-        Path::new(path).exists(),
-        "Non-existent dependency path: {path}"
-    );
-    println!("cargo:rerun-if-changed={path}");
-    Ok(())
 }
 
 fn write_bundles(out_dir: &Path, out_name: &str, bundles: Vec<Bundle>) -> anyhow::Result<()> {
@@ -157,61 +123,6 @@ fn write_bundles(out_dir: &Path, out_name: &str, bundles: Vec<Bundle>) -> anyhow
     Ok(())
 }
 
-// Concurrent pnpm installs serialize on the store and modules-dir locks
-// (though pnpm has had bugs with concurrent installs in one worktree, e.g.
-// pnpm/pnpm#7335). turbo has no cross-process task lock, so concurrent runs
-// (e.g. `just turbo` racing this build script during a parallel CI job) could
-// execute a task twice and race writes to shared outputs/cache entries. flock
-// on a per-checkout lock file (shared with the `just turbo` recipe) serializes
-// them; hosts without flock(1) (macOS, Windows) run unlocked, where such races
-// are transient and a rerun fixes them.
-fn flock_available() -> bool {
-    Command::new("flock")
-        .arg("--version")
-        .output()
-        .is_ok_and(|out| out.status.success())
-}
-
-fn run_js_tool(tool: JsTool, args: &[&str]) -> anyhow::Result<()> {
-    // turbo shells out to `pnpm` by name, so the pinned copy in
-    // scripts/node_modules must be on PATH.
-    let bin_dir = fs::canonicalize(Path::new(PACKAGES_DIR).join("../scripts/node_modules/.bin"))?;
-    let mut paths = vec![bin_dir];
-    if let Some(path) = env::var_os("PATH") {
-        paths.extend(env::split_paths(&path));
-    }
-    let mut command = if tool == JsTool::Turbo && flock_available() {
-        fs::create_dir_all(Path::new(PACKAGES_DIR).join(".turbo"))?;
-        let mut c = Command::new("flock");
-        c.arg(".turbo/turbo.lock").arg(tool.path());
-        c
-    } else {
-        Command::new(tool.path())
-    };
-    let output = command
-        .current_dir(Path::new(PACKAGES_DIR))
-        .env("PATH", env::join_paths(paths)?)
-        // Keep turbo hermetic inside cargo builds: no first-run telemetry
-        // banner/phone-home in the output, and no user-exported TURBO_* (UI
-        // mode, remote-cache tokens) changing behavior.
-        .env("TURBO_TELEMETRY_DISABLED", "1")
-        .env_remove("TURBO_UI")
-        .env_remove("TURBO_TOKEN")
-        .env_remove("TURBO_TEAM")
-        .args(args)
-        .output()
-        .with_context(|| format!("Failed to run {} {}", tool.path(), args.join(" ")))?;
-    io::stdout().write_all(&output.stdout).unwrap();
-    io::stderr().write_all(&output.stderr).unwrap();
-    anyhow::ensure!(
-        output.status.success(),
-        "Failed on {} {}",
-        tool.path(),
-        args.join(" ")
-    );
-    Ok(())
-}
-
 fn main() -> anyhow::Result<()> {
     // TODO: Have higher accuracy change tracking here.
     rerun_if_changed("../../npm-packages/convex/src/bundler")?;
@@ -240,7 +151,7 @@ fn main() -> anyhow::Result<()> {
         rerun_if_changed("../../npm-packages/tests/udf-tests/package.json")?;
         rerun_if_changed("../../npm-packages/tests/component-tests/package.json")?;
         for component in COMPONENTS {
-            rerun_if_changed(&format!(
+            rerun_if_changed(format!(
                 "../../npm-packages/tests/component-tests/{component}/"
             ))?;
         }
@@ -267,10 +178,10 @@ fn main() -> anyhow::Result<()> {
         rerun_if_changed("../../npm-packages/tests/component-tests/envVars/")?;
         rerun_if_changed("../../npm-packages/tests/component-tests/errors/")?;
         for project in COMPONENT_TESTS_PROJECTS {
-            rerun_if_changed(&format!(
+            rerun_if_changed(format!(
                 "../../npm-packages/tests/component-tests/projects/{project}/convex"
             ))?;
-            rerun_if_changed(&format!(
+            rerun_if_changed(format!(
                 "../../npm-packages/tests/component-tests/projects/{project}/package.json"
             ))?;
         }
@@ -287,32 +198,15 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/system-udfs/tsconfig.json")?;
 
     // Step 1: Ensure the `server`, `dashboard`, and `cli` deps are installed.
-    // CI jobs whose workflow already installed and built these packages before
-    // cargo runs set CONVEX_PREBUILT_JS to skip this re-verification pass.
-    // Only sound where the JS build strictly precedes cargo: with concurrent
-    // JS builds this run must stay (under the turbo flock) so it blocks until
-    // the dist outputs it bundles below are complete. Keep the package list in
-    // sync with the `Build JS required by Isolate` step in rust.yml.
-    println!("cargo:rerun-if-env-changed=CONVEX_PREBUILT_JS");
-    if env::var_os("CONVEX_PREBUILT_JS").is_none() {
-        run_js_tool(
-            JsTool::Pnpm,
-            &["install", "--frozen-lockfile", "--ignore-scripts"],
-        )?;
+    // Keep the package list in sync with the `Build JS required by Rust` step in
+    // rust.yml, which is what lets the cargo steps there set CONVEX_PREBUILT_JS.
+    if !js_prebuilt() {
+        pnpm_install()?;
         let mut pkgs = vec!["convex", "node-executor", "system-udfs", "udf-runtime"];
         if has_tests {
             pkgs.extend(["simulation", "udf-tests"]);
         }
-        let mut args = vec!["run".to_owned(), "build".to_owned()];
-        for pkg in pkgs {
-            // `--filter=pkg...` builds the package and its workspace dependencies,
-            // matching `rush build -t pkg`.
-            args.push(format!("--filter={pkg}..."));
-        }
-        run_js_tool(
-            JsTool::Turbo,
-            &args.iter().map(String::as_str).collect::<Vec<_>>(),
-        )?;
+        turbo_build(&pkgs)?;
     }
     // Step 2: Use `build-server` to package up our builtin `_system` UDFs.
     let output = Command::new(NPM)

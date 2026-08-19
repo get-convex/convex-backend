@@ -156,6 +156,7 @@ const config = [
       "npm-packages/udf-runtime/**",
       "npm-packages/tests/udf-tests/**",
       "npm-packages/version/**",
+      "npm-packages/wasm-runtime-fixtures/scripts/**",
       "npm-packages/demo_browser_tests/**",
       "npm-packages/components/ratelimiter/node10stubs.mjs",
 

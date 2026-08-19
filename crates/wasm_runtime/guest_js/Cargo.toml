@@ -1,0 +1,49 @@
+[package]
+name = "guest_js"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2024"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rquickjs = "0.11"
+serde_json = "1"
+
+[lints]
+workspace = true
+
+# The guest is a cdylib for wasm32-wasip1 whose `convex_host` imports have no
+# native symbols to link against, so a host-target build of it cannot link (and
+# would be useless if it did). Cargo can only pin a target per package on
+# nightly, so the guest stays out of the root workspace and declares its own
+# here.
+[workspace]
+
+# Mirrors the root workspace's lints, which this crate cannot inherit from:
+# `workspace = true` above resolves against the `[workspace]` here. Drift from
+# the root is caught by `check_standalone_lints` in `run_rust_lint.py`.
+[workspace.lints.rust]
+unused_extern_crates = "warn"
+unused_features = "allow"
+
+[workspace.lints.clippy]
+await_holding_lock = "warn"
+await_holding_refcell_ref = "warn"
+
+large_enum_variant = "allow"
+manual_is_multiple_of = "allow"
+manual_map = "allow"
+new_without_default = "allow"
+op_ref = "allow"
+ptr_arg = "allow"
+result_large_err = "allow"
+single_match = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+upper_case_acronyms = "allow"
+useless_vec = "allow"
+collapsible_match = "allow"
+chunks_exact_to_as_chunks = "allow"

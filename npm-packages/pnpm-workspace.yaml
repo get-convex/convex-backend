@@ -148,6 +148,7 @@ packages:
   - "udf-runtime"
   - "udf-syscall-ffi"
   - version
+  - "wasm-runtime-fixtures"
 
 autoInstallPeers: true
 publishBranch: release

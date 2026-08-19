@@ -1,0 +1,34 @@
+[package]
+name = "wasm_runtime"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2024"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+build = "build.rs"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+crossbeam-channel = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+wizer = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }
+js_build = { workspace = true }
+
+[dev-dependencies]
+sourcemap = { workspace = true }
+tempfile = { workspace = true }
+tiny_http = { workspace = true }
+
+[lints]
+workspace = true
