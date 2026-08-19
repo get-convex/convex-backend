@@ -62,6 +62,13 @@ pub enum V8ExternalString {
 }
 
 impl V8ExternalString {
+    pub fn to_source_string(&self) -> String {
+        match self {
+            Self::OneByte(s) => s.iter().map(|&b| char::from(b)).collect(),
+            Self::TwoByte(s) => String::from_utf16_lossy(s),
+        }
+    }
+
     fn new(s: &str) -> Self {
         if s.chars().all(|c| (c as u32) < 256) {
             // latin-1 (one-byte) case

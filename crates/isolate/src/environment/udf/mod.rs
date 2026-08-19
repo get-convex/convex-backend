@@ -574,12 +574,12 @@ impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
 
 #[derive(Clone)]
 pub struct DatabaseUdfArgs {
-    unix_timestamp: UnixTimestamp,
-    rng_seed: [u8; 32],
-    udf_args: SerializedArgs,
-    identity: InertIdentity,
-    udf_server_version: Option<semver::Version>,
-    reuse_context: bool,
+    pub unix_timestamp: UnixTimestamp,
+    pub rng_seed: [u8; 32],
+    pub udf_args: SerializedArgs,
+    pub identity: InertIdentity,
+    pub udf_server_version: Option<semver::Version>,
+    pub reuse_context: bool,
 }
 
 #[allow(async_fn_in_trait)]

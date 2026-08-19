@@ -9,6 +9,7 @@ use deno_core::{
     serde_v8,
     v8,
 };
+use derive_more::FromStr;
 use errors::ErrorMetadata;
 use serde::{
     Deserialize,
@@ -54,7 +55,7 @@ impl<T: Serialize> ToV8 for T {
     }
 }
 
-#[derive(Copy, Clone, Debug, IntoStaticStr)]
+#[derive(Copy, Clone, Debug, IntoStaticStr, FromStr)]
 #[allow(dead_code)]
 #[allow(clippy::enum_variant_names)]
 pub enum DOMExceptionName {
