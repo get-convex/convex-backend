@@ -35,13 +35,14 @@ use wasmtime::{
     Store,
     TypedFunc,
 };
-use wizer::Wizer;
 
-use crate::host::{
-    new_linker,
-    new_store,
-    HostState,
-    GUEST_BUNDLE_DIR,
+use crate::{
+    compile,
+    host::{
+        new_linker,
+        new_store,
+        HostState,
+    },
 };
 
 #[derive(Clone)]
@@ -169,42 +170,28 @@ pub fn bundle_fixture(fixture: &str, out_dir: &Path) -> Result<Duration, String>
     Ok(start.elapsed())
 }
 
-pub fn guest_wasm_path() -> PathBuf {
+fn bench_guest_target_dir() -> PathBuf {
     workspace_root()
         .join("target")
         .join("bench")
         .join("guest_js")
+}
+
+pub fn guest_wasm_path() -> PathBuf {
+    bench_guest_target_dir()
         .join("wasm32-wasip1")
         .join("release")
         .join("guest_js.wasm")
 }
 
 /// Build the guest, which carries no fixture code: every fixture in a run
-/// shares one build, so only the first one pays for it.
+/// shares one build, so only the first one pays for it. The benchmark times the
+/// steps [`compile`] performs for a deployment, so it calls the same ones.
 pub fn build_guest() -> Result<(PathBuf, Duration), String> {
-    let target_dir = workspace_root()
-        .join("target")
-        .join("bench")
-        .join("guest_js");
     let start = Instant::now();
-    let status = Command::new("cargo")
-        .arg("build")
-        .arg("--release")
-        .arg("--manifest-path")
-        .arg("guest_js/Cargo.toml")
-        .arg("--target")
-        .arg("wasm32-wasip1")
-        .arg("--target-dir")
-        .arg(&target_dir)
-        .current_dir(workspace_root())
-        .status()
-        .map_err(|error| format!("failed to compile guest_js: {error}"))?;
-
-    if !status.success() {
-        return Err("guest_js build failed".to_owned());
-    }
-
-    Ok((guest_wasm_path(), start.elapsed()))
+    let path = compile::build_guest(compile::Profile::Release, &bench_guest_target_dir())
+        .map_err(|error| format!("{error:#}"))?;
+    Ok((path, start.elapsed()))
 }
 
 /// Preinitialize the guest against the bundle in `bundle_dir`, which it reads
@@ -214,16 +201,9 @@ pub fn preinitialize_guest(
     wasm_path: &Path,
     bundle_dir: &Path,
 ) -> Result<(Vec<u8>, Duration), String> {
-    let input_wasm = fs::read(wasm_path)
-        .map_err(|error| format!("failed to read {}: {error}", wasm_path.display()))?;
     let start = Instant::now();
-    let output = Wizer::new()
-        .allow_wasi(true)
-        .map_err(|error| format!("failed to enable WASI for Wizer: {error}"))?
-        .map_dir(GUEST_BUNDLE_DIR, bundle_dir)
-        .init_func("wizer_initialize")
-        .run(&input_wasm)
-        .map_err(|error| format!("Wizer failed: {error}"))?;
+    let output = compile::preinitialize_guest(wasm_path, bundle_dir)
+        .map_err(|error| format!("{error:#}"))?;
     Ok((output, start.elapsed()))
 }
 

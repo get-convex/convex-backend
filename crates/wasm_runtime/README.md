@@ -20,8 +20,10 @@ The execution model:
 ## Layout
 
 - `src/host.rs` — the `convex_host` ABI: syscall dispatch, async op table,
-  Wasmtime linker/store setup
-- `src/fetch.rs` — buffered host `fetch`
+  Wasmtime linker setup, and the `HostAbi` trait both hosts implement
+- `src/compile.rs` — module sources → esbuild → guest build → Wizer, cached on
+  disk by the hash of the sources and the guest
+- `src/fetch.rs` — buffered host `fetch`, used by the fixtures only
 - `src/benchmark_support.rs`, `src/bin/benchmark.rs` — request-path benchmark
   harness (bundle → guest build → Wizer → request loop), where the guest build
   is shared across the fixtures in a run
@@ -34,6 +36,16 @@ The execution model:
   `guest-bundle.js`, its sourcemap, and a handler manifest, and `fixtures/`
   holds the small apps used by the tests and benchmarks. `build.rs` builds it
   through pnpm/turbo, so the bundles are ready before any test runs.
+  `scripts/bundle-modules.mjs` is the same pipeline for the UDF path, pointed at
+  a deployment's module tree instead of a fixture directory.
+
+The guest installs one of two sets of globals, chosen from the `kind` its
+bundle's `manifest.json` declares. A fixture bundle gets the toy host surface
+(`db`, `sleep`, `fetch`); a `udf` bundle gets
+`Convex.syscall`/`Convex.asyncSyscall` and nothing else, so a function reaching
+for `fetch` fails rather than quietly hitting a stub. Reading the kind from the
+bundle rather than baking it into the guest is what lets one guest build serve
+both.
 
 ## Setup
 
@@ -97,3 +109,20 @@ bundle text.
 Top-level JS cannot call host APIs during preinit; `fetch` is buffered only,
 with no streaming bodies and no cancellation; there are no resource controls,
 quotas, or fairness policies; and the host boundary has had no security review.
+
+For the UDF path specifically:
+
+- **No ops layer.** `Convex.op` throws. Only `random` and
+  `environmentVariables/get` are bridged, because the bundled `convex` package
+  reaches for `Math.random` and `process.env` before any user code runs.
+  Everything else — crypto, `fetch`, streams, `TextEncoder`, the real `setup.js`
+  — is missing, so `npm-packages/udf-runtime` is not loaded at all.
+- **Console formatting only matches for scalars.** V8 formats arguments with
+  `object-inspect`; the guest matches it for strings and primitives and falls
+  back to JSON for objects.
+- **`Date` and timers are QuickJS's own**, so they are not the deterministic
+  versions the V8 runtime installs.
+- **No nested `runQuery`/`runMutation`**, no actions, and no timeout or heap
+  enforcement inside the guest.
+- **Wizer freezes import-time state** into the artifact, where V8 evaluates
+  module top level per request.

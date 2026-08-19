@@ -54,6 +54,28 @@ const BUNDLE_PATH: &str = "/bundle/guest-bundle.js";
 /// remapping keys off.
 const BUNDLE_FILENAME: &str = "guest-bundle.js";
 
+/// The manifest the bundler writes beside the bundle. Its `kind` names which
+/// global surface the bundle expects, which is what lets one guest binary serve
+/// both fixtures and UDFs; a bundle whose manifest does not name one is a
+/// fixture bundle.
+const MANIFEST_PATH: &str = "/bundle/manifest.json";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BundleKind {
+    Fixture,
+    Udf,
+}
+
+fn bundle_kind() -> BundleKind {
+    let Ok(text) = std::fs::read_to_string(MANIFEST_PATH) else {
+        return BundleKind::Fixture;
+    };
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(manifest) if manifest["kind"] == "udf" => BundleKind::Udf,
+        _ => BundleKind::Fixture,
+    }
+}
+
 fn load_bundle() -> Result<String, GuestErrorDetail> {
     std::fs::read_to_string(BUNDLE_PATH).map_err(|error| GuestErrorDetail {
         message: format!(
@@ -112,264 +134,29 @@ fn initialize_runtime(state: &mut GuestRuntime) -> Result<(), GuestErrorDetail> 
             stack: None,
         })?;
 
-        ctx.eval::<(), _>(
-            r#"
-globalThis.__convex_host_calls_enabled = false;
-globalThis.__convex_pending_ops = new Map();
-globalThis.__convex_active_invocation = null;
+        ctx.eval::<(), _>(SHARED_PRELUDE)
+            .map_err(|error| describe_exception(&ctx, "host shim bootstrap", error))?;
 
-const requireHostCall = (name) => {
-  if (!globalThis.__convex_host_calls_enabled) {
-    throw new Error(name + " is unavailable during module initialization");
-  }
-};
-
-const formatConsoleArg = (value) => {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch (_error) {
-    return String(value);
-  }
-};
-
-const normalizeHeaders = (headers) => {
-  if (!headers) {
-    return [];
-  }
-
-  if (Array.isArray(headers)) {
-    return headers.map(([name, value]) => [String(name), String(value)]);
-  }
-
-  return Object.entries(headers).map(([name, value]) => [String(name), String(value)]);
-};
-
-const syscall = (name, args) => JSON.parse(__convex_syscall(name, JSON.stringify(args)));
-
-const startAsyncSyscall = (name, args) =>
-  __convex_start_async_syscall(name, JSON.stringify(args));
-
-const trackOp = (opId, resolve, reject) => {
-  globalThis.__convex_pending_ops.set(opId, { resolve, reject });
-};
-
-const makeResponse = (response) => ({
-  status: response.status,
-  ok: response.ok,
-  url: response.url,
-  headers: Object.fromEntries(response.headers ?? []),
-  text: async () => response.body_text ?? "",
-  json: async () => JSON.parse(response.body_text ?? "null"),
-});
-
-globalThis.__convex_runtime = {
-  db: {
-    get: (key) => {
-      requireHostCall("db.get");
-      return Promise.resolve().then(() => syscall("db/get", [String(key)]));
-    },
-    set: (key, value) => {
-      requireHostCall("db.set");
-      return Promise.resolve().then(() => {
-        syscall("db/set", [String(key), value]);
-        return value;
-      });
-    },
-    delete: (key) => {
-      requireHostCall("db.delete");
-      return Promise.resolve().then(() => syscall("db/delete", [String(key)]));
-    },
-  },
-  console: {
-    log: (...args) => {
-      requireHostCall("console.log");
-      syscall("console/message", [args.map(formatConsoleArg).join(" ")]);
-    },
-    warn: (...args) => {
-      requireHostCall("console.warn");
-      syscall("console/message", [args.map(formatConsoleArg).join(" ")]);
-    },
-    error: (...args) => {
-      requireHostCall("console.error");
-      syscall("console/message", [args.map(formatConsoleArg).join(" ")]);
-    },
-  },
-  crypto: {
-    randomUUID: () => {
-      requireHostCall("crypto.randomUUID");
-      return syscall("crypto/randomUuid", []);
-    },
-  },
-  now: () => {
-    requireHostCall("now");
-    return syscall("time/now", []);
-  },
-  sleep: (ms) => {
-    requireHostCall("sleep");
-    return new Promise((resolve, reject) => {
-      trackOp(startAsyncSyscall("sleep", [Number(ms) | 0]), resolve, reject);
-    });
-  },
-};
-
-globalThis.fetch = (input, init = {}) => {
-  requireHostCall("fetch");
-
-  const request = {
-    url: String(input),
-    method: String(init.method ?? "GET").toUpperCase(),
-    headers: normalizeHeaders(init.headers),
-    body: init.body == null ? null : String(init.body),
-  };
-
-  return new Promise((resolve, reject) => {
-    trackOp(
-      startAsyncSyscall("fetch", [request]),
-      (payload) => resolve(makeResponse(payload)),
-      reject,
-    );
-  });
-};
-"#,
-        )
-        .map_err(|error| describe_exception(&ctx, "host shim bootstrap", error))?;
+        let kind = bundle_kind();
+        let globals_source = match kind {
+            BundleKind::Udf => UDF_GLOBALS,
+            BundleKind::Fixture => FIXTURE_GLOBALS,
+        };
+        ctx.eval::<(), _>(globals_source)
+            .map_err(|error| describe_exception(&ctx, "global installation", error))?;
 
         let mut bundle_options = EvalOptions::default();
         bundle_options.filename = Some(BUNDLE_FILENAME.to_owned());
         ctx.eval_with_options::<(), _>(load_bundle()?, bundle_options)
             .map_err(|error| describe_exception(&ctx, "bundle evaluation", error))?;
 
-        ctx.eval::<(), _>(
-            r#"
-if (typeof __convex_exports !== "undefined") {
-  globalThis.__convex_exports = __convex_exports;
-}
+        ctx.eval::<(), _>(INVOKE_RUNTIME)
+            .map_err(|error| describe_exception(&ctx, "runtime bootstrap", error))?;
 
-globalThis.__convex_poll_pending_ops = () => {
-  for (const opId of JSON.parse(__convex_completed_ops())) {
-    const entry = globalThis.__convex_pending_ops.get(opId);
-    if (entry === undefined) {
-      continue;
-    }
-
-    const result = JSON.parse(__convex_take_op_result(opId));
-    globalThis.__convex_pending_ops.delete(opId);
-
-    if (result.ok) {
-      entry.resolve(result.value);
-    } else {
-      entry.reject(new Error(result.message));
-    }
-  }
-
-  return globalThis.__convex_pending_ops.size;
-};
-
-globalThis.__convex_pending_op_count = () => globalThis.__convex_pending_ops.size;
-
-globalThis.__convex_start_invoke = (handlerName, argsJson) => {
-  const respond = (payload) => JSON.stringify(payload);
-  const handlers = globalThis.__convex_exports;
-  const handler = handlers?.[handlerName];
-
-  if (globalThis.__convex_active_invocation !== null) {
-    throw new Error("invoke already in flight for this instance");
-  }
-
-  if (typeof handler !== "function") {
-    globalThis.__convex_active_invocation = {
-      settled: true,
-      result: respond({
-        ok: false,
-        error: {
-          kind: "MissingHandler",
-          message: `handler ${JSON.stringify(handlerName)} was not found`,
-        },
-      }),
-    };
-    return;
-  }
-
-  let args;
-  try {
-    args = JSON.parse(argsJson);
-  } catch (error) {
-    globalThis.__convex_active_invocation = {
-      settled: true,
-      result: respond({
-        ok: false,
-        error: {
-          kind: "InvalidArgs",
-          message: error instanceof Error ? error.message : String(error),
-        },
-      }),
-    };
-    return;
-  }
-
-  if (!Array.isArray(args)) {
-    globalThis.__convex_active_invocation = {
-      settled: true,
-      result: respond({
-        ok: false,
-        error: {
-          kind: "InvalidArgs",
-          message: "invoke args must decode to a JSON array",
-        },
-      }),
-    };
-    return;
-  }
-
-  const invocation = {
-    settled: false,
-    result: null,
-  };
-
-  globalThis.__convex_active_invocation = invocation;
-  globalThis.__convex_host_calls_enabled = true;
-
-  Promise.resolve()
-    .then(() => handler(...args))
-    .then(
-      (value) => {
-        invocation.settled = true;
-        invocation.result = respond({ ok: true, value });
-      },
-      (error) => {
-        invocation.settled = true;
-        invocation.result = respond({
-          ok: false,
-          error: {
-            kind: "HandlerError",
-            message: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack ?? null : null,
-          },
-        });
-      },
-    )
-    .finally(() => {
-      globalThis.__convex_host_calls_enabled = false;
-    });
-};
-
-globalThis.__convex_take_invoke_result = () => {
-  const invocation = globalThis.__convex_active_invocation;
-  if (!invocation || !invocation.settled) {
-    return null;
-  }
-
-  const result = invocation.result;
-  globalThis.__convex_active_invocation = null;
-  return result;
-};
-"#,
-        )
-        .map_err(|error| describe_exception(&ctx, "runtime bootstrap", error))?;
+        if kind == BundleKind::Udf {
+            ctx.eval::<(), _>(UDF_INVOKE_RUNTIME)
+                .map_err(|error| describe_exception(&ctx, "udf runtime bootstrap", error))?;
+        }
 
         let globals = ctx.globals();
         let _: Object<'_> = globals
@@ -399,6 +186,36 @@ globalThis.__convex_take_invoke_result = () => {
         },
     }
 }
+
+/// State both bundle kinds need: the op table the host resolves against, and
+/// the flag that keeps module-initialization code (which Wizer runs at build
+/// time, with no host attached) from reaching the host.
+const SHARED_PRELUDE: &str = include_str!("js/shared_prelude.js");
+
+/// The Convex syscall surface, as `npm-packages/udf-syscall-ffi` expects to
+/// find it. Sync and async syscalls both carry `{ok, value}` envelopes where
+/// `value` is already-serialized JSON text, because that is what
+/// `performSyscall`/`performAsyncSyscall` hand back to their callers.
+///
+/// `op` and `jsSyscall` are the V8 ops layer, which has no wasm implementation
+/// yet; they throw rather than silently returning something wrong.
+const UDF_GLOBALS: &str = include_str!("js/udf_globals.js");
+
+const FIXTURE_GLOBALS: &str = include_str!("js/fixture_globals.js");
+
+/// The invocation machinery both kinds share: op-result delivery, the pending
+/// op count the host polls, and the fixture-style `handler(...args)` entry.
+const INVOKE_RUNTIME: &str = include_str!("js/invoke_runtime.js");
+
+/// UDF dispatch, mirroring `run_inner` in the isolate crate: find the export,
+/// check its `isQuery`/`isMutation` marker against the requested type, and call
+/// `invokeQuery`/`invokeMutation` with the serialized args. Those return a JSON
+/// string, so the settled `value` is text the host hands straight back.
+const UDF_INVOKE_RUNTIME: &str = include_str!("js/udf_invoke_runtime.js");
+
+/// Pulls the message and stack off the exception QuickJS just threw, which
+/// is only reachable from inside the context.
+const DESCRIBE_EXCEPTION: &str = include_str!("js/describe_exception.js");
 
 fn throw_host_error(ctx: &Ctx<'_>, message: String) -> rquickjs::Error {
     let error = ctx
@@ -536,21 +353,7 @@ fn describe_exception(ctx: &Ctx<'_>, stage: &str, error: rquickjs::Error) -> Gue
     if matches!(error, rquickjs::Error::Exception) {
         let globals = ctx.globals();
         if globals.set("__convex_last_error", ctx.catch()).is_ok()
-            && let Ok(serialized) = ctx.eval::<String, _>(
-                r#"
-(() => {
-  const error = globalThis.__convex_last_error;
-  try {
-    return JSON.stringify({
-      message: error && typeof error.message === "string" ? error.message : String(error),
-      stack: error && typeof error.stack === "string" ? error.stack : null,
-    });
-  } finally {
-    delete globalThis.__convex_last_error;
-  }
-})()
-"#,
-            )
+            && let Ok(serialized) = ctx.eval::<String, _>(DESCRIBE_EXCEPTION)
         {
             if let Ok(detail) = serde_json::from_str::<serde_json::Value>(&serialized) {
                 return GuestErrorDetail {
@@ -591,6 +394,30 @@ fn start_invoke_internal(
         start_invoke
             .call::<_, ()>((handler_name.to_owned(), args_json.to_owned()))
             .map_err(|error| describe_exception(&ctx, "handler invocation", error))
+    })
+}
+
+fn start_udf_invoke_internal(
+    state: &mut GuestRuntime,
+    function_name: &str,
+    udf_type: &str,
+    args_json: &str,
+) -> Result<(), GuestErrorDetail> {
+    initialize_runtime(state)?;
+
+    state.context.with(|ctx| {
+        let globals = ctx.globals();
+        let start_invoke: Function<'_> = globals
+            .get("__convex_start_udf_invoke")
+            .map_err(|error| describe_exception(&ctx, "udf invoke start lookup", error))?;
+
+        start_invoke
+            .call::<_, ()>((
+                function_name.to_owned(),
+                udf_type.to_owned(),
+                args_json.to_owned(),
+            ))
+            .map_err(|error| describe_exception(&ctx, "udf invocation", error))
     })
 }
 
@@ -810,6 +637,43 @@ pub extern "C" fn start_invoke(
     GUEST_RUNTIME.with(|runtime| {
         let mut state = runtime.borrow_mut();
         match start_invoke_internal(&mut state, &handler_name, &args_json) {
+            Ok(()) => 0,
+            Err(error) => write_output(error_payload_with_stack(
+                "InitError",
+                &error.message,
+                error.stack.as_deref(),
+            )),
+        }
+    })
+}
+
+/// Start a query or mutation. Unlike `start_invoke`, the export is looked up as
+/// a Convex function rather than a bare handler, so it also carries the UDF
+/// type the host expects it to be registered as.
+#[unsafe(no_mangle)]
+pub extern "C" fn udf_start_invoke(
+    function_ptr: *const u8,
+    function_len: usize,
+    udf_type_ptr: *const u8,
+    udf_type_len: usize,
+    args_ptr: *const u8,
+    args_len: usize,
+) -> u64 {
+    let inputs: Result<(String, String, String), String> = (|| {
+        Ok((
+            unpack_input(function_ptr, function_len)?,
+            unpack_input(udf_type_ptr, udf_type_len)?,
+            unpack_input(args_ptr, args_len)?,
+        ))
+    })();
+    let (function_name, udf_type, args_json) = match inputs {
+        Ok(inputs) => inputs,
+        Err(error) => return write_output(error_payload("InvalidInput", &error)),
+    };
+
+    GUEST_RUNTIME.with(|runtime| {
+        let mut state = runtime.borrow_mut();
+        match start_udf_invoke_internal(&mut state, &function_name, &udf_type, &args_json) {
             Ok(()) => 0,
             Err(error) => write_output(error_payload_with_stack(
                 "InitError",

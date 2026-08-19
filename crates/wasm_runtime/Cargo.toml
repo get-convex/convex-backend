@@ -11,10 +11,12 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
+const-hex = { workspace = true }
 crossbeam-channel = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 wasmtime = { workspace = true }

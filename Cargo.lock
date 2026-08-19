@@ -12567,11 +12567,13 @@ name = "wasm_runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "const-hex",
  "crossbeam-channel",
  "js_build",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.8",
  "sourcemap",
  "tempfile",
  "tiny_http",
