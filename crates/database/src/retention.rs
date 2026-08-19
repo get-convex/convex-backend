@@ -173,6 +173,18 @@ pub enum RetentionType {
     Index,
 }
 
+/// Which caller drove the shared index-retention delete path, recorded as a
+/// metric label so the catch-up deletes an index backfill runs can be told
+/// apart from the ongoing background retention worker.
+#[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub enum IndexRetentionSource {
+    /// The ongoing background `go_delete_indexes` worker.
+    Live,
+    /// Catch-up deletes run when an index backfill finishes.
+    Backfill,
+}
+
 #[derive(Clone)]
 pub struct SnapshotBounds {
     /// min_snapshot_ts is the earliest snapshot at which we are guaranteed
@@ -761,6 +773,7 @@ impl LeaderRetentionWorkers {
         cursor: RepeatableTimestamp,
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
+        source: IndexRetentionSource,
     ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
         if *min_snapshot_ts == Timestamp::MIN {
             return Ok((cursor, 0));
@@ -793,7 +806,7 @@ impl LeaderRetentionWorkers {
                 )
                 .into_iter()
                 .map(|delete_chunk| {
-                    Self::delete_chunk(delete_chunk, persistence.clone(), *new_cursor)
+                    Self::delete_chunk(delete_chunk, persistence.clone(), *new_cursor, source)
                 }),
             )
             .await?;
@@ -828,6 +841,7 @@ impl LeaderRetentionWorkers {
         persistence: Arc<dyn Persistence>,
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
+        source: IndexRetentionSource,
     ) -> anyhow::Result<()> {
         let mut last_logged = Instant::now();
         while cursor_ts.succ()? < *min_snapshot_ts {
@@ -837,6 +851,7 @@ impl LeaderRetentionWorkers {
                 cursor_ts,
                 all_indexes,
                 retention_validator.clone(),
+                source,
             )
             .await?;
             let now = Instant::now();
@@ -1084,8 +1099,9 @@ impl LeaderRetentionWorkers {
         delete_chunk: Vec<(Timestamp, IndexEntry)>,
         persistence: Arc<dyn Persistence>,
         mut new_cursor: Timestamp,
+        source: IndexRetentionSource,
     ) -> anyhow::Result<(Timestamp, usize)> {
-        let _timer = index_retention_delete_chunk_timer();
+        let _timer = index_retention_delete_chunk_timer(source);
         let index_entries_to_delete = delete_chunk.len();
         tracing::trace!("delete: got entries to delete {index_entries_to_delete:?}");
         for index_entry_to_delete in delete_chunk.iter() {
@@ -1115,7 +1131,7 @@ impl LeaderRetentionWorkers {
         }
 
         tracing::trace!("delete: deleted {deleted_rows:?} rows");
-        log_retention_index_entries_deleted(deleted_rows);
+        log_retention_index_entries_deleted(deleted_rows, source);
         Ok((new_cursor, deleted_rows))
     }
 
@@ -1225,6 +1241,7 @@ impl LeaderRetentionWorkers {
                     cursor,
                     &all_indexes,
                     retention_validator.clone(),
+                    IndexRetentionSource::Live,
                 )
                 .await?;
                 tracing::trace!(

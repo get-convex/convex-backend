@@ -3420,6 +3420,7 @@ dependencies = [
  "short_future",
  "slab",
  "storage",
+ "strum 0.28.0",
  "table_iteration",
  "tokio",
  "tokio-stream",

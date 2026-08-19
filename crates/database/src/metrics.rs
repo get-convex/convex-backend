@@ -34,6 +34,7 @@ use prometheus::{
 
 use crate::{
     transaction::FinalTransaction,
+    IndexRetentionSource,
     RetentionType,
     Transaction,
 };
@@ -550,10 +551,16 @@ pub fn retention_delete_documents_timer() -> Timer<VMHistogram> {
 
 register_convex_histogram!(
     INDEX_RETENTION_DELETE_CHUNK_SECONDS,
-    "Time for index retention to delete one chunk"
+    "Time for index retention to delete one chunk",
+    &["source"]
 );
-pub fn index_retention_delete_chunk_timer() -> Timer<VMHistogram> {
-    Timer::new(&INDEX_RETENTION_DELETE_CHUNK_SECONDS)
+pub fn index_retention_delete_chunk_timer(source: IndexRetentionSource) -> Timer<VMHistogramVec> {
+    let mut timer = Timer::new_with_labels(&INDEX_RETENTION_DELETE_CHUNK_SECONDS);
+    timer.add_label(StaticMetricLabel::new(
+        "source",
+        <&'static str>::from(source),
+    ));
+    timer
 }
 
 register_convex_histogram!(
@@ -698,10 +705,18 @@ pub fn log_retention_expired_index_entry(is_tombstone: bool, is_key_change_tombs
 register_convex_counter!(
     RETENTION_INDEX_ENTRIES_DELETED_TOTAL,
     "The total number of index entries persistence returns as having been actually deleted by \
-     retention."
+     retention.",
+    &["source"]
 );
-pub fn log_retention_index_entries_deleted(deleted_rows: usize) {
-    log_counter(&RETENTION_INDEX_ENTRIES_DELETED_TOTAL, deleted_rows as u64)
+pub fn log_retention_index_entries_deleted(deleted_rows: usize, source: IndexRetentionSource) {
+    log_counter_with_labels(
+        &RETENTION_INDEX_ENTRIES_DELETED_TOTAL,
+        deleted_rows as u64,
+        vec![StaticMetricLabel::new(
+            "source",
+            <&'static str>::from(source),
+        )],
+    )
 }
 
 register_convex_counter!(

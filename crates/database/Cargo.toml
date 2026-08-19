@@ -75,6 +75,7 @@ shape_inference = { workspace = true }
 short_future = { workspace = true }
 slab = { workspace = true }
 storage = { workspace = true }
+strum = { workspace = true }
 sync_types = { workspace = true }
 table_iteration = { workspace = true }
 tokio = { workspace = true }

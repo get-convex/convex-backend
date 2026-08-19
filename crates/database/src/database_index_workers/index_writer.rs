@@ -82,7 +82,10 @@ use value::{
 };
 
 use crate::{
-    retention::LeaderRetentionWorkers,
+    retention::{
+        IndexRetentionSource,
+        LeaderRetentionWorkers,
+    },
     TableIterator,
 };
 
@@ -633,6 +636,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             self.persistence.clone(),
             &all_indexes,
             self.retention_validator.clone(),
+            IndexRetentionSource::Backfill,
         )
         .await?;
         Ok(())
