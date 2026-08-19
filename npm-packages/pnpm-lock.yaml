@@ -18208,7 +18208,7 @@ packages:
       sass: ^1.30.0
 
   docusaurus-theme-openapi-docs@https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/33ca8ab0ecbe76adc157c6c7ade3e53e5c990428#path:/packages/docusaurus-theme-openapi-docs:
-    resolution: {gitHosted: true, integrity: sha512-gIJr1ZBM6y9/F1MxHx2Kg36MI7rWkuxip96cIwCOBqJFY6Kq+4xJcBcHSJWnlL2ywMNGUUaB9iTu1xWuetFDSA==, tarball: https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/33ca8ab0ecbe76adc157c6c7ade3e53e5c990428}
+    resolution: {gitHosted: true, integrity: sha512-gIJr1ZBM6y9/F1MxHx2Kg36MI7rWkuxip96cIwCOBqJFY6Kq+4xJcBcHSJWnlL2ywMNGUUaB9iTu1xWuetFDSA==, path: /packages/docusaurus-theme-openapi-docs, tarball: https://codeload.github.com/nipunn1313/docusaurus-openapi-docs/tar.gz/33ca8ab0ecbe76adc157c6c7ade3e53e5c990428}
     version: 5.1.2
     engines: {node: '>=14'}
     peerDependencies:
