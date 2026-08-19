@@ -378,7 +378,8 @@ impl<RT: Runtime> CronJobContext<RT> {
         })?;
         let mut value_str = match &value {
             PendingValue::Concrete(value) => value.to_string(),
-            pending => serde_json::to_string(&pending.to_uncommitted_json())?,
+            // TODO: implement Display for PendingValue
+            pending => serde_json::to_string(&pending.to_uncommitted_json_serializable())?,
         };
         if value_str.len() <= CRON_LOG_MAX_RESULT_LENGTH {
             Ok(CronJobResult::Default(value))

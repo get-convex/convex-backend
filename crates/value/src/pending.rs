@@ -9,10 +9,15 @@ use std::{
     collections::BTreeMap,
 };
 
-use serde_json::{
-    json,
-    Value as JsonValue,
+use serde::{
+    ser::{
+        SerializeMap,
+        SerializeSeq,
+    },
+    Serialize,
+    Serializer,
 };
+use serde_json::Value as JsonValue;
 
 use crate::{
     array::check_array_len,
@@ -222,19 +227,44 @@ impl PendingValue {
     /// Encode to internal JSON, with `{"$commitTs": null}` at each unresolved
     /// commit timestamp. Inverse of [`PendingValue::from_uncommitted_json`].
     pub fn to_uncommitted_json(&self) -> JsonValue {
-        match self {
-            Self::Concrete(value) => value.to_internal_json(),
-            Self::CommitTs => json!({ COMMIT_TS_FIELD: null }),
-            Self::Object { fields, .. } => JsonValue::Object(
-                fields
-                    .iter()
-                    .map(|(name, value)| (name.to_string(), value.to_uncommitted_json()))
-                    .collect(),
-            ),
-            Self::Array { values, .. } => {
-                JsonValue::Array(values.iter().map(Self::to_uncommitted_json).collect())
-            },
+        serde_json::to_value(self.to_uncommitted_json_serializable())
+            .expect("Failed to serialize to JsonValue")
+    }
+
+    pub fn to_uncommitted_json_serializable(&self) -> impl Serialize + '_ {
+        struct UncommittedJson<'a>(&'a PendingValue);
+        impl<'a> Serialize for UncommittedJson<'a> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                match self.0 {
+                    PendingValue::Concrete(value) => {
+                        value.to_internal_json_serializable().serialize(serializer)
+                    },
+                    PendingValue::CommitTs => {
+                        let mut map = serializer.serialize_map(Some(1))?;
+                        map.serialize_entry(COMMIT_TS_FIELD, &())?;
+                        map.end()
+                    },
+                    PendingValue::Object { fields, .. } => {
+                        let mut map = serializer.serialize_map(Some(fields.len()))?;
+                        for (name, value) in fields {
+                            map.serialize_entry(name, &value.to_uncommitted_json_serializable())?;
+                        }
+                        map.end()
+                    },
+                    PendingValue::Array { values, .. } => {
+                        let mut array = serializer.serialize_seq(Some(values.len()))?;
+                        for value in values {
+                            array.serialize_element(&value.to_uncommitted_json_serializable())?;
+                        }
+                        array.end()
+                    },
+                }
+            }
         }
+        UncommittedJson(self)
     }
 
     /// Replace each unresolved commit timestamp with `Int64(commit_ts)`.

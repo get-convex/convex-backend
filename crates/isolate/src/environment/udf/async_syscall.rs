@@ -461,7 +461,9 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             AllowedVisibility::All,
             tx,
             PublicFunctionPath::ResolvedComponent(path.clone()),
-            SerializedArgs::from_args(vec![args.to_uncommitted_json()])?,
+            SerializedArgs::from_raw(serde_json::value::to_raw_value(&[
+                args.to_uncommitted_json_serializable()
+            ])?),
             execution_type,
             pending_args_policy,
         )

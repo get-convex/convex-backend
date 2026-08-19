@@ -46,7 +46,7 @@ impl PackedValueFormat for PendingValue {
     fn pack(value: Self) -> String {
         match value {
             PendingValue::Concrete(value) => ConvexValue::pack(value),
-            pending => serde_json::to_string(&pending.to_uncommitted_json())
+            pending => serde_json::to_string(&pending.to_uncommitted_json_serializable())
                 .expect("Failed to serialize to string"),
         }
     }
