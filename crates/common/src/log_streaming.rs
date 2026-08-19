@@ -64,7 +64,7 @@ pub enum FunctionRunReason {
     /// Invoked from an action via `ctx.runQuery`, `ctx.runMutation`, or
     /// `ctx.runAction`.
     Action,
-    /// Invoked by the dashboard function tester.
+    /// Invoked by the custom function tester (e.g. in the dashboard).
     Tester,
 }
 
