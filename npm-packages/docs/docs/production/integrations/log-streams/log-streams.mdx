@@ -269,6 +269,26 @@ Schema:
   - `job_id`: the job within the
     [`_scheduled_functions`](/scheduling/scheduled-functions#retrieving-scheduled-function-status)
     table
+- `run_reason`: string, why this function ran. One of:
+  - `"initialSubscription"`: the first run of a query a client subscribed to
+    over the WebSocket sync protocol.
+  - `"dataChange"`: a rerun of a query whose subscription was invalidated by a
+    write.
+  - `"identityChange"`: a rerun of a query caused by the client's auth identity
+    changing.
+  - `"webSocket"`: a mutation or action called by a client over the WebSocket
+    sync protocol.
+  - `"httpApi"`: called over the HTTP API, e.g. by `ConvexHttpClient`.
+  - `"httpEndpoint"`: an [HTTP action](/functions/http-actions.mdx) serving an
+    incoming request to a route in `http.ts`.
+  - `"cron"`: called by a [cron job](/scheduling/cron-jobs.mdx).
+  - `"scheduler"`: called by the
+    [scheduler](/scheduling/scheduled-functions.mdx).
+  - `"action"`: called from another function via `ctx.runQuery`,
+    `ctx.runMutation`, or `ctx.runAction`.
+  - `"tester"`: a one-off query run via the dashboard's
+    [custom query](/dashboard/deployments/data.mdx#writing-custom-queries)
+    tester or `npx convex run --inline-query`.
 - `usage`:
   - `database_io_read_bytes`: number
   - `database_io_write_bytes`: number, this and `database_io_read_bytes` make up
@@ -316,6 +336,7 @@ Example event for a query:
       "type": "query"
     },
     "status": "success",
+    "run_reason": "initialSubscription",
     "timestamp": 1715973841548,
     "topic": "function_execution",
     "usage": {
