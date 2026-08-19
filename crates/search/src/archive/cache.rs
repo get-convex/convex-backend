@@ -349,7 +349,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         max_concurrent_fetches: usize,
         rt: RT,
     ) -> anyhow::Result<Self> {
-        let cleaner = CacheCleaner::new(rt.clone());
+        let cleaner = CacheCleaner::new(rt.clone(), max_size);
         let cache = AsyncLru::new(rt.clone(), max_size, max_concurrent_fetches, 200, "cache");
         let this = Self {
             path: local_storage_path.as_ref().to_owned(),
@@ -521,10 +521,11 @@ struct CacheCleaner {
 }
 
 impl CacheCleaner {
-    fn new<RT: Runtime>(rt: RT) -> Self {
+    fn new<RT: Runtime>(rt: RT, max_size: u64) -> Self {
         let (cleanup_tx, cleanup_rx) = mpsc::unbounded_channel();
-        let cleanup_handle =
-            Arc::new(rt.spawn_thread("search_cache_cleaner", || cleanup_thread(cleanup_rx)));
+        let cleanup_handle = Arc::new(rt.spawn_thread("search_cache_cleaner", move || {
+            cleanup_thread(cleanup_rx, max_size)
+        }));
         Self {
             cleanup_tx,
             _cleanup_handle: cleanup_handle,
@@ -547,18 +548,32 @@ impl CacheCleaner {
 /// recursive deletion doesn't need to be in the critical path and may block the
 /// for a meaningful amount of time as opposed to our other filesystem ops which
 /// should be quite fast.
-async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<(PathBuf, SearchFileType, u64)>) {
+async fn cleanup_thread(
+    mut rx: mpsc::UnboundedReceiver<(PathBuf, SearchFileType, u64)>,
+    max_size: u64,
+) {
     while let Some((path, search_file_type, size)) = rx.recv().await {
         // Yes, we'll panic and restart here. If we actually see panics in
         // production here, we should investigate further but for now, it's simpler
         // to disallow inconsistent filesystem state.
-        tracing::debug!("Removing path {} from disk", path.display());
         let result: io::Result<()> = try {
             clear_readonly_recursive(&path).await?;
             fs::remove_dir_all(&path).await?;
         };
         match result {
             Ok(()) => {
+                // One line per directory actually removed. This is the point
+                // where an extracted index disappears from disk, which readers
+                // still holding it cannot observe, so it is worth having in the
+                // log on deployments that scrape no metrics -- and it is bounded
+                // by the eviction rate rather than by the fetch rate, unlike the
+                // cache accounting logged at debug in `get_logged`.
+                tracing::info!(
+                    "Deleted cached search archive {} ({search_file_type:?}, {}, cache limit {})",
+                    path.display(),
+                    ByteSize(size),
+                    ByteSize(max_size),
+                );
                 metrics::subtract_bytes_by_file_type(search_file_type, size);
             },
             // Can happen if the path to clean up was never created
@@ -573,17 +588,36 @@ mod tests {
     use std::{
         io,
         path::Path,
+        sync::Arc,
         time::Duration,
     };
 
-    use common::types::SearchIndexMetricLabels;
+    use async_zip_0_0_9::{
+        write::ZipFileWriter,
+        Compression,
+        ZipEntryBuilder,
+    };
+    use bytes::Bytes;
+    use common::{
+        bounded_thread_pool::BoundedThreadPool,
+        types::{
+            ObjectKey,
+            SearchIndexMetricLabels,
+        },
+    };
     use runtime::prod::ProdRuntime;
+    use storage::{
+        LocalDirStorage,
+        Storage,
+        Upload,
+    };
     use tempfile::TempDir;
     use tokio::fs;
 
     use super::{
         clear_readonly_recursive,
         set_readonly,
+        ArchiveCacheManager,
         CacheCleaner,
         IndexTempDir,
         IndexTempDirWithSize,
@@ -650,7 +684,7 @@ mod tests {
         let cleaner_rt = rt.clone();
         rt.block_on("test_index_temp_dir", async move {
             let tmpdir = TempDir::new()?;
-            let cleaner = CacheCleaner::new(cleaner_rt);
+            let cleaner = CacheCleaner::new(cleaner_rt, bytesize::mib(1u64));
 
             // The failure path: `generate_value` builds an `IndexTempDir`
             // before the fetch starts, and when the fetch fails or times out
@@ -677,7 +711,7 @@ mod tests {
             let with_size = IndexTempDirWithSize::new(
                 IndexTempDir {
                     dir: fetched.clone(),
-                    cleaner,
+                    cleaner: cleaner.clone(),
                     search_file_type: SearchFileType::Text,
                     cleanup_on_drop: true,
                 },
@@ -693,6 +727,104 @@ mod tests {
             assert!(
                 wait_for_removal(&fetched).await,
                 "an evicted cache entry left its extracted directory behind"
+            );
+            // `ArchiveCacheManager` owns a `CacheCleaner` for its whole life;
+            // hold one here too, because dropping the last handle tears the
+            // cleaner thread down and can discard queued deletions.
+            drop(cleaner);
+            anyhow::Ok(())
+        })
+    }
+
+    /// Uploads a zip holding one stored (uncompressed) file of `size` bytes, so
+    /// that the size the cache accounts for matches the size on disk.
+    async fn upload_zip(
+        storage: &dyn Storage,
+        name: &str,
+        size: usize,
+    ) -> anyhow::Result<ObjectKey> {
+        let mut buffer = Vec::new();
+        let mut writer = ZipFileWriter::new(&mut buffer);
+        let entry = ZipEntryBuilder::new(name.to_owned(), Compression::Stored).build();
+        writer.write_entry_whole(entry, &vec![b'x'; size]).await?;
+        writer.close().await?;
+
+        let mut upload = storage.start_upload().await?;
+        upload.write(Bytes::from(buffer)).await?;
+        upload.complete().await
+    }
+
+    async fn count_entries(dir: &Path) -> anyhow::Result<usize> {
+        let mut read_dir = fs::read_dir(dir).await?;
+        let mut count = 0;
+        while read_dir.next_entry().await?.is_some() {
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    /// The loop this cache exists for: fetch more archives than fit, and the
+    /// entries that fall out have to leave the disk too. Without a working
+    /// cleanup path the extracted directories just accumulate until the volume
+    /// fills.
+    #[test]
+    fn evicted_entries_are_deleted_from_disk() -> anyhow::Result<()> {
+        const ARCHIVE_BYTES: usize = 256 * 1024;
+        const ARCHIVES: usize = 6;
+        // Room for two archives, so four of the six have to be evicted.
+        const CACHE_BYTES: u64 = 2 * ARCHIVE_BYTES as u64;
+        // The cache is trimmed after an entry is added, so it can transiently
+        // hold one extra.
+        const MAX_EXTRACTED_DIRS: usize = 3;
+
+        cmd_util::env::config_test();
+        let tokio = ProdRuntime::init_tokio()?;
+        let rt = ProdRuntime::new(&tokio);
+        let inner_rt = rt.clone();
+        rt.block_on("test_eviction", async move {
+            let storage_dir = TempDir::new()?;
+            let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new_at_path(
+                inner_rt.clone(),
+                storage_dir.path().to_owned(),
+            )?);
+            let mut keys = Vec::with_capacity(ARCHIVES);
+            for i in 0..ARCHIVES {
+                keys.push(upload_zip(&*storage, &format!("segment-{i}"), ARCHIVE_BYTES).await?);
+            }
+
+            let cache_dir = TempDir::new()?;
+            let manager = ArchiveCacheManager::new(
+                cache_dir.path(),
+                CACHE_BYTES,
+                BoundedThreadPool::new(inner_rt.clone(), 20, 4, "test_archive_cache"),
+                2,
+                inner_rt.clone(),
+            )?;
+            for key in &keys {
+                let path = manager
+                    .get(
+                        storage.clone(),
+                        key,
+                        SearchFileType::Text,
+                        SearchIndexMetricLabels::unknown(),
+                    )
+                    .await?;
+                assert!(path.exists(), "the archive we just fetched is not on disk");
+            }
+
+            // Eviction hands the directory to the cleaner thread, so the disk
+            // catches up shortly after the last fetch returns.
+            let mut extracted = usize::MAX;
+            for _ in 0..100 {
+                extracted = count_entries(cache_dir.path()).await?;
+                if extracted <= MAX_EXTRACTED_DIRS {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            assert!(
+                extracted <= MAX_EXTRACTED_DIRS,
+                "a cache sized for 2 archives left {extracted} extracted directories on disk"
             );
             anyhow::Ok(())
         })
