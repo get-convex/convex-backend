@@ -59,6 +59,23 @@ struct IndexTempDir {
     dir: PathBuf,
     cleaner: CacheCleaner,
     search_file_type: SearchFileType,
+    /// Cleared once an `IndexTempDirWithSize` has taken over responsibility for
+    /// deleting `dir`.
+    cleanup_on_drop: bool,
+}
+
+impl Drop for IndexTempDir {
+    fn drop(&mut self) {
+        if !self.cleanup_on_drop {
+            return;
+        }
+        // Only reached when the fetch failed or timed out before the size of
+        // the extracted directory was known. Nothing was ever added to the
+        // cache's accounting, so there are no bytes to subtract.
+        let _ = self
+            .cleaner
+            .attempt_cleanup(self.dir.clone(), self.search_file_type, 0);
+    }
 }
 
 struct IndexTempDirWithSize {
@@ -84,13 +101,16 @@ impl Drop for IndexTempDirWithSize {
 
 impl IndexTempDirWithSize {
     pub fn new(
-        index_temp_dir: IndexTempDir,
+        mut index_temp_dir: IndexTempDir,
         metric_labels: SearchIndexMetricLabels<'static>,
         size: u64,
     ) -> Self {
+        // We take over deletion of the directory, so the fetch-failed cleanup
+        // must not also fire when `index_temp_dir` drops below.
+        index_temp_dir.cleanup_on_drop = false;
         Self {
-            dir: index_temp_dir.dir,
-            cleaner: index_temp_dir.cleaner,
+            dir: index_temp_dir.dir.clone(),
+            cleaner: index_temp_dir.cleaner.clone(),
             search_file_type: index_temp_dir.search_file_type,
             metric_labels,
             size,
@@ -275,6 +295,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
             cleaner: self.cleaner.clone(),
             dir: destination.clone(),
             search_file_type,
+            cleanup_on_drop: true,
         };
         let new_self = self.clone();
         let new_key = key.clone();
@@ -461,6 +482,38 @@ async fn set_readonly(path: &PathBuf, readonly: bool) -> io::Result<()> {
     Ok(())
 }
 
+/// Clears the readonly bit on `path` and everything underneath it.
+///
+/// `set_readonly(_, true)` is applied to the directory the archive was
+/// extracted into, which for a `FragmentedVectorSegment` is `<uuid>/segment`,
+/// nested inside the entry's own directory. Clearing the bit on `<uuid>` alone
+/// leaves `remove_dir_all` unable to unlink the contents of the nested
+/// directory, unless the process happens to be running as root.
+async fn clear_readonly_recursive(path: &Path) -> io::Result<()> {
+    let mut stack = vec![path.to_owned()];
+    while let Some(current) = stack.pop() {
+        let metadata = match fs::symlink_metadata(&current).await {
+            Ok(metadata) => metadata,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(e),
+        };
+        // Never follow a link back out of the cache directory.
+        if metadata.is_symlink() {
+            continue;
+        }
+        if metadata.permissions().readonly() {
+            set_readonly(&current, false).await?;
+        }
+        if metadata.is_dir() {
+            let mut entries = fs::read_dir(&current).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                stack.push(entry.path());
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone)]
 struct CacheCleaner {
     cleanup_tx: mpsc::UnboundedSender<(PathBuf, SearchFileType, u64)>,
@@ -501,8 +554,8 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<(PathBuf, SearchFileType
         // to disallow inconsistent filesystem state.
         tracing::debug!("Removing path {} from disk", path.display());
         let result: io::Result<()> = try {
-            set_readonly(&path, false).await?;
-            fs::remove_dir_all(path).await?;
+            clear_readonly_recursive(&path).await?;
+            fs::remove_dir_all(&path).await?;
         };
         match result {
             Ok(()) => {
@@ -512,5 +565,136 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<(PathBuf, SearchFileType
             Err(e) if e.kind() == io::ErrorKind::NotFound => (),
             Err(e) => panic!("ArchiveCacheManager failed to clean up archive directory: {e:?}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        io,
+        path::Path,
+        time::Duration,
+    };
+
+    use common::types::SearchIndexMetricLabels;
+    use runtime::prod::ProdRuntime;
+    use tempfile::TempDir;
+    use tokio::fs;
+
+    use super::{
+        clear_readonly_recursive,
+        set_readonly,
+        CacheCleaner,
+        IndexTempDir,
+        IndexTempDirWithSize,
+    };
+    use crate::SearchFileType;
+
+    /// Reproduces the layout `extract_segment` leaves behind for a
+    /// `FragmentedVectorSegment`: the entry's directory contains a nested
+    /// `segment` directory, and it is the nested one that is marked readonly.
+    async fn write_readonly_segment_layout(entry: &Path) -> anyhow::Result<()> {
+        let segment = entry.join("segment");
+        fs::create_dir_all(&segment).await?;
+        fs::write(segment.join("payload"), b"contents").await?;
+        set_readonly(&segment, true).await?;
+        Ok(())
+    }
+
+    async fn wait_for_removal(path: &Path) -> bool {
+        for _ in 0..100 {
+            if !path.exists() {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        false
+    }
+
+    #[tokio::test]
+    async fn nested_readonly_directories_can_be_removed() -> anyhow::Result<()> {
+        let tmpdir = TempDir::new()?;
+        let entry = tmpdir.path().join("entry");
+        write_readonly_segment_layout(&entry).await?;
+
+        // What the cleanup thread used to do: clear the bit on the entry's own
+        // directory only. That is not enough to unlink the contents of the
+        // nested directory, and the resulting error takes the cleanup thread
+        // down with a panic.
+        set_readonly(&entry, false).await?;
+        match fs::remove_dir_all(&entry).await {
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {},
+            // Running as root, where the permission check is skipped and the
+            // old code happens to work -- which is the only reason this never
+            // fired in the container. There is nothing to regress against, so
+            // this reports a pass without having asserted anything; say so.
+            Ok(()) => {
+                eprintln!(
+                    "SKIPPED: running as root, where removing a readonly tree succeeds anyway"
+                );
+                return Ok(());
+            },
+            Err(e) => return Err(e.into()),
+        }
+
+        clear_readonly_recursive(&entry).await?;
+        fs::remove_dir_all(&entry).await?;
+        assert!(!entry.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn index_temp_dir_deletes_its_directory_exactly_once() -> anyhow::Result<()> {
+        let tokio = ProdRuntime::init_tokio()?;
+        let rt = ProdRuntime::new(&tokio);
+        let cleaner_rt = rt.clone();
+        rt.block_on("test_index_temp_dir", async move {
+            let tmpdir = TempDir::new()?;
+            let cleaner = CacheCleaner::new(cleaner_rt);
+
+            // The failure path: `generate_value` builds an `IndexTempDir`
+            // before the fetch starts, and when the fetch fails or times out
+            // that value is the only thing that knows the directory exists.
+            let failed = tmpdir.path().join("failed");
+            fs::create_dir(&failed).await?;
+            fs::write(failed.join("partial"), b"half an archive").await?;
+            drop(IndexTempDir {
+                dir: failed.clone(),
+                cleaner: cleaner.clone(),
+                search_file_type: SearchFileType::Text,
+                cleanup_on_drop: true,
+            });
+            assert!(
+                wait_for_removal(&failed).await,
+                "a failed fetch left its extracted directory behind"
+            );
+
+            // The success path: `IndexTempDirWithSize` takes over. The
+            // directory has to survive the transfer -- it is about to be handed
+            // to a reader -- and be deleted when the cache entry drops.
+            let fetched = tmpdir.path().join("fetched");
+            fs::create_dir(&fetched).await?;
+            let with_size = IndexTempDirWithSize::new(
+                IndexTempDir {
+                    dir: fetched.clone(),
+                    cleaner,
+                    search_file_type: SearchFileType::Text,
+                    cleanup_on_drop: true,
+                },
+                SearchIndexMetricLabels::unknown(),
+                0,
+            );
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            assert!(
+                fetched.exists(),
+                "the transfer to IndexTempDirWithSize deleted a live directory"
+            );
+            drop(with_size);
+            assert!(
+                wait_for_removal(&fetched).await,
+                "an evicted cache entry left its extracted directory behind"
+            );
+            anyhow::Ok(())
+        })
     }
 }
