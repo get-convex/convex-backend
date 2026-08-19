@@ -108,6 +108,26 @@ impl SyscallError {
 /// guest side of this is `BUNDLE_PATH` in `guest_js/src/lib.rs`.
 pub const GUEST_BUNDLE_DIR: &str = "/bundle";
 
+/// The store data behind the `convex_host` imports. Implementing this is what
+/// makes a host usable by [`new_linker`], so the fixture host here and the UDF
+/// host in [`crate::udf`] share one wire format and one set of guest exports.
+///
+/// Sync syscalls take and return raw JSON text: the fixture host parses it into
+/// an argument array, while the UDF host forwards it to the isolate crate's
+/// syscall implementations untouched.
+pub trait HostAbi: Send + 'static {
+    fn wasi(&mut self) -> &mut WasiP1Ctx;
+
+    fn syscall(&mut self, name: &str, args_json: &str) -> Result<String, SyscallError>;
+
+    fn start_async_syscall(&mut self, name: &str, args_json: &str) -> Result<i32, SyscallError>;
+
+    /// Ops that have settled since the guest last asked.
+    fn completed_ops(&mut self) -> Vec<i32>;
+
+    fn take_op_result(&mut self, op_id: i32) -> String;
+}
+
 type SyscallResult = Result<Value, SyscallError>;
 
 enum PendingOp {
@@ -186,7 +206,7 @@ impl HostState {
 
     /// The sync syscall table. Pure operations (console formatting, text
     /// encoding, structured clone) stay in the guest and never reach here.
-    fn syscall(&mut self, name: &str, args: &[Value]) -> SyscallResult {
+    fn dispatch_syscall(&mut self, name: &str, args: &[Value]) -> SyscallResult {
         *self.syscall_counts.entry(name.to_owned()).or_default() += 1;
 
         match name {
@@ -222,7 +242,7 @@ impl HostState {
     /// The async syscall table. Returns an op-id the guest parks a promise
     /// resolver against; the engine-agnostic stand-in for a
     /// `v8::Global<v8::PromiseResolver>`.
-    fn start_async_syscall(&mut self, name: &str, args: &[Value]) -> Result<i32, SyscallError> {
+    fn dispatch_async_syscall(&mut self, name: &str, args: &[Value]) -> Result<i32, SyscallError> {
         match name {
             "sleep" => {
                 let ms = args
@@ -274,7 +294,7 @@ impl HostState {
     /// Every op that has settled since the guest last asked. Returning a set
     /// rather than a single id is what lets W10 batch a `Promise.all` into one
     /// host round trip.
-    fn completed_ops(&mut self) -> Vec<i32> {
+    fn settled_ops(&mut self) -> Vec<i32> {
         self.refresh_completed_ops();
 
         let now = Instant::now();
@@ -294,7 +314,7 @@ impl HostState {
         completed
     }
 
-    fn take_op_result(&mut self, op_id: i32) -> String {
+    fn take_settled_op(&mut self, op_id: i32) -> String {
         self.refresh_completed_ops();
         match self.pending_ops.remove(&op_id) {
             Some(PendingOp::Ready(payload)) => format!(r#"{{"ok":true,"value":{payload}}}"#),
@@ -312,20 +332,45 @@ impl HostState {
     }
 }
 
+impl HostAbi for HostState {
+    fn wasi(&mut self) -> &mut WasiP1Ctx {
+        &mut self.wasi
+    }
+
+    fn syscall(&mut self, name: &str, args_json: &str) -> Result<String, SyscallError> {
+        let args = parse_args(args_json)?;
+        let value = self.dispatch_syscall(name, &args)?;
+        Ok(serde_json::to_string(&value).expect("syscall result should serialize"))
+    }
+
+    fn start_async_syscall(&mut self, name: &str, args_json: &str) -> Result<i32, SyscallError> {
+        let args = parse_args(args_json)?;
+        self.dispatch_async_syscall(name, &args)
+    }
+
+    fn completed_ops(&mut self) -> Vec<i32> {
+        self.settled_ops()
+    }
+
+    fn take_op_result(&mut self, op_id: i32) -> String {
+        self.take_settled_op(op_id)
+    }
+}
+
 fn string_arg(args: &[Value], index: usize) -> Result<&str, SyscallError> {
     args.get(index)
         .and_then(Value::as_str)
         .ok_or(SyscallError::InvalidArgs)
 }
 
-fn memory(caller: &mut Caller<'_, HostState>) -> Memory {
+fn memory<T>(caller: &mut Caller<'_, T>) -> Memory {
     caller
         .get_export("memory")
         .and_then(|export| export.into_memory())
         .expect("guest memory export should exist")
 }
 
-fn read_string(caller: &mut Caller<'_, HostState>, ptr: i32, len: i32) -> String {
+fn read_string<T>(caller: &mut Caller<'_, T>, ptr: i32, len: i32) -> String {
     if len == 0 {
         return String::new();
     }
@@ -345,7 +390,7 @@ fn read_string(caller: &mut Caller<'_, HostState>, ptr: i32, len: i32) -> String
 ///
 /// Calling a guest export from inside a host call re-enters the store, which is
 /// exactly what the component model's `cabi_realloc` does for returned lists.
-fn deliver(caller: &mut Caller<'_, HostState>, payload: Result<String, i64>) -> i64 {
+fn deliver<T>(caller: &mut Caller<'_, T>, payload: Result<String, i64>) -> i64 {
     let payload = match payload {
         Ok(payload) => payload,
         Err(code) => return code,
@@ -370,7 +415,7 @@ fn deliver(caller: &mut Caller<'_, HostState>, payload: Result<String, i64>) -> 
     pack_result(ptr, payload.len())
 }
 
-fn guest_alloc(caller: &mut Caller<'_, HostState>, len: usize) -> Option<i32> {
+fn guest_alloc<T>(caller: &mut Caller<'_, T>, len: usize) -> Option<i32> {
     let alloc = caller.get_export("alloc")?.into_func()?;
     let alloc = alloc.typed::<i32, i32>(&caller).ok()?;
     let ptr = alloc.call(&mut *caller, len as i32).ok()?;
@@ -384,16 +429,15 @@ fn parse_args(args_json: &str) -> Result<Vec<Value>, SyscallError> {
     }
 }
 
-pub fn new_linker(engine: &Engine) -> Linker<HostState> {
-    let mut linker: Linker<HostState> = Linker::new(engine);
-    preview1::add_to_linker_sync(&mut linker, |state| &mut state.wasi)
-        .expect("WASI imports should link");
+pub fn new_linker<T: HostAbi>(engine: &Engine) -> Linker<T> {
+    let mut linker: Linker<T> = Linker::new(engine);
+    preview1::add_to_linker_sync(&mut linker, T::wasi).expect("WASI imports should link");
 
     linker
         .func_wrap(
             "convex_host",
             "syscall",
-            |mut caller: Caller<'_, HostState>,
+            |mut caller: Caller<'_, T>,
              name_ptr: i32,
              name_len: i32,
              args_ptr: i32,
@@ -402,12 +446,10 @@ pub fn new_linker(engine: &Engine) -> Linker<HostState> {
                 let name = read_string(&mut caller, name_ptr, name_len);
                 let args_json = read_string(&mut caller, args_ptr, args_len);
 
-                let result = parse_args(&args_json)
-                    .and_then(|args| caller.data_mut().syscall(&name, &args))
-                    .map_err(|error| error.code())
-                    .map(|value| {
-                        serde_json::to_string(&value).expect("syscall result should serialize")
-                    });
+                let result = caller
+                    .data_mut()
+                    .syscall(&name, &args_json)
+                    .map_err(|error| error.code());
 
                 deliver(&mut caller, result)
             },
@@ -418,7 +460,7 @@ pub fn new_linker(engine: &Engine) -> Linker<HostState> {
         .func_wrap(
             "convex_host",
             "start_async_syscall",
-            |mut caller: Caller<'_, HostState>,
+            |mut caller: Caller<'_, T>,
              name_ptr: i32,
              name_len: i32,
              args_ptr: i32,
@@ -427,10 +469,7 @@ pub fn new_linker(engine: &Engine) -> Linker<HostState> {
                 let name = read_string(&mut caller, name_ptr, name_len);
                 let args_json = read_string(&mut caller, args_ptr, args_len);
 
-                let result = parse_args(&args_json)
-                    .and_then(|args| caller.data_mut().start_async_syscall(&name, &args));
-
-                match result {
+                match caller.data_mut().start_async_syscall(&name, &args_json) {
                     Ok(op_id) => op_id,
                     Err(error) => error.code() as i32,
                 }
@@ -442,7 +481,7 @@ pub fn new_linker(engine: &Engine) -> Linker<HostState> {
         .func_wrap(
             "convex_host",
             "completed_ops",
-            |mut caller: Caller<'_, HostState>| -> i64 {
+            |mut caller: Caller<'_, T>| -> i64 {
                 let completed = caller.data_mut().completed_ops();
                 let serialized =
                     serde_json::to_string(&completed).expect("op ids should serialize");
@@ -455,7 +494,7 @@ pub fn new_linker(engine: &Engine) -> Linker<HostState> {
         .func_wrap(
             "convex_host",
             "take_op_result",
-            |mut caller: Caller<'_, HostState>, op_id: i32| -> i64 {
+            |mut caller: Caller<'_, T>, op_id: i32| -> i64 {
                 let payload = caller.data_mut().take_op_result(op_id);
                 deliver(&mut caller, Ok(payload))
             },
