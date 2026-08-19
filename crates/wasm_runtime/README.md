@@ -21,6 +21,8 @@ The execution model:
 
 - `src/host.rs` — the `convex_host` ABI: syscall dispatch, async op table,
   Wasmtime linker setup, and the `HostAbi` trait both hosts implement
+- `src/udf.rs` — running a Convex query or mutation: the `ConvexSyscallHost`
+  trait and the loop that drives the guest's event loop against it
 - `src/compile.rs` — module sources → esbuild → guest build → Wizer, cached on
   disk by the hash of the sources and the guest
 - `src/fetch.rs` — buffered host `fetch`, used by the fixtures only

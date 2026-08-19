@@ -12570,6 +12570,7 @@ dependencies = [
  "const-hex",
  "crossbeam-channel",
  "js_build",
+ "parking_lot",
  "reqwest",
  "serde",
  "serde_json",
