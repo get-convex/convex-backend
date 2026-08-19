@@ -232,6 +232,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             match executor.run_once().await {
                 Ok(()) => backoff.reset(),
                 Err(mut e) => {
+                    metrics::log_scheduled_job_executor_error();
                     let delay = backoff.fail(&mut executor.context.rt.rng());
                     tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
                     report_error(&mut e).await;
@@ -288,6 +289,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
         let now = self.context.rt.system_time();
         let next_job_ready_time = self.next_job_ready_time.map(SystemTime::from);
+        metrics::log_running_jobs(self.running_job_ids.len());
+
         // Only log stats if:
         // - next_job_ready_time differs by >=30 seconds from the last logged value; or
         // - we're lagging and >=30 seconds have elapsed
@@ -359,13 +362,11 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
     fn log_scheduled_job_stats(&self, next_job_ready_time: Option<SystemTime>, now: SystemTime) {
         metrics::log_num_running_jobs(self.running_job_ids.len());
-        if let Some(next_job_ts) = next_job_ready_time {
-            metrics::log_scheduled_job_execution_lag(
-                now.duration_since(next_job_ts).unwrap_or(Duration::ZERO),
-            );
-        } else {
-            metrics::log_scheduled_job_execution_lag(Duration::ZERO);
-        }
+        let backlog = next_job_ready_time.map_or(Duration::ZERO, |next_job_ts| {
+            now.duration_since(next_job_ts).unwrap_or(Duration::ZERO)
+        });
+        metrics::log_scheduled_job_execution_lag(backlog);
+        metrics::log_scheduled_job_backlog(backlog);
         self.context.function_log.log_scheduled_job_stats(
             next_job_ready_time,
             now,
