@@ -6,7 +6,7 @@
   },
   "devDependencies": {
     "dprint": "0.52.0",
-    "pnpm": "10.34.5",
+    "pnpm": "11.15.1",
     "turbo": "2.10.5"
   },
   "overrides": {

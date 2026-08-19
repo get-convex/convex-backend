@@ -295,3 +295,23 @@ overrides:
   "ws@>=8.0.0 <8.21.0": ^8.21.0
   "yaml@>=1.0.0 <1.10.3": ^1.10.3
   "yaml@>=2.0.0 <2.8.3": ^2.8.3
+# Workspace scripts run after an explicit install. Avoid pnpm 11 racing installs
+# from concurrent Turbo tasks when it detects transient node_modules changes.
+verifyDepsBeforeRun: false
+# pnpm 10 denied dependency lifecycle scripts by default. Keep that policy
+# explicit under pnpm 11, which otherwise fails and scaffolds undecided entries.
+allowBuilds:
+  "@clerk/shared": false
+  "@parcel/watcher": false
+  "@sentry/cli": false
+  "@swc/core": false
+  browser-tabs-lock: false
+  bufferutil: false
+  core-js: false
+  core-js-pure: false
+  esbuild: false
+  msgpackr-extract: false
+  postman-code-generators: false
+  puppeteer: false
+  sharp: false
+  unrs-resolver: false

@@ -2,7 +2,7 @@
   "name": "convex-monorepo",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@10.34.5",
+  "packageManager": "pnpm@11.15.1",
   "engines": {
     "node": ">=22.0.0 <25.0.0"
   },
