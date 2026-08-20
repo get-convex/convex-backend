@@ -1671,7 +1671,7 @@ pub static MAX_USER_MODULES: LazyLock<usize> =
 ///
 /// Conductor will build a zip of this size in memory during code push.
 pub static MAX_ZIPPED_PACKAGES_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MAX_ZIPPED_PACKAGES_SIZE", 45_000_000));
+    LazyLock::new(|| env_config("MAX_ZIPPED_PACKAGES_SIZE", 90_000_000));
 
 /// Percentage of request traces that should sampled.
 ///
