@@ -755,7 +755,7 @@ export interface components {
              *     tables are synced from scratch, possibly moving the sync into
              *     `snapshotting` state if necessary, and emit a truncate on the first page
              *     they appear so the consumer starts them from a clean slate. Deselected
-             *     tables stop being exported, with a truncate emitted. */
+             *     tables stop being synced. */
             selection?: components["schemas"]["Selection"];
         };
         /** @description One page returned by the data sync API. */
@@ -769,8 +769,7 @@ export interface components {
              *     A table is truncated whenever it (re)enters the export from scratch —
              *     the first page it is synced (including on a cold start), when it is
              *     newly selected, or when it is replaced by a bulk operation such as
-             *     `npx convex import` — and when it leaves the export after being
-             *     deselected. */
+             *     `npx convex import`. */
             truncates: components["schemas"]["DataSyncTruncate"][];
             /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];
@@ -814,9 +813,10 @@ export interface components {
         /** @description The consistency state reported alongside a data sync page, discriminated
          *     by `type`. */
         DataSyncStatus: components["schemas"]["DataSyncSnapshotting"] | components["schemas"]["DataSyncStale"] | components["schemas"]["DataSyncUpToDate"];
-        /** @description A table whose contents were replaced wholesale (e.g. by `npx convex
-         *     import`). Reported separately from `values` since it carries none of the
-         *     per-document fields. */
+        /** @description An entry indicating that the table should be truncated. Emitted when a table
+         *     is newly syncing or replaced wholesale (e.g. by `npx convex import`).
+         *     Reported separately from `values` since it carries none of the per-document
+         *     fields. */
         DataSyncTruncate: {
             /** @description The path of the component the table is in. */
             component: string;

@@ -147,7 +147,7 @@ pub struct DataSyncArgs {
     /// tables are synced from scratch, possibly moving the sync into
     /// `snapshotting` state if necessary, and emit a truncate on the first page
     /// they appear so the consumer starts them from a clean slate. Deselected
-    /// tables stop being exported, with a truncate emitted.
+    /// tables stop being synced.
     #[serde(default)]
     pub selection: Selection,
 }
@@ -165,8 +165,7 @@ pub struct DataSyncResponse {
     /// A table is truncated whenever it (re)enters the export from scratch —
     /// the first page it is synced (including on a cold start), when it is
     /// newly selected, or when it is replaced by a bulk operation such as
-    /// `npx convex import` — and when it leaves the export after being
-    /// deselected.
+    /// `npx convex import`.
     pub truncates: Vec<DataSyncTruncate>,
     /// Documents created, updated, or deleted in this page.
     pub values: Vec<DataSyncValue>,
@@ -181,9 +180,10 @@ pub struct DataSyncResponse {
     pub pagination: PaginationMetadata,
 }
 
-/// A table whose contents were replaced wholesale (e.g. by `npx convex
-/// import`). Reported separately from `values` since it carries none of the
-/// per-document fields.
+/// An entry indicating that the table should be truncated. Emitted when a table
+/// is newly syncing or replaced wholesale (e.g. by `npx convex import`).
+/// Reported separately from `values` since it carries none of the per-document
+/// fields.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct DataSyncTruncate {
     /// The path of the component the table is in.

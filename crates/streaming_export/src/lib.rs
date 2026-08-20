@@ -84,9 +84,8 @@ pub enum SyncEntry {
 
 /// A table the consumer must drop everything it previously synced for, because
 /// the table is (re)entering the export from scratch — newly selected, replaced
-/// wholesale (e.g. by `npx convex import`), or synced for the first time — or
-/// leaving it after being deselected. The [`SyncEntry`]s in the same (and
-/// later) pages re-sync any still-selected table from scratch.
+/// wholesale (e.g. by `npx convex import`), or synced for the first time. The
+/// [`SyncEntry`]s in the same (and later) pages re-sync it from scratch.
 ///
 /// Truncations logically apply before any [`SyncEntry`]s in the same page.
 #[derive(Debug)]
@@ -180,15 +179,15 @@ const DATA_SYNC_CURSOR_VERSION: u8 = 1;
 
 /// An opaque, forward-compatible cursor for the data sync API. It wraps the
 /// low-level [`DataSyncCursor`] together with the (component, table) name each
-/// captured tablet resolved to, which is used to name tablets that have since
-/// been dropped and to emit a [`SyncTruncate`] when the tracked table set
-/// changes. Serialized via protobuf and encrypted (see [`Self::encrypt`]).
-/// Clients treat it as an opaque token.
+/// captured tablet resolved to. Serialized via protobuf and encrypted (see
+/// [`Self::encrypt`]). Clients treat it as an opaque token.
 #[derive(Clone, Debug)]
 pub struct SyncCursor {
     inner: DataSyncCursor,
     /// Names of every tablet captured by `inner` (its synced tables plus the
-    /// in-progress table), as resolved when they were captured.
+    /// in-progress table), as resolved when they were captured. Carried in the
+    /// serialized cursor because [`Self::from_proto`] rejects a tablet without
+    /// them, so tokens stay decodable across backend versions.
     names: BTreeMap<TabletId, (ComponentPath, TableName)>,
     /// Unique id assigned when the sync started; keys the
     /// `_data_sync_progress` row that tracks this sync's progress.
@@ -428,9 +427,9 @@ fn new_sync_id<RT: Runtime>(runtime: &RT, sync_client: DataSyncClient) -> String
 /// and columns to export; it is compared against the cursor on every call so
 /// tables can be added or removed between pages. Any table that enters the
 /// export from scratch — newly selected, replaced (e.g. by `npx convex
-/// import`), or seen for the first time on a cold start — or that leaves it
-/// (deselected, or the stale side of a replacement) yields a [`SyncTruncate`]
-/// on that page.
+/// import`), or seen for the first time on a cold start — yields a
+/// [`SyncTruncate`] on the page where its fresh traversal begins. A deselected
+/// table just stops being exported.
 #[fastrace::trace]
 pub async fn data_sync<RT: Runtime>(
     db_snapshot: &DatabaseSnapshot<RT>,
@@ -456,12 +455,18 @@ pub async fn data_sync<RT: Runtime>(
     let resolve_name = |tablet_id: TabletId| resolve_name(snapshot, &component_paths, tablet_id);
 
     // The tablets the cursor was tracking (synced plus in-progress) before this
-    // page, with the names they resolved to when captured. Compared against the
-    // tracked set after the page to emit truncates; also lets us name tablets
-    // that have since been dropped from `table_mapping` (e.g. replaced by an
-    // import).
-    let tracked_before: BTreeMap<TabletId, (ComponentPath, TableName)> =
-        cursor.as_ref().map(|c| c.names.clone()).unwrap_or_default();
+    // page, compared against the tracked set after it to emit truncates.
+    let tracked_before: BTreeSet<TabletId> = cursor
+        .as_ref()
+        .map(|c| {
+            c.inner
+                .synced_tables()
+                .iter()
+                .copied()
+                .chain(c.inner.in_progress_table().map(|(tablet_id, _)| tablet_id))
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Adopt the cursor's sync id, assigning a fresh one on cold start.
     let sync_id = cursor
@@ -509,7 +514,7 @@ pub async fn data_sync<RT: Runtime>(
         }
     }
 
-    // Re-resolve names for every tablet the new cursor still captures. After
+    // Resolve names for every tablet the new cursor captures. After
     // reconciliation these are all live tablets present in `table_mapping`.
     let mut names = BTreeMap::new();
     for tablet_id in page.cursor.synced_tables() {
@@ -520,27 +525,17 @@ pub async fn data_sync<RT: Runtime>(
     }
 
     // A [`SyncTruncate`] tells the consumer to drop everything it synced for a
-    // table before applying this page's values. Emit one for every table whose
-    // membership in the tracked set changed this page — the symmetric
-    // difference of the tablets tracked before and after:
-    //  - A tablet that left (deselected, or the stale side of an import
-    //    replacement) had its rows synced, which the consumer must now drop.
-    //  - A tablet that entered (newly selected, the fresh side of a replacement, or
-    //    any table on its first page of a cold-start snapshot) is synced from
-    //    scratch, so the consumer starts it from a clean slate.
-    // Keyed by name and deduplicated, so a replacement (old and new tablet share
-    // a name) yields a single truncate.
-    let mut truncated: BTreeSet<(ComponentPath, TableName)> = BTreeSet::new();
-    for (tablet_id, name) in &tracked_before {
-        if !names.contains_key(tablet_id) {
-            truncated.insert(name.clone());
-        }
-    }
-    for (tablet_id, name) in &names {
-        if !tracked_before.contains_key(tablet_id) {
-            truncated.insert(name.clone());
-        }
-    }
+    // table before applying this page's values. Emit one for every tablet that
+    // entered the tracked set this page — newly selected, the fresh side of an
+    // import replacement, or any table on its first page of a cold-start
+    // snapshot — since its rows are synced from scratch. Tables truncate only on
+    // entry: a deselected table keeps whatever the consumer synced for it until
+    // it is re-selected, which truncates it then.
+    let truncated: BTreeSet<(ComponentPath, TableName)> = names
+        .iter()
+        .filter(|(tablet_id, _)| !tracked_before.contains(tablet_id))
+        .map(|(_, name)| name.clone())
+        .collect();
     let truncates = truncated
         .into_iter()
         .map(|(component, table)| SyncTruncate { component, table })
