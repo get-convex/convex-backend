@@ -69,6 +69,12 @@ const WIDGET_CSS = `
 .radix-themes .woswidgets-text-field input::placeholder {
   color: var(--content-tertiary);
 }
+/* Radix Themes portals dialogs to the end of <body> without a z-index, which
+   leaves them painted under the dashboard header (z-40) and the settings
+   sidebar's scroll indicator (z-10). Match the design system's Popover. */
+.radix-themes.rt-BaseDialogOverlay {
+  z-index: 50;
+}
 `;
 
 // The widget calls the WorkOS API directly from the browser with a short-lived
