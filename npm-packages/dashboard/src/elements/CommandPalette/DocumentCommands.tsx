@@ -53,7 +53,12 @@ export function documentGroupHeading(tableName: string): React.ReactNode {
     case "_scheduled_jobs":
       return "Scheduled function";
     default:
-      return `Document in ${getVisibleTableName(tableName)}`;
+      return (
+        <span>
+          Document in{" "}
+          <span className="font-mono">{getVisibleTableName(tableName)}</span>
+        </span>
+      );
   }
 }
 

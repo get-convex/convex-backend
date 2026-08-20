@@ -204,7 +204,7 @@ function FunctionResultItem({
       }
     >
       <CodeIcon className="text-content-secondary" />
-      <span className="truncate">
+      <span className="truncate font-mono">
         <HighlightedText text={fn.displayName} />
       </span>
       <span className="ml-auto shrink-0 text-xs text-content-tertiary">
@@ -242,7 +242,7 @@ function TableResultItem({
       }
     >
       <TableIcon className="text-content-secondary" />
-      <span className="truncate">
+      <span className="truncate font-mono">
         <HighlightedText text={tableName} />
       </span>
       <span className="ml-auto shrink-0 text-xs text-content-tertiary">
