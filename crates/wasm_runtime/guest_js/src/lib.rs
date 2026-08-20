@@ -487,30 +487,6 @@ fn poll_invoke_internal(state: &mut GuestRuntime) -> Result<Option<String>, Gues
     Ok(result)
 }
 
-fn invoke_json(handler_name: &str, args_json: &str) -> String {
-    GUEST_RUNTIME.with(|runtime| {
-        let mut state = runtime.borrow_mut();
-
-        if let Err(error) = start_invoke_internal(&mut state, handler_name, args_json) {
-            return error_payload_with_stack("InitError", &error.message, error.stack.as_deref());
-        }
-
-        loop {
-            match poll_invoke_internal(&mut state) {
-                Ok(Some(result)) => return result,
-                Ok(None) => std::thread::sleep(std::time::Duration::from_millis(1)),
-                Err(error) => {
-                    return error_payload_with_stack(
-                        "RuntimeError",
-                        &error.message,
-                        error.stack.as_deref(),
-                    )
-                },
-            }
-        }
-    })
-}
-
 fn error_payload(kind: &str, message: &str) -> String {
     error_payload_with_stack(kind, message, None)
 }
@@ -597,25 +573,6 @@ pub extern "C" fn wizer_initialize() {
             panic!("guest initialization failed: {}", error.message);
         }
     });
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn invoke(
-    handler_ptr: *const u8,
-    handler_len: usize,
-    args_ptr: *const u8,
-    args_len: usize,
-) -> u64 {
-    let handler_name = match unpack_input(handler_ptr, handler_len) {
-        Ok(value) => value,
-        Err(error) => return write_output(error_payload("InvalidInput", &error)),
-    };
-    let args_json = match unpack_input(args_ptr, args_len) {
-        Ok(value) => value,
-        Err(error) => return write_output(error_payload("InvalidInput", &error)),
-    };
-
-    write_output(invoke_json(&handler_name, &args_json))
 }
 
 #[unsafe(no_mangle)]

@@ -1,5 +1,4 @@
 const requireHostCall = globalThis.__convex_require_host_call;
-const trackOp = globalThis.__convex_track_op;
 
 const formatConsoleArg = (value) => {
   if (typeof value === "string") {
@@ -13,36 +12,32 @@ const formatConsoleArg = (value) => {
   }
 };
 
-const normalizeHeaders = (headers) => {
-  if (!headers) {
-    return [];
+const unwrap = (raw) => {
+  const envelope = JSON.parse(raw);
+  if (!envelope.ok) {
+    throw new Error(envelope.message);
   }
-
-  if (Array.isArray(headers)) {
-    return headers.map(([name, value]) => [String(name), String(value)]);
-  }
-
-  return Object.entries(headers).map(([name, value]) => [
-    String(name),
-    String(value),
-  ]);
+  return envelope.value;
 };
 
 const syscall = (name, args) =>
-  JSON.parse(__convex_syscall(name, JSON.stringify(args)));
+  JSON.parse(unwrap(__convex_syscall(name, JSON.stringify(args))));
 
-const startAsyncSyscall = (name, args) =>
-  __convex_start_async_syscall(name, JSON.stringify(args));
+const logAt =
+  (level) =>
+  (...args) => {
+    requireHostCall("console." + level);
+    __convex_syscall(
+      "console/message",
+      JSON.stringify({
+        level,
+        messages: [args.map(formatConsoleArg).join(" ")],
+      }),
+    );
+  };
 
-const makeResponse = (response) => ({
-  status: response.status,
-  ok: response.ok,
-  url: response.url,
-  headers: Object.fromEntries(response.headers ?? []),
-  text: async () => response.body_text ?? "",
-  json: async () => JSON.parse(response.body_text ?? "null"),
-});
-
+// The fixtures' `db` is a sync syscall behind an already-resolved promise, so
+// it exercises the microtask queue without needing the host's async op table.
 globalThis.__convex_runtime = {
   db: {
     get: (key) => {
@@ -62,18 +57,9 @@ globalThis.__convex_runtime = {
     },
   },
   console: {
-    log: (...args) => {
-      requireHostCall("console.log");
-      syscall("console/message", [args.map(formatConsoleArg).join(" ")]);
-    },
-    warn: (...args) => {
-      requireHostCall("console.warn");
-      syscall("console/message", [args.map(formatConsoleArg).join(" ")]);
-    },
-    error: (...args) => {
-      requireHostCall("console.error");
-      syscall("console/message", [args.map(formatConsoleArg).join(" ")]);
-    },
+    log: logAt("log"),
+    warn: logAt("warn"),
+    error: logAt("error"),
   },
   crypto: {
     randomUUID: () => {
@@ -85,29 +71,4 @@ globalThis.__convex_runtime = {
     requireHostCall("now");
     return syscall("time/now", []);
   },
-  sleep: (ms) => {
-    requireHostCall("sleep");
-    return new Promise((resolve, reject) => {
-      trackOp(startAsyncSyscall("sleep", [Number(ms) | 0]), resolve, reject);
-    });
-  },
-};
-
-globalThis.fetch = (input, init = {}) => {
-  requireHostCall("fetch");
-
-  const request = {
-    url: String(input),
-    method: String(init.method ?? "GET").toUpperCase(),
-    headers: normalizeHeaders(init.headers),
-    body: init.body == null ? null : String(init.body),
-  };
-
-  return new Promise((resolve, reject) => {
-    trackOp(
-      startAsyncSyscall("fetch", [request]),
-      (payload) => resolve(makeResponse(payload)),
-      reject,
-    );
-  });
 };

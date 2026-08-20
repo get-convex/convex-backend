@@ -12,14 +12,10 @@ doctest = false
 [dependencies]
 anyhow = { workspace = true }
 const-hex = { workspace = true }
-crossbeam-channel = { workspace = true }
 parking_lot = { workspace = true }
-reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-tokio = { workspace = true }
-url = { workspace = true }
 wasmtime = { workspace = true }
 wasmtime-wasi = { workspace = true }
 wizer = { workspace = true }
@@ -31,7 +27,6 @@ js_build = { workspace = true }
 [dev-dependencies]
 sourcemap = { workspace = true }
 tempfile = { workspace = true }
-tiny_http = { workspace = true }
 
 [lints]
 workspace = true

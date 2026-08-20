@@ -14,18 +14,19 @@ The execution model:
   host preopens while `wizer_initialize` runs, so one guest build serves every
   app and the per-app artifact is the snapshot.
 - instantiate fresh per-request Wasm instances from a copy-on-write memory image
-- expose host functionality (storage, timers, `fetch`) through explicit async
-  host ops keyed by op ID, rather than blocking a host thread per request
+- expose host functionality through explicit async host ops keyed by op ID,
+  rather than blocking a host thread per request
 
 ## Layout
 
-- `src/host.rs` — the `convex_host` ABI: syscall dispatch, async op table,
-  Wasmtime linker setup, and the `HostAbi` trait both hosts implement
+- `src/host.rs` — the `convex_host` ABI: syscall dispatch, async op table, and
+  Wasmtime linker setup
 - `src/udf.rs` — running a Convex query or mutation: the `ConvexSyscallHost`
   trait and the loop that drives the guest's event loop against it
 - `src/compile.rs` — module sources → esbuild → guest build → Wizer, cached on
   disk by the hash of the sources and the guest
-- `src/fetch.rs` — buffered host `fetch`, used by the fixtures only
+- `src/fixture_host.rs` — the `ConvexSyscallHost` the fixtures and benchmarks
+  run against, answering their handful of syscalls from a map
 - `src/benchmark_support.rs`, `src/bin/benchmark.rs` — request-path benchmark
   harness (bundle → guest build → Wizer → request loop), where the guest build
   is shared across the fixtures in a run
@@ -41,13 +42,16 @@ The execution model:
   `scripts/bundle-modules.mjs` is the same pipeline for the UDF path, pointed at
   a deployment's module tree instead of a fixture directory.
 
+There is one host type. `UdfHostState` owns the op table and the wire format;
+who answers a syscall is a `ConvexSyscallHost`, which is the isolate crate's
+transaction in production and `FixtureHost` under the fixtures.
+
 The guest installs one of two sets of globals, chosen from the `kind` its
-bundle's `manifest.json` declares. A fixture bundle gets the toy host surface
-(`db`, `sleep`, `fetch`); a `udf` bundle gets
-`Convex.syscall`/`Convex.asyncSyscall` and nothing else, so a function reaching
-for `fetch` fails rather than quietly hitting a stub. Reading the kind from the
-bundle rather than baking it into the guest is what lets one guest build serve
-both.
+bundle's `manifest.json` declares. A fixture bundle gets a toy `db` and
+`console`; a `udf` bundle gets `Convex.syscall`/`Convex.asyncSyscall` and
+nothing else, so a function reaching for `fetch` fails rather than quietly
+hitting a stub. Reading the kind from the bundle rather than baking it into the
+guest is what lets one guest build serve both.
 
 ## Running Convex functions
 
@@ -89,10 +93,9 @@ cargo run --release -p wasm_runtime --bin benchmark -- \
 Prepare artifacts once, then benchmark requests without counting build/preinit:
 
 ```bash
-cargo run --release -p wasm_runtime --bin benchmark -- --prepare-only --fixture fetch-basic
+cargo run --release -p wasm_runtime --bin benchmark -- --prepare-only --fixture async-db
 cargo run --release -p wasm_runtime --bin benchmark -- --use-prepared \
-    --iterations 100 --concurrency 8 --workers 8 --fixture fetch-basic \
-    --fetch-url https://docs.convex.dev --fetch-fanout 4
+    --iterations 100 --concurrency 8 --workers 8 --fixture async-db
 ```
 
 ## Fixtures
@@ -101,31 +104,14 @@ cargo run --release -p wasm_runtime --bin benchmark -- --use-prepared \
 - `heavy-globals` — top-level initialization work
 - `async-db` — Promise-based host storage ops
 - `record-db` — buffered host record tests
-- `sleep-host` — async host timer behavior
 - `cpu-heavy` — CPU saturation and leak testing
-- `fetch-basic` — buffered global `fetch`
-- `convex-functions` — unmodified Convex function definitions
-  (`query`/`mutation`/`action`, `v` validators, `defineSchema`, `ctx.db`,
-  `ctx.runQuery`) running against the real `convex-test` package, which
-  implements the database, indexes, and validators in JS. The guest supplies
-  only the JS environment: `src/runtime-shims.ts` provides `console`, `global`,
-  `setTimeout`/`clearTimeout` (backed by the host sleep op) and
-  `MessageChannel`; `scripts/shims/node-async-hooks.mjs` stands in for
-  `node:async_hooks`; host `fetch` backs actions. Because `convex-test` keeps
-  its data in the QuickJS heap, state is shared across invocations on one
-  instance and disappears with the instance.
-
-`convex-functions` doubles as the artifact-size probe for pulling a real backend
-framework into the guest: `light-load` preinitializes to 1.33 MB where
-`convex-functions` reaches 3.78 MB, so `convex` plus `convex-test` costs roughly
-2.5 MB, most of it QuickJS heap for the evaluated module graph rather than
-bundle text.
+- `empty`, `init-once`, `init-error` — preinitialization behavior
 
 ## Known gaps
 
-Top-level JS cannot call host APIs during preinit; `fetch` is buffered only,
-with no streaming bodies and no cancellation; there are no resource controls,
-quotas, or fairness policies; and the host boundary has had no security review.
+Top-level JS cannot call host APIs during preinit; there are no resource
+controls, quotas, or fairness policies; and the host boundary has had no
+security review.
 
 For the UDF path specifically:
 

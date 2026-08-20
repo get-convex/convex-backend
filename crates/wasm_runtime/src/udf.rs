@@ -46,7 +46,6 @@ use wasmtime_wasi::{
 
 use crate::host::{
     new_linker,
-    HostAbi,
     SyscallError,
 };
 
@@ -132,15 +131,30 @@ pub struct UdfHostState<H> {
 }
 
 impl<H: ConvexSyscallHost> UdfHostState<H> {
-    fn new(host: H) -> Self {
+    pub(crate) fn new(host: H, wasi: WasiP1Ctx) -> Self {
         Self {
-            wasi: WasiCtxBuilder::new().build_p1(),
+            wasi,
             host,
             next_op_id: 1,
             pending: VecDeque::new(),
             settled: BTreeMap::new(),
             system_error: None,
         }
+    }
+
+    /// The host underneath, for callers that seeded it and want to read back
+    /// what the run did to it.
+    pub fn host(&self) -> &H {
+        &self.host
+    }
+
+    pub fn host_mut(&mut self) -> &mut H {
+        &mut self.host
+    }
+
+    /// Syscalls the guest has parked on that the driver has not run yet.
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
     }
 
     fn take_system_error(&mut self) -> Option<anyhow::Error> {
@@ -174,12 +188,12 @@ fn envelope(outcome: SyscallOutcome) -> String {
     }
 }
 
-impl<H: ConvexSyscallHost> HostAbi for UdfHostState<H> {
-    fn wasi(&mut self) -> &mut WasiP1Ctx {
+impl<H: ConvexSyscallHost> UdfHostState<H> {
+    pub(crate) fn wasi(&mut self) -> &mut WasiP1Ctx {
         &mut self.wasi
     }
 
-    fn syscall(&mut self, name: &str, args_json: &str) -> Result<String, SyscallError> {
+    pub(crate) fn syscall(&mut self, name: &str, args_json: &str) -> Result<String, SyscallError> {
         if name == "console/message" {
             let outcome = match self.console_message(args_json) {
                 Ok(()) => Ok("null".to_owned()),
@@ -195,7 +209,11 @@ impl<H: ConvexSyscallHost> HostAbi for UdfHostState<H> {
         Ok(envelope(outcome))
     }
 
-    fn start_async_syscall(&mut self, name: &str, args_json: &str) -> Result<i32, SyscallError> {
+    pub(crate) fn start_async_syscall(
+        &mut self,
+        name: &str,
+        args_json: &str,
+    ) -> Result<i32, SyscallError> {
         let op_id = self.next_op_id;
         self.next_op_id += 1;
         self.pending.push_back(PendingSyscall {
@@ -206,11 +224,11 @@ impl<H: ConvexSyscallHost> HostAbi for UdfHostState<H> {
         Ok(op_id)
     }
 
-    fn completed_ops(&mut self) -> Vec<i32> {
+    pub(crate) fn completed_ops(&mut self) -> Vec<i32> {
         self.settled.keys().copied().collect()
     }
 
-    fn take_op_result(&mut self, op_id: i32) -> String {
+    pub(crate) fn take_op_result(&mut self, op_id: i32) -> String {
         match self.settled.remove(&op_id) {
             Some(outcome) => envelope(outcome),
             None => envelope(Err(format!("op {op_id} has not run yet"))),
@@ -249,8 +267,11 @@ struct GuestInstance<H: ConvexSyscallHost> {
 impl<H: ConvexSyscallHost> GuestInstance<H> {
     fn new(artifact: &[u8], host: H) -> anyhow::Result<Self> {
         let (engine, module) = module_for(artifact)?;
-        let linker = new_linker::<UdfHostState<H>>(&engine);
-        let mut store = Store::new(&engine, UdfHostState::new(host));
+        let linker = new_linker::<H>(&engine);
+        let mut store = Store::new(
+            &engine,
+            UdfHostState::new(host, WasiCtxBuilder::new().build_p1()),
+        );
         let instance: Instance = linker
             .instantiate(&mut store, &module)
             .context("failed to instantiate guest")?;

@@ -75,7 +75,6 @@ export const crypto = {
 
 export const now = () => runtime().now();
 
-export const sleep = (ms) => runtime().sleep(ms);
 `,
         loader: "js",
       }));

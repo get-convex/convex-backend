@@ -31,9 +31,6 @@ fn run() -> Result<(), String> {
         .map(|value| value.get())
         .unwrap_or(1);
     let mut cpu_work = 500_000_u64;
-    let mut fetch_fanout = 4_usize;
-    let mut fetch_url = "https://docs.convex.dev".to_owned();
-    let mut sleep_ms = 10_u64;
     let mut include_setup = false;
     let mut prepare_only = false;
     let mut use_prepared = false;
@@ -84,30 +81,6 @@ fn run() -> Result<(), String> {
                 cpu_work = value
                     .parse::<u64>()
                     .map_err(|error| format!("invalid --cpu-work value {value:?}: {error}"))?;
-            },
-            "--fetch-url" => {
-                fetch_url = args
-                    .next()
-                    .ok_or_else(|| "--fetch-url requires a value".to_owned())?;
-            },
-            "--fetch-fanout" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "--fetch-fanout requires a value".to_owned())?;
-                fetch_fanout = value
-                    .parse::<usize>()
-                    .map_err(|error| format!("invalid --fetch-fanout value {value:?}: {error}"))?;
-                if fetch_fanout == 0 {
-                    return Err("--fetch-fanout must be at least 1".to_owned());
-                }
-            },
-            "--sleep-ms" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "--sleep-ms requires a value".to_owned())?;
-                sleep_ms = value
-                    .parse::<u64>()
-                    .map_err(|error| format!("invalid --sleep-ms value {value:?}: {error}"))?;
             },
             "--include-setup" => {
                 include_setup = true;
@@ -214,42 +187,6 @@ fn run() -> Result<(), String> {
                     workers,
                 )?);
             },
-            "fetch-basic" => {
-                cases.push(measure_fast_requests(
-                    &artifacts,
-                    "fetch_parallel",
-                    BenchmarkScenario::FetchParallel {
-                        url: fetch_url.clone(),
-                        fanout: fetch_fanout,
-                    },
-                    iterations,
-                    concurrency,
-                    workers,
-                )?);
-            },
-            "convex-functions" => {
-                cases.push(measure_fast_requests(
-                    &artifacts,
-                    "convex_scenario",
-                    BenchmarkScenario::Sync {
-                        handler: "conversationScenario",
-                        args_json: r#"[{"channel":"general"}]"#,
-                    },
-                    iterations,
-                    concurrency,
-                    workers,
-                )?);
-            },
-            "sleep-host" => {
-                cases.push(measure_fast_requests(
-                    &artifacts,
-                    "sleep_host",
-                    BenchmarkScenario::SleepHost { ms: sleep_ms },
-                    iterations,
-                    concurrency,
-                    workers,
-                )?);
-            },
             other => return Err(format!("unsupported fixture: {other}")),
         }
 
@@ -276,9 +213,6 @@ fn run() -> Result<(), String> {
         "concurrency": concurrency,
         "workers": workers,
         "cpuWork": cpu_work,
-        "fetchFanout": fetch_fanout,
-        "fetchUrl": fetch_url,
-        "sleepMs": sleep_ms,
         "mode": if prepare_only { "prepare-only" } else { "request-only" },
         "prepared": use_prepared,
         "hostProfile": if cfg!(debug_assertions) { "debug" } else { "release" },
@@ -335,8 +269,7 @@ fn rate(requests: usize, total: Duration) -> f64 {
 fn print_help() {
     println!(
         "usage: cargo run --release --bin benchmark -- [--iterations N] [--concurrency N] \
-         [--workers N] [--fixture NAME ...] [--cpu-work N] [--fetch-url URL] [--fetch-fanout N] \
-         [--sleep-ms N] [--include-setup] [--prepare-only] [--use-prepared]"
+         [--workers N] [--fixture NAME ...] [--cpu-work N] [--include-setup] [--prepare-only] \
+         [--use-prepared]"
     );
-    println!("default external fetch target: https://docs.convex.dev");
 }

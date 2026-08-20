@@ -38,12 +38,17 @@ use wasmtime::{
 
 use crate::{
     compile,
+    fixture_host::FixtureHost,
     host::{
         new_linker,
         new_store,
-        HostState,
     },
+    udf::UdfHostState,
 };
+
+/// The store data every fixture instance carries: the shared UDF host over the
+/// fixtures' own syscall answers.
+type FixtureState = UdfHostState<FixtureHost>;
 
 #[derive(Clone)]
 pub struct SetupTimings {
@@ -93,15 +98,8 @@ pub enum BenchmarkScenario {
     CpuHeavy {
         work: u64,
     },
-    FetchParallel {
-        url: String,
-        fanout: usize,
-    },
     AsyncRoundTrip,
     AsyncFanout,
-    SleepHost {
-        ms: u64,
-    },
 }
 
 impl BenchmarkScenario {
@@ -109,10 +107,8 @@ impl BenchmarkScenario {
         match self {
             Self::Sync { handler, .. } => handler,
             Self::CpuHeavy { .. } => "burn",
-            Self::FetchParallel { .. } => "fetchInParallel",
             Self::AsyncRoundTrip => "roundTrip",
             Self::AsyncFanout => "fanout",
-            Self::SleepHost { .. } => "sleepFor",
         }
     }
 
@@ -120,13 +116,8 @@ impl BenchmarkScenario {
         match self {
             Self::Sync { args_json, .. } => (*args_json).to_owned(),
             Self::CpuHeavy { work } => format!("[{work}]"),
-            Self::FetchParallel { url, fanout } => {
-                let urls = vec![url.clone(); *fanout];
-                serde_json::to_string(&vec![urls]).expect("fetch benchmark args should serialize")
-            },
             Self::AsyncRoundTrip => r#"["bench", {"name":"Jamie","count":1}]"#.to_owned(),
             Self::AsyncFanout => r#"[["x","y","z"]]"#.to_owned(),
-            Self::SleepHost { ms } => format!("[{ms}]"),
         }
     }
 
@@ -285,12 +276,11 @@ pub fn setup_timings(fixture: &FixtureArtifacts) -> SetupTimings {
 }
 
 pub struct GuestHarness {
-    store: Store<HostState>,
+    store: Store<FixtureState>,
     memory: Memory,
     alloc: TypedFunc<i32, i32>,
     dealloc: TypedFunc<(i32, i32), ()>,
     init: Option<TypedFunc<(), ()>>,
-    invoke: TypedFunc<(i32, i32, i32, i32), i64>,
     start_invoke: TypedFunc<(i32, i32, i32, i32), i64>,
     poll_invoke: TypedFunc<(), i64>,
 }
@@ -307,14 +297,14 @@ impl GuestHarness {
         let module =
             Module::new(&engine, bytes).map_err(|error| format!("module load failed: {error}"))?;
         let linker = new_linker(&engine);
-        let mut store = new_store(&engine);
+        let mut store = new_store(&engine, FixtureHost::new());
         let instance = linker
             .instantiate(&mut store, &module)
             .map_err(|error| format!("instance creation failed: {error}"))?;
         Self::from_instance(store, instance)
     }
 
-    fn from_instance(mut store: Store<HostState>, instance: Instance) -> Result<Self, String> {
+    fn from_instance(mut store: Store<FixtureState>, instance: Instance) -> Result<Self, String> {
         let memory = instance
             .get_memory(&mut store, "memory")
             .ok_or_else(|| "memory export should exist".to_owned())?;
@@ -327,9 +317,6 @@ impl GuestHarness {
         let init = instance
             .get_typed_func::<(), ()>(&mut store, "wizer_initialize")
             .ok();
-        let invoke = instance
-            .get_typed_func::<(i32, i32, i32, i32), i64>(&mut store, "invoke")
-            .map_err(|error| format!("invoke export missing: {error}"))?;
         let start_invoke = instance
             .get_typed_func::<(i32, i32, i32, i32), i64>(&mut store, "start_invoke")
             .map_err(|error| format!("start_invoke export missing: {error}"))?;
@@ -343,7 +330,6 @@ impl GuestHarness {
             alloc,
             dealloc,
             init,
-            invoke,
             start_invoke,
             poll_invoke,
         })
@@ -358,36 +344,20 @@ impl GuestHarness {
     }
 
     pub fn seed_record(&mut self, key: &str, value: Value) {
-        self.store.data_mut().seed_record(key, value);
+        self.store.data_mut().host_mut().seed_record(key, value);
     }
 
+    /// Start a handler and drive it to a result. Fixtures park on nothing, so
+    /// a poll that settles nothing means the handler is stuck.
     pub fn invoke_json(&mut self, handler: &str, args_json: &str) -> Result<Value, String> {
-        let handler_ptr = self.write_input(handler)?;
-        let args_ptr = self.write_input(args_json)?;
-        let packed = self
-            .invoke
-            .call(
-                &mut self.store,
-                (
-                    handler_ptr,
-                    handler.len() as i32,
-                    args_ptr,
-                    args_json.len() as i32,
-                ),
-            )
-            .map_err(|error| format!("invoke failed: {error}"))?;
-
-        let response = self.read_packed_string(packed)?;
-
-        self.dealloc
-            .call(&mut self.store, (handler_ptr, handler.len() as i32))
-            .map_err(|error| format!("handler buffer dealloc failed: {error}"))?;
-        self.dealloc
-            .call(&mut self.store, (args_ptr, args_json.len() as i32))
-            .map_err(|error| format!("args buffer dealloc failed: {error}"))?;
-
-        serde_json::from_str(&response)
-            .map_err(|error| format!("guest response was not JSON: {error}"))
+        self.start_invoke_json(handler, args_json)?;
+        match self.poll_invoke_json()? {
+            Some(value) => Ok(value),
+            None => Err(format!(
+                "handler {handler} settled nothing, with {} syscalls pending",
+                self.store.data().pending_count()
+            )),
+        }
     }
 
     pub fn start_invoke_json(&mut self, handler: &str, args_json: &str) -> Result<(), String> {
@@ -472,7 +442,7 @@ impl GuestHarness {
 
 pub struct FastInstantiationHarness {
     engine: Engine,
-    instance_pre: InstancePre<HostState>,
+    instance_pre: InstancePre<FixtureState>,
 }
 
 impl FastInstantiationHarness {
@@ -509,7 +479,7 @@ impl FastInstantiationHarness {
     }
 
     pub fn instantiate(&self) -> Result<GuestHarness, String> {
-        let mut store = new_store(&self.engine);
+        let mut store = new_store(&self.engine, FixtureHost::new());
         let instance = self
             .instance_pre
             .instantiate(&mut store)
