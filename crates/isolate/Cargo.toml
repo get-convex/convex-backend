@@ -19,9 +19,6 @@ ignored = ["phf"]
 doctest = false
 
 [features]
-# Run queries and mutations in the wasm runtime instead of V8. Off by default so
-# wasmtime stays out of everyone else's build.
-wasm-udf = ["dep:wasm_runtime"]
 testing = [
     "common/testing",
     "database/testing",
@@ -118,7 +115,6 @@ usage_tracking = { workspace = true }
 uuid = { workspace = true }
 value = { workspace = true }
 vector = { workspace = true }
-wasm_runtime = { workspace = true, optional = true }
 
 [target."cfg(not(windows))".dependencies]
 libc = { workspace = true }
