@@ -1,7 +1,8 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
+import { logError } from "../bundler/log.js";
 import { CallToolRequest, Server } from "@modelcontextprotocol/server";
-import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { actionDescription } from "./lib/command.js";
 import { checkAuthorization } from "./lib/login.js";
 import {
@@ -57,11 +58,10 @@ mcp
   .action(async (options) => {
     const ctx = await oneoffContext(options);
     try {
-      const server = makeServer(options);
-      const transport = new StdioServerTransport();
-      await server.connect(transport);
-      // Keep the process running
-      await new Promise(() => {});
+      // `serveStdio` only calls the factory once a client connects, and answers
+      // a factory throw with an opaque `-32603`, so reject a bad
+      // `--disable-tools` here instead.
+      enabledTools(options);
     } catch (error: any) {
       await ctx.crash({
         exitCode: 1,
@@ -70,9 +70,27 @@ mcp
         printedMessage: `Failed to start MCP server: ${error}`,
       });
     }
+    // The SDK picks the era from the client's opening message: a request
+    // carrying the 2026-07-28 `_meta` envelope pins a stateless connection,
+    // while an `initialize` is still served by the same factory over the legacy
+    // protocol.
+    // The returned handle's `close()` is intentionally never called: the
+    // server lives until the client kills the process, and process exit tears
+    // the transport down.
+    serveStdio(() => makeServer(options), {
+      legacy: "serve",
+      // The only channel for out-of-band failures (transport errors, dropped
+      // malformed notifications). stdout carries the protocol, so they go to
+      // stderr.
+      onerror: (error) => logError(`MCP server error: ${error.message}`),
+    });
+    // Keep the process running
+    await new Promise(() => {});
   });
 
-export function makeServer(options: McpOptions) {
+function enabledTools(
+  options: McpOptions,
+): Record<string, ConvexTool<any, any>> {
   const disabledToolNames = new Set<string>();
   for (const toolName of options.disableTools?.split(",") ?? []) {
     const name = toolName.trim();
@@ -91,7 +109,11 @@ export function makeServer(options: McpOptions) {
       enabledToolsByName[tool.name] = tool;
     }
   }
+  return enabledToolsByName;
+}
 
+export function makeServer(options: McpOptions) {
+  const enabledToolsByName = enabledTools(options);
   const mutex = new Mutex();
   const server = new Server(
     {

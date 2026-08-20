@@ -5,6 +5,8 @@
 - Local deployments now upgrade to a new backend version in place, instead of
   going through a snapshot export and import. Upgrades no longer depend on the
   size of your local data, and no longer prompt about transferring it.
+- The Convex MCP server (`npx convex mcp`) now supports the stateless MCP
+  protocol (`2026-07-28` MCP specification).
 
 ## 1.44.0
 
