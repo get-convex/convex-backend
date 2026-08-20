@@ -78,6 +78,16 @@ impl V8ExternalString {
         }
     }
 
+    /// The inverse of [`Self::new`], for consumers that need the source as
+    /// plain text rather than as a V8 string — the wasm runtime bundles module
+    /// text with esbuild and never builds a V8 string out of it.
+    pub fn to_utf8(&self) -> String {
+        match self {
+            Self::OneByte(s) => s.iter().map(|&byte| byte as char).collect(),
+            Self::TwoByte(s) => String::from_utf16_lossy(s),
+        }
+    }
+
     pub fn create_v8_string<'s>(
         &self,
         scope: &v8::PinScope<'s, '_, ()>,

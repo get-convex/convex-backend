@@ -266,6 +266,7 @@ value = { path = "crates/value" }
 vector = { path = "crates/vector" }
 vergen = { version = "8.1.0" }
 walkdir = "2"
+wasm_runtime = { path = "crates/wasm_runtime" }
 wasmtime = "34"
 wasmtime-wasi = "34"
 wizer = "10"

@@ -75,6 +75,8 @@ pub mod async_syscall;
 mod astral_future;
 mod phase;
 pub mod syscall;
+#[cfg(feature = "wasm-udf")]
+pub mod wasm;
 use std::{
     cmp::Ordering,
     collections::VecDeque,

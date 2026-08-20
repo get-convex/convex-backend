@@ -49,6 +49,21 @@ for `fetch` fails rather than quietly hitting a stub. Reading the kind from the
 bundle rather than baking it into the guest is what lets one guest build serve
 both.
 
+## Running Convex functions
+
+`crates/isolate` drives this crate behind its off-by-default `wasm-udf` feature.
+`isolate::environment::udf::wasm` supplies a `ConvexSyscallHost` over the same
+`DatabaseUdfSyscallProvider` the V8 path uses, so `ctx.db` calls go through the
+isolate crate's own syscall implementations and land in the real transaction:
+
+```bash
+cargo test -p isolate --features wasm-udf,testing wasm_udf
+```
+
+Those tests run each function in both engines and compare. Compiling happens
+before the request starts, since a cold compile takes minutes and the UDF system
+timeout is 15 seconds.
+
 ## Setup
 
 The tests compile the guest with `cargo build --target wasm32-wasip1`, and the
