@@ -112,10 +112,10 @@ pub trait SyscallProvider<RT: Runtime>: 'static {
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
 }
 
-/// An [`IsolateEnvironment`] that can run inside V8, i.e. one whose async
+/// A [`JsEnvironment`] that can run inside V8, i.e. one whose async
 /// resolver is a real promise resolver. Everything in this crate that touches a
 /// `v8::Scope` requires this, while the environments themselves only need
-/// [`IsolateEnvironment`].
+/// [`JsEnvironment`].
 pub trait V8IsolateEnvironment<RT: Runtime>:
     JsEnvironment<RT, AsyncResolver = v8::Global<v8::PromiseResolver>>
 {

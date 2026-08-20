@@ -35,6 +35,8 @@ use common::{
     try_anyhow,
     types::{
         AllowedVisibility,
+        DeploymentClass,
+        RegionName,
         UdfType,
         WriteTimestamp,
     },
@@ -85,7 +87,7 @@ use serde::{
     Serialize,
 };
 use serde_json::{
-    json,
+    value::RawValue,
     Value as JsonValue,
 };
 use sync_types::{
@@ -721,7 +723,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
     timer.finish();
     results
         .into_iter()
-        .map(|result| anyhow::Ok(serde_json::to_string(&result?)?))
+        .map(|r| r.map(|json| <Box<str>>::from(json).into_string()))
         .collect()
 }
 
@@ -729,56 +731,85 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
 /// limits.
 fn tx_metrics<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     let tx = provider.phase.tx()?;
     let s = tx.execution_size();
     let limits = tx.transaction_limits();
+    #[derive(Serialize)]
+    struct LimitedValue {
+        used: usize,
+        remaining: isize,
+    }
     let limit_value = |limit: usize, used: usize| {
         let remaining = limit as isize - used as isize;
-        json!({
-            "used": used,
-            "remaining": remaining,
-        })
+        LimitedValue { used, remaining }
     };
-    Ok(json!({
-        "bytesRead": limit_value(limits.bytes_read, s.read_size.total_document_size),
-        "bytesWritten": limit_value(limits.bytes_written, s.write_size.size),
-        "databaseQueries": limit_value(limits.database_queries, s.num_intervals),
-        "documentsRead": limit_value(limits.documents_read, s.read_size.total_document_count),
-        "documentsWritten": limit_value(limits.documents_written, s.write_size.num_writes),
-        "functionsScheduled": limit_value(limits.functions_scheduled, s.scheduled_size.num_writes),
-        "scheduledFunctionArgsBytes": limit_value(limits.scheduled_function_args_bytes, s.scheduled_size.size),
-    }))
+    #[allow(non_snake_case)]
+    #[derive(Serialize)]
+    struct TxMetricsJson {
+        bytesRead: LimitedValue,
+        bytesWritten: LimitedValue,
+        databaseQueries: LimitedValue,
+        documentsRead: LimitedValue,
+        documentsWritten: LimitedValue,
+        functionsScheduled: LimitedValue,
+        scheduledFunctionArgsBytes: LimitedValue,
+    }
+    Ok(serde_json::value::to_raw_value(&TxMetricsJson {
+        bytesRead: limit_value(limits.bytes_read, s.read_size.total_document_size),
+        bytesWritten: limit_value(limits.bytes_written, s.write_size.size),
+        databaseQueries: limit_value(limits.database_queries, s.num_intervals),
+        documentsRead: limit_value(limits.documents_read, s.read_size.total_document_count),
+        documentsWritten: limit_value(limits.documents_written, s.write_size.num_writes),
+        functionsScheduled: limit_value(limits.functions_scheduled, s.scheduled_size.num_writes),
+        scheduledFunctionArgsBytes: limit_value(
+            limits.scheduled_function_args_bytes,
+            s.scheduled_size.size,
+        ),
+    })?)
 }
 
 /// Returns metadata about the currently executing function.
 fn function_metadata<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     let udf_path = &provider.path.udf_path;
     let component_path = &provider.path.component_path;
-    Ok(json!({
-        "name": udf_path.clone().strip().to_string(),
-        "componentPath": component_path.to_string(),
-    }))
+    #[allow(non_snake_case)]
+    #[derive(Serialize)]
+    struct FunctionMetadataJson {
+        name: String,
+        componentPath: String,
+    }
+    Ok(serde_json::value::to_raw_value(&FunctionMetadataJson {
+        name: udf_path.clone().strip().to_string(),
+        componentPath: component_path.to_string(),
+    })?)
 }
 
 /// Returns metadata about the deployment this function is running on.
 fn deployment_metadata<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     let deployment = &provider.deployment;
-    Ok(json!({
-        "name": deployment.name,
-        "region": deployment.region,
-        "class": deployment.class,
-    }))
+    #[allow(non_snake_case)]
+    #[derive(Serialize)]
+    struct DeploymentMetadataJson<'a> {
+        name: &'a String,
+        region: &'a Option<RegionName>,
+        class: &'a DeploymentClass,
+    }
+    Ok(serde_json::value::to_raw_value(&DeploymentMetadataJson {
+        name: &deployment.name,
+        region: &deployment.region,
+        class: &deployment.class,
+    })?)
 }
 
 /// Returns metadata about the originating HTTP request.
 fn request_metadata<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     anyhow::ensure!(
         provider.udf_type == UdfType::Mutation,
         ErrorMetadata::bad_request(
@@ -803,20 +834,29 @@ fn request_metadata<RT: Runtime>(
     let scheduled_function_id = context
         .parent_scheduled_job
         .map(|(_, job_id)| job_id.encode());
-    Ok(json!({
-        "ip": metadata.ip.as_ref().map(|ip| ip.as_str()),
-        "userAgent": metadata.user_agent.as_ref().map(|ua| ua.as_str()),
-        "requestId": context.request_id.as_str(),
-        "scheduledFunctionId": scheduled_function_id,
-        "authToken": auth_token,
-    }))
+    #[allow(non_snake_case)]
+    #[derive(Serialize)]
+    struct RequestMetadataJson<'a> {
+        ip: Option<&'a str>,
+        userAgent: Option<&'a str>,
+        requestId: &'a str,
+        scheduledFunctionId: Option<String>,
+        authToken: Option<String>,
+    }
+    Ok(serde_json::value::to_raw_value(&RequestMetadataJson {
+        ip: metadata.ip.as_ref().map(|ip| ip.as_str()),
+        userAgent: metadata.user_agent.as_ref().map(|ua| ua.as_str()),
+        requestId: context.request_id.as_str(),
+        scheduledFunctionId: scheduled_function_id,
+        authToken: auth_token,
+    })?)
 }
 
 #[convex_macro::instrument_future]
 async fn count<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct CountArgs {
@@ -839,14 +879,16 @@ async fn count<RT: Runtime>(
     let result = u32::try_from(result)?;
     // Return as f64, which converts to number type in JavaScript.
     let result = f64::from(result);
-    Ok(ConvexValue::from(result).to_internal_json())
+    Ok(serde_json::value::to_raw_value(
+        &ConvexValue::from(result).to_internal_json_serializable(),
+    )?)
 }
 
 #[convex_macro::instrument_future]
 async fn get_user_identity<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     _args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     provider.phase.observe_identity()?;
     // TODO: Somehow make the Transaction aware of the dependency on the user.
     let tx = provider.phase.tx()?;
@@ -855,26 +897,28 @@ async fn get_user_identity<RT: Runtime>(
         log_component_get_user_identity(user_identity.is_some());
     }
     if let Some(user_identity) = user_identity {
-        return user_identity.try_into();
+        return Ok(serde_json::value::to_raw_value(&JsonValue::try_from(
+            user_identity,
+        )?)?);
     }
 
-    Ok(JsonValue::Null)
+    Ok(RawValue::NULL.to_owned())
 }
 
 #[convex_macro::instrument_future]
 async fn storage_generate_upload_url<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     _args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     let post_url = provider.file_storage_generate_upload_url().await?;
-    Ok(serde_json::to_value(post_url)?)
+    Ok(serde_json::value::to_raw_value(&post_url)?)
 }
 
 #[convex_macro::instrument_future]
 async fn storage_get_url_batch<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     batch_args: Vec<JsonValue>,
-) -> Vec<anyhow::Result<JsonValue>> {
+) -> Vec<anyhow::Result<Box<RawValue>>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct GetUrlArgs {
@@ -900,7 +944,10 @@ async fn storage_get_url_batch<RT: Runtime>(
     let urls = provider.file_storage_get_url_batch(storage_ids).await;
     for (batch_key, url) in urls {
         assert!(results
-            .insert(batch_key, url.map(JsonValue::from))
+            .insert(
+                batch_key,
+                url.and_then(|url| Ok(serde_json::value::to_raw_value(&url)?))
+            )
             .is_none());
     }
     assert_eq!(results.len(), batch_size);
@@ -911,7 +958,7 @@ async fn storage_get_url_batch<RT: Runtime>(
 async fn storage_delete<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct StorageDeleteArgs {
@@ -925,14 +972,14 @@ async fn storage_delete<RT: Runtime>(
     // Synchronously delete the file from storage
     provider.file_storage_delete(storage_id).await?;
 
-    Ok(JsonValue::Null)
+    Ok(RawValue::NULL.to_owned())
 }
 
 #[convex_macro::instrument_future]
 async fn storage_get_metadata<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct StorageGetMetadataArgs {
@@ -968,14 +1015,14 @@ async fn storage_get_metadata<RT: Runtime>(
             }
         },
     );
-    Ok(serde_json::to_value(file_metadata)?)
+    Ok(serde_json::value::to_raw_value(&file_metadata)?)
 }
 
 #[convex_macro::instrument_future]
 async fn schedule<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct ScheduleArgs {
@@ -1036,14 +1083,14 @@ async fn schedule<RT: Runtime>(
         .schedule(path, udf_args, scheduled_ts, context)
         .await?;
 
-    Ok(JsonValue::from(virtual_id))
+    Ok(serde_json::value::to_raw_value(&String::from(virtual_id))?)
 }
 
 #[convex_macro::instrument_future]
 async fn cancel_job<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct CancelJobArgs {
@@ -1060,7 +1107,7 @@ async fn cancel_job<RT: Runtime>(
     if let Some((_, self_job_id)) = provider.context.parent_scheduled_job
         && self_job_id == virtual_id_v6
     {
-        return Ok(JsonValue::Null);
+        return Ok(RawValue::NULL.to_owned());
     }
 
     let tx = provider.phase.tx()?;
@@ -1068,13 +1115,13 @@ async fn cancel_job<RT: Runtime>(
         .cancel(virtual_id_v6)
         .await?;
 
-    Ok(JsonValue::Null)
+    Ok(RawValue::NULL.to_owned())
 }
 
 async fn audit_log<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct AuditLogArgs {
@@ -1082,13 +1129,13 @@ async fn audit_log<RT: Runtime>(
     }
     let args: AuditLogArgs = with_argument_error("auditLog", || Ok(serde_json::from_value(args)?))?;
     provider.emit_audit_log_line(AuditLogLine { body: args.body })?;
-    Ok(JsonValue::Null)
+    Ok(RawValue::NULL.to_owned())
 }
 
 async fn write_deployment_audit_log<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     if !provider.is_system() {
         anyhow::bail!(ErrorMetadata::bad_request(
             "Unauthorized",
@@ -1134,7 +1181,7 @@ async fn write_deployment_audit_log<RT: Runtime>(
         )
         .await?;
 
-    Ok(JsonValue::Null)
+    Ok(RawValue::NULL.to_owned())
 }
 
 #[fastrace::trace]
@@ -1142,7 +1189,7 @@ async fn write_deployment_audit_log<RT: Runtime>(
 async fn insert<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct InsertArgs {
@@ -1168,7 +1215,14 @@ async fn insert<RT: Runtime>(
         .insert(table, value)
         .await?;
     let id_str = document_id.encode();
-    Ok(json!({ "_id": id_str }))
+    #[allow(non_snake_case)]
+    #[derive(Serialize)]
+    struct InsertResult {
+        _id: String,
+    }
+    Ok(serde_json::value::to_raw_value(&InsertResult {
+        _id: id_str,
+    })?)
 }
 
 #[fastrace::trace]
@@ -1176,7 +1230,7 @@ async fn insert<RT: Runtime>(
 async fn shallow_merge<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct UpdateArgs {
@@ -1207,7 +1261,9 @@ async fn shallow_merge<RT: Runtime>(
     let document = UserFacingModel::new(tx, component.into())
         .patch(id, value)
         .await?;
-    Ok(document.to_uncommitted_internal_json())
+    Ok(serde_json::value::to_raw_value(
+        &document.to_uncommitted_internal_json(),
+    )?)
 }
 
 #[fastrace::trace]
@@ -1215,7 +1271,7 @@ async fn shallow_merge<RT: Runtime>(
 async fn replace<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct ReplaceArgs {
@@ -1248,7 +1304,9 @@ async fn replace<RT: Runtime>(
     let document = UserFacingModel::new(tx, component.into())
         .replace(id, value)
         .await?;
-    Ok(document.to_uncommitted_internal_json())
+    Ok(serde_json::value::to_raw_value(
+        &document.to_uncommitted_internal_json(),
+    )?)
 }
 
 #[fastrace::trace]
@@ -1256,7 +1314,7 @@ async fn replace<RT: Runtime>(
 async fn query_batch<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     batch_args: Vec<AsyncRead>,
-) -> Vec<anyhow::Result<JsonValue>> {
+) -> Vec<anyhow::Result<Box<RawValue>>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct GetArgs {
@@ -1369,7 +1427,7 @@ async fn query_batch<RT: Runtime>(
                     .is_none());
             },
             Ok(None) => {
-                assert!(results.insert(idx, Ok(JsonValue::Null)).is_none());
+                assert!(results.insert(idx, Ok(RawValue::NULL.to_owned())).is_none());
             },
         }
     }
@@ -1392,7 +1450,7 @@ async fn query_batch<RT: Runtime>(
 
     #[derive(Serialize)]
     struct QueryStreamNextResult {
-        value: JsonValue,
+        value: Box<RawValue>,
         done: bool,
     }
 
@@ -1412,14 +1470,14 @@ async fn query_batch<RT: Runtime>(
             let tx = provider.phase.tx()?;
             let value = match maybe_next {
                 Some((doc, ts)) => developer_document_to_json(tx, component.into(), &doc, ts)?,
-                None => JsonValue::Null,
+                None => RawValue::NULL.to_owned(),
             };
 
             if let Some(query_id) = query_id {
                 if done {
                     provider.query_manager.cleanup_developer(query_id);
                 }
-                serde_json::to_value(QueryStreamNextResult { value, done })?
+                serde_json::value::to_raw_value(&QueryStreamNextResult { value, done })?
             } else {
                 value
             }
@@ -1435,7 +1493,7 @@ async fn query_batch<RT: Runtime>(
 async fn remove<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct RemoveArgs {
@@ -1462,7 +1520,9 @@ async fn remove<RT: Runtime>(
     let document = UserFacingModel::new(tx, component.into())
         .delete(id)
         .await?;
-    Ok(document.to_internal_json())
+    Ok(serde_json::value::to_raw_value(
+        &document.to_internal_json_serializable(),
+    )?)
 }
 
 #[convex_macro::instrument_future]
@@ -1470,7 +1530,7 @@ async fn run_udf<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
     udf_callback: impl UdfCallback<RT>,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct RunUdfArgs {
@@ -1552,13 +1612,15 @@ async fn run_udf<RT: Runtime>(
     let value = provider
         .run_udf(udf_type, path, args, transaction_limits, udf_callback)
         .await?;
-    Ok(value.to_uncommitted_json())
+    Ok(serde_json::value::to_raw_value(
+        &value.to_uncommitted_json_serializable(),
+    )?)
 }
 
 async fn create_function_handle<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct CreateFunctionHandleArgs {
@@ -1573,7 +1635,7 @@ async fn create_function_handle<RT: Runtime>(
     } = with_argument_error("createFunctionHandle", || Ok(serde_json::from_value(args)?))?;
     let function_path = match function_handle {
         Some(function_handle) => {
-            return Ok(serde_json::to_value(function_handle)?);
+            return Ok(serde_json::value::to_raw_value(&function_handle)?);
         },
         None => {
             let reference = parse_name_or_reference("createFunctionHandle", name, reference)?;
@@ -1592,7 +1654,7 @@ async fn create_function_handle<RT: Runtime>(
         },
     };
     let handle = provider.create_function_handle(function_path).await?;
-    Ok(serde_json::to_value(String::from(handle))?)
+    Ok(serde_json::value::to_raw_value(&String::from(handle))?)
 }
 
 /// As pages of results are commonly returned directly from UDFs, a page should
@@ -1629,7 +1691,7 @@ fn developer_document_to_json<RT: Runtime>(
     namespace: TableNamespace,
     document: &DeveloperDocument,
     ts: WriteTimestamp,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     if ts == WriteTimestamp::Pending {
         let id = document.id();
         // Virtual-table reads are also tagged pending when they hit a staged
@@ -1645,13 +1707,17 @@ fn developer_document_to_json<RT: Runtime>(
             if let Some(update) = tx.pending_write(&id)
                 && !update.is_resolved()
             {
-                return update
-                    .new_document_internal_json()
-                    .context("Staged write for a returned document has no new document");
+                return Ok(serde_json::value::to_raw_value(
+                    &update
+                        .new_document_internal_json()
+                        .context("Staged write for a returned document has no new document")?,
+                )?);
             }
         }
     }
-    Ok(document.to_internal_json())
+    Ok(serde_json::value::to_raw_value(
+        &document.to_internal_json_serializable(),
+    )?)
 }
 
 async fn read_page_from_query<RT: Runtime>(
@@ -1721,7 +1787,7 @@ async fn read_page_from_query<RT: Runtime>(
 async fn query_page<RT: Runtime>(
     provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
-) -> anyhow::Result<JsonValue> {
+) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct QueryPageArgs {
@@ -1839,7 +1905,7 @@ async fn query_page<RT: Runtime>(
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct QueryPageResult {
-        page: Vec<JsonValue>,
+        page: Vec<Box<RawValue>>,
         is_done: bool,
         continue_cursor: String,
         split_cursor: Option<String>,
@@ -1852,5 +1918,5 @@ async fn query_page<RT: Runtime>(
         split_cursor,
         page_status,
     };
-    Ok(serde_json::to_value(result)?)
+    Ok(serde_json::value::to_raw_value(&result)?)
 }

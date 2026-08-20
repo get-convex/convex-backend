@@ -36,6 +36,7 @@ use pb::common::{
     PendingDocumentUpdate as PendingDocumentUpdateProto,
     ResolvedDocument as ResolvedDocumentProto,
 };
+use serde::Serialize;
 use serde_json::{
     Number,
     Value as JsonValue,
@@ -260,6 +261,10 @@ impl DeveloperDocument {
 
     pub fn to_internal_json(&self) -> JsonValue {
         self.value.0.to_internal_json()
+    }
+
+    pub fn to_internal_json_serializable(&self) -> impl Serialize + '_ {
+        self.value.0.to_internal_json_serializable()
     }
 }
 
@@ -717,11 +722,25 @@ impl PendingDocument {
 
     /// Internal JSON with `{"$commitTs": null}` at each unresolved commit
     /// timestamp.
-    pub fn to_uncommitted_internal_json(&self) -> JsonValue {
-        match self {
-            Self::Concrete(document) => document.value().to_internal_json(),
-            Self::Pending { body, .. } => body.to_uncommitted_json(),
+    pub fn to_uncommitted_internal_json(&self) -> impl Serialize + '_ {
+        struct UncommittedJsonDocument<'a>(&'a PendingDocument);
+        impl<'a> Serialize for UncommittedJsonDocument<'a> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                match self.0 {
+                    PendingDocument::Concrete(document) => document
+                        .value()
+                        .to_internal_json_serializable()
+                        .serialize(serializer),
+                    PendingDocument::Pending { body, .. } => body
+                        .to_uncommitted_json_serializable()
+                        .serialize(serializer),
+                }
+            }
         }
+        UncommittedJsonDocument(self)
     }
 
     // Must be a document that does not contain unresolved commit timestamps
@@ -859,7 +878,7 @@ impl PendingDocumentUpdate {
 
     /// Internal JSON of the new document, with `{"$commitTs": null}` at each
     /// unresolved commit timestamp.
-    pub fn new_document_internal_json(&self) -> Option<JsonValue> {
+    pub fn new_document_internal_json(&self) -> Option<impl Serialize + '_> {
         self.new_document
             .as_ref()
             .map(PendingDocument::to_uncommitted_internal_json)
