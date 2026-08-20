@@ -11,6 +11,8 @@
 //!
 //! See <https://app.notion.com/p/convex-dev/Robust-Streaming-Export-API-36db57ff32ab80c68d97e01c578518d4>
 
+pub mod managed;
+
 use std::collections::{
     BTreeMap,
     BTreeSet,
