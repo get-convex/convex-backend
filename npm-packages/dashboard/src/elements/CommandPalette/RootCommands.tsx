@@ -30,10 +30,8 @@ import {
 } from "./navigation";
 import { ActionItem, NavigationItem, ProjectItem } from "./items";
 import { ComponentSwitchCommands } from "./ComponentCommands";
-import {
-  DeploymentSearchCommands,
-  SearchResultDetailItem,
-} from "./DeploymentSearchCommands";
+import { DeploymentSearchCommands } from "./DeploymentSearchCommands";
+import type { DocumentSearchResultItem } from "./DocumentSearchResult";
 import { DeploymentSearchGroup, ProjectSearchGroup } from "./searchGroups";
 import { NoResultsMessage } from "./NoResultsMessage";
 import { PalettePage } from "./pages";
@@ -54,7 +52,7 @@ export function RootCommands({
 }: {
   search: string;
   onNavigate: (to: NavigationDestination) => void;
-  onOpenDetail: (detail: SearchResultDetailItem) => void;
+  onOpenDetail: (detail: DocumentSearchResultItem) => void;
   pushPage: (page: PalettePage) => void;
   onClose: () => void;
 }) {

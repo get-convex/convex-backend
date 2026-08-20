@@ -29,9 +29,9 @@ import { Footer } from "./Footer";
 import { NoResultsMessage } from "./NoResultsMessage";
 import { AskAIQueryItem, RootCommands } from "./RootCommands";
 import {
-  SearchResultDetail,
-  SearchResultDetailItem,
-} from "./DeploymentSearchCommands";
+  DocumentSearchResult,
+  DocumentSearchResultItem,
+} from "./DocumentSearchResult";
 import { useDrillStack } from "./useDrillStack";
 import { SwitchProjectCommands, TeamDeploymentsCommands } from "./searchGroups";
 import { ThemeCommands } from "./ThemeCommands";
@@ -100,7 +100,7 @@ export function CommandPalette() {
   const [, setPicker] = useCommandPaletteDeploymentPicker();
   const router = useRouter();
 
-  const [detail, setDetail] = useState<SearchResultDetailItem | null>(null);
+  const [detail, setDetail] = useState<DocumentSearchResultItem | null>(null);
   const { trackOpened } = usePaletteAnalytics();
 
   // Closing always clears any trigger anchor and picker so the next
@@ -176,7 +176,7 @@ export function CommandPalette() {
         </ErrorBoundary>
       )}
       {detail && (
-        <SearchResultDetail
+        <DocumentSearchResult
           detail={detail}
           onClose={() => setDetail(null)}
           onNavigate={(to) => {
@@ -194,7 +194,7 @@ function CommandPaletteDialog({
   onOpenDetail,
 }: {
   onClose: () => void;
-  onOpenDetail: (detail: SearchResultDetailItem) => void;
+  onOpenDetail: (detail: DocumentSearchResultItem) => void;
 }) {
   const router = useRouter();
   const team = useCurrentTeam();
