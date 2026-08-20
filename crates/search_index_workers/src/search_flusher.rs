@@ -49,6 +49,7 @@ use database::{
     IndexBackfillModel,
     IndexModel,
     IndexWorkerMetadataModel,
+    SearchFlusherWakeSubscriber,
     TableScanCursor,
     Token,
 };
@@ -171,6 +172,20 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             writer,
             _config: PhantomData,
             flusher_type,
+        }
+    }
+
+    /// Live flushers subscribe to be woken as soon as an in-memory index
+    /// passes the soft limit, instead of waiting for the next poll. Backfill
+    /// flushers don't build in-memory index contents, so they have nothing to
+    /// wake up for.
+    pub(crate) fn wake_subscriber(&self) -> Option<SearchFlusherWakeSubscriber> {
+        match self.flusher_type {
+            FlusherType::LiveFlush => Some(
+                self.database
+                    .subscribe_search_flusher_wake(Self::search_type()),
+            ),
+            FlusherType::Backfill => None,
         }
     }
 

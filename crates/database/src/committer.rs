@@ -134,6 +134,7 @@ use crate::{
         user_documents_size_subgauge,
     },
     reads::ReadSet,
+    search_flusher_wake::SearchFlusherWakeSignals,
     search_index_bootstrap::{
         stream_revision_pairs_for_indexes,
         BootstrappedSearchIndexes,
@@ -347,6 +348,7 @@ impl<RT: Runtime> Committer<RT> {
             persistence_reader,
             retention_validator,
             snapshot_reader,
+            search_flusher_wake: SearchFlusherWakeSignals::new(),
         }
     }
 
@@ -1447,9 +1449,14 @@ pub struct CommitterClient {
     persistence_reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     snapshot_reader: Reader<SnapshotManager>,
+    search_flusher_wake: SearchFlusherWakeSignals,
 }
 
 impl CommitterClient {
+    pub fn search_flusher_wake(&self) -> &SearchFlusherWakeSignals {
+        &self.search_flusher_wake
+    }
+
     pub async fn finish_search_and_vector_bootstrap(
         &self,
         bootstrapped_indexes: BootstrappedSearchIndexes,
@@ -1520,7 +1527,7 @@ impl CommitterClient {
         // use the latest snapshot instead of the transaction base snapshot. This
         // is both more accurate and also avoids pedant hitting transient errors.
         let latest_snapshot = self.snapshot_reader.lock().latest_snapshot();
-        transaction.validate_memory_index_sizes(&latest_snapshot)?;
+        transaction.validate_memory_index_sizes(&latest_snapshot, &self.search_flusher_wake)?;
 
         let queue_timer = metrics::commit_queue_timer();
         let (tx, rx) = oneshot::channel();

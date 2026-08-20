@@ -153,6 +153,7 @@ use indexing::{
 use itertools::Itertools;
 use keybroker::Identity;
 use search::{
+    metrics::SearchType,
     query::RevisionWithKeys,
     Searcher,
     TextIndexManager,
@@ -207,6 +208,7 @@ use crate::{
         LeaderRetentionWorkers,
     },
     schema_registry::SchemaRegistry,
+    search_flusher_wake::SearchFlusherWakeSubscriber,
     search_index_bootstrap::SearchIndexBootstrapWorker,
     snapshot_manager::{
         Snapshot,
@@ -2670,6 +2672,15 @@ impl<RT: Runtime> Database<RT> {
 
     pub fn runtime(&self) -> &RT {
         &self.runtime
+    }
+
+    /// Subscribe to be woken when an in-memory index of `search_type` grows
+    /// past its soft size limit and needs flushing.
+    pub fn subscribe_search_flusher_wake(
+        &self,
+        search_type: SearchType,
+    ) -> SearchFlusherWakeSubscriber {
+        self.committer.search_flusher_wake().subscribe(search_type)
     }
 }
 

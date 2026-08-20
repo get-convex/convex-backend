@@ -23,6 +23,7 @@ use common::{
 };
 use database::{
     Database,
+    SearchFlusherWakeSubscriber,
     Token,
 };
 use futures::{
@@ -250,6 +251,16 @@ impl SearchIndexWorkers {
 }
 
 impl<RT: Runtime> SearchIndexWorker<RT> {
+    /// A subscription that fires when an in-memory index passes its soft size
+    /// limit, for the workers that flush those indexes.
+    fn wake_subscriber(&self) -> Option<SearchFlusherWakeSubscriber> {
+        match self {
+            Self::VectorFlusher(flusher) => flusher.wake_subscriber(),
+            Self::TextFlusher(flusher) => flusher.wake_subscriber(),
+            Self::VectorCompactor(_) | Self::TextCompactor(_) => None,
+        }
+    }
+
     // The actual work future is fairly large, so box it to avoid consuming
     // steady-state memory.
     fn step(&mut self) -> BoxFuture<'_, anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)>> {
@@ -268,6 +279,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         db: &Database<RT>,
         backoff: &mut Backoff,
     ) -> anyhow::Result<()> {
+        let mut wake_subscriber = self.wake_subscriber();
         loop {
             let (metrics, token) = self.step().await?;
 
@@ -283,15 +295,28 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             // 1. A new or updated index needs to be built - Implement via subscription on
             //    indexes
             // 2. Our soft index size is exceeded so we need to flush to disk - Implement
-            //    via polling
+            //    via a signal from the committer, and via polling as a backstop in case no
+            //    commits arrive to trigger the signal.
             let poll = timeout_with_jitter(rt, *DATABASE_WORKERS_POLL_INTERVAL);
             pin_mut!(poll);
             let subscription_fut = db.subscribe_and_wait_for_invalidation(token);
             pin_mut!(subscription_fut);
+            let wake_fut = async {
+                match &mut wake_subscriber {
+                    Some(wake_subscriber) => wake_subscriber.wait_for_wake().await,
+                    None => std::future::pending().await,
+                }
+            };
+            pin_mut!(wake_fut);
             select_biased! {
                 _ = subscription_fut.fuse() => {
                     tracing::debug!(
                         "{name} resuming after index subscription notification"
+                    );
+                }
+                _ = wake_fut.fuse() => {
+                    tracing::debug!(
+                        "{name} resuming after an index exceeded the soft size limit"
                     );
                 }
                 _ = poll.fuse() => {

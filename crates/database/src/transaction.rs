@@ -43,8 +43,10 @@ use common::{
         IntervalSet,
     },
     knobs::{
+        SEARCH_INDEX_SIZE_SOFT_LIMIT,
         TEXT_INDEX_SIZE_HARD_LIMIT,
         VECTOR_INDEX_SIZE_HARD_LIMIT,
+        VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
     query::{
         CursorPosition,
@@ -133,6 +135,7 @@ use crate::{
     },
     reads::TransactionReadSet,
     schema_registry::SchemaRegistry,
+    search_flusher_wake::SearchFlusherWakeSignals,
     snapshot_manager::Snapshot,
     table_summary::table_summary_bootstrapping_error,
     token::Token,
@@ -1432,6 +1435,7 @@ impl FinalTransaction {
     pub(crate) fn validate_memory_index_sizes(
         &self,
         base_snapshot: &Snapshot,
+        search_flusher_wake: &SearchFlusherWakeSignals,
     ) -> anyhow::Result<()> {
         #[allow(unused_mut)]
         let mut vector_size_limit = *VECTOR_INDEX_SIZE_HARD_LIMIT;
@@ -1442,14 +1446,27 @@ impl FinalTransaction {
             .coalesced_writes()
             .map(|update| update.id().tablet_id)
             .collect();
+        let text_index_sizes = base_snapshot.text_indexes.flushable_in_memory_index_sizes();
+        let vector_index_sizes = base_snapshot
+            .vector_indexes
+            .flushable_in_memory_index_sizes();
+        // Wake the flushers before validating so that an index that's already
+        // over the hard limit still gets flushed.
+        search_flusher_wake.update_index_sizes(
+            SearchType::Text,
+            text_index_sizes.iter().cloned(),
+            *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+        );
+        search_flusher_wake.update_index_sizes(
+            SearchType::Vector,
+            vector_index_sizes.iter().cloned(),
+            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+        );
         Self::validate_memory_index_size(
             &self.table_mapping,
             base_snapshot,
             &modified_tables,
-            base_snapshot
-                .text_indexes
-                .flushable_in_memory_index_sizes()
-                .into_iter(),
+            text_index_sizes.into_iter(),
             search_size_limit,
             SearchType::Text,
         )?;
@@ -1457,10 +1474,7 @@ impl FinalTransaction {
             &self.table_mapping,
             base_snapshot,
             &modified_tables,
-            base_snapshot
-                .vector_indexes
-                .flushable_in_memory_index_sizes()
-                .into_iter(),
+            vector_index_sizes.into_iter(),
             vector_size_limit,
             SearchType::Vector,
         )?;
