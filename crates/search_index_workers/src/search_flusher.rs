@@ -52,6 +52,7 @@ use database::{
     TableScanCursor,
     Token,
 };
+use errors::ErrorMetadataAnyhowExt;
 use futures::{
     StreamExt,
     TryStreamExt,
@@ -228,7 +229,23 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         build_args: T::BuildIndexArgs,
     ) -> anyhow::Result<u64> {
         let timer = build_one_search_index_timer(T::search_type());
+        match self.build_one_inner(job, build_args).await {
+            Ok(num_documents) => {
+                timer.finish();
+                Ok(num_documents)
+            },
+            Err(e) => {
+                timer.finish_with(e.metric_status_label_value());
+                Err(e)
+            },
+        }
+    }
 
+    async fn build_one_inner(
+        &self,
+        job: IndexBuild<T>,
+        build_args: T::BuildIndexArgs,
+    ) -> anyhow::Result<u64> {
         let result = self.build_multipart_segment(&job, build_args).await?;
         tracing::debug!(
             "Built a {} segment for: {result:#?}",
@@ -260,7 +277,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             index_stats.num_non_deleted_documents(),
             Self::search_type(),
         );
-        timer.finish();
 
         Ok(new_segment_stats.num_documents())
     }

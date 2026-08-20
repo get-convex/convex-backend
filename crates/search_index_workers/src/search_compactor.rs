@@ -21,6 +21,7 @@ use database::{
     IndexModel,
     Token,
 };
+use errors::ErrorMetadataAnyhowExt;
 use itertools::Itertools;
 use keybroker::Identity;
 use rand::seq::SliceRandom;
@@ -194,6 +195,19 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
 
     async fn build_one(&self, job: CompactionJob<T>) -> anyhow::Result<u64> {
         let timer = compaction_build_one_timer(Self::search_type(), job.compaction_reason);
+        match self.build_one_inner(job).await {
+            Ok(total_compacted_segments) => {
+                timer.finish();
+                Ok(total_compacted_segments)
+            },
+            Err(e) => {
+                timer.finish_with(e.metric_status_label_value());
+                Err(e)
+            },
+        }
+    }
+
+    async fn build_one_inner(&self, job: CompactionJob<T>) -> anyhow::Result<u64> {
         let snapshot_ts = match job.on_disk_state {
             SearchOnDiskState::Backfilling(ref backfill_state) => {
                 backfill_state.backfill_ts().with_context(|| {
@@ -240,7 +254,6 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 .collect::<anyhow::Result<Vec<_>>>()?,
             Self::format(&new_segment, &job.spec)?,
         );
-        timer.finish();
         Ok(total_compacted_segments)
     }
 
