@@ -316,9 +316,6 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
-  // When enabled, the per-row copy button in the environment variables UI
-  // copies the name and value in .env format instead of just the value.
-  copyEnvVarNameAndValueEnabled: boolean;
   connectionStateCheckIntervalMs: number;
 };
 

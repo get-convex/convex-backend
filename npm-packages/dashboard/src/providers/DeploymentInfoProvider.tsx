@@ -135,8 +135,7 @@ export function DeploymentInfoProvider({
   useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
-  const { connectionStateCheckIntervalMs, copyEnvVarNameAndValue } =
-    useLaunchDarkly();
+  const { connectionStateCheckIntervalMs } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
   const teamsURI = `/t/${selectedTeamSlug}`;
@@ -216,7 +215,6 @@ export function DeploymentInfoProvider({
         deploymentsURI,
         isSelfHosted: false,
         workosIntegrationEnabled: true,
-        copyEnvVarNameAndValueEnabled: copyEnvVarNameAndValue,
         connectionStateCheckIntervalMs,
       });
     };
@@ -233,7 +231,6 @@ export function DeploymentInfoProvider({
     deploymentsURI,
     projectsURI,
     teamsURI,
-    copyEnvVarNameAndValue,
     connectionStateCheckIntervalMs,
   ]);
 

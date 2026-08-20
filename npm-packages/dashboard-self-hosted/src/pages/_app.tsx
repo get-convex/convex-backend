@@ -320,9 +320,6 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
-  // Gated off until the feature ships; self-hosted has no LaunchDarkly, so
-  // flip this to true at launch.
-  copyEnvVarNameAndValueEnabled: false,
   connectionStateCheckIntervalMs: 2500,
 };
 
