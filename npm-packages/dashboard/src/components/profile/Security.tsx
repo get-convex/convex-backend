@@ -49,7 +49,7 @@ const WIDGET_CSS = `
   cursor: pointer;
 }
 /* Match the widget text fields to the dashboard's TextInput. The widget
-   defaults them to the browser's system \`field\`/\`fieldtext\` colors with no
+   defaults them to the browser's system \`field\`/\`fieldtext\`colors with no
    radius and an OS focus ring; point them at the dashboard surface, round the
    corners, and use the selected-border focus state instead. (The border color
    already comes from --woswidgets-border-color above.) */
@@ -74,6 +74,14 @@ const WIDGET_CSS = `
    sidebar's scroll indicator (z-10). Match the design system's Popover. */
 .radix-themes.rt-BaseDialogOverlay {
   z-index: 50;
+}
+/* The authenticator-enrollment QR code sits in a frame the widget paints with
+   the theme's surface color, near-black in dark mode; its padding is the code's
+   quiet zone, which cameras read most reliably in white. The widget sets the
+   background inline, hence \`!important\`. \`secret-note\` is the id of the "Can't
+   scan the code?" hint the image points at with aria-describedby. */
+.radix-themes :has(> img[aria-describedby="secret-note"]) {
+  background: #fff !important;
 }
 `;
 
