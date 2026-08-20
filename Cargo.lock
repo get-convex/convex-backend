@@ -5757,7 +5757,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.16.1",
  "serde",
  "serde_core",
 ]
@@ -10129,8 +10129,8 @@ dependencies = [
 
 [[package]]
 name = "shuttle"
-version = "0.9.1"
-source = "git+https://github.com/awslabs/shuttle#cd57cf9d04c3056eb82a6fd7bd272d264b5c290c"
+version = "0.9.2"
+source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
 dependencies = [
  "bitvec",
  "cfg-if",
@@ -10142,29 +10142,9 @@ dependencies = [
  "rand_core 0.6.4",
  "rand_pcg",
  "scoped-tls",
- "shuttle-core",
+ "shuttle-engine",
  "shuttle-schedulers",
  "shuttle-std",
- "tracing",
-]
-
-[[package]]
-name = "shuttle-core"
-version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#cd57cf9d04c3056eb82a6fd7bd272d264b5c290c"
-dependencies = [
- "assoc",
- "bitvec",
- "cfg-if",
- "const-siphasher",
- "corosensei",
- "hex",
- "owo-colors",
- "rand 0.8.6",
- "rand_core 0.6.4",
- "rand_pcg",
- "scoped-tls",
- "smallvec",
  "tracing",
 ]
 
@@ -10188,9 +10168,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "shuttle-engine"
+version = "0.1.0"
+source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+dependencies = [
+ "assoc",
+ "bitvec",
+ "cfg-if",
+ "const-siphasher",
+ "corosensei",
+ "hex",
+ "owo-colors",
+ "rand 0.8.6",
+ "rand_core 0.6.4",
+ "rand_pcg",
+ "scoped-tls",
+ "smallvec",
+ "tracing",
+]
+
+[[package]]
 name = "shuttle-parking_lot"
 version = "0.12.5"
-source = "git+https://github.com/awslabs/shuttle#cd57cf9d04c3056eb82a6fd7bd272d264b5c290c"
+source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
 dependencies = [
  "cfg-if",
  "parking_lot",
@@ -10199,9 +10199,10 @@ dependencies = [
 
 [[package]]
 name = "shuttle-parking_lot-impl"
-version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#cd57cf9d04c3056eb82a6fd7bd272d264b5c290c"
+version = "0.1.1"
+source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
 dependencies = [
+ "lock_api",
  "shuttle",
  "tracing",
 ]
@@ -10209,11 +10210,11 @@ dependencies = [
 [[package]]
 name = "shuttle-schedulers"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#cd57cf9d04c3056eb82a6fd7bd272d264b5c290c"
+source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
 dependencies = [
  "rand 0.8.6",
  "rand_pcg",
- "shuttle-core",
+ "shuttle-engine",
  "smallvec",
  "tracing",
 ]
@@ -10221,11 +10222,11 @@ dependencies = [
 [[package]]
 name = "shuttle-std"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#cd57cf9d04c3056eb82a6fd7bd272d264b5c290c"
+source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
 dependencies = [
  "assoc",
  "owo-colors",
- "shuttle-core",
+ "shuttle-engine",
  "smallvec",
  "tracing",
 ]
