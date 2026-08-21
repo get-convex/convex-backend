@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/router";
+import omit from "lodash/omit";
 import { Share2Icon, CubeIcon } from "@radix-ui/react-icons";
 import udfs from "@common/udfs";
 import {
@@ -82,6 +83,21 @@ export function SchemaView({
   }, [activeSchema, shapes]);
 
   const [isShowingSchema, setIsShowingSchema] = useState(false);
+
+  // The CLI links here with `?showSchema=true` while a schema push is
+  // validating documents, since the schema modal shows validation progress.
+  // Consume the param and open the modal.
+  const router = useRouter();
+  useEffect(() => {
+    if (router.query.showSchema) {
+      setIsShowingSchema(true);
+      void router.replace(
+        { pathname: router.pathname, query: omit(router.query, "showSchema") },
+        undefined,
+        { shallow: true },
+      );
+    }
+  }, [router]);
 
   if (!canViewData) {
     return (

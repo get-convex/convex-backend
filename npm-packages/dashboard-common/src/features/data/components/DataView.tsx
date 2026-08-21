@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
+import { useRouter } from "next/router";
 import udfs from "@common/udfs";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
 import { EmptyData } from "@common/features/data/components/EmptyData";
@@ -31,9 +32,22 @@ export function DataView({
   onTableCreated?: () => void;
   onDocumentsAdded?: (count: number) => void;
 }) {
-  const { useCurrentDeployment, ErrorBoundary } = useContext(
+  const { useCurrentDeployment, ErrorBoundary, deploymentsURI } = useContext(
     DeploymentInfoContext,
   );
+
+  // Older CLI versions link to `/data?showSchema=true` to show schema push
+  // progress; that view lives on the Schema page, so forward them there.
+  const router = useRouter();
+  useEffect(() => {
+    if (router.query.showSchema) {
+      const query: Record<string, string> = { showSchema: "true" };
+      if (typeof router.query.component === "string") {
+        query.component = router.query.component;
+      }
+      void router.replace({ pathname: `${deploymentsURI}/schema`, query });
+    }
+  }, [router, deploymentsURI]);
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const deployment = useCurrentDeployment() ?? {
     id: undefined,
