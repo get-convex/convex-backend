@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { type ReactNode } from "react";
+import { LoginRequiredError } from "@workos-inc/authkit-react";
 import { ConvexProviderWithAuth, type AuthTokenFetcher } from "convex/react";
 
 type IConvexReactClient = {
@@ -11,7 +12,9 @@ type IConvexReactClient = {
 type UseAuth = () => {
   isLoading: boolean;
   user: any | null;
-  getAccessToken: () => Promise<string | null>;
+  getAccessToken: (options?: {
+    forceRefresh?: boolean;
+  }) => Promise<string | null>;
 };
 
 /**
@@ -46,14 +49,21 @@ function useUseAuthFromAuthKit(useAuth: UseAuth) {
       function useAuthFromWorkOS() {
         const { isLoading, user, getAccessToken } = useAuth();
 
-        const fetchAccessToken = useCallback(async () => {
-          try {
-            const token = await getAccessToken();
-            return token;
-          } catch {
-            return null;
-          }
-        }, [getAccessToken]);
+        const fetchAccessToken = useCallback(
+          async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
+            try {
+              return await (forceRefreshToken
+                ? getAccessToken({ forceRefresh: true })
+                : getAccessToken());
+            } catch (error) {
+              if (error instanceof LoginRequiredError) {
+                return null;
+              }
+              throw error;
+            }
+          },
+          [getAccessToken],
+        );
 
         return useMemo(
           () => ({
