@@ -2446,6 +2446,8 @@ export interface components {
             /** Format: int64 */
             teamMaxVectorBandwidth: number;
             customDomainsEnabled: boolean;
+            /** Format: int64 */
+            maxCustomDomains: number;
             periodicBackupsEnabled: boolean;
             /** Format: int64 */
             maxCloudBackups: number;

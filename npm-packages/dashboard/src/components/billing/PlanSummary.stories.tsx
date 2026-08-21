@@ -67,6 +67,7 @@ export const Primary: Story = {
       maxTeamMembers: 50000,
       logStreamingEnabled: true,
       customDomainsEnabled: true,
+      maxCustomDomains: 100,
       customRolesEnabled: true,
       customAuditLogsInLogStreamsConfigEnabled: true,
       streamingExportEnabled: true,

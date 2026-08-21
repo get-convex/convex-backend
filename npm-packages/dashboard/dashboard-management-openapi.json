@@ -5807,6 +5807,7 @@
           "teamMaxVectorStorage",
           "teamMaxVectorBandwidth",
           "customDomainsEnabled",
+          "maxCustomDomains",
           "periodicBackupsEnabled",
           "maxCloudBackups",
           "maxChefTokens",
@@ -5874,6 +5875,10 @@
           },
           "customDomainsEnabled": {
             "type": "boolean"
+          },
+          "maxCustomDomains": {
+            "type": "integer",
+            "format": "int64"
           },
           "periodicBackupsEnabled": {
             "type": "boolean"
