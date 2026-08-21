@@ -11,7 +11,7 @@ import {
   flip,
   shift,
 } from "@floating-ui/react";
-import { ColumnInstance } from "react-table";
+import { Column } from "@tanstack/react-table";
 import { DotsVerticalIcon, Link2Icon } from "@radix-ui/react-icons";
 import { Portal } from "@headlessui/react";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
@@ -54,7 +54,8 @@ import { cn } from "@ui/cn";
 export type DataCellProps = {
   value: Value;
   document: GenericDocument;
-  column: ColumnInstance<GenericDocument>;
+  column: Column<GenericDocument, unknown>;
+  resizeHandler?: (event: unknown) => void;
   editDocument: () => void;
   areEditsAuthorized: boolean;
   authorizeEdits?: () => void;
@@ -76,6 +77,7 @@ export const DataCell = memo(DataCellImpl, areEqual);
 function DataCellImpl({
   value,
   column,
+  resizeHandler,
   authorizeEdits,
   areEditsAuthorized,
   width,
@@ -96,7 +98,7 @@ function DataCellImpl({
   const cellButtonRef = useRef<HTMLButtonElement>(null);
 
   // Derive all the information needed to render the cell
-  const columnName = column.Header as string;
+  const columnName = column.id;
   const stringValue = typeof value === "string" ? value : stringifyValue(value);
   const [isHoveringCell, setIsHoveringCell] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -269,13 +271,14 @@ function DataCellImpl({
               stringValue,
             }}
           />
-          {!column.disableResizing && (
+          {column.getCanResize() && resizeHandler && (
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- mouse/touch-driven column resize handle
             <div
-              {...column.getResizerProps()}
-              className="absolute top-0 right-0 inline-block h-full"
+              role="separator"
+              onMouseDown={resizeHandler}
+              onTouchStart={resizeHandler}
+              className="absolute top-0 right-0 inline-block h-full cursor-col-resize touch-none select-none"
               style={{
-                // @ts-expect-error bad typing in react-table
-                ...column.getResizerProps().style,
                 width: densityValues.paddingX,
               }}
             />

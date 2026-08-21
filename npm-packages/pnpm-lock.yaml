@@ -1035,9 +1035,6 @@ importers:
       '@types/react-sparklines':
         specifier: ~1.7.5
         version: 1.7.5
-      '@types/react-table':
-        specifier: ^7.7.2
-        version: 7.7.20
       '@types/react-window':
         specifier: ^1.8.5
         version: 1.8.8
@@ -1209,9 +1206,6 @@ importers:
       react-resizable-panels:
         specifier: ~2.1.1
         version: 2.1.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-table:
-        specifier: 7.8.0
-        version: 7.8.0(react@18.3.1)
       react-use:
         specifier: ~17.6.0
         version: 17.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1306,9 +1300,6 @@ importers:
       '@types/react-dom':
         specifier: ^18.0.0
         version: 18.3.7(@types/react@18.3.26)
-      '@types/react-table':
-        specifier: ^7.7.2
-        version: 7.7.20
       '@types/react-window':
         specifier: ^1.8.5
         version: 1.8.8
@@ -1406,9 +1397,6 @@ importers:
       '@types/react-dom':
         specifier: ^18.0.0
         version: 18.3.7(@types/react@18.3.26)
-      '@types/react-table':
-        specifier: ^7.7.2
-        version: 7.7.20
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -14626,9 +14614,6 @@ packages:
   '@types/react-sparklines@1.7.5':
     resolution: {integrity: sha512-rIAmNyRKUqWWnaQMjNrxMNkgEFi5f9PrdczSNxj5DscAa48y4i9P0fRKZ72FmNcFsdg6Jx4o6CXWZtIaC0OJOg==}
 
-  '@types/react-table@7.7.20':
-    resolution: {integrity: sha512-ahMp4pmjVlnExxNwxyaDrFgmKxSbPwU23sGQw2gJK4EhCvnvmib2s/O/+y1dfV57dXOwpr2plfyBol+vEHbi2w==}
-
   '@types/react-test-renderer@19.1.0':
     resolution: {integrity: sha512-XD0WZrHqjNrxA/MaR9O22w/RNidWR9YZmBdRGI7wcnWGrv/3dA8wKCJ8m63Sn+tLJhcjmuhOi629N66W6kgWzQ==}
 
@@ -24880,11 +24865,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  react-table@7.8.0:
-    resolution: {integrity: sha512-hNaz4ygkZO4bESeFfnfOft73iBUj8K5oKi1EcSHPAibEydfsX2MyU6Z8KCr3mv3C9Kqqh71U+DhZkFvibbnPbA==}
-    peerDependencies:
-      react: ^16.8.3 || ^17.0.0-0 || ^18.0.0
 
   react-test-renderer@19.2.3:
     resolution: {integrity: sha512-TMR1LnSFiWZMJkCgNf5ATSvAheTT2NvKIwiVwdBPHxjBI7n/JbWd4gaZ16DVd9foAXdvDz+sB5yxZTwMjPRxpw==}
@@ -40729,10 +40709,6 @@ snapshots:
     dependencies:
       '@types/react': 18.3.26
 
-  '@types/react-table@7.7.20':
-    dependencies:
-      '@types/react': 18.3.26
-
   '@types/react-test-renderer@19.1.0':
     dependencies:
       '@types/react': 18.3.26
@@ -56084,10 +56060,6 @@ snapshots:
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.8
-
-  react-table@7.8.0(react@18.3.1):
-    dependencies:
-      react: 18.3.1
 
   react-test-renderer@19.2.3(react@19.2.4):
     dependencies:

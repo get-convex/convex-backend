@@ -1,8 +1,20 @@
 import { useMemo } from "react";
 import { GenericDocument } from "convex/server";
+import { ColumnDef, RowData } from "@tanstack/react-table";
 import { useLocalStorage } from "react-use";
 import { isInCommonUTCTimestampRange } from "@common/features/data/lib/helpers";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    // Whether values in this column are rendered as dates.
+    isDate?: boolean;
+    // Whether values in this column look like timestamps (which decides
+    // whether to offer the "show as dates" toggle).
+    isDateLike?: boolean;
+  }
+}
 
 const MIN_COLUMN_WIDTH = 50;
 // Accounts for different locales, prevents truncation if _creationTime is the last column
@@ -76,45 +88,47 @@ export const useDataColumns = ({
     [fields, dateLikeColumns, showFieldsAsDates],
   );
 
-  const columns = useMemo(
-    () =>
-      [
-        {
-          Header: checkboxColumnName,
-          minWidth: 40,
-          width: 40,
-          maxWidth: 40,
-          disableResizing: true,
-        },
-      ].concat(
-        fields.map((field) => ({
-          Header: field === "" ? emptyColumnName : field,
-          accessor: field,
-          // id and accessorFn support empty-string key (because there are falsy
-          // checks on all these fields and empty string is falsy).
-          id: field === "" ? emptyColumnName : undefined,
-          accessorFn: (row: any) => row[field],
-          isDate: dateRenderedColumns.includes(field),
-          isDateLike: dateLikeColumns.includes(field),
-          minWidth:
+  const columns = useMemo<ColumnDef<GenericDocument, any>[]>(
+    () => [
+      {
+        id: checkboxColumnName,
+        header: checkboxColumnName,
+        minSize: 40,
+        size: 40,
+        maxSize: 40,
+        enableResizing: false,
+      },
+      ...fields.map(
+        (field): ColumnDef<GenericDocument, any> => ({
+          // The id supports an empty-string field name (because there are
+          // falsy checks on all these fields and empty string is falsy).
+          id: field === "" ? emptyColumnName : field,
+          header: field === "" ? emptyColumnName : field,
+          accessorFn: (row) => row[field],
+          meta: {
+            isDate: dateRenderedColumns.includes(field),
+            isDateLike: dateLikeColumns.includes(field),
+          },
+          minSize:
             field === "_creationTime"
               ? CREATION_TIME_COLUMN_MIN_WIDTH
               : field === "_id"
                 ? ID_COLUMN_WIDTH
                 : MIN_COLUMN_WIDTH,
           // Figure out how wide to make each column by default.
-          width:
+          size:
             columnWidths && columnWidths[field]
               ? columnWidths[field]
               : Math.max(
                   (width - DEFAULT_COLUMN_WIDTH) / (fields.length - 1),
                   DEFAULT_COLUMN_WIDTH,
                 ),
-          disableResizing: false,
-          maxWidth: MAX_COLUMN_WIDTH,
-        })),
+          enableResizing: true,
+          maxSize: MAX_COLUMN_WIDTH,
+        }),
       ),
-    // Memoize columns for use with react-table so that new data
+    ],
+    // Memoize columns for use with TanStack Table so that new data
     // or other rerender does not reset column widths.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -136,9 +150,15 @@ export const useDataColumns = ({
       width -
       columns
         .slice(0, columns.length - 1)
-        .reduce((acc, curr) => acc + curr.width, 0);
+        .reduce((acc, curr) => acc + (curr.size ?? 0), 0);
     if (newWidth > MIN_COLUMN_WIDTH) {
-      columns[columns.length - 1].width = newWidth;
+      columns[columns.length - 1].size = newWidth;
+      // getSize() clamps to maxSize; let the stretched column exceed the
+      // regular resize cap.
+      columns[columns.length - 1].maxSize = Math.max(
+        newWidth,
+        MAX_COLUMN_WIDTH,
+      );
     }
   }
   return columns;

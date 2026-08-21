@@ -5,10 +5,9 @@ import {
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { GenericDocument } from "convex/server";
-import { HeaderGroup } from "react-table";
+import { flexRender, Header } from "@tanstack/react-table";
 import { useSortable } from "@dnd-kit/sortable";
 import { useRef, useState, RefObject } from "react";
-import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 import { Checkbox } from "@ui/Checkbox";
@@ -22,7 +21,7 @@ import { Button } from "@ui/Button";
 import { useStoredShowFieldsAsDates } from "@common/features/data/components/Table/utils/useDataColumns";
 
 type ColumnHeaderProps = {
-  column: HeaderGroup<GenericDocument>;
+  header: Header<GenericDocument, unknown>;
   columnIndex: number;
   allRowsSelected: boolean | "indeterminate";
   hasFilters: boolean;
@@ -37,7 +36,7 @@ type ColumnHeaderProps = {
 };
 
 export function ColumnHeader({
-  column,
+  header,
   columnIndex,
   allRowsSelected = false,
   hasFilters,
@@ -54,7 +53,8 @@ export function ColumnHeader({
 
   const headerNode = useRef<HTMLDivElement | null>(null);
 
-  const columnName = column.Header as string;
+  const { column } = header;
+  const columnName = column.id;
   const columnId = column.id;
 
   const { attributes, listeners, setNodeRef, isDragging, isOver, active } =
@@ -80,26 +80,22 @@ export function ColumnHeader({
   );
 
   const { densityValues } = useTableDensity();
-  const width = columnWidthToString(column.getHeaderProps().style?.width);
+  const width = columnWidthToString(header.getSize());
 
   const [isHovered, setIsHovered] = useState(false);
 
   return (
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the mouse listeners only track hover; the header's interactive controls are its inner buttons
     <div
-      key={column.getHeaderProps().key}
-      {...omit(
-        column.getHeaderProps({
-          style: { width, height: densityValues.height },
-        }),
-        "key",
-      )}
+      role="columnheader"
+      style={{ width, height: densityValues.height }}
       ref={setNodeRef}
       className={classNames(
         isDragging && "opacity-50",
         "font-semibold text-left text-xs bg-background-secondary text-content-secondary tracking-wider",
         "select-none duration-300 transition-colors",
         "border-r",
-        "relative",
+        "relative shrink-0",
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -138,23 +134,24 @@ export function ColumnHeader({
             !isSelectionExhaustive ? null : (
               <Checkbox checked={allRowsSelected} onChange={toggleAll} />
             )
-          ) : column.Header === emptyColumnName ? (
+          ) : columnName === emptyColumnName ? (
             <i>empty</i>
-          ) : typeof column.Header === "string" &&
-            identifierNeedsEscape(column.Header) ? (
+          ) : identifierNeedsEscape(columnName) ? (
             <span
               className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
             >
-              {column.render("Header")}
+              {flexRender(column.columnDef.header, header.getContext())}
             </span>
           ) : (
-            <div>{column.render("Header")}</div>
+            <div>
+              {flexRender(column.columnDef.header, header.getContext())}
+            </div>
           )}
-          {column.Header !== "_creationTime" &&
-            (column as unknown as { isDateLike?: boolean }).isDateLike && (
+          {columnName !== "_creationTime" &&
+            column.columnDef.meta?.isDateLike && (
               <DateDisplayToggle
                 columnName={columnName}
-                isDate={(column as unknown as { isDate: boolean }).isDate}
+                isDate={column.columnDef.meta?.isDate ?? false}
                 localStorageKey={localStorageKey}
               />
             )}
@@ -185,13 +182,14 @@ export function ColumnHeader({
           />
         )}
       </div>
-      {!isHovering && !column.disableResizing && columnName !== "*select" && (
+      {!isHovering && column.getCanResize() && columnName !== "*select" && (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- mouse/touch-driven column resize handle
         <div
-          {...column.getResizerProps()}
-          className="absolute top-0 z-20 inline-block h-full"
+          role="separator"
+          onMouseDown={header.getResizeHandler()}
+          onTouchStart={header.getResizeHandler()}
+          className="absolute top-0 z-20 inline-block h-full cursor-col-resize touch-none select-none"
           style={{
-            // @ts-expect-error bad typing in react-table
-            ...column.getResizerProps().style,
             width: densityValues.paddingX * (isLastColumn ? 1 : 2),
             right: isLastColumn ? 0 : -densityValues.paddingX,
           }}

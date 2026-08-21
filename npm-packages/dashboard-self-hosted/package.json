@@ -32,7 +32,6 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
-    "@types/react-table": "^7.7.2",
     "dotenv": "^16.4.7",
     "postcss": "^8.5.18",
     "tailwind-scrollbar": "^4.0.2",
