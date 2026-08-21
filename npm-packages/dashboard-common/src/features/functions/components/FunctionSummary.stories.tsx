@@ -23,6 +23,12 @@ const mockClient = mockConvexReactClient()
       path: "rateLimiter",
       httpPrefix: "/rate_limiter/",
     }),
+    component({
+      id: "emailSender",
+      name: "emailSender",
+      path: "emailSender",
+      httpPrefix: null,
+    }),
   ])
   // The "Run Function" button wires up the function runner, which reads the
   // deployment's modules and tables.
@@ -129,6 +135,20 @@ export const HttpActionInComponent: Story = {
       udfType: "HttpAction",
       componentId: "rateLimiter" as Id<"_components">,
       componentPath: "rateLimiter",
+      file: { name: "http.ts", identifier: "http.js" },
+    }),
+  },
+};
+
+// `emailSender` is installed without an `httpPrefix`, so none of its routes are
+// served: the badge replaces the copy-URL button.
+export const HttpActionInUnmountedComponent: Story = {
+  args: {
+    currentOpenFunction: moduleFunction({
+      name: "POST /send",
+      udfType: "HttpAction",
+      componentId: "emailSender" as Id<"_components">,
+      componentPath: "emailSender",
       file: { name: "http.ts", identifier: "http.js" },
     }),
   },

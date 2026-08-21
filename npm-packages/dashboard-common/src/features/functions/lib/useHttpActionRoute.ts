@@ -4,13 +4,19 @@ import udfs from "@common/udfs";
 import { PermissionsContext } from "@common/lib/deploymentContext";
 import { ModuleFunction } from "@common/lib/functions/types";
 
+export type HttpActionRoute =
+  /** The absolute URL the HTTP action is served at. */
+  | { status: "mounted"; url: string }
+  /** The action's component isn't mounted over HTTP, so it serves no routes. */
+  | { status: "unmounted" };
+
 /**
- * The absolute URL an HTTP action is served at, or `null` if it isn't served
- * (or isn't an HTTP action, or the deployment's URL isn't loaded yet).
+ * Where an HTTP action is served, or `null` if it isn't an HTTP action (or the
+ * deployment's routing info isn't loaded yet).
  */
-export function useHttpActionUrl(
+export function useHttpActionRoute(
   moduleFunction: ModuleFunction,
-): string | null {
+): HttpActionRoute | null {
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewData = useIsOperationAllowed("ViewData");
   const isHttpAction = moduleFunction.udfType === "HttpAction" && canViewData;
@@ -31,9 +37,8 @@ export function useHttpActionUrl(
     ? components.find((c) => c.id === moduleFunction.componentId)
     : components.find((c) => c.path === "");
   const httpPrefix = component?.httpPrefix ?? null;
-  // A child component that isn't mounted over HTTP has no routes served.
   if (moduleFunction.componentId && !httpPrefix) {
-    return null;
+    return { status: "unmounted" };
   }
 
   // HTTP actions are named `"<METHOD> <path>"` — URI paths can't contain a raw
@@ -41,5 +46,8 @@ export function useHttpActionUrl(
   const routePath = moduleFunction.name.slice(
     moduleFunction.name.indexOf(" ") + 1,
   );
-  return `${convexSiteUrl}${(httpPrefix ?? "").replace(/\/$/, "")}${routePath}`;
+  return {
+    status: "mounted",
+    url: `${convexSiteUrl}${(httpPrefix ?? "").replace(/\/$/, "")}${routePath}`,
+  };
 }

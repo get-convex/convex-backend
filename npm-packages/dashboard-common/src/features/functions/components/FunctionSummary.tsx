@@ -1,4 +1,8 @@
-import { Link2Icon, PlayIcon } from "@radix-ui/react-icons";
+import {
+  Link2Icon,
+  PlayIcon,
+  QuestionMarkCircledIcon,
+} from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Portal } from "@headlessui/react";
@@ -8,7 +12,7 @@ import { UdfType } from "system-udfs/convex/_system/frontend/common";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { CopiedPopper } from "@common/elements/CopiedPopper";
 import { copyTextToClipboard } from "@common/lib/utils";
-import { useHttpActionUrl } from "@common/features/functions/lib/useHttpActionUrl";
+import { useHttpActionRoute } from "@common/features/functions/lib/useHttpActionRoute";
 import { FunctionRunnerDisabledWhilePaused } from "@common/features/functions/components/FunctionRunnerDisabledWhilePaused";
 import {
   DeploymentInfoContext,
@@ -19,6 +23,7 @@ import { ModuleFunction } from "@common/lib/functions/types";
 import { Loading } from "@ui/Loading";
 import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEditsConfirmationDialog";
 import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
 import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 
 export function FunctionSummary({
@@ -45,7 +50,7 @@ export function FunctionSummary({
   const isInternal = currentOpenFunction.visibility?.kind === "internal";
   const isInComponent = !!currentOpenFunction.componentPath;
 
-  const httpActionUrl = useHttpActionUrl(currentOpenFunction);
+  const httpActionRoute = useHttpActionRoute(currentOpenFunction);
 
   const copyUrlButtonRef = useRef<HTMLElement | null>(null);
   const [copiedPopperElement, setCopiedPopperElement] =
@@ -113,7 +118,32 @@ export function FunctionSummary({
               text={currentOpenFunction.displayName}
             />
           )}
-          {httpActionUrl && (
+          {httpActionRoute?.status === "unmounted" && (
+            <Tooltip
+              asChild
+              side="bottom"
+              maxWidthClassName="max-w-xs"
+              tip={
+                <div className="text-left text-pretty">
+                  <p className="mb-0.5">
+                    <code>{currentOpenFunction.componentPath}</code> is
+                    installed without an <code>httpPrefix</code>, so its HTTP
+                    routes aren’t served.
+                  </p>
+                  <p>
+                    Set an <code>httpPrefix</code> in{" "}
+                    <code>convex/convex.config.ts</code> to mount the routes.
+                  </p>
+                </div>
+              }
+            >
+              <span className="flex items-center gap-1 rounded-full bg-background-warning px-2 py-1 text-xs text-content-warning">
+                Not mounted
+                <QuestionMarkCircledIcon className="size-3.5 min-w-3.5" />
+              </span>
+            </Tooltip>
+          )}
+          {httpActionRoute?.status === "mounted" && (
             <>
               <Button
                 ref={copyUrlButtonRef}
@@ -125,7 +155,7 @@ export function FunctionSummary({
                 tip="Copy URL"
                 tipSide="bottom"
                 onClick={() => {
-                  void copyTextToClipboard(httpActionUrl).then(() =>
+                  void copyTextToClipboard(httpActionRoute.url).then(() =>
                     setDidJustCopyUrl(true),
                   );
                 }}
