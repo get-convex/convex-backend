@@ -6,11 +6,13 @@ export const flagDefaults: {
   enableNewDashboardVersionNotification: boolean;
   connectionStateCheckIntervalMs: number;
   nonDefaultTeamDevsInMainMenu: number;
+  showAiGatewayUsage: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
   connectionStateCheckIntervalMs: 2500,
   nonDefaultTeamDevsInMainMenu: 10,
+  showAiGatewayUsage: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

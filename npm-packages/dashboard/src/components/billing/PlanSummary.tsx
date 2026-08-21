@@ -17,6 +17,7 @@ import {
 import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import { Donut } from "@ui/Donut";
+import { Loading } from "@ui/Loading";
 
 const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   functionCalls: "functionCalls",
@@ -28,6 +29,7 @@ const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   searchQueries: "searchQueries",
   dataEgress: "dataEgress",
   auditLogBandwidth: "auditLogBandwidth",
+  aiGatewayCost: "aiGatewayCost",
   deploymentCount: "deployments",
 };
 
@@ -41,6 +43,7 @@ const SELF_SERVE_METRIC_TO_SECTION: Record<string, string> = {
   searchQueries: "searchQueries",
   dataEgress: "dataEgress",
   auditLogBandwidth: "auditLogBandwidth",
+  aiGatewayCost: "aiGatewayCost",
   deploymentCount: "deployments",
 };
 
@@ -48,6 +51,7 @@ type BusinessMetricKey =
   | keyof Omit<UsageSummaryRow, "deploymentClass" | "region">
   | "compute"
   | "actionCompute"
+  | "aiGatewayCost"
   | "deploymentCount";
 
 type Section = {
@@ -59,6 +63,8 @@ type Section = {
   title: string;
   suffix?: string;
   noOnDemand?: boolean;
+  // The plan includes none of this metric; the whole amount bills on demand.
+  allOnDemand?: boolean;
 };
 
 const businessSections: Section[] = [
@@ -119,6 +125,13 @@ const businessSections: Section[] = [
     detail:
       "The amount of audit log data egressed to your configured S3 bucket.",
     title: "Audit Log Bandwidth",
+  },
+  {
+    metric: "aiGatewayCost",
+    format: (v: number) => formatQuantity(v, "currency"),
+    detail: "Spend on Convex-managed AI models through the AI gateway",
+    title: "AI Gateway",
+    allOnDemand: true,
   },
   {
     metric: "deploymentCount",
@@ -198,6 +211,13 @@ const selfServeSections: Section[] = [
     title: "Search Queries",
   },
   {
+    metric: "aiGatewayCost",
+    format: (v: number) => formatQuantity(v, "currency"),
+    detail: "Spend on Convex-managed AI models through the AI gateway",
+    title: "AI Gateway",
+    allOnDemand: true,
+  },
+  {
     metric: "deploymentCount",
     entitlement: "maxDeployments",
     format: formatNumberCompact,
@@ -210,6 +230,9 @@ const selfServeSections: Section[] = [
 export function BusinessPlanSummary({
   summary,
   error,
+  aiGatewayCost,
+  aiGatewayCostError,
+  showAiGatewayUsage,
   isBusinessPlan = true,
   entitlements,
   hasSubscription = false,
@@ -217,6 +240,9 @@ export function BusinessPlanSummary({
 }: {
   summary?: UsageSummaryRow[];
   error?: any;
+  aiGatewayCost?: number;
+  aiGatewayCostError?: any;
+  showAiGatewayUsage?: boolean;
   isBusinessPlan?: boolean;
   entitlements?: TeamEntitlementsResponse;
   hasSubscription?: boolean;
@@ -244,6 +270,8 @@ export function BusinessPlanSummary({
       (acc, row) => {
         for (const section of activeSections) {
           if (section.metric === "deploymentCount") continue;
+          // Comes from its own query, not the summary rows.
+          if (section.metric === "aiGatewayCost") continue;
           let value: number;
           if (section.metric === "compute") {
             value =
@@ -276,6 +304,9 @@ export function BusinessPlanSummary({
   if (aggregated && deploymentCount !== undefined) {
     aggregated.deploymentCount = deploymentCount;
   }
+  if (aggregated && aiGatewayCost !== undefined) {
+    aggregated.aiGatewayCost = aiGatewayCost;
+  }
 
   // For self-serve plans, aggregate only primary region (aws-us-east-1)
   // so that included limits only apply to US-hosted deployments.
@@ -288,6 +319,11 @@ export function BusinessPlanSummary({
   // count rather than a region-filtered subset.
   if (primaryRegionAggregated && deploymentCount !== undefined) {
     primaryRegionAggregated.deploymentCount = deploymentCount;
+  }
+  // AI spend has no region dimension, so the primary-region aggregate carries
+  // the same team-wide total.
+  if (primaryRegionAggregated && aiGatewayCost !== undefined) {
+    primaryRegionAggregated.aiGatewayCost = aiGatewayCost;
   }
 
   const sectionToRoute = isBusinessPlan
@@ -388,6 +424,16 @@ export function BusinessPlanSummary({
               const linkHref = { pathname: router.pathname, query: linkQuery };
 
               const metric = aggregated[section.metric] ?? 0;
+              const aiCostFailed =
+                section.metric === "aiGatewayCost" &&
+                aiGatewayCostError !== undefined;
+              const aiCostPending =
+                section.metric === "aiGatewayCost" &&
+                aiGatewayCost === undefined &&
+                !aiCostFailed;
+              if (section.metric === "aiGatewayCost" && !showAiGatewayUsage) {
+                return null;
+              }
               const entitlement =
                 section.entitlement && entitlements
                   ? ((entitlements as Record<string, unknown>)[
@@ -400,8 +446,9 @@ export function BusinessPlanSummary({
               const primaryRegionMetric = primaryRegionAggregated
                 ? (primaryRegionAggregated[section.metric] ?? 0)
                 : metric;
-              const includedAmount =
-                primaryRegionMetric !== undefined && entitlement !== undefined
+              const includedAmount = section.allOnDemand
+                ? 0
+                : primaryRegionMetric !== undefined && entitlement !== undefined
                   ? Math.min(primaryRegionMetric, entitlement)
                   : undefined;
               const onDemandAmount =
@@ -445,11 +492,19 @@ export function BusinessPlanSummary({
                     </SectionLabel>
                   </div>
                   <div className="animate-fadeInFromLoading">
-                    <span>
-                      {section.format(displayedUsage)}
-                      {section.suffix &&
-                        (!showEntitlements ? ` ${section.suffix}` : "")}
-                    </span>
+                    {aiCostFailed ? (
+                      <span className="text-content-secondary">
+                        Unavailable
+                      </span>
+                    ) : aiCostPending ? (
+                      <Loading fullHeight={false} className="h-4 w-16" />
+                    ) : (
+                      <span>
+                        {section.format(displayedUsage)}
+                        {section.suffix &&
+                          (!showEntitlements ? ` ${section.suffix}` : "")}
+                      </span>
+                    )}
                     {showEntitlements && entitlement !== undefined && (
                       <span>
                         {" "}

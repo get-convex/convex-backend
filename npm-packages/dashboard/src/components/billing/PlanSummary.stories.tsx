@@ -14,6 +14,7 @@ export const Primary: Story = {
     hasSubscription: true,
     showEntitlements: true,
     isBusinessPlan: false,
+    aiGatewayCost: 1.2345,
     summary: [
       {
         deploymentClass: "s16",

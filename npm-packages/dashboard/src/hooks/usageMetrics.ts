@@ -31,6 +31,7 @@ const BY_PROJECT_QUERY_IDS_: {
   auditLogBandwidthByProject: DatabricksQueryId;
   searchQueriesByProject: DatabricksQueryId;
   deploymentCountByProject: DatabricksQueryId;
+  aiGatewayCostByProject: DatabricksQueryId;
 } = {
   databaseStorageByProjectAndClass: "489b0f87-6b3a-4dfe-a327-f2965b5c2977",
   databaseStorageByTable: "017c5977-3002-40ca-96af-31868e70e611",
@@ -47,6 +48,7 @@ const BY_PROJECT_QUERY_IDS_: {
   auditLogBandwidthByProject: "158b5d9c-a1d5-469d-a7ca-b610cb59c978",
   searchQueriesByProject: "48ae8bb1-ec17-41db-9e35-7c774296c5ac",
   deploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
+  aiGatewayCostByProject: "e0b23b66-f3de-42ba-a2e0-547c927519d5",
 };
 
 // --- Types ---
@@ -715,6 +717,35 @@ export function useAuditLogBandwidthPerDayByProject(
       ds,
       projectId: parseProjectId(projectId),
       value: Number(auditLogEgress),
+    })),
+    error: undefined,
+  };
+}
+
+// Measured in dollars
+export function useAiGatewayCostPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_.aiGatewayCostByProject,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(([_teamId, projectId, ds, aiGatewayCost]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
+      value: Number(aiGatewayCost),
     })),
     error: undefined,
   };

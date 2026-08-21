@@ -1,4 +1,5 @@
 import { BusinessPlanSummary } from "components/billing/PlanSummary";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
@@ -84,6 +85,7 @@ import {
   useSearchStoragePerDayByProject,
   useDataEgressPerDayByProject,
   useAuditLogBandwidthPerDayByProject,
+  useAiGatewayCostPerDayByProject,
   useSearchQueriesPerDayByProject,
   useDeploymentsByClassAndRegion,
   useComputePerDayByProjectSelfServe,
@@ -126,7 +128,8 @@ export type UsageSectionId =
   | "searchStorage"
   | "searchQueries"
   | "dataEgress"
-  | "auditLogBandwidth";
+  | "auditLogBandwidth"
+  | "aiGatewayCost";
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
   const canViewUsage = useHasCustomRolePermission(
@@ -173,6 +176,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     searchQueries: "Search Queries",
     dataEgress: "Data Egress",
     auditLogBandwidth: "Audit Log Bandwidth",
+    aiGatewayCost: "AI Gateway",
   };
 
   const summaryHref = (() => {
@@ -206,12 +210,31 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     ? { from: shownBillingPeriod.from, to: shownBillingPeriod.to }
     : null;
 
+  const { data: aiGatewayCostByDay, error: aiGatewayCostError } =
+    useAiGatewayCostPerDayByProject(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
+  // TODO: consolidate into one query. The (v2) Summary query has no AI
+  // column, so the nav card totals the per-day rows this section's own query
+  // already returns. Adding the column to the Summary query in
+  // databricks-workbooks (like Function Breakdown gained one in #35) would let
+  // this card read AI cost like every other metric and delete this reduce.
+  const aiGatewayCost = aiGatewayCostByDay?.reduce(
+    (sum, row) => sum + row.value,
+    0,
+  );
+
   const { data: summary, error: summaryError } = useUsageTeamSummary(
     team?.id,
     billingPeriodRange,
     projectId,
     componentPrefix,
   );
+
+  const { showAiGatewayUsage } = useLaunchDarkly();
 
   const entitlements = useTeamEntitlements(team?.id);
 
@@ -296,6 +319,9 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                 <BusinessPlanSummary
                   summary={summary}
                   error={summaryError}
+                  aiGatewayCost={aiGatewayCost}
+                  showAiGatewayUsage={showAiGatewayUsage}
+                  aiGatewayCostError={aiGatewayCostError}
                   isBusinessPlan={isBusinessPlanType}
                   entitlements={entitlements}
                   hasSubscription={hasSubscription}
@@ -416,6 +442,15 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
 
                 {section === "auditLogBandwidth" && (
                   <AuditLogBandwidthUsage
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                  />
+                )}
+
+                {section === "aiGatewayCost" && showAiGatewayUsage && (
+                  <AiGatewayCostUsage
                     team={team}
                     dateRange={dateRange}
                     projectId={projectId}
@@ -1651,6 +1686,41 @@ function AuditLogBandwidthUsage({
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             quantityType="storage"
+          />
+        )}
+      </div>
+    </TeamUsageSection>
+  );
+}
+
+function AiGatewayCostUsage({
+  team,
+  dateRange,
+  projectId,
+  componentPrefix,
+}: DetailSectionProps) {
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  const { data, error } = useAiGatewayCostPerDayByProject(
+    team.id,
+    dateRange,
+    projectId,
+    componentPrefix,
+  );
+
+  return (
+    <TeamUsageSection header={<h3 className="py-2">AI Gateway</h3>}>
+      <div className="px-4">
+        {error ? (
+          <UsageDataError entity="AI gateway spend" />
+        ) : data === undefined ? (
+          <ChartLoading />
+        ) : (
+          <UsageByProjectChart
+            rows={data}
+            team={team}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            quantityType="currency"
           />
         )}
       </div>
