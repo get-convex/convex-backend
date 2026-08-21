@@ -1,10 +1,14 @@
-import { PlayIcon } from "@radix-ui/react-icons";
+import { Link2Icon, PlayIcon } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { Portal } from "@headlessui/react";
 import { lt } from "semver";
 import udfs from "@common/udfs";
 import { UdfType } from "system-udfs/convex/_system/frontend/common";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
+import { CopiedPopper } from "@common/elements/CopiedPopper";
+import { copyTextToClipboard } from "@common/lib/utils";
+import { useHttpActionUrl } from "@common/features/functions/lib/useHttpActionUrl";
 import { FunctionRunnerDisabledWhilePaused } from "@common/features/functions/components/FunctionRunnerDisabledWhilePaused";
 import {
   DeploymentInfoContext,
@@ -40,6 +44,19 @@ export function FunctionSummary({
 
   const isInternal = currentOpenFunction.visibility?.kind === "internal";
   const isInComponent = !!currentOpenFunction.componentPath;
+
+  const httpActionUrl = useHttpActionUrl(currentOpenFunction);
+
+  const copyUrlButtonRef = useRef<HTMLElement | null>(null);
+  const [copiedPopperElement, setCopiedPopperElement] =
+    useState<HTMLDivElement | null>(null);
+  const [didJustCopyUrl, setDidJustCopyUrl] = useState(false);
+  useEffect(() => {
+    if (didJustCopyUrl) {
+      const timeout = setTimeout(() => setDidJustCopyUrl(false), 800);
+      return () => clearTimeout(timeout);
+    }
+  }, [didJustCopyUrl]);
 
   const canRunFunction = (() => {
     if (isInternal) {
@@ -95,6 +112,35 @@ export function FunctionSummary({
               className="font-mono"
               text={currentOpenFunction.displayName}
             />
+          )}
+          {httpActionUrl && (
+            <>
+              <Button
+                ref={copyUrlButtonRef}
+                variant="neutral"
+                size="xs"
+                inline
+                icon={<Link2Icon />}
+                aria-label="Copy URL"
+                tip="Copy URL"
+                tipSide="bottom"
+                onClick={() => {
+                  void copyTextToClipboard(httpActionUrl).then(() =>
+                    setDidJustCopyUrl(true),
+                  );
+                }}
+              />
+              <Portal>
+                <CopiedPopper
+                  referenceElement={copyUrlButtonRef.current}
+                  copiedPopperElement={copiedPopperElement}
+                  setCopiedPopperElement={setCopiedPopperElement}
+                  show={didJustCopyUrl}
+                  message="Copied URL"
+                  placement="bottom"
+                />
+              </Portal>
+            </>
           )}
         </div>
         {
