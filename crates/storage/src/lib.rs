@@ -1222,14 +1222,10 @@ impl Display for StorageUseCase {
     }
 }
 
-/// Core of `LocalDirStorage`'s [`Storage::delete_object`], kept as a free
-/// function so the deletion semantics are unit-testable.
-///
-/// Deleting an already-absent object succeeds, matching S3 DeleteObject
-/// semantics: delete means "ensure it is gone". Only a missing object is
-/// tolerated — if the storage root itself is gone (unmounted or wiped),
-/// report the error rather than letting the caller commit a delete that
-/// never durably happened.
+/// Body of `LocalDirStorage::delete_object`, kept as a free function so the
+/// semantics are unit-testable. An already-absent object is a success, as in
+/// S3 DeleteObject. A missing storage root is not: that would let the caller
+/// commit a delete that never durably happened.
 fn remove_local_object(storage_root: &Path, path: PathBuf) -> anyhow::Result<()> {
     if let Err(e) = fs::remove_file(path) {
         if e.kind() == io::ErrorKind::NotFound && storage_root.exists() {
