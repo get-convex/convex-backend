@@ -103,9 +103,6 @@ export {
   internalMutationGeneric,
   internalQueryGeneric,
 } from "./impl/registration_impl.js";
-/**
- * @internal
- */
 export { getServiceToken } from "./impl/actions_impl.js";
 export type {
   TransactionMetric,

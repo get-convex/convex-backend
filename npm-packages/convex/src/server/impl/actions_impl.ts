@@ -64,7 +64,9 @@ export function setupActionCalls(requestId: string) {
  * cached, so a later call retries.
  *
  * @param service - The service the credential may access.
- * @internal
+ * @returns A JWT to send as `Authorization: Bearer <token>`. Keep it inside
+ * the action: don't return it to clients or store it in environment
+ * variables.
  */
 export async function getServiceToken(service: "ai-gateway"): Promise<string> {
   validateArg(service, 1, "getServiceToken", "service");
