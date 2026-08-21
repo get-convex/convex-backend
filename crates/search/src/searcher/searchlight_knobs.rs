@@ -98,3 +98,20 @@ pub static MAX_TEXT_LRU_ENTRIES: LazyLock<u64> =
 /// so this knob also determines the maximum queue length.
 pub static MAX_CONCURRENT_TEXT_SEARCHES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_CONCURRENT_TEXT_SEARCHES", 20));
+
+/// The size in MiB of the on-disk archive cache used by the in-process
+/// searcher (self-hosted backends) for unpacked text/vector index segments.
+///
+/// Lower bound: must be greater than zero — a zero-size cache evicts every
+/// segment immediately after fetch. Upper bound: the byte size must fit in a
+/// `u64`. Both are enforced when the searcher is constructed. There is no
+/// useful maximum beyond that; the practical guidance is to set this
+/// comfortably above the total unpacked size of the deployment's search
+/// indexes, because a cache smaller than that working set repeatedly evicts
+/// segment directories that the in-memory segment LRUs
+/// (MAX_TEXT_LRU_ENTRIES / MAX_VECTOR_LRU_ENTRIES) still reference —
+/// surfacing as intermittent "No such file or directory" search failures,
+/// a tantivy meta.json file-watcher log flood, and memory growth from
+/// deleted-but-mapped segment files.
+pub static MAX_ARCHIVE_CACHE_SIZE_MIB: LazyLock<u64> =
+    LazyLock::new(|| env_config("MAX_ARCHIVE_CACHE_SIZE_MIB", 500));
