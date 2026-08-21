@@ -215,6 +215,7 @@ pub struct DatabaseUdfSyscallProvider<RT: Runtime> {
     path: ResolvedComponentFunctionPath,
     deployment: DeploymentMetadata,
     client_id: String,
+    udf_server_version: Option<semver::Version>,
 
     phase: UdfPhase<RT>,
     file_storage: TransactionalFileStorage<RT>,
@@ -659,6 +660,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     rt: rt.clone(),
                     udf_type,
                     path,
+                    udf_server_version: udf_server_version.clone(),
 
                     phase: UdfPhase::new(
                         transaction,
@@ -1287,6 +1289,11 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
         );
         self.audit_log_lines.push(audit_log_line);
         Ok(())
+    }
+
+    /// Emit a warning-level log line to the developer's function logs.
+    pub fn emit_warning(&mut self, message: String) -> anyhow::Result<()> {
+        self.trace(LogLevel::Warn, vec![message])
     }
 
     pub fn emit_log_line(&mut self, log_line: LogLine) {

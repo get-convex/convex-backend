@@ -28,6 +28,7 @@ use common::{
         UnixTimestamp,
     },
     types::IndexName,
+    version::Version,
     virtual_system_mapping::AssociatedVirtualTable,
 };
 use database::{
@@ -82,6 +83,10 @@ pub const SCHEDULED_JOBS_TABLE: TableName = TableName::const_new("_scheduled_job
 
 pub const SCHEDULED_JOBS_VIRTUAL_TABLE: TableName = TableName::const_new("_scheduled_functions");
 
+/// Clients on this version or newer may not cancel themselves.
+/// Older clients are warned that it will change.
+pub static MIN_NPM_VERSION_MUTATION_SELF_CANCEL: LazyLock<Version> =
+    LazyLock::new(|| Version::new(1, 50, 0));
 const SCHEDULED_JOBS_INDEX_BY_ID: IndexName = IndexName::by_id(SCHEDULED_JOBS_TABLE);
 const SCHEDULED_JOBS_INDEX_BY_CREATION_TIME: IndexName =
     IndexName::by_creation_time(SCHEDULED_JOBS_TABLE);

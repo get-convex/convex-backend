@@ -79,7 +79,10 @@ use model::{
         BatchKey,
         FileStorageId,
     },
-    scheduled_jobs::VirtualSchedulerModel,
+    scheduled_jobs::{
+        VirtualSchedulerModel,
+        MIN_NPM_VERSION_MUTATION_SELF_CANCEL,
+    },
     virtual_system_mapping,
 };
 use serde::{
@@ -1104,9 +1107,28 @@ async fn cancel_job<RT: Runtime>(
         Ok(id)
     })?;
 
+    // A scheduled mutation observes its own record as `inProgress` via a pending
+    // write, so canceling itself would conflict with that write. Clients on
+    // MIN_NPM_VERSION_MUTATION_SELF_CANCEL or newer get an error; older clients
+    // keep the historical no-op behavior but are warned that it will change.
     if let Some((_, self_job_id)) = provider.context.parent_scheduled_job
         && self_job_id == virtual_id_v6
     {
+        if provider
+            .udf_server_version
+            .as_ref()
+            .is_some_and(|version| *version >= *MIN_NPM_VERSION_MUTATION_SELF_CANCEL)
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "ScheduledFunctionCancelingItself",
+                "A mutation cannot cancel itself",
+            ));
+        }
+        provider.emit_warning(
+            "A scheduled mutation canceling itself is deprecated and will throw an error in a \
+             future version of Convex."
+                .to_string(),
+        )?;
         return Ok(RawValue::NULL.to_owned());
     }
 
