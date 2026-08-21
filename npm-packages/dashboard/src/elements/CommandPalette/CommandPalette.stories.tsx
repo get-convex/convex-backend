@@ -396,6 +396,16 @@ const modules: [string, Module][] = [
       sourcePackageId: "storybook",
     },
   ],
+  [
+    "http",
+    {
+      functions: [
+        makeAnalyzedFunction("GET /messages", "HttpAction"),
+        makeAnalyzedFunction("POST /webhooks/stripe", "HttpAction"),
+      ],
+      sourcePackageId: "storybook",
+    },
+  ],
 ];
 
 const components = [
@@ -413,6 +423,10 @@ const dataPlaneClient = mockConvexReactClient()
   .registerQueryFake(udfs.getTableMapping.default, () => TABLE_MAPPING)
   .registerQueryFake(udfs.modules.list, () => modules)
   .registerQueryFake(udfs.components.list, () => components)
+  .registerQueryFake(
+    udfs.convexSiteUrl.default,
+    () => "https://happy-capybara-123.convex.site",
+  )
   .registerQueryFake(udfs.fileStorageV2.getFile, ({ storageId }) =>
     storageId === STORAGE_ID ? storageFile : null,
   )

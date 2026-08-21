@@ -15,6 +15,7 @@ import {
 } from "@common/lib/functionHelpers";
 import type { ComponentId } from "@common/lib/useNents";
 import type { UdfType } from "system-udfs/convex/_system/frontend/common";
+import { useHttpActionRoute } from "@common/features/functions/lib/useHttpActionRoute";
 import { matchesSearch, NavigationDestination } from "./navigation";
 import { REMOTE_VALUE_PREFIX } from "./navigation";
 import { HighlightedText } from "./items";
@@ -183,10 +184,15 @@ function FunctionResultItem({
   onNavigate: (to: NavigationDestination) => void;
 }) {
   const value = `${REMOTE_VALUE_PREFIX}function:${fn.componentId ?? ""}:${fn.identifier}`;
-  useCopyAction(value, {
-    label: "function name",
-    getText: () => fn.displayName,
-  });
+  // An HTTP action's own name is only the route path, so copy the absolute URL
+  // the route is served at instead — that's what you'd paste into a client.
+  const route = useHttpActionRoute(fn);
+  useCopyAction(
+    value,
+    route?.status === "mounted"
+      ? { label: "URL", getText: () => route.url }
+      : { label: "function name", getText: () => fn.displayName },
+  );
   return (
     <Command.Item
       value={value}
