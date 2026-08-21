@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/ai-sdk-provider",
-  "version": "0.0.1-alpha.0",
+  "version": "0.1.0",
   "description": "AI SDK provider for the Convex AI gateway",
   "license": "Apache-2.0",
   "type": "module",
