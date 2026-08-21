@@ -139,12 +139,9 @@ pub struct InProcessSearcher<RT: Runtime> {
     _tmpdir: Arc<TempDir>,
 }
 
-/// Resolve the archive disk-cache size in bytes from the
-/// `MAX_ARCHIVE_CACHE_SIZE_MIB` knob, rejecting values that cannot work:
-/// zero (a cache that evicts every segment immediately after fetch
-/// reintroduces the deleted-segment ENOENT race the knob exists to prevent)
-/// and values whose byte size overflows a `u64` (this build aborts on
-/// arithmetic overflow).
+/// Resolve MAX_ARCHIVE_CACHE_SIZE_MIB into bytes, rejecting zero (a cache that
+/// evicts every segment immediately after fetch) and sizes whose byte count
+/// overflows u64.
 fn archive_cache_size_bytes(cache_size_mib: u64) -> anyhow::Result<u64> {
     anyhow::ensure!(
         cache_size_mib > 0,
