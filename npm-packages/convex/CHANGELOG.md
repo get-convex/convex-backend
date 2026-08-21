@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.45.0 (unreleased)
+## 1.45.0
 
 - Local deployments now upgrade to a new backend version in place, instead of
   going through a snapshot export and import. Upgrades no longer depend on the
