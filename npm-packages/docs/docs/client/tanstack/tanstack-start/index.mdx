@@ -111,13 +111,13 @@ Adding queries to loaders moves away from the convenience of co-locating data
 fetching in components with `useSuspenseQuery` in favor of faster page loads.
 Consider whether a given route benefits from this trade-off.
 
-Use `ensureQueryData` to block rendering until data is available. This is a good
+Await a `query` to block rendering until data is available. This is a good
 fit when the component requires the data to render:
 
 ```ts
 export const Route = createFileRoute('/posts')({
   loader: async (opts) => {
-    await opts.context.queryClient.ensureQueryData(
+    await opts.context.queryClient.query(
       convexQuery(api.messages.list, {}),
     );
   },
@@ -134,16 +134,17 @@ export const Route = createFileRoute('/posts')({
 })
 ```
 
-Use `prefetchQuery` to start the request without blocking rendering. This is a
-good fit when data would be nice to have early but the component can handle a
-loading state:
+You can also start the request without blocking rendering. This is a good fit 
+when data would be nice to have early but the component can handle a loading state:
 
 ```ts
+import { noop } from "@tanstack/react-query";
+
 export const Route = createFileRoute('/posts')({
   loader: async (opts) => {
-    opts.context.queryClient.prefetchQuery(
+    void opts.context.queryClient.query(
       convexQuery(api.messages.list, {}),
-    );
+    ).catch(noop);
     // no await — rendering is not blocked
   },
   component: () => {
@@ -168,7 +169,7 @@ export const Route = createFileRoute("/posts")({
   validateSearch: (search) => ({ channel: String(search.channel ?? "") }),
   loaderDeps: ({ search: { channel } }) => ({ channel }),
   loader: async (opts) => {
-    await opts.context.queryClient.ensureQueryData(
+    await opts.context.queryClient.query(
       convexQuery(api.messages.list, { channel: opts.deps.channel }),
     );
   },
