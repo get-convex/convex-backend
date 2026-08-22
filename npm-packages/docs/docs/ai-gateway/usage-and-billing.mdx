@@ -1,0 +1,35 @@
+---
+title: "Usage and Billing"
+sidebar_label: "Usage & Billing"
+sidebar_position: 3
+description: "See what your AI Gateway requests cost and how Convex bills them"
+---
+
+import { Screenshot } from "@site/src/components/Screenshot";
+
+The gateway records the project and function behind every request automatically.
+You don't need to set anything up.
+
+## Seeing your usage
+
+The [team usage page](https://dashboard.convex.dev/team/settings/usage) has an
+AI Gateway section that shows daily spend per project. Open it from the AI
+Gateway card on the usage summary.
+
+<Screenshot
+  story="docs/pages/TeamUsage#AI Gateway"
+  alt="AI Gateway daily spend on the team usage page"
+/>
+
+See the [usage page docs](/dashboard/teams/teams.mdx#usage) for the rest of the
+page.
+
+## How billing works
+
+We charge for the tokens each request uses. Price per token depends on the
+model, when you use it, and whether the tokens are cached. The charge appears as
+an AI Gateway line item on your Convex invoice, in dollars.
+
+[Spending limits](/dashboard/teams/teams.mdx#spending-limits) apply to AI
+Gateway spend like any other usage. Set a limit on the team billing page to cap
+what your team pays per month.

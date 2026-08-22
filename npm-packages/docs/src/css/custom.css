@@ -910,6 +910,10 @@ html[data-theme="dark"] .convex-menu-header {
 .convex-sidebar-ai-agents {
   --convex-icon: url("../../static/img/sidebar-icons/bot.svg");
 }
+
+.convex-sidebar-ai-gateway {
+  --convex-icon: url("../../static/img/sidebar-icons/route.svg");
+}
 .convex-sidebar-platform-apis {
   --convex-icon: url("../../static/img/sidebar-icons/grid.svg");
 }
@@ -978,7 +982,8 @@ html[data-theme="dark"] .convex-menu-header {
   margin-left: 0.9em;
 }
 
-.convex-sidebar-beta-badge > .menu__link:after {
+.convex-sidebar-beta-badge > .menu__link:after,
+.convex-sidebar-beta-badge > .menu__list-item-collapsible > .menu__link:after {
   font-weight: 400;
   font-size: 0.6em;
   margin-left: 1em;
@@ -989,7 +994,15 @@ html[data-theme="dark"] .convex-menu-header {
   float: right;
 }
 
-.convex-sidebar-beta-badge > .menu__link--active:after {
+.convex-sidebar-beta-badge > .menu__list-item-collapsible > .menu__link:after {
+  /* Category links use ::after for the caret. */
+  transform: rotateZ(0deg) !important;
+}
+
+.convex-sidebar-beta-badge > .menu__link--active:after,
+.convex-sidebar-beta-badge
+  > .menu__list-item-collapsible
+  > .menu__link--active:after {
   /* shift left to compensate for text to the left being bold */
   margin-left: 0.7em;
 }

@@ -381,6 +381,7 @@ const config: Config = {
           "/components/**",
 
           "/ai/**",
+          "/ai-gateway/**",
           "/agents/**",
           "/testing/**",
           "/production/**",

@@ -1,0 +1,18 @@
+---
+title: "Models"
+sidebar_label: "Models"
+sidebar_position: 2
+description: "Which models the AI Gateway serves and how to name them"
+---
+
+import { AiGatewayModels } from "@site/src/components/AiGatewayModels";
+
+Model names use the `provider/model` form. Pass the string as `model` to the
+OpenAI SDK or `convexGateway`, for example `openai/gpt-4o-mini` or
+`anthropic/claude-sonnet-4.5`.
+
+<AiGatewayModels />
+
+See [Getting started](/ai-gateway/setup) for how to send a request, and
+[HTTP API](/ai-gateway/api.mdx#get-v1models) for the list-endpoint response
+shape.

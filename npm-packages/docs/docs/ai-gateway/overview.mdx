@@ -1,0 +1,53 @@
+---
+title: "AI Gateway"
+description: "Managed LLM access from Convex actions"
+sidebar_position: 0
+sidebar_label: Overview
+pagination_next: ai-gateway/setup
+---
+
+The Convex AI Gateway is a managed service that lets your app talk to LLMs from
+[actions](/functions/actions.mdx). Convex holds the provider credentials, so you
+don't need to obtain, store, or rotate a key. Your action authenticates with a
+short-lived token scoped to your deployment.
+
+<BetaAdmonition feature="The AI Gateway" verb="is" />
+
+```ts
+const { text } = await generateText({
+  model: convexGateway("anthropic/claude-sonnet-4.5"),
+  prompt,
+});
+```
+
+See [Getting started](/ai-gateway/setup) for the full setup.
+
+## Supported endpoints
+
+| Endpoint                    | What it does                                  |
+| --------------------------- | --------------------------------------------- |
+| `GET /v1/models`            | List available models                         |
+| `POST /v1/chat/completions` | Chat completions, streaming and non-streaming |
+
+`/v1/embeddings` and other endpoints are coming soon. An unsupported path
+returns `400` with `unsupported_endpoint`.
+
+See [HTTP API](/ai-gateway/api.mdx) for the request and response shapes.
+
+## Who can use it
+
+The AI Gateway is available to teams on a
+[paid plan](https://www.convex.dev/pricing). It works on Convex Cloud
+deployments, both production and development. If your team or deployment can't
+use it, getting a token fails with one of these errors:
+
+| Situation                                         | Error                  | What to do                                                                                          |
+| ------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
+| Free plan, or gateway disabled for the team       | `AiGatewayDisabled`    | Upgrade, or email [support@convex.dev](mailto:support@convex.dev) if this looks wrong               |
+| Local backend or [self-hosted](/self-hosting.mdx) | `AiGatewayUnavailable` | Call the provider with your own key ([environment variable](/production/environment-variables.mdx)) |
+
+## Without the gateway
+
+If you don't want to use the AI Gateway, store your provider API key as an
+[environment variable](/production/environment-variables.mdx) and call the
+provider SDK from an action.

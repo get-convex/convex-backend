@@ -1,0 +1,142 @@
+---
+title: "HTTP API"
+sidebar_label: "HTTP API"
+sidebar_position: 4
+description: "Request and response shapes for the AI Gateway HTTP API"
+---
+
+Base URL: `https://ai-gateway.convex.dev`. To send a request from an action, see
+[Getting started](/ai-gateway/setup).
+
+## Authentication
+
+```http
+Authorization: Bearer <token>
+```
+
+Mint the token in an action with `getServiceToken("ai-gateway")`. Token rules
+and errors: [Getting started](/ai-gateway/setup#token-and-timeouts).
+
+Missing or invalid token:
+
+```json
+{
+  "error": {
+    "message": "Invalid authentication credentials",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key"
+  }
+}
+```
+
+## GET `/v1/models`
+
+No query parameters or body.
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "openai/gpt-4o-mini",
+      "object": "model",
+      "created": 1715620800,
+      "owned_by": "openai"
+    }
+  ]
+}
+```
+
+`owned_by` is the provider prefix of `id`.
+
+## POST `/v1/chat/completions`
+
+[OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create)
+body. Set `stream: true` for
+[SSE](https://platform.openai.com/docs/api-reference/chat/streaming).
+
+| Field    | Type    | Required | Description                          |
+| -------- | ------- | -------- | ------------------------------------ |
+| model    | string  | y        | `provider/model` id                  |
+| messages | array   | y        | OpenAI messages                      |
+| stream   | boolean | n        | SSE when `true`. Defaults to `false` |
+
+Other OpenAI fields (`temperature`, `max_tokens`, `tools`, `response_format`, …)
+are forwarded. Body must be JSON, max 16 MiB.
+
+These fields are rejected. Convex chooses how the request is served: `provider`,
+`route`, `models`, `transforms`, `plugins`, `preset`.
+
+```json
+{
+  "error": {
+    "message": "The `provider` parameter is not supported. Convex selects how a request is served.",
+    "type": "invalid_request_error",
+    "code": "unsupported_parameter",
+    "param": "provider"
+  }
+}
+```
+
+### Response
+
+`id` is assigned by Convex. Non-streaming is `application/json`:
+
+```json
+{
+  "id": "3f1c8a2e-9b14-4d6a-a7e2-0c5b8d1e4f90",
+  "object": "chat.completion",
+  "created": 1715367049,
+  "model": "openai/gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": { "role": "assistant", "content": "Hello!" },
+      "finish_reason": "stop",
+      "logprobs": null
+    }
+  ],
+  "system_fingerprint": "fp_123",
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 5,
+    "total_tokens": 17,
+    "prompt_tokens_details": { "cached_tokens": 0 },
+    "completion_tokens_details": { "reasoning_tokens": 0 }
+  }
+}
+```
+
+Streaming is `text/event-stream`. Chunks use `"object": "chat.completion.chunk"`
+and `choices[].delta` instead of `choices[].message`:
+
+```text
+data: {"id":"3f1c8a2e-9b14-4d6a-a7e2-0c5b8d1e4f90","object":"chat.completion.chunk","created":1715367049,"model":"openai/gpt-4o-mini","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: [DONE]
+```
+
+`Retry-After` is forwarded when present.
+
+## Errors
+
+```json
+{
+  "error": {
+    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions.",
+    "type": "invalid_request_error",
+    "code": "unsupported_endpoint"
+  }
+}
+```
+
+| Status    | code                    | When                               |
+| --------- | ----------------------- | ---------------------------------- |
+| 401       | `invalid_api_key`       | Missing or invalid `Authorization` |
+| 400       | `unsupported_endpoint`  | Unknown path                       |
+| 400       | `unsupported_parameter` | Rejected routing field             |
+| 413       | `request_too_large`     | Body over 16 MiB                   |
+| 502 / 503 | `upstream_error`        | Provider temporarily unavailable   |
+
+Provider validation errors (unknown model, bad args) keep the provider status.
+The error object has `message`, `type`, `code`, and `param` when present.

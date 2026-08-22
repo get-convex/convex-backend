@@ -781,5 +781,18 @@ export const screenshots = [
       "width": 3024,
       "height": 2440
     }
+  },
+  {
+    "storyTitle": "docs/pages/TeamUsage#AI Gateway",
+    "light": {
+      "filename": "pages_team_usage_ai_gateway_light.webp",
+      "width": 1667,
+      "height": 854
+    },
+    "dark": {
+      "filename": "pages_team_usage_ai_gateway_dark.webp",
+      "width": 1667,
+      "height": 854
+    }
   }
 ] as const;

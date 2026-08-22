@@ -1708,23 +1708,25 @@ function AiGatewayCostUsage({
   );
 
   return (
-    <TeamUsageSection header={<h3 className="py-2">AI Gateway</h3>}>
-      <div className="px-4">
-        {error ? (
-          <UsageDataError entity="AI gateway spend" />
-        ) : data === undefined ? (
-          <ChartLoading />
-        ) : (
-          <UsageByProjectChart
-            rows={data}
-            team={team}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            quantityType="currency"
-          />
-        )}
-      </div>
-    </TeamUsageSection>
+    <div data-testid="ai-gateway-usage">
+      <TeamUsageSection header={<h3 className="py-2">AI Gateway</h3>}>
+        <div className="px-4">
+          {error ? (
+            <UsageDataError entity="AI gateway spend" />
+          ) : data === undefined ? (
+            <ChartLoading />
+          ) : (
+            <UsageByProjectChart
+              rows={data}
+              team={team}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              quantityType="currency"
+            />
+          )}
+        </div>
+      </TeamUsageSection>
+    </div>
   );
 }
 

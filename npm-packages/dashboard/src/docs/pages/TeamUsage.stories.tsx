@@ -19,9 +19,16 @@ import {
   useDataEgressPerDayByProject,
   useSearchQueriesPerDayByProject,
   useDeploymentsByClassAndRegion,
+  useAiGatewayCostPerDayByProject,
 } from "hooks/usageMetrics";
 import { useCurrentBillingPeriod } from "api/usage";
 import { TeamUsagePage } from "../../pages/t/[team]/settings/usage";
+
+const AI_GATEWAY_COST_ROWS = [...Array(14).keys()].map((dayIndex) => ({
+  ds: `2026-02-${(dayIndex + 8).toString().padStart(2, "0")}`,
+  projectId: 7,
+  value: 0.18 + dayIndex * 0.11 + (dayIndex % 3) * 0.07,
+}));
 
 const meta = {
   component: TeamUsagePage,
@@ -120,6 +127,10 @@ const meta = {
       data: undefined,
       error: undefined,
     });
+    mocked(useAiGatewayCostPerDayByProject).mockReturnValue({
+      data: AI_GATEWAY_COST_ROWS,
+      error: undefined,
+    });
   },
 } satisfies Meta<typeof TeamUsagePage>;
 
@@ -127,3 +138,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const AiGateway: Story = {
+  name: "AI Gateway",
+  parameters: {
+    screenshotSelector: '[data-testid="ai-gateway-usage"]',
+    docsPage: {
+      launchDarkly: { showAiGatewayUsage: true },
+    },
+    nextjs: {
+      router: {
+        pathname: "/t/[team]/settings/usage",
+        query: { team: "acme", section: "aiGatewayCost" },
+      },
+    },
+  },
+};
