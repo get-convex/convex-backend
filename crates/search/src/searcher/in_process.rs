@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 /// - InProcessSearcher implementation
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
@@ -138,19 +139,57 @@ pub struct InProcessSearcher<RT: Runtime> {
     _tmpdir: Arc<TempDir>,
 }
 
+/// Resolve MAX_ARCHIVE_CACHE_SIZE_MIB into bytes, rejecting zero (a cache that
+/// evicts every segment immediately after fetch) and sizes whose byte count
+/// overflows u64.
+fn archive_cache_size_bytes(cache_size_mib: u64) -> anyhow::Result<u64> {
+    anyhow::ensure!(
+        cache_size_mib > 0,
+        "MAX_ARCHIVE_CACHE_SIZE_MIB must be greater than zero",
+    );
+    cache_size_mib.checked_mul(bytesize::MIB).with_context(|| {
+        format!("MAX_ARCHIVE_CACHE_SIZE_MIB={cache_size_mib} overflows the u64 byte size")
+    })
+}
+
 impl<RT: Runtime> InProcessSearcher<RT> {
     pub fn new(runtime: RT) -> anyhow::Result<Self> {
         let tmpdir = TempDir::new()?;
+        let max_disk_cache_size =
+            archive_cache_size_bytes(*super::searchlight_knobs::MAX_ARCHIVE_CACHE_SIZE_MIB)?;
         Ok(Self {
             searcher: Arc::new(SearcherImpl::new(
                 tmpdir.path(),
-                bytesize::mib(500u64),
+                max_disk_cache_size,
                 100,
                 false,
                 runtime,
             )?),
             _tmpdir: Arc::new(tmpdir),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::archive_cache_size_bytes;
+
+    #[test]
+    fn archive_cache_size_default_is_500_mib() {
+        assert_eq!(
+            archive_cache_size_bytes(500).unwrap(),
+            bytesize::mib(500u64)
+        );
+    }
+
+    #[test]
+    fn archive_cache_size_rejects_zero() {
+        assert!(archive_cache_size_bytes(0).is_err());
+    }
+
+    #[test]
+    fn archive_cache_size_rejects_u64_overflow() {
+        assert!(archive_cache_size_bytes(u64::MAX).is_err());
     }
 }
 
