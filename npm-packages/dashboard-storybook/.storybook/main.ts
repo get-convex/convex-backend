@@ -6,6 +6,9 @@ import { UserConfig, mergeConfig } from "vite";
 const require = createRequire(import.meta.url);
 
 const config: StorybookConfig = {
+  // Every package listed here must also be a dependency in package.json:
+  // Vercel decides whether to redeploy Storybook by walking the workspace
+  // dependency graph, and skips changes it can't see from this package.
   stories: [
     "../../dashboard/src/**/*.stories.@(js|jsx|ts|tsx)",
     "../../dashboard-common/src/**/*.stories.@(js|jsx|ts|tsx)",
