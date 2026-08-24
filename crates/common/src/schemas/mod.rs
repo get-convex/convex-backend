@@ -14,6 +14,7 @@ use itertools::{
     Either,
     Itertools,
 };
+use serde::Serialize;
 use shape_inference::{
     Shape,
     ShapeConfig,
@@ -189,6 +190,7 @@ macro_rules! db_schema_not_validated {
             use std::collections::BTreeMap;
             #[allow(unused)]
             use $crate::types::TableName;
+            use $crate::schemas::DatabaseSchema;
             #[allow(unused)]
             let mut tables = BTreeMap::new();
             {
@@ -217,6 +219,21 @@ macro_rules! db_schema_not_validated {
 
 pub const VECTOR_DIMENSIONS: u32 = 1536;
 
+/// Why schema validation will or won't walk a table's documents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TableValidationOutcome {
+    /// The new schema has `schemaValidation: false`; nothing is walked.
+    NotValidated,
+    /// The new validator is a superset of the enforced (active, validating)
+    /// schema for this table, so all existing documents already conform.
+    SupersetOfEnforced,
+    /// The new validator is a superset of the table's inferred shape.
+    SupersetOfShape,
+    /// Documents must be walked.
+    MustWalk,
+}
+
 impl DatabaseSchema {
     pub fn tables_to_validate<'a, C: ShapeConfig, S: ShapeCounter, F>(
         new_schema: &'a DatabaseSchema,
@@ -228,12 +245,40 @@ impl DatabaseSchema {
     where
         F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
     {
+        Ok(Self::table_validation_outcomes(
+            new_schema,
+            active_schema,
+            table_mapping,
+            virtual_system_mapping,
+            shape_provider,
+        )?
+        .into_iter()
+        .filter_map(|(table_name, outcome)| {
+            matches!(outcome, TableValidationOutcome::MustWalk).then_some(table_name)
+        })
+        .collect())
+    }
+
+    pub fn table_validation_outcomes<'a, C: ShapeConfig, S: ShapeCounter, F>(
+        new_schema: &'a DatabaseSchema,
+        active_schema: Option<&DatabaseSchema>,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+        shape_provider: &F,
+    ) -> anyhow::Result<Vec<(&'a TableName, TableValidationOutcome)>>
+    where
+        F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
+    {
         if !new_schema.schema_validation {
             tracing::info!("Schema validation is disabled, no tables to check");
-            return Ok(BTreeSet::new());
+            return Ok(new_schema
+                .tables
+                .keys()
+                .map(|table_name| (table_name, TableValidationOutcome::NotValidated))
+                .collect());
         }
 
-        let possible_table_names: Vec<Option<&TableName>> = new_schema
+        new_schema
             .tables
             .iter()
             .map(|(table_name, table_definition)| {
@@ -246,10 +291,9 @@ impl DatabaseSchema {
                     virtual_system_mapping,
                     &table_shape,
                 )
-                .map(|must_revalidate| must_revalidate.then_some(table_name))
+                .map(|outcome| (table_name, outcome))
             })
-            .try_collect()?;
-        Ok(possible_table_names.into_iter().flatten().collect())
+            .try_collect()
     }
 
     fn must_revalidate_table<C: ShapeConfig, S: ShapeCounter>(
@@ -259,7 +303,7 @@ impl DatabaseSchema {
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         table_shape: &Option<Shape<C, S>>,
-    ) -> anyhow::Result<bool> {
+    ) -> anyhow::Result<TableValidationOutcome> {
         let next_schema = table_definition.document_type.clone();
         let next_schema_validator: Validator = next_schema.into();
 
@@ -277,7 +321,7 @@ impl DatabaseSchema {
                  schema",
                 table_name
             );
-            return Ok(false);
+            return Ok(TableValidationOutcome::SupersetOfEnforced);
         }
 
         if let Some(table_shape) = table_shape {
@@ -293,11 +337,11 @@ impl DatabaseSchema {
                      ",
                     table_name
                 );
-                return Ok(false);
+                return Ok(TableValidationOutcome::SupersetOfShape);
             }
         }
 
-        Ok(true)
+        Ok(TableValidationOutcome::MustWalk)
     }
 
     fn schema_for_table(&self, table_name: &TableName) -> Option<&DocumentSchema> {
