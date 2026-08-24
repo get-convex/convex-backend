@@ -2381,9 +2381,6 @@
             "PAT": []
           },
           {
-            "OAuth Team Token": []
-          },
-          {
             "Team Token": []
           }
         ]
@@ -2444,9 +2441,6 @@
             "PAT": []
           },
           {
-            "OAuth Team Token": []
-          },
-          {
             "Team Token": []
           }
         ]
@@ -2498,9 +2492,6 @@
             "PAT": []
           },
           {
-            "OAuth Team Token": []
-          },
-          {
             "Team Token": []
           }
         ]
@@ -2543,9 +2534,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
           },
           {
             "Team Token": []
