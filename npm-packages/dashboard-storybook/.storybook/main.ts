@@ -9,6 +9,7 @@ const config: StorybookConfig = {
   stories: [
     "../../dashboard/src/**/*.stories.@(js|jsx|ts|tsx)",
     "../../dashboard-common/src/**/*.stories.@(js|jsx|ts|tsx)",
+    "../../dashboard-self-hosted/src/**/*.stories.@(js|jsx|ts|tsx)",
     "../../@convex-dev/design-system/src/**/*.stories.@(js|jsx|ts|tsx)",
   ],
   addons: [

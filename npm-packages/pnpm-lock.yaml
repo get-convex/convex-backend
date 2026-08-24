@@ -1385,6 +1385,9 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
     devDependencies:
+      '@storybook/nextjs':
+        specifier: ^10.3.3
+        version: 10.3.4(@rspack/core@1.7.11(@swc/helpers@0.5.15))(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)(next@15.5.21(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(storybook@10.3.4(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(type-fest@4.41.0)(typescript@5.9.3)(webpack-dev-server@5.2.5(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8(@swc/helpers@0.5.15))(esbuild@0.25.0))
       '@tailwindcss/forms':
         specifier: ^0.5.10
         version: 0.5.10(tailwindcss@4.3.3)
@@ -1403,6 +1406,9 @@ importers:
       postcss:
         specifier: ^8.5.18
         version: 8.5.23
+      storybook:
+        specifier: ^10.3.3
+        version: 10.3.4(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tailwind-scrollbar:
         specifier: ^4.0.2
         version: 4.0.2(react@18.3.1)(tailwindcss@4.3.3)
