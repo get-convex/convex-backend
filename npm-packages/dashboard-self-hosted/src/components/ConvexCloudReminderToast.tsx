@@ -30,7 +30,7 @@ export function ConvexCloudReminderToast() {
     // sidebar collapse button.
     <div className="absolute bottom-12 left-4 z-50">
       <div
-        className="w-96 rounded-lg border border-purple-700 bg-background-secondary shadow-lg"
+        className="w-96 rounded-lg border border-purple-500 bg-background-secondary shadow-lg dark:border-purple-200"
         role="region"
         aria-label="Convex cloud notice"
       >
@@ -38,8 +38,9 @@ export function ConvexCloudReminderToast() {
           <Button
             variant="unstyled"
             className={cn(
-              "flex w-full cursor-pointer items-center justify-between rounded-lg p-2 text-sm font-medium text-purple-700 hover:bg-background-tertiary focus:ring-2 focus:ring-purple-700 focus:outline-hidden",
-              isExpanded && "border-b border-purple-500",
+              "flex w-full cursor-pointer items-center justify-between rounded-lg p-2 text-sm font-medium text-purple-700 hover:bg-background-tertiary focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-hidden dark:text-purple-200 dark:focus-visible:ring-purple-200",
+              isExpanded &&
+                "border-b border-purple-500 dark:border-purple-200/30",
             )}
             onClick={() => setIsExpanded(!isExpanded)}
             onKeyDown={(e) => {
@@ -60,7 +61,7 @@ export function ConvexCloudReminderToast() {
             </div>
             <Button
               variant="unstyled"
-              className="rounded-full p-1 text-purple-700 hover:bg-purple-100"
+              className="rounded-full p-1 text-purple-700 hover:bg-purple-100 dark:text-purple-200 dark:hover:bg-purple-900"
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
                 setIsDismissed(true);
@@ -74,7 +75,7 @@ export function ConvexCloudReminderToast() {
         {isExpanded && (
           <div
             id="anonymous-development-details"
-            className="flex flex-col gap-2 border-purple-500 px-4 py-3 text-sm text-content-primary"
+            className="flex flex-col gap-2 px-4 py-3 text-sm text-content-primary"
           >
             <p>You are currently trying out Convex by running it locally.</p>
             <p>
