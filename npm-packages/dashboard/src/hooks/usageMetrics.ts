@@ -90,6 +90,7 @@ export interface AggregatedFunctionMetrics {
   actionComputeConvexTime: number; // GB-hours
   actionComputeNodeTime: number; // GB-hours
   dataEgress: number; // bytes
+  aiGatewayCost: number; // dollars
   // Null on the `_rest` row, which spans every deployment type.
   deploymentType: DeploymentType | null;
   componentPath: string;
@@ -252,6 +253,7 @@ export function useUsageTeamMetricsByFunction(
         dataEgress,
         deploymentType,
         componentPath,
+        aiGatewayCost,
       ]) => ({
         function: functionName,
         projectId: Number(projectIdField),
@@ -267,6 +269,7 @@ export function useUsageTeamMetricsByFunction(
         // SQL NULL arrives as "" (see useUsageQuery).
         deploymentType: (deploymentType || null) as DeploymentType | null,
         componentPath,
+        aiGatewayCost: Number(aiGatewayCost),
       }),
     ),
     error: undefined,

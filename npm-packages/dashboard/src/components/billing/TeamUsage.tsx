@@ -48,6 +48,7 @@ import {
   FunctionBreakdownMetricCompute,
   FunctionBreakdownMetricSearch,
   FunctionBreakdownMetricDataEgress,
+  FunctionBreakdownMetricAiGateway,
   TeamUsageByFunctionChart,
 } from "./TeamUsageByFunctionChart";
 import { UsageBarChart, UsageStackedBarChart } from "./UsageBarChart";
@@ -114,6 +115,7 @@ const FUNCTION_BREAKDOWN_TABS_ = [
   FunctionBreakdownMetricCompute,
   FunctionBreakdownMetricSearch,
   FunctionBreakdownMetricDataEgress,
+  FunctionBreakdownMetricAiGateway,
 ];
 
 export type UsageSectionId =

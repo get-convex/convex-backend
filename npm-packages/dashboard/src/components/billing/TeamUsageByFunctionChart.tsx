@@ -196,6 +196,13 @@ export const FunctionBreakdownMetricDataEgress: FunctionBreakdownMetric = {
   quantityType: "storage",
 };
 
+export const FunctionBreakdownMetricAiGateway: FunctionBreakdownMetric = {
+  name: "AI",
+  getTotal: (row) => ("aiGatewayCost" in row ? row.aiGatewayCost : 0),
+  getValues: (row) => ["aiGatewayCost" in row ? row.aiGatewayCost : 0],
+  quantityType: "currency",
+};
+
 export function TeamUsageByFunctionChart({
   project,
   metric,
