@@ -1745,10 +1745,10 @@ pub static USHER_SERVICE_CACHE_MAX_ENTRIES: LazyLock<u64> =
     LazyLock::new(|| env_config("USHER_SERVICE_CACHE_MAX_ENTRIES", 1000));
 
 /// Usher cache for instance -> partition lookups.
-/// Arbitrarily chosen cache size. From metrics, a single Usher processes
-/// requests for about 250 unique instances in a 10 minute period.
+/// The five-minute idle expiry bounds idle memory, while the higher capacity
+/// leaves headroom for the per-host working set without size-based churn.
 pub static USHER_PARTITION_CACHE_MAX_ENTRIES: LazyLock<u64> =
-    LazyLock::new(|| env_config("USHER_PARTITION_CACHE_MAX_ENTRIES", 1000));
+    LazyLock::new(|| env_config("USHER_PARTITION_CACHE_MAX_ENTRIES", 100_000));
 
 /// Initial backoff duration when retrying a query in the sync worker.
 pub static SYNC_WORKER_QUERY_RETRY_INITIAL_BACKOFF_MS: LazyLock<Duration> = LazyLock::new(|| {
