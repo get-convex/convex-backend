@@ -32,6 +32,7 @@ const BY_PROJECT_QUERY_IDS_: {
   searchQueriesByProject: DatabricksQueryId;
   deploymentCountByProject: DatabricksQueryId;
   aiGatewayCostByProject: DatabricksQueryId;
+  aiGatewayCostByModel: DatabricksQueryId;
 } = {
   databaseStorageByProjectAndClass: "489b0f87-6b3a-4dfe-a327-f2965b5c2977",
   databaseStorageByTable: "017c5977-3002-40ca-96af-31868e70e611",
@@ -49,6 +50,7 @@ const BY_PROJECT_QUERY_IDS_: {
   searchQueriesByProject: "48ae8bb1-ec17-41db-9e35-7c774296c5ac",
   deploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
   aiGatewayCostByProject: "e0b23b66-f3de-42ba-a2e0-547c927519d5",
+  aiGatewayCostByModel: "b09fd03c-c13c-42f1-821b-d315e1238045",
 };
 
 // --- Types ---
@@ -750,6 +752,45 @@ export function useAiGatewayCostPerDayByProject(
       projectId: parseProjectId(projectId),
       value: Number(aiGatewayCost),
     })),
+    error: undefined,
+  };
+}
+
+// Measured in dollars
+export function useAiGatewayCostPerDayByModel(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyPerTagMetrics[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_.aiGatewayCostByModel,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  if (data === undefined) {
+    return { data: undefined, error: undefined };
+  }
+
+  const byDay = new Map<string, { tag: string; value: number }[]>();
+  for (const [_teamId, model, ds, aiGatewayCost] of data) {
+    if (ds === null || ds === undefined) {
+      continue;
+    }
+    const metrics = byDay.get(ds) ?? [];
+    // SQL NULL arrives as "" (see useUsageQuery).
+    metrics.push({ tag: model || "unknown", value: Number(aiGatewayCost) });
+    byDay.set(ds, metrics);
+  }
+  return {
+    data: [...byDay.entries()].map(([ds, metrics]) => ({ ds, metrics })),
     error: undefined,
   };
 }

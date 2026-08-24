@@ -71,6 +71,8 @@ import {
   BUSINESS_GROUP_BY_OPTIONS,
   BUSINESS_DATABASE_GROUP_BY_OPTIONS,
   DEPLOYMENT_GROUP_BY_OPTIONS,
+  AI_GATEWAY_GROUP_BY_OPTIONS,
+  AiGatewayGroupBy,
 } from "./GroupBySelector";
 import { ProjectLink } from "./ProjectLink";
 import {
@@ -86,6 +88,7 @@ import {
   useSearchStoragePerDayByProject,
   useDataEgressPerDayByProject,
   useAuditLogBandwidthPerDayByProject,
+  useAiGatewayCostPerDayByModel,
   useAiGatewayCostPerDayByProject,
   useSearchQueriesPerDayByProject,
   useDeploymentsByClassAndRegion,
@@ -1695,12 +1698,30 @@ function AuditLogBandwidthUsage({
   );
 }
 
+// There's no fixed list of models — whatever shows up in the data gets a
+// chart color, reusing the palette when there are more models than colors.
+function modelCategories(rows: DailyPerTagMetrics[]) {
+  const models = [
+    ...new Set(rows.flatMap(({ metrics }) => metrics.map(({ tag }) => tag))),
+  ].sort();
+  return Object.fromEntries(
+    models.map((model, i) => [
+      model,
+      { name: model, color: `fill-chart-line-${(i % 8) + 1}` },
+    ]),
+  );
+}
+
 function AiGatewayCostUsage({
   team,
   dateRange,
   projectId,
   componentPrefix,
 }: DetailSectionProps) {
+  const [viewMode, setViewMode] = useGlobalLocalStorage<AiGatewayGroupBy>(
+    "usageViewMode_aiGateway",
+    "byProject",
+  );
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const { data, error } = useAiGatewayCostPerDayByProject(
     team.id,
@@ -1708,12 +1729,43 @@ function AiGatewayCostUsage({
     projectId,
     componentPrefix,
   );
+  const { data: byModel, error: byModelError } = useAiGatewayCostPerDayByModel(
+    team.id,
+    dateRange,
+    viewMode === "byModel" ? projectId : null,
+    componentPrefix,
+  );
 
   return (
     <div data-testid="ai-gateway-usage">
-      <TeamUsageSection header={<h3 className="py-2">AI Gateway</h3>}>
+      <TeamUsageSection
+        header={
+          <>
+            <h3 className="py-2">AI Gateway</h3>
+            <GroupBySelector
+              value={viewMode}
+              onChange={setViewMode}
+              options={AI_GATEWAY_GROUP_BY_OPTIONS}
+            />
+          </>
+        }
+      >
         <div className="px-4">
-          {error ? (
+          {viewMode === "byModel" ? (
+            byModelError ? (
+              <UsageDataError entity="AI gateway spend" />
+            ) : byModel === undefined ? (
+              <ChartLoading />
+            ) : (
+              <UsageStackedBarChart
+                rows={byModel}
+                categories={modelCategories(byModel)}
+                quantityType="currency"
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+              />
+            )
+          ) : error ? (
             <UsageDataError entity="AI gateway spend" />
           ) : data === undefined ? (
             <ChartLoading />
