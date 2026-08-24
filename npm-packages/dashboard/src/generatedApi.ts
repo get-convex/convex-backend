@@ -500,6 +500,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/local_deployments/{deployment_name}/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_local_deployment_auth_dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/get_project_roles": {
         parameters: {
             query?: never;
@@ -2046,6 +2062,10 @@ export interface components {
             role: components["schemas"]["Role"];
             customRoles: components["schemas"]["CustomRoleResponse"][];
         };
+        LocalDeploymentAuthResponse: {
+            adminKey: components["schemas"]["AdminKey"];
+            deploymentUrl: string;
+        };
         ManagedBy: "vercel" | {
             oauthApp: string;
         };
@@ -2655,6 +2675,7 @@ export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
+export type LocalDeploymentAuthResponse = components['schemas']['LocalDeploymentAuthResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
 export type MemberEmailId = components['schemas']['MemberEmailId'];
@@ -3461,6 +3482,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceAuthForDashboardInteractionsResponse"];
+                };
+            };
+        };
+    };
+    get_local_deployment_auth_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalDeploymentAuthResponse"];
                 };
             };
         };

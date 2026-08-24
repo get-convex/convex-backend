@@ -860,6 +860,34 @@
         }
       }
     },
+    "/local_deployments/{deployment_name}/auth": {
+      "get": {
+        "operationId": "get_local_deployment_auth_dashboard",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalDeploymentAuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/get_project_roles": {
       "get": {
         "operationId": "get_project_roles_for_team",
@@ -4514,6 +4542,21 @@
             "items": {
               "$ref": "#/components/schemas/CustomRoleResponse"
             }
+          }
+        }
+      },
+      "LocalDeploymentAuthResponse": {
+        "type": "object",
+        "required": [
+          "adminKey",
+          "deploymentUrl"
+        ],
+        "properties": {
+          "adminKey": {
+            "$ref": "#/components/schemas/AdminKey"
+          },
+          "deploymentUrl": {
+            "type": "string"
           }
         }
       },
