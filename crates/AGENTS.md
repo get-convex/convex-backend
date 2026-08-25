@@ -23,3 +23,7 @@ cargo test -p <package> "test_name" # for a specific test or test group
 - Use self-documenting domain types: prefer named structs over positional
   tuples, enums over boolean flags, and `Duration` or a newtype over bare
   numbers with implicit units.
+- Prefer the `anyhow::Context` trait (`.context(...)`/`.with_context(...)`) over
+  `.ok_or_else(|| anyhow::anyhow!(...))` or `.map_err(|_| anyhow::anyhow!(...))`
+  for attaching a message to a `Result` or `Option`; it says the same thing more
+  concisely.
