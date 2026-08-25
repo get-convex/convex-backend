@@ -2970,12 +2970,8 @@ impl<RT: Runtime> Application<RT> {
                     .drop_index(existing_index_metadata.id())
                     .await?;
             }
-            let index_metadata = IndexMetadata::new_backfilling(
-                *tx.begin_timestamp(),
-                index_name,
-                index_fields,
-                tx.allocate_persistence_index_id().await,
-            );
+            let index_metadata =
+                IndexMetadata::new_backfilling(*tx.begin_timestamp(), index_name, index_fields);
             IndexModel::new(&mut tx)
                 .add_system_index(namespace, index_metadata)
                 .await?;

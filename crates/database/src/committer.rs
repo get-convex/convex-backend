@@ -275,7 +275,6 @@ pub struct Committer<RT: Runtime> {
     deployment_name: String,
 
     last_assigned_ts: Timestamp,
-
     persistence_writes: FuturesOrdered<BoxFuture<'static, anyhow::Result<PersistenceWrite>>>,
 
     write_batcher: WriteBatcher,
@@ -1513,10 +1512,11 @@ impl CommitterClient {
     #[fastrace::trace]
     async fn _commit<RT: Runtime>(
         &self,
-        transaction: Transaction<RT>,
+        mut transaction: Transaction<RT>,
         write_source: WriteSource,
     ) -> anyhow::Result<Timestamp> {
         let _timer = metrics::commit_client_timer(transaction.identity());
+        transaction.assign_missing_persistence_index_ids().await?;
         self.check_generated_ids(&transaction).await?;
         let rt = transaction.runtime().clone();
 

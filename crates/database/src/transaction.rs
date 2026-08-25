@@ -14,8 +14,9 @@ use common::{
     bootstrap_model::{
         index::{
             database_index::IndexedFields,
+            IndexConfig,
             IndexMetadata,
-            INDEX_TABLE,
+            TabletIndexMetadata,
         },
         schema::SchemaState,
         tables::{
@@ -33,6 +34,7 @@ use common::{
         PendingDocumentUpdate,
         ResolvedDocument,
     },
+    errors::report_error,
     identity::InertIdentity,
     index::{
         IndexKey,
@@ -43,6 +45,7 @@ use common::{
         IntervalSet,
     },
     knobs::{
+        PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED,
         SEARCH_INDEX_SIZE_SOFT_LIMIT,
         TEXT_INDEX_SIZE_HARD_LIMIT,
         VECTOR_INDEX_SIZE_HARD_LIMIT,
@@ -60,7 +63,6 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
-        PersistenceIndexId,
         RepeatableTimestamp,
         StableIndexName,
         TableName,
@@ -112,6 +114,7 @@ use value::{
 use crate::{
     bootstrap_model::{
         defaults::BootstrapTableIds,
+        next_persistence_index_id::NextPersistenceIndexIdModel,
         table::{
             NUM_RESERVED_LEGACY_TABLE_NUMBERS,
             NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
@@ -267,15 +270,59 @@ impl<RT: Runtime> Transaction<RT> {
         &self.virtual_system_mapping
     }
 
-    pub async fn allocate_persistence_index_ids(
-        &self,
-        _count: usize,
-    ) -> Option<Vec<PersistenceIndexId>> {
-        None
-    }
+    pub(crate) async fn assign_missing_persistence_index_ids(&mut self) -> anyhow::Result<()> {
+        if !*PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED {
+            return Ok(());
+        }
+        let writes = self.writes.as_flat()?;
+        let mut missing_index_id_updates = Vec::new();
+        for id in writes.new_index_document_ids() {
+            let update = writes
+                .get(&id)
+                .expect("tracked index metadata insert must have a pending write");
+            let Some(new_document) = &update.new_document else {
+                unreachable!("tracked index metadata insert must have a new document")
+            };
+            let PendingDocument::Concrete(document) = new_document else {
+                anyhow::bail!("new index metadata must be concrete before commit")
+            };
+            let metadata = TabletIndexMetadata::from_document(document.clone())?;
+            if matches!(
+                &metadata.config,
+                IndexConfig::Database {
+                    persistence_index_id: None,
+                    ..
+                }
+            ) {
+                missing_index_id_updates.push((update.id, metadata));
+            }
+        }
+        if missing_index_id_updates.is_empty() {
+            return Ok(());
+        }
+        let persistence_index_ids = match NextPersistenceIndexIdModel::new(self)
+            .allocate(missing_index_id_updates.len())
+            .await
+        {
+            Ok(index_ids) => index_ids,
+            Err(mut err) => {
+                err = err.context("Failed to allocate persistence index IDs");
+                report_error(&mut err).await;
+                return Ok(());
+            },
+        };
 
-    pub async fn allocate_persistence_index_id(&self) -> Option<PersistenceIndexId> {
-        None
+        for ((id, mut metadata), persistence_index_id) in missing_index_id_updates
+            .into_iter()
+            .zip(persistence_index_ids)
+        {
+            metadata.assign_persistence_index_id(persistence_index_id);
+
+            SystemMetadataModel::new_global(self)
+                .replace(id, metadata.into_value().try_into()?)
+                .await?;
+        }
+        Ok(())
     }
 
     /// Checks both virtual tables and tables to get the table number to name
@@ -931,26 +978,19 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_number_for_system_table(namespace, table_name, default_table_number)
                 .await?;
             let metadata = TableMetadata::new(namespace, table_name.clone(), table_number);
-            let table_doc_id = SystemMetadataModel::new_global(self)
+            SystemMetadataModel::new_global(self)
                 .insert(&TABLES_TABLE, metadata.try_into()?)
                 .await?;
-            let tablet_id = TabletId(table_doc_id.internal_id());
-
-            let by_id_index = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(tablet_id),
-                IndexedFields::by_id(),
-                self.allocate_persistence_index_id().await,
-            );
-            SystemMetadataModel::new_global(self)
-                .insert(&INDEX_TABLE, by_id_index.try_into()?)
+            let by_id = GenericIndexName::by_id(table_name.clone());
+            let by_id_index = IndexMetadata::new_enabled(by_id, IndexedFields::by_id());
+            IndexModel::new(self)
+                .add_system_index(namespace, by_id_index)
                 .await?;
-            let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(tablet_id),
-                IndexedFields::creation_time(),
-                self.allocate_persistence_index_id().await,
-            );
-            SystemMetadataModel::new_global(self)
-                .insert(&INDEX_TABLE, metadata.try_into()?)
+            let by_creation_time = GenericIndexName::by_creation_time(table_name.clone());
+            let metadata =
+                IndexMetadata::new_enabled(by_creation_time, IndexedFields::creation_time());
+            IndexModel::new(self)
+                .add_system_index(namespace, metadata)
                 .await?;
             tracing::info!("Created system table: {table_name}");
         } else {

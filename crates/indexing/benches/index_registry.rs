@@ -39,7 +39,6 @@ fn index_documents(
     indexes.push(IndexMetadata::new_enabled(
         GenericIndexName::by_id(index_table.tablet_id),
         IndexedFields::by_id(),
-        None,
     ));
     let ts = Timestamp::must(0);
     for metadata in indexes {
@@ -59,7 +58,6 @@ fn index_registry_bootstrap(bencher: divan::Bencher, num_indexes: usize) {
             IndexMetadata::new_enabled(
                 GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
-                None,
             )
         })
         .collect();

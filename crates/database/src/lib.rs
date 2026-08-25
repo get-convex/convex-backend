@@ -151,6 +151,11 @@ pub use self::{
             INDEX_DOC_ID_INDEX,
             INDEX_WORKER_METADATA_TABLE,
         },
+        next_persistence_index_id::{
+            types::NextPersistenceIndexIdMetadata,
+            NextPersistenceIndexIdTable,
+            NEXT_PERSISTENCE_INDEX_ID_TABLE,
+        },
         schema::{
             types::{
                 SchemaDiff,

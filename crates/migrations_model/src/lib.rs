@@ -33,7 +33,7 @@ pub type DatabaseVersion = i64;
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 128; // ari
+pub const DATABASE_VERSION: DatabaseVersion = 129; // tonyt
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -119,6 +119,11 @@ impl<RT: Runtime> MigrationExecutor<RT> {
                 // This is an empty migration because we added the
                 // by_action_and_creation_time index to _deployment_audit_log,
                 // which is backfilled automatically on startup.
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            129 => {
+                // The application system-table initializer creates the persistence index ID
+                // allocator before this migration runs.
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.

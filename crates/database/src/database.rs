@@ -60,6 +60,7 @@ use common::{
         DATA_SYNC_PAGE_SIZE_LIMIT,
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         LIST_SNAPSHOT_MAX_AGE_SECS,
+        PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED,
         SNAPSHOT_LIST_TIME_LIMIT,
     },
     pause::Fault,
@@ -99,6 +100,8 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
+        IndexTableIdentifier,
+        PersistenceIndexId,
         PersistenceVersion,
         RepeatableTimestamp,
         TableName,
@@ -185,9 +188,12 @@ use vector::{
 };
 
 use crate::{
-    bootstrap_model::table::{
-        NUM_RESERVED_LEGACY_TABLE_NUMBERS,
-        NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
+    bootstrap_model::{
+        next_persistence_index_id::types::NextPersistenceIndexIdMetadata,
+        table::{
+            NUM_RESERVED_LEGACY_TABLE_NUMBERS,
+            NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
+        },
     },
     committer::{
         Committer,
@@ -260,6 +266,7 @@ use crate::{
     TransactionReadSet,
     TransactionTextSnapshot,
     COMPONENTS_TABLE,
+    NEXT_PERSISTENCE_INDEX_ID_TABLE,
     SCHEMAS_TABLE,
 };
 
@@ -1055,7 +1062,6 @@ impl<RT: Runtime> Database<RT> {
             snapshot,
             ..
         } = db_snapshot;
-
         let snapshot_manager = SnapshotManager::new(*ts, snapshot);
         let (snapshot_reader, snapshot_writer) = new_split_rw_lock(snapshot_manager);
 
@@ -1425,6 +1431,7 @@ impl<RT: Runtime> Database<RT> {
     }
 
     async fn initialize(rt: &RT, persistence: &mut Arc<dyn Persistence>) -> anyhow::Result<()> {
+        let system_tables = bootstrap_system_tables();
         let mut id_generator = TransactionIdGenerator::new(rt)?;
         let ts = rt.generate_timestamp()?;
         let mut creation_time = CreationTime::try_from(ts)?;
@@ -1432,9 +1439,10 @@ impl<RT: Runtime> Database<RT> {
 
         let mut system_by_id = BTreeMap::new();
         let mut table_mapping = TableMapping::new();
+        let mut next_persistence_index_id = PersistenceIndexId::FIRST.value();
 
         // Step 0: Generate document ids for bootstrapping database system tables.
-        for table in bootstrap_system_tables() {
+        for table in &system_tables {
             let table_name = table.table_name();
             let table_number = *DEFAULT_BOOTSTRAP_TABLE_NUMBERS
                 .get(&table_name)
@@ -1483,7 +1491,7 @@ impl<RT: Runtime> Database<RT> {
 
         // Step 1: Generate documents.
         // Create bootstrap system table values.
-        for table in bootstrap_system_tables() {
+        for table in &system_tables {
             let table_name = table.table_name();
             let table_id = table_mapping
                 .namespace(TableNamespace::Global)
@@ -1508,10 +1516,10 @@ impl<RT: Runtime> Database<RT> {
             // is no need to backfill.
             let index_id = id_generator.generate_resolved(index_table_id);
             system_by_id.insert(table_name.clone(), index_id.internal_id());
-            let metadata = IndexMetadata::new_enabled(
+            let metadata = new_bootstrap_enabled(
                 GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
-                None,
+                &mut next_persistence_index_id,
             );
             let document =
                 ResolvedDocument::new(index_id, creation_time.increment()?, metadata.try_into()?)?;
@@ -1521,10 +1529,10 @@ impl<RT: Runtime> Database<RT> {
             // only have the "by_id" index.
             if table_name != INDEX_TABLE {
                 let index_id = id_generator.generate_resolved(index_table_id);
-                let metadata = IndexMetadata::new_enabled(
+                let metadata = new_bootstrap_enabled(
                     GenericIndexName::by_creation_time(table_id.tablet_id),
                     IndexedFields::creation_time(),
-                    None,
+                    &mut next_persistence_index_id,
                 );
                 let document = ResolvedDocument::new(
                     index_id,
@@ -1536,9 +1544,8 @@ impl<RT: Runtime> Database<RT> {
         }
 
         // Create system indexes.
-        for ErasedSystemIndex { name, fields } in bootstrap_system_tables()
-            .into_iter()
-            .flat_map(|t| t.indexes())
+        for ErasedSystemIndex { name, fields } in
+            system_tables.iter().flat_map(|table| table.indexes())
         {
             let name = name.map_table(
                 &table_mapping
@@ -1546,7 +1553,8 @@ impl<RT: Runtime> Database<RT> {
                     .name_to_tablet(),
             )?;
             let document_id = id_generator.generate_resolved(index_table_id);
-            let index_metadata = IndexMetadata::new_enabled(name, fields, None);
+            let index_metadata =
+                new_bootstrap_enabled(name, fields, &mut next_persistence_index_id);
             let document = ResolvedDocument::new(
                 document_id,
                 creation_time.increment()?,
@@ -1554,6 +1562,21 @@ impl<RT: Runtime> Database<RT> {
             )?;
             document_writes.push((document_id, document));
         }
+
+        let next_id_table_id = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&NEXT_PERSISTENCE_INDEX_ID_TABLE)?;
+        let next_id_document_id = id_generator.generate_resolved(next_id_table_id);
+        let metadata = NextPersistenceIndexIdMetadata {
+            next_id: PersistenceIndexId::new(next_persistence_index_id)
+                .expect("bootstrap next persistence index ID is nonzero"),
+        };
+        let document = ResolvedDocument::new(
+            next_id_document_id,
+            creation_time.increment()?,
+            metadata.try_into()?,
+        )?;
+        document_writes.push((next_id_document_id, document));
 
         // Step 2: Generate indexes updates.
         // Build the index metadata from the index documents.
@@ -2682,6 +2705,23 @@ impl<RT: Runtime> Database<RT> {
     ) -> SearchFlusherWakeSubscriber {
         self.committer.search_flusher_wake().subscribe(search_type)
     }
+}
+
+fn new_bootstrap_enabled<T: IndexTableIdentifier>(
+    name: GenericIndexName<T>,
+    fields: IndexedFields,
+    next_persistence_index_id: &mut u32,
+) -> IndexMetadata<T> {
+    let mut metadata = IndexMetadata::new_enabled(name, fields);
+    if *PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED {
+        let persistence_index_id = PersistenceIndexId::new(*next_persistence_index_id)
+            .expect("bootstrap persistence index IDs are nonzero");
+        *next_persistence_index_id = next_persistence_index_id
+            .checked_add(1)
+            .expect("bootstrap persistence index IDs cannot exhaust u32");
+        metadata.assign_persistence_index_id(persistence_index_id);
+    }
+    metadata
 }
 
 /// Transaction statistics reported for a retried transaction

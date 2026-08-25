@@ -102,6 +102,7 @@ use database::{
     IndexModel,
     IndexTable,
     IndexWorkerMetadataTable,
+    NextPersistenceIndexIdTable,
     SchemaValidationProgressTable,
     SchemasTable,
     TablesTable,
@@ -113,6 +114,7 @@ use database::{
     INDEX_BACKFILLS_TABLE,
     INDEX_DOC_ID_INDEX,
     INDEX_WORKER_METADATA_TABLE,
+    NEXT_PERSISTENCE_INDEX_ID_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_STATE_INDEX,
     SCHEMAS_TABLE,
@@ -292,9 +294,10 @@ enum DefaultTableNumber {
     AuditLogConfig = 39,
     UsageLimits = 40,
     DataSyncProgress = 41,
+    NextPersistenceIndexId = 42,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 42 - nipunn
+    // Next Number - 43 - tonyt
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -342,6 +345,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::AuditLogConfig => &AuditLogConfigTable,
             DefaultTableNumber::UsageLimits => &UsageLimitsTable,
             DefaultTableNumber::DataSyncProgress => &DataSyncProgressTable,
+            DefaultTableNumber::NextPersistenceIndexId => &NextPersistenceIndexIdTable,
         }
     }
 }
@@ -403,7 +407,17 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
     database: &Database<RT>,
 ) -> anyhow::Result<()> {
     let mut tx = database.begin(Identity::system()).await?;
+    NextPersistenceIndexIdTable::initialize(
+        &mut tx,
+        DEFAULT_TABLE_NUMBERS
+            .get(&NEXT_PERSISTENCE_INDEX_ID_TABLE)
+            .copied(),
+    )
+    .await?;
     for table in app_system_tables() {
+        if table.table_name() == NEXT_PERSISTENCE_INDEX_ID_TABLE {
+            continue;
+        }
         let is_new = initialize_application_system_table(
             &mut tx,
             table,
@@ -476,11 +490,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         .await?;
     if is_new {
         for index in table.indexes() {
-            let index_metadata = IndexMetadata::new_enabled(
-                index.name,
-                index.fields,
-                tx.allocate_persistence_index_id().await,
-            );
+            let index_metadata = IndexMetadata::new_enabled(index.name, index.fields);
             IndexModel::new(tx)
                 .add_system_index(namespace, index_metadata)
                 .await?;
@@ -540,7 +550,6 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                         *tx.begin_timestamp(),
                         index.name.clone(),
                         index.fields.clone(),
-                        tx.allocate_persistence_index_id().await,
                     );
                     IndexModel::new(tx)
                         .add_system_index(namespace, index_metadata)
@@ -624,6 +633,7 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
         AWS_LAMBDA_VERSIONS_TABLE.clone(),
         SOURCE_PACKAGES_TABLE.clone(),
         USAGE_LIMITS_TABLE.clone(),
+        NEXT_PERSISTENCE_INDEX_ID_TABLE.clone(),
     }
 });
 
@@ -676,6 +686,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         AUDIT_LOG_CONFIG_TABLE.clone() => 124,
         USAGE_LIMITS_TABLE.clone() => 126,
         DATA_SYNC_PROGRESS_TABLE.clone() => 127,
+        NEXT_PERSISTENCE_INDEX_ID_TABLE.clone() => 129,
     }
 });
 

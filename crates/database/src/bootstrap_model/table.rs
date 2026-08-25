@@ -489,7 +489,6 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                     .name
                     .map_table(&|_| anyhow::Ok(S::TABLE_NAME.clone()))?,
                 index.fields,
-                self.tx.allocate_persistence_index_id().await,
             );
             IndexModel::new(self.tx)
                 .add_system_index(namespace, index_metadata)
@@ -558,19 +557,14 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
             // Add the system defined indexes for the newly created table. Since the newly
             // created table is empty, we can start these indexes as `Enabled`.
-            let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(tablet_id),
-                IndexedFields::by_id(),
-                self.tx.allocate_persistence_index_id().await,
-            );
+            let by_id = GenericIndexName::by_id(tablet_id);
+            let metadata = IndexMetadata::new_enabled(by_id, IndexedFields::by_id());
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
-            let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(tablet_id),
-                IndexedFields::creation_time(),
-                self.tx.allocate_persistence_index_id().await,
-            );
+            let by_creation_time = GenericIndexName::by_creation_time(tablet_id);
+            let metadata =
+                IndexMetadata::new_enabled(by_creation_time, IndexedFields::creation_time());
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;

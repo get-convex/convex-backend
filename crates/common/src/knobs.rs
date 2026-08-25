@@ -2005,6 +2005,13 @@ pub static MAX_PERSISTENCE_WRITES_BACKOFF: LazyLock<Duration> = LazyLock::new(||
     Duration::from_millis(env_config("MAX_PERSISTENCE_WRITES_BACKOFF_MS", 10 * 1000))
 });
 
+/// Whether newly created database indexes receive persistence IDs.
+///
+/// The allocator's high-water mark remains durable while allocation is
+/// disabled.
+pub static PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env_config("PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED", true));
+
 /// HTTP/2 keepalive PING interval for proxied reqwest clients. Without
 /// keepalive a connection the peer drops without a TCP FIN/RST (e.g. a
 /// serverless receiver cycling a container mid-request) is awaited until the

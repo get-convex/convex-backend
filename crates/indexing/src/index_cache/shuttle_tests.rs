@@ -201,7 +201,6 @@ fn setup_with_capacity(max_weight: u64) -> Ctx {
         IndexMetadata::new_enabled(
             GenericIndexName::by_id(index_tablet),
             IndexedFields::by_id(),
-            None,
         )
         .try_into()
         .unwrap(),
@@ -216,7 +215,7 @@ fn setup_with_capacity(max_weight: u64) -> Ctx {
     let index_doc = ResolvedDocument::new(
         index_doc_id,
         CreationTime::ONE,
-        IndexMetadata::new_enabled(index_name.clone(), IndexedFields::by_id(), None)
+        IndexMetadata::new_enabled(index_name.clone(), IndexedFields::by_id())
             .try_into()
             .unwrap(),
     )

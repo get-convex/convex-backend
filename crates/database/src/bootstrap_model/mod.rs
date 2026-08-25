@@ -8,6 +8,7 @@ pub mod import_facing;
 pub mod index;
 pub mod index_backfills;
 pub mod index_workers;
+pub mod next_persistence_index_id;
 pub mod schema;
 pub mod schema_validation_progress;
 pub mod system_metadata;
