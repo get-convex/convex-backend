@@ -31,6 +31,7 @@ pub use self::buffer::{
     StringBuffer,
 };
 use self::flexbuilder::FlexBuilder;
+use crate::buffer::PARENT_BUFFER;
 
 #[derive(PartialEq, Eq)]
 pub struct PackedValue<B: Buffer>
@@ -61,12 +62,6 @@ where
 
     pub fn open(self) -> anyhow::Result<OpenedValue<B>> {
         OpenedValue::new(Reader::get_root(self.buf)?)
-    }
-
-    pub fn parse<T: ConvexSerializable>(self) -> anyhow::Result<T> {
-        value::serde::from_value::<_, T::Serialized>(self.as_ref().open()?)?
-            .try_into()
-            .map_err(Into::<anyhow::Error>::into)
     }
 
     pub fn size(&self) -> usize {
@@ -104,6 +99,18 @@ where
             .map(ConvexValue::try_from)
             .transpose()
             .expect("failed to unpack opened value")
+    }
+}
+
+impl PackedValue<ByteBuffer> {
+    pub fn parse<T: ConvexSerializable>(&self) -> anyhow::Result<T> {
+        // make the `Bytes` reference available to `StringBuffer`'s deserializer
+        // via the PARENT_BUFFER thread-local; this is a bit hacky
+        PARENT_BUFFER.set(&self.buf.inner, || {
+            value::serde::from_value::<_, T::Serialized>(self.as_ref().open()?)?
+                .try_into()
+                .map_err(Into::<anyhow::Error>::into)
+        })
     }
 }
 

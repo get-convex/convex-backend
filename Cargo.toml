@@ -188,6 +188,7 @@ rustls = { version = "0.23", default-features = false }
 rustls-native-certs = { version = "0.8" }
 rustls-pki-types = { version = "1" }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
+scoped-tls = { version = "1.0.1" }
 scopeguard = { version = "1.1" }
 search = { path = "crates/search" }
 search_index_workers = { path = "crates/search_index_workers" }

@@ -1273,7 +1273,7 @@ impl<D: ConvexSerializable> ParseDocument<D> for &PackedDocument {
         Ok(ParsedDocument {
             id: self.id,
             creation_time,
-            value: self.value.as_ref().parse()?,
+            value: self.value.parse()?,
         })
     }
 }
