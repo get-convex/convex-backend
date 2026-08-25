@@ -28,13 +28,8 @@ const meta = {
         "The toast only shows for `anonymous-*` and `tryitout-*` deployments.",
     },
   },
-  parameters: {
-    // The toast positions itself in the bottom left corner of the page.
-    layout: "fullscreen",
-    // The dismiss button is nested inside the expand button, which axe flags as
-    // `nested-interactive`. Report it instead of failing until that's fixed.
-    a11y: { test: "todo" },
-  },
+  // The toast positions itself in the bottom left corner of the page.
+  parameters: { layout: "fullscreen" },
   render: ({ deploymentName }) => (
     <DeploymentInfoContext.Provider
       value={deploymentInfoWithName(deploymentName)}
