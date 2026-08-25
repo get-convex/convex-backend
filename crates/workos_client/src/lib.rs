@@ -94,10 +94,22 @@ pub struct WorkOSUser {
     pub last_name: Option<String>,
 }
 
-/// WorkOS list endpoints wrap their results in a `data` array.
+/// WorkOS list endpoints wrap their results in a `data` array, alongside
+/// `list_metadata` used for cursor pagination.
 #[derive(Debug, Deserialize)]
 struct WorkOSListResponse<T> {
     data: Vec<T>,
+    #[serde(default)]
+    list_metadata: WorkOSListMetadata,
+}
+
+/// Cursor pagination metadata returned by WorkOS list endpoints. `after` is the
+/// cursor to pass as the `after` query parameter to fetch the next page; it is
+/// absent (or null) once the final page has been returned.
+#[derive(Debug, Deserialize, Default)]
+struct WorkOSListMetadata {
+    #[serde(default)]
+    after: Option<String>,
 }
 
 /// Minimal projection of a WorkOS user when we only need its id (e.g. when
@@ -338,6 +350,74 @@ pub enum WorkOSPortalIntent {
     Sso,
     DomainVerification,
     CertificateRenewal,
+    /// WorkOS serializes the directory sync portal intent as "dsync".
+    #[serde(rename = "dsync")]
+    DirectorySync,
+}
+
+/// A WorkOS Directory Sync directory.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Directory {
+    /// like "directory_01ECAZ4NV9QMV47GW873HDCX74"
+    pub id: String,
+    /// e.g. "linked", "unlinked", "invalid_credentials".
+    pub state: String,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+/// A group within a WorkOS Directory Sync directory.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DirectoryGroup {
+    /// like "directory_group_01E1JG7J09H96KYP8HM9B0G5SJ"
+    pub id: String,
+    /// The identity provider's own id for this group.
+    pub idp_id: String,
+    pub name: String,
+}
+
+/// One of a directory user's email addresses.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DirectoryUserEmail {
+    #[serde(default)]
+    pub primary: Option<bool>,
+    #[serde(rename = "type", default)]
+    pub email_type: Option<String>,
+    pub value: String,
+}
+
+/// A user within a WorkOS Directory Sync directory.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DirectoryUser {
+    /// like "directory_user_01E1JG7J09H96KYP8HM9B0G5SJ"
+    pub id: String,
+    /// The user's email address, as returned by current Directory Sync
+    /// responses.
+    #[serde(default)]
+    pub email: Option<String>,
+    /// Per-address detail, supplied by directories that report more than one
+    /// address; at most one is flagged `primary`.
+    #[serde(default)]
+    pub emails: Vec<DirectoryUserEmail>,
+    /// e.g. "active", "inactive", "suspended".
+    pub state: String,
+    /// The groups this user belongs to within the directory.
+    #[serde(default)]
+    pub groups: Vec<DirectoryGroup>,
+}
+
+impl DirectoryUser {
+    /// The address flagged `primary`, else the top-level `email`, else the
+    /// first address in the list. Directories that report a single address
+    /// populate only `email`.
+    pub fn primary_email(&self) -> Option<&str> {
+        self.emails
+            .iter()
+            .find(|e| e.primary == Some(true))
+            .map(|e| e.value.as_str())
+            .or(self.email.as_deref())
+            .or_else(|| self.emails.first().map(|e| e.value.as_str()))
+    }
 }
 
 #[async_trait]
@@ -388,6 +468,14 @@ pub trait WorkOSClient: Send + Sync {
         organization_id: &str,
         intent: WorkOSPortalIntent,
     ) -> anyhow::Result<WorkOSPortalLinkResponse>;
+
+    // Directory Sync methods
+    async fn list_directories(&self, organization_id: &str) -> anyhow::Result<Vec<Directory>>;
+    async fn list_directory_groups(
+        &self,
+        directory_id: &str,
+    ) -> anyhow::Result<Vec<DirectoryGroup>>;
+    async fn list_directory_users(&self, directory_id: &str) -> anyhow::Result<Vec<DirectoryUser>>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -551,12 +639,30 @@ where
         generate_workos_portal_link(&self.api_key, organization_id, intent, &*self.http_client)
             .await
     }
+
+    async fn list_directories(&self, organization_id: &str) -> anyhow::Result<Vec<Directory>> {
+        list_workos_directories(&self.api_key, organization_id, &*self.http_client).await
+    }
+
+    async fn list_directory_groups(
+        &self,
+        directory_id: &str,
+    ) -> anyhow::Result<Vec<DirectoryGroup>> {
+        list_workos_directory_groups(&self.api_key, directory_id, &*self.http_client).await
+    }
+
+    async fn list_directory_users(&self, directory_id: &str) -> anyhow::Result<Vec<DirectoryUser>> {
+        list_workos_directory_users(&self.api_key, directory_id, &*self.http_client).await
+    }
 }
 
 #[derive(Default)]
 pub struct MockWorkOSClient {
     /// Configured `find_user_id_by_email` responses, keyed by lowercased email.
-    email_to_user_id: std::collections::HashMap<String, String>,
+    email_to_user_id: HashMap<String, String>,
+    directories: Vec<Directory>,
+    directory_groups: HashMap<String, Vec<DirectoryGroup>>,
+    directory_users: HashMap<String, Vec<DirectoryUser>>,
 }
 
 impl MockWorkOSClient {
@@ -570,6 +676,22 @@ impl MockWorkOSClient {
         self.email_to_user_id
             .insert(email.to_lowercase(), workos_user_id.to_string());
         self
+    }
+
+    /// Inject the directories returned by [`list_directories`].
+    pub fn set_directories(&mut self, directories: Vec<Directory>) {
+        self.directories = directories;
+    }
+
+    /// Inject the groups returned by [`list_directory_groups`] for a directory.
+    pub fn set_directory_groups(&mut self, directory_id: &str, groups: Vec<DirectoryGroup>) {
+        self.directory_groups
+            .insert(directory_id.to_string(), groups);
+    }
+
+    /// Inject the users returned by [`list_directory_users`] for a directory.
+    pub fn set_directory_users(&mut self, directory_id: &str, users: Vec<DirectoryUser>) {
+        self.directory_users.insert(directory_id.to_string(), users);
     }
 }
 
@@ -730,12 +852,36 @@ impl WorkOSClient for MockWorkOSClient {
             WorkOSPortalIntent::Sso => "sso",
             WorkOSPortalIntent::DomainVerification => "domain_verification",
             WorkOSPortalIntent::CertificateRenewal => "certificate_renewal",
+            WorkOSPortalIntent::DirectorySync => "dsync",
         };
         Ok(WorkOSPortalLinkResponse {
             link: format!(
                 "https://portal.workos.com/mock-portal-link?organization={organization_id}&intent={intent_str}"
             ),
         })
+    }
+
+    async fn list_directories(&self, _organization_id: &str) -> anyhow::Result<Vec<Directory>> {
+        Ok(self.directories.clone())
+    }
+
+    async fn list_directory_groups(
+        &self,
+        directory_id: &str,
+    ) -> anyhow::Result<Vec<DirectoryGroup>> {
+        Ok(self
+            .directory_groups
+            .get(directory_id)
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    async fn list_directory_users(&self, directory_id: &str) -> anyhow::Result<Vec<DirectoryUser>> {
+        Ok(self
+            .directory_users
+            .get(directory_id)
+            .cloned()
+            .unwrap_or_default())
     }
 }
 
@@ -2327,4 +2473,143 @@ where
         })?;
 
     Ok(portal_link)
+}
+
+/// Fetches every page of a WorkOS list endpoint, following the
+/// `list_metadata.after` cursor until it is exhausted. `query` holds the fixed
+/// query parameters; `after` and `limit` are appended per request.
+async fn list_workos_paginated<T, F, E>(
+    api_key: &str,
+    base_url: &str,
+    query: &[(&str, &str)],
+    operation: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<T>>
+where
+    T: serde::de::DeserializeOwned,
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    // WorkOS caps `limit` at 100 for Directory Sync list endpoints.
+    const PAGE_LIMIT: &str = "100";
+
+    let mut results = Vec::new();
+    let mut after: Option<String> = None;
+
+    loop {
+        let mut url =
+            url::Url::parse(base_url).with_context(|| format!("Invalid WorkOS URL: {base_url}"))?;
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (key, value) in query {
+                pairs.append_pair(key, value);
+            }
+            pairs.append_pair("limit", PAGE_LIMIT);
+            if let Some(after) = &after {
+                pairs.append_pair("after", after);
+            }
+        }
+
+        let request = http::Request::builder()
+            .uri(url.as_str())
+            .method(http::Method::GET)
+            .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+            .header(http::header::ACCEPT, APPLICATION_JSON)
+            .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+            .body(vec![])?;
+
+        let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+            .await
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "WorkOS API call timed out after {}s",
+                    WORKOS_API_TIMEOUT.as_secs()
+                )
+            })?
+            .map_err(|e| anyhow::anyhow!("Could not {operation}: {e}"))?;
+
+        if response.status() != http::StatusCode::OK {
+            let status = response.status();
+            let response_body = response.into_body();
+            anyhow::bail!(WorkOSApiError::new(operation, status, &response_body));
+        }
+
+        let response_body = response.into_body();
+        let page: WorkOSListResponse<T> =
+            serde_json::from_slice(&response_body).with_context(|| {
+                format!(
+                    "Invalid WorkOS {operation} response: {}",
+                    String::from_utf8_lossy(&response_body)
+                )
+            })?;
+        results.extend(page.data);
+
+        match page.list_metadata.after {
+            Some(next) if !next.is_empty() => after = Some(next),
+            _ => break,
+        }
+    }
+
+    Ok(results)
+}
+
+/// Lists all Directory Sync directories for an organization, following
+/// pagination.
+pub async fn list_workos_directories<F, E>(
+    api_key: &str,
+    organization_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<Directory>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    list_workos_paginated(
+        api_key,
+        "https://api.workos.com/directory_sync/directories",
+        &[("organization_id", organization_id)],
+        "list directories",
+        http_client,
+    )
+    .await
+}
+
+/// Lists all groups within a Directory Sync directory, following pagination.
+pub async fn list_workos_directory_groups<F, E>(
+    api_key: &str,
+    directory_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<DirectoryGroup>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    list_workos_paginated(
+        api_key,
+        "https://api.workos.com/directory_sync/groups",
+        &[("directory", directory_id)],
+        "list directory groups",
+        http_client,
+    )
+    .await
+}
+
+/// Lists all users within a Directory Sync directory, following pagination.
+pub async fn list_workos_directory_users<F, E>(
+    api_key: &str,
+    directory_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<DirectoryUser>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    list_workos_paginated(
+        api_key,
+        "https://api.workos.com/directory_sync/users",
+        &[("directory", directory_id)],
+        "list directory users",
+        http_client,
+    )
+    .await
 }
