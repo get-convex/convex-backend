@@ -82,6 +82,7 @@ use pb::{
             StoreFile as StoreFileProto,
         },
         AdminKey as AdminKeyProto,
+        ExportDownloadToken as ExportDownloadTokenProto,
         StorageToken as StorageTokenProto,
     },
     convex_query_journal::InstanceQueryJournal as InstanceQueryJournalProto,
@@ -119,6 +120,7 @@ use crate::{
 const ACTION_KEY_VERSION: u8 = 2;
 const ADMIN_KEY_VERSION: u8 = 1;
 const CURSOR_VERSION: u8 = 7;
+const EXPORT_DOWNLOAD_KEY_VERSION: u8 = 1;
 const STORE_FILE_AUTHZ_VERSION: u8 = 1;
 const QUERY_JOURNAL_VERSION: u8 = 7;
 
@@ -133,6 +135,7 @@ pub struct KeyBroker {
     action_callback_encryptor: RandomEncryptor,
     cursor_encryptor: DeterministicEncryptor,
     data_sync_encryptor: RandomEncryptor,
+    export_download_encryptor: RandomEncryptor,
     journal_encryptor: RandomEncryptor,
     store_file_encryptor: RandomEncryptor,
 }
@@ -695,6 +698,16 @@ pub enum AdminIdentityPrincipal {
     Team(TeamId),
 }
 
+/// The actor that requested an export download token, recorded in the token
+/// so each download can be attributed (e.g. for audit logging): the member
+/// and/or the big brain access token (e.g. a deploy key) that authenticated
+/// the request. Both are `None` for system actors.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ExportDownloadActor {
+    pub member_id: Option<MemberId>,
+    pub token_id: Option<AccessTokenId>,
+}
+
 /// AdminIdentityExpired - means that the identity has been around for too long
 /// and its claims are no longer valid.
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -918,6 +931,10 @@ impl KeyBroker {
             data_sync_encryptor: RandomEncryptor::derive_from_secret(
                 &deployment_secret,
                 Purpose::DATA_SYNC_CURSOR,
+            )?,
+            export_download_encryptor: RandomEncryptor::derive_from_secret(
+                &deployment_secret,
+                Purpose::EXPORT_DOWNLOAD_TOKEN,
             )?,
             journal_encryptor: RandomEncryptor::derive_from_secret(
                 &deployment_secret,
@@ -1216,6 +1233,77 @@ impl KeyBroker {
         let system_time = SystemTime::UNIX_EPOCH + Duration::from_secs(issued_s);
         let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
         Ok((system_time, component_id))
+    }
+
+    /// Issues a short-lived token authorizing the download of a single snapshot
+    /// export. This lets the dashboard trigger a browser download without
+    /// putting the long-lived admin key in the URL. The token records the
+    /// actor that requested it so each download can be audit logged.
+    pub fn issue_export_download_token(
+        &self,
+        snapshot_id: String,
+        actor: ExportDownloadActor,
+    ) -> String {
+        let now = SystemTime::now();
+        let since_epoch = now
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("Failed to compute seconds since epoch?");
+
+        let proto = ExportDownloadTokenProto {
+            issued_s: since_epoch.as_secs(),
+            snapshot_id,
+            member_id: actor.member_id.map(|m| m.0),
+            token_id: actor.token_id.map(|t| t.0),
+        };
+
+        self.export_download_encryptor
+            .encrypt_proto(EXPORT_DOWNLOAD_KEY_VERSION, &proto)
+    }
+
+    /// Checks that an export download token is valid for the given snapshot id
+    /// and was issued within `validity` ago. Returns the actor that requested
+    /// the token, for audit logging.
+    pub fn check_export_download_token(
+        &self,
+        token: &str,
+        snapshot_id: &str,
+        validity: Duration,
+    ) -> anyhow::Result<ExportDownloadActor> {
+        let ExportDownloadTokenProto {
+            issued_s,
+            snapshot_id: token_snapshot_id,
+            member_id,
+            token_id,
+        } = self
+            .export_download_encryptor
+            .decrypt_proto(EXPORT_DOWNLOAD_KEY_VERSION, token)
+            .context(ErrorMetadata::forbidden(
+                "InvalidExportDownloadToken",
+                "Invalid export download token",
+            ))?;
+
+        if issued_s == 0 || token_snapshot_id != snapshot_id {
+            anyhow::bail!(ErrorMetadata::forbidden(
+                "InvalidExportDownloadToken",
+                "Invalid export download token",
+            ));
+        }
+
+        let now = SystemTime::now();
+        let since_epoch = now
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("Failed to compute seconds since epoch?")
+            .as_secs();
+        if issued_s + validity.as_secs() <= since_epoch {
+            anyhow::bail!(ErrorMetadata::forbidden(
+                "ExportDownloadTokenExpired",
+                "This download link has expired. Please retry the download.",
+            ));
+        }
+        Ok(ExportDownloadActor {
+            member_id: member_id.map(MemberId),
+            token_id: token_id.map(AccessTokenId),
+        })
     }
 }
 

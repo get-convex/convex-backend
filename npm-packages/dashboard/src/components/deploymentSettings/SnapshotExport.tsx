@@ -4,8 +4,8 @@ import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
 import { Sheet } from "@ui/Sheet";
-import { useGetZipExport } from "hooks/deploymentApi";
-import { Fragment } from "react";
+import { useDownloadZipExport } from "hooks/deploymentApi";
+import { Fragment, useState } from "react";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useCurrentDeployment } from "api/deployments";
@@ -16,7 +16,8 @@ function LatestSnapshot({
 }: {
   existingExport: CompletedExport;
 }) {
-  const getZipExport = useGetZipExport(existingExport.format);
+  const downloadZipExport = useDownloadZipExport(existingExport.format);
+  const [isDownloading, setIsDownloading] = useState(false);
   const format = existingExport.format?.format;
   if (format !== "zip") {
     // Old export formats have not been generated since 2023-12, so all such
@@ -62,7 +63,15 @@ function LatestSnapshot({
                     variant="primary"
                     inline
                     aria-label="download"
-                    href={getZipExport(existingExport._id)}
+                    loading={isDownloading}
+                    onClick={async () => {
+                      setIsDownloading(true);
+                      try {
+                        await downloadZipExport(existingExport._id);
+                      } finally {
+                        setIsDownloading(false);
+                      }
+                    }}
                   >
                     <DownloadIcon aria-label="Download" />
                     <span className="hidden md:flex">Download</span>

@@ -56,7 +56,7 @@ export function BackupListItem({
   canCreate,
   canImport,
   canDelete,
-  getZipExportUrl,
+  downloadZipExport,
   maxCloudBackups,
   progressMessage,
 }: {
@@ -69,7 +69,7 @@ export function BackupListItem({
   canCreate: boolean;
   canImport: boolean;
   canDelete: boolean;
-  getZipExportUrl: (snapshotId: Id<"_exports">) => string;
+  downloadZipExport: (snapshotId: Id<"_exports">) => Promise<void>;
   maxCloudBackups: number;
   progressMessage: string | null;
 }) {
@@ -215,11 +215,10 @@ export function BackupListItem({
                     (targetDeployment.kind === "cloud" &&
                       backup.sourceDeploymentId !== targetDeployment.id)
                   }
-                  href={
-                    backup.state === "complete"
-                      ? getZipExportUrl(backup.snapshotId)
-                      : "" // only when disabled
-                  }
+                  action={() => {
+                    if (backup.state !== "complete") return; // only when disabled
+                    void downloadZipExport(backup.snapshotId);
+                  }}
                   tipSide="left"
                   tip={
                     backup.state !== "complete"

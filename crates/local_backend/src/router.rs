@@ -122,6 +122,7 @@ use crate::{
         cancel_export,
         get_zip_export,
         request_zip_export,
+        request_zip_export_token,
         set_export_expiration,
     },
     snapshot_import::{
@@ -353,6 +354,7 @@ pub fn router(st: LocalAppState) -> Router {
     let snapshot_export_routes = Router::new()
         .route("/request/zip", post(request_zip_export))
         .route("/zip/{id}", get(get_zip_export))
+        .route("/zip/{id}/token", post(request_zip_export_token))
         .route("/set_expiration/{snapshot_id}", post(set_export_expiration))
         .route("/cancel/{snapshot_id}", post(cancel_export));
 

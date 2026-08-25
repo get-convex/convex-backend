@@ -56,7 +56,7 @@ const meta = {
     canCreate: true,
     canImport: true,
     canDelete: true,
-    getZipExportUrl: () => "",
+    downloadZipExport: async () => {},
     maxCloudBackups: 2,
     progressMessage: null,
   },

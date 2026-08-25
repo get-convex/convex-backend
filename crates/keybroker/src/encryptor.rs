@@ -39,6 +39,7 @@ impl Purpose {
     pub const CURSOR: DeterministicPurpose = Purpose("cursor");
     /// Cursor for the data sync (streaming export) API.
     pub const DATA_SYNC_CURSOR: Purpose = Purpose("data sync cursor");
+    pub const EXPORT_DOWNLOAD_TOKEN: Purpose = Purpose("export download token");
     pub const QUERY_JOURNAL: Purpose = Purpose("query journal");
     pub const STORE_FILE_AUTHORIZATION: Purpose = Purpose("store file authorization");
 }
