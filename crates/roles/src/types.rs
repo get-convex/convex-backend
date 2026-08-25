@@ -963,6 +963,9 @@ pub enum RoleStatementAction {
     #[serde(rename = "deployment:usage:view")]
     #[strum(serialize = "deployment:usage:view")]
     ViewDeploymentUsage,
+    #[serde(rename = "deployment:aiGateway:use")]
+    #[strum(serialize = "deployment:aiGateway:use")]
+    UseAiGateway,
 }
 
 impl RoleStatementAction {
@@ -1050,7 +1053,8 @@ impl RoleStatementAction {
             | A::ViewAuditLog
             | A::ViewUsageLimits
             | A::WriteUsageLimits
-            | A::ViewDeploymentUsage => ResourceKind::Deployment,
+            | A::ViewDeploymentUsage
+            | A::UseAiGateway => ResourceKind::Deployment,
             // Member
             A::InviteMember
             | A::CancelMemberInvitation

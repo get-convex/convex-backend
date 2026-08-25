@@ -4494,7 +4494,8 @@
           "deployment:auditLog:view",
           "deployment:usageLimits:view",
           "deployment:usageLimits:write",
-          "deployment:usage:view"
+          "deployment:usage:view",
+          "deployment:aiGateway:use"
         ]
       },
       "RoleStatementActions": {

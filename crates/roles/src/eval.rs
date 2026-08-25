@@ -253,6 +253,7 @@ pub fn deployment_op_action(op: DeploymentOp) -> Option<RoleStatementAction> {
         O::ViewUsageLimits => A::ViewUsageLimits,
         O::WriteUsageLimits => A::WriteUsageLimits,
         O::ViewUsage => A::ViewDeploymentUsage,
+        O::UseAiGateway => A::UseAiGateway,
         O::Unknown => return None,
     })
 }

@@ -126,6 +126,7 @@ export const DEPLOYMENT_OP_TO_ACTION: Record<
   WriteUsageLimits: "deployment:usageLimits:write",
   ViewIntegrations: "deployment:integrations:view",
   WriteIntegrations: "deployment:integrations:write",
+  UseAiGateway: "deployment:aiGateway:use",
 };
 
 const READ_ONLY_ACTIONS: RoleStatementAction[] = [
@@ -359,6 +360,7 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "deployment:usageLimits:view": "deployment",
   "deployment:usageLimits:write": "deployment",
   "deployment:usage:view": "deployment",
+  "deployment:aiGateway:use": "deployment",
   // Member
   "member:invite": "member",
   "member:cancelInvitation": "member",
