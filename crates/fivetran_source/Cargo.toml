@@ -13,9 +13,9 @@ homepage = "https://www.convex.dev/"
 ignored = [
     # Build dependencies not understood
     "bytes",
-    "cfg_if",
-    "futures_util",
-    "tonic_build",
+    "cfg-if",
+    "futures-util",
+    "tonic-build",
     # Prost required via tonic macro
     "prost",
 ]

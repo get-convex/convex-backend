@@ -11,6 +11,7 @@ ignored = [
     "proptest-derive",
     # Used in macros
     "derive_more",
+    "strum",
 ]
 
 [lib]

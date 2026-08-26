@@ -8,12 +8,22 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 build = "build.rs"
 include = ["data"]
 
-[package.metadata.cargo-udeps.ignore]
-normal = ["mysql"]
-development = ["mysql"]
-
 [package.metadata.cargo-machete]
-ignored = ["phf"]
+ignored = [
+    "axum",
+    "http-body-util",
+    "hyper",
+    "js_build",
+    "must-let",
+    "phf",
+    "pretty_assertions",
+    "reqwest",
+    "search",
+    "search_index_workers",
+    "sha2",
+    "shape_inference",
+    "walkdir",
+]
 
 [lib]
 doctest = false

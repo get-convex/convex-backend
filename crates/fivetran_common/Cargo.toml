@@ -12,10 +12,12 @@ homepage = "https://www.convex.dev/"
 [package.metadata.cargo-machete]
 ignored = [
     # Build dependencies not understood
-    "cfg_if",
-    "tonic_prost_build",
+    "cfg-if",
+    "fxhash",
+    "tonic-prost-build",
     # Prost required via tonic macro
     "prost",
+    "tonic-prost",
 ]
 
 [lib]

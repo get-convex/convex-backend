@@ -85,13 +85,13 @@ url = "https://github.com/cargo-bins/cargo-binstall/releases/download/v1.20.0/ca
 url_api = "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/assets/441741207"
 provenance = "github-attestations"
 
+[[tools."cargo:cargo-machete"]]
+version = "0.9.2"
+backend = "cargo:cargo-machete"
+
 [[tools."cargo:cargo-sort"]]
 version = "2.1.4"
 backend = "cargo:cargo-sort"
-
-[[tools."cargo:cargo-udeps"]]
-version = "0.1.55"
-backend = "cargo:cargo-udeps"
 
 [[tools.cmake]]
 version = "3.31.12"

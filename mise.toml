@@ -17,9 +17,9 @@ protoc   = "21.12"
 
 # Dev Cargo lint tools (prebuilt via cargo-binstall, no compile). `mise install`
 # pulls them in dev + CI (cached); the release images install only specific tools.
-cargo-binstall      = "1.20.0"
-"cargo:cargo-udeps" = "0.1.55"
-"cargo:cargo-sort"  = "2.1.4"
+cargo-binstall = "1.20.0"
+"cargo:cargo-machete" = "0.9.2"
+"cargo:cargo-sort" = "2.1.4"
 "aqua:planetscale/cli" = "0.291.0"
 
 [env]
