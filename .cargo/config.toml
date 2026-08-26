@@ -1,3 +1,6 @@
+[unstable]
+bindeps = true
+
 [env]
 CARGO_WORKSPACE_ROOT = { value = "", relative = true }
 CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
