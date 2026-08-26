@@ -6,7 +6,7 @@
 
 # mise's own version: read by the bootstrap installer + the release Dockerfiles, and
 # a floor (mise refuses to run an older binary against this config).
-min_version = "2026.6.10"
+min_version = "2026.8.9"
 
 [tools]
 uv       = "0.11.5"
