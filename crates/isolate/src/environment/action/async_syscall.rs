@@ -195,11 +195,14 @@ impl<RT: Runtime> TaskExecutor<RT> {
             },
         };
         let action_callbacks = self.action_callbacks.clone();
+        let identity = self.identity.clone();
         let token = self
             .ai_gateway_token
-            .get_or_try_init(
-                || async move { action_callbacks.create_ai_gateway_token(caller).await },
-            )
+            .get_or_try_init(|| async move {
+                action_callbacks
+                    .create_ai_gateway_token(identity, caller)
+                    .await
+            })
             .await?;
         Ok(JsonValue::String(token.clone()))
     }

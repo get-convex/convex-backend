@@ -125,7 +125,7 @@ pub async fn create_service_token(
     }: ExtractActionIdentity,
     ExtractActionName(action_name): ExtractActionName,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let mut tx = st.application.begin(identity).await?;
+    let mut tx = st.application.begin(identity.clone()).await?;
     let component_path = tx.must_component_path(component_id)?;
     let attribution = match action_name {
         Some(name) => AttributionClaims {
@@ -135,7 +135,10 @@ pub async fn create_service_token(
         },
         None => AttributionClaims::unknown(),
     };
-    let token = st.application.mint_ai_gateway_jwt(attribution).await?;
+    let token = st
+        .application
+        .mint_ai_gateway_jwt(&identity, attribution)
+        .await?;
     Ok(Json(CreateServiceTokenResponse { token }))
 }
 

@@ -742,6 +742,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     /// claims from Conductor's gRPC handler.
     pub async fn mint_ai_gateway_jwt(
         &self,
+        _identity: &Identity,
         attribution: AttributionClaims,
     ) -> anyhow::Result<String> {
         let mut tx = self.database.begin_system().await?;
@@ -2103,8 +2104,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
-    async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String> {
-        self.mint_ai_gateway_jwt(AttributionClaims::from(caller))
+    async fn create_ai_gateway_token(
+        &self,
+        identity: Identity,
+        caller: AttributedCaller,
+    ) -> anyhow::Result<String> {
+        self.mint_ai_gateway_jwt(&identity, AttributionClaims::from(caller))
             .await
     }
 

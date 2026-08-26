@@ -28,7 +28,11 @@ pub trait ActionCallbacks: Send + Sync {
     /// Mints an AI gateway token for the calling function. The caller stays
     /// typed until Conductor builds the claims it signs. Node actions call
     /// `Application::mint_ai_gateway_jwt` over HTTP instead.
-    async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String>;
+    async fn create_ai_gateway_token(
+        &self,
+        identity: Identity,
+        caller: AttributedCaller,
+    ) -> anyhow::Result<String>;
 
     // Executing UDFs
     async fn execute_query(

@@ -109,6 +109,7 @@ export const ACTIONS_BY_CATEGORY: Record<
     "deployment:functions:runInternalMutations",
     "deployment:functions:runInternalActions",
     "deployment:functions:runTestQuery",
+    "deployment:aiGateway:use",
   ],
   member: [
     "member:invite",
