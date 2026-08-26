@@ -4615,6 +4615,13 @@
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
             "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
+          },
+          "dsyncSuspended": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Present only on directory-sync teams. `true` means the member's IdP\naccount is suspended."
           }
         }
       },
