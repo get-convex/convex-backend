@@ -191,6 +191,12 @@ fn parse_segment(kind: ResourceKind, selector_str: &str) -> anyhow::Result<Resou
             }
             Ok(ResourceSegment::Sso)
         },
+        ResourceKind::DirectorySync => {
+            if parts != ["*"] {
+                bail!("DirectorySync segment only accepts wildcard (*), got: {selector_str}");
+            }
+            Ok(ResourceSegment::DirectorySync)
+        },
         ResourceKind::Integration => {
             if parts != ["*"] {
                 bail!("Integration segment only accepts wildcard (*), got: {selector_str}");
@@ -228,6 +234,7 @@ fn valid_children(kind: ResourceKind) -> &'static [ResourceKind] {
         | ResourceKind::Billing
         | ResourceKind::OauthApplication
         | ResourceKind::Sso
+        | ResourceKind::DirectorySync
         | ResourceKind::Integration
         | ResourceKind::DefaultEnvironmentVariable => &[],
     }
@@ -362,6 +369,7 @@ impl fmt::Display for ResourceSegment {
             ResourceSegment::Billing => write!(f, "billing:*"),
             ResourceSegment::OauthApplication => write!(f, "oauthApplication:*"),
             ResourceSegment::Sso => write!(f, "sso:*"),
+            ResourceSegment::DirectorySync => write!(f, "directorySync:*"),
             ResourceSegment::Integration => write!(f, "integration:*"),
             ResourceSegment::DefaultEnvironmentVariable => {
                 write!(f, "defaultEnvironmentVariable:*")

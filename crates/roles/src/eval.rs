@@ -102,6 +102,7 @@ impl ResourceSegment {
             (ResourceSegment::Billing, ConcreteSegment::Billing) => true,
             (ResourceSegment::OauthApplication, ConcreteSegment::OauthApplication) => true,
             (ResourceSegment::Sso, ConcreteSegment::Sso) => true,
+            (ResourceSegment::DirectorySync, ConcreteSegment::DirectorySync) => true,
             (ResourceSegment::Integration, ConcreteSegment::Integration) => true,
             (
                 ResourceSegment::DefaultEnvironmentVariable,

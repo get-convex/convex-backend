@@ -27,6 +27,7 @@ export type ResourceKind =
   | "billing"
   | "oauthApplication"
   | "sso"
+  | "directorySync"
   | "integration"
   | "defaultEnvironmentVariable";
 
@@ -63,6 +64,7 @@ export type ResourceSegment =
   | { kind: "billing" }
   | { kind: "oauthApplication" }
   | { kind: "sso" }
+  | { kind: "directorySync" }
   | { kind: "integration" }
   | { kind: "defaultEnvironmentVariable" };
 
@@ -87,6 +89,7 @@ export type ConcreteSegment =
   | { kind: "billing" }
   | { kind: "oauthApplication" }
   | { kind: "sso" }
+  | { kind: "directorySync" }
   | { kind: "integration" }
   | { kind: "defaultEnvironmentVariable" };
 
@@ -160,6 +163,7 @@ const VALID_KINDS: readonly ResourceKind[] = [
   "billing",
   "oauthApplication",
   "sso",
+  "directorySync",
   "integration",
   "defaultEnvironmentVariable",
 ];
@@ -240,6 +244,7 @@ function parseSegment(
     case "billing":
     case "oauthApplication":
     case "sso":
+    case "directorySync":
     case "integration":
     case "defaultEnvironmentVariable":
       if (parts.length !== 1 || parts[0] !== "*") {
@@ -298,6 +303,12 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "sso:disable": "sso",
   "sso:update": "sso",
   "sso:view": "sso",
+  // Directory Sync
+  "directorySync:enable": "directorySync",
+  "directorySync:disable": "directorySync",
+  "directorySync:updateGroupMapping": "directorySync",
+  "directorySync:deleteGroupMapping": "directorySync",
+  "directorySync:view": "directorySync",
   // Team Integrations
   "integration:view": "integration",
   "integration:create": "integration",
