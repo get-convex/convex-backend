@@ -476,6 +476,12 @@ pub trait WorkOSClient: Send + Sync {
         directory_id: &str,
     ) -> anyhow::Result<Vec<DirectoryGroup>>;
     async fn list_directory_users(&self, directory_id: &str) -> anyhow::Result<Vec<DirectoryUser>>;
+    /// Fetches a single directory user by id, including their current
+    /// `groups[]`.
+    async fn get_directory_user(
+        &self,
+        directory_user_id: &str,
+    ) -> anyhow::Result<Option<DirectoryUser>>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -654,6 +660,13 @@ where
     async fn list_directory_users(&self, directory_id: &str) -> anyhow::Result<Vec<DirectoryUser>> {
         list_workos_directory_users(&self.api_key, directory_id, &*self.http_client).await
     }
+
+    async fn get_directory_user(
+        &self,
+        directory_user_id: &str,
+    ) -> anyhow::Result<Option<DirectoryUser>> {
+        get_workos_directory_user(&self.api_key, directory_user_id, &*self.http_client).await
+    }
 }
 
 #[derive(Default)]
@@ -663,6 +676,8 @@ pub struct MockWorkOSClient {
     directories: Vec<Directory>,
     directory_groups: HashMap<String, Vec<DirectoryGroup>>,
     directory_users: HashMap<String, Vec<DirectoryUser>>,
+    /// Users returned by [`get_directory_user`], keyed by directory user id.
+    directory_users_by_id: HashMap<String, DirectoryUser>,
 }
 
 impl MockWorkOSClient {
@@ -692,6 +707,11 @@ impl MockWorkOSClient {
     /// Inject the users returned by [`list_directory_users`] for a directory.
     pub fn set_directory_users(&mut self, directory_id: &str, users: Vec<DirectoryUser>) {
         self.directory_users.insert(directory_id.to_string(), users);
+    }
+
+    /// Inject a user returned by [`get_directory_user`] for its id.
+    pub fn set_directory_user(&mut self, user: DirectoryUser) {
+        self.directory_users_by_id.insert(user.id.clone(), user);
     }
 }
 
@@ -882,6 +902,13 @@ impl WorkOSClient for MockWorkOSClient {
             .get(directory_id)
             .cloned()
             .unwrap_or_default())
+    }
+
+    async fn get_directory_user(
+        &self,
+        directory_user_id: &str,
+    ) -> anyhow::Result<Option<DirectoryUser>> {
+        Ok(self.directory_users_by_id.get(directory_user_id).cloned())
     }
 }
 
@@ -2612,4 +2639,61 @@ where
         http_client,
     )
     .await
+}
+
+/// Fetches a single directory user by id, including their current `groups[]`.
+/// Returns `Ok(None)` when the user no longer exists — deletion between a
+/// webhook and this fetch is normal, not exceptional.
+pub async fn get_workos_directory_user<F, E>(
+    api_key: &str,
+    directory_user_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Option<DirectoryUser>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!("https://api.workos.com/directory_sync/users/{directory_user_id}");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not fetch directory user: {}", e))?;
+
+    if response.status() == http::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(WorkOSApiError::new(
+            "get directory user",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let user: DirectoryUser = serde_json::from_slice(&response_body).with_context(|| {
+        format!(
+            "Invalid WorkOS directory user response: {}",
+            String::from_utf8_lossy(&response_body)
+        )
+    })?;
+
+    Ok(Some(user))
 }
