@@ -468,7 +468,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let mut queries = BTreeMap::new();
         for namespace in namespaces {
             let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
-            if let Some(doc) = query.next(tx, None).await? {
+            let doc = {
+                let timer = metrics::query_scheduled_jobs_timer();
+                let doc = query.next(tx, None).await?;
+                timer.finish();
+                doc
+            };
+            if let Some(doc) = doc {
                 let job_metadata: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
                 let job_metadata_id = job_metadata.id();
                 let next_ts = job_metadata.next_ts.ok_or_else(|| {
@@ -485,7 +491,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         }
         while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
             yield min_job;
-            if let Some(doc) = query.next(tx, None).await? {
+            let doc = {
+                let timer = metrics::query_scheduled_jobs_timer();
+                let doc = query.next(tx, None).await?;
+                timer.finish();
+                doc
+            };
+            if let Some(doc) = doc {
                 let job_metadata: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
                 let job_metadata_id = job_metadata.id();
                 let next_ts = job_metadata.next_ts.with_context(|| {
