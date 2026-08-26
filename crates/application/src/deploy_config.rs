@@ -3,6 +3,7 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    sync::Arc,
     time::{
         Duration,
         Instant,
@@ -14,7 +15,10 @@ use async_trait::async_trait;
 use common::{
     auth::AuthInfo,
     bootstrap_model::{
-        components::definition::ComponentDefinitionMetadata,
+        components::{
+            definition::ComponentDefinitionMetadata,
+            ComponentState,
+        },
         schema::{
             SchemaMetadata,
             SchemaState,
@@ -30,22 +34,35 @@ use common::{
     errors::JsError,
     execution_context::RequestMetadata,
     knobs::FINISH_PUSH_MAX_OCC_FAILURES,
-    runtime::Runtime,
-    schemas::DatabaseSchema,
+    runtime::{
+        try_join,
+        Runtime,
+    },
+    schemas::{
+        DatabaseSchema,
+        TableValidationOutcome,
+    },
     types::{
         EnvVarName,
         EnvVarValue,
+        IndexName,
         ModuleEnvironment,
         NodeDependency,
+        RepeatableTimestamp,
         Timestamp,
     },
     version::Version,
 };
 use database::{
+    table_summary::table_summary_bootstrapping_error,
     BootstrapComponentsModel,
     IndexModel,
     OccRetryStats,
+    SchemaModel,
+    Snapshot,
+    TableShapes,
     Token,
+    Transaction,
     WriteSource,
     MAX_OCC_FAILURES,
     SCHEMAS_TABLE,
@@ -94,10 +111,13 @@ use model::{
         ModuleConfig,
         ModuleHashConfig,
     },
-    deployment_audit_log::types::{
-        DeploymentAuditLogEvent,
-        PushComponentDiffs,
-        PushMessage,
+    deployment_audit_log::{
+        developer_index_config::DeveloperIndexConfig,
+        types::{
+            DeploymentAuditLogEvent,
+            PushComponentDiffs,
+            PushMessage,
+        },
     },
     environment_variables::EnvironmentVariablesModel,
     external_packages::types::ExternalDepsPackageId,
@@ -135,10 +155,12 @@ use value::{
     sha256::Sha256Digest,
     DeveloperDocumentId,
     ResolvedDocumentId,
+    TableName,
     TableNamespace,
 };
 
 use crate::{
+    schema_worker::table_shape_provider,
     validate_env_var_values,
     Application,
     ApplyConfigArgs,
@@ -551,6 +573,135 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         Ok(EvaluatePushResponse { schema_change })
+    }
+
+    /// Predict, without side effects, the schema validation and index
+    /// backfill work a push of `config` would trigger. Only the schema
+    /// bundles are evaluated — modules are neither analyzed nor uploaded —
+    /// and the transaction is dropped uncommitted.
+    #[fastrace::trace]
+    pub async fn evaluate_schema_prediction(
+        &self,
+        config: &ProjectConfig,
+    ) -> anyhow::Result<EvaluateSchemaPredictionResponse> {
+        // `None` = the definition is in the push but has no schema.ts.
+        let mut pushed_schemas: BTreeMap<ComponentDefinitionPath, Option<DatabaseSchema>> =
+            BTreeMap::new();
+        let app_schema = match &config.app_definition.schema {
+            Some(module) => Some(self.evaluate_schema_or_user_error(module.clone()).await?),
+            None => None,
+        };
+        pushed_schemas.insert(ComponentDefinitionPath::root(), app_schema);
+        for component_def in &config.component_definitions {
+            let schema = match &component_def.schema {
+                Some(module) => Some(self.evaluate_schema_or_user_error(module.clone()).await?),
+                None => None,
+            };
+            pushed_schemas.insert(component_def.definition_path.clone(), schema);
+        }
+
+        let mut tx = self.begin(Identity::system()).await?;
+        let ts = tx.begin_timestamp();
+        let snapshot = self.snapshot(ts)?;
+        if snapshot.table_counts.is_none() {
+            // Document counts and sizes aren't available until table
+            // summaries finish bootstrapping. Rather than predicting with
+            // partial data, fail with a retriable error, matching how other
+            // callers of table counts (e.g. `Transaction::must_table_counts`)
+            // treat this as a transient condition.
+            return Err(table_summary_bootstrapping_error(None));
+        }
+        let table_shapes = self.table_shapes_at(ts).await?;
+
+        // Shape and validator subset checks can pin the CPU on large shapes,
+        // so run the prediction on its own task.
+        try_join("evaluate_schema_prediction", async move {
+            let definitions = BootstrapComponentsModel::new(&mut tx)
+                .load_all_definitions()
+                .await?;
+            let mut definition_paths_by_id = BTreeMap::new();
+            for (path, definition) in &definitions {
+                definition_paths_by_id.insert(definition.developer_id(), path.clone());
+            }
+
+            // The root component's namespace exists even when the
+            // `_components` table has no root document.
+            let mut instances = vec![(
+                ComponentId::Root,
+                ComponentPath::root(),
+                ComponentDefinitionPath::root(),
+            )];
+            for component in BootstrapComponentsModel::new(&mut tx)
+                .load_all_components()
+                .await?
+            {
+                if component.component_type.is_root() {
+                    continue;
+                }
+                let component_id = ComponentId::Child(component.developer_id());
+                let Some(path) =
+                    BootstrapComponentsModel::new(&mut tx).get_component_path(component_id)
+                else {
+                    continue;
+                };
+                let unmounted = matches!(component.state, ComponentState::Unmounted);
+                let Some(definition_path) = definition_paths_by_id.get(&component.definition_id)
+                else {
+                    // An unmounted component's definition can be gone from
+                    // `_component_definitions` while its instance and tables
+                    // are still left in place (see
+                    // `model::components::config`'s "leaving existing schema
+                    // and tables in place for deleted component"); there's
+                    // nothing to predict for it.
+                    if unmounted {
+                        continue;
+                    }
+                    anyhow::bail!("component {path:?} references an unknown definition");
+                };
+                instances.push((component_id, path, definition_path.clone()));
+            }
+
+            let mut component_schema_evaluations = BTreeMap::new();
+            let mut instantiated_definitions = BTreeSet::new();
+            for (component_id, component_path, definition_path) in instances {
+                instantiated_definitions.insert(definition_path.clone());
+                let prediction = predict_component_schema(
+                    &mut tx,
+                    &snapshot,
+                    &table_shapes,
+                    ts,
+                    component_id,
+                    definition_path.clone(),
+                    pushed_schemas.get(&definition_path),
+                )
+                .await?;
+                component_schema_evaluations.insert(component_path, prediction);
+            }
+            let new_component_definitions = pushed_schemas
+                .keys()
+                .filter(|path| !instantiated_definitions.contains(*path))
+                .cloned()
+                .collect();
+            drop(tx);
+            Ok(EvaluateSchemaPredictionResponse {
+                component_schema_evaluations,
+                new_component_definitions,
+            })
+        })
+        .await
+    }
+
+    async fn evaluate_schema_or_user_error(
+        &self,
+        module: ModuleConfig,
+    ) -> anyhow::Result<DatabaseSchema> {
+        match self.evaluate_schema(module).await {
+            Ok(schema) => Ok(schema),
+            Err(e) => {
+                let e = e.downcast::<JsError>()?;
+                anyhow::bail!(ErrorMetadata::bad_request("InvalidSchema", e.to_string()))
+            },
+        }
     }
 
     #[fastrace::trace]
@@ -1102,6 +1253,181 @@ pub struct StartPushResult {
 #[derive(Debug)]
 pub struct EvaluatePushResponse {
     pub schema_change: SchemaChange,
+}
+
+/// Side-effect-free prediction of the schema validation and index backfill
+/// work a push would trigger.
+#[derive(Debug)]
+pub struct EvaluateSchemaPredictionResponse {
+    /// One entry per existing component instance; multiple instances of one
+    /// definition each get their own entry.
+    pub component_schema_evaluations: BTreeMap<ComponentPath, ComponentSchemaPrediction>,
+    /// Pushed definitions with no existing instance: they get a fresh
+    /// namespace, so nothing is walked and their indexes backfill trivially.
+    pub new_component_definitions: Vec<ComponentDefinitionPath>,
+}
+
+#[derive(Debug)]
+pub struct ComponentSchemaPrediction {
+    pub definition_path: ComponentDefinitionPath,
+    pub schema_validation: bool,
+    pub tables: Vec<TablePrediction>,
+    pub indexes: Vec<IndexPrediction>,
+}
+
+#[derive(Debug)]
+pub struct TablePrediction {
+    pub name: TableName,
+    pub outcome: TableValidationOutcome,
+    pub num_docs: u64,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug)]
+pub struct IndexPrediction {
+    pub name: IndexName,
+    pub config: DeveloperIndexConfig,
+    pub change: IndexChangePrediction,
+    /// A backfill walk will run (or is already running) for this index. It
+    /// blocks the push only when the index is not staged.
+    pub needs_backfill: bool,
+    /// Document count of the indexed table.
+    pub num_docs: u64,
+}
+
+/// How a pushed schema changes an index, mirroring `IndexDiff`'s categories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IndexChangePrediction {
+    Added,
+    Identical,
+    Enabled,
+    Disabled,
+    Dropped,
+}
+
+async fn predict_component_schema<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    snapshot: &Snapshot,
+    table_shapes: &Option<Arc<TableShapes>>,
+    ts: RepeatableTimestamp,
+    component_id: ComponentId,
+    definition_path: ComponentDefinitionPath,
+    pushed_schema: Option<&Option<DatabaseSchema>>,
+) -> anyhow::Result<ComponentSchemaPrediction> {
+    let namespace = TableNamespace::from(component_id);
+    // An existing component whose definition is absent from the push keeps
+    // its schema, tables, and indexes untouched.
+    let Some(new_schema) = pushed_schema else {
+        return Ok(ComponentSchemaPrediction {
+            definition_path,
+            schema_validation: false,
+            tables: Vec::new(),
+            indexes: Vec::new(),
+        });
+    };
+
+    // A pushed definition without a schema drops every index, matching
+    // `start_component_schema_changes`.
+    let empty_tables = BTreeMap::new();
+    let index_diff = IndexModel::new(tx)
+        .get_index_diff(
+            namespace,
+            new_schema
+                .as_ref()
+                .map(|schema| &schema.tables)
+                .unwrap_or(&empty_tables),
+        )
+        .await?;
+    let table_num_docs = |name: &IndexName| -> anyhow::Result<u64> {
+        Ok(snapshot
+            .must_table_count(namespace, name.table())?
+            .num_values())
+    };
+    let mut indexes = Vec::new();
+    for metadata in &index_diff.added {
+        indexes.push(IndexPrediction {
+            name: metadata.name.clone(),
+            config: metadata.config.clone().into(),
+            change: IndexChangePrediction::Added,
+            needs_backfill: true,
+            num_docs: table_num_docs(&metadata.name)?,
+        });
+    }
+    for document in &index_diff.identical {
+        indexes.push(IndexPrediction {
+            name: document.name.clone(),
+            config: document.config.clone().into(),
+            change: IndexChangePrediction::Identical,
+            needs_backfill: document.config.is_backfilling(),
+            num_docs: table_num_docs(&document.name)?,
+        });
+    }
+    for document in &index_diff.enabled {
+        indexes.push(IndexPrediction {
+            name: document.name.clone(),
+            config: document.config.clone().into(),
+            change: IndexChangePrediction::Enabled,
+            needs_backfill: document.config.is_backfilling(),
+            num_docs: table_num_docs(&document.name)?,
+        });
+    }
+    for document in &index_diff.disabled {
+        indexes.push(IndexPrediction {
+            name: document.name.clone(),
+            config: document.config.clone().into(),
+            change: IndexChangePrediction::Disabled,
+            needs_backfill: false,
+            num_docs: table_num_docs(&document.name)?,
+        });
+    }
+    for document in &index_diff.dropped {
+        indexes.push(IndexPrediction {
+            name: document.name.clone(),
+            config: document.config.clone().into(),
+            change: IndexChangePrediction::Dropped,
+            needs_backfill: false,
+            num_docs: table_num_docs(&document.name)?,
+        });
+    }
+
+    let (schema_validation, tables) = match new_schema {
+        Some(schema) => {
+            let active_schema = SchemaModel::new(tx, namespace)
+                .get_by_state(SchemaState::Active)
+                .await?
+                .map(|(_id, schema)| schema);
+            let table_mapping = tx.table_mapping().namespace(namespace);
+            let virtual_system_mapping = tx.virtual_system_mapping().clone();
+            let outcomes = DatabaseSchema::table_validation_outcomes(
+                schema,
+                active_schema.as_deref(),
+                &table_mapping,
+                &virtual_system_mapping,
+                &table_shape_provider(table_shapes, &table_mapping, ts),
+            )?;
+            let tables = outcomes
+                .into_iter()
+                .map(|(name, outcome)| {
+                    let count = snapshot.must_table_count(namespace, name)?;
+                    Ok(TablePrediction {
+                        name: name.clone(),
+                        outcome,
+                        num_docs: count.num_values(),
+                        size_bytes: count.total_size(),
+                    })
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            (schema.schema_validation, tables)
+        },
+        None => (false, Vec::new()),
+    };
+    Ok(ComponentSchemaPrediction {
+        definition_path,
+        schema_validation,
+        tables,
+        indexes,
+    })
 }
 
 impl From<NodeDependencyJson> for NodeDependency {

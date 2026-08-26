@@ -325,6 +325,10 @@ pub fn router(st: LocalAppState) -> Router {
             "/deploy2/evaluate_push",
             post(deploy_config2::evaluate_push),
         )
+        .route(
+            "/deploy2/evaluate_schema",
+            post(deploy_config2::evaluate_schema),
+        )
         .route("/run_test_function", post(run_test_function))
         .route(
             "/deploy2/wait_for_schema",
