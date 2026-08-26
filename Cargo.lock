@@ -3267,7 +3267,7 @@ dependencies = [
 [[package]]
 name = "deterministic_collections"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "serde",
  "siphasher 1.0.3",
@@ -9423,8 +9423,8 @@ dependencies = [
 
 [[package]]
 name = "shuttle"
-version = "0.9.2"
-source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+version = "0.9.3"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "bitvec",
  "cfg-if",
@@ -9445,7 +9445,7 @@ dependencies = [
 [[package]]
 name = "shuttle-dashmap"
 version = "6.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "cfg-if",
  "dashmap",
@@ -9455,7 +9455,7 @@ dependencies = [
 [[package]]
 name = "shuttle-dashmap-impl"
 version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#09098b59fb43bdd08099d33f9e390ba2172325de"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "deterministic_collections",
  "shuttle",
@@ -9463,8 +9463,8 @@ dependencies = [
 
 [[package]]
 name = "shuttle-engine"
-version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+version = "0.1.1"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "assoc",
  "bitvec",
@@ -9484,7 +9484,7 @@ dependencies = [
 [[package]]
 name = "shuttle-parking_lot"
 version = "0.12.5"
-source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "cfg-if",
  "parking_lot",
@@ -9494,7 +9494,7 @@ dependencies = [
 [[package]]
 name = "shuttle-parking_lot-impl"
 version = "0.1.1"
-source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "lock_api",
  "shuttle",
@@ -9503,8 +9503,8 @@ dependencies = [
 
 [[package]]
 name = "shuttle-schedulers"
-version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+version = "0.1.1"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "rand 0.8.6",
  "rand_pcg",
@@ -9515,8 +9515,8 @@ dependencies = [
 
 [[package]]
 name = "shuttle-std"
-version = "0.1.0"
-source = "git+https://github.com/awslabs/shuttle#f6eccce7a07ccc1634d2695d663bf51c9644c702"
+version = "0.1.1"
+source = "git+https://github.com/awslabs/shuttle?rev=91e3cae8f73c2be3934960c46f8494a7ca981867#91e3cae8f73c2be3934960c46f8494a7ca981867"
 dependencies = [
  "assoc",
  "owo-colors",

@@ -286,8 +286,8 @@ tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", re
 moka = { git = "https://github.com/get-convex/moka", rev = "abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04" }
 validator_derive = { git = "https://github.com/Keats/validator", rev = "598ad83024529a2ff57da44d398533e3d4528490" }
 tikv-jemalloc-sys = { git = "https://github.com/get-convex/jemallocator", rev = "d6f82852479c9962239a634688e60a3d1e873ffb" }
-shuttle = { git = "https://github.com/awslabs/shuttle" }
-shuttle-parking_lot = { git = "https://github.com/awslabs/shuttle" }
+shuttle = { git = "https://github.com/awslabs/shuttle", rev = "91e3cae8f73c2be3934960c46f8494a7ca981867" }
+shuttle-parking_lot = { git = "https://github.com/awslabs/shuttle", rev = "91e3cae8f73c2be3934960c46f8494a7ca981867" }
 
 [workspace.lints.rust]
 unused_extern_crates = "warn"
