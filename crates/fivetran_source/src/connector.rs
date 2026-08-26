@@ -151,12 +151,6 @@ impl SourceConnector for ConvexConnector {
             },
         };
 
-        log(&format!(
-            "update request for {} at checkpoint {:?}",
-            config.deploy_url,
-            state.as_ref().map(|s| &s.checkpoint)
-        ));
-
         let source = ConvexApi { config };
 
         let selection = match selection_from_fivetran(inner.selection) {

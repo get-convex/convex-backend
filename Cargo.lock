@@ -3862,7 +3862,7 @@ dependencies = [
 
 [[package]]
 name = "fivetran_source"
-version = "2.0.2"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3892,6 +3892,7 @@ dependencies = [
  "tonic",
  "tonic-build",
  "uuid",
+ "value",
 ]
 
 [[package]]

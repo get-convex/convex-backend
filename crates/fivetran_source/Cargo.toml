@@ -1,7 +1,7 @@
 [package]
 name = "fivetran_source"
 description = "Fivetran source connector for Convex (convex.dev)"
-version = "2.0.2"
+version = "3.0.0"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2024"
 resolver = "2"
@@ -25,7 +25,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 common = { workspace = true }
-convex = { workspace = true }
 derive_more = { workspace = true }
 fivetran_common = { workspace = true }
 futures = { workspace = true }
@@ -39,6 +38,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
+value = { workspace = true }
 
 [build-dependencies]
 bytes = { workspace = true }
@@ -58,6 +58,7 @@ proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }
 uuid = { workspace = true }
+value = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

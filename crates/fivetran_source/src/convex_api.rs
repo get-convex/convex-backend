@@ -8,19 +8,12 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::types::streaming_export::{
     selection::Selection,
-    DocumentDeltasArgs,
-    DocumentDeltasResponse,
-    DocumentDeltasValue,
-    ListSnapshotArgs,
-    ListSnapshotResponse,
-    ListSnapshotValue,
-    SelectionArg,
+    DataSyncArgs,
+    DataSyncCursorFromDeltasArgs,
+    DataSyncCursorFromDeltasResponse,
+    DataSyncResponse,
 };
-use derive_more::{
-    Display,
-    From,
-    Into,
-};
+use derive_more::Display;
 use fivetran_common::config::Config;
 use headers::{
     HeaderName,
@@ -44,25 +37,27 @@ static CONVEX_CLIENT_HEADER_VALUE: LazyLock<HeaderValue> = LazyLock::new(|| {
 
 /// The APIs exposed by a Convex backend for streaming export.
 #[async_trait]
-pub trait Source: Display + Send {
+pub trait Source: Display + Send + Sync {
     /// An endpoint that confirms the Convex backend is accessible with
     /// streaming export enabled
     async fn test_streaming_export_connection(&self) -> anyhow::Result<()>;
 
-    /// See https://docs.convex.dev/http-api/#get-apilist_snapshot
-    async fn list_snapshot(
+    /// Fetch one page of the data sync stream. `cursor` is `None` to start a
+    /// fresh sync, otherwise the opaque cursor from the previous page.
+    async fn data_sync(
         &self,
-        snapshot: Option<i64>,
-        cursor: Option<ListSnapshotCursor>,
+        cursor: Option<String>,
         selection: Selection,
-    ) -> anyhow::Result<ListSnapshotResponse>;
+    ) -> anyhow::Result<DataSyncResponse>;
 
-    /// See https://docs.convex.dev/http-api/#get-apidocument_deltas
-    async fn document_deltas(
+    /// Convert a cursor from the legacy `document_deltas` API into a data sync
+    /// cursor covering the same data, so connections created before the data
+    /// sync migration resume where they left off instead of resyncing.
+    async fn data_sync_cursor_from_deltas(
         &self,
-        cursor: DocumentDeltasCursor,
+        cursor: i64,
         selection: Selection,
-    ) -> anyhow::Result<DocumentDeltasResponse>;
+    ) -> anyhow::Result<String>;
 
     /// Get a list of columns for each table and component on the Convex
     /// backend.
@@ -77,18 +72,40 @@ pub struct ConvexApi {
 }
 
 impl ConvexApi {
-    /// Performs a GET HTTP request to a given endpoint of the Convex API.
-    async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> anyhow::Result<T> {
-        let url = self
-            .config
+    fn url(&self, endpoint: &str) -> reqwest::Url {
+        // `Url::join` treats the last path segment as a file name unless it ends
+        // in `/`, so the prefix is joined separately from the endpoint.
+        self.config
             .deploy_url
             .join("api/")
             .unwrap()
             .join(endpoint)
-            .unwrap();
+            .unwrap()
+    }
 
+    /// Turns a non-2xx response into an error carrying the response body, which
+    /// is Convex's `{"code", "message"}` error payload. Passed through verbatim
+    /// rather than parsed: the connector has no error it can recover from, and
+    /// Fivetran surfaces the message to the customer as a task.
+    async fn error_for_response(&self, endpoint: &str, resp: reqwest::Response) -> anyhow::Error {
+        let status = resp.status();
+        match resp.text().await {
+            Ok(body) => anyhow::anyhow!(
+                "Call to {endpoint} on {} returned an unsuccessful response ({status}): {body}",
+                self.config.deploy_url,
+            ),
+            Err(_) => anyhow::anyhow!(
+                "Call to {endpoint} on {} returned an unsuccessful response with no content \
+                 ({status})",
+                self.config.deploy_url,
+            ),
+        }
+    }
+
+    /// Performs a GET HTTP request to a given endpoint of the Convex API.
+    async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> anyhow::Result<T> {
         match reqwest::Client::new()
-            .get(url)
+            .get(self.url(endpoint))
             .header(CONVEX_CLIENT_HEADER, &*CONVEX_CLIENT_HEADER_VALUE)
             .header(
                 reqwest::header::AUTHORIZATION,
@@ -101,19 +118,7 @@ impl ConvexApi {
                 .json::<T>()
                 .await
                 .context("Failed to deserialize query result")?),
-            Ok(resp) => {
-                if let Ok(text) = resp.text().await {
-                    anyhow::bail!(
-                        "Call to {endpoint} on {} returned an unsuccessful response: {text}",
-                        self.config.deploy_url
-                    )
-                } else {
-                    anyhow::bail!(
-                        "Call to {endpoint} on {} returned no response",
-                        self.config.deploy_url
-                    )
-                }
-            },
+            Ok(resp) => Err(self.error_for_response(endpoint, resp).await),
             Err(e) => anyhow::bail!(e.to_string()),
         }
     }
@@ -125,16 +130,8 @@ impl ConvexApi {
         endpoint: &str,
         parameters: P,
     ) -> anyhow::Result<T> {
-        let url = self
-            .config
-            .deploy_url
-            .join("api/")
-            .unwrap()
-            .join(endpoint)
-            .unwrap();
-
         match reqwest::Client::new()
-            .post(url)
+            .post(self.url(endpoint))
             .header(CONVEX_CLIENT_HEADER, &*CONVEX_CLIENT_HEADER_VALUE)
             .header(
                 reqwest::header::AUTHORIZATION,
@@ -148,22 +145,7 @@ impl ConvexApi {
                 .json::<T>()
                 .await
                 .context("Failed to deserialize query result")?),
-            Ok(resp) => {
-                let status = resp.status().as_str().to_string();
-                if let Ok(text) = resp.text().await {
-                    anyhow::bail!(
-                        "Call to {endpoint} on {} returned an unsuccessful response ({status}): \
-                         {text}",
-                        self.config.deploy_url
-                    )
-                } else {
-                    anyhow::bail!(
-                        "Call to {endpoint} on {} returned an unsuccessful response with no \
-                         content ({status})",
-                        self.config.deploy_url
-                    )
-                }
-            },
+            Ok(resp) => Err(self.error_for_response(endpoint, resp).await),
             Err(e) => anyhow::bail!(e.to_string()),
         }
     }
@@ -175,38 +157,27 @@ impl Source for ConvexApi {
         self.get("test_streaming_export_connection").await
     }
 
-    async fn list_snapshot(
+    async fn data_sync(
         &self,
-        snapshot: Option<i64>,
-        cursor: Option<ListSnapshotCursor>,
+        cursor: Option<String>,
         selection: Selection,
-    ) -> anyhow::Result<ListSnapshotResponse> {
-        self.post(
-            "list_snapshot",
-            ListSnapshotArgs {
-                snapshot,
-                cursor: cursor.map(|c| c.into()),
-                selection: SelectionArg::Exact { selection },
-                format: Some("convex_encoded_json".to_string()),
-            },
-        )
-        .await
+    ) -> anyhow::Result<DataSyncResponse> {
+        self.post("v1/data/sync", DataSyncArgs { cursor, selection })
+            .await
     }
 
-    async fn document_deltas(
+    async fn data_sync_cursor_from_deltas(
         &self,
-        cursor: DocumentDeltasCursor,
+        cursor: i64,
         selection: Selection,
-    ) -> anyhow::Result<DocumentDeltasResponse> {
-        self.post(
-            "document_deltas",
-            DocumentDeltasArgs {
-                cursor: Some(cursor.into()),
-                selection: SelectionArg::Exact { selection },
-                format: Some("convex_encoded_json".to_string()),
-            },
-        )
-        .await
+    ) -> anyhow::Result<String> {
+        let response: DataSyncCursorFromDeltasResponse = self
+            .post(
+                "data_sync_cursor_from_deltas",
+                DataSyncCursorFromDeltasArgs { cursor, selection },
+            )
+            .await?;
+        Ok(response.cursor)
     }
 
     async fn get_table_column_names(
@@ -242,12 +213,6 @@ impl Display for ConvexApi {
     }
 }
 
-#[derive(Display, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, From, Into)]
-pub struct ListSnapshotCursor(pub String);
-
-#[derive(Display, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, From, Into, Copy)]
-pub struct DocumentDeltasCursor(pub i64);
-
 #[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Display, Debug)]
 pub struct TableName(pub String);
 
@@ -270,43 +235,11 @@ pub struct GetTableColumnNameTable {
     pub columns: Vec<String>,
 }
 
-pub trait SnapshotValue {
-    fn table(&self) -> &String;
-    fn component(&self) -> &String;
-
-    /// The full path of the table, including the component name,
-    /// in the format used for `tables_seen` in [`State`].
-    fn table_path_for_state(&self) -> String {
-        match self.component().as_str() {
-            "" => self.table().clone(),
-            _ => format!("{}/{}", self.component(), self.table()),
-        }
-    }
-
-    fn fivetran_schema_name(&self) -> String {
-        match self.component().as_str() {
-            "" => DEFAULT_FIVETRAN_SCHEMA_NAME.to_string(),
-            _ => self.component().clone(),
-        }
-    }
-}
-
-impl SnapshotValue for ListSnapshotValue {
-    fn table(&self) -> &String {
-        &self.table
-    }
-
-    fn component(&self) -> &String {
-        &self.component
-    }
-}
-
-impl SnapshotValue for DocumentDeltasValue {
-    fn table(&self) -> &String {
-        &self.table
-    }
-
-    fn component(&self) -> &String {
-        &self.component
+/// The Fivetran schema a Convex component's tables are synced into. Convex's
+/// root component has no name, so it maps to Fivetran's default schema.
+pub fn fivetran_schema_name(component: &str) -> String {
+    match component {
+        "" => DEFAULT_FIVETRAN_SCHEMA_NAME.to_string(),
+        _ => component.to_string(),
     }
 }
