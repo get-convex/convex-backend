@@ -16,6 +16,7 @@ impl clap::ValueEnum for DbDriverTag {
             DbDriverTag::Sqlite,
             DbDriverTag::MySql(PersistenceVersion::V5),
             DbDriverTag::MySqlMultitenant(PersistenceVersion::V5),
+            DbDriverTag::MySqlMultitenant(PersistenceVersion::V6),
             DbDriverTag::Postgres(PersistenceVersion::V5),
         ]
     }
@@ -43,6 +44,11 @@ impl DbDriverTag {
             DbDriverTag::Postgres(PersistenceVersion::V5) => "postgres-v5",
             DbDriverTag::MySql(PersistenceVersion::V5) => "mysql-v5",
             DbDriverTag::MySqlMultitenant(PersistenceVersion::V5) => "mysql-v5-multitenant",
+            DbDriverTag::MySqlMultitenant(PersistenceVersion::V6) => "mysql-v6-multitenant",
+            DbDriverTag::Postgres(PersistenceVersion::V6)
+            | DbDriverTag::MySql(PersistenceVersion::V6) => {
+                unreachable!("V6 is only supported on MySQL multitenant")
+            },
         }
     }
 }
@@ -56,6 +62,7 @@ impl FromStr for DbDriverTag {
             "postgres-v5" => Ok(DbDriverTag::Postgres(PersistenceVersion::V5)),
             "mysql-v5" => Ok(DbDriverTag::MySql(PersistenceVersion::V5)),
             "mysql-v5-multitenant" => Ok(DbDriverTag::MySqlMultitenant(PersistenceVersion::V5)),
+            "mysql-v6-multitenant" => Ok(DbDriverTag::MySqlMultitenant(PersistenceVersion::V6)),
             _ => anyhow::bail!("unrecognized db_driver {s}"),
         }
     }

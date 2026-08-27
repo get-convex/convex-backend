@@ -8,6 +8,8 @@ mod document_encoding;
 mod metrics;
 mod sql;
 mod v5;
+#[allow(dead_code)]
+mod v6;
 use std::{
     ops::Deref,
     sync::Arc,
@@ -82,7 +84,10 @@ pub async fn connect_persistence<RT: Runtime>(
     options: MySqlOptions,
     lease_lost_shutdown: ShutdownSignal,
 ) -> anyhow::Result<Arc<dyn Persistence>> {
-    v5::connect(pool, db_name, options, lease_lost_shutdown).await
+    match options.version {
+        PersistenceVersion::V5 => v5::connect(pool, db_name, options, lease_lost_shutdown).await,
+        PersistenceVersion::V6 => v6::connect(pool, db_name, options, lease_lost_shutdown).await,
+    }
 }
 
 pub fn connect_persistence_reader<RT: Runtime>(
@@ -90,7 +95,10 @@ pub fn connect_persistence_reader<RT: Runtime>(
     db_name: String,
     options: MySqlReaderOptions,
 ) -> anyhow::Result<Arc<dyn PersistenceReader>> {
-    v5::connect_reader(pool, db_name, options)
+    match options.version {
+        PersistenceVersion::V5 => v5::connect_reader(pool, db_name, options),
+        PersistenceVersion::V6 => v6::connect_reader(pool, db_name, options),
+    }
 }
 
 pub async fn set_persistence_read_only<RT: Runtime>(
@@ -99,5 +107,12 @@ pub async fn set_persistence_read_only<RT: Runtime>(
     options: MySqlOptions,
     read_only: bool,
 ) -> anyhow::Result<()> {
-    v5::set_persistence_read_only(pool, db_name, options, read_only).await
+    match options.version {
+        PersistenceVersion::V5 => {
+            v5::set_persistence_read_only(pool, db_name, options, read_only).await
+        },
+        PersistenceVersion::V6 => {
+            v6::set_persistence_read_only(pool, db_name, options, read_only).await
+        },
+    }
 }
