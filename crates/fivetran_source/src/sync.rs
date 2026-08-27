@@ -1,11 +1,18 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
+use std::{
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context;
 use common::types::streaming_export::{
     selection::Selection,
+    ActiveDataSyncStatus,
     DataSyncStatus,
 };
 use derive_more::{
@@ -218,6 +225,7 @@ async fn resolve_cursor(
 #[try_stream(ok = UpdateMessage, error = anyhow::Error)]
 async fn data_sync(source: impl Source, checkpoint: Option<Checkpoint>, selection: Selection) {
     let mut cursor = resolve_cursor(&source, checkpoint, &selection).await?;
+    let mut last_progress_log: Option<Instant> = None;
 
     loop {
         let page = source.data_sync(cursor.clone(), selection.clone()).await?;
@@ -260,22 +268,72 @@ async fn data_sync(source: impl Source, checkpoint: Option<Checkpoint>, selectio
 
         // `pagination.has_more` is always true for a data sync — the stream has
         // no end — so the status is what tells us we've caught up.
-        match page.status {
-            DataSyncStatus::UpToDate(up_to_date) => {
-                log(&format!(
-                    "Data sync {} from {source} is up to date at {}",
-                    page.sync_id, up_to_date.snapshot_ts,
-                ));
-                break;
-            },
-            DataSyncStatus::Stale(stale) => log(&format!(
-                "Data sync {} from {source} reached a consistent snapshot at {}, catching up",
-                page.sync_id, stale.snapshot_ts,
-            )),
-            DataSyncStatus::Snapshotting(_) => log(&format!(
-                "Data sync {} from {source} is taking an initial snapshot",
-                page.sync_id,
-            )),
+        let caught_up = matches!(page.status, DataSyncStatus::UpToDate(_));
+        // A large initial sync runs for many pages, so report progress on a
+        // timer rather than per page. The final page always reports, since
+        // that's the line saying the sync finished.
+        let due = last_progress_log.is_none_or(|at| at.elapsed() >= PROGRESS_LOG_INTERVAL);
+        if caught_up || due {
+            last_progress_log = Some(Instant::now());
+            log_progress(&source, &page.sync_id).await;
+        }
+        if caught_up {
+            break;
         }
     }
+}
+
+/// How often the connector reports a sync's progress while it runs.
+const PROGRESS_LOG_INTERVAL: Duration = Duration::from_secs(15);
+
+/// Logs the deployment's own view of how far `sync_id` has gotten.
+///
+/// Progress is informational, so a failure to read it is logged and the sync
+/// carries on.
+async fn log_progress(source: &impl Source, sync_id: &str) {
+    let listing = match source.list_active_syncs().await {
+        Ok(listing) => listing,
+        Err(e) => {
+            log(&format!(
+                "Could not read the progress of data sync {sync_id} from {source}: {e}"
+            ));
+            return;
+        },
+    };
+    let Some(sync) = listing.syncs.iter().find(|sync| sync.sync_id == sync_id) else {
+        return;
+    };
+    let progress = match &sync.status {
+        ActiveDataSyncStatus::Snapshotting(snapshotting) => format!(
+            "taking an initial snapshot: {} of {} documents ({}), on table {} ({} of {} tables)",
+            snapshotting.num_documents_synced,
+            snapshotting.total_documents,
+            percentage(
+                snapshotting.num_documents_synced,
+                snapshotting.total_documents
+            ),
+            snapshotting.current_table,
+            snapshotting.num_tables_synced,
+            snapshotting.total_tables,
+        ),
+        ActiveDataSyncStatus::Stale(stale) => format!(
+            "caught up to a consistent snapshot at {} after {} documents, still behind the latest \
+             data",
+            stale.synced_ts, stale.num_documents_synced,
+        ),
+        ActiveDataSyncStatus::UpToDate(up_to_date) => format!(
+            "up to date at {} after {} documents across {} tables",
+            up_to_date.synced_ts, up_to_date.num_documents_synced, up_to_date.total_tables,
+        ),
+    };
+    log(&format!("Data sync {sync_id} from {source} is {progress}"));
+}
+
+/// `done` out of `total` as a percentage, or `?%` when the deployment hasn't
+/// finished counting the target tables yet.
+fn percentage(done: u64, total: u64) -> String {
+    if total == 0 {
+        return "?%".to_string();
+    }
+    format!("{}%", (done * 100).saturating_div(total).min(100))
 }
