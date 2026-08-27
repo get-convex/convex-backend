@@ -155,7 +155,6 @@ use migrations_model::{
 use modules::{
     ModulesTable,
     MODULES_TABLE,
-    MODULE_INDEX_BY_DELETED,
     MODULE_INDEX_BY_PATH,
 };
 use scheduled_jobs::{
@@ -389,7 +388,6 @@ static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = Laz
         ENVIRONMENT_VARIABLES_INDEX_BY_NAME.name(),
         EXPORTS_BY_STATE_AND_TS_INDEX.name(),
         FILE_STORAGE_ID_INDEX.name(),
-        MODULE_INDEX_BY_DELETED.name(),
         MODULE_INDEX_BY_PATH.name(),
         SCHEDULED_JOBS_INDEX.name(),
         SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name(),
@@ -705,7 +703,6 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         EXPORTS_BY_STATE_AND_TS_INDEX.name() => 88,
         TABLES_BY_NAME_INDEX.name() => 44,
         SCHEMAS_STATE_INDEX.name() => 44,
-        MODULE_INDEX_BY_DELETED.name() => 90,
         ENVIRONMENT_VARIABLES_INDEX_BY_NAME.name() => 91,
         INDEX_DOC_ID_INDEX.name() => 92,
         COMPONENTS_BY_PARENT_INDEX.name() => 100,
