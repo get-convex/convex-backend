@@ -376,48 +376,16 @@ pub struct DirectoryGroup {
     pub name: String,
 }
 
-/// One of a directory user's email addresses.
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct DirectoryUserEmail {
-    #[serde(default)]
-    pub primary: Option<bool>,
-    #[serde(rename = "type", default)]
-    pub email_type: Option<String>,
-    pub value: String,
-}
-
 /// A user within a WorkOS Directory Sync directory.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DirectoryUser {
     /// like "directory_user_01E1JG7J09H96KYP8HM9B0G5SJ"
     pub id: String,
-    /// The user's email address, as returned by current Directory Sync
-    /// responses.
+    /// The directory user's email address.
     #[serde(default)]
     pub email: Option<String>,
-    /// Per-address detail, supplied by directories that report more than one
-    /// address; at most one is flagged `primary`.
-    #[serde(default)]
-    pub emails: Vec<DirectoryUserEmail>,
     /// e.g. "active", "inactive", "suspended".
     pub state: String,
-    /// The groups this user belongs to within the directory.
-    #[serde(default)]
-    pub groups: Vec<DirectoryGroup>,
-}
-
-impl DirectoryUser {
-    /// The address flagged `primary`, else the top-level `email`, else the
-    /// first address in the list. Directories that report a single address
-    /// populate only `email`.
-    pub fn primary_email(&self) -> Option<&str> {
-        self.emails
-            .iter()
-            .find(|e| e.primary == Some(true))
-            .map(|e| e.value.as_str())
-            .or(self.email.as_deref())
-            .or_else(|| self.emails.first().map(|e| e.value.as_str()))
-    }
 }
 
 #[async_trait]
@@ -476,12 +444,22 @@ pub trait WorkOSClient: Send + Sync {
         directory_id: &str,
     ) -> anyhow::Result<Vec<DirectoryGroup>>;
     async fn list_directory_users(&self, directory_id: &str) -> anyhow::Result<Vec<DirectoryUser>>;
-    /// Fetches a single directory user by id, including their current
-    /// `groups[]`.
     async fn get_directory_user(
         &self,
         directory_user_id: &str,
     ) -> anyhow::Result<Option<DirectoryUser>>;
+    /// Fetches a single directory group by id. Returns `Ok(None)` when the
+    /// group no longer exists.
+    async fn get_directory_group(
+        &self,
+        directory_group_id: &str,
+    ) -> anyhow::Result<Option<DirectoryGroup>>;
+    /// Lists the groups a directory user currently belongs to, following
+    /// pagination.
+    async fn list_directory_groups_for_user(
+        &self,
+        directory_user_id: &str,
+    ) -> anyhow::Result<Vec<DirectoryGroup>>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -667,6 +645,21 @@ where
     ) -> anyhow::Result<Option<DirectoryUser>> {
         get_workos_directory_user(&self.api_key, directory_user_id, &*self.http_client).await
     }
+
+    async fn get_directory_group(
+        &self,
+        directory_group_id: &str,
+    ) -> anyhow::Result<Option<DirectoryGroup>> {
+        get_workos_directory_group(&self.api_key, directory_group_id, &*self.http_client).await
+    }
+
+    async fn list_directory_groups_for_user(
+        &self,
+        directory_user_id: &str,
+    ) -> anyhow::Result<Vec<DirectoryGroup>> {
+        list_workos_directory_groups_for_user(&self.api_key, directory_user_id, &*self.http_client)
+            .await
+    }
 }
 
 #[derive(Default)]
@@ -678,6 +671,11 @@ pub struct MockWorkOSClient {
     directory_users: HashMap<String, Vec<DirectoryUser>>,
     /// Users returned by [`get_directory_user`], keyed by directory user id.
     directory_users_by_id: HashMap<String, DirectoryUser>,
+    /// Groups returned by [`get_directory_group`], keyed by directory group id.
+    directory_groups_by_id: HashMap<String, DirectoryGroup>,
+    /// Groups returned by [`list_directory_groups_for_user`], keyed by
+    /// directory user id.
+    directory_groups_by_user_id: HashMap<String, Vec<DirectoryGroup>>,
 }
 
 impl MockWorkOSClient {
@@ -712,6 +710,18 @@ impl MockWorkOSClient {
     /// Inject a user returned by [`get_directory_user`] for its id.
     pub fn set_directory_user(&mut self, user: DirectoryUser) {
         self.directory_users_by_id.insert(user.id.clone(), user);
+    }
+
+    /// Inject a group returned by [`get_directory_group`] for its id.
+    pub fn set_directory_group(&mut self, group: DirectoryGroup) {
+        self.directory_groups_by_id.insert(group.id.clone(), group);
+    }
+
+    /// Inject the groups returned by [`list_directory_groups_for_user`] for a
+    /// directory user id.
+    pub fn set_directory_groups_for_user(&mut self, user_id: &str, groups: Vec<DirectoryGroup>) {
+        self.directory_groups_by_user_id
+            .insert(user_id.to_string(), groups);
     }
 }
 
@@ -909,6 +919,24 @@ impl WorkOSClient for MockWorkOSClient {
         directory_user_id: &str,
     ) -> anyhow::Result<Option<DirectoryUser>> {
         Ok(self.directory_users_by_id.get(directory_user_id).cloned())
+    }
+
+    async fn get_directory_group(
+        &self,
+        directory_group_id: &str,
+    ) -> anyhow::Result<Option<DirectoryGroup>> {
+        Ok(self.directory_groups_by_id.get(directory_group_id).cloned())
+    }
+
+    async fn list_directory_groups_for_user(
+        &self,
+        directory_user_id: &str,
+    ) -> anyhow::Result<Vec<DirectoryGroup>> {
+        Ok(self
+            .directory_groups_by_user_id
+            .get(directory_user_id)
+            .cloned()
+            .unwrap_or_default())
     }
 }
 
@@ -2621,6 +2649,27 @@ where
     .await
 }
 
+/// Lists the groups a directory user currently belongs to, following
+/// pagination.
+pub async fn list_workos_directory_groups_for_user<F, E>(
+    api_key: &str,
+    directory_user_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<DirectoryGroup>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    list_workos_paginated(
+        api_key,
+        "https://api.workos.com/directory_sync/groups",
+        &[("user", directory_user_id)],
+        "list directory groups for user",
+        http_client,
+    )
+    .await
+}
+
 /// Lists all users within a Directory Sync directory, following pagination.
 pub async fn list_workos_directory_users<F, E>(
     api_key: &str,
@@ -2641,9 +2690,8 @@ where
     .await
 }
 
-/// Fetches a single directory user by id, including their current `groups[]`.
-/// Returns `Ok(None)` when the user no longer exists — deletion between a
-/// webhook and this fetch is normal, not exceptional.
+/// Returns `Ok(None)` when the user no longer exists — deletion between an
+/// event and this fetch is normal, not exceptional.
 pub async fn get_workos_directory_user<F, E>(
     api_key: &str,
     directory_user_id: &str,
@@ -2696,4 +2744,61 @@ where
     })?;
 
     Ok(Some(user))
+}
+
+/// Fetches a single directory group by id. Returns `Ok(None)` when the group
+/// no longer exists — deletion between an event and this fetch is normal, not
+/// exceptional.
+pub async fn get_workos_directory_group<F, E>(
+    api_key: &str,
+    directory_group_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Option<DirectoryGroup>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!("https://api.workos.com/directory_sync/groups/{directory_group_id}");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not fetch directory group: {}", e))?;
+
+    if response.status() == http::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(WorkOSApiError::new(
+            "get directory group",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let group: DirectoryGroup = serde_json::from_slice(&response_body).with_context(|| {
+        format!(
+            "Invalid WorkOS directory group response: {}",
+            String::from_utf8_lossy(&response_body)
+        )
+    })?;
+
+    Ok(Some(group))
 }
