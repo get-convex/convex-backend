@@ -7,7 +7,6 @@ use std::{
 use common::{
     components::ResolvedComponentFunctionPath,
     types::UdfType,
-    version::Version,
 };
 use deno_core::v8;
 use errors::ErrorMetadata;
@@ -42,21 +41,6 @@ use crate::{
     IsolateHeapStats,
 };
 
-register_convex_histogram!(
-    UDF_EXECUTE_SECONDS,
-    "Duration of an UDF execution",
-    &["udf_type", "npm_version", "status"]
-);
-pub fn execute_timer(udf_type: &UdfType, npm_version: &Option<Version>) -> StatusTimer {
-    let mut t = StatusTimer::new(&UDF_EXECUTE_SECONDS);
-    t.add_label(udf_type.metric_label());
-    t.add_label(match npm_version {
-        Some(v) => StaticMetricLabel::new("npm_version", v.to_string()),
-        None => StaticMetricLabel::new("npm_version", "none"),
-    });
-    t
-}
-
 // `client_id` is unbounded and a client that disconnects stops updating this
 // gauge, leaving a stale frozen value, so evict label sets that go idle.
 register_convex_gauge_evictable!(
@@ -83,19 +67,6 @@ register_convex_gauge!(
 pub fn log_pool_max(name: &'static str, count: usize) {
     log_gauge_with_labels(
         &ISOLATE_POOL_MAX_INFO,
-        count as f64,
-        vec![StaticMetricLabel::new("pool_name", name)],
-    );
-}
-
-register_convex_gauge!(
-    ISOLATE_POOL_ALLOCATED_COUNT_INFO,
-    "How many isolate workers have been allocated",
-    &["pool_name"]
-);
-pub fn log_pool_allocated_count(name: &'static str, count: usize) {
-    log_gauge_with_labels(
-        &ISOLATE_POOL_ALLOCATED_COUNT_INFO,
         count as f64,
         vec![StaticMetricLabel::new("pool_name", name)],
     );
