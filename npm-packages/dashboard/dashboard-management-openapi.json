@@ -3019,6 +3019,23 @@
         }
       }
     },
+    "/member/directory_sync_offers": {
+      "get": {
+        "operationId": "list_directory_sync_offers",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectorySyncOffersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/vercel/potential_teams": {
       "get": {
         "operationId": "list_potential_vercel_teams_dashboard",
@@ -4135,6 +4152,40 @@
                 "$ref": "#/components/schemas/GroupRoleMappingResponse"
               }
             ]
+          }
+        }
+      },
+      "DirectorySyncOffer": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "teamName",
+          "email"
+        ],
+        "properties": {
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "teamName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "The verified email of the caller that matched the roster row."
+          }
+        }
+      },
+      "DirectorySyncOffersResponse": {
+        "type": "object",
+        "required": [
+          "offers"
+        ],
+        "properties": {
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectorySyncOffer"
+            }
           }
         }
       },

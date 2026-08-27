@@ -1669,6 +1669,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/member/directory_sync_offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_directory_sync_offers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vercel/potential_teams": {
         parameters: {
             query?: never;
@@ -1959,6 +1975,15 @@ export interface components {
             name: string;
             idpId: string;
             mapping?: null | components["schemas"]["GroupRoleMappingResponse"];
+        };
+        DirectorySyncOffer: {
+            teamId: components["schemas"]["TeamId"];
+            teamName: string;
+            /** @description The verified email of the caller that matched the roster row. */
+            email: string;
+        };
+        DirectorySyncOffersResponse: {
+            offers: components["schemas"]["DirectorySyncOffer"][];
         };
         DisconnectWorkOSTeamRequest: {
             /** @description Convex team ID to disconnect from WorkOS */
@@ -2718,6 +2743,8 @@ export type DeploymentWorkOsEnvironmentInfo = components['schemas']['DeploymentW
 export type DeploymentWorkOsEnvironmentResponse = components['schemas']['DeploymentWorkOSEnvironmentResponse'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type DirectoryGroupResponse = components['schemas']['DirectoryGroupResponse'];
+export type DirectorySyncOffer = components['schemas']['DirectorySyncOffer'];
+export type DirectorySyncOffersResponse = components['schemas']['DirectorySyncOffersResponse'];
 export type DisconnectWorkOsTeamRequest = components['schemas']['DisconnectWorkOSTeamRequest'];
 export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWorkOSTeamResponse'];
 export type DiscordAccount = components['schemas']['DiscordAccount'];
@@ -5202,6 +5229,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_directory_sync_offers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorySyncOffersResponse"];
+                };
             };
         };
     };
