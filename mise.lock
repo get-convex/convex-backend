@@ -132,6 +132,48 @@ checksum = "sha256:0c4baa40f28b3f8225eb3fdf6946c987b4fe901403b4eaf2fbbd9378100aa
 url = "https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-windows-x86_64.zip"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/400961027"
 
+[[tools."github:WebAssembly/binaryen"]]
+version = "132"
+backend = "github:WebAssembly/binaryen"
+
+[tools."github:WebAssembly/binaryen".options]
+version_prefix = "version_"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64"]
+checksum = "sha256:c58562417836c5d0493d89bdefc434933bdc097db641b483df86bcfa557a107f"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512125148"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64-musl"]
+checksum = "sha256:c58562417836c5d0493d89bdefc434933bdc097db641b483df86bcfa557a107f"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512125148"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64"]
+checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512132895"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64-musl"]
+checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512132895"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-arm64"]
+checksum = "sha256:98aad827847af7ef990ed7098d885725c8e5b5aae75073403635617ae4e259aa"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-arm64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512131753"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-x64"]
+checksum = "sha256:40c3de90bb3766bd0282a895e139a6f50253dba49b4f5bb89e66faca162d832e"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512131754"
+
+[tools."github:WebAssembly/binaryen"."platforms.windows-x64"]
+checksum = "sha256:2089428ec98c899b45ee5d00636ddd6e2da8636cc473ef50b165cc25793ef7cb"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-windows.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512142865"
+
 [[tools.jq]]
 version = "1.8.1"
 backend = "aqua:jqlang/jq"

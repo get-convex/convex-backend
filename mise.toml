@@ -21,6 +21,7 @@ cargo-binstall = "1.20.0"
 "cargo:cargo-machete" = "0.9.2"
 "cargo:cargo-sort" = "2.1.4"
 "aqua:planetscale/cli" = "0.291.0"
+"github:WebAssembly/binaryen" = { version = "132", version_prefix = "version_" }
 
 [env]
 # Build hints for the native -sys crates, primarily for LOCAL dev -- CI Linux gets
