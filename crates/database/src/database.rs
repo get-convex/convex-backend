@@ -1691,7 +1691,7 @@ impl<RT: Runtime> Database<RT> {
             let results = range
                 .into_iter()
                 .take(max_size)
-                .map(|(key, ts, doc)| (key, ts, doc.packed_document))
+                .map(|(key, ts, doc)| (key, ts, doc.packed().clone()))
                 .collect::<Vec<_>>();
             let cursor = if results.len() >= max_size {
                 CursorPosition::After(results.last().unwrap().0.clone())

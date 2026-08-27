@@ -55,7 +55,6 @@ use indexing::{
     in_memory_indexes::{
         InMemoryIndexes,
         MemoryDocument,
-        SystemDocument,
     },
     index_reader::IndexReader,
     index_registry::IndexRegistry,
@@ -166,16 +165,7 @@ async fn load_index(
             // SystemDocument, so the cache will use more memory than its
             // nominal size
             size += entry.key.heap_size() + doc.heap_size();
-            (
-                entry.key.0,
-                (
-                    entry.ts,
-                    MemoryDocument {
-                        packed_document: doc,
-                        cached_system_document: SystemDocument::new(),
-                    },
-                ),
-            )
+            (entry.key.0, (entry.ts, MemoryDocument::new(doc)))
         })
         .try_collect()
         .await?;
