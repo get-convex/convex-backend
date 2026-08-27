@@ -51,9 +51,6 @@ async function main() {
   );
 
   const manifest = {
-    // Which global surface the guest installs before evaluating this bundle.
-    // See `bundle_kind` in `guest_js/src/lib.rs`.
-    kind: "udf",
     entryPoint: path.relative(sourceDir, entryPoint),
     guestBundle: path.basename(guestBundlePath),
     guestSourceMap: `${path.basename(guestBundlePath)}.map`,
