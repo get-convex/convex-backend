@@ -79,7 +79,27 @@ export const fetchWithoutRedirect = async function (
   request: Request,
 ): Promise<Response> {
   const requestObject = await convexV8ObjectFromRequest(request);
-  const responseObject = await performAsyncOp("fetch", requestObject);
+  let responseObject;
+  try {
+    responseObject = await performAsyncOp("fetch", requestObject);
+  } catch (e: any) {
+    // The backend builds this rejection outside any JS frame, so it arrives
+    // with an empty stack. Rethrowing here captures the caller's.
+    if (e?.name === "AbortError") {
+      throw e; // AbortController contract.
+    }
+    // Strip the query string, which is the part likely to carry a token. Some
+    // backend messages already name the request and some say nothing about it,
+    // so only prepend the target when it's missing.
+    const { origin, pathname } = new URL(request.url);
+    const target = `${origin}${pathname}`;
+    const cause = String(e?.message ?? e);
+    throw new TypeError(
+      cause.includes(target)
+        ? cause.replaceAll(request.url, target)
+        : `fetch to ${target} failed: ${cause}`,
+    );
+  }
   return responseFromConvexObject(responseObject);
 };
 
