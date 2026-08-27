@@ -1,6 +1,10 @@
 use std::{
     fs,
     path::PathBuf,
+    process::{
+        Child,
+        Command,
+    },
     sync::Arc,
     time::Duration,
 };
@@ -20,16 +24,15 @@ use reqwest::Client;
 use serde_json::Value as JsonValue;
 use tempfile::TempDir;
 use tokio::{
-    process::{
-        Child,
-        Command as TokioCommand,
-    },
+    process::Command as TokioCommand,
     sync::{
         mpsc,
         Mutex,
     },
 };
 
+#[cfg(windows)]
+use crate::windows_job::KillOnCloseJob;
 use crate::{
     executor::{
         ExecutorRequest,
@@ -45,6 +48,8 @@ use crate::{
 const NVMRC_VERSION: &str = include_str!("../../../.nvmrc");
 const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
+const TEMP_DIR_CLEANUP_INTERVAL: Duration = Duration::from_millis(50);
+const TEMP_DIR_CLEANUP_MAX_ATTEMPTS: u32 = 40;
 
 pub struct LocalNodeExecutor {
     inner: Arc<Mutex<Option<InnerLocalNodeExecutor>>>,
@@ -61,9 +66,36 @@ struct LocalNodeExecutorConfig {
 }
 
 struct InnerLocalNodeExecutor {
+    // Stop and reap Node before removing the directory it uses for source and
+    // runtime files. This order matters on Windows, where open files prevent
+    // recursive directory removal.
+    _server_handle: NodeExecutorProcess,
     _source_dir: TempDir,
     client: reqwest::Client,
-    _server_handle: Child,
+}
+
+struct NodeExecutorProcess {
+    child: Child,
+    #[cfg(windows)]
+    _job: KillOnCloseJob,
+}
+
+impl Drop for NodeExecutorProcess {
+    fn drop(&mut self) {
+        // std::process::Child does not kill or reap on drop. The local executor
+        // is owned by this backend, so stop it before TempDir cleanup runs.
+        let _ = self.shutdown();
+    }
+}
+
+impl NodeExecutorProcess {
+    fn shutdown(&mut self) -> anyhow::Result<()> {
+        if self.child.try_wait()?.is_none() {
+            self.child.kill().context("kill local Node executor")?;
+        }
+        self.child.wait().context("reap local Node executor")?;
+        Ok(())
+    }
 }
 
 impl InnerLocalNodeExecutor {
@@ -115,9 +147,9 @@ impl InnerLocalNodeExecutor {
         for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
             if Self::check_server_health(&client).await? {
                 return Ok(Self {
+                    _server_handle: server_handle,
                     _source_dir: source_dir,
                     client,
-                    _server_handle: server_handle,
                 });
             }
             tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
@@ -147,6 +179,44 @@ impl InnerLocalNodeExecutor {
         Ok(())
     }
 
+    async fn shutdown(self) -> anyhow::Result<()> {
+        let Self {
+            mut _server_handle,
+            _source_dir,
+            client,
+        } = self;
+        let source_dir_path = _source_dir.path().to_owned();
+
+        // Release the named-pipe client before stopping Node, then wait for the
+        // process handle to close before removing the files it was using.
+        drop(client);
+        _server_handle.shutdown()?;
+        drop(_server_handle);
+
+        if _source_dir.close().is_ok() {
+            return Ok(());
+        }
+
+        // Windows may report a transient sharing violation just after the
+        // process exits. TempDir's Drop suppresses that error, which made old
+        // local-dev sessions silently leak. Retry within a fixed bound and
+        // make persistent cleanup failure part of backend shutdown.
+        for _ in 0..TEMP_DIR_CLEANUP_MAX_ATTEMPTS {
+            match fs::remove_dir_all(&source_dir_path) {
+                Ok(()) => return Ok(()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+                Err(_) => tokio::time::sleep(TEMP_DIR_CLEANUP_INTERVAL).await,
+            }
+        }
+
+        fs::remove_dir_all(&source_dir_path).with_context(|| {
+            format!(
+                "remove local Node executor temporary directory {}",
+                source_dir_path.display()
+            )
+        })
+    }
+
     async fn check_server_health(client: &Client) -> anyhow::Result<bool> {
         match client
             .get("http://localhost/health".to_string())
@@ -164,7 +234,7 @@ impl InnerLocalNodeExecutor {
         source_path: &PathBuf,
         temp_dir: &TempDir,
         socket_path: &PathBuf,
-    ) -> anyhow::Result<Child> {
+    ) -> anyhow::Result<NodeExecutorProcess> {
         let preferred_node_version = NVMRC_VERSION.trim();
 
         // Look for node in a few places.
@@ -179,13 +249,12 @@ impl InnerLocalNodeExecutor {
         };
         Self::check_node_version(&node_path).await?;
 
-        let mut cmd = TokioCommand::new(node_path);
+        let mut cmd = Command::new(node_path);
         cmd.arg(source_path)
             .arg("--ipc-path")
             .arg(socket_path)
             .arg("--tempdir")
-            .arg(temp_dir.path())
-            .kill_on_drop(true);
+            .arg(temp_dir.path());
         if let Some(backoff) = config.callback_initial_backoff {
             cmd.env(
                 "CALLBACK_INITIAL_BACKOFF_MS",
@@ -193,9 +262,25 @@ impl InnerLocalNodeExecutor {
             );
         }
 
-        let child = cmd.spawn()?;
+        #[cfg(windows)]
+        let job = KillOnCloseJob::new().context("Failed to create Node executor job object")?;
 
-        Ok(child)
+        let mut child = cmd.spawn()?;
+
+        #[cfg(windows)]
+        if let Err(error) = job.assign(&child) {
+            // Assignment is part of spawning a managed executor. Do not leave
+            // an unmanaged process running if Windows rejects the job.
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error).context("Failed to assign Node executor to job object");
+        }
+
+        Ok(NodeExecutorProcess {
+            child,
+            #[cfg(windows)]
+            _job: job,
+        })
     }
 }
 
@@ -334,5 +419,278 @@ impl NodeExecutor for LocalNodeExecutor {
         }
     }
 
-    fn shutdown(&self) {}
+    async fn shutdown(&self) -> anyhow::Result<()> {
+        let inner = self.inner.lock().await.take();
+        match inner {
+            Some(inner) => inner.shutdown().await,
+            None => Ok(()),
+        }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use std::{
+        env,
+        fs,
+        io::Read,
+        process::Stdio,
+        thread,
+        time::Instant,
+    };
+
+    use super::*;
+    use crate::windows_job::{
+        is_process_running,
+        terminate_process,
+    };
+
+    const BACKEND_HELPER: &str = "CONVEX_TEST_LOCAL_EXECUTOR_BACKEND_HELPER";
+    const LAUNCHER_HELPER: &str = "CONVEX_TEST_LOCAL_EXECUTOR_LAUNCHER_HELPER";
+    const READY_FILE: &str = "CONVEX_TEST_LOCAL_EXECUTOR_READY_FILE";
+    const CLEAN_FILE: &str = "CONVEX_TEST_LOCAL_EXECUTOR_CLEAN_FILE";
+
+    #[tokio::test]
+    async fn ordinary_drop_stops_executor_and_removes_temp_dir() {
+        let config = LocalNodeExecutorConfig {
+            node_process_timeout: Duration::from_secs(5),
+            callback_initial_backoff: Some(Duration::ZERO),
+        };
+        let inner = InnerLocalNodeExecutor::new(&config)
+            .await
+            .expect("start local Node executor");
+        let source_dir = inner._source_dir.path().to_owned();
+        let client = inner.client.clone();
+
+        drop(inner);
+
+        assert!(
+            !source_dir.exists(),
+            "executor temporary directory survived ordinary shutdown: {}",
+            source_dir.display(),
+        );
+        assert!(
+            client
+                .get("http://localhost/health")
+                .timeout(Duration::from_secs(1))
+                .send()
+                .await
+                .is_err(),
+            "executor named pipe still accepted requests after shutdown",
+        );
+    }
+
+    #[tokio::test]
+    async fn explicit_shutdown_stops_executor_and_removes_temp_dir() {
+        let executor = LocalNodeExecutor::new(Duration::from_secs(5))
+            .await
+            .expect("construct local Node executor");
+        let inner = InnerLocalNodeExecutor::new(&executor.config)
+            .await
+            .expect("start local Node executor");
+        let source_dir = inner._source_dir.path().to_owned();
+        let client = inner.client.clone();
+        *executor.inner.lock().await = Some(inner);
+
+        executor
+            .shutdown()
+            .await
+            .expect("shutdown local Node executor");
+
+        assert!(
+            !source_dir.exists(),
+            "executor temporary directory survived explicit shutdown: {}",
+            source_dir.display(),
+        );
+        assert!(
+            client
+                .get("http://localhost/health")
+                .timeout(Duration::from_secs(1))
+                .send()
+                .await
+                .is_err(),
+            "executor named pipe still accepted requests after explicit shutdown",
+        );
+    }
+
+    #[tokio::test]
+    async fn local_executor_backend_helper() {
+        if env::var_os(BACKEND_HELPER).is_none() {
+            return;
+        }
+
+        let ready_file = PathBuf::from(env::var_os(READY_FILE).expect("missing ready file"));
+        let clean_file = PathBuf::from(env::var_os(CLEAN_FILE).expect("missing clean file"));
+        let config = LocalNodeExecutorConfig {
+            node_process_timeout: Duration::from_secs(5),
+            callback_initial_backoff: Some(Duration::ZERO),
+        };
+        let inner = InnerLocalNodeExecutor::new(&config)
+            .await
+            .expect("start local Node executor");
+        let source_dir = inner._source_dir.path().to_owned();
+        let executor_pid = inner._server_handle.child.id();
+        let client = inner.client.clone();
+        fs::write(
+            ready_file,
+            format!(
+                "{}\n{}\n{}\n",
+                std::process::id(),
+                executor_pid,
+                source_dir.display()
+            ),
+        )
+        .expect("publish executor ownership");
+
+        tokio::task::spawn_blocking(|| {
+            let mut stdin = std::io::stdin();
+            let mut buffer = [0; 256];
+            while stdin.read(&mut buffer).expect("read launcher pipe") != 0 {}
+        })
+        .await
+        .expect("join stdin reader");
+
+        drop(inner);
+        assert!(
+            !source_dir.exists(),
+            "executor temporary directory survived launcher death: {}",
+            source_dir.display(),
+        );
+        assert!(
+            !InnerLocalNodeExecutor::check_server_health(&client)
+                .await
+                .expect("check executor health"),
+            "executor named pipe survived launcher death",
+        );
+        fs::write(
+            clean_file,
+            "executor_process=stopped\nnamed_pipe=closed\ntemp_dir=removed\n",
+        )
+        .expect("publish clean shutdown");
+    }
+
+    #[test]
+    fn local_executor_launcher_helper() {
+        if env::var_os(LAUNCHER_HELPER).is_none() {
+            return;
+        }
+
+        let mut backend = Command::new(env::current_exe().expect("locate test executable"))
+            .args([
+                "--exact",
+                "local::tests::local_executor_backend_helper",
+                "--nocapture",
+            ])
+            .env(BACKEND_HELPER, "1")
+            .env(
+                READY_FILE,
+                env::var_os(READY_FILE).expect("missing ready file"),
+            )
+            .env(
+                CLEAN_FILE,
+                env::var_os(CLEAN_FILE).expect("missing clean file"),
+            )
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn backend helper");
+
+        loop {
+            assert!(
+                backend
+                    .try_wait()
+                    .expect("inspect backend helper")
+                    .is_none(),
+                "backend helper exited before launcher termination",
+            );
+            thread::sleep(Duration::from_secs(60));
+        }
+    }
+
+    #[test]
+    fn force_killing_launcher_triggers_clean_executor_shutdown() {
+        let temp_dir = TempDir::new().expect("create test directory");
+        let ready_file = temp_dir.path().join("ready.txt");
+        let clean_file = temp_dir.path().join("clean.txt");
+        let mut launcher = Command::new(env::current_exe().expect("locate test executable"))
+            .args([
+                "--exact",
+                "local::tests::local_executor_launcher_helper",
+                "--nocapture",
+            ])
+            .env(LAUNCHER_HELPER, "1")
+            .env(READY_FILE, &ready_file)
+            .env(CLEAN_FILE, &clean_file)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn launcher helper");
+
+        let (backend_pid, executor_pid) = wait_for_owned_processes(&ready_file);
+        assert!(
+            is_process_running(backend_pid),
+            "backend helper never started"
+        );
+        assert!(
+            is_process_running(executor_pid),
+            "Node executor never started"
+        );
+
+        // Child::kill uses TerminateProcess on Windows. The launcher cannot run
+        // cleanup, so the backend must observe stdin EOF and own the teardown.
+        launcher.kill().expect("force kill launcher helper");
+        launcher.wait().expect("reap launcher helper");
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !clean_file.exists() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(25));
+        }
+        if !clean_file.exists() {
+            terminate_process(executor_pid);
+            terminate_process(backend_pid);
+            panic!("backend did not publish clean shutdown after launcher death");
+        }
+
+        while (is_process_running(backend_pid) || is_process_running(executor_pid))
+            && Instant::now() < deadline
+        {
+            thread::sleep(Duration::from_millis(25));
+        }
+        if is_process_running(executor_pid) || is_process_running(backend_pid) {
+            terminate_process(executor_pid);
+            terminate_process(backend_pid);
+            panic!("backend or executor survived launcher death");
+        }
+
+        assert_eq!(
+            fs::read_to_string(clean_file).expect("read shutdown evidence"),
+            "executor_process=stopped\nnamed_pipe=closed\ntemp_dir=removed\n",
+        );
+    }
+
+    fn wait_for_owned_processes(ready_file: &std::path::Path) -> (u32, u32) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Ok(contents) = fs::read_to_string(ready_file) {
+                let mut lines = contents.lines();
+                let backend_pid = lines
+                    .next()
+                    .expect("backend PID")
+                    .parse()
+                    .expect("valid backend PID");
+                let executor_pid = lines
+                    .next()
+                    .expect("executor PID")
+                    .parse()
+                    .expect("valid executor PID");
+                return (backend_pid, executor_pid);
+            }
+            assert!(
+                Instant::now() < deadline,
+                "backend did not publish executor ownership",
+            );
+            thread::sleep(Duration::from_millis(25));
+        }
+    }
 }

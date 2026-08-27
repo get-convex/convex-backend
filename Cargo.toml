@@ -266,6 +266,7 @@ value = { path = "crates/value" }
 vector = { path = "crates/vector" }
 vergen = { version = "8.1.0" }
 walkdir = "2"
+windows-sys = { version = "0.61.2", features = [ "Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading" ] }
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
 
 [profile.release]

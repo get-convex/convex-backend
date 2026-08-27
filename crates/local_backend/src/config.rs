@@ -120,6 +120,11 @@ pub struct LocalConfig {
     #[clap(long, hide = true)]
     pub beacon_fields: Option<JsonValue>,
 
+    /// Shut down cleanly when the process that launched this local backend
+    /// closes stdin. The Convex CLI uses this to own the backend lifetime.
+    #[clap(long, hide = true)]
+    pub shutdown_on_stdin_close: bool,
+
     /// If set, logs will be redacted from clients. Set this on production
     /// deployments, to prevent information like stacktraces of serverside
     /// code from being leaked to clients.
@@ -248,5 +253,4 @@ impl LocalConfig {
             }
         }
     }
-
 }

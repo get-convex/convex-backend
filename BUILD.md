@@ -48,6 +48,48 @@ Build and run the local backend from the source in this repo:
 just run-local-backend
 ```
 
+#### Local process lifecycle on Windows
+
+The Convex CLI owns every local backend it starts. Current CLI and backend
+versions keep the backend's standard input connected; closing that pipe asks the
+backend to drain requests, stop workers, and remove its temporary files. The
+pipe also closes when the CLI exits unexpectedly. On Windows, the CLI starts
+current backends in a hidden, detached process group. This prevents Windows from
+ending the backend with its Node parent before the backend can observe the
+closed pipe.
+
+The local backend owns each Node action executor. On Windows it assigns the
+executor to a Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
+Windows therefore terminates the executor if the backend is terminated before
+Rust cleanup can run. During an ordinary shutdown, the backend stops and reaps
+the executor before removing its temporary directory. Removal uses a short,
+fixed retry window for transient Windows sharing violations and reports a
+persistent cleanup failure instead of silently leaking the directory.
+
+Run the focused Windows lifecycle tests after changing this boundary:
+
+```powershell
+cargo test -p node_executor force_killing_job_owner_terminates_assigned_process
+cargo test -p node_executor ordinary_drop_stops_executor_and_removes_temp_dir
+cargo test -p node_executor explicit_shutdown_stops_executor_and_removes_temp_dir
+cargo test -p node_executor force_killing_launcher_triggers_clean_executor_shutdown
+```
+
+The first test force-terminates the process that owns a Job Object and verifies
+that the assigned process does not survive. The next two exercise Drop and the
+explicit application shutdown interface. The final test force-terminates a
+launcher that owns the backend's stdin pipe, then verifies that the backend
+closes the Node executor, named pipe, and temporary directory before exiting.
+
+The lifecycle contract activates when the installed CLI and downloaded local
+backend both contain this change. Verify activation by running a Node action,
+ending `convex dev`, and confirming that its backend PID, executor PID,
+`cvx-node-executor-*` pipe, and `.tmp*` executor directory are absent. To roll
+back while diagnosing an unrelated regression, pass the previous release tag
+through the CLI's hidden `--local-backend-version` option. That rollback also
+restores the previous Windows teardown behavior, so stop the current backend
+cleanly and inspect its process tree before switching versions.
+
 ### Provisioning a demo app locally
 
 This example will go through running the backend with the included demo project.
