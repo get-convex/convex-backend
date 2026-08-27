@@ -388,6 +388,20 @@ pub struct DirectoryUser {
     pub state: String,
 }
 
+/// An entry in the WorkOS Events API log. Events are immutable and ordered, so
+/// a consumer resumes by passing the last `id` it processed back as the `after`
+/// parameter.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WorkOSEvent {
+    /// like "event_01E4ZCR3C56J083X43JQXF3JK5"
+    pub id: String,
+    /// e.g. "dsync.user.created".
+    pub event: String,
+    /// The event-type-specific body, e.g. a `DirectoryUser` for
+    /// `dsync.user.*`.
+    pub data: serde_json::Value,
+}
+
 #[async_trait]
 pub trait WorkOSClient: Send + Sync {
     async fn fetch_identities(&self, user_id: &str) -> anyhow::Result<Vec<WorkOSIdentity>>;
@@ -460,6 +474,18 @@ pub trait WorkOSClient: Send + Sync {
         &self,
         directory_user_id: &str,
     ) -> anyhow::Result<Vec<DirectoryGroup>>;
+
+    /// Fetches one page of the Events API, restricted to `event_types` and
+    /// resuming after the event id `after`. With no `after`, WorkOS returns
+    /// from the start of its event retention window. A page shorter than
+    /// `limit` means the caller has caught up. Errors if `event_types` is
+    /// empty.
+    async fn list_events(
+        &self,
+        event_types: &[&str],
+        after: Option<&str>,
+        limit: u32,
+    ) -> anyhow::Result<Vec<WorkOSEvent>>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -659,6 +685,15 @@ where
     ) -> anyhow::Result<Vec<DirectoryGroup>> {
         list_workos_directory_groups_for_user(&self.api_key, directory_user_id, &*self.http_client)
             .await
+    }
+
+    async fn list_events(
+        &self,
+        event_types: &[&str],
+        after: Option<&str>,
+        limit: u32,
+    ) -> anyhow::Result<Vec<WorkOSEvent>> {
+        list_workos_events(&self.api_key, event_types, after, limit, &*self.http_client).await
     }
 }
 
@@ -937,6 +972,15 @@ impl WorkOSClient for MockWorkOSClient {
             .get(directory_user_id)
             .cloned()
             .unwrap_or_default())
+    }
+
+    async fn list_events(
+        &self,
+        _event_types: &[&str],
+        _after: Option<&str>,
+        _limit: u32,
+    ) -> anyhow::Result<Vec<WorkOSEvent>> {
+        Ok(vec![])
     }
 }
 
@@ -2801,4 +2845,77 @@ where
     })?;
 
     Ok(Some(group))
+}
+
+/// Fetches one page of the WorkOS Events API, restricted to `event_types` and
+/// resuming after the event id `after`. Errors if `event_types` is empty.
+pub async fn list_workos_events<F, E>(
+    api_key: &str,
+    event_types: &[&str],
+    after: Option<&str>,
+    limit: u32,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<WorkOSEvent>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    const EVENTS_URL: &str = "https://api.workos.com/events";
+
+    if event_types.is_empty() {
+        anyhow::bail!("Refusing to list events with no event types");
+    }
+
+    let mut url = url::Url::parse(EVENTS_URL)?;
+    {
+        let mut pairs = url.query_pairs_mut();
+        // The Events API takes its type filter as a repeated `events`
+        // parameter; omitting it entirely would return every event type.
+        for event_type in event_types {
+            pairs.append_pair("events", event_type);
+        }
+        pairs.append_pair("limit", &limit.to_string());
+        // Oldest first, which is what resuming from `after` assumes. This is
+        // already the API's default; setting it keeps the cursor protocol
+        // correct if that default ever changes.
+        pairs.append_pair("order", "asc");
+        if let Some(after) = after {
+            pairs.append_pair("after", after);
+        }
+    }
+
+    let request = http::Request::builder()
+        .uri(url.as_str())
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not list events: {e}"))?;
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(WorkOSApiError::new("list events", status, &response_body));
+    }
+
+    let response_body = response.into_body();
+    let page: WorkOSListResponse<WorkOSEvent> = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS list events response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(page.data)
 }
