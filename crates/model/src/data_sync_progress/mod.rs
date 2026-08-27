@@ -107,6 +107,22 @@ impl<'a, RT: Runtime> DataSyncProgressModel<'a, RT> {
             .await
     }
 
+    /// The progress row of the sync with this id, if it completed a page
+    /// within [`DATA_SYNC_ACTIVE_WINDOW`]. The single-sync counterpart of
+    /// [`Self::active_syncs`].
+    pub async fn active_sync(
+        &mut self,
+        now_ms: u64,
+        sync_id: &str,
+    ) -> anyhow::Result<Option<DataSyncProgressMetadata>> {
+        let cutoff_ms = now_ms.saturating_sub(DATA_SYNC_ACTIVE_WINDOW.as_millis() as u64);
+        Ok(self
+            .get(sync_id)
+            .await?
+            .filter(|doc| doc.last_updated_ms >= cutoff_ms)
+            .map(|doc| (*doc).clone().into_value()))
+    }
+
     /// Upsert the progress row for `metadata.sync_id`, throttled to at most one
     /// write per `min_write_interval` while the sync is still advancing.
     /// Returns the row's previous metadata; `None` means the sync had no row

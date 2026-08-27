@@ -25,6 +25,7 @@ use common::{
         extract::{
             Json,
             MtState,
+            Path,
             Query,
         },
         ExtractClientVersion,
@@ -101,7 +102,10 @@ use http::StatusCode;
 use keybroker::Identity;
 use maplit::btreemap;
 use model::{
-    data_sync_progress::types::DataSyncState,
+    data_sync_progress::types::{
+        DataSyncProgressMetadata,
+        DataSyncState,
+    },
     virtual_system_mapping,
 };
 use roles::RequireDeploymentOp;
@@ -311,6 +315,56 @@ pub struct ListActiveSyncsArgs {
     cursor: Option<String>,
 }
 
+/// The API representation of a sync's recorded progress.
+fn active_data_sync(progress: DataSyncProgressMetadata) -> ActiveDataSync {
+    ActiveDataSync {
+        sync_id: progress.sync_id,
+        last_updated: progress.last_updated_ms as i64,
+        status: match progress.state {
+            DataSyncState::Snapshotting {
+                num_tables_synced,
+                total_tables,
+                current_component,
+                current_table,
+                num_documents_synced_in_current_table,
+                total_documents_in_current_table,
+                num_documents_synced,
+                total_documents,
+            } => ActiveDataSyncStatus::Snapshotting(ActiveDataSyncSnapshotting {
+                status_type: SnapshottingTag::Snapshotting,
+                num_tables_synced,
+                total_tables,
+                current_component: String::from(current_component),
+                current_table: current_table.to_string(),
+                num_documents_in_current_table: num_documents_synced_in_current_table,
+                total_documents_in_current_table,
+                num_documents_synced,
+                total_documents,
+            }),
+            DataSyncState::Stale {
+                total_tables,
+                num_documents_synced,
+                synced_ts,
+            } => ActiveDataSyncStatus::Stale(ActiveDataSyncStale {
+                status_type: StaleTag::Stale,
+                total_tables,
+                num_documents_synced,
+                synced_ts,
+            }),
+            DataSyncState::UpToDate {
+                total_tables,
+                num_documents_synced,
+                synced_ts,
+            } => ActiveDataSyncStatus::UpToDate(ActiveDataSyncUpToDate {
+                status_type: UpToDateTag::UpToDate,
+                total_tables,
+                num_documents_synced,
+                synced_ts,
+            }),
+        },
+    }
+}
+
 /// List active data syncs
 ///
 /// Returns the progress of active data sync (/v1/data/sync).
@@ -348,55 +402,7 @@ pub async fn list_active_syncs(
         .await?;
     let syncs = syncs
         .into_iter()
-        .map(|doc| {
-            let progress = doc.into_value();
-            ActiveDataSync {
-                sync_id: progress.sync_id,
-                last_updated: progress.last_updated_ms as i64,
-                status: match progress.state {
-                    DataSyncState::Snapshotting {
-                        num_tables_synced,
-                        total_tables,
-                        current_component,
-                        current_table,
-                        num_documents_synced_in_current_table,
-                        total_documents_in_current_table,
-                        num_documents_synced,
-                        total_documents,
-                    } => ActiveDataSyncStatus::Snapshotting(ActiveDataSyncSnapshotting {
-                        status_type: SnapshottingTag::Snapshotting,
-                        num_tables_synced,
-                        total_tables,
-                        current_component: String::from(current_component),
-                        current_table: current_table.to_string(),
-                        num_documents_in_current_table: num_documents_synced_in_current_table,
-                        total_documents_in_current_table,
-                        num_documents_synced,
-                        total_documents,
-                    }),
-                    DataSyncState::Stale {
-                        total_tables,
-                        num_documents_synced,
-                        synced_ts,
-                    } => ActiveDataSyncStatus::Stale(ActiveDataSyncStale {
-                        status_type: StaleTag::Stale,
-                        total_tables,
-                        num_documents_synced,
-                        synced_ts,
-                    }),
-                    DataSyncState::UpToDate {
-                        total_tables,
-                        num_documents_synced,
-                        synced_ts,
-                    } => ActiveDataSyncStatus::UpToDate(ActiveDataSyncUpToDate {
-                        status_type: UpToDateTag::UpToDate,
-                        total_tables,
-                        num_documents_synced,
-                        synced_ts,
-                    }),
-                },
-            }
-        })
+        .map(|doc| active_data_sync(doc.into_value()))
         .collect();
 
     Ok(Json(ListActiveSyncsResponse {
@@ -406,6 +412,59 @@ pub async fn list_active_syncs(
             next_cursor,
         },
     }))
+}
+
+/// Get an active data sync
+///
+/// Returns the progress of a single data sync (/v1/data/sync), identified by
+/// the `syncId` that endpoint returns. The status is the same one
+/// `/data/list_active_syncs` reports for each sync it lists.
+///
+/// A data sync is considered active for 3 days after the most recent API call
+/// from `/data/sync`. Ids of syncs that are unknown or no longer active return
+/// a 404.
+///
+/// The caller must have the `deployment:data:view` permission.
+#[utoipa::path(
+    get,
+    path = "/data/sync/{sync_id}",
+    tag = "Data Sync",
+    tags = ["pro"],
+    params(
+        ("sync_id" = String, Path, description = "`syncId` of the sync, as returned by /data/sync"),
+    ),
+    responses((status = 200, body = ActiveDataSync)),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
+)]
+#[fastrace::trace]
+pub async fn get_active_sync(
+    MtState(st): MtState<LocalAppState>,
+    Path(sync_id): Path<String>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    st.application
+        .ensure_streaming_export_enabled(identity.clone())
+        .await?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
+
+    let progress = st
+        .application
+        .active_data_sync(identity, &sync_id)
+        .await?
+        .context(ErrorMetadata::not_found(
+            "DataSyncNotFound",
+            format!(
+                "No active data sync with id {sync_id}. A data sync is active for 3 days after \
+                 its most recent page."
+            ),
+        ))?;
+
+    Ok(Json(active_data_sync(progress)))
 }
 
 /// Converts a legacy `document_deltas` cursor into a `/api/v1/data/sync`
@@ -464,6 +523,7 @@ where
     utoipa_axum::router::OpenApiRouter::new()
         .routes(utoipa_axum::routes!(data_sync))
         .routes(utoipa_axum::routes!(list_active_syncs))
+        .routes(utoipa_axum::routes!(get_active_sync))
 }
 
 /// A cursor pointing at a snapshot that has aged out of the deployment's data

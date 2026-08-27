@@ -935,6 +935,54 @@
           }
         ]
       }
+    },
+    "/data/sync/{sync_id}": {
+      "get": {
+        "tags": [
+          "Data Sync",
+          "pro"
+        ],
+        "summary": "Get an active data sync",
+        "description": "Returns the progress of a single data sync (/v1/data/sync), identified by\nthe `syncId` that endpoint returns. The status is the same one\n`/data/list_active_syncs` reports for each sync it lists.\n\nA data sync is considered active for 3 days after the most recent API call\nfrom `/data/sync`. Ids of syncs that are unknown or no longer active return\na 404.\n\nThe caller must have the `deployment:data:view` permission.",
+        "operationId": "get_active_sync",
+        "parameters": [
+          {
+            "name": "sync_id",
+            "in": "path",
+            "description": "`syncId` of the sync, as returned by /data/sync",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveDataSync"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -946,7 +994,7 @@
       },
       "ActiveDataSync": {
         "type": "object",
-        "description": "The status of one active data sync, as of its most recent page.",
+        "description": "The status of one active data sync, as of its most recent page. Returned\nby `/api/v1/data/sync/{syncId}` and for each sync listed by\n`/api/v1/data/list_active_syncs`.",
         "required": [
           "syncId",
           "lastUpdated",
@@ -1842,7 +1890,7 @@
           },
           "syncId": {
             "type": "string",
-            "description": "Unique id of the sync, assigned on the first page and stable across\nthe sync's lifetime. Identifies this sync in `/data/list_active_syncs`."
+            "description": "Unique id of the sync, assigned on the first page and stable across\nthe sync's lifetime. Identifies this sync in `/data/sync/{syncId}` and\n`/data/list_active_syncs`."
           },
           "pagination": {
             "$ref": "#/components/schemas/PaginationMetadata",
@@ -1852,7 +1900,7 @@
       },
       "DataSyncSnapshotting": {
         "type": "object",
-        "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state. The sync's\nprogress can be monitored via `/data/list_active_syncs`, keyed by the\nresponse's `syncId`. Syncs may return to this state if the table\nselection has changes that requires large data sync.",
+        "description": "The sync has not yet reached a consistent snapshot. The entries emitted\nso far are an incomplete initial traversal of the selected tables.\nSyncs begin in this state. The sync's\nprogress can be monitored via `/data/sync/{syncId}` or\n`/data/list_active_syncs`, keyed by the response's `syncId`. Syncs may\nreturn to this state if the table selection has changes that requires large\ndata sync.",
         "required": [
           "type"
         ],
