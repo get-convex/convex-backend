@@ -19,6 +19,8 @@ just convex-usher run openai:chatCompletion \
   '{"prompt":"Reply with one short sentence."}'
 just convex-usher run node/openai:chatCompletion \
   '{"prompt":"Reply with one short sentence."}'
+just convex-usher run node/anthropic:chatCompletion \
+  '{"prompt":"Reply with one short sentence."}'
 ```
 
 Against a reachable `ai-gateway.convex.dev` (or hosts override), run the AI SDK
@@ -28,9 +30,6 @@ provider example:
 just convex-usher run node/aiSdkProvider:chatCompletion \
   '{"prompt":"Reply with one short sentence."}'
 ```
-
-- Pass `gatewayUrl` to target another gateway on the OpenAI / fetch / Anthropic
-  examples. The AI SDK provider hard-codes `https://ai-gateway.convex.dev/v1`.
 
 - The OpenAI SDK accepts the Convex token through its asynchronous `apiKey`
   provider and sends it as a bearer token.

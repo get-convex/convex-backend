@@ -24,13 +24,14 @@ See [Getting started](/ai-gateway/setup) for the full setup.
 
 ## Supported endpoints
 
-| Endpoint                    | What it does                                  |
-| --------------------------- | --------------------------------------------- |
-| `GET /v1/models`            | List available models                         |
-| `POST /v1/chat/completions` | Chat completions, streaming and non-streaming |
+| Endpoint                    | What it does                                    |
+| --------------------------- | ----------------------------------------------- |
+| `GET /v1/models`            | List available models                           |
+| `POST /v1/chat/completions` | Chat completions, streaming and non-streaming   |
+| `POST /v1/embeddings`       | Generate embeddings                             |
+| `POST /v1/messages`         | Anthropic Messages, streaming and non-streaming |
 
-`/v1/embeddings` and other endpoints are coming soon. An unsupported path
-returns `400` with `unsupported_endpoint`.
+An unsupported path returns `400` with `unsupported_endpoint`.
 
 See [HTTP API](/ai-gateway/api.mdx) for the request and response shapes.
 

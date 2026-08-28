@@ -65,8 +65,8 @@ const agent = new Agent(components.agent, {
 ```
 
 [Workflows](/agents/workflows.mdx) that call `agent.generateText` use that same
-model. The [RAG component](/agents/rag.mdx) still needs its own embedding
-provider: the gateway does not serve `/v1/embeddings` yet.
+model. For the [RAG component](/agents/rag.mdx), call `/v1/embeddings` through
+an OpenAI-compatible embedding provider.
 
 ## Vercel AI SDK
 

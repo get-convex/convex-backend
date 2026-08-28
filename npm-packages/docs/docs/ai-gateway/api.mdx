@@ -118,12 +118,58 @@ data: [DONE]
 
 `Retry-After` is forwarded when present.
 
+## POST `/v1/embeddings`
+
+[OpenAI Embeddings](https://platform.openai.com/docs/api-reference/embeddings/create)
+body. `model` and `input` are required; `input` may be a string or an array.
+Other OpenAI fields are forwarded. The body must be JSON and no larger than 16
+MiB.
+
+Convex rejects the same routing controls as `/v1/chat/completions`, assigns the
+response `id`, and removes fields that identify the serving provider. The
+response otherwise uses the OpenAI embeddings shape.
+
+## POST `/v1/messages`
+
+[Anthropic Messages](https://docs.anthropic.com/en/api/messages) body. Model IDs
+use the `provider/model` form. `model`, `messages`, and `max_tokens` are
+required. Set `stream: true` for Anthropic-compatible server-sent events.
+
+```json
+{
+  "model": "anthropic/claude-haiku-4.5",
+  "max_tokens": 128,
+  "messages": [{ "role": "user", "content": "Hello!" }]
+}
+```
+
+Other Anthropic fields are forwarded. The body must be JSON and no larger than
+16 MiB. These OpenRouter routing controls are rejected because Convex chooses
+how the request is served: `provider`, `route`, `models`, `plugins`,
+`fallbacks`, `session_id`, and `speed`.
+
+The response uses the Anthropic Messages shape. Convex replaces upstream `id`
+and `request_id` values with Convex-generated IDs and removes fields that
+identify the serving provider. Local errors, including authentication errors,
+also use the Anthropic error shape:
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid authentication credentials"
+  },
+  "request_id": "3f1c8a2e-9b14-4d6a-a7e2-0c5b8d1e4f90"
+}
+```
+
 ## Errors
 
 ```json
 {
   "error": {
-    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions.",
+    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /v1/embeddings, POST /v1/messages.",
     "type": "invalid_request_error",
     "code": "unsupported_endpoint"
   }
