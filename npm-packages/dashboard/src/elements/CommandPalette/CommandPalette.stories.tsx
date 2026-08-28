@@ -29,7 +29,15 @@ import {
   useInfiniteDeployments,
 } from "api/deployments";
 import { useProfile } from "api/profile";
-import type { PlatformDeploymentResponse } from "generatedApi";
+import { ignoredDirectorySyncTeamsKey } from "hooks/useIgnoredDirectorySyncTeams";
+import {
+  useDirectorySyncOffers,
+  useJoinDirectorySyncedTeam,
+} from "api/directorySync";
+import type {
+  DirectorySyncOffer,
+  PlatformDeploymentResponse,
+} from "generatedApi";
 import {
   CommandPalette,
   useCommandPaletteAnchor,
@@ -98,6 +106,14 @@ const mockProfile = {
   email: "nicolas@acme.dev",
 };
 
+// A team the member isn't in, offered because its directory lists one of their
+// verified emails.
+const directorySyncOffer: DirectorySyncOffer = {
+  teamId: 14,
+  teamName: "Example Org",
+  email: "nicolas@example.org",
+};
+
 // The palette's open state lives in a global (so the header trigger can open
 // it from anywhere); flip it on when the story mounts so the dialog renders.
 function OpenCommandPalette() {
@@ -126,6 +142,16 @@ const meta = {
     });
     mocked(useCurrentTeam).mockReturnValue(mockTeam);
     mocked(useProfile).mockReturnValue(mockProfile);
+    mocked(useDirectorySyncOffers).mockReturnValue([]);
+    // The ProjectSelector stories persist ignored offers to localStorage, which
+    // the test runner shares across stories; reset it so the offer still shows.
+    window.localStorage.removeItem(
+      ignoredDirectorySyncTeamsKey(mockProfile.id),
+    );
+    mocked(useJoinDirectorySyncedTeam).mockReturnValue(async () => ({
+      teamId: directorySyncOffer.teamId,
+      teamSlug: "example-org",
+    }));
     // These hooks are server-backed: their remote rows bypass the palette's
     // client-side filter, so the results must already reflect the query.
     // Filter the mock data by the search argument to match that behavior —
@@ -250,6 +276,34 @@ export const SearchLoading: Story = {
   },
   play: async () => {
     await userEvent.type(await screen.findByRole("combobox"), "checkout");
+  },
+};
+
+// --- Switch Team page --------------------------------------------------------
+
+// The palette drilled onto its "Switch Team" page.
+function SwitchTeamPalette() {
+  const [, setOpen] = useCommandPaletteOpen();
+  const [, setInitialPages] = useCommandPaletteInitialPages();
+  useEffect(() => {
+    setInitialPages([{ type: "teams" }]);
+    setOpen(true);
+    return () => setOpen(false);
+  }, [setOpen, setInitialPages]);
+  return <CommandPalette />;
+}
+
+// Teams the member can join without an invitation get their own "Available
+// Teams" section above the ones they belong to, as dashed "Join <team>"
+// entries. Selecting one opens the join prompt (see the ProjectSelector
+// stories, which mount that modal the way `_app` does).
+export const SwitchTeamWithJoinOffer: Story = {
+  parameters: TeamLevel.parameters,
+  render: () => <SwitchTeamPalette />,
+  beforeEach: () => {
+    mocked(useCurrentProject).mockReturnValue(undefined);
+    mocked(useCurrentDeployment).mockReturnValue(undefined);
+    mocked(useDirectorySyncOffers).mockReturnValue([directorySyncOffer]);
   },
 };
 

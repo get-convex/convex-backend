@@ -68,3 +68,11 @@ export const PROFILE_SECTIONS = {
   discordAccounts: { id: "discord-accounts", label: "Discord Accounts" },
   deleteAccount: { id: "delete-account", label: "Delete Account" },
 } satisfies Record<string, SectionAnchor>;
+
+// Rendered on the Profile page only when the member has a team available to
+// join, so it stays out of PROFILE_SECTIONS, which the command palette turns
+// into navigation targets unconditionally.
+export const PROFILE_AVAILABLE_TEAMS_SECTION: SectionAnchor = {
+  id: "available-teams",
+  label: "Available Teams",
+};

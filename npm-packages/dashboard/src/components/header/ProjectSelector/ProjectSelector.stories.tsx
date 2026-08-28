@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { mocked } from "storybook/test";
+import { mocked, screen, userEvent } from "storybook/test";
 import React from "react";
 import { flagDefaults, useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useCurrentTeam, useTeams } from "api/teams";
@@ -12,7 +12,16 @@ import { useDeployments, useInfiniteDeployments } from "api/deployments";
 import { useProfile } from "api/profile";
 import { useHasCustomRolePermission } from "api/roles";
 import { CommandPalette } from "elements/CommandPalette";
-import type { PlatformDeploymentResponse } from "generatedApi";
+import {
+  useDirectorySyncOffers,
+  useJoinDirectorySyncedTeam,
+} from "api/directorySync";
+import { JoinDirectorySyncedTeamModal } from "components/header/JoinDirectorySyncedTeamModal";
+import { ignoredDirectorySyncTeamsKey } from "hooks/useIgnoredDirectorySyncTeams";
+import type {
+  DirectorySyncOffer,
+  PlatformDeploymentResponse,
+} from "generatedApi";
 import { ProjectSelector } from "./ProjectSelector";
 
 const mockTeam = {
@@ -74,6 +83,14 @@ const mockProfile = {
   email: "nicolas@acme.dev",
 };
 
+// A team the member isn't in, offered because its directory lists one of their
+// verified emails.
+const directorySyncOffer: DirectorySyncOffer = {
+  teamId: 14,
+  teamName: "Example Org",
+  email: "nicolas@example.org",
+};
+
 // The selector opens the palette anchored beneath whichever segment was
 // clicked, so a story needs the palette mounted alongside the trigger. Wrap
 // both in a header-like bar to place the trigger where it lives in the app.
@@ -91,6 +108,9 @@ function ProjectSelectorHarness(
     >
       <ProjectSelector {...props} />
       <CommandPalette />
+      {/* Mounted at the app root in `_app`; the team switcher opens it by
+          setting the shared offer state. */}
+      <JoinDirectorySyncedTeamModal />
     </div>
   );
 }
@@ -122,6 +142,16 @@ const meta = {
     mocked(useCurrentProject).mockReturnValue(mockProject);
     mocked(useProfile).mockReturnValue(mockProfile);
     mocked(useHasCustomRolePermission).mockReturnValue(true);
+    mocked(useDirectorySyncOffers).mockReturnValue([]);
+    // Ignoring an offer persists to localStorage, which the test runner shares
+    // across stories; reset it so the switcher still lists the offer.
+    window.localStorage.removeItem(
+      ignoredDirectorySyncTeamsKey(mockProfile.id),
+    );
+    mocked(useJoinDirectorySyncedTeam).mockReturnValue(async () => ({
+      teamId: directorySyncOffer.teamId,
+      teamSlug: "example-org",
+    }));
     mocked(useProjectById).mockReturnValue({
       project: mockProject,
       isLoading: false,
@@ -195,5 +225,44 @@ export const TeamOnly: Story = {
     teams: [mockTeam],
     selectedTeamSlug: mockTeam.slug,
     selectedProject: undefined,
+  },
+};
+
+// Opens the anchored team switcher, the menu the selector's avatar drops down.
+async function openTeamMenu() {
+  await userEvent.click(await screen.findByLabelText("Switch team"));
+}
+
+// The team switcher's "Available Teams" section: a dashed "Join Example
+// Org" entry above the teams the member already belongs to.
+export const TeamMenuWithJoinOffer: Story = {
+  args: TeamOnly.args,
+  beforeEach: () => {
+    mocked(useDirectorySyncOffers).mockReturnValue([directorySyncOffer]);
+  },
+  play: openTeamMenu,
+};
+
+// Selecting the join entry closes the menu and prompts, naming the email that
+// makes the caller eligible, with the choice to join or ignore.
+export const JoinOfferConfirmation: Story = {
+  ...TeamMenuWithJoinOffer,
+  play: async () => {
+    await openTeamMenu();
+    await userEvent.click(
+      await screen.findByText(`Join ${directorySyncOffer.teamName}`),
+    );
+  },
+};
+
+// Ignoring the offer drops it from the team switcher and points at the Profile
+// page, which keeps listing every team the member can join.
+export const JoinOfferIgnored: Story = {
+  ...TeamMenuWithJoinOffer,
+  play: async (context) => {
+    await JoinOfferConfirmation.play!(context);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Ignore" }),
+    );
   },
 };
