@@ -211,19 +211,19 @@ const selfServeSections: Section[] = [
     title: "Search Queries",
   },
   {
-    metric: "aiGatewayCost",
-    format: (v: number) => formatQuantity(v, "currency"),
-    detail: "Spend on Convex-managed AI models through the AI gateway",
-    title: "AI Gateway",
-    allOnDemand: true,
-  },
-  {
     metric: "deploymentCount",
     entitlement: "maxDeployments",
     format: formatNumberCompact,
     detail: "The current number of deployments across all projects",
     title: "Deployments",
     noOnDemand: true,
+  },
+  {
+    metric: "aiGatewayCost",
+    format: (v: number) => formatQuantity(v, "currency"),
+    detail: "Spend on Convex-managed AI models through the AI gateway",
+    title: "AI Gateway",
+    allOnDemand: true,
   },
 ];
 
@@ -478,21 +478,28 @@ export function BusinessPlanSummary({
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    {showEntitlements && entitlement !== undefined && (
-                      <Tooltip
-                        side="bottom"
-                        tip={`Your team has used ${(100 * (displayedUsage / entitlement)).toFixed(2)}% of the included amount of ${section.title}.`}
-                        className="flex animate-fadeInFromLoading items-center"
-                      >
-                        <Donut current={displayedUsage} max={entitlement} />
-                      </Tooltip>
-                    )}
+                    {showEntitlements &&
+                      (entitlement !== undefined ? (
+                        <Tooltip
+                          side="bottom"
+                          tip={`Your team has used ${(100 * (displayedUsage / entitlement)).toFixed(2)}% of the included amount of ${section.title}.`}
+                          className="flex animate-fadeInFromLoading items-center"
+                        >
+                          <Donut current={displayedUsage} max={entitlement} />
+                        </Tooltip>
+                      ) : (
+                        // Keep sections without an included limit aligned with
+                        // the gauged ones.
+                        <div className="hidden size-6 sm:block" />
+                      ))}
                     <SectionLabel detail={section.detail}>
                       {section.title}
                     </SectionLabel>
                   </div>
                   <div className="animate-fadeInFromLoading">
-                    {aiCostFailed ? (
+                    {hasSubscription && section.allOnDemand ? (
+                      <span className="text-content-secondary">–</span>
+                    ) : aiCostFailed ? (
                       <span className="text-content-secondary">
                         Unavailable
                       </span>
@@ -535,10 +542,24 @@ export function BusinessPlanSummary({
                   </div>
                   {hasSubscription && (
                     <div className="animate-fadeInFromLoading">
-                      {!section.noOnDemand &&
+                      {section.allOnDemand ? (
+                        aiCostFailed ? (
+                          <span className="text-content-secondary">
+                            Unavailable
+                          </span>
+                        ) : aiCostPending ? (
+                          <Loading fullHeight={false} className="h-4 w-16" />
+                        ) : (
+                          // The whole amount bills on demand, so it is not an
+                          // increment over an included amount.
+                          `${section.format(metric)}${section.suffix ? ` ${section.suffix}` : ""}`
+                        )
+                      ) : (
+                        !section.noOnDemand &&
                         onDemandAmount !== undefined &&
                         onDemandAmount > 0 &&
-                        `+${section.format(onDemandAmount)}${section.suffix ? ` ${section.suffix}` : ""}`}
+                        `+${section.format(onDemandAmount)}${section.suffix ? ` ${section.suffix}` : ""}`
+                      )}
                     </div>
                   )}
                   <span className="flex items-center gap-1 text-xs text-content-secondary">
