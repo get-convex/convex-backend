@@ -1076,6 +1076,7 @@ impl<RT: Runtime> Committer<RT> {
                 entry
             })
             .collect_vec();
+        metrics::commit_index_rows(index_writes.len() as u64);
         write_batcher
             .write(document_writes, index_writes, write_bytes)
             .await

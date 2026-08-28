@@ -456,6 +456,14 @@ pub fn commit_rows(num_rows: u64) {
     log_counter(&DATABASE_COMMIT_ROWS, num_rows);
 }
 
+register_convex_counter!(
+    DATABASE_COMMIT_INDEX_ROWS,
+    "Number of index rows written to persistence"
+);
+pub fn commit_index_rows(num_rows: u64) {
+    log_counter(&DATABASE_COMMIT_INDEX_ROWS, num_rows);
+}
+
 register_convex_histogram!(
     DATABASE_SUBSCRIPTIONS_UPDATE_SECONDS,
     "Time to advance the SubscriptionManager's log"
