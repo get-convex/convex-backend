@@ -121,9 +121,9 @@ data: [DONE]
 ## POST `/v1/embeddings`
 
 [OpenAI Embeddings](https://platform.openai.com/docs/api-reference/embeddings/create)
-body. `model` and `input` are required; `input` may be a string or an array.
-Other OpenAI fields are forwarded. The body must be JSON and no larger than 16
-MiB.
+body. `model` and `input` are required. `input` may be one string, one token-ID
+array, or a batch of up to 512 strings or token-ID arrays. Other OpenAI fields
+are forwarded. The body must be JSON and no larger than 16 MiB.
 
 Convex rejects the same routing controls as `/v1/chat/completions`, assigns the
 response `id`, and removes fields that identify the serving provider. The
@@ -181,6 +181,7 @@ also use the Anthropic error shape:
 | 401       | `invalid_api_key`       | Missing or invalid `Authorization` |
 | 400       | `unsupported_endpoint`  | Unknown path                       |
 | 400       | `unsupported_parameter` | Rejected routing field             |
+| 400       | `too_many_inputs`       | Over 512 embedding inputs          |
 | 413       | `request_too_large`     | Body over 16 MiB                   |
 | 502 / 503 | `upstream_error`        | Provider temporarily unavailable   |
 
