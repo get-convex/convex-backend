@@ -319,6 +319,15 @@ pub enum WorkOSDomainState {
     LegacyVerified,
 }
 
+impl WorkOSDomainState {
+    pub fn is_verified(&self) -> bool {
+        match self {
+            WorkOSDomainState::Verified | WorkOSDomainState::LegacyVerified => true,
+            WorkOSDomainState::Pending | WorkOSDomainState::Failed => false,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct WorkOSOrganizationMembershipResponse {
     /// always "organization_membership"
@@ -711,6 +720,9 @@ pub struct MockWorkOSClient {
     /// Groups returned by [`list_directory_groups_for_user`], keyed by
     /// directory user id.
     directory_groups_by_user_id: HashMap<String, Vec<DirectoryGroup>>,
+    /// Domains carried by the organizations [`get_organization_by_id`] returns,
+    /// keyed by organization id.
+    organization_domains: HashMap<String, Vec<WorkOSOrganizationDomain>>,
 }
 
 impl MockWorkOSClient {
@@ -723,6 +735,27 @@ impl MockWorkOSClient {
     pub fn with_email_user_id(mut self, email: &str, workos_user_id: &str) -> Self {
         self.email_to_user_id
             .insert(email.to_lowercase(), workos_user_id.to_string());
+        self
+    }
+
+    /// Give the organization [`get_organization_by_id`] returns for
+    /// `organization_id` one more domain in `state`.
+    pub fn with_organization_domain(
+        mut self,
+        organization_id: &str,
+        domain: &str,
+        state: WorkOSDomainState,
+    ) -> Self {
+        let domains = self
+            .organization_domains
+            .entry(organization_id.to_string())
+            .or_default();
+        domains.push(WorkOSOrganizationDomain {
+            object: "organization_domain".to_string(),
+            id: format!("org_domain_mock{}", domains.len()),
+            domain: domain.to_string(),
+            state,
+        });
         self
     }
 
@@ -854,7 +887,11 @@ impl WorkOSClient for MockWorkOSClient {
             external_id: Some(format!("external_{organization_id}")),
             created_at: "2024-01-01T00:00:00.000Z".to_string(),
             updated_at: "2024-01-01T00:00:00.000Z".to_string(),
-            domains: vec![],
+            domains: self
+                .organization_domains
+                .get(organization_id)
+                .cloned()
+                .unwrap_or_default(),
         }))
     }
 
