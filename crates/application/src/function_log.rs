@@ -295,6 +295,7 @@ impl FunctionExecution {
                     database_io_write_bytes: self.usage_stats.database_io_write_bytes,
                     database_read_documents: self.usage_stats.database_read_documents,
                     database_write_documents: self.usage_stats.database_write_documents,
+                    database_write_index_rows: self.usage_stats.database_write_index_rows,
                     storage_read_bytes: self.usage_stats.storage_read_bytes,
                     storage_write_bytes: self.usage_stats.storage_write_bytes,
                     vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,

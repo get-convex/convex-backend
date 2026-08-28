@@ -297,6 +297,11 @@ Schema:
     function
   - `database_write_documents`: number, the number of documents inserted,
     updated, or deleted by the function
+  - `database_write_index_rows`: number, the number of index entries written by
+    the documents counted in `database_write_documents`. Each document write
+    costs one entry per database index on its table, counting the built-in
+    `by_id` and `by_creation_time` indexes, and changing an indexed field costs
+    a second entry to remove the stale one
   - `text_search_query_bytes`: number
   - `text_search_write_query_bytes`: number, these two fields together track
     text search query usage
@@ -344,6 +349,7 @@ Example event for a query:
       "database_io_write_bytes": 0,
       "database_read_documents": 3,
       "database_write_documents": 0,
+      "database_write_index_rows": 0,
       "file_storage_read_bytes": 0,
       "text_search_query_bytes": 0,
       "text_search_write_query_bytes": 0,

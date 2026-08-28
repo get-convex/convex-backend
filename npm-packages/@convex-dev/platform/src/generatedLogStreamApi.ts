@@ -83,6 +83,8 @@ export interface components {
                 /** Format: int64 */
                 database_write_documents: number;
                 /** Format: int64 */
+                database_write_index_rows: number;
+                /** Format: int64 */
                 file_storage_read_bytes: number;
                 /** Format: int64 */
                 file_storage_write_bytes: number;

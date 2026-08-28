@@ -379,6 +379,7 @@
           "databaseIoWriteBytes",
           "databaseReadDocuments",
           "databaseWriteDocuments",
+          "databaseWriteIndexRows",
           "storageReadBytes",
           "storageWriteBytes",
           "vectorIndexReadBytes",
@@ -417,6 +418,11 @@
             "minimum": 0
           },
           "databaseWriteDocuments": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "databaseWriteIndexRows": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

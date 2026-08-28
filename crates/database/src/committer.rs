@@ -983,11 +983,13 @@ impl<RT: Runtime> Committer<RT> {
         for document_update in ordered_updates.iter() {
             let (updates, vector_index_write_size, text_index_write_size) =
                 latest_pending_snapshot.update(document_update, commit_ts)?;
+            let num_index_writes = updates.len();
             index_writes.extend(updates);
             document_writes.push(ValidatedDocumentWrite {
                 commit_ts,
                 id: document_update.id.into(),
                 write: document_update.new_document.clone(),
+                num_index_writes,
                 vector_index_write_size,
                 text_index_write_size,
                 prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
@@ -1308,6 +1310,7 @@ impl<RT: Runtime> Committer<RT> {
             let ValidatedDocumentWrite {
                 id,
                 write: document,
+                num_index_writes,
                 vector_index_write_size,
                 text_index_write_size,
                 ..
@@ -1330,6 +1333,10 @@ impl<RT: Runtime> Committer<RT> {
                 component_path.clone(),
                 &table_name,
                 1,
+                table_name.is_system(),
+            );
+            usage_tracker.track_database_ingress_index_rows(
+                *num_index_writes as u64,
                 table_name.is_system(),
             );
             if let Some(document) = document {
@@ -1437,6 +1444,9 @@ struct ValidatedDocumentWrite {
     commit_ts: Timestamp,
     id: InternalDocumentId,
     write: Option<ResolvedDocument>,
+    /// Entries this write adds to or removes from the table's database
+    /// indexes, including the built-in `by_id` and `by_creation_time`.
+    num_index_writes: usize,
     vector_index_write_size: VectorIndexWriteSize,
     text_index_write_size: TextIndexWriteSize,
     prev_ts: Option<Timestamp>,
