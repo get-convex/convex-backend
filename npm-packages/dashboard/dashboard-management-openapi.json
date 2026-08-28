@@ -3036,6 +3036,33 @@
         }
       }
     },
+    "/member/directory_sync/join": {
+      "post": {
+        "operationId": "join_directory_synced_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinDirectorySyncedTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinDirectorySyncedTeamResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/vercel/potential_teams": {
       "get": {
         "operationId": "list_potential_vercel_teams_dashboard",
@@ -4755,6 +4782,32 @@
       "IsDefaultDeployment": {
         "type": "boolean",
         "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
+      },
+      "JoinDirectorySyncedTeamRequest": {
+        "type": "object",
+        "required": [
+          "proposedTeamId"
+        ],
+        "properties": {
+          "proposedTeamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "JoinDirectorySyncedTeamResponse": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "teamSlug"
+        ],
+        "properties": {
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "teamSlug": {
+            "type": "string"
+          }
+        }
       },
       "ListDirectorySyncGroupsResponse": {
         "type": "object",

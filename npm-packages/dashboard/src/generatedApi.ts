@@ -1685,6 +1685,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/member/directory_sync/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["join_directory_synced_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vercel/potential_teams": {
         parameters: {
             query?: never;
@@ -2141,6 +2157,13 @@ export interface components {
         /** @description Indicates whether the deployment is the default prod deployment for the
          *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
+        JoinDirectorySyncedTeamRequest: {
+            proposedTeamId: components["schemas"]["TeamId"];
+        };
+        JoinDirectorySyncedTeamResponse: {
+            teamId: components["schemas"]["TeamId"];
+            teamSlug: string;
+        };
         ListDirectorySyncGroupsResponse: {
             groups: components["schemas"]["DirectoryGroupResponse"][];
         };
@@ -2774,6 +2797,8 @@ export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOS
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
+export type JoinDirectorySyncedTeamRequest = components['schemas']['JoinDirectorySyncedTeamRequest'];
+export type JoinDirectorySyncedTeamResponse = components['schemas']['JoinDirectorySyncedTeamResponse'];
 export type ListDirectorySyncGroupsResponse = components['schemas']['ListDirectorySyncGroupsResponse'];
 export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
 export type LocalDeploymentAuthResponse = components['schemas']['LocalDeploymentAuthResponse'];
@@ -5247,6 +5272,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DirectorySyncOffersResponse"];
+                };
+            };
+        };
+    };
+    join_directory_synced_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinDirectorySyncedTeamRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinDirectorySyncedTeamResponse"];
                 };
             };
         };
