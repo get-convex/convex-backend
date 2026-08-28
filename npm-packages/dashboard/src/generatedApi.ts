@@ -2592,6 +2592,7 @@ export interface components {
             /** Format: int64 */
             maxChefTokens: number;
             ssoEnabled: boolean;
+            directorySyncEnabled: boolean;
             /** Format: int64 */
             auditLogRetentionDays: number;
             /** Format: int64 */

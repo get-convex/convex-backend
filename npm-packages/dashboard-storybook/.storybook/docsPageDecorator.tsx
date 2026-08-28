@@ -203,6 +203,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     customDomainsEnabled: true,
     customRolesEnabled: false,
     deploymentClassSelectionEnabled: false,
+    directorySyncEnabled: false,
     logStreamingEnabled: true,
     managementApiEnabled: true,
     maxChefTokens: 50_000_000,

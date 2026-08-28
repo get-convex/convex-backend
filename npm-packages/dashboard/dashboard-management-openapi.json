@@ -6185,6 +6185,7 @@
           "maxCloudBackups",
           "maxChefTokens",
           "ssoEnabled",
+          "directorySyncEnabled",
           "auditLogRetentionDays",
           "maxDeployments",
           "managementApiEnabled",
@@ -6267,6 +6268,9 @@
             "minimum": 0
           },
           "ssoEnabled": {
+            "type": "boolean"
+          },
+          "directorySyncEnabled": {
             "type": "boolean"
           },
           "auditLogRetentionDays": {
