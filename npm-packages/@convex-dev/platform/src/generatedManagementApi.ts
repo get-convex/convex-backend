@@ -2610,6 +2610,13 @@ export interface operations {
                     "application/json": components["schemas"]["TeamResponse"];
                 };
             };
+            /** @description Invalid team name or deployment region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Caller is not authorized to create teams */
             403: {
                 headers: {
