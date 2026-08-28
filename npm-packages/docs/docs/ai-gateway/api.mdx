@@ -164,12 +164,35 @@ also use the Anthropic error shape:
 }
 ```
 
+## POST `/v1/responses`
+
+[OpenAI Responses](https://platform.openai.com/docs/api-reference/responses/create)
+body. Model IDs use the `provider/model` form. `model` and `input` are required.
+Set `stream: true` for server-sent events.
+
+```json
+{
+  "model": "openai/gpt-5-mini",
+  "input": "Hello!"
+}
+```
+
+Other OpenAI Responses fields are forwarded. The body must be JSON and no larger
+than 16 MiB. These OpenRouter routing controls are rejected because Convex
+chooses how the request is served: `provider`, `route`, `models`, `transforms`,
+`plugins`, `preset`, and `session_id`.
+
+The endpoint is stateless. OpenRouter rejects `store: true` and a non-null
+`previous_response_id`. Convex replaces upstream response IDs with
+Convex-generated IDs and removes fields that identify the serving provider.
+Caller-supplied `metadata` on a response is preserved.
+
 ## Errors
 
 ```json
 {
   "error": {
-    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /v1/embeddings, POST /v1/messages.",
+    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /v1/embeddings, POST /v1/messages, POST /v1/responses. See https://docs.convex.dev/ai.",
     "type": "invalid_request_error",
     "code": "unsupported_endpoint"
   }
