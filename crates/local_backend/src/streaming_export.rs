@@ -73,6 +73,7 @@ use common::{
             ListSnapshotValue,
             SnapshottingTag,
             StaleTag,
+            SyncId,
             UpToDateTag,
         },
         RepeatableTimestamp,
@@ -318,7 +319,7 @@ pub struct ListActiveSyncsArgs {
 /// The API representation of a sync's recorded progress.
 fn active_data_sync(progress: DataSyncProgressMetadata) -> ActiveDataSync {
     ActiveDataSync {
-        sync_id: progress.sync_id,
+        sync_id: progress.sync_id.into(),
         last_updated: progress.last_updated_ms as i64,
         status: match progress.state {
             DataSyncState::Snapshotting {
@@ -431,7 +432,7 @@ pub async fn list_active_syncs(
     tag = "Data Sync",
     tags = ["pro"],
     params(
-        ("sync_id" = String, Path, description = "`syncId` of the sync, as returned by /data/sync"),
+        ("sync_id" = SyncId, Path, description = "`syncId` of the sync, as returned by /data/sync"),
     ),
     responses((status = 200, body = ActiveDataSync)),
     security(
@@ -444,7 +445,7 @@ pub async fn list_active_syncs(
 #[fastrace::trace]
 pub async fn get_active_sync(
     MtState(st): MtState<LocalAppState>,
-    Path(sync_id): Path<String>,
+    Path(sync_id): Path<SyncId>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
@@ -454,7 +455,7 @@ pub async fn get_active_sync(
 
     let progress = st
         .application
-        .active_data_sync(identity, &sync_id)
+        .active_data_sync(identity, sync_id.as_str())
         .await?
         .context(ErrorMetadata::not_found(
             "DataSyncNotFound",
@@ -651,7 +652,7 @@ async fn _data_sync(
     let response = DataSyncResponse {
         truncates,
         values,
-        sync_id: new_cursor.sync_id().to_string(),
+        sync_id: new_cursor.sync_id().into(),
         status,
         pagination: PaginationMetadata {
             // A data sync is a stream with no end: another page can always be

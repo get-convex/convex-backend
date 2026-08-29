@@ -502,7 +502,7 @@ export interface components {
             /** @description Unique id of the sync, assigned when it started (i.e. when
              *     `/api/v1/data/sync` was called without a cursor) and stable across its
              *     pages. */
-            syncId: string;
+            syncId: components["schemas"]["SyncId"];
             /**
              * Format: int64
              * @description Wall-clock time of the last `/data/sync` call made by this sync, as a
@@ -806,7 +806,7 @@ export interface components {
             /** @description Unique id of the sync, assigned on the first page and stable across
              *     the sync's lifetime. Identifies this sync in `/data/sync/{syncId}` and
              *     `/data/list_active_syncs`. */
-            syncId: string;
+            syncId: components["schemas"]["SyncId"];
             /** @description Pagination information. The data sync endpoint is an infinite streaming
              *     endpoint, so `nextCursor` is always present and `hasMore` is always
              *     `true` — another page can always be fetched with the cursor. Use
@@ -1112,6 +1112,9 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        /** @description Unique id of a data sync, assigned by `/api/v1/data/sync` on the sync's
+         *     first page and stable across its lifetime. */
+        SyncId: string;
         TableSelection: ({
             /** @description Whether columns not explicitly listed are exported */
             _other: components["schemas"]["InclusionDefault"];
@@ -1336,6 +1339,7 @@ export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStre
 export type SeedStatusResponse = components['schemas']['SeedStatusResponse'];
 export type Selection = components['schemas']['Selection'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
+export type SyncId = components['schemas']['SyncId'];
 export type TableSelection = components['schemas']['TableSelection'];
 export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
@@ -1810,7 +1814,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description `syncId` of the sync, as returned by /data/sync */
-                sync_id: string;
+                sync_id: components["schemas"]["SyncId"];
             };
             cookie?: never;
         };

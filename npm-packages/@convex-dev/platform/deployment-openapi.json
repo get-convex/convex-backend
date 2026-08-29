@@ -952,7 +952,7 @@
             "description": "`syncId` of the sync, as returned by /data/sync",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/SyncId"
             }
           }
         ],
@@ -1002,7 +1002,7 @@
         ],
         "properties": {
           "syncId": {
-            "type": "string",
+            "$ref": "#/components/schemas/SyncId",
             "description": "Unique id of the sync, assigned when it started (i.e. when\n`/api/v1/data/sync` was called without a cursor) and stable across its\npages."
           },
           "lastUpdated": {
@@ -1889,7 +1889,7 @@
             "description": "Documents created, updated, or deleted in this page."
           },
           "syncId": {
-            "type": "string",
+            "$ref": "#/components/schemas/SyncId",
             "description": "Unique id of the sync, assigned on the first page and stable across\nthe sync's lifetime. Identifies this sync in `/data/sync/{syncId}` and\n`/data/list_active_syncs`."
           },
           "pagination": {
@@ -2838,6 +2838,10 @@
             }
           }
         }
+      },
+      "SyncId": {
+        "type": "string",
+        "description": "Unique id of a data sync, assigned by `/api/v1/data/sync` on the sync's\nfirst page and stable across its lifetime."
       },
       "TableSelection": {
         "oneOf": [

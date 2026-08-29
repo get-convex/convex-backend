@@ -14,6 +14,7 @@ use common::types::streaming_export::{
     selection::Selection,
     ActiveDataSyncStatus,
     DataSyncStatus,
+    SyncId,
 };
 use derive_more::{
     Display,
@@ -290,7 +291,7 @@ const PROGRESS_LOG_INTERVAL: Duration = Duration::from_secs(15);
 ///
 /// Progress is informational, so a failure to read it is logged and the sync
 /// carries on.
-async fn log_progress(source: &impl Source, sync_id: &str) {
+async fn log_progress(source: &impl Source, sync_id: &SyncId) {
     let listing = match source.list_active_syncs().await {
         Ok(listing) => listing,
         Err(e) => {
@@ -300,7 +301,7 @@ async fn log_progress(source: &impl Source, sync_id: &str) {
             return;
         },
     };
-    let Some(sync) = listing.syncs.iter().find(|sync| sync.sync_id == sync_id) else {
+    let Some(sync) = listing.syncs.iter().find(|sync| &sync.sync_id == sync_id) else {
         return;
     };
     let progress = match &sync.status {
