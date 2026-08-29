@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/ai-sdk-provider",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "AI SDK provider for the Convex AI gateway",
   "license": "Apache-2.0",
   "type": "module",
@@ -14,7 +14,8 @@
     "test": "vitest run --typecheck",
     "test:types": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
+    "prepack": "node src/scripts/publish.mjs --check",
+    "publish-package": "node src/scripts/publish.mjs"
   },
   "files": [
     "dist",
@@ -36,11 +37,13 @@
     "selfLink": false
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.40",
+    "@ai-sdk/openai": "4.0.45",
     "@ai-sdk/openai-compatible": "3.0.14"
   },
   "peerDependencies": {
     "ai": "^7.0.0",
-    "convex": "^1.44.0"
+    "convex": "^1.45.0"
   },
   "engines": {
     "node": ">=22"

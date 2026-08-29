@@ -65,14 +65,15 @@ const agent = new Agent(components.agent, {
 ```
 
 [Workflows](/agents/workflows.mdx) that call `agent.generateText` use that same
-model. For the [RAG component](/agents/rag.mdx), call `/v1/embeddings` through
-an OpenAI-compatible embedding provider.
+model. For the [RAG component](/agents/rag.mdx), use
+`convexGateway.embeddingModel(...)` as its embedding model.
 
 ## Vercel AI SDK
 
-`convexGateway` works with `generateText` and `streamText` from the
-[Vercel AI SDK](https://ai-sdk.dev/). It needs `convex` 1.45+ and AI SDK 7, and
-runs in the default runtime and [Node.js actions](/functions/runtimes.mdx):
+`convexGateway` works with `generateText`, `streamText`, `embed`, and
+`embedMany` from the [Vercel AI SDK](https://ai-sdk.dev/). It needs `convex`
+1.45+ and AI SDK 7, and runs in the default runtime and
+[Node.js actions](/functions/runtimes.mdx):
 
 ```sh
 npm install @convex-dev/ai-sdk-provider ai
@@ -109,6 +110,30 @@ const result = streamText({
 for await (const chunk of result.textStream) {
   console.log(chunk);
 }
+```
+
+### Choose a model interface
+
+For text generation, start with `convexGateway(model)`. It works across model
+providers and is the recommended default. Use the native Messages or Responses
+interface only when you need endpoint-specific provider features:
+
+```ts
+const messagesModel = convexGateway.messages("anthropic/claude-sonnet-4.5");
+const responsesModel = convexGateway.responses("openai/gpt-5");
+```
+
+Create embeddings with `embedMany`. The AI SDK automatically splits batches
+larger than the gateway's 512-input limit:
+
+```ts
+import { embedMany } from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const { embeddings } = await embedMany({
+  model: convexGateway.embeddingModel("openai/text-embedding-3-small"),
+  values: ["hello", "world"],
+});
 ```
 
 ## Manual fetch
