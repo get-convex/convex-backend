@@ -106,6 +106,7 @@ use futures::{
     FutureExt,
 };
 use keybroker::{
+    DeploymentOp,
     Identity,
     KeyBroker,
 };
@@ -158,6 +159,7 @@ use node_executor::{
     ExecuteRequest,
     NodeActions,
 };
+use roles::RequireDeploymentOp;
 use serde_json::Value as JsonValue;
 use storage::Storage;
 use sync_types::{
@@ -742,9 +744,21 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     /// claims from Conductor's gRPC handler.
     pub async fn mint_ai_gateway_jwt(
         &self,
-        _identity: &Identity,
+        identity: &Identity,
         attribution: AttributionClaims,
     ) -> anyhow::Result<String> {
+        match identity {
+            // Deploy keys and dashboard members carry an op set, from the key's
+            // `allowed_operations` or the member's custom roles, so hold them to
+            // it.
+            Identity::DeploymentAdmin(_) | Identity::ActingUser(..) => {
+                identity.require_operation(DeploymentOp::UseAiGateway)?
+            },
+            // End users authenticate against the app's own auth config and have
+            // no op set. Gating them would reject the ordinary case of an app
+            // user triggering an action that calls the gateway.
+            Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => {},
+        }
         let mut tx = self.database.begin_system().await?;
         let ai_gateway_disabled = BackendInfoModel::new(&mut tx)
             .get()

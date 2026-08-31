@@ -221,6 +221,7 @@ pub const ALL_DEPLOYMENT_OPS: &[DeploymentOp] = &[
     DeploymentOp::ViewUsageLimits,
     DeploymentOp::WriteUsageLimits,
     DeploymentOp::ViewUsage,
+    DeploymentOp::UseAiGateway,
 ];
 
 /// Authoritative mapping from a keybroker [`DeploymentOp`] to the

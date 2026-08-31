@@ -999,6 +999,9 @@ pub enum RoleStatementAction {
     #[serde(rename = "deployment:usage:view")]
     #[strum(serialize = "deployment:usage:view")]
     ViewDeploymentUsage,
+    /// Mint an AI gateway credential from an action running on the
+    /// deployment. Only checked for identities that carry an op set: deploy
+    /// keys and dashboard members.
     #[serde(rename = "deployment:aiGateway:use")]
     #[strum(serialize = "deployment:aiGateway:use")]
     UseAiGateway,
