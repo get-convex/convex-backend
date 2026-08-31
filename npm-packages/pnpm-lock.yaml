@@ -1494,6 +1494,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.0.0
         version: 18.3.7(@types/react@18.3.26)
+      '@types/serve-handler':
+        specifier: ~6.1.4
+        version: 6.1.4
       '@vitest/browser-playwright':
         specifier: ^4.1.10
         version: 4.1.10(bufferutil@4.0.9)(playwright@1.56.1)(vite@6.4.3(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.9.0))(vitest@4.1.10)
@@ -1518,6 +1521,9 @@ importers:
       playwright:
         specifier: ^1.56.1
         version: 1.56.1
+      serve-handler:
+        specifier: ~6.1.6
+        version: 6.1.7
       sharp:
         specifier: ~0.34.0
         version: 0.34.5

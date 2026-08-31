@@ -2,6 +2,32 @@
   "extends": ["//"],
   "tasks": {
     "build": {
+      // Every workspace dependency of `dashboard`, but not `dashboard` itself:
+      // the Storybook build compiles the dashboard's source, so it needs those
+      // dists, while the dashboard's own `next build` takes ~7 minutes and
+      // produces nothing this reads. Inheriting `^build` would run it.
+      "dependsOn": [
+        "@convex-dev/design-system#build",
+        "@convex-dev/platform#build",
+        "convex#build",
+        "convex-analytics#build",
+        "dashboard-common#build",
+        "shapes#build",
+        "system-udfs#build"
+      ],
+      // The stories and the pages they render live in `dashboard`, which the
+      // list above deliberately leaves out, so hash that package here or turbo
+      // serves a build that predates it — its sources, its configs, and its
+      // package.json, since a dependency bump changes what this compiles
+      // against. `dashboard-common` and the design system are compiled from
+      // source too, but they are built above, so their task hashes already
+      // cover their sources.
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "../dashboard/**",
+        "!../dashboard/.next/**",
+        "!../dashboard/node_modules/**"
+      ],
       "outputs": ["storybook-static/**"]
     }
   }

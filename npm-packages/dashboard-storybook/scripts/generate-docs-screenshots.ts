@@ -1,4 +1,6 @@
 import * as fs from "node:fs";
+import * as http from "node:http";
+import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
@@ -8,6 +10,7 @@ import pixelmatch from "pixelmatch";
 import chalk from "chalk";
 import getPort from "get-port";
 import ora from "ora";
+import serveHandler from "serve-handler";
 
 const SCRIPT_DIR = path.dirname(new URL(import.meta.url).pathname);
 const PACKAGE_DIR = path.resolve(SCRIPT_DIR, "..");
@@ -19,6 +22,8 @@ const MANIFEST_PATH = path.resolve(
   PACKAGE_DIR,
   "../docs/src/generated/screenshotManifest.ts",
 );
+const REPO_DIR = path.resolve(PACKAGE_DIR, "../..");
+const BUILD_DIR = path.join(PACKAGE_DIR, "storybook-static");
 
 // Stories render absolute times via `toLocaleString`/`Intl.DateTimeFormat`, and
 // timezone abbreviations from the browser's resolved timezone, so pin both to
@@ -70,57 +75,94 @@ async function runWithConcurrency<T>(
   return results;
 }
 
-/** Start the Storybook dev server and wait until it responds, returns { close } */
-async function startStorybookDevServer(
-  port: number,
-): Promise<{ close: () => void }> {
+/**
+ * Build the static Storybook that the capture reads from.
+ *
+ * Going through turbo rather than calling `storybook build` keeps this a no-op
+ * when nothing the build reads has changed, and builds the workspace dists it
+ * needs on the way (see this package's turbo.json).
+ */
+async function buildStorybook(): Promise<void> {
   const proc = spawn(
-    "npx",
-    ["storybook", "dev", "-p", String(port), "--no-open", "--quiet"],
-    { cwd: PACKAGE_DIR, stdio: "ignore" },
+    "just",
+    ["turbo", "run", "build", "--filter=dashboard-storybook"],
+    { cwd: REPO_DIR, stdio: ["ignore", "pipe", "pipe"] },
   );
+
+  // Buffered rather than inherited: turbo's output would otherwise scroll the
+  // spinner away on every run, and it only carries anything worth reading when
+  // the build fails, where it is the only description of what went wrong.
+  let output = "";
+  proc.stdout?.on("data", (chunk) => (output += chunk));
+  proc.stderr?.on("data", (chunk) => (output += chunk));
 
   await new Promise<void>((resolve, reject) => {
     proc.on("error", reject);
-    proc.on("exit", (code) => {
-      if (code !== null && code !== 0) {
-        reject(new Error(`Storybook dev server exited with code ${code}`));
+    // `close` rather than `exit`, which can fire while output is still buffered.
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(`Storybook build exited with code ${code}\n\n${output}`),
+        );
       }
     });
-
-    const url = `http://127.0.0.1:${port}/index.json`;
-    const poll = async () => {
-      try {
-        const res = await fetch(url);
-        if (res.ok) {
-          resolve();
-          return;
-        }
-      } catch {
-        /* not ready yet */
-      }
-      setTimeout(poll, 500);
-    };
-    poll();
   });
-
-  return { close: () => proc.kill() };
 }
 
-// 1. Find an available port and start the Storybook dev server
-const port = await getPort();
-let spinner = ora(`Starting Storybook dev server on port ${port}...`).start();
-const { close: closeServer } = await startStorybookDevServer(port);
-spinner.succeed(`Storybook dev server started on port ${port}`);
+/** Serve the built Storybook off disk, returns { close } */
+async function startStaticServer(port: number): Promise<{ close: () => void }> {
+  const server = http.createServer((req, res) =>
+    serveHandler(req, res, { public: BUILD_DIR, cleanUrls: false }),
+  );
 
-// 2. Fetch stories from the running dev server
+  await new Promise<void>((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(port, "127.0.0.1", resolve);
+  });
+
+  return { close: () => server.close() };
+}
+
+/**
+ * `process.exit()` drops writes still queued on stderr, truncating the failure
+ * log when stderr is a pipe (CI). Wait for the queue to flush first.
+ */
+async function exitWithFailure(): Promise<never> {
+  await new Promise<void>((resolve) => {
+    process.stderr.write("", () => resolve());
+  });
+  process.exit(1);
+}
+
+// 1. Build the Storybook, then serve it off disk. Capturing against the dev
+// server instead would make every page load wait on Vite compiling modules on
+// demand, which both slows the run down and delays each story's render enough
+// to change what its `play` function races against.
+let spinner = ora("Building Storybook...").start();
+try {
+  await buildStorybook();
+} catch (error) {
+  spinner.fail("Storybook build failed");
+  console.error(error instanceof Error ? error.message : error);
+  await exitWithFailure();
+}
+spinner.succeed("Storybook built");
+
+const port = await getPort();
+spinner = ora(`Serving Storybook on port ${port}...`).start();
+const { close: closeServer } = await startStaticServer(port);
+spinner.succeed(`Storybook served on port ${port}`);
+
+// 2. Fetch stories from the running server
 spinner = ora("Fetching stories...").start();
 const indexUrl = `http://127.0.0.1:${port}/index.json`;
 const indexRes = await fetch(indexUrl);
 if (!indexRes.ok) {
   spinner.fail(`Failed to fetch ${indexUrl}: ${indexRes.status}`);
   closeServer();
-  process.exit(1);
+  await exitWithFailure();
 }
 const index = (await indexRes.json()) as {
   entries: Record<
@@ -170,7 +212,14 @@ const results: {
 }[] = [];
 
 // 4. Screenshot each story in light and dark mode
-const CONCURRENCY = 5;
+// Half the cores, because each capture also encodes and diffs its image in this
+// process, so the browsers can't have all of them. Giving a context to every
+// core is slightly faster but measurably less stable: over three runs each on a
+// 16-core machine, 8 took ~55s and 12 ~53s with one run of the three differing,
+// while 16 took ~48s and every run differed. The added CPU contention widens the
+// window in which a story's header settles after the command palette has already
+// measured where to anchor its menu.
+const CONCURRENCY = Math.max(4, Math.floor(os.availableParallelism() / 2));
 const total = docsStories.length * 2;
 let completed = 0;
 const inProgress = new Set<string>();
@@ -213,11 +262,11 @@ async function captureScreenshot(
     // Load the story in a page of the given context.
     const openStoryPage = async (ctx: NonNullable<typeof context>) => {
       const p = await ctx.newPage();
-      // Neither of these ever settles, which would keep the `networkidle` wait
-      // below from ever firing: Storybook serves its dev-server status as a
-      // long-poll, and NextAuth's session route has no server behind it under
-      // Storybook. Both globs must stay this narrow — `**/api/**` would also
-      // match the dashboard's own `src/api/*.ts` modules that Vite serves.
+      // Nothing answers either route under Storybook — there is no NextAuth
+      // server, and the status endpoint belongs to the dev server. Fail them
+      // outright so the app stops rather than retrying against 404s. Both globs
+      // must stay this narrow — `**/api/**` would also match the dashboard's
+      // own `src/api/*.ts` modules.
       await p.route("**/api/status", (route) => route.abort());
       await p.route("**/api/auth/**", (route) => route.abort());
       // Disable CSS animations and cursor blinking to ensure stable screenshots
