@@ -19,7 +19,6 @@ use const_format::formatcp;
 pub(super) use persistence::{
     internal_doc_id_param,
     internal_id_param,
-    parse_row,
 };
 pub use persistence::{
     Persistence,

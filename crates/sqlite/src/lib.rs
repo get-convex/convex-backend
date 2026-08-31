@@ -28,10 +28,16 @@ use common::{
         StartIncluded,
     },
     persistence::{
+        row_index_retention::{
+            delete_expired_entries,
+            IndexRowPersistence,
+        },
         ConflictStrategy,
         DocumentLogEntry,
         DocumentPrevTsQuery,
         DocumentStream,
+        IndexRetentionProgress,
+        IndexRetentionRequest,
         IndexStream,
         LatestDocument,
         Persistence,
@@ -245,6 +251,31 @@ ORDER BY B.key {order}
 }
 
 #[async_trait]
+impl IndexRowPersistence for SqlitePersistence {
+    async fn delete_index_rows(&self, expired_rows: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        let mut inner = self.inner.lock();
+        let tx = inner.connection.transaction()?;
+        let mut delete_index_query = tx.prepare_cached(DELETE_INDEX)?;
+        let mut count_deleted = 0;
+
+        for IndexEntry {
+            index_id,
+            key_prefix,
+            ts,
+            ..
+        } in expired_rows
+        {
+            count_deleted +=
+                delete_index_query
+                    .execute(params![&index_id.0[..], &u64::from(ts), key_prefix,])?;
+        }
+        drop(delete_index_query);
+        tx.commit()?;
+        Ok(count_deleted)
+    }
+}
+
+#[async_trait]
 impl Persistence for SqlitePersistence {
     fn is_fresh(&self) -> bool {
         self.inner.lock().newly_created
@@ -340,65 +371,16 @@ impl Persistence for SqlitePersistence {
         Ok(())
     }
 
-    async fn load_index_chunk(
-        &self,
-        cursor: Option<IndexEntry>,
-        chunk_size: usize,
-    ) -> anyhow::Result<Vec<IndexEntry>> {
+    async fn has_index_entries(&self) -> anyhow::Result<bool> {
         let connection = &self.inner.lock().connection;
-        let mut walk_indexes = connection.prepare(WALK_INDEXES)?;
-        let row_iter = walk_indexes.query_map([], |row| {
-            let index_id: Vec<u8> = row.get(0)?;
-            let key: Vec<u8> = row.get(1)?;
-            let ts = Timestamp::try_from(row.get::<_, u64>(2)?).expect("timestamp out of bounds");
-            let deleted = row.get::<_, u32>(3)? != 0;
-            Ok((index_id, key, ts, deleted))
-        })?;
-        let rows = row_iter
-            .map(|row| {
-                let (index_id, key, ts, deleted) = row?;
-                let index_row = IndexEntry {
-                    index_id: IndexId(index_id.try_into()?),
-                    key_prefix: key.clone(),
-                    key_suffix: None,
-                    key_sha256: key,
-                    ts,
-                    deleted,
-                };
-                Ok(index_row)
-            })
-            .filter(move |index_entry| match cursor {
-                None => true,
-                Some(ref cursor) => match index_entry {
-                    Ok(index_entry) => index_entry > cursor,
-                    Err(_) => true,
-                },
-            })
-            .take(chunk_size)
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        Ok(rows)
+        Ok(connection.prepare(HAS_INDEX_ENTRIES)?.exists([])?)
     }
 
-    async fn delete_index_entries(&self, expired_rows: Vec<IndexEntry>) -> anyhow::Result<usize> {
-        let mut inner = self.inner.lock();
-        let tx = inner.connection.transaction()?;
-        let mut delete_index_query = tx.prepare_cached(DELETE_INDEX)?;
-        let mut count_deleted = 0;
-
-        for IndexEntry {
-            index_id,
-            key_prefix,
-            ts,
-            ..
-        } in expired_rows
-        {
-            count_deleted +=
-                delete_index_query
-                    .execute(params![&index_id.0[..], &u64::from(ts), key_prefix,])?;
-        }
-        drop(delete_index_query);
-        tx.commit()?;
-        Ok(count_deleted)
+    async fn reclaim_index_history(
+        &self,
+        request: IndexRetentionRequest<'_>,
+    ) -> anyhow::Result<IndexRetentionProgress> {
+        delete_expired_entries(self, request).await
     }
 
     async fn delete(
@@ -735,8 +717,7 @@ const INSERT_INDEX: &str = "INSERT INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const INSERT_OVERWRITE_INDEX: &str = "INSERT OR REPLACE INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const WRITE_PERSISTENCE_GLOBAL: &str = "INSERT OR REPLACE INTO persistence_globals VALUES (?, ?)";
 
-const WALK_INDEXES: &str =
-    "SELECT index_id, key, ts, deleted FROM indexes ORDER BY index_id ASC, key ASC, ts ASC";
+const HAS_INDEX_ENTRIES: &str = "SELECT 1 FROM indexes LIMIT 1";
 
 const DELETE_INDEX: &str = "DELETE FROM indexes WHERE index_id = ? AND ts <= ? AND key = ?";
 

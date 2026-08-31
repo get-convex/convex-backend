@@ -23,7 +23,6 @@ pub(crate) use super::sql::{
 use super::{
     internal_doc_id_param,
     internal_id_param,
-    parse_row,
     sql,
     Persistence,
     Reader,
@@ -60,26 +59,21 @@ pub(crate) async fn write_index_chunk(
     Ok(())
 }
 
-/// Loads a chunk of index entries for retention.
-pub(crate) async fn load_index_chunk<RT: Runtime>(
-    p: &Persistence<RT>,
-    cursor: Option<IndexEntry>,
-    chunk_size: usize,
-) -> anyhow::Result<Vec<IndexEntry>> {
-    let mut client = p.read_pool.acquire("load_index_chunk", &p.db_name).await?;
-    let stmt = sql::load_indexes_page(p.multitenant);
-    let mut params = Reader::<RT>::_index_cursor_params(cursor.as_ref());
+/// Whether any index entries have been written yet.
+pub(crate) async fn has_index_entries<RT: Runtime>(p: &Persistence<RT>) -> anyhow::Result<bool> {
+    let mut client = p.read_pool.acquire("has_index_entries", &p.db_name).await?;
+    let mut params = vec![];
     if p.multitenant {
         params.push(p.instance_name.to_string().into());
     }
-    params.push((chunk_size as i64).into());
-    client
-        .query_collect(stmt, params, chunk_size, |mut row| parse_row(&mut row))
-        .await
+    Ok(client
+        .query_optional(sql::has_index_entries(p.multitenant), params)
+        .await?
+        .is_some())
 }
 
 /// Deletes the given expired index entries.
-pub(crate) async fn delete_index_entries<RT: Runtime>(
+pub(crate) async fn delete_index_rows<RT: Runtime>(
     p: &Persistence<RT>,
     mut expired_entries: Vec<IndexEntry>,
 ) -> anyhow::Result<usize> {

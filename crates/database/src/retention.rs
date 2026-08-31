@@ -47,10 +47,6 @@ use common::{
         LeaseLostError,
     },
     fastrace_helpers::get_sampled_span,
-    index::{
-        IndexEntry,
-        SplitKey,
-    },
     interval::Interval,
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
@@ -61,26 +57,20 @@ use common::{
         DOCUMENT_RETENTION_DELETE_PARALLEL,
         DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
         INDEX_RETENTION_DELAY,
-        INDEX_RETENTION_DELETE_CHUNK,
-        INDEX_RETENTION_DELETE_PARALLEL,
         MAX_RETENTION_DELAY_SECONDS,
         RETENTION_CHECKPOINT_PERIOD_SECS,
-        RETENTION_DELETE_BATCH,
     },
     persistence::{
         new_static_repeatable_recent,
         DocumentLogEntry,
+        IndexRetentionProgress,
+        IndexRetentionRequest,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
-        RepeatablePersistence,
         RetentionValidator,
         TimestampRange,
-    },
-    persistence_helpers::{
-        DocumentRevision,
-        RevisionPair,
     },
     query::Order,
     runtime::{
@@ -90,7 +80,6 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    sha256::Sha256,
     shutdown::ShutdownSignal,
     sync::split_rw_lock::{
         new_split_rw_lock,
@@ -140,7 +129,6 @@ use value::InternalDocumentId;
 
 use crate::{
     metrics::{
-        index_retention_delete_chunk_timer,
         index_retention_delete_timer,
         latest_min_document_snapshot_timer,
         latest_min_snapshot_timer,
@@ -152,9 +140,7 @@ use crate::{
         log_index_retention_cursor_age,
         log_index_retention_cursor_lag,
         log_index_retention_no_cursor,
-        log_index_retention_scanned_document,
         log_retention_documents_deleted,
-        log_retention_expired_index_entry,
         log_retention_index_entries_deleted,
         log_retention_ts_advanced,
         log_snapshot_verification_age,
@@ -173,9 +159,9 @@ pub enum RetentionType {
     Index,
 }
 
-/// Which caller drove the shared index-retention delete path, recorded as a
-/// metric label so the catch-up deletes an index backfill runs can be told
-/// apart from the ongoing background retention worker.
+/// Which caller drove index retention, recorded as a metric label so the
+/// catch-up deletes an index backfill runs can be told apart from the ongoing
+/// background retention worker.
 #[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum IndexRetentionSource {
@@ -660,112 +646,13 @@ impl LeaderRetentionWorkers {
         }
     }
 
-    /// Finds expired index entries in the index table and returns a tuple of
-    /// the form (scanned_index_ts, expired_index_entry)
-    #[try_stream(ok = (Timestamp, IndexEntry), error = anyhow::Error)]
-    async fn expired_index_entries(
-        reader: RepeatablePersistence,
-        cursor: RepeatableTimestamp,
-        min_snapshot_ts: RepeatableTimestamp,
-        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
-    ) {
-        tracing::trace!(
-            "expired_index_entries: reading expired index entries from {cursor:?} to {:?}",
-            min_snapshot_ts,
-        );
-        let mut revs = reader.load_revision_pairs(
-            None, /* tablet_id */
-            TimestampRange::new(*cursor..*min_snapshot_ts),
-            Order::Asc,
-        );
-        while let Some(rev) = revs.try_next().await? {
-            // Prev revs are the documents we are deleting.
-            // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
-            // the prev rev's ts, and a tombstone at the current rev's ts if
-            // the document was deleted or its index key changed.
-            let RevisionPair {
-                id,
-                rev:
-                    DocumentRevision {
-                        ts,
-                        document: maybe_doc,
-                    },
-                prev_rev,
-            } = rev;
-            // If there is no prev rev, there's nothing to delete.
-            // If this happens for a tombstone, it means the document was created and
-            // deleted in the same transaction, with no index rows.
-            let Some(prev_rev) = prev_rev else {
-                log_index_retention_scanned_document(maybe_doc.is_none(), false);
-                continue;
-            };
-            let DocumentRevision {
-                ts: prev_rev_ts,
-                document: Some(prev_rev),
-            } = prev_rev
-            else {
-                // This is unexpected: if there is a prev_ts, there should be a prev_rev.
-                let mut e = anyhow::anyhow!(
-                    "Skipping deleting indexes for {id}@{ts}. It has a prev_ts of {prev_ts} but \
-                     no previous revision.",
-                    prev_ts = prev_rev.ts
-                );
-                report_error(&mut e).await;
-                log_index_retention_scanned_document(maybe_doc.is_none(), false);
-                continue;
-            };
-            log_index_retention_scanned_document(maybe_doc.is_none(), true);
-            for (index_id, (_, index_fields)) in all_indexes
-                .iter()
-                .filter(|(_, (index, _))| *index.table() == id.table())
-            {
-                let index_key = prev_rev.index_key(index_fields).to_bytes();
-                let key_sha256 = Sha256::hash(&index_key);
-                let key = SplitKey::new(index_key.clone().0);
-                log_retention_expired_index_entry(false, false);
-                yield (
-                    ts,
-                    IndexEntry {
-                        index_id: *index_id,
-                        key_prefix: key.prefix.clone(),
-                        key_suffix: key.suffix.clone(),
-                        key_sha256: key_sha256.to_vec(),
-                        ts: prev_rev_ts,
-                        deleted: false,
-                    },
-                );
-                match maybe_doc.as_ref() {
-                    Some(doc) => {
-                        let next_index_key = doc.index_key(index_fields).to_bytes();
-                        if index_key == next_index_key {
-                            continue;
-                        }
-                        log_retention_expired_index_entry(true, true);
-                    },
-                    None => log_retention_expired_index_entry(true, false),
-                }
-                yield (
-                    ts,
-                    IndexEntry {
-                        index_id: *index_id,
-                        key_prefix: key.prefix,
-                        key_suffix: key.suffix,
-                        key_sha256: key_sha256.to_vec(),
-                        ts,
-                        deleted: true,
-                    },
-                );
-            }
-        }
-    }
-
     /// Deletes some index entries based on `bounds` which identify what may be
-    /// deleted. Returns a pair of the new cursor and the total expired index
-    /// entries processed. The cursor is a timestamp which has been
-    /// fully deleted, along with all prior timestamps. The total expired index
-    /// entries is the number of index entries we found were expired, not
-    /// necessarily the total we deleted or wanted to delete, though they're
-    /// correlated.
+    /// deleted. Returns an [`IndexRetentionProgress`] with the new cursor and
+    /// the total expired index entries processed. The cursor is a timestamp
+    /// which has been fully deleted, along with all prior timestamps. The
+    /// total expired index entries is the number of index entries we found
+    /// were expired, not necessarily the total we deleted or wanted to
+    /// delete, though they're correlated.
     #[fastrace::trace]
     async fn delete(
         min_snapshot_ts: RepeatableTimestamp,
@@ -774,65 +661,24 @@ impl LeaderRetentionWorkers {
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
         source: IndexRetentionSource,
-    ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
+    ) -> anyhow::Result<IndexRetentionProgress> {
         if *min_snapshot_ts == Timestamp::MIN {
-            return Ok((cursor, 0));
+            return Ok(IndexRetentionProgress {
+                cursor,
+                expired_entries: 0,
+                deleted_rows: 0,
+            });
         }
-        // The number of rows we delete in persistence.
-        let mut total_deleted_rows: usize = 0;
-        // The number of expired entries we read from chunks.
-        let mut total_expired_entries = 0;
-        let mut new_cursor = cursor;
-
-        let reader = persistence.reader();
-        let snapshot_ts = min_snapshot_ts;
-        let reader = RepeatablePersistence::new(reader, snapshot_ts, retention_validator.clone());
-
-        tracing::trace!("delete: about to grab chunks");
-        let expired_chunks =
-            Self::expired_index_entries(reader, cursor, min_snapshot_ts, all_indexes)
-                .try_chunks2(*INDEX_RETENTION_DELETE_CHUNK);
-        pin_mut!(expired_chunks);
-        while let Some(delete_chunk) = expired_chunks.try_next().await? {
-            tracing::trace!(
-                "delete: got a chunk and finished waiting {:?}",
-                delete_chunk.len()
-            );
-            total_expired_entries += delete_chunk.len();
-            let results = try_join_all(
-                Self::partition_chunk(
-                    delete_chunk,
-                    INDEX_RETENTION_DELETE_CHUNK.div_ceil(*INDEX_RETENTION_DELETE_PARALLEL),
-                )
-                .into_iter()
-                .map(|delete_chunk| {
-                    Self::delete_chunk(delete_chunk, persistence.clone(), *new_cursor, source)
-                }),
-            )
+        let progress = persistence
+            .reclaim_index_history(IndexRetentionRequest {
+                min_snapshot_ts,
+                cursor,
+                all_indexes,
+                retention_validator,
+            })
             .await?;
-            let (chunk_new_cursors, deleted_rows): (Vec<_>, Vec<_>) = results.into_iter().unzip();
-            // We have successfully deleted all of delete_chunk, so update
-            // total_deleted_rows and new_cursor to reflect the deletions.
-            total_deleted_rows += deleted_rows.into_iter().sum::<usize>();
-            if let Some(max_new_cursor) = chunk_new_cursors.into_iter().max() {
-                new_cursor = snapshot_ts.prior_ts(max_new_cursor)?;
-            }
-            if new_cursor > cursor && total_expired_entries > *RETENTION_DELETE_BATCH {
-                tracing::debug!(
-                    "delete: returning early with {new_cursor:?}, total expired index entries \
-                     read: {total_expired_entries:?}, total rows deleted: {total_deleted_rows:?}"
-                );
-                // we're not done deleting everything.
-                return Ok((new_cursor, total_expired_entries));
-            }
-        }
-        tracing::debug!(
-            "delete: finished loop, returning {:?}",
-            min_snapshot_ts.pred()
-        );
-        min_snapshot_ts
-            .pred()
-            .map(|timestamp| (timestamp, total_expired_entries))
+        log_retention_index_entries_deleted(progress.deleted_rows, source);
+        Ok(progress)
     }
 
     pub async fn delete_all_no_checkpoint(
@@ -845,7 +691,10 @@ impl LeaderRetentionWorkers {
     ) -> anyhow::Result<()> {
         let mut last_logged = Instant::now();
         while cursor_ts.succ()? < *min_snapshot_ts {
-            let (new_cursor_ts, _) = Self::delete(
+            let IndexRetentionProgress {
+                cursor: new_cursor_ts,
+                ..
+            } = Self::delete(
                 min_snapshot_ts,
                 persistence.clone(),
                 cursor_ts,
@@ -1045,37 +894,6 @@ impl LeaderRetentionWorkers {
             .map(|timestamp| (timestamp, total_expired_entries))
     }
 
-    /// Partitions `IndexEntry`s into parts of size `target_len`.
-    ///
-    /// Additionally guarantees that each index key exists in only one part,
-    /// since `Persistence::delete_index_entries` assumes that it's called
-    /// monotonically for each index key (it deletes _all_ prior timestamps of
-    /// the provided entries). In this case the parts can be longer than the
-    /// target length.
-    fn partition_chunk(
-        mut to_partition: Vec<(Timestamp, IndexEntry)>,
-        target_len: usize,
-    ) -> Vec<Vec<(Timestamp, IndexEntry)>> {
-        // Group by primary key so that nearby entries land in the same part.
-        to_partition.sort_unstable_by(|a, b| {
-            Ord::cmp(
-                &(&a.1.index_id, &a.1.key_prefix, &a.1.key_sha256, &a.1.ts),
-                &(&b.1.index_id, &b.1.key_prefix, &b.1.key_sha256, &b.1.ts),
-            )
-        });
-        let mut parts = vec![vec![]];
-        for chunk in to_partition.chunk_by(|a, b| {
-            (&a.1.index_id, &a.1.key_prefix, &a.1.key_sha256)
-                == (&b.1.index_id, &b.1.key_prefix, &b.1.key_sha256)
-        }) {
-            if parts.last().unwrap().len() >= target_len {
-                parts.push(vec![]);
-            }
-            parts.last_mut().unwrap().extend_from_slice(chunk);
-        }
-        parts
-    }
-
     /// Partitions documents into DOCUMENT_RETENTION_DELETE_PARALLEL parts where
     /// each document id only exists in one part
     fn partition_document_chunk(
@@ -1095,45 +913,6 @@ impl LeaderRetentionWorkers {
     }
 
     #[fastrace::trace]
-    async fn delete_chunk(
-        delete_chunk: Vec<(Timestamp, IndexEntry)>,
-        persistence: Arc<dyn Persistence>,
-        mut new_cursor: Timestamp,
-        source: IndexRetentionSource,
-    ) -> anyhow::Result<(Timestamp, usize)> {
-        let _timer = index_retention_delete_chunk_timer(source);
-        let index_entries_to_delete = delete_chunk.len();
-        tracing::trace!("delete: got entries to delete {index_entries_to_delete:?}");
-        for index_entry_to_delete in delete_chunk.iter() {
-            // If we're deleting the previous revision of an index entry, we've definitely
-            // deleted index entries for documents at all prior timestamps.
-            if index_entry_to_delete.0 > Timestamp::MIN {
-                new_cursor = cmp::max(new_cursor, index_entry_to_delete.0.pred()?);
-            }
-        }
-        let deleted_rows = if index_entries_to_delete > 0 {
-            persistence
-                .delete_index_entries(delete_chunk.into_iter().map(|ind| ind.1).collect())
-                .await?
-        } else {
-            0
-        };
-
-        // If there are more entries to delete than we see in the delete chunk,
-        // it means retention skipped deleting entries before, and we
-        // incorrectly bumped RetentionConfirmedDeletedTimestamp anyway.
-        if deleted_rows > index_entries_to_delete {
-            report_error(&mut anyhow::anyhow!(
-                "retention wanted to delete {index_entries_to_delete} entries but found \
-                 {deleted_rows} to delete"
-            ))
-            .await;
-        }
-
-        tracing::trace!("delete: deleted {deleted_rows:?} rows");
-        log_retention_index_entries_deleted(deleted_rows, source);
-        Ok((new_cursor, deleted_rows))
-    }
 
     async fn delete_document_chunk(
         delete_chunk: Vec<(Timestamp, (Timestamp, InternalDocumentId))>,
@@ -1235,7 +1014,11 @@ impl LeaderRetentionWorkers {
                 .await?;
                 tracing::trace!("go_delete_indexes: Loaded initial indexes");
                 let index_count_before = all_indexes.len();
-                let (new_cursor, expired_index_entries_processed) = Self::delete(
+                let IndexRetentionProgress {
+                    cursor: new_cursor,
+                    expired_entries: expired_index_entries_processed,
+                    ..
+                } = Self::delete(
                     min_snapshot_ts,
                     persistence.clone(),
                     cursor,

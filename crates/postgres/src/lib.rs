@@ -56,11 +56,17 @@ use common::{
         StartIncluded,
     },
     persistence::{
+        row_index_retention::{
+            delete_expired_entries,
+            IndexRowPersistence,
+        },
         ConflictStrategy,
         DocumentLogEntry,
         DocumentPrevTsQuery,
         DocumentRevisionStream,
         DocumentStream,
+        IndexRetentionProgress,
+        IndexRetentionRequest,
         IndexStream,
         LatestDocument,
         Persistence,
@@ -465,6 +471,44 @@ impl PostgresPersistence {
 }
 
 #[async_trait]
+impl IndexRowPersistence for PostgresPersistence {
+    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
+        self.lease
+            .transact(async move |tx| {
+                let mut deleted_count = 0;
+                let mut expired_chunks = expired_entries.chunks_exact(CHUNK_SIZE);
+                for chunk in &mut expired_chunks {
+                    let delete_chunk = tx
+                        .prepare_cached(sql::delete_index_chunk(multitenant))
+                        .await?;
+                    let mut params = chunk
+                        .iter()
+                        .map(|index_entry| PostgresReader::_index_cursor_params(Some(index_entry)))
+                        .flatten_ok()
+                        .collect::<anyhow::Result<Vec<_>>>()?;
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
+                    }
+                    deleted_count += tx.execute_raw(&delete_chunk, params).await?;
+                }
+                for index_entry in expired_chunks.remainder() {
+                    let delete_index = tx.prepare_cached(sql::delete_index(multitenant)).await?;
+                    let mut params =
+                        PostgresReader::_index_cursor_params(Some(index_entry))?.to_vec();
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
+                    }
+                    deleted_count += tx.execute_raw(&delete_index, params).await?;
+                }
+                Ok(deleted_count as usize)
+            })
+            .await
+    }
+}
+
+#[async_trait]
 impl Persistence for PostgresPersistence {
     fn is_fresh(&self) -> bool {
         self.newly_created.load(SeqCst)
@@ -614,18 +658,12 @@ impl Persistence for PostgresPersistence {
         Ok(())
     }
 
-    async fn load_index_chunk(
-        &self,
-        cursor: Option<IndexEntry>,
-        chunk_size: usize,
-    ) -> anyhow::Result<Vec<IndexEntry>> {
+    async fn has_index_entries(&self) -> anyhow::Result<bool> {
         let mut client = self
             .read_pool
-            .get_connection("load_index_chunk", &self.schema, &self.instance_name)
+            .get_connection("has_index_entries", &self.schema, &self.instance_name)
             .await?;
-        let mut params = PostgresReader::_index_cursor_params(cursor.as_ref())?;
-        let limit = chunk_size as i64;
-        params.push(Param::Limit(limit));
+        let mut params = vec![];
         if self.multitenant {
             params.push(Param::Text(self.instance_name.to_string()));
         }
@@ -633,52 +671,20 @@ impl Persistence for PostgresPersistence {
         let row_stream = client
             .with_retry(async move |client| {
                 let stmt = client
-                    .prepare_cached(sql::load_indexes_page(multitenant))
+                    .prepare_cached(sql::has_index_entries(multitenant))
                     .await?;
                 client.query_raw(&stmt, &params).await
             })
             .await?;
-
-        let parsed = row_stream.map(|row| parse_row(&row?));
-        parsed.try_collect().await
+        futures::pin_mut!(row_stream);
+        Ok(row_stream.try_next().await?.is_some())
     }
 
-    async fn delete_index_entries(
+    async fn reclaim_index_history(
         &self,
-        expired_entries: Vec<IndexEntry>,
-    ) -> anyhow::Result<usize> {
-        let multitenant = self.multitenant;
-        let instance_name = self.instance_name.clone();
-        self.lease
-            .transact(async move |tx| {
-                let mut deleted_count = 0;
-                let mut expired_chunks = expired_entries.chunks_exact(CHUNK_SIZE);
-                for chunk in &mut expired_chunks {
-                    let delete_chunk = tx
-                        .prepare_cached(sql::delete_index_chunk(multitenant))
-                        .await?;
-                    let mut params = chunk
-                        .iter()
-                        .map(|index_entry| PostgresReader::_index_cursor_params(Some(index_entry)))
-                        .flatten_ok()
-                        .collect::<anyhow::Result<Vec<_>>>()?;
-                    if multitenant {
-                        params.push(Param::Text(instance_name.to_string()));
-                    }
-                    deleted_count += tx.execute_raw(&delete_chunk, params).await?;
-                }
-                for index_entry in expired_chunks.remainder() {
-                    let delete_index = tx.prepare_cached(sql::delete_index(multitenant)).await?;
-                    let mut params =
-                        PostgresReader::_index_cursor_params(Some(index_entry))?.to_vec();
-                    if multitenant {
-                        params.push(Param::Text(instance_name.to_string()));
-                    }
-                    deleted_count += tx.execute_raw(&delete_index, params).await?;
-                }
-                Ok(deleted_count as usize)
-            })
-            .await
+        request: IndexRetentionRequest<'_>,
+    ) -> anyhow::Result<IndexRetentionProgress> {
+        delete_expired_entries(self, request).await
     }
 
     async fn delete(

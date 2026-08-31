@@ -27,9 +27,9 @@ use value::{
 };
 
 use crate::{
+    bootstrap_model::index::database_index::IndexedFields,
     document::ResolvedDocument,
     index::{
-        IndexEntry,
         IndexKey,
         IndexKeyBytes,
     },
@@ -41,6 +41,7 @@ use crate::{
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
+        GenericIndexName,
         IndexId,
         PersistenceVersion,
         RepeatableReason,
@@ -48,6 +49,8 @@ use crate::{
         Timestamp,
     },
 };
+
+pub mod row_index_retention;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DocumentLogEntry {
@@ -219,6 +222,33 @@ impl PersistenceGlobalKey {
     }
 }
 
+/// What [`Persistence::reclaim_index_history`] is being asked to reclaim:
+/// everything that stopped being visible between `cursor` and
+/// `min_snapshot_ts`.
+///
+/// `all_indexes` and `retention_validator` are what it takes to re-derive the
+/// expired entries from the document log, so a layout that reclaims whole
+/// storage units ignores both.
+pub struct IndexRetentionRequest<'a> {
+    pub min_snapshot_ts: RepeatableTimestamp,
+    pub cursor: RepeatableTimestamp,
+    pub all_indexes: &'a BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
+    pub retention_validator: Arc<dyn RetentionValidator>,
+}
+
+/// What a pass of [`Persistence::reclaim_index_history`] accomplished.
+pub struct IndexRetentionProgress {
+    /// How far the retention cursor advanced.
+    pub cursor: RepeatableTimestamp,
+    /// Index entries the pass found had expired. Not the same as the rows it
+    /// removed: retention re-derives expiry from the document log, so a range
+    /// it has already swept expires the same entries again.
+    pub expired_entries: usize,
+    /// Index rows the persistence reported removing. A layout that reclaims
+    /// whole storage units rather than rows removes none and reports zero.
+    pub deleted_rows: usize,
+}
+
 #[async_trait]
 pub trait Persistence: Sync + Send + 'static {
     /// Whether the persistence layer is freshely created or not.
@@ -243,13 +273,18 @@ pub trait Persistence: Sync + Send + 'static {
         value: JsonValue,
     ) -> anyhow::Result<()>;
 
-    async fn load_index_chunk(
-        &self,
-        cursor: Option<IndexEntry>,
-        chunk_size: usize,
-    ) -> anyhow::Result<Vec<IndexEntry>>;
+    /// Whether any index entries have been written yet.
+    async fn has_index_entries(&self) -> anyhow::Result<bool>;
 
-    async fn delete_index_entries(&self, entries: Vec<IndexEntry>) -> anyhow::Result<usize>;
+    /// Reclaims index history no longer visible at `request.min_snapshot_ts`,
+    /// returning how far the cursor advanced and how many entries expired.
+    /// How the space comes back is the persistence's business -- see
+    /// [`row_index_retention::delete_expired_entries`] for the row-per-revision
+    /// case.
+    async fn reclaim_index_history(
+        &self,
+        request: IndexRetentionRequest<'_>,
+    ) -> anyhow::Result<IndexRetentionProgress>;
 
     // Deletes documents
     async fn delete(

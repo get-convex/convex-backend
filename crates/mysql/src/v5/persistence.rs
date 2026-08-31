@@ -44,11 +44,17 @@ use common::{
         MYSQL_MIN_QUERY_BATCH_SIZE,
     },
     persistence::{
+        row_index_retention::{
+            delete_expired_entries,
+            IndexRowPersistence,
+        },
         ConflictStrategy,
         DocumentLogEntry,
         DocumentPrevTsQuery,
         DocumentRevisionStream,
         DocumentStream,
+        IndexRetentionProgress,
+        IndexRetentionRequest,
         IndexStream,
         LatestDocument,
         Persistence as PersistenceTrait,
@@ -289,6 +295,13 @@ impl<RT: Runtime> Persistence<RT> {
 }
 
 #[async_trait]
+impl<RT: Runtime> IndexRowPersistence for Persistence<RT> {
+    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        super::indexes::delete_index_rows(self, expired_entries).await
+    }
+}
+
+#[async_trait]
 impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
     fn is_fresh(&self) -> bool {
         self.newly_created.load(SeqCst)
@@ -456,19 +469,15 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
         Ok(())
     }
 
-    async fn load_index_chunk(
-        &self,
-        cursor: Option<IndexEntry>,
-        chunk_size: usize,
-    ) -> anyhow::Result<Vec<IndexEntry>> {
-        super::indexes::load_index_chunk(self, cursor, chunk_size).await
+    async fn has_index_entries(&self) -> anyhow::Result<bool> {
+        super::indexes::has_index_entries(self).await
     }
 
-    async fn delete_index_entries(
+    async fn reclaim_index_history(
         &self,
-        expired_entries: Vec<IndexEntry>,
-    ) -> anyhow::Result<usize> {
-        super::indexes::delete_index_entries(self, expired_entries).await
+        request: IndexRetentionRequest<'_>,
+    ) -> anyhow::Result<IndexRetentionProgress> {
+        delete_expired_entries(self, request).await
     }
 
     async fn delete(
@@ -1047,32 +1056,6 @@ impl<RT: Runtime> Reader<RT> {
         let value = document_encoding::decode(value, tablet_id)?
             .with_context(|| format!("Index reference to deleted document {key:?} {ts:?}"))?;
         Ok(Some(LatestDocument { ts, value, prev_ts }))
-    }
-
-    pub(super) fn _index_cursor_params(cursor: Option<&IndexEntry>) -> Vec<mysql_async::Value> {
-        let (last_id_param, last_key_prefix, last_sha256, last_ts): (
-            Vec<u8>,
-            Vec<u8>,
-            Vec<u8>,
-            u64,
-        ) = match cursor {
-            Some(cursor) => (
-                cursor.index_id.0.into(),
-                cursor.key_prefix.clone(),
-                cursor.key_sha256.clone(),
-                cursor.ts.into(),
-            ),
-            None => (Self::initial_id_param(Order::Asc), vec![], vec![], 0),
-        };
-        vec![
-            last_id_param.clone().into(),
-            last_id_param.into(),
-            last_key_prefix.clone().into(),
-            last_key_prefix.into(),
-            last_sha256.clone().into(),
-            last_sha256.into(),
-            last_ts.into(),
-        ]
     }
 
     pub(super) fn _index_delete_params(query: &mut Vec<mysql_async::Value>, entry: &IndexEntry) {

@@ -40,25 +40,13 @@ pub const GET_TABLE_COUNT: &str = r#"
     SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;
 "#;
 
-pub const fn load_indexes_page(multitenant: bool) -> &'static str {
+pub const fn has_index_entries(multitenant: bool) -> &'static str {
     tableify!(
         multitenant,
         formatcp!(
-            r#"
-SELECT
-    index_id, key_prefix, key_sha256, key_suffix, ts, deleted
-    FROM @db_name.indexes
-    FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE (index_id > ? OR (index_id = ? AND
-        (key_prefix > ? OR (key_prefix = ? AND
-        (key_sha256 > ? OR (key_sha256 = ? AND
-        ts > ?))))))
-    {where_clause}
-    ORDER BY index_id ASC, key_prefix ASC, key_sha256 ASC, ts ASC
-    LIMIT ?
-"#,
-            where_clause = if multitenant {
-                "AND instance_name = ?"
+            "SELECT 1 FROM @db_name.indexes {instance_clause} LIMIT 1",
+            instance_clause = if multitenant {
+                "WHERE instance_name = ?"
             } else {
                 ""
             }
