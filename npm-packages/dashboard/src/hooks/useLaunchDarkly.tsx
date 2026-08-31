@@ -9,6 +9,7 @@ export const flagDefaults: {
   showAiGatewayUsage: boolean;
   ephemeralZipExportToken: boolean;
   directorySync: boolean;
+  promos: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -17,6 +18,7 @@ export const flagDefaults: {
   showAiGatewayUsage: false,
   ephemeralZipExportToken: false,
   directorySync: false,
+  promos: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

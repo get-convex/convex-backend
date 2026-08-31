@@ -6,6 +6,7 @@ import {
   useResumeSubscription,
   useGetCurrentSpend,
   useGetSpendingLimits,
+  useListCredits,
 } from "api/billing";
 import { Loading } from "@ui/Loading";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
@@ -20,6 +21,7 @@ import { formatDate } from "@common/lib/format";
 import { Sheet } from "@ui/Sheet";
 import { useFormik } from "formik";
 import { useStripeAddressSetup, useStripePaymentSetup } from "hooks/useStripe";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { Elements } from "@stripe/react-stripe-js";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useMount } from "react-use";
@@ -38,6 +40,7 @@ import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { Invoices } from "./Invoices";
+import { PrepaidCredits } from "./PrepaidCredits";
 import { SubscriptionCredits } from "./SubscriptionCredits";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import {
@@ -155,6 +158,7 @@ export function SubscriptionOverview({
             <SubscriptionCredits accountBalance={subscription.accountBalance} />
           )}
           <hr />
+          <PrepaidCreditsContainer team={team} />
           <SpendingLimitsSectionContainer
             subscription={subscription}
             team={team}
@@ -237,6 +241,18 @@ export function SubscriptionOverview({
         )}
     </>
   );
+}
+
+// Renders nothing for teams without credits, which is most of them, so the
+// section stays out of the way until there's something to report.
+function PrepaidCreditsContainer({ team }: { team: TeamResponse }) {
+  const { promos } = useLaunchDarkly();
+  // A null team id pauses the query, so an unflagged team costs no Orb call.
+  const creditsResult = useListCredits(promos ? team.id : null);
+  if (!promos || creditsResult.status !== "ok") {
+    return null;
+  }
+  return <PrepaidCredits credits={creditsResult.data} />;
 }
 
 function SpendingLimitsSectionContainer({
