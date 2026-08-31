@@ -1963,17 +1963,9 @@ export interface components {
             /**
              * Format: double
              * @description The credit the block was granted with, in dollars. Subtracting
-             *     `balance` gives the amount consumed so far. `None` for blocks Orb
-             *     doesn't report an initial balance for.
+             *     `balance` gives the amount consumed so far.
              */
-            initialBalance?: number | null;
-            /**
-             * Format: int64
-             * @description When the block's balance became available to spend, in milliseconds
-             *     since the epoch. A block that hasn't taken effect yet has a date in the
-             *     future.
-             */
-            effectiveDate?: number | null;
+            initialBalance: number;
             /**
              * Format: int64
              * @description When the block's remaining balance expires, in milliseconds since the

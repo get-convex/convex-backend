@@ -3948,7 +3948,8 @@
         "description": "A block of prepaid credit held by a team, applied to invoices before the\npayment method is charged.",
         "required": [
           "id",
-          "balance"
+          "balance",
+          "initialBalance"
         ],
         "properties": {
           "id": {
@@ -3975,20 +3976,9 @@
             "description": "The credit remaining in the block, in dollars."
           },
           "initialBalance": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": "number",
             "format": "double",
-            "description": "The credit the block was granted with, in dollars. Subtracting\n`balance` gives the amount consumed so far. `None` for blocks Orb\ndoesn't report an initial balance for."
-          },
-          "effectiveDate": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "When the block's balance became available to spend, in milliseconds\nsince the epoch. A block that hasn't taken effect yet has a date in the\nfuture."
+            "description": "The credit the block was granted with, in dollars. Subtracting\n`balance` gives the amount consumed so far."
           },
           "expiryDate": {
             "type": [
