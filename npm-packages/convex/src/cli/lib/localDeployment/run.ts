@@ -119,8 +119,14 @@ export async function runLocalBackend(
         errForSentry: new LocalDeploymentError(message),
       });
     }
-    const help = `${result.stdout?.toString() ?? ""}\n${result.stderr?.toString() ?? ""}`;
-    supportsStdinShutdown = help.includes("--shutdown-on-stdin-close");
+    // The lifecycle flag is intentionally hidden from operator help. Probe it
+    // alongside --version, which exits before startup: current backends accept
+    // the flag and older backends reject it without opening the database.
+    const lifecycleProbe = child_process.spawnSync(args.binaryPath, [
+      "--shutdown-on-stdin-close",
+      "--version",
+    ]);
+    supportsStdinShutdown = lifecycleProbe.status === 0;
   } catch (e) {
     const message = `Failed to run backend binary: ${(e as any).toString()}`;
     return ctx.crash({

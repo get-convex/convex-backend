@@ -5,7 +5,11 @@ use std::{
         Child,
         Command,
     },
-    sync::Arc,
+    sync::{
+        Arc,
+        Mutex as StdMutex,
+    },
+    thread::JoinHandle,
     time::{
         Duration,
         Instant,
@@ -63,6 +67,7 @@ pub struct LocalNodeExecutor {
 
 struct LocalNodeExecutorConfig {
     node_process_timeout: Duration,
+    cleanup_jobs: Arc<CleanupJobs>,
     /// Overrides the initial callback retry backoff in the spawned node
     /// process (read by syscalls.ts at module load). Tests zero this so
     /// callbacks retrying against an unreachable backend settle within test
@@ -77,12 +82,51 @@ struct InnerLocalNodeExecutor {
     _server_handle: Option<NodeExecutorProcess>,
     _source_dir: Option<TempDir>,
     client: Option<reqwest::Client>,
+    cleanup_jobs: Arc<CleanupJobs>,
 }
 
 struct NodeExecutorProcess {
     child: Option<Child>,
     #[cfg(windows)]
     _job: Option<KillOnCloseJob>,
+}
+
+#[derive(Default)]
+struct CleanupJobs {
+    jobs: StdMutex<Vec<JoinHandle<anyhow::Result<()>>>>,
+}
+
+impl CleanupJobs {
+    fn spawn(&self, process: Option<NodeExecutorProcess>, source_dir: Option<TempDir>) {
+        let job = std::thread::Builder::new()
+            .name("local-node-executor-cleanup".to_owned())
+            .spawn(move || cleanup_owned_resources(process, source_dir))
+            .expect("spawn local Node executor cleanup thread");
+        self.jobs.lock().expect("cleanup jobs lock").push(job);
+    }
+
+    fn wait(&self) -> anyhow::Result<()> {
+        let jobs = std::mem::take(&mut *self.jobs.lock().expect("cleanup jobs lock"));
+        let mut result = Ok(());
+        for job in jobs {
+            let job_result = job
+                .join()
+                .map_err(|_| anyhow::anyhow!("local Node executor cleanup thread panicked"))
+                .and_then(|result| result);
+            if result.is_ok() && job_result.is_err() {
+                result = job_result;
+            }
+        }
+        result
+    }
+}
+
+impl Drop for CleanupJobs {
+    fn drop(&mut self) {
+        if let Err(error) = self.wait() {
+            tracing::error!("Local Node executor cleanup failed during drop: {error:#}");
+        }
+    }
 }
 
 impl Drop for NodeExecutorProcess {
@@ -141,16 +185,32 @@ impl Drop for InnerLocalNodeExecutor {
         if process.is_none() && source_dir.is_none() {
             return;
         }
-        let _ = std::thread::Builder::new()
-            .name("local-node-executor-cleanup".to_owned())
-            .spawn(move || {
-                if let Some(mut process) = process {
-                    let _ = process.shutdown();
-                }
-                if let Some(source_dir) = source_dir {
-                    let _ = cleanup_temp_dir_blocking(source_dir);
-                }
-            });
+        self.cleanup_jobs.spawn(process, source_dir);
+    }
+}
+
+fn cleanup_owned_resources(
+    mut process: Option<NodeExecutorProcess>,
+    source_dir: Option<TempDir>,
+) -> anyhow::Result<()> {
+    let process_result = match process.as_mut() {
+        Some(process) => process.shutdown(),
+        None => Ok(()),
+    };
+    // Release the Windows Job Object before retrying directory removal if
+    // process shutdown failed. Closing the job still terminates its process
+    // tree, and cleanup must not retain that ownership handle while it waits.
+    drop(process);
+    let source_dir_result = match source_dir {
+        Some(source_dir) => cleanup_temp_dir_blocking(source_dir),
+        None => Ok(()),
+    };
+    match (process_result, source_dir_result) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+        (Err(process_error), Err(source_dir_error)) => Err(process_error.context(format!(
+            "local Node executor directory cleanup also failed: {source_dir_error:#}"
+        ))),
     }
 }
 
@@ -203,6 +263,14 @@ impl InnerLocalNodeExecutor {
         };
         let server_handle =
             Self::start_node_with_listener(config, &source_path, &source_dir, &socket_path).await?;
+        // Assemble the owned resource boundary immediately after the process
+        // starts so every later startup failure follows the same cleanup path.
+        let mut inner = Self {
+            _server_handle: Some(server_handle),
+            _source_dir: Some(source_dir),
+            client: None,
+            cleanup_jobs: config.cleanup_jobs.clone(),
+        };
         // Don't keep idle connections in the pool. The Node HTTP server closes
         // idle keep-alive connections after its (default 5s) `keepAliveTimeout`,
         // but hyper's pool would hold one much longer and reuse it right as the
@@ -217,15 +285,7 @@ impl InnerLocalNodeExecutor {
         {
             client_builder = client_builder.windows_named_pipe(socket_path);
         }
-        let client = client_builder.build()?;
-
-        // Assemble the owned resource boundary before health checks so every
-        // startup failure uses the same process-first, directory-second cleanup.
-        let inner = Self {
-            _server_handle: Some(server_handle),
-            _source_dir: Some(source_dir),
-            client: Some(client),
-        };
+        inner.client = Some(client_builder.build()?);
         // Wait for the Node process to be ready to handle HTTP requests.
         for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
             if Self::check_server_health(inner.client.as_ref().expect("client present")).await? {
@@ -262,17 +322,9 @@ impl InnerLocalNodeExecutor {
         drop(self.client.take());
         let process = self._server_handle.take();
         let source_dir = self._source_dir.take();
-        tokio::task::spawn_blocking(move || {
-            if let Some(mut process) = process {
-                process.shutdown()?;
-            }
-            if let Some(source_dir) = source_dir {
-                cleanup_temp_dir_blocking(source_dir)?;
-            }
-            anyhow::Ok(())
-        })
-        .await
-        .context("join local Node executor cleanup")?
+        tokio::task::spawn_blocking(move || cleanup_owned_resources(process, source_dir))
+            .await
+            .context("join local Node executor cleanup")?
     }
 
     async fn check_server_health(client: &Client) -> anyhow::Result<bool> {
@@ -340,11 +392,13 @@ impl InnerLocalNodeExecutor {
 
 impl LocalNodeExecutor {
     pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
+        let cleanup_jobs = Arc::new(CleanupJobs::default());
         let executor = Self {
             inner: Arc::new(Mutex::new(None)),
             config: LocalNodeExecutorConfig {
                 node_process_timeout,
                 callback_initial_backoff: None,
+                cleanup_jobs,
             },
         };
 
@@ -475,10 +529,14 @@ impl NodeExecutor for LocalNodeExecutor {
 
     async fn shutdown(&self) -> anyhow::Result<()> {
         let inner = self.inner.lock().await.take();
-        match inner {
-            Some(inner) => inner.shutdown().await,
-            None => Ok(()),
+        if let Some(inner) = inner {
+            inner.shutdown().await?;
         }
+        let cleanup_jobs = self.config.cleanup_jobs.clone();
+        tokio::task::spawn_blocking(move || cleanup_jobs.wait())
+            .await
+            .context("join local Node executor pending cleanup")??;
+        Ok(())
     }
 }
 
@@ -509,6 +567,7 @@ mod tests {
         let config = LocalNodeExecutorConfig {
             node_process_timeout: Duration::from_secs(5),
             callback_initial_backoff: Some(Duration::ZERO),
+            cleanup_jobs: Arc::new(CleanupJobs::default()),
         };
         let inner = InnerLocalNodeExecutor::new(&config)
             .await
@@ -533,6 +592,22 @@ mod tests {
                 .await
                 .is_err(),
             "executor named pipe still accepted requests after shutdown",
+        );
+    }
+
+    #[test]
+    fn pending_cleanup_is_joined_before_shutdown_returns() {
+        let cleanup_jobs = CleanupJobs::default();
+        let source_dir = TempDir::new().expect("create executor temporary directory");
+        let source_dir_path = source_dir.path().to_owned();
+
+        cleanup_jobs.spawn(None, Some(source_dir));
+        cleanup_jobs.wait().expect("join executor cleanup");
+
+        assert!(
+            !source_dir_path.exists(),
+            "executor temporary directory survived joined cleanup: {}",
+            source_dir_path.display(),
         );
     }
 
@@ -580,6 +655,7 @@ mod tests {
         let config = LocalNodeExecutorConfig {
             node_process_timeout: Duration::from_secs(5),
             callback_initial_backoff: Some(Duration::ZERO),
+            cleanup_jobs: Arc::new(CleanupJobs::default()),
         };
         let inner = InnerLocalNodeExecutor::new(&config)
             .await
