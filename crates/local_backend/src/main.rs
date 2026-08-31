@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    io::Read,
+    time::Duration,
+};
 
 use clap::Parser;
 use cmd_util::env::{
@@ -45,10 +48,6 @@ use local_backend::{
 };
 use runtime::prod::ProdRuntime;
 use tokio::{
-    io::{
-        self,
-        AsyncReadExt,
-    },
     signal::{
         self,
     },
@@ -271,11 +270,25 @@ async fn wait_for_stdin_close(enabled: bool) -> anyhow::Result<()> {
         return std::future::pending().await;
     }
 
-    let mut stdin = io::stdin();
-    let mut buffer = [0; 256];
-    loop {
-        if stdin.read(&mut buffer).await? == 0 {
-            return Ok(());
-        }
-    }
+    let (closed_tx, closed_rx) = oneshot::channel();
+    // Tokio implements stdin with a runtime-owned blocking read. If another
+    // shutdown path wins, dropping that future can leave runtime teardown
+    // waiting for the read forever. A detached OS thread may remain blocked,
+    // but it does not hold the Tokio runtime open and exits with the process.
+    std::thread::Builder::new()
+        .name("local-backend-stdin-close".to_owned())
+        .spawn(move || {
+            let mut stdin = std::io::stdin();
+            let mut buffer = [0; 256];
+            let result = loop {
+                match stdin.read(&mut buffer) {
+                    Ok(0) => break Ok(()),
+                    Ok(_) => {},
+                    Err(error) => break Err(error),
+                }
+            };
+            let _ = closed_tx.send(result);
+        })?;
+    closed_rx.await??;
+    Ok(())
 }

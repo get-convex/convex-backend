@@ -91,15 +91,14 @@ export async function runLocalBackend(
         );
       }
     }
-    commandArgs.push("--shutdown-on-stdin-close");
   }
 
-  // Check that binary works by running with --help
+  // Probe the binary's actual lifecycle capability. `isLatestVersion` describes
+  // the selected upgrade path, but that path can intentionally point at an
+  // older downloaded backend during a downgrade.
+  let supportsStdinShutdown = false;
   try {
-    const result = child_process.spawnSync(args.binaryPath, [
-      ...commandArgs,
-      "--help",
-    ]);
+    const result = child_process.spawnSync(args.binaryPath, ["--help"]);
     if (result.status === 3221225781) {
       const message =
         "Local backend exited because shared libraries are missing. These may include libraries installed via 'Microsoft Visual C++ Redistributable for Visual Studio.'";
@@ -120,6 +119,8 @@ export async function runLocalBackend(
         errForSentry: new LocalDeploymentError(message),
       });
     }
+    const help = `${result.stdout?.toString() ?? ""}\n${result.stderr?.toString() ?? ""}`;
+    supportsStdinShutdown = help.includes("--shutdown-on-stdin-close");
   } catch (e) {
     const message = `Failed to run backend binary: ${(e as any).toString()}`;
     return ctx.crash({
@@ -129,6 +130,9 @@ export async function runLocalBackend(
       errForSentry: new LocalDeploymentError(message),
     });
   }
+  if (supportsStdinShutdown) {
+    commandArgs.push("--shutdown-on-stdin-close");
+  }
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
   logVerbose(`Starting local backend: \`${commandStr}\``);
   const p = child_process
@@ -136,11 +140,11 @@ export async function runLocalBackend(
       // Current local backends treat stdin EOF as a graceful shutdown signal.
       // The pipe also closes if the CLI exits abruptly, so the backend can
       // drain workers and remove executor temporary state before it exits.
-      stdio: args.isLatestVersion ? ["pipe", "ignore", "ignore"] : "ignore",
+      stdio: supportsStdinShutdown ? ["pipe", "ignore", "ignore"] : "ignore",
       // Windows otherwise terminates the backend with its Node parent before
       // the stdin EOF handler can run. A hidden, detached process group keeps
       // the backend alive only long enough to complete its owned shutdown.
-      detached: process.platform === "win32" && args.isLatestVersion,
+      detached: process.platform === "win32" && supportsStdinShutdown,
       windowsHide: true,
       env: {
         ...process.env,
@@ -153,7 +157,7 @@ export async function runLocalBackend(
     });
   const cleanupHandle = ctx.registerCleanup(async () => {
     logVerbose(`Stopping local backend on port ${ports.cloud}`);
-    if (args.isLatestVersion && p.stdin !== null) {
+    if (supportsStdinShutdown && p.stdin !== null) {
       p.stdin.end();
       if (await waitForProcessExit(p, 5_000)) {
         return;

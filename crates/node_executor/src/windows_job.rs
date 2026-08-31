@@ -1,22 +1,46 @@
 use std::{
     io,
     mem::size_of,
-    os::windows::io::{
-        AsRawHandle,
-        FromRawHandle,
-        OwnedHandle,
+    os::windows::{
+        io::{
+            AsRawHandle,
+            FromRawHandle,
+            OwnedHandle,
+        },
+        process::CommandExt,
     },
-    process::Child,
+    process::{
+        Child,
+        Command,
+    },
     ptr,
 };
 
-use windows_sys::Win32::System::JobObjects::{
-    AssignProcessToJobObject,
-    CreateJobObjectW,
-    JobObjectExtendedLimitInformation,
-    SetInformationJobObject,
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+use windows_sys::Win32::{
+    Foundation::INVALID_HANDLE_VALUE,
+    System::{
+        Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot,
+            Thread32First,
+            Thread32Next,
+            TH32CS_SNAPTHREAD,
+            THREADENTRY32,
+        },
+        JobObjects::{
+            AssignProcessToJobObject,
+            CreateJobObjectW,
+            JobObjectExtendedLimitInformation,
+            SetInformationJobObject,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        },
+        Threading::{
+            OpenThread,
+            ResumeThread,
+            CREATE_SUSPENDED,
+            THREAD_SUSPEND_RESUME,
+        },
+    },
 };
 #[cfg(test)]
 use windows_sys::Win32::{
@@ -77,6 +101,63 @@ impl KillOnCloseJob {
         }
         Ok(())
     }
+
+    /// Starts a process suspended, assigns it to this kill-on-close job, and
+    /// only then lets its primary thread run. This closes the orphan window
+    /// between process creation and job assignment.
+    pub(crate) fn spawn_assigned(&self, command: &mut Command) -> io::Result<Child> {
+        command.creation_flags(CREATE_SUSPENDED);
+        let mut child = command.spawn()?;
+        if let Err(error) = self
+            .assign(&child)
+            .and_then(|()| resume_process(child.id()))
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error);
+        }
+        Ok(child)
+    }
+}
+
+fn resume_process(pid: u32) -> io::Result<()> {
+    // SAFETY: The snapshot handle is owned locally and contains a point-in-time
+    // list of system threads.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: CreateToolhelp32Snapshot returned an owned handle.
+    let snapshot = unsafe { OwnedHandle::from_raw_handle(snapshot) };
+    let mut entry = THREADENTRY32 {
+        dwSize: size_of::<THREADENTRY32>() as u32,
+        ..Default::default()
+    };
+    // SAFETY: snapshot and entry are live for the enumeration calls.
+    let mut found = unsafe { Thread32First(snapshot.as_raw_handle(), &mut entry) } != 0;
+    while found {
+        if entry.th32OwnerProcessID == pid {
+            // SAFETY: OpenThread returns an owned handle when the thread still
+            // exists and grants the requested resume right.
+            let raw_thread = unsafe { OpenThread(THREAD_SUSPEND_RESUME, 0, entry.th32ThreadID) };
+            if raw_thread.is_null() {
+                return Err(io::Error::last_os_error());
+            }
+            // SAFETY: OpenThread returned an owned handle.
+            let thread = unsafe { OwnedHandle::from_raw_handle(raw_thread) };
+            // SAFETY: The handle was opened with THREAD_SUSPEND_RESUME.
+            if unsafe { ResumeThread(thread.as_raw_handle()) } == u32::MAX {
+                return Err(io::Error::last_os_error());
+            }
+            return Ok(());
+        }
+        // SAFETY: snapshot and entry remain valid across enumeration.
+        found = unsafe { Thread32Next(snapshot.as_raw_handle(), &mut entry) } != 0;
+    }
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        format!("suspended process {pid} had no resumable thread"),
+    ))
 }
 
 #[cfg(test)]
@@ -135,17 +216,17 @@ mod tests {
 
         let pid_file = env::var_os(CHILD_PID_FILE).expect("missing child PID file");
         let job = KillOnCloseJob::new().expect("create job");
-        let child = Command::new("powershell.exe")
-            .args([
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                "Start-Sleep -Seconds 300",
-            ])
-            .spawn()
-            .expect("spawn child");
-        job.assign(&child).expect("assign child");
+        let mut command = Command::new("powershell.exe");
+        command.args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Start-Sleep -Seconds 300",
+        ]);
+        let child = job
+            .spawn_assigned(&mut command)
+            .expect("spawn assigned child");
         fs::write(pid_file, child.id().to_string()).expect("publish child PID");
 
         let _job = job;

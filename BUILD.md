@@ -85,10 +85,11 @@ The lifecycle contract activates when the installed CLI and downloaded local
 backend both contain this change. Verify activation by running a Node action,
 ending `convex dev`, and confirming that its backend PID, executor PID,
 `cvx-node-executor-*` pipe, and `.tmp*` executor directory are absent. To roll
-back while diagnosing an unrelated regression, pass the previous release tag
-through the CLI's hidden `--local-backend-version` option. That rollback also
-restores the previous Windows teardown behavior, so stop the current backend
-cleanly and inspect its process tree before switching versions.
+back while diagnosing an unrelated regression, use the previous CLI release
+with its matching backend release. A current CLI may add arguments that a
+pre-lifecycle backend cannot parse. Stop the current backend cleanly and inspect
+its process tree before switching versions; the older pair restores the
+previous Windows teardown behavior.
 
 ### Provisioning a demo app locally
 

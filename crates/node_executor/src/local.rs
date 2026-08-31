@@ -6,7 +6,10 @@ use std::{
         Command,
     },
     sync::Arc,
-    time::Duration,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context;
@@ -50,6 +53,8 @@ const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 const TEMP_DIR_CLEANUP_INTERVAL: Duration = Duration::from_millis(50);
 const TEMP_DIR_CLEANUP_MAX_ATTEMPTS: u32 = 40;
+const PROCESS_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+const PROCESS_SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 pub struct LocalNodeExecutor {
     inner: Arc<Mutex<Option<InnerLocalNodeExecutor>>>,
@@ -69,33 +74,104 @@ struct InnerLocalNodeExecutor {
     // Stop and reap Node before removing the directory it uses for source and
     // runtime files. This order matters on Windows, where open files prevent
     // recursive directory removal.
-    _server_handle: NodeExecutorProcess,
-    _source_dir: TempDir,
-    client: reqwest::Client,
+    _server_handle: Option<NodeExecutorProcess>,
+    _source_dir: Option<TempDir>,
+    client: Option<reqwest::Client>,
 }
 
 struct NodeExecutorProcess {
-    child: Child,
+    child: Option<Child>,
     #[cfg(windows)]
-    _job: KillOnCloseJob,
+    _job: Option<KillOnCloseJob>,
 }
 
 impl Drop for NodeExecutorProcess {
     fn drop(&mut self) {
-        // std::process::Child does not kill or reap on drop. The local executor
-        // is owned by this backend, so stop it before TempDir cleanup runs.
-        let _ = self.shutdown();
+        let Some(mut child) = self.child.take() else {
+            return;
+        };
+        #[cfg(windows)]
+        let job = self._job.take();
+        // Drop can run on a Tokio worker after an invoke error. Keep blocking
+        // process operations off that worker; the job remains owned by the
+        // cleanup thread until the child has stopped.
+        let _ = std::thread::Builder::new()
+            .name("local-node-executor-drop".to_owned())
+            .spawn(move || {
+                let _ = shutdown_child(&mut child);
+                #[cfg(windows)]
+                drop(job);
+            });
     }
 }
 
 impl NodeExecutorProcess {
     fn shutdown(&mut self) -> anyhow::Result<()> {
-        if self.child.try_wait()?.is_none() {
-            self.child.kill().context("kill local Node executor")?;
+        if let Some(mut child) = self.child.take() {
+            shutdown_child(&mut child)?;
         }
-        self.child.wait().context("reap local Node executor")?;
+        #[cfg(windows)]
+        drop(self._job.take());
         Ok(())
     }
+}
+
+fn shutdown_child(child: &mut Child) -> anyhow::Result<()> {
+    if child.try_wait()?.is_some() {
+        return Ok(());
+    }
+    child.kill().context("kill local Node executor")?;
+    let deadline = Instant::now() + PROCESS_SHUTDOWN_TIMEOUT;
+    loop {
+        if child.try_wait()?.is_some() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            anyhow::bail!("timed out reaping local Node executor after termination");
+        }
+        std::thread::sleep(PROCESS_SHUTDOWN_POLL_INTERVAL);
+    }
+}
+
+impl Drop for InnerLocalNodeExecutor {
+    fn drop(&mut self) {
+        drop(self.client.take());
+        let process = self._server_handle.take();
+        let source_dir = self._source_dir.take();
+        if process.is_none() && source_dir.is_none() {
+            return;
+        }
+        let _ = std::thread::Builder::new()
+            .name("local-node-executor-cleanup".to_owned())
+            .spawn(move || {
+                if let Some(mut process) = process {
+                    let _ = process.shutdown();
+                }
+                if let Some(source_dir) = source_dir {
+                    let _ = cleanup_temp_dir_blocking(source_dir);
+                }
+            });
+    }
+}
+
+fn cleanup_temp_dir_blocking(source_dir: TempDir) -> anyhow::Result<()> {
+    let source_dir_path = source_dir.path().to_owned();
+    if source_dir.close().is_ok() {
+        return Ok(());
+    }
+    for _ in 0..TEMP_DIR_CLEANUP_MAX_ATTEMPTS {
+        match fs::remove_dir_all(&source_dir_path) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(_) => std::thread::sleep(TEMP_DIR_CLEANUP_INTERVAL),
+        }
+    }
+    fs::remove_dir_all(&source_dir_path).with_context(|| {
+        format!(
+            "remove local Node executor temporary directory {}",
+            source_dir_path.display()
+        )
+    })
 }
 
 impl InnerLocalNodeExecutor {
@@ -143,14 +219,17 @@ impl InnerLocalNodeExecutor {
         }
         let client = client_builder.build()?;
 
+        // Assemble the owned resource boundary before health checks so every
+        // startup failure uses the same process-first, directory-second cleanup.
+        let inner = Self {
+            _server_handle: Some(server_handle),
+            _source_dir: Some(source_dir),
+            client: Some(client),
+        };
         // Wait for the Node process to be ready to handle HTTP requests.
         for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
-            if Self::check_server_health(&client).await? {
-                return Ok(Self {
-                    _server_handle: server_handle,
-                    _source_dir: source_dir,
-                    client,
-                });
+            if Self::check_server_health(inner.client.as_ref().expect("client present")).await? {
+                return Ok(inner);
             }
             tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
         }
@@ -179,42 +258,21 @@ impl InnerLocalNodeExecutor {
         Ok(())
     }
 
-    async fn shutdown(self) -> anyhow::Result<()> {
-        let Self {
-            mut _server_handle,
-            _source_dir,
-            client,
-        } = self;
-        let source_dir_path = _source_dir.path().to_owned();
-
-        // Release the named-pipe client before stopping Node, then wait for the
-        // process handle to close before removing the files it was using.
-        drop(client);
-        _server_handle.shutdown()?;
-        drop(_server_handle);
-
-        if _source_dir.close().is_ok() {
-            return Ok(());
-        }
-
-        // Windows may report a transient sharing violation just after the
-        // process exits. TempDir's Drop suppresses that error, which made old
-        // local-dev sessions silently leak. Retry within a fixed bound and
-        // make persistent cleanup failure part of backend shutdown.
-        for _ in 0..TEMP_DIR_CLEANUP_MAX_ATTEMPTS {
-            match fs::remove_dir_all(&source_dir_path) {
-                Ok(()) => return Ok(()),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-                Err(_) => tokio::time::sleep(TEMP_DIR_CLEANUP_INTERVAL).await,
+    async fn shutdown(mut self) -> anyhow::Result<()> {
+        drop(self.client.take());
+        let process = self._server_handle.take();
+        let source_dir = self._source_dir.take();
+        tokio::task::spawn_blocking(move || {
+            if let Some(mut process) = process {
+                process.shutdown()?;
             }
-        }
-
-        fs::remove_dir_all(&source_dir_path).with_context(|| {
-            format!(
-                "remove local Node executor temporary directory {}",
-                source_dir_path.display()
-            )
+            if let Some(source_dir) = source_dir {
+                cleanup_temp_dir_blocking(source_dir)?;
+            }
+            anyhow::Ok(())
         })
+        .await
+        .context("join local Node executor cleanup")?
     }
 
     async fn check_server_health(client: &Client) -> anyhow::Result<bool> {
@@ -265,21 +323,17 @@ impl InnerLocalNodeExecutor {
         #[cfg(windows)]
         let job = KillOnCloseJob::new().context("Failed to create Node executor job object")?;
 
-        let mut child = cmd.spawn()?;
-
         #[cfg(windows)]
-        if let Err(error) = job.assign(&child) {
-            // Assignment is part of spawning a managed executor. Do not leave
-            // an unmanaged process running if Windows rejects the job.
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(error).context("Failed to assign Node executor to job object");
-        }
+        let child = job
+            .spawn_assigned(&mut cmd)
+            .context("Failed to spawn Node executor in job object")?;
+        #[cfg(not(windows))]
+        let child = cmd.spawn()?;
 
         Ok(NodeExecutorProcess {
-            child,
+            child: Some(child),
             #[cfg(windows)]
-            _job: job,
+            _job: Some(job),
         })
     }
 }
@@ -355,7 +409,7 @@ impl NodeExecutor for LocalNodeExecutor {
                 )
             }
             let inner = inner.as_ref().unwrap();
-            inner.client.clone()
+            inner.client.as_ref().expect("client present").clone()
         };
         let request_json = JsonValue::try_from(request)?;
 
@@ -459,10 +513,12 @@ mod tests {
         let inner = InnerLocalNodeExecutor::new(&config)
             .await
             .expect("start local Node executor");
-        let source_dir = inner._source_dir.path().to_owned();
-        let client = inner.client.clone();
+        let source_dir = inner._source_dir.as_ref().unwrap().path().to_owned();
+        let client = inner.client.as_ref().unwrap().clone();
 
         drop(inner);
+
+        wait_for_path_removal(&source_dir).await;
 
         assert!(
             !source_dir.exists(),
@@ -488,8 +544,8 @@ mod tests {
         let inner = InnerLocalNodeExecutor::new(&executor.config)
             .await
             .expect("start local Node executor");
-        let source_dir = inner._source_dir.path().to_owned();
-        let client = inner.client.clone();
+        let source_dir = inner._source_dir.as_ref().unwrap().path().to_owned();
+        let client = inner.client.as_ref().unwrap().clone();
         *executor.inner.lock().await = Some(inner);
 
         executor
@@ -528,9 +584,16 @@ mod tests {
         let inner = InnerLocalNodeExecutor::new(&config)
             .await
             .expect("start local Node executor");
-        let source_dir = inner._source_dir.path().to_owned();
-        let executor_pid = inner._server_handle.child.id();
-        let client = inner.client.clone();
+        let source_dir = inner._source_dir.as_ref().unwrap().path().to_owned();
+        let executor_pid = inner
+            ._server_handle
+            .as_ref()
+            .unwrap()
+            .child
+            .as_ref()
+            .unwrap()
+            .id();
+        let client = inner.client.as_ref().unwrap().clone();
         fs::write(
             ready_file,
             format!(
@@ -551,6 +614,7 @@ mod tests {
         .expect("join stdin reader");
 
         drop(inner);
+        wait_for_path_removal(&source_dir).await;
         assert!(
             !source_dir.exists(),
             "executor temporary directory survived launcher death: {}",
@@ -567,6 +631,13 @@ mod tests {
             "executor_process=stopped\nnamed_pipe=closed\ntemp_dir=removed\n",
         )
         .expect("publish clean shutdown");
+    }
+
+    async fn wait_for_path_removal(path: &std::path::Path) {
+        let deadline = Instant::now() + PROCESS_SHUTDOWN_TIMEOUT + Duration::from_secs(1);
+        while path.exists() && Instant::now() < deadline {
+            tokio::time::sleep(PROCESS_SHUTDOWN_POLL_INTERVAL).await;
+        }
     }
 
     #[test]
