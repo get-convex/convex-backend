@@ -10,7 +10,6 @@
     "start": "next start",
     "lint": "bash ../dashboard-common/scripts/checkNode22.sh && npx --prefix ../lint eslint . --config ../lint/eslint.config.mjs --cache && tsc",
     "lint:fix": "bash ../dashboard-common/scripts/checkNode22.sh && npx --prefix ../lint eslint --fix . --config ../lint/eslint.config.mjs --cache",
-    "export": "next export",
     "test": "npm run checkManagementApiSpec && npm run checkDeploymentApiSpec && npm run build:generated && jest",
     "clean": "shx rm -rf .next",
     "corsProxy": "node cors-proxy.js",

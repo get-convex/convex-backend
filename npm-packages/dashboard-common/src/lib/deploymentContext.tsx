@@ -2,6 +2,7 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { ConnectionState, ConvexHttpClient } from "convex/browser";
 import {
   createContext,
+  JSX,
   ReactNode,
   useCallback,
   useContext,

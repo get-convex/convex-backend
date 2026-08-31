@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { JSX, useContext } from "react";
 import { cn } from "@ui/cn";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";

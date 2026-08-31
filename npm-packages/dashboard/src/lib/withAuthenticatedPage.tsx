@@ -3,7 +3,7 @@ import { useHasOptedIn } from "api/optins";
 import type { InferGetServerSidePropsType, NextPage } from "next";
 
 import { getServerSideProps } from "lib/ssr";
-import { useEffect } from "react";
+import { JSX, useEffect } from "react";
 import { useAccessToken, useInitialData } from "hooks/useServerSideData";
 import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";

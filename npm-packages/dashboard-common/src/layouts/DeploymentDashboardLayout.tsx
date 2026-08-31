@@ -11,7 +11,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
 import { Link } from "@ui/Link";
-import { useContext, useState, useEffect } from "react";
+import { JSX, useContext, useState, useEffect } from "react";
 import udfs from "@common/udfs";
 import classNames from "classnames";
 import {

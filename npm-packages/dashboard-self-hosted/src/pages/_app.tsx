@@ -17,6 +17,7 @@ import { SelfHostedDisconnectOverlay } from "@common/features/disconnectOverlay/
 import { Menu, MenuItem } from "@ui/Menu";
 import { ThemeProvider } from "next-themes";
 import React, {
+  JSX,
   useCallback,
   useContext,
   useEffect,
