@@ -78,7 +78,7 @@ function sharedEditorProps(
 
 function setupAutoHeight(
   editor: editor.ICodeEditor,
-  ref: RefObject<HTMLDivElement>,
+  ref: RefObject<HTMLDivElement | null>,
   maxHeight: number,
   variant: "editor" | "diff",
 ) {

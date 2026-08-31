@@ -5,7 +5,7 @@ import { useEffect } from "react";
  * keyboard focus moves outside.
  */
 export function useInteractOutside(
-  elementRef: React.RefObject<HTMLElement>,
+  elementRef: React.RefObject<HTMLElement | null>,
   callback: () => void,
 ) {
   useEffect(() => {

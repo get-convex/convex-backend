@@ -31,7 +31,7 @@ export function TableHeader({
     field: string;
   };
   localStorageKey: string;
-  tableContainerRef: RefObject<HTMLDivElement>;
+  tableContainerRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="group">

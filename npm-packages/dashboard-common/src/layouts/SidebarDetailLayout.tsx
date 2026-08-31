@@ -219,7 +219,7 @@ export function ResizeHandle({
 }: {
   collapsed: boolean;
   direction: "left" | "right";
-  panelRef?: React.RefObject<ImperativePanelHandle>;
+  panelRef?: React.RefObject<ImperativePanelHandle | null>;
   className?: string;
   handleTitle?: string;
 }) {

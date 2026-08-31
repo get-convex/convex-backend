@@ -32,7 +32,7 @@ type ColumnHeaderProps = {
   openContextMenu: DataCellProps["onOpenContextMenu"];
   sort?: "asc" | "desc";
   localStorageKey: string;
-  tableContainerRef: RefObject<HTMLDivElement>;
+  tableContainerRef: RefObject<HTMLDivElement | null>;
 };
 
 export function ColumnHeader({

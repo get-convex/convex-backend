@@ -293,8 +293,9 @@ function ComboboxOption({
   label: React.ReactNode | string;
   onOnly: () => void;
 }) {
-  const onlyRefs = useRef(null);
-  const isHoveringOnly = useHoverDirty(onlyRefs);
+  const onlyRefs = useRef<HTMLElement | null>(null);
+  // react-use's types predate React 19's nullable RefObject.
+  const isHoveringOnly = useHoverDirty(onlyRefs as React.RefObject<Element>);
   return (
     <HeadlessComboboxOption
       value={value}

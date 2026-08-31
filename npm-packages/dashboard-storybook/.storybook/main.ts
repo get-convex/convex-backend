@@ -58,6 +58,9 @@ const config: StorybookConfig = {
         ),
       },
       resolve: {
+        // The convex workspace package's devDependencies put a second react
+        // copy in convex/node_modules; force a single react in the bundle.
+        dedupe: ["react", "react-dom"],
         alias: {
           // Match dashboard's tsconfig baseUrl: "src" for api/* imports
           api: path.resolve(import.meta.dirname, "../../dashboard/src/api"),

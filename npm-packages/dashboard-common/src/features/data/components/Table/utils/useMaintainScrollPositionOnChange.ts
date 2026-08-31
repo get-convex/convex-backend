@@ -12,7 +12,7 @@ import { RefObject, useCallback, useEffect, useRef } from "react";
  */
 export function useMaintainScrollPositionOnChange<T>(
   data: T[],
-  scrollRef: RefObject<HTMLElement>,
+  scrollRef: RefObject<HTMLElement | null>,
   getRowId: (row: T) => string,
   rowHeight: number,
   onRowChangeAbove: () => void,

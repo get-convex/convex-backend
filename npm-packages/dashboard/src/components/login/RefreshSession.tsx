@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef } from "react";
 // We also need to refresh the auth token (which expires after 24 hours).
 export function RefreshSession() {
   const { user } = useWorkOS();
-  const lastRefreshed = useRef<number>();
+  const lastRefreshed = useRef<number | undefined>(undefined);
   const [_, setAuthToken] = useAccessToken();
 
   const refresh = useCallback(

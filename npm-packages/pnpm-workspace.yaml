@@ -172,7 +172,67 @@ minimumReleaseAgeExclude:
   # The brace-expansion overrides below pin the DoS fixes, which are newer than
   # the age gate on every maintenance branch.
   - brace-expansion
+# These packages' .d.ts files import "react" without declaring @types/react,
+# so tsc resolves whichever @types/react pnpm happened to hoist into
+# node_modules/.pnpm/node_modules — a single global winner. With both React 18
+# and 19 in the workspace, that breaks type checking for whichever side loses.
+# Declaring @types/react as an optional peer links the consumer's own types
+# version next to each package instance instead.
+packageExtensions:
+  "@headlessui/react":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "@heroicons/react":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "@radix-ui/react-icons":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  react-use:
+    peerDependencies:
+      "@types/react": "*"
+      "@types/react-dom": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+      "@types/react-dom":
+        optional: true
+  next:
+    peerDependencies:
+      "@types/react": "*"
+      "@types/react-dom": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+      "@types/react-dom":
+        optional: true
+  "@tanstack/react-router":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+  "@tanstack/react-start":
+    peerDependencies:
+      "@types/react": "*"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+
 overrides:
+  # @types/react-window depends on @types/react "*", which the lockfile keeps
+  # on v18. Its only consumers (the dashboards) use React 19 types.
+  "@types/react-window>@types/react": ^19.0.0
+  "@types/react-window-infinite-loader>@types/react": ^19.0.0
   # domain-browser switched away from MIT after 4.22.0 (was a Rush
   # preferredVersions pin in common-versions.json).
   domain-browser: 4.22.0
