@@ -1,7 +1,7 @@
-use super::OpProvider;
+use super::V8OpProvider;
 
 #[convex_macro::v8_op]
-pub fn op_environment_variables_get<'b, P: OpProvider<'b>>(
+pub fn op_environment_variables_get<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     name: String,
 ) -> anyhow::Result<Option<String>> {

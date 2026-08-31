@@ -167,13 +167,13 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
         ) -> ::anyhow::Result<()> {
             #[allow(clippy::unused_unit)]
             let ( #(#arg_pats,)*) = {
-                let mut __scope = OpProvider::scope(#provider_ident);
+                let mut __scope = crate::ops::V8OpProvider::scope(#provider_ident);
                 ::deno_core::v8::scope!(let __scope, &mut __scope);
                 (#(#arg_parsing,)*)
             };
             let __result_v = (|| #output { #block })()?;
             {
-                let mut __scope = OpProvider::scope(#provider_ident);
+                let mut __scope = crate::ops::V8OpProvider::scope(#provider_ident);
                 ::deno_core::v8::scope!(let __scope, &mut __scope);
                 let __value_v8 = crate::convert_v8::ToV8::to_v8(__result_v, __scope)?;
                 __rv.set(__value_v8);

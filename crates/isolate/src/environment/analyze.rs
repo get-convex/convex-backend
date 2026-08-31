@@ -101,6 +101,7 @@ use crate::{
         },
         AsyncOpRequest,
         JsEnvironment,
+        OpProvider,
         SyscallProvider,
     },
     execution_scope::ExecutionScope,
@@ -138,7 +139,7 @@ pub struct AnalyzeEnvironment {
     collected_logs: VecDeque<String>,
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for AnalyzeEnvironment {
+impl OpProvider for AnalyzeEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // These logs are only shown to the pusher on error.
         let log_message = messages.join(" ");
@@ -190,7 +191,9 @@ impl<RT: Runtime> SyscallProvider<RT> for AnalyzeEnvironment {
             "Getting the table mapping unsupported at import time"
         ))
     }
+}
 
+impl<RT: Runtime> SyscallProvider<RT> for AnalyzeEnvironment {
     async fn lookup_source(
         &mut self,
         path: &str,

@@ -112,7 +112,7 @@ use crate::{
     environment::{
         crypto_rng::CryptoRng,
         AsyncOpRequest,
-        SyscallProvider,
+        OpProvider,
         V8IsolateEnvironment,
     },
     execution_scope::ExecutionScope,
@@ -124,22 +124,18 @@ use crate::{
     },
 };
 
-pub trait OpProvider<'b> {
-    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
-    fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng>;
+/// [`OpProvider`] plus V8 itself, and the state that lives in the isolate's
+/// request scope rather than in the environment behind it.
+pub trait V8OpProvider<'b>: OpProvider {
     fn scope(&mut self) -> v8::PinScope<'_, 'b>;
     fn lookup_source_map(
         &mut self,
         specifier: &ModuleSpecifier,
     ) -> anyhow::Result<Option<SourceMap>>;
-    fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()>;
     fn console_timers(
         &mut self,
     ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>>;
-    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
     fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp>;
-    fn performance_now(&mut self) -> anyhow::Result<Duration>;
-    fn performance_time_origin(&mut self) -> anyhow::Result<UnixTimestamp>;
 
     fn start_async_op(
         &mut self,
@@ -159,14 +155,9 @@ pub trait OpProvider<'b> {
         stream_id: Uuid,
         listener: StreamListener,
     ) -> anyhow::Result<()>;
-
-    fn get_environment_variable(&mut self, name: EnvVarName)
-        -> anyhow::Result<Option<EnvVarValue>>;
-
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
 }
 
-impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
+impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider
     for ExecutionScope<'a, 's, 'i, RT, E>
 {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
@@ -179,17 +170,6 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
         state.environment.syscall_provider().crypto_rng()
     }
 
-    fn lookup_source_map(
-        &mut self,
-        specifier: &ModuleSpecifier,
-    ) -> anyhow::Result<Option<SourceMap>> {
-        ExecutionScope::lookup_source_map(self, specifier)
-    }
-
-    fn scope(&mut self) -> v8::PinScope<'_, 'i> {
-        self.as_mut_ref()
-    }
-
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         state
@@ -199,21 +179,9 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
         Ok(())
     }
 
-    fn console_timers(
-        &mut self,
-    ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>> {
-        let state = self.state_mut()?;
-        Ok(&mut state.console_timers)
-    }
-
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         let state = self.state_mut()?;
         state.environment.syscall_provider().unix_timestamp()
-    }
-
-    fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
-        let state = self.state_mut()?;
-        Ok(state.unix_timestamp_non_deterministic())
     }
 
     fn performance_now(&mut self) -> anyhow::Result<Duration> {
@@ -227,6 +195,52 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
             .environment
             .syscall_provider()
             .performance_time_origin()
+    }
+
+    fn get_environment_variable(
+        &mut self,
+        name: EnvVarName,
+    ) -> anyhow::Result<Option<EnvVarValue>> {
+        let state = self.state_mut()?;
+        state
+            .environment
+            .syscall_provider()
+            .get_environment_variable(name)
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
+        let state = self.state_mut()?;
+        state
+            .environment
+            .syscall_provider()
+            .get_all_table_mappings()
+    }
+}
+
+impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> V8OpProvider<'i>
+    for ExecutionScope<'a, 's, 'i, RT, E>
+{
+    fn lookup_source_map(
+        &mut self,
+        specifier: &ModuleSpecifier,
+    ) -> anyhow::Result<Option<SourceMap>> {
+        ExecutionScope::lookup_source_map(self, specifier)
+    }
+
+    fn scope(&mut self) -> v8::PinScope<'_, 'i> {
+        self.as_mut_ref()
+    }
+
+    fn console_timers(
+        &mut self,
+    ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>> {
+        let state = self.state_mut()?;
+        Ok(&mut state.console_timers)
+    }
+
+    fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
+        let state = self.state_mut()?;
+        Ok(state.unix_timestamp_non_deterministic())
     }
 
     fn start_async_op(
@@ -289,28 +303,9 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> OpProvider<'i>
         }
         self.update_stream_listeners()
     }
-
-    fn get_environment_variable(
-        &mut self,
-        name: EnvVarName,
-    ) -> anyhow::Result<Option<EnvVarValue>> {
-        let state = self.state_mut()?;
-        state
-            .environment
-            .syscall_provider()
-            .get_environment_variable(name)
-    }
-
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
-        let state = self.state_mut()?;
-        state
-            .environment
-            .syscall_provider()
-            .get_all_table_mappings()
-    }
 }
 
-pub fn run_op<'b, P: OpProvider<'b>>(
+pub fn run_op<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: v8::FunctionCallbackArguments,
     rv: v8::ReturnValue,
@@ -396,7 +391,7 @@ pub fn run_op<'b, P: OpProvider<'b>>(
     Ok(())
 }
 
-pub fn start_async_op<'b, P: OpProvider<'b>>(
+pub fn start_async_op<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: v8::FunctionCallbackArguments,
     mut rv: v8::ReturnValue,
@@ -428,7 +423,7 @@ pub fn start_async_op<'b, P: OpProvider<'b>>(
     };
 
     // TODO: ideally we should not need to clone `resolver`, but
-    // `OpProvider::scope` returns a scope with a restricted lifetime
+    // `V8OpProvider::scope` returns a scope with a restricted lifetime
     let scope = provider.scope();
     let promise = v8::Local::new(&scope, resolver).get_promise(&scope);
     rv.set(promise.into());

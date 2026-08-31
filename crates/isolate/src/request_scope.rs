@@ -42,7 +42,7 @@ use crate::{
         ToV8 as _,
     },
     environment::{
-        SyscallProvider,
+        OpProvider,
         UncatchableDeveloperError,
         V8IsolateEnvironment,
     },

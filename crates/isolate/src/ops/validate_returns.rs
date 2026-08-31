@@ -8,10 +8,10 @@ use serde_json::{
     Value as JsonValue,
 };
 
-use super::OpProvider;
+use super::V8OpProvider;
 
 #[convex_macro::v8_op]
-pub fn op_validate_returns<'b, P: OpProvider<'b>>(
+pub fn op_validate_returns<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     validator: String,
     function_result: String,

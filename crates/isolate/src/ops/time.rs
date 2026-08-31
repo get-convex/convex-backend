@@ -8,10 +8,10 @@ use deno_core::{
 };
 use serde_json::value::Number as JsonNumber;
 
-use super::OpProvider;
+use super::V8OpProvider;
 use crate::environment::AsyncOpRequest;
 
-pub fn async_op_sleep<'b, P: OpProvider<'b>>(
+pub fn async_op_sleep<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
@@ -29,7 +29,7 @@ pub fn async_op_sleep<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_now<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
+pub fn op_now<'b, P: V8OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
     // NB: Date.now returns the current Unix timestamp in *milliseconds*. We round
     // to the nearest millisecond to match browsers. Browsers generally don't
     // provide sub-millisecond precision to protect against timing attacks:
@@ -40,12 +40,12 @@ pub fn op_now<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNum
 }
 
 #[convex_macro::v8_op]
-pub fn op_performance_now<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
+pub fn op_performance_now<'b, P: V8OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
     secs_as_dom_high_res_ms(provider.performance_now()?.as_secs_f64())
 }
 
 #[convex_macro::v8_op]
-pub fn op_performance_time_origin<'b, P: OpProvider<'b>>(
+pub fn op_performance_time_origin<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
 ) -> anyhow::Result<JsonNumber> {
     secs_as_dom_high_res_ms(provider.performance_time_origin()?.as_secs_f64())

@@ -12,13 +12,13 @@ use deno_core::v8::{
     scope,
 };
 
-use super::OpProvider;
+use super::V8OpProvider;
 use crate::{
     environment::UncatchableDeveloperError,
     strings,
 };
 
-pub(crate) fn throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
+pub(crate) fn throw_uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     message: String,
 ) -> anyhow::Result<!> {
@@ -60,7 +60,7 @@ pub(crate) fn throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
+pub fn op_throw_uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     message: String,
 ) -> anyhow::Result<()> {
@@ -71,7 +71,7 @@ pub fn op_throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
 /// NOTE if a UDF throws an error, we call this op and then separately do
 /// source mapping again so the yielded error has structured frame data.
 #[convex_macro::v8_op]
-pub fn op_error_stack<'b, P: OpProvider<'b>>(
+pub fn op_error_stack<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     frame_data: Vec<FrameData>,
 ) -> anyhow::Result<String> {

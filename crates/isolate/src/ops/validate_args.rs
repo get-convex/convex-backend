@@ -13,10 +13,10 @@ use value::{
     PendingValue,
 };
 
-use super::OpProvider;
+use super::V8OpProvider;
 
 #[convex_macro::v8_op]
-pub fn op_validate_args<'b, P: OpProvider<'b>>(
+pub fn op_validate_args<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     validator: String,
     args: String,

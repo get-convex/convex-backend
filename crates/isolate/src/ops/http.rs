@@ -18,7 +18,7 @@ use url::{
     Url,
 };
 
-use super::OpProvider;
+use super::V8OpProvider;
 use crate::{
     convert_v8::TypeError,
     environment::{
@@ -29,7 +29,7 @@ use crate::{
     request_scope::StreamListener,
 };
 
-pub fn async_op_fetch<'b, P: OpProvider<'b>>(
+pub fn async_op_fetch<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
@@ -47,7 +47,7 @@ pub fn async_op_fetch<'b, P: OpProvider<'b>>(
     )
 }
 
-pub fn async_op_parse_multi_part<'b, P: OpProvider<'b>>(
+pub fn async_op_parse_multi_part<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
@@ -70,7 +70,7 @@ pub fn async_op_parse_multi_part<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_url_get_url_info<'b, P: OpProvider<'b>>(
+pub fn op_url_get_url_info<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     url: String,
     base: Option<String>,
@@ -93,7 +93,7 @@ pub fn op_url_get_url_info<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_url_get_url_search_param_pairs<'b, P: OpProvider<'b>>(
+pub fn op_url_get_url_search_param_pairs<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     query_string: String,
 ) -> anyhow::Result<Vec<(String, String)>> {
@@ -108,7 +108,7 @@ pub fn op_url_get_url_search_param_pairs<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_url_stringify_url_search_params<'b, P: OpProvider<'b>>(
+pub fn op_url_stringify_url_search_params<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     query_pairs: Vec<(String, String)>,
 ) -> anyhow::Result<String> {
@@ -132,7 +132,7 @@ enum UrlInfoUpdate {
 }
 
 #[convex_macro::v8_op]
-pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
+pub fn op_url_update_url_info<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     original_url: String,
     update: UrlInfoUpdate,
@@ -180,7 +180,7 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_headers_get_mime_type<'b, P: OpProvider<'b>>(
+pub fn op_headers_get_mime_type<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     content_type: String,
 ) -> anyhow::Result<Option<MimeType>> {
@@ -198,7 +198,7 @@ pub fn op_headers_get_mime_type<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_headers_normalize_name<'b, P: OpProvider<'b>>(
+pub fn op_headers_normalize_name<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     name: String,
 ) -> anyhow::Result<Option<String>> {

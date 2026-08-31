@@ -9,10 +9,10 @@ use deno_core::v8::{
 };
 use errors::ErrorMetadata;
 
-use super::OpProvider;
+use super::V8OpProvider;
 
 // NOTE: not using `v8_op` macro because we want to handle serde ourselves.
-pub fn op_structured_clone<'b, P: OpProvider<'b>>(
+pub fn op_structured_clone<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     value: v8::Local<v8::Value>,
     mut rv: v8::ReturnValue,

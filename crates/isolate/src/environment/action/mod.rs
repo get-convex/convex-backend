@@ -158,6 +158,7 @@ use crate::{
         },
         AsyncOpRequest,
         JsEnvironment,
+        OpProvider,
         SyscallProvider,
     },
     execution_scope::ExecutionScope,
@@ -177,7 +178,7 @@ use crate::{
         log_unawaited_pending_op,
     },
     module_cache::V8ModuleSource,
-    ops::OpProvider,
+    ops::V8OpProvider,
     request_scope::{
         RequestScope,
         StreamListener,
@@ -1346,7 +1347,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     }
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for ActionEnvironment<RT> {
+impl<RT: Runtime> OpProvider for ActionEnvironment<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
 
@@ -1408,7 +1409,9 @@ impl<RT: Runtime> SyscallProvider<RT> for ActionEnvironment<RT> {
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         anyhow::bail!("get_all_table_mappings unsupported in actions")
     }
+}
 
+impl<RT: Runtime> SyscallProvider<RT> for ActionEnvironment<RT> {
     // We lookup all modules' sources upfront when initializing the action
     // environment, so this function always returns immediately.
     async fn lookup_source(

@@ -20,7 +20,7 @@ use crate::{
     },
     ops::{
         errors::throw_uncatchable_developer_error,
-        OpProvider,
+        V8OpProvider,
     },
     strings,
 };
@@ -242,7 +242,7 @@ enum ImportKeyInput {
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_import_key<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_import_key<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     format: KeyFormat,
     key_data: KeyData,
@@ -308,7 +308,7 @@ impl FromV8 for KeyDeriveParams {
     }
 }
 
-fn unimplemented<'b, P: OpProvider<'b>>(
+fn unimplemented<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     operation: &'static str,
     algorithm: &'static str,
@@ -321,7 +321,7 @@ fn unimplemented<'b, P: OpProvider<'b>>(
     )
 }
 
-fn derive_bits_inner<'b, P: OpProvider<'b>>(
+fn derive_bits_inner<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     operation: &'static str,
     algorithm: KeyDeriveParams,
@@ -337,7 +337,7 @@ fn derive_bits_inner<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_derive_bits<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_derive_bits<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: KeyDeriveParams,
     key: CryptoKey,
@@ -374,7 +374,7 @@ impl FromV8 for DerivedKeyAlgorithm {
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_derive_key<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_derive_key<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: KeyDeriveParams,
     base_key: CryptoKey,
@@ -441,7 +441,7 @@ impl FromV8 for KeyGenParams {
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_generate_key<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_generate_key<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: KeyGenParams,
     extractable: bool,
@@ -473,7 +473,7 @@ pub(crate) fn op_crypto_subtle_generate_key<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_export_key<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_export_key<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     format: KeyFormat,
     key: CryptoKey,
@@ -544,7 +544,7 @@ impl FromV8 for EncryptDecryptAlgorithm {
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_decrypt<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_decrypt<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: EncryptDecryptAlgorithm,
     key: CryptoKey,
@@ -574,7 +574,7 @@ pub(crate) fn op_crypto_subtle_decrypt<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_encrypt<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_encrypt<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: EncryptDecryptAlgorithm,
     key: CryptoKey,
@@ -606,7 +606,7 @@ pub(crate) fn op_crypto_subtle_encrypt<'b, P: OpProvider<'b>>(
 struct DigestAlgorithm(#[serde(with = "nullary_algorithm")] CryptoHash);
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_digest<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_digest<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: DigestAlgorithm,
     data: ByteBuf,
@@ -651,7 +651,7 @@ impl FromV8 for SignVerifyAlgorithm {
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_sign<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_sign<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: SignVerifyAlgorithm,
     key: CryptoKey,
@@ -680,7 +680,7 @@ pub(crate) fn op_crypto_subtle_sign<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_verify<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_verify<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     algorithm: SignVerifyAlgorithm,
     key: CryptoKey,
@@ -713,7 +713,7 @@ enum WrapKeyAlgorithm {}
 
 /// Note: this op is never called, JS raises an error directly
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_wrap_key<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_wrap_key<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     _format: KeyFormat,
     _key: CryptoKey,
@@ -728,7 +728,7 @@ pub(crate) fn op_crypto_subtle_wrap_key<'b, P: OpProvider<'b>>(
 
 /// Note: this op is never called, JS raises an error directly
 #[convex_macro::v8_op]
-pub(crate) fn op_crypto_subtle_unwrap_key<'b, P: OpProvider<'b>>(
+pub(crate) fn op_crypto_subtle_unwrap_key<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     _format: KeyFormat,
     _wrapped_key: ByteBuf,

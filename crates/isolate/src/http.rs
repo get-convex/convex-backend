@@ -34,7 +34,7 @@ use udf::HttpActionRequestHead;
 use url::Url;
 
 use crate::{
-    ops::OpProvider,
+    ops::V8OpProvider,
     request_scope::StreamListener,
 };
 
@@ -49,7 +49,7 @@ pub struct HttpRequestV8 {
 }
 
 impl HttpRequestV8 {
-    pub fn into_stream<'b, P: OpProvider<'b>>(
+    pub fn into_stream<'b, P: V8OpProvider<'b>>(
         self,
         provider: &mut P,
     ) -> anyhow::Result<HttpRequestStream> {
