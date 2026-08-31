@@ -651,6 +651,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       }
@@ -688,6 +691,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       }
@@ -735,6 +741,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       },
@@ -783,6 +792,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       }
@@ -4837,6 +4849,11 @@
         "scheme": "bearer",
         "bearerFormat": "PAT",
         "description": "Personal access token created in the Convex dashboard under user settings."
+      },
+      "Preview Deploy Key": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Preview deploy key scoped to a project. Allowed only when operating on preview deployments in the key's project."
       },
       "Team Token": {
         "type": "http",
