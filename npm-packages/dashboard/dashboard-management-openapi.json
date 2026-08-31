@@ -1889,6 +1889,33 @@
         }
       }
     },
+    "/teams/{team_id}/list_credits": {
+      "get": {
+        "summary": "List a team's prepaid credits, ordered by the order they'll be drawn down.",
+        "description": "Every credit is returned in one response, so `pagination.hasMore` is always\nfalse. The envelope is shaped for paging so that adding it later is a\nbackwards-compatible change.",
+        "operationId": "list_credits",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedCreditsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/usage/query": {
       "get": {
         "operationId": "query_usage_databricks",
@@ -3916,6 +3943,63 @@
           }
         }
       },
+      "CreditResponse": {
+        "type": "object",
+        "description": "A block of prepaid credit held by a team, applied to invoices before the\npayment method is charged.",
+        "required": [
+          "id",
+          "balance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The Orb-assigned identifier for the credit block."
+          },
+          "itemName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the credit was granted for, from the plan allocation behind it\n(e.g. \"Business Plan Minimum\"). `None` for credit granted by hand."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The note left when the credit was granted. `None` for credit that comes\nfrom a plan allocation, which Orb doesn't annotate."
+          },
+          "balance": {
+            "type": "number",
+            "format": "double",
+            "description": "The credit remaining in the block, in dollars."
+          },
+          "initialBalance": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "The credit the block was granted with, in dollars. Subtracting\n`balance` gives the amount consumed so far. `None` for blocks Orb\ndoesn't report an initial balance for."
+          },
+          "effectiveDate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "When the block's balance became available to spend, in milliseconds\nsince the epoch. A block that hasn't taken effect yet has a date in the\nfuture."
+          },
+          "expiryDate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "When the block's remaining balance expires, in milliseconds since the\nepoch. `None` if it doesn't expire."
+          }
+        }
+      },
       "CustomRoleId": {
         "type": "integer",
         "format": "int64",
@@ -5129,6 +5213,24 @@
               "null"
             ],
             "description": "The customer's account balance in their billing currency, as a decimal\nstring (e.g. \"25.00\"). This is a credit that is automatically applied to\nfuture invoices. Only populated for actors that can view billing\ndetails."
+          }
+        }
+      },
+      "PaginatedCreditsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
           }
         }
       },

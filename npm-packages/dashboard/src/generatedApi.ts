@@ -1126,6 +1126,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a team's prepaid credits, ordered by the order they'll be drawn down.
+         * @description Every credit is returned in one response, so `pagination.hasMore` is always
+         *     false. The envelope is shaped for paging so that adding it later is a
+         *     backwards-compatible change.
+         */
+        get: operations["list_credits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/usage/query": {
         parameters: {
             query?: never;
@@ -1922,6 +1944,43 @@ export interface components {
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
         };
+        /** @description A block of prepaid credit held by a team, applied to invoices before the
+         *     payment method is charged. */
+        CreditResponse: {
+            /** @description The Orb-assigned identifier for the credit block. */
+            id: string;
+            /** @description What the credit was granted for, from the plan allocation behind it
+             *     (e.g. "Business Plan Minimum"). `None` for credit granted by hand. */
+            itemName?: string | null;
+            /** @description The note left when the credit was granted. `None` for credit that comes
+             *     from a plan allocation, which Orb doesn't annotate. */
+            description?: string | null;
+            /**
+             * Format: double
+             * @description The credit remaining in the block, in dollars.
+             */
+            balance: number;
+            /**
+             * Format: double
+             * @description The credit the block was granted with, in dollars. Subtracting
+             *     `balance` gives the amount consumed so far. `None` for blocks Orb
+             *     doesn't report an initial balance for.
+             */
+            initialBalance?: number | null;
+            /**
+             * Format: int64
+             * @description When the block's balance became available to spend, in milliseconds
+             *     since the epoch. A block that hasn't taken effect yet has a date in the
+             *     future.
+             */
+            effectiveDate?: number | null;
+            /**
+             * Format: int64
+             * @description When the block's remaining balance expires, in milliseconds since the
+             *     epoch. `None` if it doesn't expire.
+             */
+            expiryDate?: number | null;
+        };
         /** Format: int64 */
         CustomRoleId: number;
         CustomRoleResponse: {
@@ -2253,6 +2312,10 @@ export interface components {
              *     future invoices. Only populated for actors that can view billing
              *     details. */
             accountBalance?: string | null;
+        };
+        PaginatedCreditsResponse: {
+            items: components["schemas"]["CreditResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         PaginatedProjectsResponse: {
             items: components["schemas"]["ProjectDetails"][];
@@ -2752,6 +2815,7 @@ export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
 export type CreateProjectResponse = components['schemas']['CreateProjectResponse'];
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
+export type CreditResponse = components['schemas']['CreditResponse'];
 export type CustomRoleId = components['schemas']['CustomRoleId'];
 export type CustomRoleResponse = components['schemas']['CustomRoleResponse'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
@@ -2814,6 +2878,7 @@ export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
 export type OrbSubscriptionResponse = components['schemas']['OrbSubscriptionResponse'];
+export type PaginatedCreditsResponse = components['schemas']['PaginatedCreditsResponse'];
 export type PaginatedProjectsResponse = components['schemas']['PaginatedProjectsResponse'];
 export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PaymentMethodResponse = components['schemas']['PaymentMethodResponse'];
@@ -4449,6 +4514,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetSpendingLimitsResponse"];
+                };
+            };
+        };
+    };
+    list_credits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCreditsResponse"];
                 };
             };
         };
